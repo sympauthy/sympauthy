@@ -32,7 +32,7 @@ allprojects {
 
         // Test dependencies
         set("junitJupiterVersion", "5.10.3")
-        set("mockkVersion", "1.13.11")
+        set("mockkVersion", "1.13.13")
     }
 
     repositories {
