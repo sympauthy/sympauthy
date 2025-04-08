@@ -23,7 +23,7 @@ allprojects {
 
     extra.apply {
         set("kotlinVersion", project.findProperty("kotlinVersion"))
-        set("kotlinCoroutinesVersion", "1.9.0")
+        set("kotlinCoroutinesVersion", "1.10.2")
         set("mapStructVersion", "1.6.3")
         set("javaJwtVersion", "4.5.0")
         set("jsonPathVersion", "2.9.0")
