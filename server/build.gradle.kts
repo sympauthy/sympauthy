@@ -61,11 +61,6 @@ dependencies {
     implementation("io.micronaut.rxjava3:micronaut-rxjava3")
     implementation("io.micronaut.rxjava3:micronaut-rxjava3-http-client")
 
-    // Database
-    implementation("io.micronaut.data:micronaut-data-r2dbc")
-    implementation("jakarta.persistence:jakarta.persistence-api:3.2.0")
-    runtimeOnly("org.postgresql:r2dbc-postgresql")
-
     // Views rendering
     implementation("io.micronaut.views:micronaut-views-freemarker")
 
@@ -90,8 +85,8 @@ dependencies {
 
     // API documentation
     // Must be above 6.3.0 to fix KSP issue: https://github.com/micronaut-projects/micronaut-openapi/issues/1154
-    ksp("io.micronaut.openapi:micronaut-openapi:6.3.0!!")
-    compileOnly("io.micronaut.openapi:micronaut-openapi-annotations:6.3.0!!")
+    ksp("io.micronaut.openapi:micronaut-openapi")
+    compileOnly("io.micronaut.openapi:micronaut-openapi-annotations")
 
     // YAML: for configuration
     runtimeOnly("org.yaml:snakeyaml")
