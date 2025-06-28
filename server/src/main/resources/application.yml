@@ -66,3 +66,9 @@ flyway:
       enabled: true
       locations:
         - filesystem:./databases
+
+# Disable otherwise JavaMailConfiguration is created empty, which causes problems to detect if mails are in-fact enabled.
+# As soon as it is enabled, it will cause the application to fail with the following message if the rest of the
+# configuration is absent: JavaMail configuration does not contain any properties.
+javamail:
+  enabled: false

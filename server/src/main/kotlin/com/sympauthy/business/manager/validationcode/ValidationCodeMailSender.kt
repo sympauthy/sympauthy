@@ -10,6 +10,7 @@ import com.sympauthy.config.model.FeaturesConfig
 import com.sympauthy.config.model.UIConfig
 import com.sympauthy.config.model.orThrow
 import io.micronaut.context.annotation.Requires
+import io.micronaut.email.javamail.sender.JavaMailConfiguration
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.util.*
@@ -18,7 +19,7 @@ import java.util.*
  * Components in charge of sending the validation code to the user by email.
  */
 @Singleton
-@Requires(classes = [MailSender::class])
+@Requires(beans = [JavaMailConfiguration::class])
 class ValidationCodeMailSender(
     @Inject private val mailBuilderFactory: TemplatedMailBuilderFactory,
     @Inject private val mailSender: MailSender,
@@ -58,7 +59,6 @@ class ValidationCodeMailSender(
                 localizedSubject("mail.validation_code.subject")
             }
 
-        // FIXME Launch in IO thread to avoid blocking
-        mailSender.sender.send(builder.builder)
+        mailSender.send(builder.builder)
     }
 }

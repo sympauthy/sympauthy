@@ -122,8 +122,12 @@ The authorization server includes this value unmodified in the ID Token.
         val client = getClient(uncheckedClientId)
         val scopes = getScopes(uncheckedScope)
         val redirectUri = getRedirectUri(uncheckedRedirectUri)
-        return when (responseType) {
-            "code" -> authorizeWithCodeFlow(
+        return when {
+            responseType.isNullOrBlank() -> throw oauth2ExceptionOf(
+                UNSUPPORTED_RESPONSE_TYPE, "authorize.response_type.missing"
+            )
+
+            responseType == "code" -> authorizeWithCodeFlow(
                 client = client,
                 clientState = state,
                 clientNonce = nonce,
@@ -132,7 +136,7 @@ The authorization server includes this value unmodified in the ID Token.
             )
 
             else -> throw oauth2ExceptionOf(
-                UNSUPPORTED_RESPONSE_TYPE, "authorize.unsupported_response_type",
+                UNSUPPORTED_RESPONSE_TYPE, "authorize.response_type.invalid",
                 "responseType" to responseType
             )
         }

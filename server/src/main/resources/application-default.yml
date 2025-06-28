@@ -14,7 +14,7 @@ advanced:
     public-alg: rs256
     private-alg: rs256
   keys-generation-strategy: autoincrement
-  user-merging-strategy: by-mail
+  user-merging-strategy: none
   validation-code:
     length: 6
     resend-delay: 1m
@@ -28,7 +28,13 @@ auth:
 
 clients:
   default:
+    default-scopes:
+      - openid
+      - profile
     flow: default
+
+features:
+  email-validation: false
 
 scope-granting-rules:
   default:

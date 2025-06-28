@@ -1,24 +1,26 @@
 package com.sympauthy.business.manager.mail
 
+import io.micronaut.context.annotation.Requires
+import io.micronaut.email.Email
 import io.micronaut.email.EmailSender
+import io.micronaut.email.javamail.sender.JavaMailConfiguration
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import java.util.*
 
 /**
- * This class MUST be injected as an [Optional] instead of [EmailSender].
- * Trying to inject [EmailSender] as an optional will result into the application not starting when there is no
- * email provider configured.
- * It will fail to start with the error: ```JavaMail configuration does not contain any properties.```
- */
-/*
-FIXME
-@Requirements(
-    Requires(bean = MailPropertiesProvider::class),
-    Requires(configuration = "javamail.properties")
-)
+ * Manager in-charge of sending mails.
+ *
+ * As the javamail API is not asynchronous, this manager will schedule the operation on an I/O thread to avoid
+ * blocking a main thread. Also, the underlying [EmailSender] MUST never be used directly for this reason.
  */
 @Singleton
-data class MailSender(
-    @Inject val sender: EmailSender<Any, Any>
-)
+@Requires(beans = [JavaMailConfiguration::class])
+class MailSender(
+    @Inject private val sender: EmailSender<Any, Any>
+) {
+
+    fun send(builder: Email.Builder) {
+        // FIXME Launch in IO thread to avoid blocking
+        sender.send(builder)
+    }
+}

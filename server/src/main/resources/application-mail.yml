@@ -1,0 +1,29 @@
+# Configuration allowing end-user to sign in/sign up using their email.
+# It also enables validation of email and therefore requires an SMTP to be configured using javamail.
+#
+# Can be enabled by appending 'mail' to the Micronaut environments.
+
+advanced:
+  user-merging-strategy: by-mail
+
+claims:
+  email:
+    enabled: true
+
+clients:
+  default:
+    default-scopes:
+      - openid
+      - profile
+      - email
+
+features:
+  email-validation: true
+
+javamail:
+  enabled: true
+
+password-auth:
+  enabled: true
+  login-claims:
+    - email
