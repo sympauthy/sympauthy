@@ -156,4 +156,11 @@
     </annotationProcessing>
     <bytecodeTargetLevel target="21" />
   </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="sympauthy.server" options="-proc:none -parameters -Amicronaut.processing.incremental=true -Amicronaut.processing.annotations=com.sympauthy.* -Amicronaut.processing.group=com.sympauthy -Amicronaut.processing.module=server" />
+      <module name="sympauthy.server.main" options="-proc:none -parameters -Amicronaut.processing.incremental=true -Amicronaut.processing.annotations=com.sympauthy.* -Amicronaut.processing.group=com.sympauthy -Amicronaut.processing.module=server" />
+      <module name="sympauthy.server.test" options="-proc:none -parameters -Amicronaut.processing.incremental=true -Amicronaut.processing.annotations=com.sympauthy.* -Amicronaut.processing.group=com.sympauthy -Amicronaut.processing.module=server" />
+    </option>
+  </component>
 </project>

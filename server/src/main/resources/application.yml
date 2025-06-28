@@ -1,3 +1,8 @@
+# This application.yml provides configuration only for the Micronaut server.
+# It does not provide any default value for the SympAuthy configuration.
+# This is done to easily disable the default configuration of SympAuthy.
+# Enable default profile using Micronaut environments: https://docs.micronaut.io/latest/guide/#environments
+
 micronaut:
   application:
     name: sympauthy
