@@ -23,7 +23,7 @@ class CleanExpiredAuthorizeAttemptCron(
             // FIXME: Determine a leader that will execute the cleaning
             val result = authorizeAttemptCleaner.clean()
             if (result.authorizeAttemptCount > 0) {
-                logger.info("Cleaned ${result.authorizeAttemptCount} expired authorize attempts (including ${result.authorizationCodeCount} authorization codes, ${result.validationCodesCount} validation codes).")
+                logger.debug("Cleaned ${result.authorizeAttemptCount} expired authorize attempts (including ${result.authorizationCodeCount} authorization codes, ${result.validationCodesCount} validation codes).")
             }
         }
     }
