@@ -29,13 +29,15 @@ class ClientsConfigFactory(
 ) {
 
     @Singleton
-    fun provideClients(properties: List<ClientConfigurationProperties>): Flow<ClientsConfig> {
+    fun provideClients(
+        propertiesList: List<ClientConfigurationProperties>
+    ): Flow<ClientsConfig> {
         return flow {
             val errors = mutableListOf<ConfigurationException>()
 
-            val defaultConfig = properties.firstOrNull { it.id == DEFAULT }
+            val defaultConfig = propertiesList.firstOrNull { it.id == DEFAULT }
 
-            val clients = properties
+            val clients = propertiesList
                 .filter { it.id != DEFAULT }
                 .mapNotNull { config ->
                     getClient(

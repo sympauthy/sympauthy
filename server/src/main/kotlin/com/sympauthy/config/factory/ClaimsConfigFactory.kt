@@ -20,18 +20,20 @@ class ClaimsConfigFactory(
 ) {
 
     @Singleton
-    fun provideClaims(properties: List<ClaimConfigurationProperties>): ClaimsConfig {
+    fun provideClaims(
+        propertiesList: List<ClaimConfigurationProperties>
+    ): ClaimsConfig {
         val errors = mutableListOf<ConfigurationException>()
 
         val standardClaims = OpenIdClaim.entries.mapNotNull { openIdClaim ->
             provideStandardClaim(
-                properties = properties.firstOrNull { it.id == openIdClaim.id },
+                properties = propertiesList.firstOrNull { it.id == openIdClaim.id },
                 openIdClaim = openIdClaim,
                 errors = errors
             )
         }
 
-        val customClaims = properties.mapNotNull { claimProperties ->
+        val customClaims = propertiesList.mapNotNull { claimProperties ->
             if (OpenIdClaim.entries.none { it.id == claimProperties.id }) {
                 provideCustomClaim(
                     properties = claimProperties,

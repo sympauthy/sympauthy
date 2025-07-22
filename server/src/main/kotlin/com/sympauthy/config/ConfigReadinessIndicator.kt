@@ -39,6 +39,7 @@ open class ConfigReadinessIndicator(
     @Inject private val clientsConfig: Flow<ClientsConfig>,
     @Inject private val featuresConfig: FeaturesConfig,
     @Inject private val passwordAuthConfig: PasswordAuthConfig,
+    @Inject private val rulesConfig: ScopeGrantingRulesConfig,
     @Inject private val scopesConfig: ScopesConfig,
     @Inject private val uiConfig: UIConfig,
     @Inject private val urlsConfig: UrlsConfig
@@ -53,6 +54,7 @@ open class ConfigReadinessIndicator(
         claimsConfig,
         featuresConfig,
         passwordAuthConfig,
+        rulesConfig,
         scopesConfig,
         uiConfig,
         urlsConfig

@@ -22,11 +22,11 @@ class AuthorizationFlowsConfigFactory(
 
     @Singleton
     fun provideAuthorizationFlows(
-        properties: List<AuthorizationFlowConfigurationProperties>
+        propertiesList: List<AuthorizationFlowConfigurationProperties>
     ): AuthorizationFlowsConfig {
         val errors = mutableListOf<ConfigurationException>()
 
-        val flows = properties.mapNotNull {
+        val flows = propertiesList.mapNotNull {
             provideAuthenticationFlow(
                 properties = it,
                 errors = errors

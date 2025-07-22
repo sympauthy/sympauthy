@@ -22,12 +22,12 @@ class FeaturesConfigFactory(
 
     @Singleton
     fun providesFeature(
-        properties: FeaturesConfigurationProperties
+        propertiesList: FeaturesConfigurationProperties
     ): FeaturesConfig {
         val errors = mutableListOf<ConfigurationException>()
 
         val emailValidation = try {
-            getEmailValidation(properties)
+            getEmailValidation(propertiesList)
         } catch (e: ConfigurationException) {
             errors.add(e)
             null

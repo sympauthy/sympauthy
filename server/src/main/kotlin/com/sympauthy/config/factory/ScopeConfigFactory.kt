@@ -16,13 +16,15 @@ class ScopeConfigFactory(
 ) {
 
     @Singleton
-    fun provideScopes(configs: List<ScopeConfigurationProperties>): ScopesConfig {
+    fun provideScopes(
+        propertiesList: List<ScopeConfigurationProperties>
+    ): ScopesConfig {
         val errors = mutableListOf<ConfigurationException>()
-        val scopes = configs.mapNotNull { config ->
-            if (config.id.isStandardScope()) {
-                getStandardScope(config = config, errors = errors)
+        val scopes = propertiesList.mapNotNull { properties ->
+            if (properties.id.isStandardScope()) {
+                getStandardScope(properties = properties, errors = errors)
             } else {
-                getCustomScope(config = config, errors = errors)
+                getCustomScope(properties = properties, errors = errors)
             }
         }
 
@@ -34,14 +36,14 @@ class ScopeConfigFactory(
     }
 
     private fun getStandardScope(
-        config: ScopeConfigurationProperties,
+        properties: ScopeConfigurationProperties,
         errors: MutableList<ConfigurationException>
     ): ScopeConfig? {
         val scopeErrors = mutableListOf<ConfigurationException>()
 
         val enabled = try {
             parser.getBoolean(
-                config, "$SCOPES_KEY.${config.id}.enabled",
+                properties, "$SCOPES_KEY.${properties.id}.enabled",
                 ScopeConfigurationProperties::enabled
             ) ?: true
         } catch (e: ConfigurationException) {
@@ -51,7 +53,7 @@ class ScopeConfigFactory(
 
         return if (scopeErrors.isEmpty()) {
             StandardScopeConfig(
-                scope = config.id,
+                scope = properties.id,
                 enabled = enabled!!
             )
         } else {
@@ -61,14 +63,14 @@ class ScopeConfigFactory(
     }
 
     private fun getCustomScope(
-        config: ScopeConfigurationProperties,
+        properties: ScopeConfigurationProperties,
         errors: MutableList<ConfigurationException>
     ): ScopeConfig? {
         val scopeErrors = mutableListOf<ConfigurationException>()
 
         return if (scopeErrors.isEmpty()) {
             CustomScopeConfig(
-                scope = config.id
+                scope = properties.id
             )
         } else {
             errors.addAll(scopeErrors)
