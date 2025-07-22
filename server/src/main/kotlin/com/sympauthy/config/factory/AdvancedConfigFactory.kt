@@ -6,11 +6,7 @@ import com.sympauthy.business.model.user.UserMergingStrategy
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.exception.configExceptionOf
-import com.sympauthy.config.model.AdvancedConfig
-import com.sympauthy.config.model.DisabledAdvancedConfig
-import com.sympauthy.config.model.EnabledAdvancedConfig
-import com.sympauthy.config.model.HashConfig
-import com.sympauthy.config.model.ValidationCodeConfig
+import com.sympauthy.config.model.*
 import com.sympauthy.config.properties.AdvancedConfigurationProperties
 import com.sympauthy.config.properties.AdvancedConfigurationProperties.Companion.ADVANCED_KEY
 import com.sympauthy.config.properties.HashConfigurationProperties
@@ -34,7 +30,7 @@ class AdvancedConfigFactory(
         jwtProperties: JwtConfigurationProperties,
         hashProperties: HashConfigurationProperties,
         validationCodeProperties: ValidationCodeConfigurationProperties,
-        keyGenerationStategies: Map<String, CryptoKeysGenerationStrategy>,
+        keyGenerationStrategies: Map<String, CryptoKeysGenerationStrategy>,
     ): AdvancedConfig {
         val errors = mutableListOf<ConfigurationException>()
         val userMergingStrategy = try {
@@ -48,7 +44,7 @@ class AdvancedConfigFactory(
         }
 
         val keysGenerationStrategy = try {
-            getKeysGenerationStrategy(properties, keyGenerationStategies)
+            getKeysGenerationStrategy(properties, keyGenerationStrategies)
         } catch (e: ConfigurationException) {
             errors.add(e)
             null
