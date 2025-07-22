@@ -97,10 +97,14 @@ dependencies {
     // Health & Liveness endpoints
     implementation("io.micronaut:micronaut-management")
 
+    // Expression evaluation: for scope granting rules
+    implementation("com.ezylang:EvalEx:${project.extra["evalExVersion"]}")
+
     // Testing
     testImplementation("org.junit.jupiter:junit-jupiter:${project.extra["junitJupiterVersion"]}")
     testImplementation("io.mockk:mockk:${project.extra["mockkVersion"]}")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:${project.extra["kotlinCoroutinesVersion"]}")
+    testImplementation(kotlin("test"))
 }
 
 application {
