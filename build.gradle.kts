@@ -32,7 +32,7 @@ allprojects {
         set("freemarkerVersion", "2.3.34")
 
         // Test dependencies
-        set("junitJupiterVersion", "5.13.3")
+        set("junitJupiterVersion", "5.13.4")
         set("mockkVersion", "1.14.5")
     }
 
