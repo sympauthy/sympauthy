@@ -144,18 +144,33 @@ class AuthorizeManager(
         authorizeAttempt: AuthorizeAttempt,
         userId: UUID
     ): AuthorizeAttempt {
-        // FIXME Computed granted scopes based on rules.
-        val grantedScopes = authorizeAttempt.requestedScopes
-
-        authorizeAttemptRepository.updateUserIdAndGrantedScopes(
+        authorizeAttemptRepository.updateUserId(
             id = authorizeAttempt.id,
-            userId = userId,
-            grantedScopes = grantedScopes
+            userId = userId
         )
         return authorizeAttempt.copy(
-            userId = userId,
-            grantedScopes = grantedScopes
+            userId = userId
         )
+    }
+
+    /**
+     * Pass the [AuthorizeAttempt.requestedScopes] through the chain of scope granting mtehod.
+     *
+     * The scopes that have not been granted or declined by an higher order method will be passed to
+     * the next one and the process continue until there is no more scope or no more method.
+     *
+     * The supported scope granting methods are:
+     * - call the third-party authorization delegation API configured for the client.
+     * - scope granting rules will be applied.
+     * - decline all.
+     *
+     * @see [com.sympauthy.business.manager.rule.ScopeGrantingRuleManager.applyScopeGrantingRules]
+     */
+    suspend fun grantScopes(
+        authorizeAttempt: AuthorizeAttempt,
+    ): AuthorizeAttempt {
+        TODO("FIXME")
+        return authorizeAttempt
     }
 
     suspend fun findByCode(code: String): AuthorizeAttempt? {

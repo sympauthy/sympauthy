@@ -46,4 +46,12 @@ class ScopeGrantingRule(
      */
     val generatedName: String
         get() = "$order - ${behavior.name} ${scopes.joinToString(separator = ", ", transform = Scope::scope)}"
+
+    /**
+     * Return true if this rule is applicable.
+     * A [ScopeGrantingRule] is **applicable** if one of its [Scope] listed in [ScopeGrantingRule.scopes].
+     */
+    fun isApplicable(requestedScopes: List<Scope>): Boolean {
+        return requestedScopes.any { scopes.contains(it) }
+    }
 }

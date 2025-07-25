@@ -1,6 +1,9 @@
 package com.sympauthy.business.model.oauth2
 
-class Scope(
+data class Scope(
+    /**
+     * Identifier of the scope.
+     */
     val scope: String,
     /**
      * True if this scope allows the user to access administration APIs of this authorization server.
