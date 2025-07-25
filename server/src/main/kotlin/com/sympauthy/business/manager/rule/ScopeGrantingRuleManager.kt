@@ -67,16 +67,24 @@ class ScopeGrantingRuleManager(
         requestedScopes: List<Scope>,
         results: List<ScopeGrantingRuleResult>
     ): ScopeGrantingMethodResult {
-        val sortedResults = results.sortedWith(compareByDescending { it.rule.order })
+        val sortedResults = results.sortedWith(
+            compareByDescending<ScopeGrantingRuleResult> { it.rule.order }
+                .thenByDescending {
+                    when (it.rule.behavior) {
+                        DECLINE -> 1
+                        GRANT -> 0
+                    }
+                }
+        )
 
-        val grantedScopes = mutableListOf<Scope>()
-        val declinedScopes = mutableListOf<Scope>()
+        val grantedScopes = mutableSetOf<Scope>()
+        val declinedScopes = mutableSetOf<Scope>()
 
         requestedScopes.forEach { scope ->
             val result = sortedResults.firstOrNull { it.applicableRequestedScopes.contains(scope) }
             when (result?.rule?.behavior) {
-                GRANT -> TODO()
-                DECLINE -> TODO()
+                GRANT -> grantedScopes.add(scope)
+                DECLINE -> declinedScopes.add(scope)
                 null -> {} // Do nothing, nor granted, nor denied.
             }
         }
