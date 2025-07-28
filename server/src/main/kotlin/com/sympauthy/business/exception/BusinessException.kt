@@ -9,7 +9,7 @@ import io.micronaut.http.HttpStatus
  *
  * The description must be localized and comprehensible by the user to allow him to solve the issue.
  */
-class BusinessException(
+open class BusinessException(
     detailsId: String,
     descriptionId: String? = null,
     values: Map<String, Any?> = emptyMap(),
