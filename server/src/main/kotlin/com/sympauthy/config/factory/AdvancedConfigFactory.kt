@@ -97,7 +97,7 @@ class AdvancedConfigFactory(
         )
         return strategyId?.let { keyGenerationStategies[it] } ?: throw configExceptionOf(
             "$ADVANCED_KEY.keys-generation-strategy",
-            "config.unsupported_generation_algorithm",
+            "config.advanced.generation_algorithm.invalid",
             "algorithm" to strategyId,
             "algorithms" to keyGenerationStategies.keys.joinToString(", ")
         )

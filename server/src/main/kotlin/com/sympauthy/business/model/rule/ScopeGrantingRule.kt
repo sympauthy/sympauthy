@@ -1,6 +1,5 @@
 package com.sympauthy.business.model.rule
 
-import com.ezylang.evalex.Expression
 import com.sympauthy.business.model.oauth2.Scope
 
 /**
@@ -29,7 +28,7 @@ class ScopeGrantingRule(
     /**
      * List of user-defined expressions that will be evaluated to check if an authorization attempt matches this rule.
      */
-    val expressions: List<Expression>
+    val expressions: List<String>
 ) {
 
     /**

@@ -25,7 +25,7 @@ class BusinessReadinessIndicator(
     private val logger = loggerForClass()
 
     override fun onApplicationEvent(event: ServiceReadyEvent) = runBlocking {
-        logger.info("SympAuthy is ready and has found the following elements in the config:")
+        logger.info("SympAuthy is ready and has found the following elements in its configuration:")
         try {
             val claims = claimManager.listStandardClaims()
             logger.info("- ${claims.size} claim(s).")

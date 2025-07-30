@@ -176,7 +176,7 @@ class ClientsConfigFactory(
                 val verifiedScope = scopeManager.find(scope)
                 if (verifiedScope == null) {
                     val error = configExceptionOf(
-                        "$key[${index}]", "config.client.claim.invalid",
+                        "$key[${index}]", "config.client.scope.invalid",
                         "scope" to scope
                     )
                     scopeErrors.add(error)
@@ -188,7 +188,7 @@ class ClientsConfigFactory(
             }
         }
 
-        return if (errors.isEmpty()) {
+        return if (scopeErrors.isEmpty()) {
             verifiedScopes
         } else {
             errors.addAll(scopeErrors)

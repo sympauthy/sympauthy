@@ -1,26 +1,25 @@
 package com.sympauthy.business.manager.rule
 
-import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.rule.ScopeGrantingRule
-import com.sympauthy.business.model.rule.ScopeGrantingRuleBehavior
 import com.sympauthy.business.model.rule.ScopeGrantingRuleBehavior.DECLINE
 import com.sympauthy.business.model.rule.ScopeGrantingRuleBehavior.GRANT
 import com.sympauthy.config.model.ScopeGrantingRulesConfig
 import com.sympauthy.config.model.orThrow
 import jakarta.inject.Inject
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
 
 class ScopeGrantingRuleManager(
-    @Inject private val uncheckedScopeGrantingRulesConfig: ScopeGrantingRulesConfig,
+    @Inject private val uncheckedScopeGrantingRulesConfigFlow: Flow<ScopeGrantingRulesConfig>,
 ) {
-
     /**
      * Return all [ScopeGrantingRule] enabled on this authorization server.
      */
-    fun listScopeGrantingRules(): List<ScopeGrantingRule> {
-        return uncheckedScopeGrantingRulesConfig.orThrow().scopeGrantingRules
+    suspend fun listScopeGrantingRules(): List<ScopeGrantingRule> {
+        return uncheckedScopeGrantingRulesConfigFlow.firstOrNull()?.orThrow()?.scopeGrantingRules ?: emptyList()
     }
 
     /**

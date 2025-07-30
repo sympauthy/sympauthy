@@ -3,7 +3,10 @@ package com.sympauthy.config.properties
 import com.sympauthy.config.properties.ScopeGrantingRuleConfigurationProperties.Companion.RULES_KEY
 import io.micronaut.context.annotation.EachProperty
 
-@EachProperty(RULES_KEY)
+@EachProperty(
+    value = RULES_KEY,
+    list = true
+)
 class ScopeGrantingRuleConfigurationProperties() {
     var name: String? = null
     var behavior: String? = null
