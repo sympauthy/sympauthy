@@ -8,6 +8,6 @@ import com.sympauthy.business.model.oauth2.Scope
  * @see [com.sympauthy.business.manager.rule.ScopeGrantingRuleManager.applyScopeGrantingRules]
  */
 data class ScopeGrantingMethodResult(
-    val grantedScopes: List<Scope>,
-    val declinedScopes: List<Scope>
+    val grantedScopes: List<Scope> = emptyList(),
+    val declinedScopes: List<Scope> = emptyList()
 )
