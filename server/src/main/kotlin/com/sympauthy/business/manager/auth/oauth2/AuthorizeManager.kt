@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager.auth.oauth2
 
 import com.sympauthy.api.exception.oauth2ExceptionOf
+import com.sympauthy.business.manager.auth.AuthorizationManager
 import com.sympauthy.business.manager.flow.AuthorizationFlowManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.mapper.AuthorizeAttemptMapper
@@ -21,9 +22,10 @@ import java.util.*
 
 @Singleton
 class AuthorizeManager(
+    @Inject private val authorizationManager: AuthorizationManager,
     @Inject private val authorizationFlowManager: AuthorizationFlowManager,
-    @Inject private val authorizeAttemptRepository: AuthorizeAttemptRepository,
     @Inject private val jwtManager: JwtManager,
+    @Inject private val authorizeAttemptRepository: AuthorizeAttemptRepository,
     @Inject private val authorizeAttemptMapper: AuthorizeAttemptMapper
 ) {
 
@@ -151,6 +153,29 @@ class AuthorizeManager(
         return authorizeAttempt.copy(
             userId = userId
         )
+    }
+
+    /**
+     * Determine among which scopes among the one requested by the user, which should be granted or declined.
+     * If the [AuthorizeAttempt.grantedScopes] were already determined, return immediately.
+     *
+     * @see [AuthorizationManager.grantScopes]
+     */
+    suspend fun setGrantedScopes(
+        authorizeAttempt: AuthorizeAttempt,
+    ): AuthorizeAttempt {
+        return if (authorizeAttempt.grantedScopes != null) {
+            val result = authorizationManager.grantScopes(
+                authorizeAttempt = authorizeAttempt
+            )
+            authorizeAttemptRepository.updateGrantedScopes(
+                id = authorizeAttempt.id,
+                grantedScopes = authorizeAttempt.grantedScopes
+            )
+            return authorizeAttempt.copy(
+                grantedScopes = authorizeAttempt.grantedScopes
+            )
+        } else authorizeAttempt
     }
 
     suspend fun findByCode(code: String): AuthorizeAttempt? {

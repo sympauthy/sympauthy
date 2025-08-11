@@ -10,6 +10,7 @@ import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import kotlinx.coroutines.flow.Flow
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertEquals
@@ -19,7 +20,7 @@ import kotlin.test.assertTrue
 class ScopeGrantingRuleManagerTest {
 
     @MockK
-    lateinit var uncheckedScopeGrantingRulesConfig: ScopeGrantingRulesConfig
+    lateinit var uncheckedScopeGrantingRulesConfig: Flow<ScopeGrantingRulesConfig>
 
     @InjectMockKs
     lateinit var scopeGrantingRuleManager: ScopeGrantingRuleManager

@@ -16,11 +16,14 @@ import com.sympauthy.exception.LocalizedException
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import kotlinx.coroutines.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.supervisorScope
 import java.util.*
 
 @Singleton
 open class TokenManager(
+    @Inject private val authorizeManager: AuthorizeManager,
     @Inject private val jwtManager: JwtManager,
     @Inject private val accessTokenGenerator: AccessTokenGenerator,
     @Inject private val refreshTokenGenerator: RefreshTokenGenerator,
@@ -56,17 +59,19 @@ open class TokenManager(
             SERVER_ERROR, "token.attempt_missing_user"
         )
 
+        val authorizedAuthorizeAttempt = authorizeManager.setGrantedScopes(authorizeAttempt)
+
         val deferredAccessToken = async {
-            accessTokenGenerator.generateAccessToken(authorizeAttempt, userId)
+            accessTokenGenerator.generateAccessToken(authorizedAuthorizeAttempt, userId)
         }
         val deferredRefreshToken = async {
-            refreshTokenGenerator.generateRefreshToken(authorizeAttempt, userId)
+            refreshTokenGenerator.generateRefreshToken(authorizedAuthorizeAttempt, userId)
         }
 
         val accessToken = deferredAccessToken.await()
         val deferredIdToken = async {
             idTokenGenerator.generateIdToken(
-                authorizeAttempt = authorizeAttempt,
+                authorizeAttempt = authorizedAuthorizeAttempt,
                 userId = userId,
                 accessToken = accessToken
             )

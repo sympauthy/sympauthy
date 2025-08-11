@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.auth.oauth2
 
+import com.sympauthy.business.manager.auth.AuthorizationManager
 import com.sympauthy.business.manager.flow.AuthorizationFlowManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.mapper.AuthorizeAttemptMapper
@@ -19,6 +20,9 @@ import org.junit.jupiter.api.extension.ExtendWith
 
 @ExtendWith(MockKExtension::class)
 class AuthorizeManagerTest {
+
+    @MockK
+    lateinit var authorizationManagerTest: AuthorizationManager
 
     @MockK
     lateinit var authorizationFlowManager: AuthorizationFlowManager

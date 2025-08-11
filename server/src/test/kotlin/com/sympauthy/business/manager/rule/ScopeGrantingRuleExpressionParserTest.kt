@@ -1,6 +1,8 @@
 package com.sympauthy.business.manager.rule
 
+import com.sympauthy.business.manager.user.CollectedClaimManager
 import io.mockk.impl.annotations.InjectMockKs
+import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
@@ -8,6 +10,9 @@ import org.junit.jupiter.api.extension.ExtendWith
 
 @ExtendWith(MockKExtension::class)
 class ScopeGrantingRuleExpressionParserTest {
+
+    @MockK
+    lateinit var collectedClaimManager: CollectedClaimManager
 
     @InjectMockKs
     lateinit var parser: ScopeGrantingRuleExpressionParser
