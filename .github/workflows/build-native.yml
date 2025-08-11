@@ -12,7 +12,7 @@ jobs:
     name: Build SympAuthy native image
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Create sympauthy-flow directory into resources
         run: mkdir -p server/src/main/resources/sympauthy-flow
