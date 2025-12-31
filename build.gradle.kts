@@ -1,6 +1,7 @@
 buildscript {
     val kotlinVersion = project.findProperty("kotlinVersion")
     val micronautPluginVersion = project.findProperty("micronautPluginVersion")
+    val kspGradlePluginVersion = project.findProperty("kspGradlePluginVersion")
 
     repositories {
         gradlePluginPortal()
@@ -10,8 +11,7 @@ buildscript {
         classpath("org.jetbrains.kotlin.jvm:org.jetbrains.kotlin.jvm.gradle.plugin:$kotlinVersion")
         classpath("org.jetbrains.kotlin.kapt:org.jetbrains.kotlin.kapt.gradle.plugin:$kotlinVersion")
         classpath("org.jetbrains.kotlin.plugin.allopen:org.jetbrains.kotlin.plugin.allopen.gradle.plugin:$kotlinVersion")
-        // Unable to move to KSP 2 as of 2.0.2
-        classpath("com.google.devtools.ksp:com.google.devtools.ksp.gradle.plugin:$kotlinVersion-1.0.32")
+        classpath("com.google.devtools.ksp:com.google.devtools.ksp.gradle.plugin:$kspGradlePluginVersion")
         classpath("io.micronaut.gradle:micronaut-gradle-plugin:$micronautPluginVersion")
     }
 }
