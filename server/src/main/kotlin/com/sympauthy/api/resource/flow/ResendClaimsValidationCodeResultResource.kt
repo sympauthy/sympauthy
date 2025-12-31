@@ -9,7 +9,7 @@ import io.swagger.v3.oas.annotations.media.Schema
 Result of the resent operation on a claim validation code.
 """
 )
-data class ResendClaimsValidationCodesResultResource(
+data class ResendClaimsValidationCodeResultResource(
 
     @get:Schema(
         description = "The media for which a new validation code has been asked.",

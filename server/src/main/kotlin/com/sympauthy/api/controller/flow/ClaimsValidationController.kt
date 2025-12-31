@@ -150,7 +150,7 @@ This authorization server will not send new validation code in the following cas
     suspend fun resendValidationCodes(
         authentication: Authentication,
         @Body inputResource: ResendClaimsValidationInputResource
-    ): ResendClaimsValidationCodesResultResource {
+    ): ResendClaimsValidationCodeResultResource {
         val authorizeAttempt = authentication.authorizeAttempt
         val user = flowControllerHelper.getUser(authentication)
         val media = getMedia(inputResource.media)

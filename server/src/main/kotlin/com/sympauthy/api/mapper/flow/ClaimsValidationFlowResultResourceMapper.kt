@@ -2,7 +2,7 @@ package com.sympauthy.api.mapper.flow
 
 import com.sympauthy.api.mapper.config.OutputResourceMapperConfig
 import com.sympauthy.api.resource.flow.ClaimsValidationFlowResultResource
-import com.sympauthy.api.resource.flow.ResendClaimsValidationCodesResultResource
+import com.sympauthy.api.resource.flow.ResendClaimsValidationCodeResultResource
 import com.sympauthy.api.resource.flow.ValidationCodeResource
 import com.sympauthy.business.model.code.ValidationCode
 import com.sympauthy.business.model.code.ValidationCodeMedia
@@ -35,8 +35,8 @@ abstract class ClaimsValidationFlowResultResourceMapper {
         media: ValidationCodeMedia,
         resent: Boolean,
         newValidationCode: ValidationCode?
-    ): ResendClaimsValidationCodesResultResource {
-        return ResendClaimsValidationCodesResultResource(
+    ): ResendClaimsValidationCodeResultResource {
+        return ResendClaimsValidationCodeResultResource(
             media = media.name,
             resent = resent,
             code = newValidationCode?.let(this::toResource)
