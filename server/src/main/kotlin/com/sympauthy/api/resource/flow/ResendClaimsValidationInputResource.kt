@@ -1,7 +1,9 @@
 package com.sympauthy.api.resource.flow
 
+import io.micronaut.serde.annotation.Serdeable
 import io.swagger.v3.oas.annotations.media.Schema
 
+@Serdeable
 @Schema(
     description = "Information about the validation code to resend to the end-user."
 )
