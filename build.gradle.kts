@@ -28,7 +28,7 @@ allprojects {
         set("mapStructVersion", "1.6.3")
         set("javaJwtVersion", "4.5.0")
         set("jsonPathVersion", "2.10.0")
-        set("bouncyCastleVersion", "1.81")
+        set("bouncyCastleVersion", "1.83")
         set("freemarkerVersion", "2.3.34")
         set("evalExVersion", "3.6.0")
 
