@@ -16,7 +16,7 @@ data class AdminUserResource(
     )
     val id: UUID,
     @get:Schema(
-        description = "When the user has been created."
+        description = "The date and time (in UTC timezone) at which the user has been created."
     )
     @get:JsonProperty("creation_date")
     val creationDate: LocalDateTime

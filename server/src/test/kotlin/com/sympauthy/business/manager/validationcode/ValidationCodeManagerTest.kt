@@ -12,16 +12,20 @@ import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.data.model.ValidationCodeEntity
 import com.sympauthy.data.repository.ValidationCodeRepository
-import io.mockk.*
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
+import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import java.time.LocalDateTime
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
@@ -313,5 +317,45 @@ class ValidationCodeManagerTest {
         assertFalse(result.refreshed)
         assertSame(validationCode, result.validationCode)
         coVerify(exactly = 0) { validationCodeGenerator.generateValidationCode(mockk(), mockk(), mockk(), mockk()) }
+    }
+
+    @Test
+    fun `canBeRefreshed - Returns true if validation code is expired`() {
+        val validationCode = mockk<ValidationCode> {
+            every { expired } returns true
+            every { resendDate } returns null
+        }
+
+        assertTrue(manager.canBeRefreshed(validationCode))
+    }
+
+    @Test
+    fun `canBeRefreshed - Returns true if resendDate is in the past`() {
+        val validationCode = mockk<ValidationCode> {
+            every { expired } returns false
+            every { resendDate } returns LocalDateTime.now().minusMinutes(1)
+        }
+
+        assertTrue(manager.canBeRefreshed(validationCode))
+    }
+
+    @Test
+    fun `canBeRefreshed - Returns false if resendDate is in the future`() {
+        val validationCode = mockk<ValidationCode> {
+            every { expired } returns false
+            every { resendDate } returns LocalDateTime.now().plusMinutes(1)
+        }
+
+        assertFalse(manager.canBeRefreshed(validationCode))
+    }
+
+    @Test
+    fun `canBeRefreshed - Returns false if resendDate is null and not expired`() {
+        val validationCode = mockk<ValidationCode> {
+            every { expired } returns false
+            every { resendDate } returns null
+        }
+
+        assertFalse(manager.canBeRefreshed(validationCode))
     }
 }

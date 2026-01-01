@@ -199,7 +199,7 @@ open class ValidationCodeManager(
      * or keep the provided [validationCode].
      */
     fun canBeRefreshed(validationCode: ValidationCode): Boolean {
-        return validationCode.expired || validationCode.resendDate?.isAfter(LocalDateTime.now()) == true
+        return validationCode.expired || validationCode.resendDate?.isBefore(LocalDateTime.now()) == true
     }
 
     internal fun getSenderByMediaMap(

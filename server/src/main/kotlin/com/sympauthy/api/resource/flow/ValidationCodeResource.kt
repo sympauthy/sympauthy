@@ -2,6 +2,7 @@ package com.sympauthy.api.resource.flow
 
 import io.micronaut.serde.annotation.Serdeable
 import io.swagger.v3.oas.annotations.media.Schema
+import java.time.LocalDateTime
 
 @Schema(
     description = "Information about a validation code send to the end-user by this authorization server."
@@ -28,5 +29,10 @@ The list of reasons this code was send to the end-user.
   allowing him to reset its password.
 """
     )
-    val reasons: List<String>
+    val reasons: List<String>,
+    @get:Schema(
+        description = "The date and time (in UTC timezone) at which a new validation code can be issued to the end-user.",
+        example = "2026-01-01T10:43:30"
+    )
+    val resendDate: LocalDateTime?
 )
