@@ -4,8 +4,9 @@ import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROV
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_ENDPOINTS
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.flow.AuthorizationFlowManager
+import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.flow.AuthorizationFlowResult
+import com.sympauthy.business.manager.flow.WebAuthorizationFlowManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.CreateOrAssociateResult
@@ -37,11 +38,11 @@ import java.util.*
 
 @Singleton
 open class Oauth2ProviderManager(
-    @Inject private val authorizeManager: AuthorizeManager,
+    @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val providerClaimsManager: ProviderClaimsManager,
-    @Inject private val authorizationFlowManager: AuthorizationFlowManager,
+    @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
     @Inject private val tokenEndpointClient: TokenEndpointClient,
     @Inject private val userManager: UserManager,
     @Inject private val uncheckedAdvancedConfig: AdvancedConfig,
@@ -75,7 +76,7 @@ open class Oauth2ProviderManager(
             oauth2 = oauth2,
             responseType = "code",
             redirectUri = getRedirectUri(provider),
-            state = authorizeManager.encodeState(authorizeAttempt)
+            state = authorizeAttemptManager.encodeState(authorizeAttempt)
         ).build()
         return HttpResponse.temporaryRedirect<Any>(redirectUri)
     }
@@ -111,9 +112,9 @@ open class Oauth2ProviderManager(
             existingUserInfo.userId
             TODO("FIXME")
         }
-        authorizeManager.setAuthenticatedUserId(authorizeAttempt, user.id)
+        authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, user.id)
 
-        return authorizationFlowManager.checkIfAuthorizationIsComplete(
+        return webAuthorizationFlowManager.completeAuthorizationFlowOrRedirect(
             user = user,
             collectedClaims = collectedClaimManager.findReadableUserInfoByUserId(user.id)
         )

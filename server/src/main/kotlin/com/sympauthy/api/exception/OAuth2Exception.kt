@@ -8,7 +8,7 @@ class OAuth2Exception(
     val errorCode: OAuth2ErrorCode,
     val detailsId: String,
     val descriptionId: String? = null,
-    val values: Map<String, Any?> = emptyMap(),
+    val values: Map<String, String> = emptyMap(),
 ) : Exception(formatMessage(errorCode, detailsId)) {
 
     val status: HttpStatus = errorCode.status
@@ -42,12 +42,12 @@ fun LocalizedException.toOauth2Exception(
 fun oauth2ExceptionOf(
     errorCode: OAuth2ErrorCode,
     detailsId: String,
-    vararg values: Pair<String, Any?>
+    vararg values: Pair<String, String>
 ) = OAuth2Exception(errorCode, detailsId, null, mapOf(*values))
 
 fun oauth2ExceptionOf(
     errorCode: OAuth2ErrorCode,
     detailsId: String,
     descriptionId: String,
-    vararg values: Pair<String, Any?>
+    vararg values: Pair<String, String>
 ) = OAuth2Exception(errorCode, detailsId, descriptionId, mapOf(*values))

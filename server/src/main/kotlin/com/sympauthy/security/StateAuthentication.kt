@@ -1,18 +1,15 @@
 package com.sympauthy.security
 
-import com.sympauthy.api.exception.httpExceptionOf
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
-import com.sympauthy.security.SecurityRule.HAS_VALID_STATE
-import io.micronaut.http.HttpStatus.FORBIDDEN
+import com.sympauthy.security.SecurityRule.HAS_STATE
 import io.micronaut.security.authentication.Authentication
 
 class StateAuthentication(
-    val authorizeAttempt: AuthorizeAttempt
+    val state: String?
 ) : Authentication {
-    override fun getName(): String = authorizeAttempt.id.toString()
+    override fun getName(): String = state ?: ""
 
     override fun getRoles(): Collection<String> {
-        return listOf(HAS_VALID_STATE)
+        return listOf(HAS_STATE)
     }
 
     override fun getAttributes(): Map<String, Any> {
@@ -20,11 +17,5 @@ class StateAuthentication(
     }
 }
 
-val Authentication.stateAuthentication: StateAuthentication
-    get() = when (this) {
-        is StateAuthentication -> this
-        else -> throw httpExceptionOf(FORBIDDEN, "authentication.wrong")
-    }
-
-val Authentication.authorizeAttempt: AuthorizeAttempt
-    get() = stateAuthentication.authorizeAttempt
+val Authentication.state: String?
+    get() = if (this is StateAuthentication) this.state else null

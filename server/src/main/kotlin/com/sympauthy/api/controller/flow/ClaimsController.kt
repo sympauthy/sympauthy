@@ -7,13 +7,12 @@ import com.sympauthy.api.resource.flow.ClaimInputResource
 import com.sympauthy.api.resource.flow.ClaimsResource
 import com.sympauthy.api.resource.flow.FlowResultResource
 import com.sympauthy.api.util.flow.FlowControllerHelper
-import com.sympauthy.business.manager.flow.AuthorizationFlowManager
 import com.sympauthy.business.manager.flow.PasswordFlowManager
+import com.sympauthy.business.manager.flow.WebAuthorizationFlowManager
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowRedirectUriBuilder
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.model.user.CollectedClaimUpdate
-import com.sympauthy.security.SecurityRule.HAS_VALID_STATE
-import com.sympauthy.security.authorizeAttempt
+import com.sympauthy.security.SecurityRule.HAS_STATE
 import io.micronaut.http.HttpStatus.BAD_REQUEST
 import io.micronaut.http.annotation.Body
 import io.micronaut.http.annotation.Controller
@@ -25,10 +24,10 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import jakarta.inject.Inject
 
-@Secured(HAS_VALID_STATE)
+@Secured(HAS_STATE)
 @Controller("/api/v1/flow/claims")
 class ClaimsController(
-    @Inject private val authorizationFlowManager: AuthorizationFlowManager,
+    @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val passwordFlowManager: PasswordFlowManager,
     @Inject private val claimsMapper: ClaimsResourceMapper,
@@ -52,13 +51,14 @@ collection step of the authorization flow again.
     @Get
     suspend fun getCollectedClaims(
         authentication: Authentication,
-    ): ClaimsResource {
-        val user = helper.getUser(authentication)
-        // FIXME: Implement suggestion from provider
-        return claimsMapper.toResource(
-            collectedClaims = collectedClaimManager.findReadableUserInfoByUserId(user.id)
-        )
-    }
+    ): ClaimsResource =
+        webAuthorizationFlowManager.extractFromAuthenticationAndVerifyThenRun(authentication) { authorizeAttempt, _ ->
+            val user = helper.getUser(authorizeAttempt)
+            // FIXME: Implement suggestion from provider
+            claimsMapper.toResource(
+                collectedClaims = collectedClaimManager.findReadableUserInfoByUserId(user.id)
+            )
+        }
 
     @Operation(
         description = """
@@ -83,28 +83,27 @@ the end-user but it declined to fulfill the value.
     suspend fun collectClaims(
         authentication: Authentication,
         @Body inputResource: ClaimInputResource
-    ): FlowResultResource {
-        val authorizeAttempt = authentication.authorizeAttempt
-        val flow = authorizationFlowManager.verifyIsWebFlow(authorizeAttempt)
-        val user = helper.getUser(authorizeAttempt)
-        val updates = getUpdates(inputResource)
+    ): FlowResultResource =
+        webAuthorizationFlowManager.extractFromAuthenticationAndVerifyThenRun(authentication) { authorizeAttempt, flow ->
+            val user = helper.getUser(authorizeAttempt)
+            val updates = getUpdates(inputResource)
 
-        val collectedClaims = collectedClaimManager.update(user, updates = updates)
-        if (!collectedClaimManager.areAllRequiredClaimCollected(collectedClaims)) {
-            throw httpExceptionOf(BAD_REQUEST, "flow.claims.missing_required")
+            val collectedClaims = collectedClaimManager.update(user, updates = updates)
+            if (!collectedClaimManager.areAllRequiredClaimCollected(collectedClaims)) {
+                throw httpExceptionOf(BAD_REQUEST, "flow.claims.missing_required")
+            }
+
+            val result = webAuthorizationFlowManager.completeAuthorizationFlowOrRedirect(
+                user = user,
+                collectedClaims = collectedClaims
+            )
+            val redirectUri = redirectUriBuilder.getRedirectUri(
+                authorizeAttempt = authorizeAttempt,
+                flow = flow,
+                result = result
+            )
+            FlowResultResource(redirectUri.toString())
         }
-
-        val result = authorizationFlowManager.checkIfAuthorizationIsComplete(
-            user = user,
-            collectedClaims = collectedClaims
-        )
-        val redirectUri = redirectUriBuilder.getRedirectUri(
-            authorizeAttempt = authorizeAttempt,
-            flow = flow,
-            result = result
-        )
-        return FlowResultResource(redirectUri.toString())
-    }
 
     private fun getUpdates(inputResource: ClaimInputResource): List<CollectedClaimUpdate> {
         val signUpClaims = passwordFlowManager.getSignUpClaims()

@@ -4,6 +4,7 @@ import com.sympauthy.data.model.AuthorizeAttemptEntity
 import io.micronaut.data.annotation.Id
 import io.micronaut.data.annotation.Query
 import io.micronaut.data.repository.kotlin.CoroutineCrudRepository
+import java.time.LocalDateTime
 import java.util.*
 
 interface AuthorizeAttemptRepository : CoroutineCrudRepository<AuthorizeAttemptEntity, UUID> {
@@ -30,6 +31,14 @@ interface AuthorizeAttemptRepository : CoroutineCrudRepository<AuthorizeAttemptE
     suspend fun updateUserId(@Id id: UUID, userId: UUID)
 
     suspend fun updateGrantedScopes(@Id id: UUID, grantedScopes: List<String>?)
+
+    suspend fun updateError(
+        @Id id: UUID,
+        errorDate: LocalDateTime?,
+        errorDetailsId: String?,
+        errorDescriptionId: String?,
+        errorValues: Map<String, String>?
+    )
 
     suspend fun deleteByIds(ids: List<UUID>): Int
 }

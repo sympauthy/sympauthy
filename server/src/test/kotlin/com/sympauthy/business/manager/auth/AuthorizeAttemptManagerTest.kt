@@ -1,7 +1,5 @@
-package com.sympauthy.business.manager.auth.oauth2
+package com.sympauthy.business.manager.auth
 
-import com.sympauthy.business.manager.auth.AuthorizationManager
-import com.sympauthy.business.manager.flow.AuthorizationFlowManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.mapper.AuthorizeAttemptMapper
 import com.sympauthy.business.model.client.Client
@@ -13,19 +11,12 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertSame
+import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 
 @ExtendWith(MockKExtension::class)
-class AuthorizeManagerTest {
-
-    @MockK
-    lateinit var authorizationManagerTest: AuthorizationManager
-
-    @MockK
-    lateinit var authorizationFlowManager: AuthorizationFlowManager
+class AuthorizeAttemptManagerTest {
 
     @MockK
     lateinit var authorizeAttemptRepository: AuthorizeAttemptRepository
@@ -38,7 +29,7 @@ class AuthorizeManagerTest {
 
     @SpyK
     @InjectMockKs
-    lateinit var authorizeManager: AuthorizeManager
+    lateinit var authorizeAttemptManager: AuthorizeAttemptManager
 
     @Test
     fun `getAllowedScopesForClient - Return provided scopes when client has not allowed scopes`() {
@@ -47,10 +38,10 @@ class AuthorizeManagerTest {
             every { allowedScopes } returns null
         }
 
-        val result = authorizeManager.getAllowedScopesForClient(client, listOf(scope))
+        val result = authorizeAttemptManager.getAllowedScopesForClient(client, listOf(scope))
 
-        assertEquals(1, result.count())
-        assertSame(scope, result.getOrNull(0))
+        Assertions.assertEquals(1, result.count())
+        Assertions.assertSame(scope, result.getOrNull(0))
     }
 
     @Test
@@ -60,10 +51,10 @@ class AuthorizeManagerTest {
             every { defaultScopes } returns listOf(scope)
         }
 
-        val result = authorizeManager.getAllowedScopesForClient(client, null)
+        val result = authorizeAttemptManager.getAllowedScopesForClient(client, null)
 
-        assertEquals(1, result.count())
-        assertSame(scope, result.getOrNull(0))
+        Assertions.assertEquals(1, result.count())
+        Assertions.assertSame(scope, result.getOrNull(0))
     }
 
     @Test
@@ -82,12 +73,12 @@ class AuthorizeManagerTest {
             every { allowedScopes } returns setOf(allowedScope)
         }
 
-        val result = authorizeManager.getAllowedScopesForClient(
+        val result = authorizeAttemptManager.getAllowedScopesForClient(
             client = client,
             uncheckedScopes = listOf(uncheckedScopeOne, uncheckedScopeTwo)
         )
 
-        assertEquals(1, result.count())
-        assertSame(uncheckedScopeOne, result.getOrNull(0))
+        Assertions.assertEquals(1, result.count())
+        Assertions.assertSame(uncheckedScopeOne, result.getOrNull(0))
     }
 }

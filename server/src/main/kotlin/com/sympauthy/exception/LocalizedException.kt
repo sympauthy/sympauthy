@@ -27,14 +27,14 @@ open class LocalizedException(
     /**
      * Value to expose to the mustache template to inject values into the localized message.
      */
-    val values: Map<String, Any?> = emptyMap(),
+    val values: Map<String, String> = emptyMap(),
     /**
      * Underlying cause of this exception.
      */
     val throwable: Throwable? = null
 ) : Exception(formatMessage(detailsId, values), throwable) {
     companion object {
-        private fun formatMessage(messageId: String, values: Map<String, Any?>): String {
+        private fun formatMessage(messageId: String, values: Map<String, String>): String {
             return if (values.isEmpty()) {
                 messageId
             } else {
@@ -46,7 +46,7 @@ open class LocalizedException(
 
 fun localizedExceptionOf(
     detailsId: String,
-    vararg values: Pair<String, Any?>
+    vararg values: Pair<String, String>
 ) = LocalizedException(
     recoverable = false,
     detailsId = detailsId,

@@ -9,7 +9,7 @@ import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
 /**
- * Manager in charge of authorization. It determines among which scopes among the one requested by the user,
+ * Manager in charge of determining which scopes among the one requested by the user,
  * which should be granted or declined.
  *
  * There are multiple methods that can grant/decline the requested scopes:
@@ -23,10 +23,11 @@ import jakarta.inject.Singleton
  * @see [ScopeGrantingRuleManager.applyScopeGrantingRules]
  */
 @Singleton
-class AuthorizationManager(
+class ScopeGrantingManager(
     @Inject private val scopeManager: ScopeManager,
     @Inject private val scopeGrantingRuleManager: ScopeGrantingRuleManager
 ) {
+
 
     /**
      * Pass the [AuthorizeAttempt.requestedScopes] through the chain of scope granting methods.

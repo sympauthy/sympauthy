@@ -16,7 +16,6 @@ import com.sympauthy.business.model.user.claim.Claim
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import jakarta.transaction.Transactional
-import kotlinx.coroutines.coroutineScope
 
 /**
  * Component in charge of validating the claim collected during the authorization flow.
@@ -104,7 +103,7 @@ open class AuthorizationFlowClaimValidationManager(
         authorizeAttempt: AuthorizeAttempt,
         user: User,
         media: ValidationCodeMedia
-    ): ValidationCode? = coroutineScope {
+    ): ValidationCode? {
         val collectedClaims = collectedClaimManager.findClaimsReadableByAttempt(
             authorizeAttempt = authorizeAttempt
         )
@@ -112,14 +111,14 @@ open class AuthorizationFlowClaimValidationManager(
         val reasons = getReasonsToSendValidationCode(
             collectedClaims = collectedClaims
         ).filter { it.media == media }
-        if (reasons.isEmpty()) return@coroutineScope null
+        if (reasons.isEmpty()) return null
 
         val existingCode = validationCodeManager.findLatestCodeSentByMediaDuringAttempt(
             authorizeAttempt = authorizeAttempt,
             media = media,
             includesExpired = true
         )
-        if (existingCode == null) {
+        return if (existingCode == null) {
             validationCodeManager.queueRequiredValidationCodes(
                 user = user,
                 authorizeAttempt = authorizeAttempt,

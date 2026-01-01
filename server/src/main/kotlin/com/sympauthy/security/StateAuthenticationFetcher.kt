@@ -1,21 +1,20 @@
 package com.sympauthy.security
 
-import com.sympauthy.business.manager.auth.oauth2.AuthorizeManager
 import io.micronaut.http.HttpRequest
 import io.micronaut.security.authentication.Authentication
 import io.micronaut.security.filters.AuthenticationFetcher
-import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.reactive.publish
 import org.reactivestreams.Publisher
 
 /**
- * The authentication using a state is restricted to the flow API.
+ * Handles the authentication logic for flow APIs.
+ *
+ * The authentication fetcher retrieves the state parameter from the request query parameters
+ * and put it in the [Authentication] for uses by the [com.sympauthy.business.manager.flow.WebAuthorizationFlowManager].
  */
 @Singleton
-class StateAuthenticationFetcher(
-    @Inject private val authorizeManager: AuthorizeManager
-) : AuthenticationFetcher<HttpRequest<*>> {
+class StateAuthenticationFetcher : AuthenticationFetcher<HttpRequest<*>> {
 
     override fun fetchAuthentication(request: HttpRequest<*>): Publisher<Authentication> {
         return publish {
@@ -23,19 +22,10 @@ class StateAuthenticationFetcher(
                 return@publish
             }
 
-            val state = request.parameters["state"]
-            if (state.isNullOrBlank()) {
-                return@publish
+            val state = request.parameters["state"]?.let {
+                if (it.isNotBlank()) it else null
             }
-
-            val authorizeAttempt = try {
-                authorizeManager.verifyEncodedState(state)
-            } catch (t: Throwable) {
-                this.close(cause = t)
-                return@publish
-            }
-            val authentication = StateAuthentication(authorizeAttempt)
-            this.send(authentication)
+            this.send(StateAuthentication(state))
         }
     }
 }

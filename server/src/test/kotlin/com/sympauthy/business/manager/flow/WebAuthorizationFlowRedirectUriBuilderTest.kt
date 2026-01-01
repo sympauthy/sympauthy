@@ -1,7 +1,7 @@
 package com.sympauthy.business.manager.flow
 
+import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
-import com.sympauthy.business.manager.auth.oauth2.AuthorizeManager
 import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.oauth2.AuthorizationCode
@@ -23,7 +23,7 @@ import java.net.URI
 class WebAuthorizationFlowRedirectUriBuilderTest {
 
     @MockK
-    lateinit var authorizeManager: AuthorizeManager
+    lateinit var authorizeAttemptManager: AuthorizeAttemptManager
 
     @MockK
     lateinit var authorizationCodeManager: AuthorizationCodeManager
@@ -133,7 +133,7 @@ class WebAuthorizationFlowRedirectUriBuilderTest {
         val authorizeAttempt = mockk<AuthorizeAttempt>()
         val encodedState = "encodedState"
 
-        coEvery { authorizeManager.encodeState(authorizeAttempt) } returns encodedState
+        coEvery { authorizeAttemptManager.encodeState(authorizeAttempt) } returns encodedState
 
         val result = uriBuilder.appendStateToUri(
             authorizeAttempt = authorizeAttempt,

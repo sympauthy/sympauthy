@@ -1,7 +1,7 @@
 package com.sympauthy.config.factory
 
 import com.sympauthy.business.manager.ScopeManager
-import com.sympauthy.business.manager.flow.AuthorizationFlowManager
+import com.sympauthy.business.manager.flow.WebAuthorizationFlowManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.oauth2.Scope
@@ -24,7 +24,7 @@ import java.net.URI
 @Factory
 class ClientsConfigFactory(
     @Inject private val parser: ConfigParser,
-    @Inject private val authorizationFlowManager: AuthorizationFlowManager,
+    @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
     @Inject private val scopeManager: ScopeManager,
 ) {
 
@@ -157,7 +157,7 @@ class ClientsConfigFactory(
         flowId: String?
     ): AuthorizationFlow? {
         return flowId?.let {
-            authorizationFlowManager.findById(it) ?: throw configExceptionOf(
+            webAuthorizationFlowManager.findByIdOrNull(it) ?: throw configExceptionOf(
                 "$key", "config.client.authorization_flow.invalid",
                 "flow" to flowId
             )

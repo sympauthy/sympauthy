@@ -4,8 +4,6 @@ import com.sympauthy.api.util.orBadRequest
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.user.User
-import com.sympauthy.security.authorizeAttempt
-import io.micronaut.security.authentication.Authentication
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
@@ -17,10 +15,7 @@ class FlowControllerHelper(
     @Inject private val userManager: UserManager
 ) {
 
-    suspend fun getUser(authentication: Authentication): User {
-        return getUser(authentication.authorizeAttempt)
-    }
-
+    // FIXME: Migrate to [WebAuthorizationFlowManager]
     suspend fun getUser(authorizeAttempt: AuthorizeAttempt): User {
         val userId = authorizeAttempt.userId.orBadRequest("flow.user.missing")
         return userManager.findById(userId) ?: throw IllegalStateException("No user found with id $userId")

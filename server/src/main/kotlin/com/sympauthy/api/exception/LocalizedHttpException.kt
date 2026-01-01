@@ -10,7 +10,7 @@ open class LocalizedHttpException(
     val status: HttpStatus,
     detailsId: String,
     descriptionId: String? = null,
-    values: Map<String, Any?> = emptyMap(),
+    values: Map<String, String> = emptyMap(),
     val additionalInfo: List<LocalizedAdditionalMessage> = emptyList(),
     throwable: Throwable? = null
 ) : LocalizedException(
@@ -53,7 +53,7 @@ fun <T : LocalizedException> T.toHttpException(httpStatus: HttpStatus) = Localiz
 fun httpExceptionOf(
     status: HttpStatus,
     detailsId: String,
-    vararg values: Pair<String, Any?>
+    vararg values: Pair<String, String>
 ): LocalizedHttpException = LocalizedHttpException(
     status = status,
     detailsId = detailsId,
@@ -64,7 +64,7 @@ fun httpExceptionOf(
     status: HttpStatus,
     detailsId: String,
     descriptionId: String?,
-    vararg values: Pair<String, Any?>
+    vararg values: Pair<String, String>
 ): LocalizedHttpException = LocalizedHttpException(
     status = status,
     detailsId = detailsId,
@@ -77,7 +77,7 @@ fun httpExceptionOf(
     detailsId: String,
     descriptionId: String?,
     throwable: Throwable?,
-    vararg values: Pair<String, Any?>
+    vararg values: Pair<String, String>
 ): LocalizedHttpException = LocalizedHttpException(
     status = status,
     detailsId = detailsId,

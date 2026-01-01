@@ -23,7 +23,6 @@ import java.util.*
 
 @Singleton
 open class TokenManager(
-    @Inject private val authorizeManager: AuthorizeManager,
     @Inject private val jwtManager: JwtManager,
     @Inject private val accessTokenGenerator: AccessTokenGenerator,
     @Inject private val refreshTokenGenerator: RefreshTokenGenerator,
@@ -59,19 +58,17 @@ open class TokenManager(
             SERVER_ERROR, "token.attempt_missing_user"
         )
 
-        val authorizedAuthorizeAttempt = authorizeManager.setGrantedScopes(authorizeAttempt)
-
         val deferredAccessToken = async {
-            accessTokenGenerator.generateAccessToken(authorizedAuthorizeAttempt, userId)
+            accessTokenGenerator.generateAccessToken(authorizeAttempt, userId)
         }
         val deferredRefreshToken = async {
-            refreshTokenGenerator.generateRefreshToken(authorizedAuthorizeAttempt, userId)
+            refreshTokenGenerator.generateRefreshToken(authorizeAttempt, userId)
         }
 
         val accessToken = deferredAccessToken.await()
         val deferredIdToken = async {
             idTokenGenerator.generateIdToken(
-                authorizeAttempt = authorizedAuthorizeAttempt,
+                authorizeAttempt = authorizeAttempt,
                 userId = userId,
                 accessToken = accessToken
             )

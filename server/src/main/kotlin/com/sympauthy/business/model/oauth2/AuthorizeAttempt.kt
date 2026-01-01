@@ -61,6 +61,31 @@ data class AuthorizeAttempt(
      * When the authentication flow was initiated by the user.
      */
     val attemptDate: LocalDateTime,
+
+    /**
+     * When then authentication flow failed.
+     */
+    val errorDate: LocalDateTime?,
+
+    /**
+     * Identifier of the message detailing, in a technical way, the error which caused this attempt to fail.
+     * This value is copied from the non-recoverable business exception thrown during the execution of the flow.
+     * Empty if the attempt has not failed yet.
+     */
+    val errorDetailsId: String?,
+
+    /**
+     * Identifier of the message detailing, for the end-user, the error which caused this attempt to fail.
+     * This value is copied from the non-recoverable business exception thrown during the execution of the flow.
+     * Empty if the attempt has not failed yet.
+     */
+    val errorDescriptionId: String?,
+
+    /**
+     * Value to expose to the mustache template to inject values into the localized error messages.
+     */
+    val errorValues: Map<String, String>?,
+
     override val expirationDate: LocalDateTime
 ): Expirable {
 

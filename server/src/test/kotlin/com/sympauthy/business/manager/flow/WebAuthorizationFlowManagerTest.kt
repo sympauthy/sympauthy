@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.flow
 
+import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.model.code.ValidationCodeReason
 import com.sympauthy.config.model.AuthorizationFlowsConfig
@@ -16,7 +17,10 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 
 @ExtendWith(MockKExtension::class)
-class AuthorizationFlowManagerTest {
+class WebAuthorizationFlowManagerTest {
+
+    @MockK
+    lateinit var authorizeAttemptManager: AuthorizeAttemptManager
 
     @MockK
     lateinit var collectedClaimManager: CollectedClaimManager
@@ -32,36 +36,36 @@ class AuthorizationFlowManagerTest {
 
     @SpyK
     @InjectMockKs
-    lateinit var manager: AuthorizationFlowManager
+    lateinit var manager: WebAuthorizationFlowManager
 
     @Test
-    fun `checkIfAuthorizationIsComplete - Non complete if missing claims`() = runTest {
+    fun `completeAuthorizationFlowOrRedirect - Non complete if missing claims`() = runTest {
         every { collectedClaimManager.areAllRequiredClaimCollected(any()) } returns false
         every { claimValidationManager.getReasonsToSendValidationCode(any()) } returns emptyList()
 
-        val result = manager.checkIfAuthorizationIsComplete(mockk(), mockk())
+        val result = manager.completeAuthorizationFlowOrRedirect(mockk(), mockk())
 
         assertTrue(result.missingRequiredClaims)
     }
 
     @Test
-    fun `checkIfAuthorizationIsComplete - Non complete if missing validation`() = runTest {
+    fun `completeAuthorizationFlowOrRedirect - Non complete if missing validation`() = runTest {
         every { collectedClaimManager.areAllRequiredClaimCollected(any()) } returns true
         every { claimValidationManager.getReasonsToSendValidationCode(any()) } returns listOf(
             ValidationCodeReason.EMAIL_CLAIM,
         )
 
-        val result = manager.checkIfAuthorizationIsComplete(mockk(), mockk())
+        val result = manager.completeAuthorizationFlowOrRedirect(mockk(), mockk())
 
         assertTrue(result.missingMediaForClaimValidation.isNotEmpty())
     }
 
     @Test
-    fun `checkIfAuthorizationIsComplete - Complete`() = runTest {
+    fun `completeAuthorizationFlowOrRedirect - Complete`() = runTest {
         every { collectedClaimManager.areAllRequiredClaimCollected(any()) } returns true
         every { claimValidationManager.getReasonsToSendValidationCode(any()) } returns emptyList()
 
-        val result = manager.checkIfAuthorizationIsComplete(mockk(), mockk())
+        val result = manager.completeAuthorizationFlowOrRedirect(mockk(), mockk())
 
         assertTrue(result.complete)
     }

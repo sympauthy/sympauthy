@@ -3,7 +3,7 @@ package com.sympauthy.api.controller.oauth2
 import com.sympauthy.api.controller.oauth2.TokenController.Companion.OAUTH2_TOKEN_ENDPOINT
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.api.resource.oauth2.TokenResource
-import com.sympauthy.business.manager.auth.oauth2.AuthorizeManager
+import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
@@ -26,7 +26,7 @@ import java.time.ZoneOffset
 
 @Controller(OAUTH2_TOKEN_ENDPOINT)
 class TokenController(
-    @Inject private val authorizeManager: AuthorizeManager,
+    @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
     @Inject private val tokenManager: TokenManager
 ) {
 
@@ -55,7 +55,7 @@ class TokenController(
 
             else -> throw oauth2ExceptionOf(
                 UNSUPPORTED_GRANT_TYPE, "token.unsupported_grant_type",
-                "grantType" to grantType
+                "grantType" to (grantType ?: "")
             )
         }
     }
@@ -67,7 +67,7 @@ class TokenController(
         if (code.isNullOrBlank()) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token.missing_param", "param" to CODE_PARAM)
         }
-        val attempt = authorizeManager.findByCode(code) ?: throw oauth2ExceptionOf(
+        val attempt = authorizeAttemptManager.findByCode(code) ?: throw oauth2ExceptionOf(
             INVALID_GRANT, "token.expired", "description.oauth2.expired"
         )
         if (attempt.redirectUri != redirectUri) {

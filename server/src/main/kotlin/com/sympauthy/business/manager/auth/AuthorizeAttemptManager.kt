@@ -1,8 +1,7 @@
-package com.sympauthy.business.manager.auth.oauth2
+package com.sympauthy.business.manager.auth
 
 import com.sympauthy.api.exception.oauth2ExceptionOf
-import com.sympauthy.business.manager.auth.AuthorizationManager
-import com.sympauthy.business.manager.flow.AuthorizationFlowManager
+import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.mapper.AuthorizeAttemptMapper
 import com.sympauthy.business.model.client.Client
@@ -20,10 +19,18 @@ import java.net.URI
 import java.time.LocalDateTime
 import java.util.*
 
+/**
+ * Manager in charge of the lifecycle of an authorization attempt.
+ * It provides methods to:
+ * - create an authorization attempt after validation.
+ * - verify the state of an authorization attempt.
+ * - modify the attempt: user id, granted scopes, error.
+ *
+ * Note: For separation of concerns, this manager does not handle any logic of the authorization flow. Those logics
+ * are handled by managers in the flow package.
+ */
 @Singleton
-class AuthorizeManager(
-    @Inject private val authorizationManager: AuthorizationManager,
-    @Inject private val authorizationFlowManager: AuthorizationFlowManager,
+class AuthorizeAttemptManager(
     @Inject private val jwtManager: JwtManager,
     @Inject private val authorizeAttemptRepository: AuthorizeAttemptRepository,
     @Inject private val authorizeAttemptMapper: AuthorizeAttemptMapper
@@ -31,16 +38,15 @@ class AuthorizeManager(
 
     suspend fun newAuthorizeAttempt(
         client: Client,
+        authorizationFlow: AuthorizationFlow,
         clientState: String? = null,
         clientNonce: String? = null,
         uncheckedScopes: List<Scope>? = null,
         uncheckedRedirectUri: URI? = null,
-    ): AuthorizeAttemptResult {
+    ): AuthorizeAttempt {
         val scopes = getAllowedScopesForClient(client, uncheckedScopes)
         val redirectUri = checkRedirectUri(client, uncheckedRedirectUri)
         checkIsExistingAttemptWithState(clientState)
-
-        val authorizationFlow = client.authorizationFlow ?: authorizationFlowManager.defaultAuthorizationFlow
 
         val entity = AuthorizeAttemptEntity(
             clientId = client.id,
@@ -55,10 +61,7 @@ class AuthorizeManager(
         )
         authorizeAttemptRepository.save(entity)
 
-        return AuthorizeAttemptResult(
-            authorizeAttempt = authorizeAttemptMapper.toAuthorizeAttempt(entity),
-            authorizationFlow = authorizationFlow
-        )
+        return authorizeAttemptMapper.toAuthorizeAttempt(entity)
     }
 
     /**
@@ -112,31 +115,46 @@ class AuthorizeManager(
     }
 
     /**
-     * Return the [AuthorizeAttempt] that created the [state] after verifying the [state] has not been tempered with.
+     * Return a [SuccessVerifyEncodedStateResult] containing the [AuthorizeAttempt] that created the [state]
+     * after verifying the [state] has not been tempered with.
+     * Otherwise, return a [FailedVerifyEncodedStateResult] with the appropriate error details.
      */
-    suspend fun verifyEncodedState(state: String?): AuthorizeAttempt {
+    suspend fun verifyEncodedState(state: String?): VerifyEncodedStateResult {
         if (state.isNullOrBlank()) {
-            throw oauth2ExceptionOf(INVALID_REQUEST, "authorize.state.missing")
+            return FailedVerifyEncodedStateResult(
+                detailsId = "auth.authorize_attempt.validate.missing",
+                descriptionId = "description.oauth2.invalid_state"
+            )
         }
-        val jwt = jwtManager.decodeAndVerifyOrNull(STATE_KEY_NAME, state) ?: throw oauth2ExceptionOf(
-            INVALID_REQUEST, "authorize.state.wrong_signature", "description.oauth2.invalid_state"
+        val jwt = jwtManager.decodeAndVerifyOrNull(STATE_KEY_NAME, state) ?: return FailedVerifyEncodedStateResult(
+            detailsId = "auth.authorize_attempt.validate.wrong_signature",
+            descriptionId = "description.oauth2.invalid_state"
         )
         val attemptId = try {
             UUID.fromString(jwt.subject)
         } catch (e: IllegalArgumentException) {
-            throw oauth2ExceptionOf(
-                INVALID_REQUEST, "authorize.state.invalid_subject", "description.oauth2.invalid_state"
+            return FailedVerifyEncodedStateResult(
+                detailsId = "auth.authorize_attempt.validate.invalid_subject",
+                descriptionId = "description.oauth2.invalid_state"
             )
         }
         val authorizeAttempt = authorizeAttemptRepository.findById(attemptId)
             ?.let(authorizeAttemptMapper::toAuthorizeAttempt)
         if (authorizeAttempt == null || authorizeAttempt.expired) {
             // If the attempt is missing in DB, most likely a cron cleaned it.
-            throw oauth2ExceptionOf(
-                INVALID_REQUEST, "authorize.state.expired", "description.oauth2.expired"
+            return FailedVerifyEncodedStateResult(
+                detailsId = "auth.authorize_attempt.validate.expired",
+                descriptionId = "description.oauth2.expired"
             )
         }
-        return authorizeAttempt
+        if (authorizeAttempt.errorDetailsId != null) {
+            return FailedVerifyEncodedStateResult(
+                detailsId = authorizeAttempt.errorDetailsId,
+                descriptionId = authorizeAttempt.errorDescriptionId,
+                values = authorizeAttempt.errorValues
+            )
+        }
+        return SuccessVerifyEncodedStateResult(authorizeAttempt)
     }
 
     /**
@@ -156,26 +174,46 @@ class AuthorizeManager(
     }
 
     /**
-     * Determine among which scopes among the one requested by the user, which should be granted or declined.
+     * Set and save the list of scopes that have been granted to the user.
      * If the [AuthorizeAttempt.grantedScopes] were already determined, return immediately.
-     *
-     * @see [AuthorizationManager.grantScopes]
      */
     suspend fun setGrantedScopes(
         authorizeAttempt: AuthorizeAttempt,
     ): AuthorizeAttempt {
         return if (authorizeAttempt.grantedScopes != null) {
-            val result = authorizationManager.grantScopes(
-                authorizeAttempt = authorizeAttempt
-            )
             authorizeAttemptRepository.updateGrantedScopes(
                 id = authorizeAttempt.id,
                 grantedScopes = authorizeAttempt.grantedScopes
             )
-            return authorizeAttempt.copy(
+            authorizeAttempt.copy(
                 grantedScopes = authorizeAttempt.grantedScopes
             )
         } else authorizeAttempt
+    }
+
+    /**
+     * Set and save the error if it is non-recoverable to prevent further usage of the [authorizeAttempt].
+     */
+    suspend fun setErrorIfNonRecoverable(
+        authorizeAttempt: AuthorizeAttempt,
+        error: BusinessException
+    ): AuthorizeAttempt {
+        if (error.recoverable) return authorizeAttempt
+        if (authorizeAttempt.errorDetailsId != null) return authorizeAttempt
+        val errorDate = LocalDateTime.now()
+        authorizeAttemptRepository.updateError(
+            id = authorizeAttempt.id,
+            errorDate = errorDate,
+            errorDetailsId = error.detailsId,
+            errorDescriptionId = error.descriptionId,
+            errorValues = error.values
+        )
+        return authorizeAttempt.copy(
+            errorDate = errorDate,
+            errorDetailsId = error.detailsId,
+            errorDescriptionId = error.descriptionId,
+            errorValues = error.values
+        )
     }
 
     suspend fun findByCode(code: String): AuthorizeAttempt? {
@@ -194,7 +232,12 @@ class AuthorizeManager(
     }
 }
 
-data class AuthorizeAttemptResult(
-    val authorizeAttempt: AuthorizeAttempt,
-    val authorizationFlow: AuthorizationFlow
-)
+sealed class VerifyEncodedStateResult
+
+class SuccessVerifyEncodedStateResult(val authorizeAttempt: AuthorizeAttempt) : VerifyEncodedStateResult()
+
+class FailedVerifyEncodedStateResult(
+    val detailsId: String,
+    val descriptionId: String?,
+    val values: Map<String, String>? = null
+) : VerifyEncodedStateResult()

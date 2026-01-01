@@ -7,8 +7,10 @@ import com.sympauthy.api.util.AuthorizationFlowRedirectBuilder
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
-import com.sympauthy.business.manager.auth.oauth2.AuthorizeManager
+import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
+import com.sympauthy.business.manager.flow.WebAuthorizationFlowManager
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_AUTHORIZATION_FLOW_ID
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.UNSUPPORTED_RESPONSE_TYPE
@@ -31,11 +33,14 @@ import java.net.URI
 @Controller(OAUTH2_AUTHORIZE_ENDPOINT)
 @Secured(IS_ANONYMOUS)
 open class AuthorizeController(
-    @Inject private val authorizeManager: AuthorizeManager,
+    @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
     @Inject private val clientManager: ClientManager,
     @Inject private val scopeManager: ScopeManager,
     @Inject private val responseBuilder: AuthorizationFlowRedirectBuilder
 ) {
+
+    @Inject
+    private lateinit var webAuthorizationFlowManager: WebAuthorizationFlowManager
 
     @Operation(
         description = """
@@ -176,9 +181,16 @@ The authorization server includes this value unmodified in the ID Token.
         scopes: List<Scope>?,
         redirectUri: URI
     ): HttpResponse<*> {
-        val result = try {
-            authorizeManager.newAuthorizeAttempt(
+        val authorizationFlowId = client.authorizationFlow?.id ?: DEFAULT_AUTHORIZATION_FLOW_ID
+        val flow = webAuthorizationFlowManager.findByIdOrNull(authorizationFlowId)
+        if (flow !is WebAuthorizationFlow) {
+            throw oauth2ExceptionOf(INVALID_REQUEST, "authorize.flow.invalid", "description.oauth2.invalid")
+        }
+
+        val authorizeAttempt = try {
+            authorizeAttemptManager.newAuthorizeAttempt(
                 client = client,
+                authorizationFlow = flow,
                 clientState = clientState,
                 clientNonce = clientNonce,
                 uncheckedScopes = scopes,
@@ -188,12 +200,10 @@ The authorization server includes this value unmodified in the ID Token.
             throw e.toOauth2Exception(INVALID_REQUEST, "description.oauth2.invalid")
         }
 
-        return when (result.authorizationFlow) {
-            is WebAuthorizationFlow -> responseBuilder.redirectToSignIn(
-                authorizeAttempt = result.authorizeAttempt,
-                flow = result.authorizationFlow
-            )
-        }
+        return responseBuilder.redirectToSignIn(
+            authorizeAttempt = authorizeAttempt,
+            flow = flow
+        )
     }
 
     companion object {

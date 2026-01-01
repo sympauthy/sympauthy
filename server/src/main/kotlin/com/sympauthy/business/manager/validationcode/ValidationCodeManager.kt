@@ -210,12 +210,12 @@ open class ValidationCodeManager(
             val sender = senders.firstOrNull { it.media == media }
                 ?: throw localizedExceptionOf(
                     "validationcode.missing_sender",
-                    "media" to media
+                    "media" to media.name
                 )
             val claim = collectedClaims.firstOrNull { it.claim.id == media.claim }
                 ?: throw localizedExceptionOf(
                     "validationcode.missing_claim",
-                    "media" to media,
+                    "media" to media.name,
                     "claim" to media.claim
                 )
             SenderClaimTuple(

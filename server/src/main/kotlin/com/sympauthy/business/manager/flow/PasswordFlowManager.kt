@@ -1,8 +1,9 @@
 package com.sympauthy.business.manager.flow
 
+import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.auth.oauth2.AuthorizeManager
+import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.password.PasswordManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
@@ -30,12 +31,12 @@ import kotlin.jvm.optionals.getOrNull
  */
 @Singleton
 open class PasswordFlowManager(
-    @Inject private val authorizeManager: AuthorizeManager,
+    @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val collectedClaimRepository: CollectedClaimRepository,
     @Inject private val passwordManager: PasswordManager,
-    @Inject private val authorizationFlowManager: AuthorizationFlowManager,
+    @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
     @Inject private val userManager: UserManager,
     @Inject private val userRepository: UserRepository,
     @Inject private val claimValueMapper: ClaimValueMapper,
@@ -79,7 +80,7 @@ open class PasswordFlowManager(
         password: String?
     ): AuthorizationFlowResult {
         if (!signInEnabled) {
-            throw recoverableBusinessExceptionOf("flow.password.sign_in.disabled")
+            throw businessExceptionOf("flow.password.sign_in.disabled")
         }
         if (login.isNullOrBlank() || password.isNullOrBlank()) {
             throw recoverableBusinessExceptionOf("flow.password.sign_in.invalid")
@@ -96,11 +97,11 @@ open class PasswordFlowManager(
         }
 
         // Update the authorize attempt with the id of the user so they can retrieve their access token.
-        authorizeManager.setAuthenticatedUserId(authorizeAttempt, user.id)
+        authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, user.id)
 
         // Check if sign-up is completed
         val claims = collectedClaimManager.findReadableUserInfoByUserId(userId = user.id)
-        return authorizationFlowManager.checkIfAuthorizationIsComplete(
+        return webAuthorizationFlowManager.completeAuthorizationFlowOrRedirect(
             user = user,
             collectedClaims = claims
         )
@@ -148,9 +149,9 @@ open class PasswordFlowManager(
         passwordManager.createPassword(user, password)
 
         // Update the authorize attempt with the id of the user so they can retrieve their access token.
-        authorizeManager.setAuthenticatedUserId(authorizeAttempt, user.id)
+        authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, user.id)
 
-        return authorizationFlowManager.checkIfAuthorizationIsComplete(
+        return webAuthorizationFlowManager.completeAuthorizationFlowOrRedirect(
             user = user,
             collectedClaims = collectedClaims
         )

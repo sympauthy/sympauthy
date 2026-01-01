@@ -32,9 +32,6 @@ import java.util.*
 class TokenManagerTest {
 
     @MockK
-    lateinit var authorizeManager: AuthorizeManager
-
-    @MockK
     lateinit var jwtManager: JwtManager
 
     @MockK
@@ -78,20 +75,18 @@ class TokenManagerTest {
     @Test
     fun `generateTokens - Generate all tokens`() = runTest {
         val userId = UUID.randomUUID()
-        val attempt = mockk<AuthorizeAttempt>()
         val authorizedAttempt = mockk<AuthorizeAttempt>()
         val accessToken = mockk<EncodedAuthenticationToken>()
         val refreshToken = mockk<EncodedAuthenticationToken>()
         val idToken = mockk<EncodedAuthenticationToken>()
 
-        every { attempt.expired } returns false
-        every { attempt.userId } returns userId
-        coEvery { authorizeManager.setGrantedScopes(attempt) } returns authorizedAttempt
+        every { authorizedAttempt.expired } returns false
+        every { authorizedAttempt.userId } returns userId
         coEvery { accessTokenGenerator.generateAccessToken(authorizedAttempt, userId) } returns accessToken
         coEvery { refreshTokenGenerator.generateRefreshToken(authorizedAttempt, userId) } returns refreshToken
         coEvery { idTokenGenerator.generateIdToken(authorizedAttempt, userId, accessToken) } returns idToken
 
-        val result = tokenManager.generateTokens(attempt)
+        val result = tokenManager.generateTokens(authorizedAttempt)
 
         assertSame(accessToken, result.accessToken)
         assertSame(refreshToken, result.refreshToken)

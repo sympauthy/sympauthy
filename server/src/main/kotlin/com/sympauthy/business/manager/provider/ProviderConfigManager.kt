@@ -1,7 +1,7 @@
 package com.sympauthy.business.manager.provider
 
 import com.jayway.jsonpath.JsonPath
-import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.model.provider.DisabledProvider
 import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.business.model.provider.Provider
@@ -26,7 +26,6 @@ import com.sympauthy.util.loggerForClass
 import io.micronaut.context.MessageSource
 import io.micronaut.context.event.ApplicationEventListener
 import io.micronaut.discovery.event.ServiceReadyEvent
-import io.micronaut.http.HttpStatus.BAD_REQUEST
 import io.micronaut.scheduling.annotation.Async
 import io.reactivex.rxjava3.core.Single
 import jakarta.inject.Inject
@@ -69,7 +68,7 @@ open class ProviderConfigManager(
 
     suspend fun findEnabledProviderById(id: String): EnabledProvider {
         return listEnabledProviders().firstOrNull { it.id == id }
-            ?: throw businessExceptionOf(detailsId = "provider.missing", recommendedStatus = BAD_REQUEST)
+            ?: throw recoverableBusinessExceptionOf("provider.missing")
     }
 
     private fun configureProviders(): List<Provider> {

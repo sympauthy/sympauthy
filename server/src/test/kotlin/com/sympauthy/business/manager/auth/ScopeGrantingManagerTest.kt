@@ -13,13 +13,13 @@ import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
-import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertEquals
 
 @ExtendWith(MockKExtension::class)
-class AuthorizationManagerTest {
+class ScopeGrantingManagerTest {
 
     @MockK
     lateinit var scopeManager: ScopeManager
@@ -29,7 +29,7 @@ class AuthorizationManagerTest {
 
     @SpyK
     @InjectMockKs
-    lateinit var authorizationManager: AuthorizationManager
+    lateinit var scopeGrantingManager: ScopeGrantingManager
 
     @Test
     fun `grantScopes - apply methods returned by getScopeGrantingMethods`() = runBlocking {
@@ -59,9 +59,9 @@ class AuthorizationManagerTest {
                 )
             }
 
-        every { authorizationManager.getScopeGrantingMethods() } returns listOf(method1, declineAllMethod)
+        every { scopeGrantingManager.getScopeGrantingMethods() } returns listOf(method1, declineAllMethod)
 
-        val result = authorizationManager.grantScopes(authorizeAttempt)
+        val result = scopeGrantingManager.grantScopes(authorizeAttempt)
 
         assertEquals(listOf(grantedScope1, declinedScope1, declinedScope2), result.requestedScopes)
         assertEquals(listOf(grantedScope1), result.grantedScopes)
@@ -79,7 +79,7 @@ class AuthorizationManagerTest {
             declinedScopes = listOf(declinedScope)
         )
 
-        val scopes = authorizationManager.getUnhandledRequestedScopes(
+        val scopes = scopeGrantingManager.getUnhandledRequestedScopes(
             requestedScopes = listOf(grantedScope, declinedScope, unhandledScope),
             results = listOf(result)
         )
@@ -90,12 +90,12 @@ class AuthorizationManagerTest {
     fun `applyDefaultBehavior - decline all requested scopes`() = runBlocking {
         val scope = mockk<Scope>()
 
-        val result = authorizationManager.applyDefaultBehavior(
+        val result = scopeGrantingManager.applyDefaultBehavior(
             authorizeAttempt = mockk(),
             requestedScopes = listOf(scope),
         )
 
-        assertTrue(result.grantedScopes.isEmpty())
+        Assertions.assertTrue(result.grantedScopes.isEmpty())
         assertEquals(listOf(scope), result.declinedScopes)
     }
 

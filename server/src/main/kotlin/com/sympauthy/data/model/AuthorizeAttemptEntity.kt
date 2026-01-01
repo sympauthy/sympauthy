@@ -3,6 +3,8 @@ package com.sympauthy.data.model
 import io.micronaut.data.annotation.GeneratedValue
 import io.micronaut.data.annotation.Id
 import io.micronaut.data.annotation.MappedEntity
+import io.micronaut.data.annotation.MappedProperty
+import io.micronaut.data.model.DataType
 import io.micronaut.serde.annotation.Serdeable
 import java.time.LocalDateTime
 import java.util.*
@@ -10,6 +12,7 @@ import java.util.*
 @Serdeable
 @MappedEntity("authorize_attempts")
 class AuthorizeAttemptEntity(
+    val attemptDate: LocalDateTime,
     val clientId: String,
     val authorizationFlowId: String? = null,
     val redirectUri: String,
@@ -18,7 +21,11 @@ class AuthorizeAttemptEntity(
     val nonce: String? = null,
     val userId: UUID? = null,
     val grantedScopes: Array<String>? = null,
-    val attemptDate: LocalDateTime,
+    val errorDate: LocalDateTime? = null,
+    val errorDetailsId: String? = null,
+    val errorDescriptionId: String? = null,
+    @MappedProperty(type = DataType.JSON)
+    val errorValues: Map<String, String>? = null,
     val expirationDate: LocalDateTime
 ) {
     @Id

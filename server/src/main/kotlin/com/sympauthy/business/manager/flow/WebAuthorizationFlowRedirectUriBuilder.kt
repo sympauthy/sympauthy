@@ -1,7 +1,7 @@
 package com.sympauthy.business.manager.flow
 
+import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
-import com.sympauthy.business.manager.auth.oauth2.AuthorizeManager
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import io.micronaut.http.uri.UriBuilder
@@ -15,7 +15,7 @@ import java.net.URI
  */
 @Singleton
 class WebAuthorizationFlowRedirectUriBuilder(
-    @Inject private val authorizeManager: AuthorizeManager,
+    @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
     @Inject private val authorizationCodeManager: AuthorizationCodeManager
 ) {
 
@@ -116,7 +116,7 @@ class WebAuthorizationFlowRedirectUriBuilder(
         authorizeAttempt: AuthorizeAttempt,
         uri: URI
     ): URI {
-        val state = authorizeManager.encodeState(authorizeAttempt)
+        val state = authorizeAttemptManager.encodeState(authorizeAttempt)
         return uri.let(UriBuilder::of)
             .queryParam("state", state)
             .build()

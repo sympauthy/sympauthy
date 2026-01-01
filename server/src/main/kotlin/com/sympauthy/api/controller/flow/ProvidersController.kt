@@ -4,14 +4,12 @@ import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROV
 import com.sympauthy.api.errorhandler.ExceptionConverter
 import com.sympauthy.api.mapper.ErrorResourceMapper
 import com.sympauthy.api.util.AuthorizationFlowRedirectBuilder
-import com.sympauthy.business.manager.auth.oauth2.AuthorizeManager
 import com.sympauthy.business.manager.auth.oauth2.Oauth2ProviderManager
-import com.sympauthy.business.manager.flow.AuthorizationFlowManager
+import com.sympauthy.business.manager.flow.WebAuthorizationFlowManager
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowRedirectUriBuilder
 import com.sympauthy.business.manager.provider.ProviderConfigManager
 import com.sympauthy.business.manager.provider.ProviderManager
-import com.sympauthy.security.SecurityRule.HAS_VALID_STATE
-import com.sympauthy.security.authorizeAttempt
+import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.util.loggerForClass
 import com.sympauthy.util.orDefault
 import io.micronaut.http.HttpRequest
@@ -27,11 +25,10 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import jakarta.inject.Inject
 
-@Secured(HAS_VALID_STATE)
+@Secured(HAS_STATE)
 @Controller(FLOW_PROVIDER_ENDPOINTS)
 class ProvidersController(
-    @Inject private val authorizationFlowManager: AuthorizationFlowManager,
-    @Inject private val authorizeManager: AuthorizeManager,
+    @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
     @Inject private val oauth2ProviderManager: Oauth2ProviderManager,
     @Inject private val providerManager: ProviderManager,
     @Inject private val providerConfigManager: ProviderConfigManager,
@@ -40,7 +37,7 @@ class ProvidersController(
     @Inject private val redirectUriBuilder: WebAuthorizationFlowRedirectUriBuilder,
     @Inject private val errorResourceMapper: ErrorResourceMapper,
 
-) {
+    ) {
 
     private val logger = loggerForClass()
 
@@ -66,12 +63,11 @@ Following query parameters will be populated with information about the error:
     suspend fun authorizeWithProvider(
         authentication: Authentication,
         providerId: String
-    ): HttpResponse<*> {
-        // Check first to throw UNAUTHORIZED if authentication is not done through state.
-        val authorizeAttempt = authentication.authorizeAttempt
-        val provider = providerConfigManager.findEnabledProviderById(providerId)
-        return providerManager.authorizeWithProvider(authorizeAttempt, provider)
-    }
+    ): HttpResponse<*> =
+        webAuthorizationFlowManager.extractFromAuthenticationAndVerifyThenRun(authentication) { authorizeAttempt, _ ->
+            val provider = providerConfigManager.findEnabledProviderById(providerId)
+            providerManager.authorizeWithProvider(authorizeAttempt, provider)
+        }
 
     @Get(FLOW_PROVIDER_CALLBACK_ENDPOINT)
     @Secured(IS_ANONYMOUS)
@@ -81,11 +77,8 @@ Following query parameters will be populated with information about the error:
         @QueryValue("error") error: String?,
         @QueryValue("error_description") errorDescription: String?,
         @QueryValue("state") state: String?
-    ): HttpResponse<*> {
-        val authorizeAttempt = authorizeManager.verifyEncodedState(state)
-        val flow = authorizationFlowManager.verifyIsWebFlow(authorizeAttempt)
-
-        return if (code != null) {
+    ): HttpResponse<*> = webAuthorizationFlowManager.extractFromStateVerifyThenRun(state) { authorizeAttempt, flow ->
+        if (code != null) {
             val provider = providerConfigManager.findEnabledProviderById(providerId)
             val result = oauth2ProviderManager.signInOrSignUpUsingProvider(
                 authorizeAttempt = authorizeAttempt,
@@ -127,7 +120,7 @@ Following query parameters will be populated with information about the error:
 
         // TODO: Maybe it is possible to find the proper flow used then fallback on the default.
         return redirectBuilder.redirectToError(
-            flow = authorizationFlowManager.defaultAuthorizationFlow,
+            flow = webAuthorizationFlowManager.defaultAuthorizationFlow,
             errorCode = resource.errorCode,
             details = resource.details,
             description = resource.description

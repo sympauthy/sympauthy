@@ -31,8 +31,8 @@ class ClaimValueValidator {
         if (value != null && claim.dataType.typeClass != value::class) {
             throw localizedExceptionOf(
                 detailsId = "claim.validate.invalid_type",
-                "claim" to claim,
-                "type" to claim.dataType
+                "claim" to claim.id,
+                "type" to claim.dataType.name
             )
         }
         if (claim.allowedValues != null && value != null && !claim.allowedValues.contains(value)) {
@@ -42,7 +42,7 @@ class ClaimValueValidator {
             null -> Optional.empty()
             is String -> validateAndCleanStringForClaim(claim, value)
             else -> throw localizedExceptionOf(
-                "claim.validate.unsupported_type", "claim" to claim
+                "claim.validate.unsupported_type", "claim" to claim.id
             )
         }
     }

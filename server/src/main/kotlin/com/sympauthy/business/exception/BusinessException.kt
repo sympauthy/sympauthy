@@ -18,7 +18,7 @@ open class BusinessException(
     recoverable: Boolean,
     detailsId: String,
     descriptionId: String? = null,
-    values: Map<String, Any?> = emptyMap(),
+    values: Map<String, String> = emptyMap(),
     val recommendedStatus: HttpStatus? = null,
     throwable: Throwable? = null
 ) : LocalizedException(
@@ -40,7 +40,7 @@ fun businessExceptionOf(
     detailsId: String,
     descriptionId: String? = null,
     recommendedStatus: HttpStatus? = null,
-    vararg values: Pair<String, Any?>
+    vararg values: Pair<String, String>
 ): BusinessException = BusinessException(
     recoverable = false,
     detailsId = detailsId,
@@ -58,7 +58,7 @@ fun businessExceptionOf(
 fun recoverableBusinessExceptionOf(
     detailsId: String,
     descriptionId: String? = null,
-    vararg values: Pair<String, Any?>
+    vararg values: Pair<String, String>
 ) = BusinessException(
     recoverable = true,
     detailsId = detailsId,
