@@ -1,6 +1,6 @@
 package com.sympauthy.business.manager.flow
 
-import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.validationcode.ValidationCodeManager
@@ -13,7 +13,6 @@ import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.Claim
-import io.micronaut.http.HttpStatus.BAD_REQUEST
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import jakarta.transaction.Transactional
@@ -184,15 +183,13 @@ open class AuthorizationFlowClaimValidationManager(
 
         val matchingValidationCode = validationCodes.firstOrNull { it.code == code }
         if (matchingValidationCode == null) {
-            throw businessExceptionOf(
-                detailsId = "flow.claim_validation.invalid_code",
-                recommendedStatus = BAD_REQUEST
+            throw recoverableBusinessExceptionOf(
+                detailsId = "flow.claim_validation.invalid_code"
             )
         }
         if (matchingValidationCode.expired) {
-            throw businessExceptionOf(
-                detailsId = "flow.claim_validation.expired_code",
-                recommendedStatus = BAD_REQUEST
+            throw recoverableBusinessExceptionOf(
+                detailsId = "flow.claim_validation.expired_code"
             )
         }
 

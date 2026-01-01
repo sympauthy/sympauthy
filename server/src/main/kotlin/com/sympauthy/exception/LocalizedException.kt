@@ -5,6 +5,11 @@ package com.sympauthy.exception
  */
 open class LocalizedException(
     /**
+     * Whether the error is caused by a user action or a system issue.
+     * If recoverable, the user can take action to resolve the issue.
+     */
+    val recoverable: Boolean = false,
+    /**
      * Identifier of the message detailing the issue in a technical way.
      *
      * It is mostly meant for developers and administrators to troubleshoot the issue.
@@ -16,7 +21,7 @@ open class LocalizedException(
      * Identifier of the message displayed to the end user.
      *
      * This message is meant to be displayed to the end user. It must help the user to understand what went wrong and how
-     * to get out of the situation if possible.
+     * to get out of the situation if the error is [recoverable].
      */
     val descriptionId: String? = null,
     /**
@@ -43,6 +48,7 @@ fun localizedExceptionOf(
     detailsId: String,
     vararg values: Pair<String, Any?>
 ) = LocalizedException(
+    recoverable = false,
     detailsId = detailsId,
     values = mapOf(*values)
 )

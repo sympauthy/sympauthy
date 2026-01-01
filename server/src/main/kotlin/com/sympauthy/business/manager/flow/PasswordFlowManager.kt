@@ -1,6 +1,6 @@
 package com.sympauthy.business.manager.flow
 
-import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.auth.oauth2.AuthorizeManager
 import com.sympauthy.business.manager.password.PasswordManager
@@ -20,7 +20,6 @@ import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.UserRepository
 import com.sympauthy.data.repository.findAnyClaimMatching
-import io.micronaut.http.HttpStatus
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -80,20 +79,20 @@ open class PasswordFlowManager(
         password: String?
     ): AuthorizationFlowResult {
         if (!signInEnabled) {
-            throw businessExceptionOf("flow.password.sign_in.disabled", recommendedStatus = HttpStatus.BAD_REQUEST)
+            throw recoverableBusinessExceptionOf("flow.password.sign_in.disabled")
         }
         if (login.isNullOrBlank() || password.isNullOrBlank()) {
-            throw businessExceptionOf("flow.password.sign_in.invalid", recommendedStatus = HttpStatus.BAD_REQUEST)
+            throw recoverableBusinessExceptionOf("flow.password.sign_in.invalid")
         }
 
         val user = findByLogin(login)
         // The user does not exist or has been created using a third-party provider.
         if (user == null || user.status != UserStatus.ENABLED) {
-            throw businessExceptionOf("flow.password.sign_in.invalid", recommendedStatus = HttpStatus.BAD_REQUEST)
+            throw recoverableBusinessExceptionOf("flow.password.sign_in.invalid")
         }
 
         if (!passwordManager.arePasswordMatching(user, password)) {
-            throw businessExceptionOf("flow.password.sign_in.invalid", recommendedStatus = HttpStatus.BAD_REQUEST)
+            throw recoverableBusinessExceptionOf("flow.password.sign_in.invalid")
         }
 
         // Update the authorize attempt with the id of the user so they can retrieve their access token.
@@ -162,10 +161,9 @@ open class PasswordFlowManager(
             .keys
             .firstOrNull()
         if (missingClaim != null) {
-            throw businessExceptionOf(
+            throw recoverableBusinessExceptionOf(
                 detailsId = "flow.password.sign_up.missing_claim",
                 descriptionId = "flow.password.sign_up.missing_claim",
-                recommendedStatus = HttpStatus.BAD_REQUEST,
                 "claim" to missingClaim.id
             )
         }
@@ -184,7 +182,7 @@ open class PasswordFlowManager(
             .mapNotNull(claimValueMapper::toEntity)
         val existingCollectedClaims = collectedClaimRepository.findAnyClaimMatching(claimIds, values)
         if (existingCollectedClaims.isNotEmpty()) {
-            throw businessExceptionOf("flow.password.sign_up.existing", recommendedStatus = HttpStatus.BAD_REQUEST)
+            throw recoverableBusinessExceptionOf("flow.password.sign_up.existing")
         }
     }
 }
