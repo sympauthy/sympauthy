@@ -38,7 +38,7 @@ class AuthorizeAttemptManager(
 
     suspend fun newAuthorizeAttempt(
         client: Client,
-        authorizationFlow: AuthorizationFlow,
+        authorizationFlow: AuthorizationFlow?,
         clientState: String? = null,
         clientNonce: String? = null,
         uncheckedScopes: List<Scope>? = null,
@@ -50,7 +50,7 @@ class AuthorizeAttemptManager(
 
         val entity = AuthorizeAttemptEntity(
             clientId = client.id,
-            authorizationFlowId = authorizationFlow.id,
+            authorizationFlowId = authorizationFlow?.id,
             redirectUri = redirectUri.toString(),
             requestedScopes = scopes.map(Scope::scope).toTypedArray(),
             state = clientState,
