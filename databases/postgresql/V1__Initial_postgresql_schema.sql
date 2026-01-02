@@ -109,6 +109,7 @@ CREATE TABLE authorize_attempts
     error_description_id text,
     error_values         json,
 
+    complete_date        timestamp,
     expiration_date       timestamp NOT NULL,
 
     PRIMARY KEY (id),

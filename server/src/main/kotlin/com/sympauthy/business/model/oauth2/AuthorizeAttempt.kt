@@ -49,21 +49,21 @@ data class AuthorizeAttempt(
     val authorizationFlowId: String?,
 
     /**
-     * The identifier of the user that was connected at the end of the authentication flow.
+     * The identifier of the user that was connected at the end of the authentication process.
      */
     val userId: UUID?,
     /*
-     * The scopes that were granted to the user during the authentication flow.
+     * The scopes that were granted to the user during the authorization process.
      */
     val grantedScopes: List<String>?,
 
     /**
-     * When the user initiated the authentication flow.
+     * When the user initiated the authentication.
      */
     val attemptDate: LocalDateTime,
 
     /**
-     * When then authentication flow failed.
+     * When the authentication process failed.
      */
     val errorDate: LocalDateTime?,
 
@@ -86,7 +86,14 @@ data class AuthorizeAttempt(
      */
     val errorValues: Map<String, String>?,
 
+    /**
+     * When the user has completed the authorization flow.
+     */
+    val completeDate: LocalDateTime?,
     override val expirationDate: LocalDateTime
 ): Expirable {
 
+    val complete: Boolean = completeDate != null
+
+    val failed: Boolean = errorDate != null
 }

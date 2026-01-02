@@ -154,7 +154,7 @@ class WebAuthorizationFlowManagerTest {
         )
         every { manager.findById(webFlowId) } returns webFlow
         coEvery {
-            authorizeAttemptManager.setErrorIfNonRecoverable(authorizeAttempt, businessException)
+            authorizeAttemptManager.markAsFailedIfNotRecoverable(authorizeAttempt, businessException)
         } returns authorizeAttempt
 
         val exception = assertThrows<BusinessException> {
@@ -164,6 +164,6 @@ class WebAuthorizationFlowManagerTest {
         }
 
         assertEquals(businessException, exception)
-        coVerify { authorizeAttemptManager.setErrorIfNonRecoverable(authorizeAttempt, businessException) }
+        coVerify { authorizeAttemptManager.markAsFailedIfNotRecoverable(authorizeAttempt, businessException) }
     }
 }

@@ -40,5 +40,7 @@ interface AuthorizeAttemptRepository : CoroutineCrudRepository<AuthorizeAttemptE
         errorValues: Map<String, String>?
     )
 
+    suspend fun updateCompleteDate(@Id id: UUID, completeDate: LocalDateTime?)
+
     suspend fun deleteByIds(ids: List<UUID>): Int
 }

@@ -67,7 +67,7 @@ class TokenController(
         if (code.isNullOrBlank()) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token.missing_param", "param" to CODE_PARAM)
         }
-        val attempt = authorizeAttemptManager.findByCode(code) ?: throw oauth2ExceptionOf(
+        val attempt = authorizeAttemptManager.findByCodeOrNull(code) ?: throw oauth2ExceptionOf(
             INVALID_GRANT, "token.expired", "description.oauth2.expired"
         )
         if (attempt.redirectUri != redirectUri) {

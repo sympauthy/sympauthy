@@ -27,6 +27,7 @@ import jakarta.inject.Singleton
  */
 @Singleton
 class WebAuthorizationFlowManager(
+    @Inject private val authorizationFlowManager: AuthorizationFlowManager,
     @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val claimValidationManager: WebAuthorizationFlowClaimValidationManager,
@@ -105,7 +106,7 @@ class WebAuthorizationFlowManager(
             val flow = this.findById(authorizeAttempt.authorizationFlowId)
             method(authorizeAttempt, flow)
         } catch (e: BusinessException) {
-            authorizeAttemptManager.setErrorIfNonRecoverable(
+            authorizeAttemptManager.markAsFailedIfNotRecoverable(
                 authorizeAttempt = authorizeAttempt,
                 error = e,
             )
@@ -154,7 +155,7 @@ class WebAuthorizationFlowManager(
     ): WebAuthorizationFlowStatus {
         val status = getStatus(authorizeAttempt)
         if (status.complete) {
-            // FIXME
+            authorizationFlowManager.completeAuthorization(authorizeAttempt)
         }
         return status
     }

@@ -159,11 +159,16 @@ class AuthorizeAttemptManager(
 
     /**
      * Associate the user that have been authenticated to its [AuthorizeAttempt].
+     * Do nothing if the [authorizeAttempt] has already been completed or is already in error.
      */
     suspend fun setAuthenticatedUserId(
         authorizeAttempt: AuthorizeAttempt,
         userId: UUID
     ): AuthorizeAttempt {
+        if (authorizeAttempt.failed || authorizeAttempt.complete) {
+            return authorizeAttempt
+        }
+
         authorizeAttemptRepository.updateUserId(
             id = authorizeAttempt.id,
             userId = userId
@@ -175,31 +180,39 @@ class AuthorizeAttemptManager(
 
     /**
      * Set and save the list of scopes that have been granted to the user.
-     * If the [AuthorizeAttempt.grantedScopes] were already determined, return immediately.
+     * Do nothing if the [authorizeAttempt] has already been completed or is already in error.
      */
     suspend fun setGrantedScopes(
         authorizeAttempt: AuthorizeAttempt,
+        grantedScopes: List<Scope>
     ): AuthorizeAttempt {
-        return if (authorizeAttempt.grantedScopes != null) {
-            authorizeAttemptRepository.updateGrantedScopes(
-                id = authorizeAttempt.id,
-                grantedScopes = authorizeAttempt.grantedScopes
-            )
-            authorizeAttempt.copy(
-                grantedScopes = authorizeAttempt.grantedScopes
-            )
-        } else authorizeAttempt
+        if (authorizeAttempt.failed || authorizeAttempt.complete) {
+            return authorizeAttempt
+        }
+
+        val grantedScopeIds = grantedScopes.map(Scope::scope)
+        authorizeAttemptRepository.updateGrantedScopes(
+            id = authorizeAttempt.id,
+            grantedScopes = grantedScopeIds
+        )
+        return authorizeAttempt.copy(
+            grantedScopes = grantedScopeIds
+        )
     }
 
     /**
      * Set and save the error if it is non-recoverable to prevent further usage of the [authorizeAttempt].
+     * Do nothing if the [authorizeAttempt] has already been completed or is already in error.
      */
-    suspend fun setErrorIfNonRecoverable(
+    suspend fun markAsFailedIfNotRecoverable(
         authorizeAttempt: AuthorizeAttempt,
         error: BusinessException
     ): AuthorizeAttempt {
         if (error.recoverable) return authorizeAttempt
-        if (authorizeAttempt.errorDetailsId != null) return authorizeAttempt
+        if (authorizeAttempt.failed || authorizeAttempt.complete) {
+            return authorizeAttempt
+        }
+
         val errorDate = LocalDateTime.now()
         authorizeAttemptRepository.updateError(
             id = authorizeAttempt.id,
@@ -216,7 +229,28 @@ class AuthorizeAttemptManager(
         )
     }
 
-    suspend fun findByCode(code: String): AuthorizeAttempt? {
+    /**
+     * Set and save the completion date of the [authorizeAttempt] and return the modified [authorizeAttempt].
+     * Do nothing if the [authorizeAttempt] has already been completed or has failed.
+     */
+    suspend fun markAsComplete(
+        authorizeAttempt: AuthorizeAttempt
+    ): AuthorizeAttempt {
+        if (authorizeAttempt.failed || authorizeAttempt.complete) {
+            return authorizeAttempt
+        }
+
+        val completeDate = LocalDateTime.now()
+        authorizeAttemptRepository.updateCompleteDate(
+            id = authorizeAttempt.id,
+            completeDate = LocalDateTime.now()
+        )
+        return authorizeAttempt.copy(
+            completeDate = completeDate
+        )
+    }
+
+    suspend fun findByCodeOrNull(code: String): AuthorizeAttempt? {
         val authorizeAttempt = authorizeAttemptRepository.findByCode(code)
             ?.let(authorizeAttemptMapper::toAuthorizeAttempt)
         return if (authorizeAttempt?.expired == false) {

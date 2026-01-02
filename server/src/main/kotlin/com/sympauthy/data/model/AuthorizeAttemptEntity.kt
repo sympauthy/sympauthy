@@ -26,6 +26,7 @@ class AuthorizeAttemptEntity(
     val errorDescriptionId: String? = null,
     @MappedProperty(type = DataType.JSON)
     val errorValues: Map<String, String>? = null,
+    val completeDate: LocalDateTime? = null,
     val expirationDate: LocalDateTime
 ) {
     @Id
