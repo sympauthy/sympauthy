@@ -27,7 +27,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
-class AuthorizationFlowClaimValidationManagerTest {
+class WebAuthorizationFlowClaimValidationManagerTest {
 
     @MockK
     lateinit var claimManager: ClaimManager
@@ -40,7 +40,7 @@ class AuthorizationFlowClaimValidationManagerTest {
 
     @SpyK
     @InjectMockKs
-    lateinit var manager: AuthorizationFlowClaimValidationManager
+    lateinit var manager: WebAuthorizationFlowClaimValidationManager
 
     @Test
     fun `getUnfilteredReasonsToSendValidationCode - Verify email`() {

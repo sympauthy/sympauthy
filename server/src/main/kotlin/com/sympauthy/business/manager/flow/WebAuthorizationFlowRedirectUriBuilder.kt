@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.flow
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
+import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import io.micronaut.http.uri.UriBuilder
 import jakarta.inject.Inject
@@ -33,26 +34,26 @@ class WebAuthorizationFlowRedirectUriBuilder(
     }
 
     /**
-     * Return the [URI] where the end-user must be redirected to according to the [result].
+     * Return the [URI] where the end-user must be redirected to according to the [status].
      */
     suspend fun getRedirectUri(
         authorizeAttempt: AuthorizeAttempt,
         flow: WebAuthorizationFlow,
-        result: AuthorizationFlowResult
+        status: WebAuthorizationFlowStatus
     ): URI {
         return when {
-            result.missingRequiredClaims -> appendStateToUri(
+            status.missingRequiredClaims -> appendStateToUri(
                 authorizeAttempt = authorizeAttempt,
                 uri = flow.collectClaimsUri
             )
 
-            result.missingMediaForClaimValidation.isNotEmpty() -> getRedirectUriToClaimValidation(
+            status.missingMediaForClaimValidation.isNotEmpty() -> getRedirectUriToClaimValidation(
                 authorizeAttempt = authorizeAttempt,
                 flow = flow,
-                result = result,
+                result = status,
             )
 
-            result.complete -> getRedirectUriToClient(
+            status.complete -> getRedirectUriToClient(
                 authorizeAttempt = authorizeAttempt
             )
 
@@ -66,7 +67,7 @@ class WebAuthorizationFlowRedirectUriBuilder(
     suspend fun getRedirectUriToClaimValidation(
         authorizeAttempt: AuthorizeAttempt,
         flow: WebAuthorizationFlow,
-        result: AuthorizationFlowResult,
+        result: WebAuthorizationFlowStatus,
     ): URI {
         val uri = flow.validateClaimsUri.let(UriBuilder::of)
             .apply {

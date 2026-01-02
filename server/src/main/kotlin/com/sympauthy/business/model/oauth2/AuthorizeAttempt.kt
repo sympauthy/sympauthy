@@ -58,7 +58,7 @@ data class AuthorizeAttempt(
     val grantedScopes: List<String>?,
 
     /**
-     * When the authentication flow was initiated by the user.
+     * When the user initiated the authentication flow.
      */
     val attemptDate: LocalDateTime,
 

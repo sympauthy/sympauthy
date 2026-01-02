@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
+import java.util.*
 
 @ExtendWith(MockKExtension::class)
 class WebAuthorizationFlowManagerTest {
@@ -34,7 +35,7 @@ class WebAuthorizationFlowManagerTest {
     lateinit var collectedClaimManager: CollectedClaimManager
 
     @MockK
-    lateinit var claimValidationManager: AuthorizationFlowClaimValidationManager
+    lateinit var claimValidationManager: WebAuthorizationFlowClaimValidationManager
 
     @MockK
     lateinit var authorizationFlowsConfig: AuthorizationFlowsConfig
@@ -48,32 +49,50 @@ class WebAuthorizationFlowManagerTest {
 
     @Test
     fun `completeAuthorizationFlowOrRedirect - Non complete if missing claims`() = runTest {
+        val userId = UUID.randomUUID()
+        val authorizeAttempt = mockk<AuthorizeAttempt> {
+            val mock = this
+            every { mock.userId } returns userId
+        }
+        coEvery { collectedClaimManager.findClaimsReadableByAttempt(authorizeAttempt) } returns emptyList()
         every { collectedClaimManager.areAllRequiredClaimCollected(any()) } returns false
         every { claimValidationManager.getReasonsToSendValidationCode(any()) } returns emptyList()
 
-        val result = manager.completeAuthorizationFlowOrRedirect(mockk(), mockk())
+        val result = manager.completeAuthorizationIfNecessaryAndGetStatus(authorizeAttempt)
 
         assertTrue(result.missingRequiredClaims)
     }
 
     @Test
     fun `completeAuthorizationFlowOrRedirect - Non complete if missing validation`() = runTest {
+        val userId = UUID.randomUUID()
+        val authorizeAttempt = mockk<AuthorizeAttempt> {
+            val mock = this
+            every { mock.userId } returns userId
+        }
+        coEvery { collectedClaimManager.findClaimsReadableByAttempt(authorizeAttempt) } returns emptyList()
         every { collectedClaimManager.areAllRequiredClaimCollected(any()) } returns true
         every { claimValidationManager.getReasonsToSendValidationCode(any()) } returns listOf(
             ValidationCodeReason.EMAIL_CLAIM,
         )
 
-        val result = manager.completeAuthorizationFlowOrRedirect(mockk(), mockk())
+        val result = manager.completeAuthorizationIfNecessaryAndGetStatus(authorizeAttempt)
 
         assertTrue(result.missingMediaForClaimValidation.isNotEmpty())
     }
 
     @Test
     fun `completeAuthorizationFlowOrRedirect - Complete`() = runTest {
+        val userId = UUID.randomUUID()
+        val authorizeAttempt = mockk<AuthorizeAttempt> {
+            val mock = this
+            every { mock.userId } returns userId
+        }
+        coEvery { collectedClaimManager.findClaimsReadableByAttempt(authorizeAttempt) } returns emptyList()
         every { collectedClaimManager.areAllRequiredClaimCollected(any()) } returns true
         every { claimValidationManager.getReasonsToSendValidationCode(any()) } returns emptyList()
 
-        val result = manager.completeAuthorizationFlowOrRedirect(mockk(), mockk())
+        val result = manager.completeAuthorizationIfNecessaryAndGetStatus(authorizeAttempt)
 
         assertTrue(result.complete)
     }
@@ -81,14 +100,17 @@ class WebAuthorizationFlowManagerTest {
     @Test
     fun `extractFromStateVerifyThenRun - Success`() = runTest {
         val state = "valid-state"
-        val authorizeAttempt = mockk<AuthorizeAttempt>()
+        val webFlowId = "web-flow-id"
+        val authorizeAttempt = mockk<AuthorizeAttempt> {
+            every { authorizationFlowId } returns webFlowId
+        }
         val webFlow = mockk<WebAuthorizationFlow>()
         val expectedResult = "test-result"
 
         coEvery { authorizeAttemptManager.verifyEncodedState(state) } returns SuccessVerifyEncodedStateResult(
             authorizeAttempt
         )
-        every { manager.verifyIsWebFlow(authorizeAttempt) } returns webFlow
+        every { manager.findById(webFlowId) } returns webFlow
 
         val result = manager.extractFromStateVerifyThenRun(state) { attempt, flow ->
             assertEquals(authorizeAttempt, attempt)
@@ -118,7 +140,10 @@ class WebAuthorizationFlowManagerTest {
     @Test
     fun `extractFromStateVerifyThenRun - Save thrown business error in authorize attempt`() = runTest {
         val state = "valid-state"
-        val authorizeAttempt = mockk<AuthorizeAttempt>()
+        val webFlowId = "web-flow-id"
+        val authorizeAttempt = mockk<AuthorizeAttempt> {
+            every { authorizationFlowId } returns webFlowId
+        }
         val webFlow = mockk<WebAuthorizationFlow>()
         val businessException = mockk<BusinessException> {
             every { recoverable } returns false
@@ -127,7 +152,7 @@ class WebAuthorizationFlowManagerTest {
         coEvery { authorizeAttemptManager.verifyEncodedState(state) } returns SuccessVerifyEncodedStateResult(
             authorizeAttempt
         )
-        every { manager.verifyIsWebFlow(authorizeAttempt) } returns webFlow
+        every { manager.findById(webFlowId) } returns webFlow
         coEvery {
             authorizeAttemptManager.setErrorIfNonRecoverable(authorizeAttempt, businessException)
         } returns authorizeAttempt

@@ -1,7 +1,7 @@
 package com.sympauthy.business.manager.provider
 
 import com.sympauthy.business.exception.businessExceptionOf
-import com.sympauthy.business.manager.auth.oauth2.Oauth2ProviderManager
+import com.sympauthy.business.manager.flow.WebAuthorizationFlowOauth2ProviderManager
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.business.model.provider.config.ProviderOauth2Config
@@ -11,7 +11,7 @@ import jakarta.inject.Singleton
 
 @Singleton
 class ProviderManager(
-    @Inject private val oauth2ProviderManager: Oauth2ProviderManager
+    @Inject private val oauth2ProviderManager: WebAuthorizationFlowOauth2ProviderManager
 ) {
 
     /**

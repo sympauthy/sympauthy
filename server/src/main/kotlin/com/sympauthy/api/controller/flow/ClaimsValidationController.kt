@@ -3,10 +3,9 @@ package com.sympauthy.api.controller.flow
 import com.sympauthy.api.mapper.flow.ClaimsValidationFlowResultResourceMapper
 import com.sympauthy.api.resource.flow.*
 import com.sympauthy.api.util.flow.FlowControllerHelper
-import com.sympauthy.business.manager.flow.AuthorizationFlowClaimValidationManager
+import com.sympauthy.business.manager.flow.WebAuthorizationFlowClaimValidationManager
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowManager
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowRedirectUriBuilder
-import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import io.micronaut.http.annotation.Body
@@ -23,8 +22,7 @@ import jakarta.inject.Inject
 @Controller("/api/v1/flow/claims/validation")
 class ClaimsValidationController(
     @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
-    @Inject private val claimValidationManager: AuthorizationFlowClaimValidationManager,
-    @Inject private val collectedClaimManager: CollectedClaimManager,
+    @Inject private val claimValidationManager: WebAuthorizationFlowClaimValidationManager,
     @Inject private val resourceMapper: ClaimsValidationFlowResultResourceMapper,
     @Inject private val redirectUriBuilder: WebAuthorizationFlowRedirectUriBuilder,
     @Inject private val flowControllerHelper: FlowControllerHelper
@@ -65,12 +63,6 @@ Result containing either:
         webAuthorizationFlowManager.extractFromAuthenticationAndVerifyThenRun(authentication) { authorizeAttempt, flow ->
             val user = flowControllerHelper.getUser(authorizeAttempt)
 
-            val collectedClaims = collectedClaimManager.findClaimsReadableByAttempt(authorizeAttempt)
-            val result = webAuthorizationFlowManager.completeAuthorizationFlowOrRedirect(
-                user = user,
-                collectedClaims = collectedClaims,
-            )
-
             val validationCode = claimValidationManager.getOrSendValidationCode(
                 authorizeAttempt = authorizeAttempt,
                 user = user,
@@ -80,10 +72,13 @@ Result containing either:
             if (validationCode != null) {
                 resourceMapper.toFlowResultResource(validationCode)
             } else {
+                val status = webAuthorizationFlowManager.completeAuthorizationIfNecessaryAndGetStatus(
+                    authorizeAttempt = authorizeAttempt,
+                )
                 val redirectUri = redirectUriBuilder.getRedirectUri(
                     authorizeAttempt = authorizeAttempt,
                     flow = flow,
-                    result = result,
+                    status = status,
                 )
                 resourceMapper.toFlowResultResource(
                     redirectUri = redirectUri,
@@ -107,24 +102,19 @@ Result containing either:
         @Body inputResource: ClaimValidationInputResource
     ): FlowResultResource =
         webAuthorizationFlowManager.extractFromAuthenticationAndVerifyThenRun(authentication) { authorizeAttempt, flow ->
-            val user = flowControllerHelper.getUser(authorizeAttempt)
-
             claimValidationManager.validateClaimsByCode(
                 authorizeAttempt = authorizeAttempt,
                 media = ValidationCodeMedia.valueOf(inputResource.media),
                 code = inputResource.code
             )
 
-            val collectedClaims = collectedClaimManager.findClaimsReadableByAttempt(authorizeAttempt)
-            val result = webAuthorizationFlowManager.completeAuthorizationFlowOrRedirect(
-                user = user,
-                collectedClaims = collectedClaims,
+            val result = webAuthorizationFlowManager.completeAuthorizationIfNecessaryAndGetStatus(
+                authorizeAttempt = authorizeAttempt,
             )
-
             val redirectUri = redirectUriBuilder.getRedirectUri(
                 authorizeAttempt = authorizeAttempt,
                 flow = flow,
-                result = result
+                status = result
             )
             FlowResultResource(redirectUri.toString())
         }

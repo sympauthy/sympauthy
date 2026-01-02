@@ -7,8 +7,8 @@ import com.sympauthy.api.resource.flow.ClaimInputResource
 import com.sympauthy.api.resource.flow.ClaimsResource
 import com.sympauthy.api.resource.flow.FlowResultResource
 import com.sympauthy.api.util.flow.FlowControllerHelper
-import com.sympauthy.business.manager.flow.PasswordFlowManager
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowManager
+import com.sympauthy.business.manager.flow.WebAuthorizationFlowPasswordManager
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowRedirectUriBuilder
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.model.user.CollectedClaimUpdate
@@ -29,7 +29,7 @@ import jakarta.inject.Inject
 class ClaimsController(
     @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
-    @Inject private val passwordFlowManager: PasswordFlowManager,
+    @Inject private val passwordFlowManager: WebAuthorizationFlowPasswordManager,
     @Inject private val claimsMapper: ClaimsResourceMapper,
     @Inject private val collectedClaimUpdateMapper: CollectedClaimUpdateMapper,
     @Inject private val redirectUriBuilder: WebAuthorizationFlowRedirectUriBuilder,
@@ -93,14 +93,13 @@ the end-user but it declined to fulfill the value.
                 throw httpExceptionOf(BAD_REQUEST, "flow.claims.missing_required")
             }
 
-            val result = webAuthorizationFlowManager.completeAuthorizationFlowOrRedirect(
-                user = user,
-                collectedClaims = collectedClaims
+            val status = webAuthorizationFlowManager.completeAuthorizationIfNecessaryAndGetStatus(
+                authorizeAttempt = authorizeAttempt
             )
             val redirectUri = redirectUriBuilder.getRedirectUri(
                 authorizeAttempt = authorizeAttempt,
                 flow = flow,
-                result = result
+                status = status
             )
             FlowResultResource(redirectUri.toString())
         }

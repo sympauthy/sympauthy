@@ -4,6 +4,7 @@ import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
 import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
+import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
 import com.sympauthy.business.model.oauth2.AuthorizationCode
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import io.mockk.coEvery
@@ -39,8 +40,8 @@ class WebAuthorizationFlowRedirectUriBuilderTest {
         val flow = mockk<WebAuthorizationFlow> {
             every { collectClaimsUri } returns rawCollectClaimsUri
         }
-        val flowResult = AuthorizationFlowResult(
-            user = mockk(),
+        val flowResult = WebAuthorizationFlowStatus(
+            missingUser = false,
             missingRequiredClaims = true,
             missingMediaForClaimValidation = emptyList()
         )
@@ -50,7 +51,7 @@ class WebAuthorizationFlowRedirectUriBuilderTest {
         val result = uriBuilder.getRedirectUri(
             authorizeAttempt = authorizeAttempt,
             flow = flow,
-            result = flowResult
+            status = flowResult
         )
 
         assertEquals(rawCollectClaimsUri, result)
@@ -64,8 +65,8 @@ class WebAuthorizationFlowRedirectUriBuilderTest {
             every { validateClaimsUri } returns rawValidateCodeUri
         }
         val missingMedia = ValidationCodeMedia.EMAIL
-        val flowResult = AuthorizationFlowResult(
-            user = mockk(),
+        val flowResult = WebAuthorizationFlowStatus(
+            missingUser = false,
             missingRequiredClaims = false,
             missingMediaForClaimValidation = listOf(missingMedia)
         )
@@ -75,7 +76,7 @@ class WebAuthorizationFlowRedirectUriBuilderTest {
         val result = uriBuilder.getRedirectUri(
             authorizeAttempt = authorizeAttempt,
             flow = flow,
-            result = flowResult
+            status = flowResult
         )
 
         assertEquals(rawValidateCodeUri.scheme, result.scheme)
@@ -89,8 +90,8 @@ class WebAuthorizationFlowRedirectUriBuilderTest {
         val rawClientUri = URI.create("https://www.example.com/callback")
         val authorizeAttempt = mockk<AuthorizeAttempt>()
         val flow = mockk<WebAuthorizationFlow>()
-        val flowResult = AuthorizationFlowResult(
-            user = mockk(),
+        val flowResult = WebAuthorizationFlowStatus(
+            missingUser = false,
             missingRequiredClaims = false,
             missingMediaForClaimValidation = emptyList()
         )
@@ -100,7 +101,7 @@ class WebAuthorizationFlowRedirectUriBuilderTest {
         val result = uriBuilder.getRedirectUri(
             authorizeAttempt = authorizeAttempt,
             flow = flow,
-            result = flowResult
+            status = flowResult
         )
 
         assertEquals(rawClientUri, result)

@@ -4,8 +4,8 @@ import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROV
 import com.sympauthy.api.errorhandler.ExceptionConverter
 import com.sympauthy.api.mapper.ErrorResourceMapper
 import com.sympauthy.api.util.AuthorizationFlowRedirectBuilder
-import com.sympauthy.business.manager.auth.oauth2.Oauth2ProviderManager
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowManager
+import com.sympauthy.business.manager.flow.WebAuthorizationFlowOauth2ProviderManager
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowRedirectUriBuilder
 import com.sympauthy.business.manager.provider.ProviderConfigManager
 import com.sympauthy.business.manager.provider.ProviderManager
@@ -29,7 +29,7 @@ import jakarta.inject.Inject
 @Controller(FLOW_PROVIDER_ENDPOINTS)
 class ProvidersController(
     @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
-    @Inject private val oauth2ProviderManager: Oauth2ProviderManager,
+    @Inject private val oauth2ProviderManager: WebAuthorizationFlowOauth2ProviderManager,
     @Inject private val providerManager: ProviderManager,
     @Inject private val providerConfigManager: ProviderConfigManager,
     @Inject private val exceptionConverter: ExceptionConverter,
@@ -88,7 +88,7 @@ Following query parameters will be populated with information about the error:
             val url = redirectUriBuilder.getRedirectUri(
                 authorizeAttempt = authorizeAttempt,
                 flow = flow,
-                result = result
+                status = result
             )
             HttpResponse.temporaryRedirect<Any>(url)
         } else {
@@ -120,7 +120,7 @@ Following query parameters will be populated with information about the error:
 
         // TODO: Maybe it is possible to find the proper flow used then fallback on the default.
         return redirectBuilder.redirectToError(
-            flow = webAuthorizationFlowManager.defaultAuthorizationFlow,
+            flow = webAuthorizationFlowManager.defaultWebAuthorizationFlow,
             errorCode = resource.errorCode,
             details = resource.details,
             description = resource.description

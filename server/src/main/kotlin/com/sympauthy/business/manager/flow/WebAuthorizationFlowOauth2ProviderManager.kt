@@ -1,16 +1,15 @@
-package com.sympauthy.business.manager.auth.oauth2
+package com.sympauthy.business.manager.flow
 
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_CALLBACK_ENDPOINT
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_ENDPOINTS
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
-import com.sympauthy.business.manager.flow.AuthorizationFlowResult
-import com.sympauthy.business.manager.flow.WebAuthorizationFlowManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.CreateOrAssociateResult
 import com.sympauthy.business.manager.user.UserManager
+import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.business.model.provider.Provider
@@ -20,10 +19,8 @@ import com.sympauthy.business.model.provider.oauth2.ProviderOauth2Tokens
 import com.sympauthy.business.model.redirect.ProviderOauth2AuthorizationRedirect
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.RawProviderClaims
-import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.UserMergingStrategy.BY_MAIL
-import com.sympauthy.business.model.user.UserMergingStrategy.NONE
-import com.sympauthy.business.model.user.claim.OpenIdClaim.Id.EMAIL
+import com.sympauthy.business.model.user.UserMergingStrategy
+import com.sympauthy.business.model.user.claim.OpenIdClaim
 import com.sympauthy.client.oauth2.TokenEndpointClient
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.UrlsConfig
@@ -36,8 +33,12 @@ import jakarta.inject.Singleton
 import java.net.URI
 import java.util.*
 
+/**
+ * Manager in charge of the authentication and registration of an end-user going through a web authorization flow
+ * using an OAuth 2 provider.
+ */
 @Singleton
-open class Oauth2ProviderManager(
+open class WebAuthorizationFlowOauth2ProviderManager(
     @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
@@ -94,7 +95,7 @@ open class Oauth2ProviderManager(
         authorizeAttempt: AuthorizeAttempt,
         provider: EnabledProvider,
         authorizeCode: String
-    ): AuthorizationFlowResult {
+    ): WebAuthorizationFlowStatus {
         val oauth2 = getOauth2(provider)
         val authentication = fetchTokens(provider, oauth2, authorizeCode)
 
@@ -112,16 +113,15 @@ open class Oauth2ProviderManager(
             existingUserInfo.userId
             TODO("FIXME")
         }
-        authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, user.id)
+        val updatedAuthorizeAttempt = authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, user.id)
 
-        return webAuthorizationFlowManager.completeAuthorizationFlowOrRedirect(
-            user = user,
-            collectedClaims = collectedClaimManager.findReadableUserInfoByUserId(user.id)
+        return webAuthorizationFlowManager.completeAuthorizationIfNecessaryAndGetStatus(
+            authorizeAttempt = updatedAuthorizeAttempt
         )
     }
 
     /**
-     * Create a new [User] or associate to an existing [User].
+     * Create a new [com.sympauthy.business.model.user.User] or associate to an existing [com.sympauthy.business.model.user.User].
      * Then update the provider user info with the newly collected [providerUserInfo].
      *
      * Depending on the ```advanced.user-merging-strategy```, we may instead associate the [providerUserInfo] to
@@ -133,13 +133,13 @@ open class Oauth2ProviderManager(
         providerUserInfo: RawProviderClaims
     ): CreateOrAssociateResult {
         return when (uncheckedAdvancedConfig.orThrow().userMergingStrategy) {
-            BY_MAIL -> createOrAssociateUserByEmailWithProviderUserInfo(provider, providerUserInfo)
-            NONE -> createUserWithProviderUserInfo(provider, providerUserInfo)
+            UserMergingStrategy.BY_MAIL -> createOrAssociateUserByEmailWithProviderUserInfo(provider, providerUserInfo)
+            UserMergingStrategy.NONE -> createUserWithProviderUserInfo(provider, providerUserInfo)
         }
     }
 
     /**
-     * Create a new [User] or associate it to a [User] that have the same email.
+     * Create a new [com.sympauthy.business.model.user.User] or associate it to a [com.sympauthy.business.model.user.User] that have the same email.
      * and update the user info collected by the [provider] with the [providerUserInfo].
      *
      * If the ```advanced.user-merging-strategy``` is set to ```by-mail```, we will check if we have an existing user
@@ -158,7 +158,7 @@ open class Oauth2ProviderManager(
             "user.create_with_provider.missing_email",
             values = arrayOf("providerId" to provider.id)
         )
-        val emailClaim = claimManager.findById(EMAIL) ?: throw businessExceptionOf(
+        val emailClaim = claimManager.findById(OpenIdClaim.Id.EMAIL) ?: throw businessExceptionOf(
             "user.create_with_provider.missing_email_claim"
         )
         val existingUser = userManager.findByEmail(email)

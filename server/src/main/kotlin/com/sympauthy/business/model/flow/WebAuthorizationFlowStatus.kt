@@ -1,0 +1,31 @@
+package com.sympauthy.business.model.flow
+
+import com.sympauthy.business.model.code.ValidationCodeMedia
+
+/**
+ * Summary of the current status of an authorization attempt going through a web authorization flow.
+ */
+data class WebAuthorizationFlowStatus(
+    /**
+     * True if no user has been authenticated for this flow yet.
+     */
+    val missingUser: Boolean,
+    /**
+     * True if we are missing some required claims from the end-user, and they must be collected by the client.
+     */
+    val missingRequiredClaims: Boolean,
+    /**
+     * List of media we must send a validation code too according to the claims collected from the end-user.
+     */
+    val missingMediaForClaimValidation: List<ValidationCodeMedia>,
+) {
+
+    /**
+     * True if the authorization is complete and the user can be redirected to the client.
+     */
+    val complete: Boolean = listOf(
+        missingUser,
+        missingRequiredClaims,
+        missingMediaForClaimValidation.isNotEmpty(),
+    ).none { it }
+}

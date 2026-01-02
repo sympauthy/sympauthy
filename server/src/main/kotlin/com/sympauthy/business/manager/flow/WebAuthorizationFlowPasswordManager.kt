@@ -9,6 +9,7 @@ import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.UserMapper
+import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
@@ -27,10 +28,11 @@ import jakarta.inject.Singleton
 import kotlin.jvm.optionals.getOrNull
 
 /**
- * Manager in charge of the authentication and registration of end-user using a password.
+ * Manager in charge of the authentication and registration of an end-user going through a web authorization flow
+ * using a password.
  */
 @Singleton
-open class PasswordFlowManager(
+open class WebAuthorizationFlowPasswordManager(
     @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
@@ -78,7 +80,7 @@ open class PasswordFlowManager(
         authorizeAttempt: AuthorizeAttempt,
         login: String?,
         password: String?
-    ): AuthorizationFlowResult {
+    ): WebAuthorizationFlowStatus {
         if (!signInEnabled) {
             throw businessExceptionOf("flow.password.sign_in.disabled")
         }
@@ -97,13 +99,11 @@ open class PasswordFlowManager(
         }
 
         // Update the authorize attempt with the id of the user so they can retrieve their access token.
-        authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, user.id)
+        val updatedAuthorizeAttempt = authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, user.id)
 
         // Check if sign-up is completed
-        val claims = collectedClaimManager.findReadableUserInfoByUserId(userId = user.id)
-        return webAuthorizationFlowManager.completeAuthorizationFlowOrRedirect(
-            user = user,
-            collectedClaims = claims
+        return webAuthorizationFlowManager.completeAuthorizationIfNecessaryAndGetStatus(
+            authorizeAttempt = updatedAuthorizeAttempt
         )
     }
 
@@ -131,7 +131,7 @@ open class PasswordFlowManager(
         authorizeAttempt: AuthorizeAttempt,
         unfilteredUpdates: List<CollectedClaimUpdate>,
         password: String
-    ): AuthorizationFlowResult {
+    ): WebAuthorizationFlowStatus {
         val claimUpdateMap = getSignUpClaims().associateWith { claim ->
             unfilteredUpdates.firstOrNull { it.claim == claim }
         }
@@ -142,18 +142,17 @@ open class PasswordFlowManager(
         checkForConflictingUsers(claimUpdates)
 
         val user = userManager.createUser()
-        val collectedClaims = collectedClaimManager.update(
+        collectedClaimManager.update(
             user = user,
             updates = claimUpdates
         )
         passwordManager.createPassword(user, password)
 
         // Update the authorize attempt with the id of the user so they can retrieve their access token.
-        authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, user.id)
+        val updatedAuthorizeAttempt = authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, user.id)
 
-        return webAuthorizationFlowManager.completeAuthorizationFlowOrRedirect(
-            user = user,
-            collectedClaims = collectedClaims
+        return webAuthorizationFlowManager.completeAuthorizationIfNecessaryAndGetStatus(
+            authorizeAttempt = updatedAuthorizeAttempt
         )
     }
 

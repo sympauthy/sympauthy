@@ -18,10 +18,10 @@ import jakarta.inject.Singleton
 import jakarta.transaction.Transactional
 
 /**
- * Component in charge of validating the claim collected during the authorization flow.
+ * Component in charge of validating the claim collected during a web authorization flow.
  */
 @Singleton
-open class AuthorizationFlowClaimValidationManager(
+open class WebAuthorizationFlowClaimValidationManager(
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val validationCodeManager: ValidationCodeManager,

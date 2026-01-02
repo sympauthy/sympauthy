@@ -2,8 +2,8 @@ package com.sympauthy.api.controller.flow
 
 import com.sympauthy.api.resource.flow.FlowResultResource
 import com.sympauthy.api.resource.flow.SignInInputResource
-import com.sympauthy.business.manager.flow.PasswordFlowManager
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowManager
+import com.sympauthy.business.manager.flow.WebAuthorizationFlowPasswordManager
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowRedirectUriBuilder
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import io.micronaut.http.annotation.Body
@@ -19,7 +19,7 @@ import jakarta.inject.Inject
 @Secured(HAS_STATE)
 class SignInController(
     @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
-    @Inject private val passwordFlowManager: PasswordFlowManager,
+    @Inject private val passwordFlowManager: WebAuthorizationFlowPasswordManager,
     @Inject private val redirectUriBuilder: WebAuthorizationFlowRedirectUriBuilder,
 ) {
 
@@ -48,7 +48,7 @@ class SignInController(
             redirectUriBuilder.getRedirectUri(
                 authorizeAttempt = authorizeAttempt,
                 flow = flow,
-                result = result
+                status = result
             ).toString().let(::FlowResultResource)
         }
 }

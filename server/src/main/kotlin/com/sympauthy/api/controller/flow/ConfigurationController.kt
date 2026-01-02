@@ -4,10 +4,13 @@ import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROV
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_ENDPOINTS
 import com.sympauthy.api.resource.flow.*
 import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.flow.PasswordFlowManager
+import com.sympauthy.business.manager.flow.WebAuthorizationFlowPasswordManager
 import com.sympauthy.business.manager.provider.ProviderConfigManager
 import com.sympauthy.business.model.provider.EnabledProvider
-import com.sympauthy.config.model.*
+import com.sympauthy.config.model.EnabledUrlsConfig
+import com.sympauthy.config.model.UrlsConfig
+import com.sympauthy.config.model.getUri
+import com.sympauthy.config.model.orThrow
 import com.sympauthy.server.DisplayMessages
 import com.sympauthy.util.orDefault
 import io.micronaut.context.MessageSource
@@ -26,7 +29,7 @@ import java.util.*
 @Controller("/api/v1/flow/configuration")
 class ConfigurationController(
     @Inject private val claimManager: ClaimManager,
-    @Inject private val passwordFlowManager: PasswordFlowManager,
+    @Inject private val passwordFlowManager: WebAuthorizationFlowPasswordManager,
     @Inject private val providerManager: ProviderConfigManager,
     @Inject private val uncheckedUrlsConfig: UrlsConfig,
     @Inject @DisplayMessages private val displayMessageSource: MessageSource

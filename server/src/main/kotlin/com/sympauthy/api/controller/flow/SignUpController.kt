@@ -3,8 +3,8 @@ package com.sympauthy.api.controller.flow
 import com.sympauthy.api.mapper.CollectedClaimUpdateMapper
 import com.sympauthy.api.resource.flow.FlowResultResource
 import com.sympauthy.api.resource.flow.SignUpInputResource
-import com.sympauthy.business.manager.flow.PasswordFlowManager
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowManager
+import com.sympauthy.business.manager.flow.WebAuthorizationFlowPasswordManager
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowRedirectUriBuilder
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import io.micronaut.http.annotation.Body
@@ -19,7 +19,7 @@ import jakarta.inject.Inject
 @Controller("/api/v1/flow/sign-up")
 class SignUpController(
     @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
-    @Inject private val passwordFlowManager: PasswordFlowManager,
+    @Inject private val passwordFlowManager: WebAuthorizationFlowPasswordManager,
     @Inject private val redirectUriBuilder: WebAuthorizationFlowRedirectUriBuilder,
     @Inject private val collectedClaimUpdateMapper: CollectedClaimUpdateMapper
 ) {
@@ -45,7 +45,7 @@ Initiate the creation of an account of a end-user with a password.
             redirectUriBuilder.getRedirectUri(
                 authorizeAttempt = authorizeAttempt,
                 flow = flow,
-                result = result
+                status = result
             ).toString().let(::FlowResultResource)
         }
 }

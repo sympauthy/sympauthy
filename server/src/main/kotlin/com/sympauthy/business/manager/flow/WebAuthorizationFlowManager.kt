@@ -6,14 +6,11 @@ import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.FailedVerifyEncodedStateResult
 import com.sympauthy.business.manager.auth.SuccessVerifyEncodedStateResult
 import com.sympauthy.business.manager.user.CollectedClaimManager
-import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.code.ValidationCodeReason
-import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_AUTHORIZATION_FLOW_ID
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
+import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
-import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.AuthorizationFlowsConfig
 import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.config.model.orThrow
@@ -32,15 +29,15 @@ import jakarta.inject.Singleton
 class WebAuthorizationFlowManager(
     @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
-    @Inject private val claimValidationManager: AuthorizationFlowClaimValidationManager,
+    @Inject private val claimValidationManager: WebAuthorizationFlowClaimValidationManager,
     @Inject private val authorizationFlowsConfig: AuthorizationFlowsConfig,
     @Inject private val uncheckedUrlsConfig: UrlsConfig
 ) {
 
     /**
-     * The default web authentication flow is hardcoded since it is bundled with this authorization server.
+     * Note: The default web authentication flow is hardcoded since it is bundled with this authorization server.
      */
-    val defaultAuthorizationFlow: WebAuthorizationFlow by lazy {
+    val defaultWebAuthorizationFlow: WebAuthorizationFlow by lazy {
         val builder = uncheckedUrlsConfig.orThrow().root
             .let(UriBuilder::of)
             .path(USER_FLOW_ENDPOINT)
@@ -54,16 +51,27 @@ class WebAuthorizationFlowManager(
     }
 
     /**
-     * Return the [AuthorizationFlow] identified by [id] or null.
+     * Return the [WebAuthorizationFlow] identified by [id] or null.
      */
-    fun findByIdOrNull(id: String): AuthorizationFlow? {
+    fun findByIdOrNull(id: String): WebAuthorizationFlow? {
         if (id == DEFAULT_AUTHORIZATION_FLOW_ID) {
-            return defaultAuthorizationFlow
+            return defaultWebAuthorizationFlow
         }
         return authorizationFlowsConfig.orThrow().flows
+            .filterIsInstance<WebAuthorizationFlow>()
             .firstOrNull { it.id == id }
     }
 
+    /**
+     * Return the [WebAuthorizationFlow] of throw a non-recoverable [BusinessException] if not found.
+     */
+    fun findById(id: String?): WebAuthorizationFlow {
+        return id?.let(this::findByIdOrNull) ?: throw businessExceptionOf(
+            detailsId = "flow.web.invalid_flow",
+            recommendedStatus = HttpStatus.BAD_REQUEST,
+            values = arrayOf("flowId" to (id ?: ""))
+        )
+    }
 
     /**
      * Retrieve the [AuthorizeAttempt] using the state.
@@ -92,8 +100,9 @@ class WebAuthorizationFlowManager(
                 )
             }
         }
-        val flow = verifyIsWebFlow(authorizeAttempt)
+
         return try {
+            val flow = this.findById(authorizeAttempt.authorizationFlowId)
             method(authorizeAttempt, flow)
         } catch (e: BusinessException) {
             authorizeAttemptManager.setErrorIfNonRecoverable(
@@ -115,65 +124,39 @@ class WebAuthorizationFlowManager(
         method = method
     )
 
-    /**
-     * Check and return the authorization flow associated with the [authorizeAttempt] if it is a [WebAuthorizationFlow].
-     * Otherwise, throw a [BusinessException].
-     */
-    fun verifyIsWebFlow(
-        authorizeAttempt: AuthorizeAttempt
-    ): WebAuthorizationFlow {
-        val flow = authorizeAttempt.authorizationFlowId?.let(this::findByIdOrNull)
-        if (flow !is WebAuthorizationFlow) {
-            TODO("Put proper exception to verify the flow")
-        }
-        return flow
-    }
 
     /**
-     *
+     * Return the status of the [authorizeAttempt] if the end-user is going through a web authorization flow.
      */
-    suspend fun completeAuthorizationFlowOrRedirect(
-        user: User,
-        collectedClaims: List<CollectedClaim>
-    ): AuthorizationFlowResult {
+    suspend fun getStatus(
+        authorizeAttempt: AuthorizeAttempt
+    ): WebAuthorizationFlowStatus {
+        val collectedClaims = collectedClaimManager.findClaimsReadableByAttempt(authorizeAttempt)
+
+        val missingUser = authorizeAttempt.userId == null
         val missingRequiredClaims = !collectedClaimManager.areAllRequiredClaimCollected(collectedClaims)
         val missingMediaForClaimValidation = claimValidationManager.getReasonsToSendValidationCode(collectedClaims)
             .map(ValidationCodeReason::media)
             .distinct()
 
-        // FIXME handle granting scopes
-
-        return AuthorizationFlowResult(
-            user = user,
+        return WebAuthorizationFlowStatus(
+            missingUser = missingUser,
             missingRequiredClaims = missingRequiredClaims,
-            missingMediaForClaimValidation = missingMediaForClaimValidation,
+            missingMediaForClaimValidation = missingMediaForClaimValidation
         )
+    }
+
+    /**
+     *
+     */
+    suspend fun completeAuthorizationIfNecessaryAndGetStatus(
+        authorizeAttempt: AuthorizeAttempt,
+    ): WebAuthorizationFlowStatus {
+        val status = getStatus(authorizeAttempt)
+        if (status.complete) {
+            // FIXME
+        }
+        return status
     }
 }
 
-/**
- * The result of the authorization flow.
- */
-data class AuthorizationFlowResult(
-    /**
-     * The user that has been authentication during the authentication flow.
-     */
-    val user: User,
-    /**
-     * True if we are missing some required claims from the end-user and they must be collected by the client.
-     */
-    val missingRequiredClaims: Boolean,
-    /**
-     * List of media we must send a validation code too according to the claims collected from the end-user.
-     */
-    val missingMediaForClaimValidation: List<ValidationCodeMedia>,
-) {
-
-    /**
-     * True if the authorization is complete and the user can be redirected to the client.
-     */
-    val complete: Boolean = listOf(
-        missingRequiredClaims,
-        missingMediaForClaimValidation.isNotEmpty(),
-    ).none { it }
-}
