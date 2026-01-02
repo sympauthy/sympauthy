@@ -238,6 +238,6 @@ class SuccessVerifyEncodedStateResult(val authorizeAttempt: AuthorizeAttempt) : 
 
 class FailedVerifyEncodedStateResult(
     val detailsId: String,
-    val descriptionId: String?,
+    val descriptionId: String? = null,
     val values: Map<String, String>? = null
 ) : VerifyEncodedStateResult()
