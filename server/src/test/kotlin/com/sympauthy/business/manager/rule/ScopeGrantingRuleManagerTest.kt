@@ -58,6 +58,7 @@ class ScopeGrantingRuleManagerTest {
         val declineResult = ScopeGrantingRuleIsApplicableResult(
             rule = declineRule,
             applicableRequestedScopes = listOf(scope),
+            applicable = true
         )
 
         val result = scopeGrantingRuleManager.mergeResult(
