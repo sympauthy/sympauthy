@@ -3,7 +3,6 @@ package com.sympauthy.business.manager.rule
 import com.ezylang.evalex.Expression
 import com.ezylang.evalex.config.ExpressionConfiguration
 import com.ezylang.evalex.parser.ParseException
-import com.sympauthy.business.exception.InvalidScopeGrantingRuleBusinessException
 import com.sympauthy.business.manager.rule.function.ClaimFunction
 import com.sympauthy.business.manager.rule.function.ClaimIsVerifiedFunction
 import com.sympauthy.business.manager.user.CollectedClaimManager
@@ -61,7 +60,7 @@ class ScopeGrantingRuleExpressionParser(
 
     /**
      * Validate that the [expressionString] is a valid as a scope granting rule expression.
-     * Throw a [ParseException] if the [expressionString] is not valid.
+     * Throw a [InvalidScopeGrantingRuleException] if the [expressionString] is not valid.
      *
      * Internally, this will cause the evaluation of the [expressionString] into a [Expression].
      * A [dummyConfiguration] will be passed to the [Expression] to make it aware of custom functions and operators.
@@ -97,7 +96,10 @@ class ScopeGrantingRuleExpressionParser(
     internal fun convertParseException(
         expressionString: String,
         exception: ParseException
-    ): InvalidScopeGrantingRuleBusinessException {
-        return TODO()
+    ): InvalidScopeGrantingRuleException {
+        return InvalidScopeGrantingRuleException(
+            expressionString = expressionString,
+            message = exception.message,
+        )
     }
 }

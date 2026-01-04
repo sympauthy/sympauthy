@@ -1,7 +1,7 @@
 package com.sympauthy.config.factory
 
-import com.sympauthy.business.exception.InvalidScopeGrantingRuleBusinessException
 import com.sympauthy.business.manager.ScopeManager
+import com.sympauthy.business.manager.rule.InvalidScopeGrantingRuleException
 import com.sympauthy.business.manager.rule.ScopeGrantingRuleExpressionParser
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.rule.ScopeGrantingRule
@@ -189,14 +189,14 @@ class ScopeGrantingRulesConfigFactory(
         properties: ScopeGrantingRuleConfigurationProperties,
         key: String,
         index: Int,
-    ): String? {
+    ): String {
         val expression = parser.getStringOrThrow(
             properties, key,
             { properties.expressions?.getOrNull(index) }
         )
         try {
             scopeGrantingRuleExpressionParser.validateExpression(expression)
-        } catch (e: InvalidScopeGrantingRuleBusinessException) {
+        } catch (e: InvalidScopeGrantingRuleException) {
             throw configExceptionOf(
                 key, "config.rule.expression.invalid",
                 "message" to e.message

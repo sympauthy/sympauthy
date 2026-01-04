@@ -13,7 +13,7 @@ import java.util.*
 
 @Singleton
 class ErrorResourceMapper(
-    @Inject @ErrorMessages private val messageSource: MessageSource
+    @Inject @param:ErrorMessages private val messageSource: MessageSource
 ) {
 
     fun toResource(
@@ -23,7 +23,7 @@ class ErrorResourceMapper(
     ): ErrorResource {
         val descriptionId = when {
             exception.descriptionId != null -> exception.descriptionId
-            status.code in 500 until 600 -> "description.server_error"
+            status.code in 500 until 600 -> "description.internal_server_error"
             else -> null
         }
 

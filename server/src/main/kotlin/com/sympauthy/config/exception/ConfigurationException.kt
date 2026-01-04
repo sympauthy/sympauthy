@@ -1,6 +1,6 @@
 package com.sympauthy.config.exception
 
-class ConfigurationException(
+open class ConfigurationException(
     val key: String,
     val messageId: String,
     val values: Map<String, Any?> = emptyMap()

@@ -86,6 +86,6 @@ enum class OAuth2ErrorCode(
     SERVER_ERROR(
         INTERNAL_SERVER_ERROR,
         "server_error",
-        "description.server_error"
+        "description.internal_server_error"
     )
 }
