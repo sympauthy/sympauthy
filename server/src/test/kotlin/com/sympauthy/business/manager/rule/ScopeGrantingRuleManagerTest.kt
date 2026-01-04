@@ -20,6 +20,9 @@ import kotlin.test.assertTrue
 class ScopeGrantingRuleManagerTest {
 
     @MockK
+    lateinit var scopeGrantingRuleExecutor: ScopeGrantingRuleExpressionExecutor
+
+    @MockK
     lateinit var uncheckedScopeGrantingRulesConfig: Flow<ScopeGrantingRulesConfig>
 
     @InjectMockKs

@@ -5,6 +5,7 @@ import com.sympauthy.business.manager.rule.ScopeGrantingRuleManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.user.CollectedClaim
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
@@ -34,6 +35,7 @@ class ScopeGrantingManager(
      */
     suspend fun grantScopes(
         authorizeAttempt: AuthorizeAttempt,
+        collectedClaims: List<CollectedClaim>
     ): GrantScopesResult {
         val requestedScopes = authorizeAttempt.requestedScopes.map {
             scopeManager.findOrThrow(it)
@@ -46,7 +48,9 @@ class ScopeGrantingManager(
                 results = results
             )
             val result = methods.invoke(
-                authorizeAttempt, unhandledRequestedScopes
+                authorizeAttempt,
+                unhandledRequestedScopes,
+                collectedClaims
             )
             results.add(result)
         }
@@ -60,7 +64,7 @@ class ScopeGrantingManager(
     /**
      * Return the list of scope granting methods to apply.
      */
-    internal fun getScopeGrantingMethods(): List<suspend (authorizeAttempt: AuthorizeAttempt, requestedScopes: List<Scope>) -> ScopeGrantingMethodResult> {
+    internal fun getScopeGrantingMethods(): List<suspend (authorizeAttempt: AuthorizeAttempt, requestedScopes: List<Scope>, collectedClaims: List<CollectedClaim>) -> ScopeGrantingMethodResult> {
         return listOf(
             scopeGrantingRuleManager::applyScopeGrantingRules,
             this::applyDefaultBehavior
@@ -82,6 +86,7 @@ class ScopeGrantingManager(
     internal suspend fun applyDefaultBehavior(
         authorizeAttempt: AuthorizeAttempt,
         requestedScopes: List<Scope>,
+        collectedClaims: List<CollectedClaim> = emptyList()
     ): ScopeGrantingMethodResult {
         return ScopeGrantingMethodResult(
             grantedScopes = emptyList(),

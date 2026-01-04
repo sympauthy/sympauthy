@@ -3,6 +3,7 @@ package com.sympauthy.business.exception
 import com.sympauthy.exception.LocalizedException
 import io.micronaut.http.HttpStatus
 import io.micronaut.http.HttpStatus.BAD_REQUEST
+import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 
 /**
  * Exception describing an error that will be exposed to the end-user.
@@ -30,7 +31,7 @@ open class BusinessException(
 )
 
 /**
- * Utility method to create a business exception that can be recovered by an end-user action
+ * Factory method to create a business exception that cannot be recovered by an end-user action
  * (ex. an expired authorization session).
  *
  * Note: this method should always be preferred over the constructor for creating instances as it provides a convenient
@@ -39,18 +40,17 @@ open class BusinessException(
 fun businessExceptionOf(
     detailsId: String,
     descriptionId: String? = null,
-    recommendedStatus: HttpStatus? = null,
     vararg values: Pair<String, String>
 ): BusinessException = BusinessException(
     recoverable = false,
     detailsId = detailsId,
     descriptionId = descriptionId,
-    recommendedStatus = recommendedStatus,
+    recommendedStatus = BAD_REQUEST,
     values = mapOf(*values)
 )
 
 /**
- * Utility method to create a business exception that can be recovered by an end-user action.
+ * Factory method to create a business exception that can be recovered by an end-user action.
  *
  * Note: this method should always be preferred over the constructor for creating instances as it provides a convenient
  * vararg for [values].
@@ -64,5 +64,20 @@ fun recoverableBusinessExceptionOf(
     detailsId = detailsId,
     descriptionId = descriptionId,
     recommendedStatus = BAD_REQUEST,
+    values = mapOf(*values)
+)
+
+/**
+ * Factory method to create a non-recoverable [BusinessException] not caused by the end-user.
+ */
+fun internalBusinessExceptionOf(
+    detailsId: String,
+    descriptionId: String? = null,
+    vararg values: Pair<String, String>
+) = BusinessException(
+    recoverable = false,
+    detailsId = detailsId,
+    descriptionId = descriptionId,
+    recommendedStatus = INTERNAL_SERVER_ERROR,
     values = mapOf(*values)
 )

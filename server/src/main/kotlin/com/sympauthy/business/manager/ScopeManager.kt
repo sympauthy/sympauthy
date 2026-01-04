@@ -9,7 +9,6 @@ import com.sympauthy.config.model.ScopesConfig
 import com.sympauthy.config.model.StandardScopeConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.exception.LocalizedException
-import io.micronaut.http.HttpStatus.BAD_REQUEST
 import io.micronaut.http.uri.UriBuilder
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -109,7 +108,6 @@ class ScopeManager(
     suspend fun findOrThrow(scope: String): Scope {
         return find(scope) ?: throw businessExceptionOf(
             detailsId = "scope.unsupported",
-            recommendedStatus = BAD_REQUEST,
             values = arrayOf("scope" to scope)
         )
     }

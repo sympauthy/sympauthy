@@ -9,8 +9,6 @@ import io.mockk.mockk
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
 
 @ExtendWith(MockKExtension::class)
 class ScopeGrantingRuleTest {
@@ -33,24 +31,76 @@ class ScopeGrantingRuleTest {
     }
 
     @Test
-    fun isApplicable() {
-        val listedScope = mockk<Scope>()
-        val anotherListedScope = mockk<Scope>()
-        val notListedScope = mockk<Scope>()
+    fun `getApplicableScopes - Return scopes present in both lists`() {
+        val scope1 = mockk<Scope>()
+        val scope2 = mockk<Scope>()
+        val scope3 = mockk<Scope>()
 
         val rule = ScopeGrantingRule(
             userDefinedName = null,
             order = 0,
-            scopes = listOf(listedScope, anotherListedScope),
+            scopes = listOf(scope1, scope2),
             behavior = GRANT,
             expressions = emptyList(),
         )
 
-        assertFalse(rule.isApplicable(emptyList()))
-        assertFalse(rule.isApplicable(listOf(notListedScope)))
+        val result = rule.getApplicableScopes(listOf(scope1, scope3))
 
-        assertTrue(rule.isApplicable(listOf(listedScope)))
-        assertTrue(rule.isApplicable(listOf(anotherListedScope)))
-        assertTrue(rule.isApplicable(listOf(listedScope, anotherListedScope, notListedScope)))
+        assertEquals(listOf(scope1), result)
+    }
+
+    @Test
+    fun `getApplicableScopes - Return all matching scopes`() {
+        val scope1 = mockk<Scope>()
+        val scope2 = mockk<Scope>()
+        val scope3 = mockk<Scope>()
+
+        val rule = ScopeGrantingRule(
+            userDefinedName = null,
+            order = 0,
+            scopes = listOf(scope1, scope2, scope3),
+            behavior = GRANT,
+            expressions = emptyList(),
+        )
+
+        val result = rule.getApplicableScopes(listOf(scope1, scope2, scope3))
+
+        assertEquals(listOf(scope1, scope2, scope3), result)
+    }
+
+    @Test
+    fun `getApplicableScopes - Return empty list when no scopes match`() {
+        val scope1 = mockk<Scope>()
+        val scope2 = mockk<Scope>()
+        val scope3 = mockk<Scope>()
+
+        val rule = ScopeGrantingRule(
+            userDefinedName = null,
+            order = 0,
+            scopes = listOf(scope1, scope2),
+            behavior = GRANT,
+            expressions = emptyList(),
+        )
+
+        val result = rule.getApplicableScopes(listOf(scope3))
+
+        assertEquals(emptyList(), result)
+    }
+
+    @Test
+    fun `getApplicableScopes - Return empty list when requested scopes is empty`() {
+        val scope1 = mockk<Scope>()
+
+        val rule = ScopeGrantingRule(
+            userDefinedName = null,
+            order = 0,
+            scopes = listOf(scope1),
+            behavior = GRANT,
+            expressions = emptyList(),
+        )
+
+        val result = rule.getApplicableScopes(emptyList())
+
+        assertEquals(emptyList(), result)
     }
 }

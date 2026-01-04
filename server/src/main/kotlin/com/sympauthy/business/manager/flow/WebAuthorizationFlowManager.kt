@@ -11,12 +11,12 @@ import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_AUT
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
+import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.config.model.AuthorizationFlowsConfig
 import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.security.state
 import com.sympauthy.view.DefaultAuthorizationFlowController.Companion.USER_FLOW_ENDPOINT
-import io.micronaut.http.HttpStatus
 import io.micronaut.http.uri.UriBuilder
 import io.micronaut.security.authentication.Authentication
 import jakarta.inject.Inject
@@ -69,7 +69,6 @@ class WebAuthorizationFlowManager(
     fun findById(id: String?): WebAuthorizationFlow {
         return id?.let(this::findByIdOrNull) ?: throw businessExceptionOf(
             detailsId = "flow.web.invalid_flow",
-            recommendedStatus = HttpStatus.BAD_REQUEST,
             values = arrayOf("flowId" to (id ?: ""))
         )
     }
@@ -97,7 +96,6 @@ class WebAuthorizationFlowManager(
                 throw businessExceptionOf(
                     detailsId = verifyResult.detailsId,
                     descriptionId = verifyResult.descriptionId,
-                    recommendedStatus = HttpStatus.BAD_REQUEST,
                 )
             }
         }
@@ -127,13 +125,42 @@ class WebAuthorizationFlowManager(
 
 
     /**
+     * Retrieves the current status of the provided [authorizeAttempt] and completes the authorization flow
+     * if it is determined to be complete.
+     *
+     * The list of [collectedClaims] may be provided to prevent loading
+     *
+     * This method internally calls [getStatus] to evaluate the state of the authorization flow. If the
+     * returned status indicates that the flow is complete, it proceeds to invoke
+     * [AuthorizationFlowManager.completeAuthorization] to finalize the process.
+     * The resulting status is then returned.
+     */
+    suspend fun getStatusAndCompleteIfNecessary(
+        authorizeAttempt: AuthorizeAttempt,
+        collectedClaims: List<CollectedClaim>? = null
+    ): WebAuthorizationFlowStatus {
+        val loadedCollectedClaims =
+            collectedClaims ?: collectedClaimManager.findClaimsReadableByAttempt(authorizeAttempt)
+        val status = getStatus(
+            authorizeAttempt = authorizeAttempt,
+            collectedClaims = loadedCollectedClaims
+        )
+        if (status.complete) {
+            authorizationFlowManager.completeAuthorization(
+                authorizeAttempt = authorizeAttempt,
+                collectedClaims = loadedCollectedClaims
+            )
+        }
+        return status
+    }
+
+    /**
      * Return the status of the [authorizeAttempt] if the end-user is going through a web authorization flow.
      */
-    suspend fun getStatus(
-        authorizeAttempt: AuthorizeAttempt
+    internal fun getStatus(
+        authorizeAttempt: AuthorizeAttempt,
+        collectedClaims: List<CollectedClaim>
     ): WebAuthorizationFlowStatus {
-        val collectedClaims = collectedClaimManager.findClaimsReadableByAttempt(authorizeAttempt)
-
         val missingUser = authorizeAttempt.userId == null
         val missingRequiredClaims = !collectedClaimManager.areAllRequiredClaimCollected(collectedClaims)
         val missingMediaForClaimValidation = claimValidationManager.getReasonsToSendValidationCode(collectedClaims)
@@ -145,25 +172,6 @@ class WebAuthorizationFlowManager(
             missingRequiredClaims = missingRequiredClaims,
             missingMediaForClaimValidation = missingMediaForClaimValidation
         )
-    }
-
-    /**
-     * Retrieves the current status of the provided [authorizeAttempt] and completes the authorization flow
-     * if it is determined to be complete.
-     *
-     * This method internally calls [getStatus] to evaluate the state of the authorization flow. If the
-     * returned status indicates that the flow is complete, it proceeds to invoke
-     * [AuthorizationFlowManager.completeAuthorization] to finalize the process.
-     * The resulting status is then returned.
-     */
-    suspend fun getStatusAndCompleteIfNecessary(
-        authorizeAttempt: AuthorizeAttempt,
-    ): WebAuthorizationFlowStatus {
-        val status = getStatus(authorizeAttempt)
-        if (status.complete) {
-            authorizationFlowManager.completeAuthorization(authorizeAttempt)
-        }
-        return status
     }
 }
 

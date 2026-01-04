@@ -47,10 +47,10 @@ class ScopeGrantingRule(
         get() = "$order - ${behavior.name} ${scopes.joinToString(separator = ", ", transform = Scope::scope)}"
 
     /**
-     * Return true if this rule is applicable.
-     * A [ScopeGrantingRule] is **applicable** if one of its [Scope] listed in [ScopeGrantingRule.scopes].
+     * Return the intersection of scopes that are both in the [requestedScopes] list and in the list of [scopes]
+     * granted/declined by this rule.
      */
-    fun isApplicable(requestedScopes: List<Scope>): Boolean {
-        return requestedScopes.any { scopes.contains(it) }
+    fun getApplicableScopes(requestedScopes: List<Scope>): List<Scope> {
+        return requestedScopes.filter { scopes.contains(it) }
     }
 }

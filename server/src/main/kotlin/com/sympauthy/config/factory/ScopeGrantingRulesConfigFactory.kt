@@ -2,7 +2,7 @@ package com.sympauthy.config.factory
 
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.rule.InvalidScopeGrantingRuleException
-import com.sympauthy.business.manager.rule.ScopeGrantingRuleExpressionParser
+import com.sympauthy.business.manager.rule.ScopeGrantingRuleExpressionExecutor
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.rule.ScopeGrantingRule
 import com.sympauthy.business.model.rule.ScopeGrantingRuleBehavior
@@ -25,7 +25,7 @@ import kotlinx.coroutines.flow.flow
 class ScopeGrantingRulesConfigFactory(
     @Inject private val parser: ConfigParser,
     @Inject private val scopeManager: ScopeManager,
-    @Inject private val scopeGrantingRuleExpressionParser: ScopeGrantingRuleExpressionParser
+    @Inject private val scopeGrantingRuleExpressionExecutor: ScopeGrantingRuleExpressionExecutor
 ) {
 
     @Singleton
@@ -195,10 +195,10 @@ class ScopeGrantingRulesConfigFactory(
             { properties.expressions?.getOrNull(index) }
         )
         try {
-            scopeGrantingRuleExpressionParser.validateExpression(expression)
+            scopeGrantingRuleExpressionExecutor.validateExpression(expression)
         } catch (e: InvalidScopeGrantingRuleException) {
             throw configExceptionOf(
-                key, "config.rule.expression.invalid",
+                key, e.configMessageId,
                 "message" to e.message
             )
         }

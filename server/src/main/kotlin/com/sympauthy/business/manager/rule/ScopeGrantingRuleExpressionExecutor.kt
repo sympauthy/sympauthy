@@ -2,26 +2,24 @@ package com.sympauthy.business.manager.rule
 
 import com.ezylang.evalex.Expression
 import com.ezylang.evalex.config.ExpressionConfiguration
+import com.ezylang.evalex.data.EvaluationValue.DataType.BOOLEAN
 import com.ezylang.evalex.parser.ParseException
 import com.sympauthy.business.manager.rule.function.ClaimFunction
 import com.sympauthy.business.manager.rule.function.ClaimIsVerifiedFunction
-import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
-import jakarta.inject.Inject
+import com.sympauthy.business.model.user.CollectedClaim
 import jakarta.inject.Singleton
 import java.util.Map.entry
 
 /**
- * This factory is in charge of parsing and validation expression used in configured scope granting rules.
+ * This manager is in charge of evaluating the scope granting rules expressions.
  *
  * SympAuthy relies on [EvalEx](https://github.com/ezylang/EvalEx) as its expression evaluator.
  * It provides some handy custom functions to help user to access info related to the current authentication flow
  * (ex. scopes, claims, etc.).
  */
 @Singleton
-class ScopeGrantingRuleExpressionParser(
-    @Inject private val collectedClaimManager: CollectedClaimManager
-) {
+class ScopeGrantingRuleExpressionExecutor {
 
     /**
      * The [ExpressionConfiguration] without the custom functions and operator.
@@ -47,10 +45,9 @@ class ScopeGrantingRuleExpressionParser(
      * the information relative to the [authorizeAttempt].
      */
     suspend fun getConfiguration(
-        authorizeAttempt: AuthorizeAttempt
+        authorizeAttempt: AuthorizeAttempt,
+        collectedClaims: List<CollectedClaim>
     ): ExpressionConfiguration {
-        val collectedClaims = collectedClaimManager.findClaimsReadableByAttempt(authorizeAttempt)
-
         return defaultConfiguration.value
             .withAdditionalFunctions(
                 entry(ClaimFunction.FUNCTION_NAME, ClaimFunction(collectedClaims)),
@@ -59,47 +56,40 @@ class ScopeGrantingRuleExpressionParser(
     }
 
     /**
-     * Validate that the [expressionString] is a valid as a scope granting rule expression.
+     * Validate that the [expressionString] is a valid by evaluating the expression with a dummy [ExpressionConfiguration].
      * Throw a [InvalidScopeGrantingRuleException] if the [expressionString] is not valid.
-     *
-     * Internally, this will cause the evaluation of the [expressionString] into a [Expression].
-     * A [dummyConfiguration] will be passed to the [Expression] to make it aware of custom functions and operators.
-     * Finally [Expression.validate] will be called causing the creation and validation of the abstract syntax tree.
      */
     suspend fun validateExpression(expressionString: String) {
-        val expression = Expression(expressionString, dummyConfiguration.value)
-        try {
-            expression.validate()
-        } catch (e: ParseException) {
-            throw convertParseException(
-                expressionString = expressionString,
-                exception = e,
-            )
-        }
+        evaluateExpressionOrThrow(expressionString, dummyConfiguration.value)
     }
 
-    suspend fun evaluateExpression(
+    /**
+     * Evaluates a given expression string using the provided [configuration].
+     * If the evaluation fails due to a parsing error or the result is not of type Boolean,
+     * an [InvalidScopeGrantingRuleException] is thrown.
+     */
+    internal suspend fun evaluateExpressionOrThrow(
         expressionString: String,
         configuration: ExpressionConfiguration
     ): Boolean {
         val expression = Expression(expressionString, configuration)
-        try {
-            return expression.evaluate().booleanValue
+        val value = try {
+            expression.evaluate()
         } catch (e: ParseException) {
-            throw convertParseException(
+            throw InvalidScopeGrantingRuleException(
                 expressionString = expressionString,
-                exception = e,
+                configMessageId = "config.rule.expression.invalid",
+                businessErrorDetailsId = "rule.evaluate.failed",
+                message = e.message,
             )
         }
-    }
-
-    internal fun convertParseException(
-        expressionString: String,
-        exception: ParseException
-    ): InvalidScopeGrantingRuleException {
-        return InvalidScopeGrantingRuleException(
-            expressionString = expressionString,
-            message = exception.message,
-        )
+        if (value.dataType != BOOLEAN) {
+            throw InvalidScopeGrantingRuleException(
+                expressionString = expressionString,
+                configMessageId = "config.rule.expression.invalid_return",
+                businessErrorDetailsId = "rule.evaluate.invalid_return",
+            )
+        }
+        return value.booleanValue
     }
 }

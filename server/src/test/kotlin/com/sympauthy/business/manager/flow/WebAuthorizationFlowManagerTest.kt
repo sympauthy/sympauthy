@@ -92,7 +92,7 @@ class WebAuthorizationFlowManagerTest {
             every { mock.userId } returns userId
         }
         coEvery { collectedClaimManager.findClaimsReadableByAttempt(authorizeAttempt) } returns emptyList()
-        coEvery { authorizationFlowManager.completeAuthorization(authorizeAttempt) } returns authorizeAttempt
+        coEvery { authorizationFlowManager.completeAuthorization(authorizeAttempt, any()) } returns authorizeAttempt
         every { collectedClaimManager.areAllRequiredClaimCollected(any()) } returns true
         every { claimValidationManager.getReasonsToSendValidationCode(any()) } returns emptyList()
 

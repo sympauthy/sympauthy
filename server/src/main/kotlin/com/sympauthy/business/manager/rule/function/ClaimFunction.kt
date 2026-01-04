@@ -8,7 +8,7 @@ import com.ezylang.evalex.parser.Token
 import com.sympauthy.business.model.user.CollectedClaim
 
 /**
- * Custom function returning the value of the claim for the authenticating end-user.
+ * Custom function returning the value of the claim as a string for the authenticating end-user.
  */
 @FunctionParameter(name = "claim")
 class ClaimFunction(
@@ -20,7 +20,12 @@ class ClaimFunction(
         functionToken: Token,
         vararg parameterValues: EvaluationValue
     ): EvaluationValue {
-        return TODO("FIXME")
+        if (parameterValues.isEmpty()) {
+            return EvaluationValue.NULL_VALUE
+        }
+        val claim = parameterValues[0].stringValue
+        val collectedClaim = collectedClaims.find { it.claim.id == claim } ?: return EvaluationValue.NULL_VALUE
+        return EvaluationValue.stringValue(collectedClaim.value?.toString() ?: "")
     }
 
     companion object {

@@ -4,26 +4,26 @@ import com.sympauthy.business.manager.user.CollectedClaimManager
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 
 @ExtendWith(MockKExtension::class)
-class ScopeGrantingRuleExpressionParserTest {
+class ScopeGrantingRuleExpressionExecutorTest {
 
     @MockK
     lateinit var collectedClaimManager: CollectedClaimManager
 
     @InjectMockKs
-    lateinit var parser: ScopeGrantingRuleExpressionParser
+    lateinit var parser: ScopeGrantingRuleExpressionExecutor
 
     @Test
-    fun `validateExpression - Simple expression is valid`() = runBlocking {
+    fun `validateExpression - Simple expression is valid`() = runTest {
         parser.validateExpression("true")
     }
 
     @Test
-    fun `validateExpression - Expression with custom function`() = runBlocking {
+    fun `validateExpression - Expression with custom function`() = runTest {
         parser.validateExpression(
             """CLAIM("email") = "test@example.com" && CLAIM_IS_VERIFIED("email")"""
         )

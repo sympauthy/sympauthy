@@ -5,6 +5,7 @@ import com.sympauthy.business.manager.rule.ScopeGrantingRuleManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.user.CollectedClaim
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -44,15 +45,15 @@ class ScopeGrantingManagerTest {
         coEvery { scopeManager.findOrThrow("declinedScope1") } returns declinedScope1
         coEvery { scopeManager.findOrThrow("declinedScope2") } returns declinedScope2
 
-        val method1: suspend (authorizeAttempt: AuthorizeAttempt, requestedScopes: List<Scope>) -> ScopeGrantingMethodResult =
-            { _, _ ->
+        val method1: suspend (authorizeAttempt: AuthorizeAttempt, requestedScopes: List<Scope>, collectedClaims: List<CollectedClaim>) -> ScopeGrantingMethodResult =
+            { _, _, _ ->
                 ScopeGrantingMethodResult(
                     grantedScopes = listOf(grantedScope1),
                     declinedScopes = listOf(declinedScope1)
                 )
             }
-        val declineAllMethod: suspend (authorizeAttempt: AuthorizeAttempt, requestedScopes: List<Scope>) -> ScopeGrantingMethodResult =
-            { _, requestedScopes ->
+        val declineAllMethod: suspend (authorizeAttempt: AuthorizeAttempt, requestedScopes: List<Scope>, collectedClaims: List<CollectedClaim>) -> ScopeGrantingMethodResult =
+            { _, requestedScopes, _ ->
                 ScopeGrantingMethodResult(
                     grantedScopes = emptyList(),
                     declinedScopes = requestedScopes
@@ -61,7 +62,10 @@ class ScopeGrantingManagerTest {
 
         every { scopeGrantingManager.getScopeGrantingMethods() } returns listOf(method1, declineAllMethod)
 
-        val result = scopeGrantingManager.grantScopes(authorizeAttempt)
+        val result = scopeGrantingManager.grantScopes(
+            authorizeAttempt = authorizeAttempt,
+            collectedClaims = emptyList()
+        )
 
         assertEquals(listOf(grantedScope1, declinedScope1, declinedScope2), result.requestedScopes)
         assertEquals(listOf(grantedScope1), result.grantedScopes)
