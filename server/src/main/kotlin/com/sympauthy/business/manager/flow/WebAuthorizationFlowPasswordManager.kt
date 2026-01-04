@@ -102,7 +102,7 @@ open class WebAuthorizationFlowPasswordManager(
         val updatedAuthorizeAttempt = authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, user.id)
 
         // Check if sign-up is completed
-        return webAuthorizationFlowManager.completeAuthorizationIfNecessaryAndGetStatus(
+        return webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
             authorizeAttempt = updatedAuthorizeAttempt
         )
     }
@@ -151,7 +151,7 @@ open class WebAuthorizationFlowPasswordManager(
         // Update the authorize attempt with the id of the user so they can retrieve their access token.
         val updatedAuthorizeAttempt = authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, user.id)
 
-        return webAuthorizationFlowManager.completeAuthorizationIfNecessaryAndGetStatus(
+        return webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
             authorizeAttempt = updatedAuthorizeAttempt
         )
     }

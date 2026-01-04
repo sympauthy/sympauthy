@@ -72,7 +72,7 @@ Result containing either:
             if (validationCode != null) {
                 resourceMapper.toFlowResultResource(validationCode)
             } else {
-                val status = webAuthorizationFlowManager.completeAuthorizationIfNecessaryAndGetStatus(
+                val status = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
                     authorizeAttempt = authorizeAttempt,
                 )
                 val redirectUri = redirectUriBuilder.getRedirectUri(
@@ -108,7 +108,7 @@ Result containing either:
                 code = inputResource.code
             )
 
-            val result = webAuthorizationFlowManager.completeAuthorizationIfNecessaryAndGetStatus(
+            val result = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
                 authorizeAttempt = authorizeAttempt,
             )
             val redirectUri = redirectUriBuilder.getRedirectUri(

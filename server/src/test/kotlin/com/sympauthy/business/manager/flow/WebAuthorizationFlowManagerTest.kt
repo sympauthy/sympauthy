@@ -29,6 +29,9 @@ import java.util.*
 class WebAuthorizationFlowManagerTest {
 
     @MockK
+    lateinit var authorizationFlowManager: AuthorizationFlowManager
+
+    @MockK
     lateinit var authorizeAttemptManager: AuthorizeAttemptManager
 
     @MockK
@@ -58,7 +61,7 @@ class WebAuthorizationFlowManagerTest {
         every { collectedClaimManager.areAllRequiredClaimCollected(any()) } returns false
         every { claimValidationManager.getReasonsToSendValidationCode(any()) } returns emptyList()
 
-        val result = manager.completeAuthorizationIfNecessaryAndGetStatus(authorizeAttempt)
+        val result = manager.getStatusAndCompleteIfNecessary(authorizeAttempt)
 
         assertTrue(result.missingRequiredClaims)
     }
@@ -76,23 +79,24 @@ class WebAuthorizationFlowManagerTest {
             ValidationCodeReason.EMAIL_CLAIM,
         )
 
-        val result = manager.completeAuthorizationIfNecessaryAndGetStatus(authorizeAttempt)
+        val result = manager.getStatusAndCompleteIfNecessary(authorizeAttempt)
 
         assertTrue(result.missingMediaForClaimValidation.isNotEmpty())
     }
 
     @Test
-    fun `completeAuthorizationFlowOrRedirect - Complete`() = runTest {
+    fun `getStatusAndCompleteIfNecessary - Complete`() = runTest {
         val userId = UUID.randomUUID()
         val authorizeAttempt = mockk<AuthorizeAttempt> {
             val mock = this
             every { mock.userId } returns userId
         }
         coEvery { collectedClaimManager.findClaimsReadableByAttempt(authorizeAttempt) } returns emptyList()
+        coEvery { authorizationFlowManager.completeAuthorization(authorizeAttempt) } returns authorizeAttempt
         every { collectedClaimManager.areAllRequiredClaimCollected(any()) } returns true
         every { claimValidationManager.getReasonsToSendValidationCode(any()) } returns emptyList()
 
-        val result = manager.completeAuthorizationIfNecessaryAndGetStatus(authorizeAttempt)
+        val result = manager.getStatusAndCompleteIfNecessary(authorizeAttempt)
 
         assertTrue(result.complete)
     }

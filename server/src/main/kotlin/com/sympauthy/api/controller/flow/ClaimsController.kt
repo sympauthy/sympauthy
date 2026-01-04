@@ -93,7 +93,7 @@ the end-user but it declined to fulfill the value.
                 throw httpExceptionOf(BAD_REQUEST, "flow.claims.missing_required")
             }
 
-            val status = webAuthorizationFlowManager.completeAuthorizationIfNecessaryAndGetStatus(
+            val status = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
                 authorizeAttempt = authorizeAttempt
             )
             val redirectUri = redirectUriBuilder.getRedirectUri(

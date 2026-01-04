@@ -115,7 +115,7 @@ open class WebAuthorizationFlowOauth2ProviderManager(
         }
         val updatedAuthorizeAttempt = authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, user.id)
 
-        return webAuthorizationFlowManager.completeAuthorizationIfNecessaryAndGetStatus(
+        return webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
             authorizeAttempt = updatedAuthorizeAttempt
         )
     }

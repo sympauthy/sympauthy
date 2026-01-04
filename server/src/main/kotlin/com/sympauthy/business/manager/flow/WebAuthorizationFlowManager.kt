@@ -148,9 +148,15 @@ class WebAuthorizationFlowManager(
     }
 
     /**
+     * Retrieves the current status of the provided [authorizeAttempt] and completes the authorization flow
+     * if it is determined to be complete.
      *
+     * This method internally calls [getStatus] to evaluate the state of the authorization flow. If the
+     * returned status indicates that the flow is complete, it proceeds to invoke
+     * [AuthorizationFlowManager.completeAuthorization] to finalize the process.
+     * The resulting status is then returned.
      */
-    suspend fun completeAuthorizationIfNecessaryAndGetStatus(
+    suspend fun getStatusAndCompleteIfNecessary(
         authorizeAttempt: AuthorizeAttempt,
     ): WebAuthorizationFlowStatus {
         val status = getStatus(authorizeAttempt)
