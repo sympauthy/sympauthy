@@ -46,15 +46,16 @@ class ScopeGrantingRuleManagerTest {
         val grantRule = mockk<ScopeGrantingRule>()
         every { grantRule.order } returns 0
         every { grantRule.behavior } returns GRANT
-        val grantResult = ScopeGrantingRuleResult(
+        val grantResult = ScopeGrantingRuleIsApplicableResult(
             rule = grantRule,
             applicableRequestedScopes = listOf(scope),
+            applicable = true
         )
 
         val declineRule = mockk<ScopeGrantingRule>()
         every { declineRule.order } returns 0
         every { declineRule.behavior } returns DECLINE
-        val declineResult = ScopeGrantingRuleResult(
+        val declineResult = ScopeGrantingRuleIsApplicableResult(
             rule = declineRule,
             applicableRequestedScopes = listOf(scope),
         )
@@ -74,17 +75,19 @@ class ScopeGrantingRuleManagerTest {
         val grantRule = mockk<ScopeGrantingRule>()
         every { grantRule.order } returns 1
         every { grantRule.behavior } returns GRANT
-        val grantResult = ScopeGrantingRuleResult(
+        val grantResult = ScopeGrantingRuleIsApplicableResult(
             rule = grantRule,
             applicableRequestedScopes = listOf(scope),
+            applicable = true
         )
 
         val declineRule = mockk<ScopeGrantingRule>()
         every { declineRule.order } returns 0
         every { declineRule.behavior } returns DECLINE
-        val declineResult = ScopeGrantingRuleResult(
+        val declineResult = ScopeGrantingRuleIsApplicableResult(
             rule = declineRule,
             applicableRequestedScopes = listOf(scope),
+            applicable = true
         )
 
         val result = scopeGrantingRuleManager.mergeResult(

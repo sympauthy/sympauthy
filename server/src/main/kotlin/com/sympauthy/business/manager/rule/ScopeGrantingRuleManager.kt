@@ -34,8 +34,8 @@ class ScopeGrantingRuleManager(
         requestedScopes: List<Scope>,
         collectedClaims: List<CollectedClaim>,
     ): ScopeGrantingMethodResult {
-        val results = findApplicableScopeGrantingRules(requestedScopes).map {
-            applyRule(
+        val results = findApplicableScopeGrantingRulesAccordingToScopes(requestedScopes).map {
+            isRuleApplicableAccordingToExpressions(
                 rule = it.rule,
                 applicableRequestedScopes = it.applicableRequestedScopes,
                 authorizeAttempt = authorizeAttempt,
@@ -54,7 +54,7 @@ class ScopeGrantingRuleManager(
      *
      * @see [ScopeGrantingRule.getApplicableScopes]
      */
-    internal suspend fun findApplicableScopeGrantingRules(
+    internal suspend fun findApplicableScopeGrantingRulesAccordingToScopes(
         requestedScopes: List<Scope>,
     ): List<ApplicableScopeGrantingRule> {
         return listScopeGrantingRules().mapNotNull { rule ->
@@ -69,19 +69,19 @@ class ScopeGrantingRuleManager(
     }
 
     /**
-     * Applies a specific [ScopeGrantingRule] to determine if the [applicableRequestedScopes] are granted based on the
-     * provided [authorizeAttempt] and [collectedClaims].
+     * Applies a specific [ScopeGrantingRule] to determine if the [rule] should be applied when determining the scopes
+     * that should be granted to the end-user.
      *
-     * The [applicableRequestedScopes] are granted if all the [ScopeGrantingRule.expressions] evaluate to true.
+     * The [rule] applies if all the [ScopeGrantingRule.expressions] evaluate to true.
      */
-    suspend fun applyRule(
+    suspend fun isRuleApplicableAccordingToExpressions(
         rule: ScopeGrantingRule,
         applicableRequestedScopes: List<Scope>,
         authorizeAttempt: AuthorizeAttempt,
         collectedClaims: List<CollectedClaim>,
-    ): ScopeGrantingRuleResult {
+    ): ScopeGrantingRuleIsApplicableResult {
         val configuration = scopeGrantingRuleExpressionExecutor.getConfiguration(authorizeAttempt, collectedClaims)
-        val isGranted = rule.expressions.all { expression ->
+        val applicable = rule.expressions.all { expression ->
             try {
                 scopeGrantingRuleExpressionExecutor.evaluateExpressionOrThrow(expression, configuration)
             } catch (e: InvalidScopeGrantingRuleException) {
@@ -91,43 +91,43 @@ class ScopeGrantingRuleManager(
                 )
             }
         }
-        return ScopeGrantingRuleResult(
+        return ScopeGrantingRuleIsApplicableResult(
             rule = rule,
             applicableRequestedScopes = applicableRequestedScopes,
-            granted = isGranted
+            applicable = applicable
         )
     }
 
     /**
-     * Merge the [results] of all applicable [ScopeGrantingRule] according to the
-     * [ScopeGrantingRule.order].
+     * Merge the [results] of all applicable [ScopeGrantingRule] according to the [ScopeGrantingRule.order].
      *
      * The following rules are applied when they have conflicting scopes:
-     * - A [ScopeGrantingRule] rule with greater [ScopeGrantingRule.order]
-     *   will override any [ScopeGrantingRule] of lower [ScopeGrantingRule.order].
-     * - A [ScopeGrantingRule] with [ScopeGrantingRule.behavior]
-     *   set to [DECLINE] will always win over
+     * - A [ScopeGrantingRule] rule with greater [ScopeGrantingRule.order] will override any [ScopeGrantingRule]
+     *   of lower [ScopeGrantingRule.order].
+     * - A [ScopeGrantingRule] with [ScopeGrantingRule.behavior] set to [DECLINE] will always win over
      *   any number of [ScopeGrantingRule] of same or lower [ScopeGrantingRule.order].
      */
     fun mergeResult(
         requestedScopes: List<Scope>,
-        results: List<ScopeGrantingRuleResult>
+        results: List<ScopeGrantingRuleIsApplicableResult>
     ): ScopeGrantingMethodResult {
-        val sortedResults = results.sortedWith(
-            compareByDescending<ScopeGrantingRuleResult> { it.rule.order }
-                .thenByDescending {
-                    when (it.rule.behavior) {
-                        DECLINE -> 1
-                        GRANT -> 0
+        val sortedApplicableResults = results
+            .filter(ScopeGrantingRuleIsApplicableResult::applicable)
+            .sortedWith(
+                compareByDescending<ScopeGrantingRuleIsApplicableResult> { it.rule.order }
+                    .thenByDescending {
+                        when (it.rule.behavior) {
+                            DECLINE -> 1
+                            GRANT -> 0
+                        }
                     }
-                }
-        )
+            )
 
         val grantedScopes = mutableSetOf<Scope>()
         val declinedScopes = mutableSetOf<Scope>()
 
         requestedScopes.forEach { scope ->
-            val result = sortedResults.firstOrNull { it.applicableRequestedScopes.contains(scope) }
+            val result = sortedApplicableResults.firstOrNull { it.applicableRequestedScopes.contains(scope) }
             when (result?.rule?.behavior) {
                 GRANT -> grantedScopes.add(scope)
                 DECLINE -> declinedScopes.add(scope)
@@ -154,20 +154,21 @@ data class ApplicableScopeGrantingRule(
 )
 
 /**
- * Result of the application of a [ScopeGrantingRule] to an [AuthorizeAttempt].
+ * Result of the evaluation of a [ScopeGrantingRule.expressions] against a [AuthorizeAttempt].
  */
-data class ScopeGrantingRuleResult(
+data class ScopeGrantingRuleIsApplicableResult(
     /**
      * The rule that has been applied.
      */
     val rule: ScopeGrantingRule,
     /**
-     * List of [Scope] that where requested in the [AuthorizeAttempt]
-     * and applicable to the [rule].
+     * List of [Scope] that where requested in the [AuthorizeAttempt] by the end-user and that the [rule] can
+     * grant or decline.
      */
     val applicableRequestedScopes: List<Scope>,
     /**
-     * True if the execution of rule expression has granted the [applicableRequestedScopes].
+     * True if the [rule] applies to the [AuthorizeAttempt] according to the result of the evaluation of the
+     * [ScopeGrantingRule.expressions].
      */
-    val granted: Boolean = false
+    val applicable: Boolean = false
 )
