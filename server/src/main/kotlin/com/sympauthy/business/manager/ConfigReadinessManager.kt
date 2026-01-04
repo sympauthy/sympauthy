@@ -54,7 +54,7 @@ class ConfigReadinessManager(
         val asyncConfigs = flowConfigs.mapNotNull {
             try {
                 it.firstOrNull()
-            } catch (e: Throwable) {
+            } catch (_: Throwable) {
                 null
             }
         }
