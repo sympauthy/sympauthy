@@ -42,6 +42,11 @@ class WebAuthorizationFlowRedirectUriBuilder(
         status: WebAuthorizationFlowStatus
     ): URI {
         return when {
+            status.missingUser -> appendStateToUri(
+                authorizeAttempt = authorizeAttempt,
+                uri = flow.signInUri
+            )
+
             status.missingRequiredClaims -> appendStateToUri(
                 authorizeAttempt = authorizeAttempt,
                 uri = flow.collectClaimsUri
