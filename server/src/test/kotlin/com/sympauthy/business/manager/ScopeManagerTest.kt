@@ -147,28 +147,6 @@ class ScopeManagerTest {
     }
 
     @Test
-    fun `parseRequestedScopes - Throw when uncheckedScopes is null`() = runTest {
-        val client = mockk<com.sympauthy.business.model.client.Client>()
-
-        val exception = assertThrows<BusinessException> {
-            scopeManager.parseRequestedScopes(client, null)
-        }
-
-        assertEquals("scope.parse_requested.missing", exception.detailsId)
-    }
-
-    @Test
-    fun `parseRequestedScopes - Throw when uncheckedScopes is blank`() = runTest {
-        val client = mockk<com.sympauthy.business.model.client.Client>()
-
-        val exception = assertThrows<BusinessException> {
-            scopeManager.parseRequestedScopes(client, "   ")
-        }
-
-        assertEquals("scope.parse_requested.missing", exception.detailsId)
-    }
-
-    @Test
     fun `parseRequestedScopes - Parse scopes with whitespace`() = runTest {
         val scopeOne = "openid"
         val scopeTwo = "profile"
@@ -184,5 +162,29 @@ class ScopeManagerTest {
         assertEquals(2, result.size)
         assertSame(foundScopeOne, result[0])
         assertSame(foundScopeTwo, result[1])
+    }
+
+    @Test
+    fun `parseRequestedScopes - Return default scopes uncheckedScopes is blank`() = runTest {
+        val defaultScope = mockk<Scope>()
+        val client = mockk<com.sympauthy.business.model.client.Client> {
+            every { defaultScopes } returns listOf(defaultScope)
+        }
+
+        val result = scopeManager.parseRequestedScopes(client, "   ")
+
+        assertEquals(listOf(defaultScope), result)
+    }
+
+    @Test
+    fun `parseRequestedScopes - Return default scopes uncheckedScopes is null`() = runTest {
+        val defaultScope = mockk<Scope>()
+        val client = mockk<com.sympauthy.business.model.client.Client> {
+            every { defaultScopes } returns listOf(defaultScope)
+        }
+
+        val result = scopeManager.parseRequestedScopes(client, null)
+
+        assertEquals(listOf(defaultScope), result)
     }
 }

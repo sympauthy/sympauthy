@@ -8,6 +8,7 @@ import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
 import com.sympauthy.business.model.oauth2.AuthorizationCode
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
+import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -37,7 +38,7 @@ class WebAuthorizationFlowRedirectUriBuilderTest {
     @Test
     fun `getRedirectUri - Redirect to collect claims step of the authorization flow if a claim is missing`() = runTest {
         val rawCollectClaimsUri = URI.create("https://www.example.com/collect-claims")
-        val authorizeAttempt = mockk<AuthorizeAttempt>()
+        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
         val flow = mockk<WebAuthorizationFlow> {
             every { collectClaimsUri } returns rawCollectClaimsUri
         }
@@ -61,7 +62,7 @@ class WebAuthorizationFlowRedirectUriBuilderTest {
     @Test
     fun `getRedirectUri - Redirect to code validation step of the authorization flow if a validation is required`() = runTest {
         val rawValidateCodeUri = URI.create("https://www.example.com/code")
-        val authorizeAttempt = mockk<AuthorizeAttempt>()
+        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
         val flow = mockk<WebAuthorizationFlow> {
             every { validateClaimsUri } returns rawValidateCodeUri
         }

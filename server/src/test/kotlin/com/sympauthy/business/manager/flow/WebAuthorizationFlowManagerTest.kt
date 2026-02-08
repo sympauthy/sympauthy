@@ -1,6 +1,8 @@
 package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.manager.ClientManager
+import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.FailedVerifyEncodedStateResult
 import com.sympauthy.business.manager.auth.SuccessVerifyEncodedStateResult
@@ -39,6 +41,12 @@ class WebAuthorizationFlowManagerTest {
 
     @MockK
     lateinit var claimValidationManager: WebAuthorizationFlowClaimValidationManager
+
+    @MockK
+    lateinit var clientManager: ClientManager
+
+    @MockK
+    lateinit var scopeManager: ScopeManager
 
     @MockK
     lateinit var authorizationFlowsConfig: AuthorizationFlowsConfig
