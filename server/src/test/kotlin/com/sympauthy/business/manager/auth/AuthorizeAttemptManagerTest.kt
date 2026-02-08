@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.auth
 
 import com.auth0.jwt.interfaces.DecodedJWT
 import com.sympauthy.business.manager.jwt.JwtManager
+import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.AuthorizeAttemptMapper
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.oauth2.FailedAuthorizeAttempt
@@ -23,6 +24,9 @@ import java.util.*
 
 @ExtendWith(MockKExtension::class)
 class AuthorizeAttemptManagerTest {
+
+    @MockK
+    lateinit var userManager: UserManager
 
     @MockK
     lateinit var authorizeAttemptRepository: AuthorizeAttemptRepository
