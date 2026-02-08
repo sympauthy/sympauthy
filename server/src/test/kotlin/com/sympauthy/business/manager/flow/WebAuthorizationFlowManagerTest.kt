@@ -10,8 +10,6 @@ import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.model.code.ValidationCodeReason
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
-import com.sympauthy.config.model.AuthorizationFlowsConfig
-import com.sympauthy.config.model.UrlsConfig
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -47,12 +45,6 @@ class WebAuthorizationFlowManagerTest {
 
     @MockK
     lateinit var scopeManager: ScopeManager
-
-    @MockK
-    lateinit var authorizationFlowsConfig: AuthorizationFlowsConfig
-
-    @MockK
-    lateinit var uncheckedUrlsConfig: UrlsConfig
 
     @SpyK
     @InjectMockKs

@@ -16,12 +16,7 @@ import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
-import com.sympauthy.config.model.AuthorizationFlowsConfig
-import com.sympauthy.config.model.UrlsConfig
-import com.sympauthy.config.model.orThrow
 import com.sympauthy.security.state
-import com.sympauthy.view.DefaultAuthorizationFlowController.Companion.USER_FLOW_ENDPOINT
-import io.micronaut.http.uri.UriBuilder
 import io.micronaut.security.authentication.Authentication
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -45,47 +40,21 @@ class WebAuthorizationFlowManager(
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val claimValidationManager: WebAuthorizationFlowClaimValidationManager,
     @Inject private val clientManager: ClientManager,
-    @Inject private val scopeManager: ScopeManager,
-    @Inject private val authorizationFlowsConfig: AuthorizationFlowsConfig,
-    @Inject private val uncheckedUrlsConfig: UrlsConfig
+    @Inject private val scopeManager: ScopeManager
 ) {
-
-    /**
-     * Note: The default web authentication flow is hardcoded since it is bundled with this authorization server.
-     */
-    val defaultWebAuthorizationFlow: WebAuthorizationFlow by lazy {
-        val builder = uncheckedUrlsConfig.orThrow().root
-            .let(UriBuilder::of)
-            .path(USER_FLOW_ENDPOINT)
-        WebAuthorizationFlow(
-            id = DEFAULT_AUTHORIZATION_FLOW_ID,
-            signInUri = builder.path("sign-in").build(),
-            collectClaimsUri = builder.path("claims/edit").build(),
-            validateClaimsUri = builder.path("claims/validate").build(),
-            errorUri = builder.path("error").build(),
-        )
-    }
-
-    /**
-     * Return the [WebAuthorizationFlow] identified by [id] or null.
-     */
-    fun findByIdOrNull(id: String): WebAuthorizationFlow? {
-        if (id == DEFAULT_AUTHORIZATION_FLOW_ID) {
-            return defaultWebAuthorizationFlow
-        }
-        return authorizationFlowsConfig.orThrow().flows
-            .filterIsInstance<WebAuthorizationFlow>()
-            .firstOrNull { it.id == id }
-    }
 
     /**
      * Return the [WebAuthorizationFlow] of throw a non-recoverable [BusinessException] if not found.
      */
     fun findById(id: String?): WebAuthorizationFlow {
-        return id?.let(this::findByIdOrNull) ?: throw businessExceptionOf(
-            detailsId = "flow.web.invalid_flow",
-            values = arrayOf("flowId" to (id ?: ""))
-        )
+        val authorizationFlow = id?.let(authorizationFlowManager::findByIdOrNull)
+        if (authorizationFlow !is WebAuthorizationFlow) {
+            throw businessExceptionOf(
+                detailsId = "flow.web.invalid_flow",
+                values = arrayOf("flowId" to (id ?: ""))
+            )
+        }
+        return authorizationFlow
     }
 
     /**

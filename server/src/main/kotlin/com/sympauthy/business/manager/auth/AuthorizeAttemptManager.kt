@@ -3,7 +3,6 @@ package com.sympauthy.business.manager.auth
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
-import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.AuthorizeAttemptMapper
@@ -28,22 +27,17 @@ import java.util.*
  * - modify the attempt: user id, granted scopes, error.
  *
  * Note: For separation of concerns, this manager does not handle any logic of the authorization flow.
- * Managers handle those logics in the flow package.
+ * Managers handle those logics are in the flow package.
  *
  * FIXME Implements anti-replay protection on database operation (ex. operation counter in the entity incremented on update).
  */
 @Singleton
 class AuthorizeAttemptManager(
+    @Inject private val userManager: UserManager,
     @Inject private val jwtManager: JwtManager,
     @Inject private val authorizeAttemptRepository: AuthorizeAttemptRepository,
     @Inject private val authorizeAttemptMapper: AuthorizeAttemptMapper
 ) {
-
-    @Inject
-    private lateinit var clientManager: ClientManager
-
-    @Inject
-    private lateinit var userManager: UserManager
 
     /**
      * Create a new [AuthorizeAttempt] for the end-user and save it in the database.
