@@ -7,7 +7,7 @@ import com.sympauthy.business.manager.jwt.JwtManager.Companion.REFRESH_KEY
 import com.sympauthy.business.mapper.AuthenticationTokenMapper
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.AuthenticationToken
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
+import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.data.repository.AuthenticationTokenRepository
 import com.sympauthy.exception.localizedExceptionOf
@@ -55,18 +55,8 @@ class TokenManagerTest {
 
     @Test
     fun `generateTokens - Throws if session is expired`() = runTest {
-        val attempt = mockk<AuthorizeAttempt>()
+        val attempt = mockk<CompletedAuthorizeAttempt>()
         every { attempt.expired } returns true
-        assertThrows<OAuth2Exception> {
-            tokenManager.generateTokens(attempt)
-        }
-    }
-
-    @Test
-    fun `generateTokens - Throws if no user associated to session`() = runTest {
-        val attempt = mockk<AuthorizeAttempt>()
-        every { attempt.expired } returns false
-        every { attempt.userId } returns null
         assertThrows<OAuth2Exception> {
             tokenManager.generateTokens(attempt)
         }
@@ -75,7 +65,7 @@ class TokenManagerTest {
     @Test
     fun `generateTokens - Generate all tokens`() = runTest {
         val userId = UUID.randomUUID()
-        val authorizedAttempt = mockk<AuthorizeAttempt>()
+        val authorizedAttempt = mockk<CompletedAuthorizeAttempt>()
         val accessToken = mockk<EncodedAuthenticationToken>()
         val refreshToken = mockk<EncodedAuthenticationToken>()
         val idToken = mockk<EncodedAuthenticationToken>()

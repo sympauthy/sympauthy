@@ -4,6 +4,7 @@ import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.rule.ScopeGrantingRuleManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
+import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.user.CollectedClaim
 import io.mockk.coEvery
@@ -34,7 +35,7 @@ class ScopeGrantingManagerTest {
 
     @Test
     fun `grantScopes - apply methods returned by getScopeGrantingMethods`() = runBlocking {
-        val authorizeAttempt = mockk<AuthorizeAttempt>()
+        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
         every { authorizeAttempt.requestedScopes } returns listOf("grantedScope1", "declinedScope1", "declinedScope2")
 
         val grantedScope1 = mockk<Scope>()

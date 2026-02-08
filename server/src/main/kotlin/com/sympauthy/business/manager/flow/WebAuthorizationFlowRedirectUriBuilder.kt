@@ -5,6 +5,9 @@ import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
+import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
+import com.sympauthy.business.model.oauth2.FailedAuthorizeAttempt
+import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import io.micronaut.http.uri.UriBuilder
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -40,30 +43,43 @@ class WebAuthorizationFlowRedirectUriBuilder(
         authorizeAttempt: AuthorizeAttempt,
         flow: WebAuthorizationFlow,
         status: WebAuthorizationFlowStatus
-    ): URI {
-        return when {
-            status.missingUser -> appendStateToUri(
-                authorizeAttempt = authorizeAttempt,
-                uri = flow.signInUri
-            )
+    ): URI = when (authorizeAttempt) {
+        is CompletedAuthorizeAttempt -> getRedirectUriToClient(authorizeAttempt)
+        is FailedAuthorizeAttempt -> getErrorUri(authorizeAttempt, flow)
+        is OnGoingAuthorizeAttempt -> {
+            when {
+                status.missingUser -> appendStateToUri(
+                    authorizeAttempt = authorizeAttempt,
+                    uri = flow.signInUri
+                )
 
-            status.missingRequiredClaims -> appendStateToUri(
-                authorizeAttempt = authorizeAttempt,
-                uri = flow.collectClaimsUri
-            )
+                status.missingRequiredClaims -> appendStateToUri(
+                    authorizeAttempt = authorizeAttempt,
+                    uri = flow.collectClaimsUri
+                )
 
-            status.missingMediaForClaimValidation.isNotEmpty() -> getRedirectUriToClaimValidation(
-                authorizeAttempt = authorizeAttempt,
-                flow = flow,
-                result = status,
-            )
+                status.missingMediaForClaimValidation.isNotEmpty() -> getRedirectUriToClaimValidation(
+                    authorizeAttempt = authorizeAttempt,
+                    flow = flow,
+                    result = status,
+                )
 
-            status.complete -> getRedirectUriToClient(
-                authorizeAttempt = authorizeAttempt
-            )
-
-            else -> TODO()
+                else -> TODO()
+            }
         }
+    }
+
+    /**
+     * Return the [URI] where the end-user must be redirected when there is an error during the authorization flow.
+     */
+    suspend fun getErrorUri(
+        authorizeAttempt: AuthorizeAttempt,
+        flow: WebAuthorizationFlow
+    ): URI {
+        return appendStateToUri(
+            authorizeAttempt = authorizeAttempt,
+            uri = flow.errorUri
+        )
     }
 
     /**
@@ -86,29 +102,11 @@ class WebAuthorizationFlowRedirectUriBuilder(
     }
 
     /**
-     * Return the [URI] where the end-user must be redirected when there is an error during the authorization flow.
-     */
-    fun getErrorUri(
-        flow: WebAuthorizationFlow,
-        errorCode: String?,
-        details: String? = null,
-        description: String? = null
-    ): URI {
-        return flow.errorUri.let(UriBuilder::of)
-            .apply {
-                errorCode?.let { queryParam("error_code", it) }
-                description?.let { queryParam("description", it) }
-                details?.let { queryParam("details", it) }
-            }
-            .build()
-    }
-
-    /**
      * Return a [URI] redirecting the end-user to the client with an authorization code.
      * The authorization code may be exchanged for tokens by the client using the token endpoint.
      */
     internal suspend fun getRedirectUriToClient(
-        authorizeAttempt: AuthorizeAttempt
+        authorizeAttempt: CompletedAuthorizeAttempt
     ): URI {
         val builder = UriBuilder.of(authorizeAttempt.redirectUri)
         authorizeAttempt.state

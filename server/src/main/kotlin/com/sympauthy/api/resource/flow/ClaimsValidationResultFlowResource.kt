@@ -12,7 +12,7 @@ Result indicating whether:
 """
 )
 @Serdeable
-data class ClaimsValidationFlowResultResource(
+data class ClaimsValidationResultFlowResource(
 
     @get:Schema(
         name = "media",

@@ -4,6 +4,7 @@ import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.rule.ScopeGrantingRuleManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
+import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.user.CollectedClaim
 import jakarta.inject.Inject
@@ -29,12 +30,11 @@ class ScopeGrantingManager(
     @Inject private val scopeGrantingRuleManager: ScopeGrantingRuleManager
 ) {
 
-
     /**
      * Pass the [AuthorizeAttempt.requestedScopes] through the chain of scope granting methods.
      */
     suspend fun grantScopes(
-        authorizeAttempt: AuthorizeAttempt,
+        authorizeAttempt: OnGoingAuthorizeAttempt,
         collectedClaims: List<CollectedClaim>
     ): GrantScopesResult {
         val requestedScopes = authorizeAttempt.requestedScopes.map {

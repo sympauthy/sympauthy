@@ -93,9 +93,9 @@ CREATE TABLE authorize_attempts
     id                    uuid      NOT NULL DEFAULT gen_random_uuid(),
     attempt_date         timestamp NOT NULL,
 
-    client_id             text      NOT NULL,
-    redirect_uri          text      NOT NULL,
-    requested_scopes      text[]    NOT NULL,
+    client_id        text,
+    redirect_uri     text,
+    requested_scopes text[],
     state                 text,
     nonce                 text,
 

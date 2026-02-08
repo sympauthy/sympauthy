@@ -6,7 +6,7 @@ import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
+import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.StandardScope
@@ -36,14 +36,14 @@ class IdTokenGenerator(
      * Generate a new id token containing user info accessible according to the scopes granted in [authorizeAttempt].
      */
     suspend fun generateIdToken(
-        authorizeAttempt: AuthorizeAttempt,
+        authorizeAttempt: CompletedAuthorizeAttempt,
         userId: UUID,
         accessToken: EncodedAuthenticationToken
     ) = generateIdToken(
         userId = userId,
         authorizeAttemptId = authorizeAttempt.id,
         clientId = authorizeAttempt.clientId,
-        scopes = authorizeAttempt.grantedScopes ?: emptyList(),
+        scopes = authorizeAttempt.grantedScopes,
         nonce = authorizeAttempt.nonce,
         accessToken = accessToken,
     )

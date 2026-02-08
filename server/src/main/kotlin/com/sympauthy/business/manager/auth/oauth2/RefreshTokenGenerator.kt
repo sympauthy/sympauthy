@@ -4,7 +4,7 @@ import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
+import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
@@ -29,12 +29,12 @@ class RefreshTokenGenerator(
      * Or return null if the refresh token is disabled by the [authConfig].
      */
     suspend fun generateRefreshToken(
-        authorizeAttempt: AuthorizeAttempt,
+        authorizeAttempt: CompletedAuthorizeAttempt,
         userId: UUID
     ) = generateRefreshToken(
         userId = userId,
         clientId = authorizeAttempt.clientId,
-        scopeTokens = authorizeAttempt.grantedScopes ?: emptyList(),
+        scopeTokens = authorizeAttempt.grantedScopes,
         authorizeAttemptId = authorizeAttempt.id
     )
 

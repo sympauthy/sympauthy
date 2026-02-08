@@ -7,7 +7,7 @@ import com.sympauthy.business.manager.jwt.JwtManager.Companion.REFRESH_KEY
 import com.sympauthy.business.mapper.AuthenticationTokenMapper
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.AuthenticationToken
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
+import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.SERVER_ERROR
@@ -40,7 +40,7 @@ open class TokenManager(
 
     /**
      * Revoke the token identified by [id].
-     * A revoked token cannot be used anymore whether is for authentication or for refresh.
+     * A revoked token cannot be used anymore whether it is for authentication or for refresh.
      */
     suspend fun revokeToken(id: UUID) {
         return tokenRepository.updateRevokedById(id, true)
@@ -48,7 +48,7 @@ open class TokenManager(
 
     @Transactional
     open suspend fun generateTokens(
-        authorizeAttempt: AuthorizeAttempt
+        authorizeAttempt: CompletedAuthorizeAttempt
     ): GenerateTokenResult = coroutineScope {
         if (authorizeAttempt.expired) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token.expired", "description.oauth2.expired")

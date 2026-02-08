@@ -7,17 +7,21 @@ import com.sympauthy.business.model.code.ValidationCodeMedia
  */
 data class WebAuthorizationFlowStatus(
     /**
+     * True if the authorization attempt failed.
+     */
+    val failed: Boolean = false,
+    /**
      * True if no user has been authenticated for this flow yet.
      */
-    val missingUser: Boolean,
+    val missingUser: Boolean = false,
     /**
      * True if we are missing some required claims from the end-user, and they must be collected by the client.
      */
-    val missingRequiredClaims: Boolean,
+    val missingRequiredClaims: Boolean = false,
     /**
      * List of media we must send a validation code too according to the claims collected from the end-user.
      */
-    val missingMediaForClaimValidation: List<ValidationCodeMedia>,
+    val missingMediaForClaimValidation: List<ValidationCodeMedia> = emptyList(),
 ) {
 
     /**

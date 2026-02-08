@@ -2,17 +2,18 @@ package com.sympauthy.business.manager.auth
 
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.jwt.JwtManager
+import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.AuthorizeAttemptMapper
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.AuthorizationFlow
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
+import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.user.User
 import com.sympauthy.data.model.AuthorizeAttemptEntity
 import com.sympauthy.data.repository.AuthorizeAttemptRepository
-import com.sympauthy.exception.LocalizedException
-import com.sympauthy.exception.localizedExceptionOf
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.net.URI
@@ -26,8 +27,10 @@ import java.util.*
  * - verify the state of an authorization attempt.
  * - modify the attempt: user id, granted scopes, error.
  *
- * Note: For separation of concerns, this manager does not handle any logic of the authorization flow. Those logics
- * are handled by managers in the flow package.
+ * Note: For separation of concerns, this manager does not handle any logic of the authorization flow.
+ * Managers handle those logics in the flow package.
+ *
+ * FIXME Implements anti-replay protection on database operation (ex. operation counter in the entity incremented on update).
  */
 @Singleton
 class AuthorizeAttemptManager(
@@ -36,70 +39,53 @@ class AuthorizeAttemptManager(
     @Inject private val authorizeAttemptMapper: AuthorizeAttemptMapper
 ) {
 
+    @Inject
+    private lateinit var clientManager: ClientManager
+
+    @Inject
+    private lateinit var userManager: UserManager
+
+    /**
+     * Create a new [AuthorizeAttempt] for the end-user and save it in the database.
+     *
+     * The [AuthorizeAttempt] is saved even if the validation of some parameters failed.
+     */
     suspend fun newAuthorizeAttempt(
-        client: Client,
-        authorizationFlow: AuthorizationFlow?,
+        client: Client? = null,
         clientState: String? = null,
         clientNonce: String? = null,
-        uncheckedScopes: List<Scope>? = null,
-        uncheckedRedirectUri: URI? = null,
+        authorizationFlow: AuthorizationFlow? = null,
+        scopes: List<Scope>? = null,
+        redirectUri: URI? = null,
+        error: BusinessException? = null
     ): AuthorizeAttempt {
-        val scopes = getAllowedScopesForClient(client, uncheckedScopes)
-        val redirectUri = checkRedirectUri(client, uncheckedRedirectUri)
-        checkIsExistingAttemptWithState(clientState)
+        val now = LocalDateTime.now()
 
         val entity = AuthorizeAttemptEntity(
-            clientId = client.id,
+            clientId = client?.id,
             authorizationFlowId = authorizationFlow?.id,
             redirectUri = redirectUri.toString(),
-            requestedScopes = scopes.map(Scope::scope).toTypedArray(),
+            requestedScopes = (scopes ?: emptyList()).map(Scope::scope).toTypedArray(),
             state = clientState,
             nonce = clientNonce,
 
-            attemptDate = LocalDateTime.now(),
-            expirationDate = LocalDateTime.now().plusMinutes(15) // TODO: Add to advanced config
+            errorDate = error?.let { now },
+            errorDetailsId = error?.detailsId,
+            errorDescriptionId = error?.descriptionId,
+            errorValues = error?.values,
+
+            attemptDate = now,
+            expirationDate = now.plusMinutes(15) // TODO: Add to advanced config
         )
         authorizeAttemptRepository.save(entity)
 
         return authorizeAttemptMapper.toAuthorizeAttempt(entity)
     }
 
-    /**
-     * Return a list containing only the scope allowed by the [client].
-     * If no scope are provided, then it returns the list of default scopes for the client.
-     * If all scopes are filtered or if default scope are empty, then throws a [LocalizedException].
-     */
-    internal fun getAllowedScopesForClient(
-        client: Client,
-        uncheckedScopes: List<Scope>?
-    ): List<Scope> {
-        val scopes = when {
-            uncheckedScopes.isNullOrEmpty() -> client.defaultScopes
-            client.allowedScopes != null -> {
-                val allowedScopes = client.allowedScopes.map(Scope::scope)
-                uncheckedScopes.filter { allowedScopes.contains(it.scope) }
-            }
-
-            else -> uncheckedScopes
-        }
-        if (scopes.isNullOrEmpty()) {
-            throw localizedExceptionOf("authorize.scope.missing")
-        }
-        return scopes
-    }
-
-    internal fun checkRedirectUri(
-        client: Client,
-        uncheckedRedirectUri: URI?
-    ): URI {
-        // TODO: check redirect uri is valid for client.
-        return uncheckedRedirectUri!!
-    }
-
-    internal suspend fun checkIsExistingAttemptWithState(
-        state: String?
+    suspend fun checkIsExistingAttemptWithState(
+        uncheckedClientState: String?
     ) {
-        val existingAttempt = state?.let {
+        val existingAttempt = uncheckedClientState?.let {
             authorizeAttemptRepository.findByState(it)
         }
         if (existingAttempt != null) {
@@ -119,7 +105,7 @@ class AuthorizeAttemptManager(
      * after verifying the [state] has not been tempered with.
      * Otherwise, return a [FailedVerifyEncodedStateResult] with the appropriate error details.
      */
-    suspend fun verifyEncodedState(state: String?): VerifyEncodedStateResult {
+    suspend fun verifyEncodedInternalState(state: String?): VerifyEncodedStateResult {
         if (state.isNullOrBlank()) {
             return FailedVerifyEncodedStateResult(
                 detailsId = "auth.authorize_attempt.validate.missing",
@@ -140,21 +126,23 @@ class AuthorizeAttemptManager(
         }
         val authorizeAttempt = authorizeAttemptRepository.findById(attemptId)
             ?.let(authorizeAttemptMapper::toAuthorizeAttempt)
-        if (authorizeAttempt == null || authorizeAttempt.expired) {
-            // If the attempt is missing in DB, most likely a cron cleaned it.
-            return FailedVerifyEncodedStateResult(
-                detailsId = "auth.authorize_attempt.validate.expired",
-                descriptionId = "description.oauth2.expired"
-            )
-        }
-        if (authorizeAttempt.errorDetailsId != null) {
-            return FailedVerifyEncodedStateResult(
+
+        return when (authorizeAttempt) {
+            is OnGoingAuthorizeAttempt -> SuccessVerifyEncodedStateResult(authorizeAttempt)
+            is FailedAuthorizeAttempt -> FailedVerifyEncodedStateResult(
                 detailsId = authorizeAttempt.errorDetailsId,
                 descriptionId = authorizeAttempt.errorDescriptionId,
                 values = authorizeAttempt.errorValues
             )
+
+            else -> {
+                // If the attempt is missing in DB, most likely a cron cleaned it.
+                FailedVerifyEncodedStateResult(
+                    detailsId = "auth.authorize_attempt.validate.expired",
+                    descriptionId = "description.oauth2.expired",
+                )
+            }
         }
-        return SuccessVerifyEncodedStateResult(authorizeAttempt)
     }
 
     /**
@@ -162,18 +150,15 @@ class AuthorizeAttemptManager(
      * Do nothing if the [authorizeAttempt] has already been completed or is already in error.
      */
     suspend fun setAuthenticatedUserId(
-        authorizeAttempt: AuthorizeAttempt,
+        authorizeAttempt: OnGoingAuthorizeAttempt,
         userId: UUID
-    ): AuthorizeAttempt {
-        if (authorizeAttempt.failed || authorizeAttempt.complete) {
-            return authorizeAttempt
-        }
-
+    ): OnGoingAuthorizeAttempt {
         authorizeAttemptRepository.updateUserId(
             id = authorizeAttempt.id,
             userId = userId
         )
-        return authorizeAttempt.copy(
+        return authorizeAttemptMapper.copy(
+            authorizeAttempt = authorizeAttempt,
             userId = userId
         )
     }
@@ -183,19 +168,16 @@ class AuthorizeAttemptManager(
      * Do nothing if the [authorizeAttempt] has already been completed or is already in error.
      */
     suspend fun setGrantedScopes(
-        authorizeAttempt: AuthorizeAttempt,
+        authorizeAttempt: OnGoingAuthorizeAttempt,
         grantedScopes: List<Scope>
-    ): AuthorizeAttempt {
-        if (authorizeAttempt.failed || authorizeAttempt.complete) {
-            return authorizeAttempt
-        }
-
+    ): OnGoingAuthorizeAttempt {
         val grantedScopeIds = grantedScopes.map(Scope::scope)
         authorizeAttemptRepository.updateGrantedScopes(
             id = authorizeAttempt.id,
             grantedScopes = grantedScopeIds
         )
-        return authorizeAttempt.copy(
+        return authorizeAttemptMapper.copy(
+            authorizeAttempt = authorizeAttempt,
             grantedScopes = grantedScopeIds
         )
     }
@@ -205,13 +187,10 @@ class AuthorizeAttemptManager(
      * Do nothing if the [authorizeAttempt] has already been completed or is already in error.
      */
     suspend fun markAsFailedIfNotRecoverable(
-        authorizeAttempt: AuthorizeAttempt,
+        authorizeAttempt: OnGoingAuthorizeAttempt,
         error: BusinessException
     ): AuthorizeAttempt {
         if (error.recoverable) return authorizeAttempt
-        if (authorizeAttempt.failed || authorizeAttempt.complete) {
-            return authorizeAttempt
-        }
 
         val errorDate = LocalDateTime.now()
         authorizeAttemptRepository.updateError(
@@ -221,11 +200,12 @@ class AuthorizeAttemptManager(
             errorDescriptionId = error.descriptionId,
             errorValues = error.values
         )
-        return authorizeAttempt.copy(
-            errorDate = errorDate,
+        return authorizeAttemptMapper.toFailedAuthorizeAttempt(
+            authorizeAttempt = authorizeAttempt,
             errorDetailsId = error.detailsId,
             errorDescriptionId = error.descriptionId,
-            errorValues = error.values
+            errorValues = error.values,
+            errorDate = errorDate
         )
     }
 
@@ -234,19 +214,48 @@ class AuthorizeAttemptManager(
      * Do nothing if the [authorizeAttempt] has already been completed or has failed.
      */
     suspend fun markAsComplete(
-        authorizeAttempt: AuthorizeAttempt
-    ): AuthorizeAttempt {
-        if (authorizeAttempt.failed || authorizeAttempt.complete) {
-            return authorizeAttempt
-        }
-
-        val completeDate = LocalDateTime.now()
+        authorizeAttempt: OnGoingAuthorizeAttempt
+    ): CompletedAuthorizeAttempt {
         authorizeAttemptRepository.updateCompleteDate(
             id = authorizeAttempt.id,
             completeDate = LocalDateTime.now()
         )
-        return authorizeAttempt.copy(
-            completeDate = completeDate
+        return authorizeAttemptMapper.toCompletedAuthorizeAttempt(
+            authorizeAttempt = authorizeAttempt,
+            completeDate = LocalDateTime.now()
+        )
+    }
+
+    /**
+     * Return the [User] associated to the [authorizeAttempt] or null if:
+     * - there is not [OnGoingAuthorizeAttempt.userId] associated to the ongoing [authorizeAttempt].
+     * - the [authorizeAttempt] has failed.
+     *
+     * Throws an unrecoverable [BusinessException] if the user id is corrupted and cannot be found in the database
+     * anymore.
+     */
+    suspend fun getUserOrNull(authorizeAttempt: AuthorizeAttempt): User? {
+        return when (authorizeAttempt) {
+            is OnGoingAuthorizeAttempt -> authorizeAttempt.userId?.let { userManager.findById(it) }
+            is CompletedAuthorizeAttempt -> {
+                userManager.findById(authorizeAttempt.userId)
+            }
+
+            is FailedAuthorizeAttempt -> null
+        }
+    }
+
+    /**
+     * Return the [User] associated to the [authorizeAttempt] or throw an unrecoverable [BusinessException] if:
+     * - there is not [OnGoingAuthorizeAttempt.userId] associated to the ongoing [authorizeAttempt].
+     * - the [authorizeAttempt] has failed.
+     * - the user id is corrupted and cannot be found in the database anymore.
+     */
+    suspend fun getUser(
+        authorizeAttempt: AuthorizeAttempt
+    ): User {
+        return getUserOrNull(authorizeAttempt) ?: throw businessExceptionOf(
+            detailsId = "auth.authorize_attempt.user.missing"
         )
     }
 
@@ -268,7 +277,8 @@ class AuthorizeAttemptManager(
 
 sealed class VerifyEncodedStateResult
 
-class SuccessVerifyEncodedStateResult(val authorizeAttempt: AuthorizeAttempt) : VerifyEncodedStateResult()
+class SuccessVerifyEncodedStateResult(val authorizeAttempt: AuthorizeAttempt) :
+    VerifyEncodedStateResult()
 
 class FailedVerifyEncodedStateResult(
     val detailsId: String,

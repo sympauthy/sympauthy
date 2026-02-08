@@ -3,9 +3,14 @@ package com.sympauthy.api.controller.flow
 import com.sympauthy.api.mapper.flow.FlowErrorResourceMapper
 import com.sympauthy.api.resource.flow.FlowErrorResource
 import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
+import com.sympauthy.business.manager.auth.FailedVerifyEncodedStateResult
+import com.sympauthy.business.manager.auth.SuccessVerifyEncodedStateResult
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowManager
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowRedirectUriBuilder
+import com.sympauthy.business.model.oauth2.FailedAuthorizeAttempt
 import com.sympauthy.security.SecurityRule.HAS_STATE
+import com.sympauthy.security.state
 import com.sympauthy.util.orDefault
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.annotation.Controller
@@ -19,6 +24,7 @@ import jakarta.inject.Inject
 @Secured(HAS_STATE)
 @Controller("/api/v1/flow/errors")
 class ErrorController(
+    @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
     @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
     @Inject private val redirectUriBuilder: WebAuthorizationFlowRedirectUriBuilder,
     @Inject private val flowErrorResourceMapper: FlowErrorResourceMapper,
@@ -43,29 +49,45 @@ Result containing either:
         request: HttpRequest<*>,
         authentication: Authentication
     ): FlowErrorResource {
-        return try {
-            webAuthorizationFlowManager.extractFromAuthenticationAndVerifyThenRun(authentication) { authorizeAttempt, flow ->
-                if (authorizeAttempt.errorDetailsId == null) {
-                    val result = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
-                        authorizeAttempt = authorizeAttempt,
-                    )
-                    val redirectUri = redirectUriBuilder.getRedirectUri(
-                        authorizeAttempt = authorizeAttempt,
-                        flow = flow,
-                        status = result
-                    )
-                    flowErrorResourceMapper.toResource(redirectUri)
-                } else {
-                    val exception = BusinessException(
-                        recoverable = false,
-                        detailsId = authorizeAttempt.errorDetailsId,
-                        descriptionId = authorizeAttempt.errorDescriptionId,
-                    )
-                    flowErrorResourceMapper.toResource(exception, request.locale.orDefault())
+        val verifyResult = authorizeAttemptManager.verifyEncodedInternalState(authentication.state)
+
+        return when (verifyResult) {
+            is SuccessVerifyEncodedStateResult -> {
+                when (verifyResult.authorizeAttempt) {
+                    is FailedAuthorizeAttempt -> {
+                        val exception = BusinessException(
+                            recoverable = false,
+                            detailsId = verifyResult.authorizeAttempt.errorDetailsId,
+                            descriptionId = verifyResult.authorizeAttempt.errorDescriptionId,
+                        )
+                        flowErrorResourceMapper.toResource(exception, request.locale.orDefault())
+                    }
+
+                    else -> {
+                        val flow = webAuthorizationFlowManager.findById(
+                            verifyResult.authorizeAttempt.authorizationFlowId
+                        )
+                        val result = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
+                            authorizeAttempt = verifyResult.authorizeAttempt,
+                        )
+                        val redirectUri = redirectUriBuilder.getRedirectUri(
+                            authorizeAttempt = verifyResult.authorizeAttempt,
+                            flow = flow,
+                            status = result
+                        )
+                        flowErrorResourceMapper.toResource(redirectUri)
+                    }
                 }
             }
-        } catch (e: BusinessException) {
-            flowErrorResourceMapper.toResource(e, request.locale.orDefault())
+
+            is FailedVerifyEncodedStateResult -> {
+                val exception = BusinessException(
+                    recoverable = false,
+                    detailsId = verifyResult.detailsId,
+                    descriptionId = verifyResult.descriptionId
+                )
+                flowErrorResourceMapper.toResource(exception, request.locale.orDefault())
+            }
         }
     }
 }

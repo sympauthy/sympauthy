@@ -6,15 +6,30 @@ import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(
     description = """
-Collectable claims collected by the authorization server for the end-user signing-in/up in the authorization flow.
+Resource containing either:
+- claims collected by the authorization server for the end-user signing-in/up in the authorization flow.
+- a redirect url where the end-user must be redirected to continue the authentication flow.
 """
 )
 @Serdeable
-data class ClaimsResource(
+data class ClaimsFlowResource(
     @get:Schema(
         description = "List of claims."
     )
-    val claims: List<ClaimValueResource>
+    val claims: List<ClaimValueResource>? = null,
+
+    @get:Schema(
+        name = "redirect_url",
+        description = """
+URL where the end-user must be redirected to continue the authentication flow.
+
+The end-user will either:
+- continue the authentication flow. ex. if there is no claims to collect from the end-user.
+- be redirected to the client if the authentication flow is completed.
+        """
+    )
+    @get:JsonProperty("redirect_url")
+    val redirectUrl: String? = null
 )
 
 @Schema(

@@ -5,6 +5,7 @@ import com.sympauthy.business.model.code.ValidationCode
 import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.code.ValidationCodeReason
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
+import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.data.repository.ValidationCodeRepository
@@ -97,7 +98,7 @@ open class ValidationCodeManager(
     @Transactional
     open suspend fun queueRequiredValidationCodes(
         user: User,
-        authorizeAttempt: AuthorizeAttempt,
+        authorizeAttempt: OnGoingAuthorizeAttempt,
         collectedClaims: List<CollectedClaim>,
         reasons: List<ValidationCodeReason>
     ): List<ValidationCode> {
@@ -146,7 +147,7 @@ open class ValidationCodeManager(
      */
     open suspend fun refreshAndQueueValidationCode(
         user: User,
-        authorizeAttempt: AuthorizeAttempt,
+        authorizeAttempt: OnGoingAuthorizeAttempt,
         collectedClaims: List<CollectedClaim>,
         validationCode: ValidationCode
     ): RefreshResult {

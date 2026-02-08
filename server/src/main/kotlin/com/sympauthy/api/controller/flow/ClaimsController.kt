@@ -1,19 +1,16 @@
 package com.sympauthy.api.controller.flow
 
-import com.sympauthy.api.exception.httpExceptionOf
 import com.sympauthy.api.mapper.CollectedClaimUpdateMapper
 import com.sympauthy.api.mapper.flow.ClaimsResourceMapper
 import com.sympauthy.api.resource.flow.ClaimInputResource
-import com.sympauthy.api.resource.flow.ClaimsResource
+import com.sympauthy.api.resource.flow.ClaimsFlowResource
 import com.sympauthy.api.resource.flow.FlowResultResource
-import com.sympauthy.api.util.flow.FlowControllerHelper
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowManager
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowPasswordManager
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowRedirectUriBuilder
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.security.SecurityRule.HAS_STATE
-import io.micronaut.http.HttpStatus.BAD_REQUEST
 import io.micronaut.http.annotation.Body
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
@@ -32,8 +29,7 @@ class ClaimsController(
     @Inject private val passwordFlowManager: WebAuthorizationFlowPasswordManager,
     @Inject private val claimsMapper: ClaimsResourceMapper,
     @Inject private val collectedClaimUpdateMapper: CollectedClaimUpdateMapper,
-    @Inject private val redirectUriBuilder: WebAuthorizationFlowRedirectUriBuilder,
-    @Inject private val helper: FlowControllerHelper
+    @Inject private val redirectUriBuilder: WebAuthorizationFlowRedirectUriBuilder
 ) {
 
     @Operation(
@@ -51,14 +47,24 @@ collection step of the authorization flow again.
     @Get
     suspend fun getCollectedClaims(
         authentication: Authentication,
-    ): ClaimsResource =
-        webAuthorizationFlowManager.extractFromAuthenticationAndVerifyThenRun(authentication) { authorizeAttempt, _ ->
-            val user = helper.getUser(authorizeAttempt)
-            // FIXME: Implement suggestion from provider
-            claimsMapper.toResource(
-                collectedClaims = collectedClaimManager.findReadableUserInfoByUserId(user.id)
+    ): ClaimsFlowResource = webAuthorizationFlowManager.extractUserFromAuthenticationAndVerifyThenRun(
+        authentication = authentication
+    ) { authorizeAttempt, flow, user ->
+        if (user != null) {
+            val collectedClaims = collectedClaimManager.findReadableUserInfoByUserId(user.id)
+            claimsMapper.toResource(collectedClaims = collectedClaims)
+        } else {
+            val status = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
+                authorizeAttempt = authorizeAttempt
             )
+            val redirectUri = redirectUriBuilder.getRedirectUri(
+                authorizeAttempt = authorizeAttempt,
+                flow = flow,
+                status = status
+            )
+            claimsMapper.toResource(redirectUri = redirectUri)
         }
+    }
 
     @Operation(
         description = """
@@ -84,13 +90,10 @@ the end-user but it declined to fulfill the value.
         authentication: Authentication,
         @Body inputResource: ClaimInputResource
     ): FlowResultResource =
-        webAuthorizationFlowManager.extractFromAuthenticationAndVerifyThenRun(authentication) { authorizeAttempt, flow ->
-            val user = helper.getUser(authorizeAttempt)
-            val updates = getUpdates(inputResource)
-
-            val collectedClaims = collectedClaimManager.update(user, updates = updates)
-            if (!collectedClaimManager.areAllRequiredClaimCollected(collectedClaims)) {
-                throw httpExceptionOf(BAD_REQUEST, "flow.claims.missing_required")
+        webAuthorizationFlowManager.extractUserFromAuthenticationAndVerifyThenRun(authentication) { authorizeAttempt, flow, user ->
+            if (user != null) {
+                val updates = getUpdates(inputResource)
+                collectedClaimManager.update(user, updates = updates)
             }
 
             val status = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(

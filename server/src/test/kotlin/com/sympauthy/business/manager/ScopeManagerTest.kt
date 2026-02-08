@@ -69,4 +69,120 @@ class ScopeManagerTest {
             scopeManager.findOrThrow(scope)
         }
     }
+
+    @Test
+    fun `findForClientOrThrow - Return scope when found and client has no allowedScopes`() = runTest {
+        val scope = "openid"
+        val foundScope = mockk<Scope>()
+        val client = mockk<com.sympauthy.business.model.client.Client> {
+            every { allowedScopes } returns null
+        }
+
+        coEvery { scopeManager.find(scope) } returns foundScope
+
+        val result = scopeManager.findForClientOrThrow(client, scope)
+
+        assertSame(foundScope, result)
+    }
+
+    @Test
+    fun `findForClientOrThrow - Return scope when found and client allows it`() = runTest {
+        val scope = "openid"
+        val foundScope = mockk<Scope>()
+        val client = mockk<com.sympauthy.business.model.client.Client> {
+            every { allowedScopes } returns setOf(foundScope)
+        }
+
+        coEvery { scopeManager.find(scope) } returns foundScope
+
+        val result = scopeManager.findForClientOrThrow(client, scope)
+
+        assertSame(foundScope, result)
+    }
+
+    @Test
+    fun `findForClientOrThrow - Throw when scope not found`() = runTest {
+        val scope = "invalid"
+        val client = mockk<com.sympauthy.business.model.client.Client>()
+
+        coEvery { scopeManager.find(scope) } returns null
+
+        assertThrows<BusinessException> {
+            scopeManager.findForClientOrThrow(client, scope)
+        }
+    }
+
+    @Test
+    fun `findForClientOrThrow - Throw when scope not allowed by client`() = runTest {
+        val scope = "openid"
+        val foundScope = mockk<Scope>()
+        val otherScope = mockk<Scope>()
+        val client = mockk<com.sympauthy.business.model.client.Client> {
+            every { allowedScopes } returns setOf(otherScope)
+        }
+
+        coEvery { scopeManager.find(scope) } returns foundScope
+
+        assertThrows<BusinessException> {
+            scopeManager.findForClientOrThrow(client, scope)
+        }
+    }
+
+    @Test
+    fun `parseRequestedScopes - Parse and return scopes allowed by client`() = runTest {
+        val scopeOne = "openid"
+        val scopeTwo = "profile"
+        val foundScopeOne = mockk<Scope>()
+        val foundScopeTwo = mockk<Scope>()
+        val client = mockk<com.sympauthy.business.model.client.Client>()
+
+        coEvery { scopeManager.findForClientOrThrow(client, scopeOne) } returns foundScopeOne
+        coEvery { scopeManager.findForClientOrThrow(client, scopeTwo) } returns foundScopeTwo
+
+        val result = scopeManager.parseRequestedScopes(client, "$scopeOne,$scopeTwo")
+
+        assertEquals(2, result.size)
+        assertSame(foundScopeOne, result[0])
+        assertSame(foundScopeTwo, result[1])
+    }
+
+    @Test
+    fun `parseRequestedScopes - Throw when uncheckedScopes is null`() = runTest {
+        val client = mockk<com.sympauthy.business.model.client.Client>()
+
+        val exception = assertThrows<BusinessException> {
+            scopeManager.parseRequestedScopes(client, null)
+        }
+
+        assertEquals("scope.parse_requested.missing", exception.detailsId)
+    }
+
+    @Test
+    fun `parseRequestedScopes - Throw when uncheckedScopes is blank`() = runTest {
+        val client = mockk<com.sympauthy.business.model.client.Client>()
+
+        val exception = assertThrows<BusinessException> {
+            scopeManager.parseRequestedScopes(client, "   ")
+        }
+
+        assertEquals("scope.parse_requested.missing", exception.detailsId)
+    }
+
+    @Test
+    fun `parseRequestedScopes - Parse scopes with whitespace`() = runTest {
+        val scopeOne = "openid"
+        val scopeTwo = "profile"
+        val foundScopeOne = mockk<Scope>()
+        val foundScopeTwo = mockk<Scope>()
+        val client = mockk<com.sympauthy.business.model.client.Client>()
+
+        coEvery { scopeManager.findForClientOrThrow(client, scopeOne) } returns foundScopeOne
+        coEvery { scopeManager.findForClientOrThrow(client, scopeTwo) } returns foundScopeTwo
+
+        val result = scopeManager.parseRequestedScopes(client, " $scopeOne , $scopeTwo ")
+
+        assertEquals(2, result.size)
+        assertSame(foundScopeOne, result[0])
+        assertSame(foundScopeTwo, result[1])
+    }
 }

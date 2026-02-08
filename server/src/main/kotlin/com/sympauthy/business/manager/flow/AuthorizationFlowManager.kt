@@ -1,9 +1,11 @@
 package com.sympauthy.business.manager.flow
 
+import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.ScopeGrantingManager
-import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
+import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
+import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.user.CollectedClaim
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -14,17 +16,20 @@ import jakarta.inject.Singleton
 @Singleton
 class AuthorizationFlowManager(
     @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
-    @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val scopeGrantingManager: ScopeGrantingManager
 ) {
 
     /**
-     * Return true if the authorization flow can issue a token for the given [authorizeAttempt].
-     *
-     * FIXME: to use in TokenController
+     * Either return if the [authorizeAttempt] can be used to issue an access token or throws one of the following
+     * exceptions:
+     * - TODO
      */
-    suspend fun canIssueToken(authorizeAttempt: AuthorizeAttempt): Boolean {
-        return false
+    suspend fun checkCanIssueToken(authorizeAttempt: AuthorizeAttempt?): CompletedAuthorizeAttempt {
+        // TODO: Implements validation
+        if (authorizeAttempt !is CompletedAuthorizeAttempt) {
+            throw businessExceptionOf("token.expired")
+        }
+        return authorizeAttempt
     }
 
     /**
@@ -36,7 +41,7 @@ class AuthorizationFlowManager(
         authorizeAttempt: AuthorizeAttempt,
         collectedClaims: List<CollectedClaim>,
     ): AuthorizeAttempt {
-        if (authorizeAttempt.complete) {
+        if (authorizeAttempt !is OnGoingAuthorizeAttempt) {
             return authorizeAttempt
         }
         var modifiedAuthorizedAttempt = authorizeAttempt

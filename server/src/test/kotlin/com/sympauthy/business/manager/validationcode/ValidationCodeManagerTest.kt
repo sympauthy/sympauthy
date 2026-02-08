@@ -7,6 +7,7 @@ import com.sympauthy.business.model.code.ValidationCodeMedia.EMAIL
 import com.sympauthy.business.model.code.ValidationCodeReason.EMAIL_CLAIM
 import com.sympauthy.business.model.code.ValidationCodeReason.PHONE_NUMBER_CLAIM
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
+import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.Claim
@@ -128,7 +129,7 @@ class ValidationCodeManagerTest {
             val user = mockk<User> {
                 every { id } returns mockUserId
             }
-            val authorizeAttempt = mockk<AuthorizeAttempt> {
+            val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
                 every { userId } returns mockUserId
             }
             val collectedClaim = mockk<CollectedClaim> {
@@ -297,7 +298,7 @@ class ValidationCodeManagerTest {
             every { id } returns mockUserId
         }
         val mockAttemptId = UUID.randomUUID()
-        val attempt = mockk<AuthorizeAttempt> {
+        val attempt = mockk<OnGoingAuthorizeAttempt> {
             every { id } returns mockAttemptId
             every { userId } returns mockUserId
         }

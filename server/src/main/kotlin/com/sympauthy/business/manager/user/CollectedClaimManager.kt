@@ -4,6 +4,9 @@ import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.mapper.CollectedClaimMapper
 import com.sympauthy.business.mapper.CollectedClaimUpdateMapper
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
+import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
+import com.sympauthy.business.model.oauth2.FailedAuthorizeAttempt
+import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
@@ -29,19 +32,31 @@ open class CollectedClaimManager(
     /**
      * Return the list of [CollectedClaim] collected from the user associated to the [authorizeAttempt].
      *
-     * Only the claims that are readable according to the client ([AuthorizeAttempt.clientId])
-     * and the requested scope ([AuthorizeAttempt.requestedScopes]) of the [authorizeAttempt] will be returned.
+     * Only the claims that are readable according to the client and the scopes
+     * of the [authorizeAttempt] will be returned.
      */
     suspend fun findClaimsReadableByAttempt(
         authorizeAttempt: AuthorizeAttempt
     ): List<CollectedClaim> {
-        if (authorizeAttempt.userId == null) {
-            return emptyList()
+        return when (authorizeAttempt) {
+            is FailedAuthorizeAttempt -> emptyList()
+            is OnGoingAuthorizeAttempt -> {
+                if (authorizeAttempt.userId == null) {
+                    return emptyList()
+                }
+                findReadableUserInfoByUserId(
+                    userId = authorizeAttempt.userId,
+                    scopes = authorizeAttempt.grantedScopes ?: authorizeAttempt.requestedScopes
+                )
+            }
+
+            is CompletedAuthorizeAttempt -> {
+                findReadableUserInfoByUserId(
+                    userId = authorizeAttempt.userId,
+                    scopes = authorizeAttempt.grantedScopes
+                )
+            }
         }
-        return findReadableUserInfoByUserId(
-            userId = authorizeAttempt.userId,
-            scopes = authorizeAttempt.grantedScopes ?: authorizeAttempt.requestedScopes
-        )
     }
 
     /**

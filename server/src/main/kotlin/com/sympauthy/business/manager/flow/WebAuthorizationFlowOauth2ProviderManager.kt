@@ -11,6 +11,7 @@ import com.sympauthy.business.manager.user.CreateOrAssociateResult
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
+import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.business.model.provider.Provider
 import com.sympauthy.business.model.provider.config.ProviderOauth2Config
@@ -92,10 +93,17 @@ open class WebAuthorizationFlowOauth2ProviderManager(
      * - otherwise, sign-up the user with the claims retrieved from the [provider].
      */
     suspend fun signInOrSignUpUsingProvider(
-        authorizeAttempt: AuthorizeAttempt,
+        authorizeAttempt: OnGoingAuthorizeAttempt,
         provider: EnabledProvider,
-        authorizeCode: String
+        authorizeCode: String?
     ): WebAuthorizationFlowStatus {
+        if (authorizeCode.isNullOrBlank()) {
+            // This error is marked unrecoverable because a proper provider should never end up in this case.
+            // Therefore, the user retrying the request should not change the result.
+            // We redirect the user to the error page so it can continue back to the application to retry.
+            throw businessExceptionOf("flow.web_oauth2_provider.missing_code")
+        }
+
         val oauth2 = getOauth2(provider)
         val authentication = fetchTokens(provider, oauth2, authorizeCode)
 

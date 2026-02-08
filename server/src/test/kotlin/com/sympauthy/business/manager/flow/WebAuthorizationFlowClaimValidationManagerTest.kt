@@ -8,7 +8,7 @@ import com.sympauthy.business.model.code.ValidationCode
 import com.sympauthy.business.model.code.ValidationCodeMedia.EMAIL
 import com.sympauthy.business.model.code.ValidationCodeReason.EMAIL_CLAIM
 import com.sympauthy.business.model.code.ValidationCodeReason.PHONE_NUMBER_CLAIM
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
+import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.Claim
@@ -81,7 +81,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
     @Test
     fun `getOrSendValidationCodes - Send code to media`() = runTest {
         val user = mockk<User>()
-        val authorizeAttempt = mockk<AuthorizeAttempt>()
+        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
         val media = EMAIL
         val collectedClaims = listOf(mockk<CollectedClaim>())
         val reasons = listOf(EMAIL_CLAIM)
@@ -117,7 +117,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
     @Test
     fun `getOrSendValidationCodes - Return existing code`() = runTest {
         val user = mockk<User>()
-        val authorizeAttempt = mockk<AuthorizeAttempt>()
+        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
         val media = EMAIL
         val collectedClaims = listOf(mockk<CollectedClaim>())
         val existingValidationCode = mockk<ValidationCode> {
@@ -146,7 +146,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
     @Test
     fun `getOrSendValidationCodes - Return null if no reason to send code to media`() = runTest {
         val user = mockk<User>()
-        val authorizeAttempt = mockk<AuthorizeAttempt>()
+        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
         val media = EMAIL
         val collectedClaims = listOf(mockk<CollectedClaim>())
         val reasons = listOf(PHONE_NUMBER_CLAIM)
@@ -165,7 +165,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
 
     @Test
     fun `resendValidationCodes - Send new validation code if previous is expired`() = runTest {
-        val authorizeAttempt = mockk<AuthorizeAttempt>()
+        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
         val user = mockk<User>()
         val media = EMAIL
         val expiredCode = mockk<ValidationCode>()
@@ -205,7 +205,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
 
     @Test
     fun `resendValidationCodes - Do nothing if no code previously sent`() = runTest {
-        val authorizeAttempt = mockk<AuthorizeAttempt>()
+        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
         val user = mockk<User>()
         val media = EMAIL
 
@@ -229,7 +229,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
 
     @Test
     fun `resendValidationCodes - Do nothing if previous code is not refreshable`() = runTest {
-        val authorizeAttempt = mockk<AuthorizeAttempt>()
+        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
         val user = mockk<User>()
         val media = EMAIL
         val existingCode = mockk<ValidationCode>()
@@ -256,7 +256,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
     @Test
     fun `validateClaimsByCode - Validate claims`() = runTest {
         val attemptUserId = UUID.randomUUID()
-        val authorizeAttempt = mockk<AuthorizeAttempt> {
+        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
             every { userId } returns attemptUserId
         }
         val media = EMAIL
@@ -286,7 +286,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
 
     @Test
     fun `validateClaimsByCode - Invalid if no code is matching`() = runTest {
-        val authorizeAttempt = mockk<AuthorizeAttempt>()
+        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
         val media = EMAIL
         val validValidationCode = mockk<ValidationCode> {
             every { code } returns "123456"
@@ -307,7 +307,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
 
     @Test
     fun `validateClaimsByCode - Invalid if code is expired`() = runTest {
-        val authorizeAttempt = mockk<AuthorizeAttempt>()
+        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
         val media = EMAIL
         val validCode = "123456"
         val validValidationCode = mockk<ValidationCode> {

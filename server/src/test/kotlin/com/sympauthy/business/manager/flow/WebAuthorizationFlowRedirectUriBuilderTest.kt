@@ -7,6 +7,7 @@ import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
 import com.sympauthy.business.model.oauth2.AuthorizationCode
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
+import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -88,7 +89,7 @@ class WebAuthorizationFlowRedirectUriBuilderTest {
     @Test
     fun `getRedirectUri - Redirect to client if flow is complete`() = runTest {
         val rawClientUri = URI.create("https://www.example.com/callback")
-        val authorizeAttempt = mockk<AuthorizeAttempt>()
+        val authorizeAttempt = mockk<CompletedAuthorizeAttempt>()
         val flow = mockk<WebAuthorizationFlow>()
         val flowResult = WebAuthorizationFlowStatus(
             missingUser = false,
@@ -113,7 +114,7 @@ class WebAuthorizationFlowRedirectUriBuilderTest {
             val clientRedirectUri = "https://www.example.com"
             val clientState = "clientState"
             val rawAuthorizationCode = "authorizationCode"
-            val authorizeAttempt: AuthorizeAttempt = mockk {
+            val authorizeAttempt = mockk<CompletedAuthorizeAttempt> {
                 every { redirectUri } returns clientRedirectUri
                 every { state } returns clientState
             }

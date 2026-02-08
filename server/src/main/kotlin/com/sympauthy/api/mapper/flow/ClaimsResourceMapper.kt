@@ -2,11 +2,12 @@ package com.sympauthy.api.mapper.flow
 
 import com.sympauthy.api.mapper.config.OutputResourceMapperConfig
 import com.sympauthy.api.resource.flow.ClaimValueResource
-import com.sympauthy.api.resource.flow.ClaimsResource
+import com.sympauthy.api.resource.flow.ClaimsFlowResource
 import com.sympauthy.business.model.user.CollectedClaim
 import org.mapstruct.Mapper
 import org.mapstruct.Mapping
 import org.mapstruct.Mappings
+import java.net.URI
 
 @Mapper(
     config = OutputResourceMapperConfig::class
@@ -15,9 +16,17 @@ abstract class ClaimsResourceMapper {
 
     fun toResource(
         collectedClaims: List<CollectedClaim>
-    ): ClaimsResource {
-        return ClaimsResource(
+    ): ClaimsFlowResource {
+        return ClaimsFlowResource(
             claims = collectedClaims.map(this::toResource)
+        )
+    }
+
+    fun toResource(
+        redirectUri: URI
+    ): ClaimsFlowResource {
+        return ClaimsFlowResource(
+            redirectUrl = redirectUri.toString()
         )
     }
 

@@ -10,7 +10,7 @@ import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
+import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
@@ -77,7 +77,7 @@ open class WebAuthorizationFlowPasswordManager(
      * Sign-in the end-user using a [login] and its [password].
      */
     suspend fun signInWithPassword(
-        authorizeAttempt: AuthorizeAttempt,
+        authorizeAttempt: OnGoingAuthorizeAttempt,
         login: String?,
         password: String?
     ): WebAuthorizationFlowStatus {
@@ -128,7 +128,7 @@ open class WebAuthorizationFlowPasswordManager(
      */
     @Transactional
     open suspend fun signUpWithClaimsAndPassword(
-        authorizeAttempt: AuthorizeAttempt,
+        authorizeAttempt: OnGoingAuthorizeAttempt,
         unfilteredUpdates: List<CollectedClaimUpdate>,
         password: String
     ): WebAuthorizationFlowStatus {

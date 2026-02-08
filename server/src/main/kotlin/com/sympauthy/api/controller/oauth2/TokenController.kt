@@ -5,6 +5,7 @@ import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.api.resource.oauth2.TokenResource
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
+import com.sympauthy.business.manager.flow.AuthorizationFlowManager
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
@@ -27,6 +28,7 @@ import java.time.ZoneOffset
 @Controller(OAUTH2_TOKEN_ENDPOINT)
 class TokenController(
     @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
+    @Inject private val authorizeFlowManager: AuthorizationFlowManager,
     @Inject private val tokenManager: TokenManager
 ) {
 
@@ -67,14 +69,15 @@ class TokenController(
         if (code.isNullOrBlank()) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token.missing_param", "param" to CODE_PARAM)
         }
-        val attempt = authorizeAttemptManager.findByCodeOrNull(code) ?: throw oauth2ExceptionOf(
-            INVALID_GRANT, "token.expired", "description.oauth2.expired"
-        )
-        if (attempt.redirectUri != redirectUri) {
+
+        // TODO: Should we move the logic inside the WebAuthorizationFlowManager?
+        val attempt = authorizeAttemptManager.findByCodeOrNull(code)
+        val completedAttempt = authorizeFlowManager.checkCanIssueToken(attempt)
+        if (completedAttempt.redirectUri != redirectUri) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token.non_matching_redirect_uri")
         }
 
-        val tokens = tokenManager.generateTokens(attempt)
+        val tokens = tokenManager.generateTokens(completedAttempt)
 
         return TokenResource(
             accessToken = tokens.accessToken.token,

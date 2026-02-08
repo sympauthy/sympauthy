@@ -39,7 +39,7 @@ class SignInController(
         authentication: Authentication,
         @Body inputResource: SignInInputResource
     ): FlowResultResource =
-        webAuthorizationFlowManager.extractFromAuthenticationAndVerifyThenRun(authentication) { authorizeAttempt, flow ->
+        webAuthorizationFlowManager.extractOnGoingFromAuthenticationAndVerifyThenRun(authentication) { authorizeAttempt, flow ->
             val result = passwordFlowManager.signInWithPassword(
                 authorizeAttempt = authorizeAttempt,
                 login = inputResource.login,

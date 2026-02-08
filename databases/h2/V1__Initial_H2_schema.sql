@@ -90,12 +90,12 @@ CREATE INDEX provider_user_info__user_id ON provider_user_info (user_id);
 
 CREATE TABLE authorize_attempts
 (
-    id                    uuid       NOT NULL DEFAULT random_uuid(),
+    id               uuid      NOT NULL DEFAULT random_uuid(),
     attempt_date         timestamp NOT NULL,
 
-    client_id             text       NOT NULL,
-    redirect_uri          text       NOT NULL,
-    requested_scopes      text array NOT NULL,
+    client_id        text,
+    redirect_uri     text,
+    requested_scopes text array,
     state                 text,
     nonce                 text,
 
@@ -110,7 +110,7 @@ CREATE TABLE authorize_attempts
     error_values         json,
 
     complete_date        timestamp,
-    expiration_date       timestamp  NOT NULL,
+    expiration_date  timestamp NOT NULL,
 
     PRIMARY KEY (id),
     FOREIGN KEY (user_id) REFERENCES users (id)

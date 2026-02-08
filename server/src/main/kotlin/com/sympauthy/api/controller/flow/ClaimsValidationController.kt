@@ -2,11 +2,11 @@ package com.sympauthy.api.controller.flow
 
 import com.sympauthy.api.mapper.flow.ClaimsValidationFlowResultResourceMapper
 import com.sympauthy.api.resource.flow.*
-import com.sympauthy.api.util.flow.FlowControllerHelper
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowClaimValidationManager
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowManager
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowRedirectUriBuilder
 import com.sympauthy.business.model.code.ValidationCodeMedia
+import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import io.micronaut.http.annotation.Body
 import io.micronaut.http.annotation.Controller
@@ -24,8 +24,7 @@ class ClaimsValidationController(
     @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
     @Inject private val claimValidationManager: WebAuthorizationFlowClaimValidationManager,
     @Inject private val resourceMapper: ClaimsValidationFlowResultResourceMapper,
-    @Inject private val redirectUriBuilder: WebAuthorizationFlowRedirectUriBuilder,
-    @Inject private val flowControllerHelper: FlowControllerHelper
+    @Inject private val redirectUriBuilder: WebAuthorizationFlowRedirectUriBuilder
 ) {
 
     @Operation(
@@ -59,18 +58,18 @@ Result containing either:
     suspend fun getValidationCodeToCollectForMedia(
         authentication: Authentication,
         media: ValidationCodeMedia,
-    ): ClaimsValidationFlowResultResource =
-        webAuthorizationFlowManager.extractFromAuthenticationAndVerifyThenRun(authentication) { authorizeAttempt, flow ->
-            val user = flowControllerHelper.getUser(authorizeAttempt)
-
-            val validationCode = claimValidationManager.getOrSendValidationCode(
-                authorizeAttempt = authorizeAttempt,
-                user = user,
-                media = media,
-            )
+    ): ClaimsValidationResultFlowResource =
+        webAuthorizationFlowManager.extractUserFromAuthenticationAndVerifyThenRun(authentication) { authorizeAttempt, flow, user ->
+            val validationCode = if (authorizeAttempt is OnGoingAuthorizeAttempt && user != null) {
+                claimValidationManager.getOrSendValidationCode(
+                    authorizeAttempt = authorizeAttempt,
+                    user = user,
+                    media = media,
+                )
+            } else null
 
             if (validationCode != null) {
-                resourceMapper.toFlowResultResource(validationCode)
+                resourceMapper.toFlowResource(validationCode)
             } else {
                 val status = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
                     authorizeAttempt = authorizeAttempt,
@@ -80,7 +79,7 @@ Result containing either:
                     flow = flow,
                     status = status,
                 )
-                resourceMapper.toFlowResultResource(
+                resourceMapper.toFlowResource(
                     redirectUri = redirectUri,
                     media = media,
                 )
@@ -102,11 +101,13 @@ Result containing either:
         @Body inputResource: ClaimValidationInputResource
     ): FlowResultResource =
         webAuthorizationFlowManager.extractFromAuthenticationAndVerifyThenRun(authentication) { authorizeAttempt, flow ->
-            claimValidationManager.validateClaimsByCode(
-                authorizeAttempt = authorizeAttempt,
-                media = ValidationCodeMedia.valueOf(inputResource.media),
-                code = inputResource.code
-            )
+            if (authorizeAttempt is OnGoingAuthorizeAttempt) {
+                claimValidationManager.validateClaimsByCode(
+                    authorizeAttempt = authorizeAttempt,
+                    media = ValidationCodeMedia.valueOf(inputResource.media),
+                    code = inputResource.code
+                )
+            }
 
             val result = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
                 authorizeAttempt = authorizeAttempt,
@@ -138,8 +139,7 @@ This authorization server will not send new validation code in the following cas
         authentication: Authentication,
         @Body inputResource: ResendClaimsValidationInputResource
     ): ResendClaimsValidationCodeResultResource =
-        webAuthorizationFlowManager.extractFromAuthenticationAndVerifyThenRun(authentication) { authorizeAttempt, _ ->
-            val user = flowControllerHelper.getUser(authorizeAttempt)
+        webAuthorizationFlowManager.extractOnGoingWithUserFromAuthenticationAndVerifyThenRun(authentication) { authorizeAttempt, _, user ->
             val media = getMedia(inputResource.media)
 
             val result = claimValidationManager.resendValidationCode(
@@ -147,11 +147,12 @@ This authorization server will not send new validation code in the following cas
                 user = user,
                 media = media
             )
+            val resent = result.resent
 
             resourceMapper.toResendResultResource(
                 media = media,
-                resent = result.resent,
-                newValidationCode = if (result.resent) result.validationCode else null,
+                resent = resent,
+                newValidationCode = if (resent) result.validationCode else null,
             )
         }
 }

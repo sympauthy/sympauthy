@@ -7,7 +7,7 @@ import com.sympauthy.business.manager.auth.SuccessVerifyEncodedStateResult
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.model.code.ValidationCodeReason
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
+import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.config.model.AuthorizationFlowsConfig
 import com.sympauthy.config.model.UrlsConfig
 import io.mockk.coEvery
@@ -53,7 +53,7 @@ class WebAuthorizationFlowManagerTest {
     @Test
     fun `completeAuthorizationFlowOrRedirect - Non complete if missing claims`() = runTest {
         val userId = UUID.randomUUID()
-        val authorizeAttempt = mockk<AuthorizeAttempt> {
+        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
             val mock = this
             every { mock.userId } returns userId
         }
@@ -69,7 +69,7 @@ class WebAuthorizationFlowManagerTest {
     @Test
     fun `completeAuthorizationFlowOrRedirect - Non complete if missing validation`() = runTest {
         val userId = UUID.randomUUID()
-        val authorizeAttempt = mockk<AuthorizeAttempt> {
+        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
             val mock = this
             every { mock.userId } returns userId
         }
@@ -87,7 +87,7 @@ class WebAuthorizationFlowManagerTest {
     @Test
     fun `getStatusAndCompleteIfNecessary - Complete`() = runTest {
         val userId = UUID.randomUUID()
-        val authorizeAttempt = mockk<AuthorizeAttempt> {
+        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
             val mock = this
             every { mock.userId } returns userId
         }
@@ -105,13 +105,13 @@ class WebAuthorizationFlowManagerTest {
     fun `extractFromStateVerifyThenRun - Success`() = runTest {
         val state = "valid-state"
         val webFlowId = "web-flow-id"
-        val authorizeAttempt = mockk<AuthorizeAttempt> {
+        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
             every { authorizationFlowId } returns webFlowId
         }
         val webFlow = mockk<WebAuthorizationFlow>()
         val expectedResult = "test-result"
 
-        coEvery { authorizeAttemptManager.verifyEncodedState(state) } returns SuccessVerifyEncodedStateResult(
+        coEvery { authorizeAttemptManager.verifyEncodedInternalState(state) } returns SuccessVerifyEncodedStateResult(
             authorizeAttempt
         )
         every { manager.findById(webFlowId) } returns webFlow
@@ -130,7 +130,9 @@ class WebAuthorizationFlowManagerTest {
         val state = "invalid-state"
         val detailsId = "auth.authorize_attempt.validate.invalid_subject"
 
-        coEvery { authorizeAttemptManager.verifyEncodedState(state) } returns FailedVerifyEncodedStateResult(detailsId)
+        coEvery { authorizeAttemptManager.verifyEncodedInternalState(state) } returns FailedVerifyEncodedStateResult(
+            detailsId
+        )
 
         val exception = assertThrows<BusinessException> {
             manager.extractFromStateVerifyThenRun(state) { _, _ ->
@@ -145,7 +147,7 @@ class WebAuthorizationFlowManagerTest {
     fun `extractFromStateVerifyThenRun - Save thrown business error in authorize attempt`() = runTest {
         val state = "valid-state"
         val webFlowId = "web-flow-id"
-        val authorizeAttempt = mockk<AuthorizeAttempt> {
+        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
             every { authorizationFlowId } returns webFlowId
         }
         val webFlow = mockk<WebAuthorizationFlow>()
@@ -153,7 +155,7 @@ class WebAuthorizationFlowManagerTest {
             every { recoverable } returns false
         }
 
-        coEvery { authorizeAttemptManager.verifyEncodedState(state) } returns SuccessVerifyEncodedStateResult(
+        coEvery { authorizeAttemptManager.verifyEncodedInternalState(state) } returns SuccessVerifyEncodedStateResult(
             authorizeAttempt
         )
         every { manager.findById(webFlowId) } returns webFlow

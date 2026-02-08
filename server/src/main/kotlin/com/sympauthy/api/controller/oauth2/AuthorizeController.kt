@@ -2,20 +2,9 @@ package com.sympauthy.api.controller.oauth2
 
 import com.sympauthy.api.controller.oauth2.AuthorizeController.Companion.OAUTH2_AUTHORIZE_ENDPOINT
 import com.sympauthy.api.exception.oauth2ExceptionOf
-import com.sympauthy.api.exception.toOauth2Exception
-import com.sympauthy.api.util.AuthorizationFlowRedirectBuilder
-import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.manager.ClientManager
-import com.sympauthy.business.manager.ScopeManager
-import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowManager
-import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_AUTHORIZATION_FLOW_ID
-import com.sympauthy.business.model.flow.WebAuthorizationFlow
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
+import com.sympauthy.business.manager.flow.WebAuthorizationFlowRedirectUriBuilder
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.UNSUPPORTED_RESPONSE_TYPE
-import com.sympauthy.business.model.oauth2.Scope
-import com.sympauthy.util.toAbsoluteUri
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
@@ -28,19 +17,13 @@ import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.enums.ParameterIn.QUERY
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.inject.Inject
-import java.net.URI
 
 @Controller(OAUTH2_AUTHORIZE_ENDPOINT)
 @Secured(IS_ANONYMOUS)
 open class AuthorizeController(
-    @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
-    @Inject private val clientManager: ClientManager,
-    @Inject private val scopeManager: ScopeManager,
-    @Inject private val responseBuilder: AuthorizationFlowRedirectBuilder
+    @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
+    @Inject private val webFlowRedirectBuilder: WebAuthorizationFlowRedirectUriBuilder
 ) {
-
-    @Inject
-    private lateinit var webAuthorizationFlowManager: WebAuthorizationFlowManager
 
     @Operation(
         description = """
@@ -118,26 +101,23 @@ The authorization server includes this value unmodified in the ID Token.
         @QueryValue("redirect_uri")
         uncheckedRedirectUri: String?,
         @QueryValue("scope")
-        uncheckedScope: String?,
+        uncheckedScopes: String?,
         @QueryValue("state")
-        state: String?,
+        uncheckedClientState: String?,
         @QueryValue("nonce")
-        nonce: String?
+        uncheckedClientNonce: String?
     ): HttpResponse<*> {
-        val client = getClient(uncheckedClientId)
-        val scopes = getScopes(uncheckedScope)
-        val redirectUri = getRedirectUri(uncheckedRedirectUri)
         return when {
             responseType.isNullOrBlank() -> throw oauth2ExceptionOf(
                 UNSUPPORTED_RESPONSE_TYPE, "authorize.response_type.missing"
             )
 
             responseType == "code" -> authorizeWithCodeFlow(
-                client = client,
-                clientState = state,
-                clientNonce = nonce,
-                scopes = scopes,
-                redirectUri = redirectUri
+                uncheckedClientId = uncheckedClientId,
+                uncheckedClientState = uncheckedClientState,
+                uncheckedClientNonce = uncheckedClientNonce,
+                uncheckedScopes = uncheckedScopes,
+                uncheckedRedirectUri = uncheckedRedirectUri
             )
 
             else -> throw oauth2ExceptionOf(
@@ -147,62 +127,25 @@ The authorization server includes this value unmodified in the ID Token.
         }
     }
 
-    private suspend fun getClient(clientId: String?): Client {
-        if (clientId.isNullOrBlank()) {
-            throw oauth2ExceptionOf(INVALID_REQUEST, "authorize.client_id.missing")
-        }
-        return clientManager.findClientById(clientId) ?: throw oauth2ExceptionOf(
-            INVALID_REQUEST, "authorize.client_id.invalid", "description.oauth2.invalid",
-            "clientId" to clientId
-        )
-    }
-
-    private suspend fun getScopes(requestScope: String?): List<Scope>? {
-        return try {
-            scopeManager.parseRequestScope(requestScope)
-        } catch (e: BusinessException) {
-            throw e.toOauth2Exception(INVALID_REQUEST, "description.oauth2.invalid")
-        }
-    }
-
-    private fun getRedirectUri(redirectUri: String?): URI {
-        if (redirectUri.isNullOrBlank()) {
-            throw oauth2ExceptionOf(INVALID_REQUEST, "authorize.redirect_uri.missing")
-        }
-        return redirectUri.toAbsoluteUri() ?: throw oauth2ExceptionOf(
-            INVALID_REQUEST, "authorize.redirect_uri.invalid", "description.oauth2.invalid"
-        )
-    }
-
     private suspend fun authorizeWithCodeFlow(
-        client: Client,
-        clientState: String?,
-        clientNonce: String?,
-        scopes: List<Scope>?,
-        redirectUri: URI
+        uncheckedClientId: String?,
+        uncheckedClientState: String?,
+        uncheckedClientNonce: String?,
+        uncheckedScopes: String?,
+        uncheckedRedirectUri: String?
     ): HttpResponse<*> {
-        val authorizationFlowId = client.authorizationFlow?.id ?: DEFAULT_AUTHORIZATION_FLOW_ID
-        val flow = webAuthorizationFlowManager.findByIdOrNull(authorizationFlowId)
-        if (flow !is WebAuthorizationFlow) {
-            throw oauth2ExceptionOf(INVALID_REQUEST, "authorize.flow.invalid", "description.oauth2.invalid")
-        }
-
-        val authorizeAttempt = try {
-            authorizeAttemptManager.newAuthorizeAttempt(
-                client = client,
-                authorizationFlow = flow,
-                clientState = clientState,
-                clientNonce = clientNonce,
-                uncheckedScopes = scopes,
-                uncheckedRedirectUri = redirectUri,
+        val (authorizeAttempt, flow) = webAuthorizationFlowManager.startAuthorizationWith(
+            uncheckedClientId = uncheckedClientId,
+            uncheckedClientState = uncheckedClientState,
+            uncheckedClientNonce = uncheckedClientNonce,
+            uncheckedScopes = uncheckedScopes,
+            uncheckedRedirectUri = uncheckedRedirectUri
+        )
+        return HttpResponse.temporaryRedirect<Any>(
+            webFlowRedirectBuilder.getSignInRedirectUri(
+                authorizeAttempt = authorizeAttempt,
+                flow = flow
             )
-        } catch (e: BusinessException) {
-            throw e.toOauth2Exception(INVALID_REQUEST, "description.oauth2.invalid")
-        }
-
-        return responseBuilder.redirectToSignIn(
-            authorizeAttempt = authorizeAttempt,
-            flow = flow
         )
     }
 

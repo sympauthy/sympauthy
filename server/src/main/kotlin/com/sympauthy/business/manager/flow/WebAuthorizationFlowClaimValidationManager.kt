@@ -10,6 +10,7 @@ import com.sympauthy.business.model.code.ValidationCodeReason
 import com.sympauthy.business.model.code.ValidationCodeReason.EMAIL_CLAIM
 import com.sympauthy.business.model.code.ValidationCodeReason.PHONE_NUMBER_CLAIM
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
+import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.Claim
@@ -77,18 +78,6 @@ open class WebAuthorizationFlowClaimValidationManager(
     }
 
     /**
-     * Return the list of [ValidationCodeMedia] the authorization server must send validation code to,
-     * in order to validate of the [collectedClaims].
-     */
-    fun getMediaToSendValidationCodeTo(
-        collectedClaims: List<CollectedClaim>
-    ): List<ValidationCodeMedia> {
-        return getReasonsToSendValidationCode(collectedClaims)
-            .map { it.media }
-            .distinct()
-    }
-
-    /**
      * Send a [ValidationCode] to the [user] using the provided [media] if necessary.
      *
      * This method will:
@@ -100,7 +89,7 @@ open class WebAuthorizationFlowClaimValidationManager(
      */
     @Transactional
     open suspend fun getOrSendValidationCode(
-        authorizeAttempt: AuthorizeAttempt,
+        authorizeAttempt: OnGoingAuthorizeAttempt,
         user: User,
         media: ValidationCodeMedia
     ): ValidationCode? {
@@ -137,7 +126,7 @@ open class WebAuthorizationFlowClaimValidationManager(
      */
     @Transactional
     open suspend fun resendValidationCode(
-        authorizeAttempt: AuthorizeAttempt,
+        authorizeAttempt: OnGoingAuthorizeAttempt,
         user: User,
         media: ValidationCodeMedia
     ): ResendResult {
@@ -171,7 +160,7 @@ open class WebAuthorizationFlowClaimValidationManager(
 
     @Transactional
     open suspend fun validateClaimsByCode(
-        authorizeAttempt: AuthorizeAttempt,
+        authorizeAttempt: OnGoingAuthorizeAttempt,
         media: ValidationCodeMedia,
         code: String
     ) {

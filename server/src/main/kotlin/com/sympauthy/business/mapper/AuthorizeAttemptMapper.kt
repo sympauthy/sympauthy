@@ -1,14 +1,147 @@
 package com.sympauthy.business.mapper
 
+import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.mapper.config.ToBusinessMapperConfig
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
+import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
+import com.sympauthy.business.model.oauth2.FailedAuthorizeAttempt
+import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.data.model.AuthorizeAttemptEntity
 import org.mapstruct.Mapper
+import java.time.LocalDateTime
+import java.util.*
 
+/**
+ * Handle the mapping from the [AuthorizeAttemptEntity] to the subclasses of the sealed [AuthorizeAttempt].
+ * The status of the authorized attempt is checked to determine the appropriate subclass to map to:
+ * - [CompletedAuthorizeAttempt] if the [AuthorizeAttemptEntity.completeDate] is not null.
+ * - [FailedAuthorizeAttempt] if the [AuthorizeAttemptEntity.errorDate] is not null.
+ * - [OnGoingAuthorizeAttempt] otherwise.
+ *
+ * If the content of the [AuthorizeAttemptEntity] is not valid, according to the status of the attempt,
+ * an unrecoverable [BusinessException] "mapper.authorize_attempt.invalid_property" will be thrown.
+ */
 @Mapper(
     config = ToBusinessMapperConfig::class
 )
-interface AuthorizeAttemptMapper {
+abstract class AuthorizeAttemptMapper {
 
-    fun toAuthorizeAttempt(entity: AuthorizeAttemptEntity): AuthorizeAttempt
+    abstract fun copy(
+        authorizeAttempt: OnGoingAuthorizeAttempt,
+        userId: UUID? = null,
+        grantedScopes: List<String>? = null,
+        completeDate: LocalDateTime? = null
+    ): OnGoingAuthorizeAttempt
+
+    fun toOnGoingAuthorizeAttempt(entity: AuthorizeAttemptEntity): OnGoingAuthorizeAttempt {
+        return OnGoingAuthorizeAttempt(
+            id = entity.id ?: throw invalidBusinessException("id"),
+            authorizationFlowId = entity.authorizationFlowId,
+            expirationDate = entity.expirationDate,
+            clientId = entity.clientId ?: throw invalidBusinessException("clientId"),
+            requestedScopes = entity.requestedScopes.toList(),
+            redirectUri = entity.redirectUri ?: throw invalidBusinessException("redirectUri"),
+            state = entity.state,
+            nonce = entity.nonce,
+            userId = entity.userId,
+            grantedScopes = entity.grantedScopes?.toList(),
+            attemptDate = entity.attemptDate
+        )
+    }
+
+    fun toCompletedAuthorizeAttempt(entity: AuthorizeAttemptEntity): CompletedAuthorizeAttempt {
+        return CompletedAuthorizeAttempt(
+            id = entity.id ?: throw invalidBusinessException("id"),
+            authorizationFlowId = entity.authorizationFlowId,
+            expirationDate = entity.expirationDate,
+            clientId = entity.clientId ?: throw invalidBusinessException("clientId"),
+            requestedScopes = entity.requestedScopes.toList(),
+            redirectUri = entity.redirectUri ?: throw invalidBusinessException("redirectUri"),
+            state = entity.state,
+            nonce = entity.nonce,
+            userId = entity.userId ?: throw invalidBusinessException("userId"),
+            grantedScopes = entity.grantedScopes?.toList() ?: throw invalidBusinessException("grantedScopes"),
+            attemptDate = entity.attemptDate,
+            completeDate = entity.completeDate ?: throw invalidBusinessException("completeDate")
+        )
+    }
+
+    fun toFailedAuthorizeAttempt(entity: AuthorizeAttemptEntity): FailedAuthorizeAttempt {
+        return FailedAuthorizeAttempt(
+            id = entity.id ?: throw invalidBusinessException("id"),
+            authorizationFlowId = entity.authorizationFlowId,
+            expirationDate = entity.expirationDate,
+            errorDetailsId = entity.errorDetailsId ?: throw invalidBusinessException("errorDetailsId"),
+            errorDescriptionId = entity.errorDescriptionId,
+            errorValues = entity.errorValues,
+            errorDate = entity.errorDate ?: throw invalidBusinessException("errorDate")
+        )
+    }
+
+    private fun invalidBusinessException(invalidProperty: String): BusinessException {
+        return businessExceptionOf(
+            detailsId = "mapper.authorize_attempt.invalid_property",
+            values = arrayOf("property" to invalidProperty)
+        )
+    }
+
+    fun toExpiredAuthorizeAttempt(entity: AuthorizeAttemptEntity): FailedAuthorizeAttempt {
+        return FailedAuthorizeAttempt(
+            id = entity.id!!,
+            authorizationFlowId = entity.authorizationFlowId,
+            errorDetailsId = "auth.authorize_attempt.validate.expired",
+            errorDescriptionId = "description.oauth2.expired",
+            errorValues = emptyMap(),
+            expirationDate = entity.expirationDate,
+            errorDate = entity.expirationDate,
+        )
+    }
+
+    fun toFailedAuthorizeAttempt(
+        authorizeAttempt: AuthorizeAttempt,
+        errorDetailsId: String,
+        errorDescriptionId: String?,
+        errorValues: Map<String, String>?,
+        errorDate: LocalDateTime
+    ): FailedAuthorizeAttempt {
+        return FailedAuthorizeAttempt(
+            id = authorizeAttempt.id,
+            authorizationFlowId = authorizeAttempt.authorizationFlowId,
+            expirationDate = authorizeAttempt.expirationDate,
+            errorDetailsId = errorDetailsId,
+            errorDescriptionId = errorDescriptionId,
+            errorValues = errorValues,
+            errorDate = errorDate,
+        )
+    }
+
+    fun toCompletedAuthorizeAttempt(
+        authorizeAttempt: OnGoingAuthorizeAttempt,
+        completeDate: LocalDateTime
+    ): CompletedAuthorizeAttempt {
+        return CompletedAuthorizeAttempt(
+            id = authorizeAttempt.id,
+            authorizationFlowId = authorizeAttempt.authorizationFlowId,
+            expirationDate = authorizeAttempt.expirationDate,
+            clientId = authorizeAttempt.clientId,
+            requestedScopes = authorizeAttempt.requestedScopes,
+            redirectUri = authorizeAttempt.redirectUri,
+            state = authorizeAttempt.state,
+            nonce = authorizeAttempt.nonce,
+            userId = authorizeAttempt.userId ?: throw invalidBusinessException("userId"),
+            grantedScopes = authorizeAttempt.grantedScopes ?: throw invalidBusinessException("grantedScopes"),
+            attemptDate = authorizeAttempt.attemptDate,
+            completeDate = completeDate,
+        )
+    }
+
+    fun toAuthorizeAttempt(entity: AuthorizeAttemptEntity): AuthorizeAttempt {
+        return when {
+            entity.errorDate != null -> toFailedAuthorizeAttempt(entity)
+            entity.expired -> toExpiredAuthorizeAttempt(entity)
+            entity.completeDate != null -> toCompletedAuthorizeAttempt(entity)
+            else -> toOnGoingAuthorizeAttempt(entity)
+        }
+    }
 }

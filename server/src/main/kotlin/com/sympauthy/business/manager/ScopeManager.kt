@@ -1,7 +1,7 @@
 package com.sympauthy.business.manager
 
-import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.user.StandardScope
 import com.sympauthy.config.model.AuthConfig
@@ -102,13 +102,57 @@ class ScopeManager(
      * Return the [Scope] if:
      * - [scope] is a standard scope and its has not been explicitly disabled by configuration.
      * - [scope] is a custom scope and have been properly defined in the configuration.
-     *
-     * Otherwise, throws a "scope.unsupported" error as a [BusinessException].
+     * Otherwise, throws an unrecoverable "scope.unsupported" exception.
      */
     suspend fun findOrThrow(scope: String): Scope {
         return find(scope) ?: throw businessExceptionOf(
             detailsId = "scope.unsupported",
             values = arrayOf("scope" to scope)
         )
+    }
+
+    /**
+     * Return the [Scope] if [scope] is a scope that exists and is allowed by the [client] in [Client.allowedScopes].
+     * Otherwise, throws an unrecoverable "scope.unsupported" exception.
+     */
+    suspend fun findForClientOrThrow(client: Client, scope: String): Scope {
+        val foundScope = findOrThrow(scope)
+
+        // If client has allowedScopes defined, check if the scope is in the allowed list
+        if (client.allowedScopes != null && !client.allowedScopes.contains(foundScope)) {
+            throw businessExceptionOf(
+                detailsId = "scope.unsupported",
+                values = arrayOf("scope" to scope)
+            )
+        }
+
+        return foundScope
+    }
+
+    /**
+     * Parses and processes the scopes requested by the end-user.
+     *
+     * This method does the following:
+     * - If no scope is provided by the end-user, return the default scopes defined by the [client].
+     * - parse the [uncheckedScopes] and throw an unrecoverable exception if it fails.
+     * - filter out the scopes that have been disabled by the [client].
+     */
+    suspend fun parseRequestedScopes(
+        client: Client,
+        uncheckedScopes: String?
+    ): List<Scope> {
+        return if (uncheckedScopes.isNullOrBlank()) {
+            client.defaultScopes ?: emptyList()
+        } else {
+            uncheckedScopes.split(",")
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .map {
+                    findForClientOrThrow(
+                        client = client,
+                        scope = it
+                    )
+                }
+        }
     }
 }

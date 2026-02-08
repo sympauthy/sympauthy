@@ -1,21 +1,14 @@
 package com.sympauthy.api.controller.flow
 
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_ENDPOINTS
-import com.sympauthy.api.errorhandler.ExceptionConverter
-import com.sympauthy.api.mapper.ErrorResourceMapper
-import com.sympauthy.api.util.AuthorizationFlowRedirectBuilder
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowManager
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowOauth2ProviderManager
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowRedirectUriBuilder
 import com.sympauthy.business.manager.provider.ProviderConfigManager
 import com.sympauthy.business.manager.provider.ProviderManager
 import com.sympauthy.security.SecurityRule.HAS_STATE
-import com.sympauthy.util.loggerForClass
-import com.sympauthy.util.orDefault
-import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.annotation.Controller
-import io.micronaut.http.annotation.Error
 import io.micronaut.http.annotation.Get
 import io.micronaut.http.annotation.QueryValue
 import io.micronaut.security.annotation.Secured
@@ -32,14 +25,9 @@ class ProvidersController(
     @Inject private val oauth2ProviderManager: WebAuthorizationFlowOauth2ProviderManager,
     @Inject private val providerManager: ProviderManager,
     @Inject private val providerConfigManager: ProviderConfigManager,
-    @Inject private val exceptionConverter: ExceptionConverter,
-    @Inject private val redirectBuilder: AuthorizationFlowRedirectBuilder,
     @Inject private val redirectUriBuilder: WebAuthorizationFlowRedirectUriBuilder,
-    @Inject private val errorResourceMapper: ErrorResourceMapper,
 
     ) {
-
-    private val logger = loggerForClass()
 
     @Operation(
         description = """
@@ -69,62 +57,43 @@ Following query parameters will be populated with information about the error:
             providerManager.authorizeWithProvider(authorizeAttempt, provider)
         }
 
+    @Operation(
+        description = """
+Callback that providers should redirect at the end of their OAuth2 Authorization code flow. It will redirect the end-user to:
+ - an authorization flow if we need more information from the end-user to complete the authorization process.
+ - the client if the authentication flow is completed.
+        """,
+        responses = [
+            ApiResponse(
+                responseCode = "303",
+                description = """
+Redirection to either:
+- an authorization flow if we need more information from the end-user to complete the authorization process.
+- the client if the authentication flow is completed.
+                """
+            )
+        ],
+        tags = ["flow"]
+    )
     @Get(FLOW_PROVIDER_CALLBACK_ENDPOINT)
     @Secured(IS_ANONYMOUS)
     suspend fun callback(
         providerId: String,
         @QueryValue("code") code: String?,
-        @QueryValue("error") error: String?,
-        @QueryValue("error_description") errorDescription: String?,
         @QueryValue("state") state: String?
-    ): HttpResponse<*> = webAuthorizationFlowManager.extractFromStateVerifyThenRun(state) { authorizeAttempt, flow ->
-        if (code != null) {
-            val provider = providerConfigManager.findEnabledProviderById(providerId)
-            val result = oauth2ProviderManager.signInOrSignUpUsingProvider(
-                authorizeAttempt = authorizeAttempt,
-                provider = provider,
-                authorizeCode = code
-            )
-            val url = redirectUriBuilder.getRedirectUri(
-                authorizeAttempt = authorizeAttempt,
-                flow = flow,
-                status = result
-            )
-            HttpResponse.temporaryRedirect<Any>(url)
-        } else {
-            redirectBuilder.redirectToError(
-                flow = flow,
-                errorCode = error,
-                details = errorDescription
-            )
-        }
-    }
-
-    /**
-     * Since the user will be redirected to this page by the flow UI, in case of an error,
-     * we need to redirect it back to flow UI with the details about the error.
-     */
-    @Error
-    fun redirectToErrorPage(
-        request: HttpRequest<*>,
-        throwable: Throwable
-    ): HttpResponse<*> {
-        val locale = request.locale.orDefault()
-
-        val exception = exceptionConverter.normalize(throwable)
-        if (exception.detailsId == "internal_server_error") {
-            logger.error("Unexpected error occurred: ${throwable.message}", throwable)
-        }
-
-        val resource = errorResourceMapper.toResource(exception, locale)
-
-        // TODO: Maybe it is possible to find the proper flow used then fallback on the default.
-        return redirectBuilder.redirectToError(
-            flow = webAuthorizationFlowManager.defaultWebAuthorizationFlow,
-            errorCode = resource.errorCode,
-            details = resource.details,
-            description = resource.description
+    ) = webAuthorizationFlowManager.extractOnGoingFromStateAndRun<HttpResponse<Any>>(state) { authorizeAttempt, flow ->
+        val provider = providerConfigManager.findEnabledProviderById(providerId)
+        val result = oauth2ProviderManager.signInOrSignUpUsingProvider(
+            authorizeAttempt = authorizeAttempt,
+            provider = provider,
+            authorizeCode = code
         )
+        val url = redirectUriBuilder.getRedirectUri(
+            authorizeAttempt = authorizeAttempt,
+            flow = flow,
+            status = result
+        )
+        HttpResponse.temporaryRedirect<Any>(url)
     }
 
     companion object {
