@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.user
 
+import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimDataType.*
@@ -29,7 +30,7 @@ class ClaimValueValidator {
      */
     fun validateAndCleanValueForClaim(claim: Claim, value: Any?): Optional<Any> {
         if (value != null && claim.dataType.typeClass != value::class) {
-            throw localizedExceptionOf(
+            throw internalBusinessExceptionOf(
                 detailsId = "claim.validate.invalid_type",
                 "claim" to claim.id,
                 "type" to claim.dataType.name
@@ -41,7 +42,7 @@ class ClaimValueValidator {
         return when (value) {
             null -> Optional.empty()
             is String -> validateAndCleanStringForClaim(claim, value)
-            else -> throw localizedExceptionOf(
+            else -> throw internalBusinessExceptionOf(
                 "claim.validate.unsupported_type", "claim" to claim.id
             )
         }
@@ -67,7 +68,7 @@ class ClaimValueValidator {
         try {
             dateFormat.parse(value)
         } catch (e: ParseException) {
-            throw throw localizedExceptionOf("claim.validate.invalid_date")
+            throw internalBusinessExceptionOf("claim.validate.invalid_date")
         }
         return Optional.of(value)
     }
@@ -86,7 +87,7 @@ class ClaimValueValidator {
     internal fun validateEmailForClaim(value: String): Optional<Any> {
         val parts = value.split("@")
         if (parts.size != 2 || parts.getOrNull(0).isNullOrBlank() || parts.getOrNull(1).isNullOrBlank()) {
-            throw localizedExceptionOf("claim.validate.invalid_email")
+            throw internalBusinessExceptionOf("claim.validate.invalid_email")
         }
         return Optional.of(value)
     }
@@ -99,9 +100,9 @@ class ClaimValueValidator {
         try {
             ZoneId.of(value)
         } catch (e: DateTimeException) {
-            throw localizedExceptionOf("claim.validate.invalid_time_zone")
+            throw internalBusinessExceptionOf("claim.validate.invalid_time_zone")
         } catch (e: ZoneRulesException) {
-            throw localizedExceptionOf("claim.validate.invalid_time_zone")
+            throw internalBusinessExceptionOf("claim.validate.invalid_time_zone")
         }
         return Optional.of(value)
     }

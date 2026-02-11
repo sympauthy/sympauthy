@@ -139,7 +139,7 @@ abstract class AuthorizeAttemptMapper {
     fun toAuthorizeAttempt(entity: AuthorizeAttemptEntity): AuthorizeAttempt {
         return when {
             entity.errorDate != null -> toFailedAuthorizeAttempt(entity)
-            entity.expired -> toExpiredAuthorizeAttempt(entity)
+            entity.expirationDate.isBefore(LocalDateTime.now()) -> toExpiredAuthorizeAttempt(entity)
             entity.completeDate != null -> toCompletedAuthorizeAttempt(entity)
             else -> toOnGoingAuthorizeAttempt(entity)
         }

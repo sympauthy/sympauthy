@@ -72,12 +72,11 @@ fun recoverableBusinessExceptionOf(
  */
 fun internalBusinessExceptionOf(
     detailsId: String,
-    descriptionId: String? = null,
     vararg values: Pair<String, String>
 ) = BusinessException(
     recoverable = false,
     detailsId = detailsId,
-    descriptionId = descriptionId,
+    descriptionId = null,
     recommendedStatus = INTERNAL_SERVER_ERROR,
     values = mapOf(*values)
 )

@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.validationcode
 
+import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.mapper.ValidationCodeMapper
 import com.sympauthy.business.model.code.ValidationCode
 import com.sympauthy.business.model.code.ValidationCodeMedia
@@ -209,15 +210,17 @@ open class ValidationCodeManager(
     ): Map<ValidationCodeMedia, SenderClaimTuple> {
         return medias.associateWith { media ->
             val sender = senders.firstOrNull { it.media == media }
-                ?: throw localizedExceptionOf(
-                    "validationcode.missing_sender",
-                    "media" to media.name
+                ?: throw businessExceptionOf(
+                    detailsId = "validationcode.missing_sender",
+                    values = arrayOf("media" to media.name)
                 )
             val claim = collectedClaims.firstOrNull { it.claim.id == media.claim }
-                ?: throw localizedExceptionOf(
-                    "validationcode.missing_claim",
-                    "media" to media.name,
-                    "claim" to media.claim
+                ?: throw businessExceptionOf(
+                    detailsId = "validationcode.missing_claim",
+                    values = arrayOf(
+                        "media" to media.name,
+                        "claim" to media.claim
+                    )
                 )
             SenderClaimTuple(
                 media = media,

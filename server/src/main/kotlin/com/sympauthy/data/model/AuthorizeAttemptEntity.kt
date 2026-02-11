@@ -1,6 +1,5 @@
 package com.sympauthy.data.model
 
-import com.sympauthy.business.model.Expirable
 import io.micronaut.data.annotation.GeneratedValue
 import io.micronaut.data.annotation.Id
 import io.micronaut.data.annotation.MappedEntity
@@ -28,8 +27,8 @@ class AuthorizeAttemptEntity(
     @MappedProperty(type = DataType.JSON)
     val errorValues: Map<String, String>? = null,
     val completeDate: LocalDateTime? = null,
-    override val expirationDate: LocalDateTime
-) : Expirable {
+    val expirationDate: LocalDateTime
+) {
     @Id
     @GeneratedValue
     var id: UUID? = null
