@@ -14,7 +14,7 @@ import java.time.zone.ZoneRulesException
 import java.util.*
 
 /**
- * Component in charge of validating and cleaning claim value received from clients.
+ * Component in charge of validating and cleaning claim value received from end-users.
  */
 @Singleton
 class ClaimValueValidator {

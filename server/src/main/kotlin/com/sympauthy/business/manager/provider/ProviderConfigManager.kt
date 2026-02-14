@@ -1,7 +1,7 @@
 package com.sympauthy.business.manager.provider
 
 import com.jayway.jsonpath.JsonPath
-import com.sympauthy.business.exception.internalBusinessExceptionOf
+import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.model.provider.DisabledProvider
 import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.business.model.provider.Provider
@@ -73,12 +73,12 @@ open class ProviderConfigManager(
      */
     suspend fun findByIdAndCheckEnabled(id: String?): EnabledProvider {
         val provider = listProviders().firstOrNull { it.id == id }
-            ?: throw internalBusinessExceptionOf(
+            ?: throw businessExceptionOf(
                 detailsId = "provider.missing",
                 "providerId" to (id ?: "")
             )
         return (provider as? EnabledProvider)
-            ?: throw internalBusinessExceptionOf(
+            ?: throw businessExceptionOf(
                 detailsId = "provider.disabled",
                 "providerId" to (id ?: "")
             )

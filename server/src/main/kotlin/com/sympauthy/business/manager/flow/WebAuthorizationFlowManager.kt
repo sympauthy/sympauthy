@@ -2,7 +2,6 @@ package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
-import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
@@ -59,7 +58,7 @@ class WebAuthorizationFlowManager(
      * Otherwise, throw an unrecoverable [BusinessException] with detailsId ```flow.web.invalid_flow```.
      */
     fun findById(id: String?): WebAuthorizationFlow {
-        return findByIdOrNull(id) ?: throw internalBusinessExceptionOf(
+        return findByIdOrNull(id) ?: throw businessExceptionOf(
             detailsId = "flow.web.invalid_flow",
             "flowId" to (id ?: "null")
         )

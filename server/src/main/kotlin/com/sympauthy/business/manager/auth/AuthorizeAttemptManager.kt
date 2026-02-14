@@ -3,7 +3,6 @@ package com.sympauthy.business.manager.auth
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
-import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.AuthorizeAttemptMapper
@@ -210,7 +209,7 @@ class AuthorizeAttemptManager(
             id = authorizeAttempt.id,
             completeDate = LocalDateTime.now()
         )
-        val userId = authorizeAttempt.userId ?: throw internalBusinessExceptionOf(
+        val userId = authorizeAttempt.userId ?: throw businessExceptionOf(
             "auth.authorize_attempt.complete.missing_user"
         )
         return CompletedAuthorizeAttempt(

@@ -1,6 +1,6 @@
 package com.sympauthy.business.manager.user
 
-import com.sympauthy.business.exception.internalBusinessExceptionOf
+import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
@@ -34,7 +34,7 @@ open class UserManager(
      * Find the end-user identified by [id]. Otherwise, throws an unrecoverable business exception.
      */
     suspend fun findById(id: UUID?): User {
-        return findByIdOrNull(id) ?: throw internalBusinessExceptionOf(
+        return findByIdOrNull(id) ?: throw businessExceptionOf(
             detailsId = "user.not_found",
             "userId" to "$id"
         )
