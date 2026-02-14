@@ -23,7 +23,7 @@ class AdminUserController(
     suspend fun getUser(
         @PathVariable id: UUID
     ): AdminUserResource {
-        val user = userManager.findById(id).orNotFound()
+        val user = userManager.findByIdOrNull(id).orNotFound()
         return userMapper.toResource(user)
     }
 }

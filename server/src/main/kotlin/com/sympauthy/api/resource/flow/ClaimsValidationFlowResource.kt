@@ -6,13 +6,14 @@ import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(
     description = """
-Result indicating whether:
-- if a code is present, the user is expected to enter a code received through the media to validate its claims. 
-- if the redirect uri is present, the user must be redirected to this uri to continue the authorization flow.
+Resource indicating whether the end-user must validate its claims through a code. If a code is present, 
+the user is expected to enter a code received through the media to validate its claims. 
+
+Otherwise the user must be redirected to the redirect URL to continue the authorization flow.
 """
 )
 @Serdeable
-data class ClaimsValidationResultFlowResource(
+data class ClaimsValidationFlowResource(
 
     @get:Schema(
         name = "media",

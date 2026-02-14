@@ -6,11 +6,11 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
+import com.sympauthy.business.manager.provider.ProviderConfigManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.CreateOrAssociateResult
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.business.model.provider.Provider
@@ -27,7 +27,6 @@ import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.config.model.getUri
 import com.sympauthy.config.model.orThrow
-import io.micronaut.http.HttpResponse
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -43,6 +42,7 @@ open class WebAuthorizationFlowOauth2ProviderManager(
     @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
+    @Inject private val providerConfigManager: ProviderConfigManager,
     @Inject private val providerClaimsManager: ProviderClaimsManager,
     @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
     @Inject private val tokenEndpointClient: TokenEndpointClient,
@@ -69,41 +69,47 @@ open class WebAuthorizationFlowOauth2ProviderManager(
         )
     }
 
+    /**
+     * Return the URL to redirect the end-user to start the authorization process with the [Provider] identified by
+     * [providerId].
+     *
+     * If the provider is not found or is disabled, an unrecoverable business exception is thrown.
+     */
     suspend fun authorizeWithProvider(
-        authorizeAttempt: AuthorizeAttempt,
-        provider: EnabledProvider
-    ): HttpResponse<*> {
+        authorizeAttempt: OnGoingAuthorizeAttempt,
+        providerId: String
+    ): URI {
+        val provider = providerConfigManager.findByIdAndCheckEnabled(providerId)
         val oauth2 = getOauth2(provider)
-        val redirectUri = ProviderOauth2AuthorizationRedirect(
+        return ProviderOauth2AuthorizationRedirect(
             oauth2 = oauth2,
             responseType = "code",
             redirectUri = getRedirectUri(provider),
             state = authorizeAttemptManager.encodeState(authorizeAttempt)
         ).build()
-        return HttpResponse.temporaryRedirect<Any>(redirectUri)
     }
 
     /**
-     * Finalize the sign-in or sign-up of the end-user that authenticated through the [provider].
+     * Finalize the sign-in or sign-up of the end-user that authenticated through the [Provider] identified by [providerId].
      *
      * This method will perform the following actions:
-     * - retrieve the access token from the [provider] to check if the user is authenticated.
-     * - retrieve end-user claims from the [provider] and store them in this authorization server database.
-     * - sign-in the user if it already exists according to user-merging strategy.
-     * - otherwise, sign-up the user with the claims retrieved from the [provider].
+     * - retrieve the access token from the [Provider] to check if the user is authenticated.
+     * - retrieve end-user claims from the [Provider] and store them in this authorization server database.
+     * - sign in the user if it already exists, according to the user-merging strategy.
+     * - otherwise, sign up the user with the claims retrieved from the [Provider].
      */
     suspend fun signInOrSignUpUsingProvider(
         authorizeAttempt: OnGoingAuthorizeAttempt,
-        provider: EnabledProvider,
+        providerId: String?,
         authorizeCode: String?
     ): WebAuthorizationFlowStatus {
+        // Those errors are marked unrecoverable because a proper provider should never end up in this case.
+        // Therefore, the user retrying the request should not change the result.
+        // We redirect the user to the error page so it can continue back to the application to retry.
         if (authorizeCode.isNullOrBlank()) {
-            // This error is marked unrecoverable because a proper provider should never end up in this case.
-            // Therefore, the user retrying the request should not change the result.
-            // We redirect the user to the error page so it can continue back to the application to retry.
             throw businessExceptionOf("flow.web_oauth2_provider.missing_code")
         }
-
+        val provider = providerConfigManager.findByIdAndCheckEnabled(providerId)
         val oauth2 = getOauth2(provider)
         val authentication = fetchTokens(provider, oauth2, authorizeCode)
 

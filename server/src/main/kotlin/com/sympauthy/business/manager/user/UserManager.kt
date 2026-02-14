@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.user
 
+import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
@@ -21,9 +22,22 @@ open class UserManager(
     @Inject private val userMapper: UserMapper
 ) {
 
-    suspend fun findById(id: UUID): User? {
-        return userRepository.findById(id)
+    /**
+     * Find the end-user identified by [id]. Otherwise, return null.
+     */
+    suspend fun findByIdOrNull(id: UUID?): User? {
+        return id?.let { userRepository.findById(it) }
             ?.let(userMapper::toUser)
+    }
+
+    /**
+     * Find the end-user identified by [id]. Otherwise, throws an unrecoverable business exception.
+     */
+    suspend fun findById(id: UUID?): User {
+        return findByIdOrNull(id) ?: throw internalBusinessExceptionOf(
+            detailsId = "user.not_found",
+            "userId" to "$id"
+        )
     }
 
     /**

@@ -1,7 +1,7 @@
 package com.sympauthy.business.manager.provider
 
 import com.jayway.jsonpath.JsonPath
-import com.sympauthy.business.exception.recoverableBusinessExceptionOf
+import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.model.provider.DisabledProvider
 import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.business.model.provider.Provider
@@ -40,7 +40,7 @@ import java.util.*
 @Singleton
 open class ProviderConfigManager(
     @Inject private val providers: List<ProviderConfigurationProperties>,
-    @ErrorMessages @Inject private val messageSource: MessageSource,
+    @param:ErrorMessages @Inject private val messageSource: MessageSource,
     @Inject private val advancedConfig: AdvancedConfig
 ) : ApplicationEventListener<ServiceReadyEvent> {
 
@@ -66,9 +66,22 @@ open class ProviderConfigManager(
             .filterIsInstance<EnabledProvider>()
     }
 
-    suspend fun findEnabledProviderById(id: String): EnabledProvider {
-        return listEnabledProviders().firstOrNull { it.id == id }
-            ?: throw recoverableBusinessExceptionOf("provider.missing")
+
+    /**
+     * Return the [EnabledProvider] identified by [id]. Otherwise, throw an internal business exception if the provider
+     * does not exist or is disabled by configuration.
+     */
+    suspend fun findByIdAndCheckEnabled(id: String?): EnabledProvider {
+        val provider = listProviders().firstOrNull { it.id == id }
+            ?: throw internalBusinessExceptionOf(
+                detailsId = "provider.missing",
+                "providerId" to (id ?: "")
+            )
+        return (provider as? EnabledProvider)
+            ?: throw internalBusinessExceptionOf(
+                detailsId = "provider.disabled",
+                "providerId" to (id ?: "")
+            )
     }
 
     private fun configureProviders(): List<Provider> {

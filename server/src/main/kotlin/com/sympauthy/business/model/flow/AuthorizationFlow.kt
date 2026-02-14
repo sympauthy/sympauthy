@@ -5,13 +5,24 @@ import java.net.URI
 sealed class AuthorizationFlow(
     val id: String
 ) {
-
     companion object {
         const val DEFAULT_AUTHORIZATION_FLOW_ID = "default"
     }
 }
 
 /**
+ * Represents a non-interactive authorization flow.
+ *
+ * This class is a specific type of `AuthorizationFlow` designed for scenarios
+ * where no user interaction is required during the authorization process.
+ * It inherits common properties and behavior from the `AuthorizationFlow` base class.
+ */
+class NonInteractiveAuthorizationFlow(id: String) : AuthorizationFlow(id)
+
+/**
+ * Represents an interactive authorization flow where the end-users are redirected to web pages, each handling a
+ * specific step of the authorization flow.
+ *
  * Contains where the end-user must be redirected to go through the different step of the authorization flow.
  */
 class WebAuthorizationFlow(
@@ -47,8 +58,5 @@ class WebAuthorizationFlow(
 )
 
 enum class AuthorizationFlowType {
-    /**
-     * The user is redirected to web pages that are each in charge of a part of the authorization flow.
-     */
     WEB
 }

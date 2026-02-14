@@ -17,5 +17,5 @@ class StateAuthentication(
     }
 }
 
-val Authentication.state: String?
+val Authentication.stateOrNull: String?
     get() = if (this is StateAuthentication) this.state else null

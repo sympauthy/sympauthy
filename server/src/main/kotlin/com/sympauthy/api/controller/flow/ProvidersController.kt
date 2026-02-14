@@ -1,12 +1,10 @@
 package com.sympauthy.api.controller.flow
 
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_ENDPOINTS
-import com.sympauthy.business.manager.flow.WebAuthorizationFlowManager
+import com.sympauthy.api.controller.flow.util.WebAuthorizationFlowControllerUtil
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowOauth2ProviderManager
-import com.sympauthy.business.manager.flow.WebAuthorizationFlowRedirectUriBuilder
-import com.sympauthy.business.manager.provider.ProviderConfigManager
-import com.sympauthy.business.manager.provider.ProviderManager
 import com.sympauthy.security.SecurityRule.HAS_STATE
+import com.sympauthy.security.stateOrNull
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
@@ -21,28 +19,21 @@ import jakarta.inject.Inject
 @Secured(HAS_STATE)
 @Controller(FLOW_PROVIDER_ENDPOINTS)
 class ProvidersController(
-    @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
-    @Inject private val oauth2ProviderManager: WebAuthorizationFlowOauth2ProviderManager,
-    @Inject private val providerManager: ProviderManager,
-    @Inject private val providerConfigManager: ProviderConfigManager,
-    @Inject private val redirectUriBuilder: WebAuthorizationFlowRedirectUriBuilder,
-
-    ) {
+    @Inject private val webAuthorizationFlowOauth2ProviderManager: WebAuthorizationFlowOauth2ProviderManager,
+    @Inject private val webAuthorizationFlowControllerUtil: WebAuthorizationFlowControllerUtil
+) {
 
     @Operation(
         description = """
 Redirect the end-user to the authorization flow of the provider identified by providerId.
 
-If we cannot proceed with the redirection, instead the end-user will be redirect to the error page defined in ```urls.flow.error``` configuration.
-Following query parameters will be populated with information about the error:
-- ```error_code```: The technical identifier of this error.
-- ```details```: A message containing technical details about the error.
-- ```description```: (optional) A message explaining the error to the end-user. It may contain information on how to recover from the issue.
+If we cannot proceed with the redirection, instead the end-user will be redirect to the error page 
+defined in ```urls.flow.error``` configuration.
         """,
         responses = [
             ApiResponse(
                 responseCode = "303",
-                description = ""
+                description = "Redirect the end-user to continue the authorization flow."
             )
         ],
         tags = ["flow"]
@@ -52,10 +43,17 @@ Following query parameters will be populated with information about the error:
         authentication: Authentication,
         providerId: String
     ): HttpResponse<*> =
-        webAuthorizationFlowManager.extractFromAuthenticationAndVerifyThenRun(authentication) { authorizeAttempt, _ ->
-            val provider = providerConfigManager.findEnabledProviderById(providerId)
-            providerManager.authorizeWithProvider(authorizeAttempt, provider)
-        }
+        webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenRunAndRedirect(
+            state = authentication.stateOrNull,
+            run = { authorizeAttempt, _ ->
+                webAuthorizationFlowOauth2ProviderManager.authorizeWithProvider(
+                    authorizeAttempt,
+                    providerId = providerId
+                )
+            },
+            mapRedirectUriToResource = { redirectUri -> HttpResponse.temporaryRedirect<Any>(redirectUri) },
+            mapResultToResource = { HttpResponse.temporaryRedirect<Any>(it) }
+        )
 
     @Operation(
         description = """
@@ -81,20 +79,17 @@ Redirection to either:
         providerId: String,
         @QueryValue("code") code: String?,
         @QueryValue("state") state: String?
-    ) = webAuthorizationFlowManager.extractOnGoingFromStateAndRun<HttpResponse<Any>>(state) { authorizeAttempt, flow ->
-        val provider = providerConfigManager.findEnabledProviderById(providerId)
-        val result = oauth2ProviderManager.signInOrSignUpUsingProvider(
-            authorizeAttempt = authorizeAttempt,
-            provider = provider,
-            authorizeCode = code
-        )
-        val url = redirectUriBuilder.getRedirectUri(
-            authorizeAttempt = authorizeAttempt,
-            flow = flow,
-            status = result
-        )
-        HttpResponse.temporaryRedirect<Any>(url)
-    }
+    ) = webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenRunAndRedirect(
+        state = state,
+        run = { authorizeAttempt, _ ->
+            webAuthorizationFlowOauth2ProviderManager.signInOrSignUpUsingProvider(
+                authorizeAttempt = authorizeAttempt,
+                providerId = providerId,
+                authorizeCode = code
+            )
+        },
+        mapRedirectUriToResource = { redirectUri -> HttpResponse.temporaryRedirect<Any>(redirectUri) }
+    )
 
     companion object {
         const val FLOW_PROVIDER_ENDPOINTS = "/api/v1/flow/providers/{providerId}"

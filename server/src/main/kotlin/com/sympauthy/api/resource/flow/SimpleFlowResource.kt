@@ -10,7 +10,7 @@ Response containing the url where the end-user must be redirected to continue th
     """
 )
 @Serdeable
-data class FlowResultResource(
+data class SimpleFlowResource(
     @get:Schema(
         name = "redirect_url",
         description = """

@@ -2,11 +2,10 @@ package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
-import com.sympauthy.business.manager.auth.FailedVerifyEncodedStateResult
-import com.sympauthy.business.manager.auth.SuccessVerifyEncodedStateResult
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.code.ValidationCodeReason
@@ -15,9 +14,6 @@ import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.business.model.user.User
-import com.sympauthy.security.state
-import io.micronaut.security.authentication.Authentication
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.net.URI
@@ -44,17 +40,29 @@ class WebAuthorizationFlowManager(
 ) {
 
     /**
-     * Return the [WebAuthorizationFlow] of throw a non-recoverable [BusinessException] if not found.
+     * Return the default [WebAuthorizationFlow].
+     */
+    val defaultWebAuthorizationFlow: WebAuthorizationFlow
+        get() = authorizationFlowManager.defaultWebAuthorizationFlow
+
+    /**
+     * Return the [WebAuthorizationFlow] identified by [id].
+     * Return null if not found or if not of type [WebAuthorizationFlow].
+     */
+    fun findByIdOrNull(id: String?): WebAuthorizationFlow? {
+        val authorizationFlow = id?.let(authorizationFlowManager::findByIdOrNull)
+        return authorizationFlow as? WebAuthorizationFlow
+    }
+
+    /**
+     * Return the [WebAuthorizationFlow] identified by [id].
+     * Otherwise, throw an unrecoverable [BusinessException] with detailsId ```flow.web.invalid_flow```.
      */
     fun findById(id: String?): WebAuthorizationFlow {
-        val authorizationFlow = id?.let(authorizationFlowManager::findByIdOrNull)
-        if (authorizationFlow !is WebAuthorizationFlow) {
-            throw businessExceptionOf(
-                detailsId = "flow.web.invalid_flow",
-                values = arrayOf("flowId" to (id ?: ""))
-            )
-        }
-        return authorizationFlow
+        return findByIdOrNull(id) ?: throw internalBusinessExceptionOf(
+            detailsId = "flow.web.invalid_flow",
+            "flowId" to (id ?: "null")
+        )
     }
 
     /**
@@ -152,131 +160,6 @@ class WebAuthorizationFlowManager(
         }
         return redirectURI
     }
-
-    /**
-     * Retrieve the [AuthorizeAttempt] using the state.
-     * Verify the following:
-     * - the [AuthorizeAttempt] has not failed nor expired.
-     * - the [AuthorizeAttempt] is associated with a [WebAuthorizationFlow].
-     *
-     * If all of those conditions are met, the [method] will be invoked.
-     * The [AuthorizeAttempt] and [WebAuthorizationFlow] will be passed as parameters.
-     *
-     * Otherwise, an unrecoverable [BusinessException] will be thrown.
-     *
-     * If the [method] throws unrecoverable [BusinessException], it will be saved in the [AuthorizeAttempt]
-     * using [AuthorizeAttemptManager.markAsFailedIfNotRecoverable] to prevent further usage.
-     */
-    suspend fun <T> extractFromStateVerifyThenRun(
-        state: String?,
-        method: suspend (AuthorizeAttempt, WebAuthorizationFlow) -> T
-    ): T {
-        val verifyResult = authorizeAttemptManager.verifyEncodedInternalState(state)
-        val authorizeAttempt = when (verifyResult) {
-            is SuccessVerifyEncodedStateResult -> verifyResult.authorizeAttempt
-            is FailedVerifyEncodedStateResult -> {
-                throw businessExceptionOf(
-                    detailsId = verifyResult.detailsId,
-                    descriptionId = verifyResult.descriptionId,
-                )
-            }
-        }
-
-        return try {
-            val flow = this.findById(authorizeAttempt.authorizationFlowId)
-            method(authorizeAttempt, flow)
-        } catch (e: BusinessException) {
-            if (authorizeAttempt is OnGoingAuthorizeAttempt) {
-                authorizeAttemptManager.markAsFailedIfNotRecoverable(
-                    authorizeAttempt = authorizeAttempt,
-                    error = e,
-                )
-            }
-            throw e
-        }
-    }
-
-    /**
-     * Retrieve the state from the [Authentication] then call [extractFromStateVerifyThenRun].
-     */
-    suspend fun <T> extractFromAuthenticationAndVerifyThenRun(
-        authentication: Authentication,
-        method: suspend (AuthorizeAttempt, WebAuthorizationFlow) -> T
-    ): T = extractFromStateVerifyThenRun(
-        state = authentication.state,
-        method = method
-    )
-
-    /**
-     * Same as [extractFromStateVerifyThenRun] except it also verifies that the [AuthorizeAttempt] is
-     * an [OnGoingAuthorizeAttempt]. Otherwise, an unrecoverable [BusinessException] will be thrown and save into
-     * the [AuthorizeAttempt] using [AuthorizeAttemptManager.markAsFailedIfNotRecoverable].
-     */
-    suspend fun <T> extractOnGoingFromStateAndRun(
-        state: String?,
-        method: suspend (OnGoingAuthorizeAttempt, WebAuthorizationFlow) -> Unit
-    ) = extractFromStateVerifyThenRun(state) { authorizeAttempt, flow ->
-        if (authorizeAttempt is OnGoingAuthorizeAttempt) {
-            method(authorizeAttempt, flow)
-        } else {
-            throw businessExceptionOf(
-                detailsId = "flow.web.invalid_status"
-            )
-        }
-    }
-
-    /**
-     * Retrieve the state from the [Authentication] then call [extractFromStateVerifyThenRun].
-     * If the [AuthorizeAttempt] is not an [OnGoingAuthorizeAttempt], an unrecoverable [BusinessException] will be
-     * thrown.
-     */
-    suspend fun <T> extractOnGoingFromAuthenticationAndVerifyThenRun(
-        authentication: Authentication,
-        method: suspend (OnGoingAuthorizeAttempt, WebAuthorizationFlow) -> T
-    ): T = extractFromStateVerifyThenRun(state = authentication.state) { authorizeAttempt, flow ->
-        if (authorizeAttempt is OnGoingAuthorizeAttempt) {
-            method(authorizeAttempt, flow)
-        } else {
-            throw businessExceptionOf(
-                detailsId = "flow.web.invalid_status"
-            )
-        }
-    }
-
-    /**
-     * Retrieves the following then call the [method]:
-     * - the [OnGoingAuthorizeAttempt] associated to the state in the [Authentication].
-     * - the [User] associated to the [OnGoingAuthorizeAttempt].
-     * - the [WebAuthorizationFlow] associated to the [OnGoingAuthorizeAttempt].
-     *
-     * Throws an unrecoverable [BusinessException] if either:
-     * - the [OnGoingAuthorizeAttempt] is not using a [WebAuthorizationFlow].
-     * - there is no [User] associated to the [OnGoingAuthorizeAttempt]
-     *
-     * Note: This method uses the [extractOnGoingFromAuthenticationAndVerifyThenRun] internally to
-     * retrieve the [OnGoingAuthorizeAttempt] from [Authentication].
-     */
-    suspend fun <T> extractOnGoingWithUserFromAuthenticationAndVerifyThenRun(
-        authentication: Authentication,
-        method: suspend (OnGoingAuthorizeAttempt, WebAuthorizationFlow, User) -> T
-    ): T = extractOnGoingFromAuthenticationAndVerifyThenRun(authentication) { authorizeAttempt, flow ->
-        val user = authorizeAttemptManager.getUser(authorizeAttempt)
-        method(authorizeAttempt, flow, user)
-    }
-
-    /**
-     * Retrieve the user from the [OnGoingAuthorizeAttempt] or [CompletedAuthorizeAttempt] associated to the state
-     * in the [Authentication].
-     * This method uses the [extractFromStateVerifyThenRun] internally to retrieve the [AuthorizeAttempt].
-     */
-    suspend fun <T> extractUserFromAuthenticationAndVerifyThenRun(
-        authentication: Authentication,
-        method: suspend (AuthorizeAttempt, WebAuthorizationFlow, User?) -> T
-    ): T = extractFromStateVerifyThenRun(state = authentication.state) { authorizeAttempt, flow ->
-        val user = authorizeAttemptManager.getUserOrNull(authorizeAttempt)
-        method(authorizeAttempt, flow, user)
-    }
-
 
     /**
      * Retrieves the current status of the provided [authorizeAttempt] and completes the authorization flow

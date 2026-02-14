@@ -10,7 +10,7 @@ import com.sympauthy.business.manager.flow.WebAuthorizationFlowManager
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowRedirectUriBuilder
 import com.sympauthy.business.model.oauth2.FailedAuthorizeAttempt
 import com.sympauthy.security.SecurityRule.HAS_STATE
-import com.sympauthy.security.state
+import com.sympauthy.security.stateOrNull
 import com.sympauthy.util.orDefault
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.annotation.Controller
@@ -49,7 +49,7 @@ Result containing either:
         request: HttpRequest<*>,
         authentication: Authentication
     ): FlowErrorResource {
-        val verifyResult = authorizeAttemptManager.verifyEncodedInternalState(authentication.state)
+        val verifyResult = authorizeAttemptManager.verifyEncodedInternalState(authentication.stateOrNull)
 
         return when (verifyResult) {
             is SuccessVerifyEncodedStateResult -> {

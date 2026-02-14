@@ -63,6 +63,7 @@ class AuthorizationFlowsConfigFactory(
                 properties = properties,
                 errors = errors
             )
+            else -> null
         }
     }
 

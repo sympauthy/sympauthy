@@ -32,17 +32,18 @@ class ConfigurationController(
     @Inject private val passwordFlowManager: WebAuthorizationFlowPasswordManager,
     @Inject private val providerManager: ProviderConfigManager,
     @Inject private val uncheckedUrlsConfig: UrlsConfig,
-    @Inject @DisplayMessages private val displayMessageSource: MessageSource
+    @Inject @param:DisplayMessages private val displayMessageSource: MessageSource
 ) {
 
     @Operation(
         description = """
-Expose the server configuration to the end-user authentication flow.
+Return the configuration of the authentication flow associated to the client. It exposes information such as:
+- features that are enabled for the client.
+- third party providers that can be used to authenticate the end-user.
+- etc.
 
-This configuration only contains information that are associated to this authorization server.
-It does not change depending on the client calling the authorization server nor on the end-user signing-in.
-
-It is designed to be cached by the flow to be reused. 
+This configuration only contains information that are associated to this authorization server and the client,
+they can be cached across the different end-users trying to authenticate.
         """,
         tags = ["flow"]
     )

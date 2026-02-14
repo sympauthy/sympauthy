@@ -156,8 +156,12 @@ open class WebAuthorizationFlowPasswordManager(
         )
     }
 
-    internal fun checkForMissingClaims(claimUpdateMap: Map<Claim, CollectedClaimUpdate?>) {
-        val missingClaim = claimUpdateMap.filterValues { it == null }
+    /**
+     * Throws a recoverable business exception with detailsId ```flow.password.sign_up.missing_claim```
+     * if any of the claims in [signUpClaimUpdateMap] is missing a value.
+     */
+    internal fun checkForMissingClaims(signUpClaimUpdateMap: Map<Claim, CollectedClaimUpdate?>) {
+        val missingClaim = signUpClaimUpdateMap.filterValues { it == null }
             .keys
             .firstOrNull()
         if (missingClaim != null) {
@@ -170,7 +174,8 @@ open class WebAuthorizationFlowPasswordManager(
     }
 
     /**
-     * Throws a sign_up.existing error if any of the [claims] conflict with another user login.
+     * Throws a recoverable business exception with detailsId ```flow.password.sign_up.existing```
+     * if any of the [claims] conflict with another user login.
      *
      * As a user can use any of the provided [claims] to login, we must ensure that the values are unique
      * to a user and across the claims.

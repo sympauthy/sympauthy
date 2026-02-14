@@ -230,9 +230,9 @@ class AuthorizeAttemptManager(
      */
     suspend fun getUserOrNull(authorizeAttempt: AuthorizeAttempt): User? {
         return when (authorizeAttempt) {
-            is OnGoingAuthorizeAttempt -> authorizeAttempt.userId?.let { userManager.findById(it) }
+            is OnGoingAuthorizeAttempt -> authorizeAttempt.userId?.let { userManager.findByIdOrNull(it) }
             is CompletedAuthorizeAttempt -> {
-                userManager.findById(authorizeAttempt.userId)
+                userManager.findByIdOrNull(authorizeAttempt.userId)
             }
 
             is FailedAuthorizeAttempt -> null

@@ -1,11 +1,11 @@
 package com.sympauthy.api.controller.flow
 
-import com.sympauthy.api.resource.flow.FlowResultResource
+import com.sympauthy.api.controller.flow.util.WebAuthorizationFlowControllerUtil
 import com.sympauthy.api.resource.flow.SignInInputResource
-import com.sympauthy.business.manager.flow.WebAuthorizationFlowManager
+import com.sympauthy.api.resource.flow.SimpleFlowResource
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowPasswordManager
-import com.sympauthy.business.manager.flow.WebAuthorizationFlowRedirectUriBuilder
 import com.sympauthy.security.SecurityRule.HAS_STATE
+import com.sympauthy.security.stateOrNull
 import io.micronaut.http.annotation.Body
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Post
@@ -18,9 +18,8 @@ import jakarta.inject.Inject
 @Controller("/api/v1/flow/sign-in")
 @Secured(HAS_STATE)
 class SignInController(
-    @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
     @Inject private val passwordFlowManager: WebAuthorizationFlowPasswordManager,
-    @Inject private val redirectUriBuilder: WebAuthorizationFlowRedirectUriBuilder,
+    @Inject private val webAuthorizationFlowControllerUtil: WebAuthorizationFlowControllerUtil
 ) {
 
     @Operation(
@@ -38,17 +37,16 @@ class SignInController(
     suspend fun signIn(
         authentication: Authentication,
         @Body inputResource: SignInInputResource
-    ): FlowResultResource =
-        webAuthorizationFlowManager.extractOnGoingFromAuthenticationAndVerifyThenRun(authentication) { authorizeAttempt, flow ->
-            val result = passwordFlowManager.signInWithPassword(
-                authorizeAttempt = authorizeAttempt,
-                login = inputResource.login,
-                password = inputResource.password
-            )
-            redirectUriBuilder.getRedirectUri(
-                authorizeAttempt = authorizeAttempt,
-                flow = flow,
-                status = result
-            ).toString().let(::FlowResultResource)
-        }
+    ): SimpleFlowResource =
+        webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenRunAndRedirect(
+            state = authentication.stateOrNull,
+            run = { authorizeAttempt, _ ->
+                passwordFlowManager.signInWithPassword(
+                    authorizeAttempt = authorizeAttempt,
+                    login = inputResource.login,
+                    password = inputResource.password
+                )
+            },
+            mapRedirectUriToResource = { redirectUri -> SimpleFlowResource(redirectUri.toString()) }
+        )
 }

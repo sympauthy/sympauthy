@@ -4,14 +4,12 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
-import com.sympauthy.business.manager.auth.FailedVerifyEncodedStateResult
-import com.sympauthy.business.manager.auth.SuccessVerifyEncodedStateResult
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.model.code.ValidationCodeReason
+import com.sympauthy.business.model.flow.NonInteractiveAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import io.mockk.coEvery
-import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
@@ -49,6 +47,74 @@ class WebAuthorizationFlowManagerTest {
     @SpyK
     @InjectMockKs
     lateinit var manager: WebAuthorizationFlowManager
+
+    @Test
+    fun `findByIdOrNull - Returns WebAuthorizationFlow when found`() {
+        val flowId = "test-flow-id"
+        val webFlow = mockk<WebAuthorizationFlow>()
+
+        every { authorizationFlowManager.findByIdOrNull(flowId) } returns webFlow
+
+        val result = manager.findByIdOrNull(flowId)
+
+        assertEquals(webFlow, result)
+    }
+
+    @Test
+    fun `findByIdOrNull - Returns null when id is null`() {
+        val result = manager.findByIdOrNull(null)
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `findByIdOrNull - Returns null when flow is not found`() {
+        val flowId = "non-existent-flow-id"
+
+        every { authorizationFlowManager.findByIdOrNull(flowId) } returns null
+
+        val result = manager.findByIdOrNull(flowId)
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `findByIdOrNull - Returns null when flow is not a WebAuthorizationFlow`() {
+        val flowId = "non-web-flow-id"
+        val nonWebFlow = mockk<NonInteractiveAuthorizationFlow>()
+
+        every { authorizationFlowManager.findByIdOrNull(flowId) } returns nonWebFlow
+
+        val result = manager.findByIdOrNull(flowId)
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `findById - Returns WebAuthorizationFlow when found`() {
+        val flowId = "test-flow-id"
+        val webFlow = mockk<WebAuthorizationFlow>()
+
+        every { authorizationFlowManager.findByIdOrNull(flowId) } returns webFlow
+
+        val result = manager.findById(flowId)
+
+        assertEquals(webFlow, result)
+    }
+
+    @Test
+    fun `findById - Throws BusinessException when flow is not found or not a WebAuthorizationFlow`() {
+        val flowId = "non-existent-flow-id"
+
+        every { authorizationFlowManager.findByIdOrNull(flowId) } returns null
+
+        val exception = assertThrows<BusinessException> {
+            manager.findById(flowId)
+        }
+
+        assertEquals("flow.web.invalid_flow", exception.detailsId)
+        assertFalse(exception.recoverable)
+    }
 
     @Test
     fun `completeAuthorizationFlowOrRedirect - Non complete if missing claims`() = runTest {
@@ -99,77 +165,5 @@ class WebAuthorizationFlowManagerTest {
         val result = manager.getStatusAndCompleteIfNecessary(authorizeAttempt)
 
         assertTrue(result.complete)
-    }
-
-    @Test
-    fun `extractFromStateVerifyThenRun - Success`() = runTest {
-        val state = "valid-state"
-        val webFlowId = "web-flow-id"
-        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
-            every { authorizationFlowId } returns webFlowId
-        }
-        val webFlow = mockk<WebAuthorizationFlow>()
-        val expectedResult = "test-result"
-
-        coEvery { authorizeAttemptManager.verifyEncodedInternalState(state) } returns SuccessVerifyEncodedStateResult(
-            authorizeAttempt
-        )
-        every { manager.findById(webFlowId) } returns webFlow
-
-        val result = manager.extractFromStateVerifyThenRun(state) { attempt, flow ->
-            assertEquals(authorizeAttempt, attempt)
-            assertEquals(webFlow, flow)
-            expectedResult
-        }
-
-        assertEquals(expectedResult, result)
-    }
-
-    @Test
-    fun `extractFromStateVerifyThenRun - Failed state verification`() = runTest {
-        val state = "invalid-state"
-        val detailsId = "auth.authorize_attempt.validate.invalid_subject"
-
-        coEvery { authorizeAttemptManager.verifyEncodedInternalState(state) } returns FailedVerifyEncodedStateResult(
-            detailsId
-        )
-
-        val exception = assertThrows<BusinessException> {
-            manager.extractFromStateVerifyThenRun(state) { _, _ ->
-                fail("Should not be called")
-            }
-        }
-
-        assertEquals(detailsId, exception.detailsId)
-    }
-
-    @Test
-    fun `extractFromStateVerifyThenRun - Save thrown business error in authorize attempt`() = runTest {
-        val state = "valid-state"
-        val webFlowId = "web-flow-id"
-        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
-            every { authorizationFlowId } returns webFlowId
-        }
-        val webFlow = mockk<WebAuthorizationFlow>()
-        val businessException = mockk<BusinessException> {
-            every { recoverable } returns false
-        }
-
-        coEvery { authorizeAttemptManager.verifyEncodedInternalState(state) } returns SuccessVerifyEncodedStateResult(
-            authorizeAttempt
-        )
-        every { manager.findById(webFlowId) } returns webFlow
-        coEvery {
-            authorizeAttemptManager.markAsFailedIfNotRecoverable(authorizeAttempt, businessException)
-        } returns authorizeAttempt
-
-        val exception = assertThrows<BusinessException> {
-            manager.extractFromStateVerifyThenRun(state) { _, _ ->
-                throw businessException
-            }
-        }
-
-        assertEquals(businessException, exception)
-        coVerify { authorizeAttemptManager.markAsFailedIfNotRecoverable(authorizeAttempt, businessException) }
     }
 }
