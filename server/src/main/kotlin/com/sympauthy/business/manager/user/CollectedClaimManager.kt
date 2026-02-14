@@ -55,7 +55,7 @@ open class CollectedClaimManager(
     }
 
     /**
-     * Return the list of [CollectedClaim] collected from the user associated to the [authorizeAttempt].
+     * Return the list of [CollectedClaim] collected from the end-user associated to the [authorizeAttempt].
      *
      * Only the claims that are readable according to the client and the scopes of the [authorizeAttempt] will be returned.
      */

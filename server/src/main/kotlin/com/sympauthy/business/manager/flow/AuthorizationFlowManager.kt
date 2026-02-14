@@ -72,11 +72,11 @@ class AuthorizationFlowManager(
     /**
      * Complete the authorization flow for the given [authorizeAttempt] and return the completed [authorizeAttempt].
      *
-     * The list of [collectedClaims] may be provided to prevent loading them again.
+     * The list of [allCollectedClaims] may be provided to prevent loading them again.
      */
     suspend fun completeAuthorization(
         authorizeAttempt: AuthorizeAttempt,
-        collectedClaims: List<CollectedClaim>,
+        allCollectedClaims: List<CollectedClaim>,
     ): AuthorizeAttempt {
         if (authorizeAttempt !is OnGoingAuthorizeAttempt) {
             return authorizeAttempt
@@ -86,7 +86,7 @@ class AuthorizationFlowManager(
 
         val grantScopesResult = scopeGrantingManager.grantScopes(
             authorizeAttempt = authorizeAttempt,
-            collectedClaims = collectedClaims
+            allCollectedClaims = allCollectedClaims
         )
         modifiedAuthorizedAttempt = authorizeAttemptManager.setGrantedScopes(
             authorizeAttempt = modifiedAuthorizedAttempt,

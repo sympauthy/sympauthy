@@ -32,10 +32,13 @@ class ScopeGrantingManager(
 
     /**
      * Pass the [AuthorizeAttempt.requestedScopes] through the chain of scope granting methods.
+     *
+     * Some methods may require access to the claims collected by the authorization flow during the authorization process,
+     * it should be provided in the [allCollectedClaims] parameter.
      */
     suspend fun grantScopes(
         authorizeAttempt: OnGoingAuthorizeAttempt,
-        collectedClaims: List<CollectedClaim>
+        allCollectedClaims: List<CollectedClaim>
     ): GrantScopesResult {
         val requestedScopes = authorizeAttempt.requestedScopes.map {
             scopeManager.findOrThrow(it)
@@ -50,7 +53,7 @@ class ScopeGrantingManager(
             val result = methods.invoke(
                 authorizeAttempt,
                 unhandledRequestedScopes,
-                collectedClaims
+                allCollectedClaims
             )
             results.add(result)
         }

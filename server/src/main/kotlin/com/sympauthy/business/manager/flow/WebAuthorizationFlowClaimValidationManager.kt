@@ -30,7 +30,7 @@ open class WebAuthorizationFlowClaimValidationManager(
 
     /**
      * List of all [ValidationCodeReason] why this manager can send validation code to the user.
-     * The list also contain reasons which this authorization server is not able to send a validation code for.
+     * The list also contains reasons which this authorization server is not able to send a validation code for.
      */
     val validationCodeReasons: List<ValidationCodeReason>
         get() = listOf(EMAIL_CLAIM, PHONE_NUMBER_CLAIM)
@@ -81,7 +81,7 @@ open class WebAuthorizationFlowClaimValidationManager(
      * Send a [ValidationCode] to the [user] using the provided [media] if necessary.
      *
      * This method will:
-     * - If there is no claim that require a validation, then this method returns null.
+     * - If there is no claim that requires a validation, then this method returns null.
      * - If a [ValidationCode] has been previously sent, then this method does not send a new code
      * and return the latest generated [ValidationCode] (even if it is expired).
      * - Otherwise, send a validation code to the [user] using the provided [media] to validate claims collected by this

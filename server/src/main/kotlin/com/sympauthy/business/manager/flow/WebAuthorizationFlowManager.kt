@@ -12,7 +12,6 @@ import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_AUT
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
 import com.sympauthy.business.model.oauth2.*
-import com.sympauthy.business.model.user.CollectedClaim
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.net.URI
@@ -163,14 +162,13 @@ class WebAuthorizationFlowManager(
     /**
      * Return the status of the [authorizeAttempt] if the end-user is going through a web authorization flow.
      */
-    fun getStatus(
-        authorizeAttempt: AuthorizeAttempt,
-        collectedClaims: List<CollectedClaim>
+    suspend fun getStatus(
+        authorizeAttempt: AuthorizeAttempt
     ): WebAuthorizationFlowStatus {
         return when (authorizeAttempt) {
             is FailedAuthorizeAttempt -> getStatusForFailedAuthorizeAttempt()
             is CompletedAuthorizeAttempt -> getStatusForCompletedAuthorizeAttempt()
-            is OnGoingAuthorizeAttempt -> getStatusForOnGoingAuthorizeAttempt(authorizeAttempt, collectedClaims)
+            is OnGoingAuthorizeAttempt -> getStatusForOnGoingAuthorizeAttempt(authorizeAttempt)
         }
     }
 
@@ -184,17 +182,19 @@ class WebAuthorizationFlowManager(
     /**
      * Return the status of the [authorizeAttempt] if the end-user is going through a web authorization flow.
      */
-    internal fun getStatusForOnGoingAuthorizeAttempt(
-        authorizeAttempt: OnGoingAuthorizeAttempt,
-        collectedClaims: List<CollectedClaim>
+    internal suspend fun getStatusForOnGoingAuthorizeAttempt(
+        authorizeAttempt: OnGoingAuthorizeAttempt
     ): WebAuthorizationFlowStatus {
+        val allCollectedClaims = authorizeAttempt.userId?.let { collectedClaimManager.findByUserId(it) } ?: emptyList()
+
         val missingUser = authorizeAttempt.userId == null
-        val missingRequiredClaims = !collectedClaimManager.areAllRequiredClaimCollected(collectedClaims)
-        val missingMediaForClaimValidation = claimValidationManager.getReasonsToSendValidationCode(collectedClaims)
+        val missingRequiredClaims = !collectedClaimManager.areAllRequiredClaimCollected(allCollectedClaims)
+        val missingMediaForClaimValidation = claimValidationManager.getReasonsToSendValidationCode(allCollectedClaims)
             .map(ValidationCodeReason::media)
             .distinct()
 
         return WebAuthorizationFlowStatus(
+            allCollectedClaims = allCollectedClaims,
             missingUser = missingUser,
             missingRequiredClaims = missingRequiredClaims,
             missingMediaForClaimValidation = missingMediaForClaimValidation
@@ -211,39 +211,26 @@ class WebAuthorizationFlowManager(
     /**
      * Completes the authorization flow by calling [AuthorizationFlowManager.completeAuthorization]
      * if the [status] indicates that the flow is complete. Then return the updated [AuthorizeAttempt].
-     *
-     * The list of [collectedClaims] may be provided to improve performance by avoiding loading them
-     * from the database again.
      */
     suspend fun completeIfNecessary(
         authorizeAttempt: AuthorizeAttempt,
-        status: WebAuthorizationFlowStatus,
-        collectedClaims: List<CollectedClaim>? = null
+        status: WebAuthorizationFlowStatus
     ): AuthorizeAttempt {
-        val loadedCollectedClaims =
-            collectedClaims ?: collectedClaimManager.findByAttempt(authorizeAttempt)
         return if (status.complete) {
             authorizationFlowManager.completeAuthorization(
                 authorizeAttempt = authorizeAttempt,
-                collectedClaims = loadedCollectedClaims
+                allCollectedClaims = status.allCollectedClaims
             )
         } else authorizeAttempt
     }
 
     suspend fun getStatusAndCompleteIfNecessary(
-        authorizeAttempt: AuthorizeAttempt,
-        collectedClaims: List<CollectedClaim>? = null
+        authorizeAttempt: AuthorizeAttempt
     ): WebAuthorizationFlowStatus {
-        val loadedCollectedClaims =
-            collectedClaims ?: collectedClaimManager.findByAttempt(authorizeAttempt)
-        val status = getStatus(
-            authorizeAttempt = authorizeAttempt,
-            collectedClaims = loadedCollectedClaims
-        )
+        val status = getStatus(authorizeAttempt)
         completeIfNecessary(
             authorizeAttempt = authorizeAttempt,
-            status = status,
-            collectedClaims = collectedClaims
+            status = status
         )
         return status
     }

@@ -1,11 +1,16 @@
 package com.sympauthy.business.model.flow
 
 import com.sympauthy.business.model.code.ValidationCodeMedia
+import com.sympauthy.business.model.user.CollectedClaim
 
 /**
  * Summary of the current status of an authorization attempt going through a web authorization flow.
  */
 data class WebAuthorizationFlowStatus(
+    /**
+     * List of all claims collected from the end-user by the authorization server.
+     */
+    val allCollectedClaims: List<CollectedClaim> = emptyList(),
     /**
      * True if the authorization attempt failed.
      */

@@ -103,12 +103,10 @@ open class WebAuthorizationFlowPasswordManager(
         val updatedAuthorizeAttempt = authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, user.id)
 
         // Call complete on the authorization flow in case there is no more step to complete.
-        val collectedClaims = collectedClaimManager.findByAttempt(updatedAuthorizeAttempt)
-        val status = webAuthorizationFlowManager.getStatus(updatedAuthorizeAttempt, collectedClaims)
+        val status = webAuthorizationFlowManager.getStatus(updatedAuthorizeAttempt)
         return webAuthorizationFlowManager.completeIfNecessary(
             authorizeAttempt = updatedAuthorizeAttempt,
-            status = status,
-            collectedClaims = collectedClaims,
+            status = status
         )
     }
 
@@ -157,12 +155,10 @@ open class WebAuthorizationFlowPasswordManager(
         val updatedAuthorizeAttempt = authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, user.id)
 
         // Call complete on the authorization flow in case there is no more step to complete.
-        val collectedClaims = collectedClaimManager.findByAttempt(updatedAuthorizeAttempt)
-        val status = webAuthorizationFlowManager.getStatus(updatedAuthorizeAttempt, collectedClaims)
+        val status = webAuthorizationFlowManager.getStatus(updatedAuthorizeAttempt)
         return webAuthorizationFlowManager.completeIfNecessary(
             authorizeAttempt = updatedAuthorizeAttempt,
             status = status,
-            collectedClaims = collectedClaims,
         )
     }
 
