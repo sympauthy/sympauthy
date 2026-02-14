@@ -1,6 +1,6 @@
 package com.sympauthy.business.manager.flow
 
-import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
@@ -9,7 +9,7 @@ import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.UserMapper
-import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
+import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
@@ -74,15 +74,16 @@ open class WebAuthorizationFlowPasswordManager(
     }
 
     /**
-     * Sign-in the end-user using a [login] and its [password].
+     * Sign in the end-user using a [login] and a [password] and associate the [AuthorizeAttempt] with the [User]
+     * associated to the [login]. Finally, return the updated [OnGoingAuthorizeAttempt].
      */
     suspend fun signInWithPassword(
         authorizeAttempt: OnGoingAuthorizeAttempt,
         login: String?,
         password: String?
-    ): WebAuthorizationFlowStatus {
+    ): AuthorizeAttempt {
         if (!signInEnabled) {
-            throw businessExceptionOf("flow.password.sign_in.disabled")
+            throw internalBusinessExceptionOf("flow.password.sign_in.disabled")
         }
         if (login.isNullOrBlank() || password.isNullOrBlank()) {
             throw recoverableBusinessExceptionOf("flow.password.sign_in.invalid")
@@ -101,9 +102,13 @@ open class WebAuthorizationFlowPasswordManager(
         // Update the authorize attempt with the id of the user so they can retrieve their access token.
         val updatedAuthorizeAttempt = authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, user.id)
 
-        // Check if sign-up is completed
-        return webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
-            authorizeAttempt = updatedAuthorizeAttempt
+        // Call complete on the authorization flow in case there is no more step to complete.
+        val collectedClaims = collectedClaimManager.findByAttempt(updatedAuthorizeAttempt)
+        val status = webAuthorizationFlowManager.getStatus(updatedAuthorizeAttempt, collectedClaims)
+        return webAuthorizationFlowManager.completeIfNecessary(
+            authorizeAttempt = updatedAuthorizeAttempt,
+            status = status,
+            collectedClaims = collectedClaims,
         )
     }
 
@@ -131,7 +136,7 @@ open class WebAuthorizationFlowPasswordManager(
         authorizeAttempt: OnGoingAuthorizeAttempt,
         unfilteredUpdates: List<CollectedClaimUpdate>,
         password: String
-    ): WebAuthorizationFlowStatus {
+    ): AuthorizeAttempt {
         val claimUpdateMap = getSignUpClaims().associateWith { claim ->
             unfilteredUpdates.firstOrNull { it.claim == claim }
         }
@@ -151,8 +156,13 @@ open class WebAuthorizationFlowPasswordManager(
         // Update the authorize attempt with the id of the user so they can retrieve their access token.
         val updatedAuthorizeAttempt = authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, user.id)
 
-        return webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
-            authorizeAttempt = updatedAuthorizeAttempt
+        // Call complete on the authorization flow in case there is no more step to complete.
+        val collectedClaims = collectedClaimManager.findByAttempt(updatedAuthorizeAttempt)
+        val status = webAuthorizationFlowManager.getStatus(updatedAuthorizeAttempt, collectedClaims)
+        return webAuthorizationFlowManager.completeIfNecessary(
+            authorizeAttempt = updatedAuthorizeAttempt,
+            status = status,
+            collectedClaims = collectedClaims,
         )
     }
 

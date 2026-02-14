@@ -162,39 +162,9 @@ class WebAuthorizationFlowManager(
     }
 
     /**
-     * Retrieves the current status of the provided [authorizeAttempt] and completes the authorization flow
-     * if it is determined to be complete.
-     *
-     * The list of [collectedClaims] may be provided to prevent loading
-     *
-     * This method internally calls [getStatus] to evaluate the state of the authorization flow. If the
-     * returned status indicates that the flow is complete, it proceeds to invoke
-     * [AuthorizationFlowManager.completeAuthorization] to finalize the process.
-     * The resulting status is then returned.
-     */
-    suspend fun getStatusAndCompleteIfNecessary(
-        authorizeAttempt: AuthorizeAttempt,
-        collectedClaims: List<CollectedClaim>? = null
-    ): WebAuthorizationFlowStatus {
-        val loadedCollectedClaims =
-            collectedClaims ?: collectedClaimManager.findClaimsReadableByAttempt(authorizeAttempt)
-        val status = getStatus(
-            authorizeAttempt = authorizeAttempt,
-            collectedClaims = loadedCollectedClaims
-        )
-        if (status.complete) {
-            authorizationFlowManager.completeAuthorization(
-                authorizeAttempt = authorizeAttempt,
-                collectedClaims = loadedCollectedClaims
-            )
-        }
-        return status
-    }
-
-    /**
      * Return the status of the [authorizeAttempt] if the end-user is going through a web authorization flow.
      */
-    internal fun getStatus(
+    fun getStatus(
         authorizeAttempt: AuthorizeAttempt,
         collectedClaims: List<CollectedClaim>
     ): WebAuthorizationFlowStatus {
@@ -237,6 +207,46 @@ class WebAuthorizationFlowManager(
      */
     internal fun getStatusForCompletedAuthorizeAttempt(): WebAuthorizationFlowStatus {
         return WebAuthorizationFlowStatus()
+    }
+
+    /**
+     * Completes the authorization flow by calling [AuthorizationFlowManager.completeAuthorization]
+     * if the [status] indicates that the flow is complete. Then return the updated [AuthorizeAttempt].
+     *
+     * The list of [collectedClaims] may be provided to improve performance by avoiding loading them
+     * from the database again.
+     */
+    suspend fun completeIfNecessary(
+        authorizeAttempt: AuthorizeAttempt,
+        status: WebAuthorizationFlowStatus,
+        collectedClaims: List<CollectedClaim>? = null
+    ): AuthorizeAttempt {
+        val loadedCollectedClaims =
+            collectedClaims ?: collectedClaimManager.findByAttempt(authorizeAttempt)
+        return if (status.complete) {
+            authorizationFlowManager.completeAuthorization(
+                authorizeAttempt = authorizeAttempt,
+                collectedClaims = loadedCollectedClaims
+            )
+        } else authorizeAttempt
+    }
+
+    suspend fun getStatusAndCompleteIfNecessary(
+        authorizeAttempt: AuthorizeAttempt,
+        collectedClaims: List<CollectedClaim>? = null
+    ): WebAuthorizationFlowStatus {
+        val loadedCollectedClaims =
+            collectedClaims ?: collectedClaimManager.findByAttempt(authorizeAttempt)
+        val status = getStatus(
+            authorizeAttempt = authorizeAttempt,
+            collectedClaims = loadedCollectedClaims
+        )
+        completeIfNecessary(
+            authorizeAttempt = authorizeAttempt,
+            status = status,
+            collectedClaims = collectedClaims
+        )
+        return status
     }
 }
 

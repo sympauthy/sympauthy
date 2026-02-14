@@ -76,7 +76,24 @@ class OnGoingAuthorizeAttempt(
     id = id,
     authorizationFlowId = authorizationFlowId,
     expirationDate = expirationDate
-)
+) {
+    fun copy(
+        userId: UUID? = null,
+        grantedScopes: List<String>? = null
+    ) = OnGoingAuthorizeAttempt(
+        id = this.id,
+        authorizationFlowId = this.authorizationFlowId,
+        expirationDate = this.expirationDate,
+        clientId = this.clientId,
+        requestedScopes = this.requestedScopes,
+        redirectUri = this.redirectUri,
+        state = this.state,
+        nonce = this.nonce,
+        userId = userId ?: this.userId,
+        grantedScopes = grantedScopes ?: this.grantedScopes,
+        attemptDate = this.attemptDate
+    )
+}
 
 /**
  * Represents an authentication attempt that has completed.

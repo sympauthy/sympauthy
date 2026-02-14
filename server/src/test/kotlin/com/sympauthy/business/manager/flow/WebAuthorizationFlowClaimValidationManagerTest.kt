@@ -80,14 +80,17 @@ class WebAuthorizationFlowClaimValidationManagerTest {
 
     @Test
     fun `getOrSendValidationCodes - Send code to media`() = runTest {
-        val user = mockk<User>()
+        val userId = UUID.randomUUID()
+        val user = mockk<User> {
+            every { id } returns userId
+        }
         val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
         val media = EMAIL
         val collectedClaims = listOf(mockk<CollectedClaim>())
         val reasons = listOf(EMAIL_CLAIM)
         val validationCode = mockk<ValidationCode>()
 
-        coEvery { collectedClaimManager.findClaimsReadableByAttempt(authorizeAttempt) } returns collectedClaims
+        coEvery { collectedClaimManager.findByUserId(userId) } returns collectedClaims
         every { manager.getReasonsToSendValidationCode(collectedClaims) } returns reasons
         coEvery {
             validationCodeManager.findLatestCodeSentByMediaDuringAttempt(
@@ -116,7 +119,10 @@ class WebAuthorizationFlowClaimValidationManagerTest {
 
     @Test
     fun `getOrSendValidationCodes - Return existing code`() = runTest {
-        val user = mockk<User>()
+        val userId = UUID.randomUUID()
+        val user = mockk<User> {
+            every { id } returns userId
+        }
         val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
         val media = EMAIL
         val collectedClaims = listOf(mockk<CollectedClaim>())
@@ -124,7 +130,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
             every { reasons } returns listOf(EMAIL_CLAIM)
         }
 
-        coEvery { collectedClaimManager.findClaimsReadableByAttempt(authorizeAttempt) } returns collectedClaims
+        coEvery { collectedClaimManager.findByUserId(userId) } returns collectedClaims
         every { manager.getReasonsToSendValidationCode(collectedClaims) } returns listOf(EMAIL_CLAIM)
         coEvery {
             validationCodeManager.findLatestCodeSentByMediaDuringAttempt(
@@ -145,13 +151,16 @@ class WebAuthorizationFlowClaimValidationManagerTest {
 
     @Test
     fun `getOrSendValidationCodes - Return null if no reason to send code to media`() = runTest {
-        val user = mockk<User>()
+        val userId = UUID.randomUUID()
+        val user = mockk<User> {
+            every { id } returns userId
+        }
         val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
         val media = EMAIL
         val collectedClaims = listOf(mockk<CollectedClaim>())
         val reasons = listOf(PHONE_NUMBER_CLAIM)
 
-        coEvery { collectedClaimManager.findClaimsReadableByAttempt(authorizeAttempt) } returns collectedClaims
+        coEvery { collectedClaimManager.findByUserId(userId) } returns collectedClaims
         every { manager.getReasonsToSendValidationCode(collectedClaims) } returns reasons
 
         val result = manager.getOrSendValidationCode(
@@ -166,11 +175,14 @@ class WebAuthorizationFlowClaimValidationManagerTest {
     @Test
     fun `resendValidationCodes - Send new validation code if previous is expired`() = runTest {
         val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
-        val user = mockk<User>()
+        val userId = UUID.randomUUID()
+        val user = mockk<User> {
+            every { id } returns userId
+        }
         val media = EMAIL
         val expiredCode = mockk<ValidationCode>()
         val refreshedCode = mockk<ValidationCode>()
-        val claims = emptyList<CollectedClaim>()
+        val collectedClaims = emptyList<CollectedClaim>()
 
         coEvery {
             validationCodeManager.findLatestCodeSentByMediaDuringAttempt(
@@ -180,12 +192,12 @@ class WebAuthorizationFlowClaimValidationManagerTest {
             )
         } returns expiredCode
         every { validationCodeManager.canBeRefreshed(expiredCode) } returns true
-        coEvery { collectedClaimManager.findClaimsReadableByAttempt(authorizeAttempt) } returns claims
+        coEvery { collectedClaimManager.findByUserId(userId) } returns collectedClaims
         coEvery {
             validationCodeManager.refreshAndQueueValidationCode(
                 user = user,
                 authorizeAttempt = authorizeAttempt,
-                collectedClaims = claims,
+                collectedClaims = collectedClaims,
                 validationCode = expiredCode,
             )
         } returns ValidationCodeManager.RefreshResult(

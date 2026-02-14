@@ -74,7 +74,7 @@ class IdTokenGenerator(
 
         // FIXME compute at_hash with accessToken
 
-        val claims = collectedClaimManager.findReadableUserInfoByUserId(
+        val claims = collectedClaimManager.findByUserIdAndReadableByScopes(
             userId = userId,
             scopes = scopes
         )

@@ -21,14 +21,13 @@ class AggregatedClaimsManager(
     /**
      * Merge all the claims collected about the user identified by [userId].
      * Only claims readable according to the [scopes] will be populated in the return object.
-     * If [scopes] is null, then all claims are considered readable.
      */
     suspend fun aggregateClaims(
         userId: UUID,
-        scopes: List<String>? = null
+        scopes: List<String>
     ): RawProviderClaims = coroutineScope {
         val deferredCollectedUserInfoList = async {
-            collectedClaimManager.findReadableUserInfoByUserId(userId, scopes)
+            collectedClaimManager.findByUserIdAndReadableByScopes(userId, scopes)
         }
         val deferredProviderUserInfoList = async {
             providerClaimsManager.findByUserId(userId)

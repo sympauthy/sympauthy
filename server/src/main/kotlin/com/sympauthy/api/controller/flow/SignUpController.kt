@@ -34,9 +34,9 @@ Initiate the creation of an account of a end-user with a password.
         authentication: Authentication,
         @Body inputResource: SignUpInputResource
     ): SimpleFlowResource =
-        webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenRunAndRedirect(
+        webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenUpdateAndRedirect(
             state = authentication.stateOrNull,
-            run = { authorizeAttempt, _ ->
+            update = { authorizeAttempt, _ ->
                 val updates = collectedClaimUpdateMapper.toUpdates(inputResource.claims)
                 passwordFlowManager.signUpWithClaimsAndPassword(
                     authorizeAttempt = authorizeAttempt,

@@ -93,9 +93,7 @@ open class WebAuthorizationFlowClaimValidationManager(
         user: User,
         media: ValidationCodeMedia
     ): ValidationCode? {
-        val collectedClaims = collectedClaimManager.findClaimsReadableByAttempt(
-            authorizeAttempt = authorizeAttempt
-        )
+        val collectedClaims = collectedClaimManager.findByUserId(user.id)
 
         val reasons = getReasonsToSendValidationCode(
             collectedClaims = collectedClaims
@@ -142,9 +140,7 @@ open class WebAuthorizationFlowClaimValidationManager(
             )
         }
 
-        val collectedClaims = collectedClaimManager.findClaimsReadableByAttempt(
-            authorizeAttempt = authorizeAttempt,
-        )
+        val collectedClaims = collectedClaimManager.findByUserId(userId = user.id)
 
         val result = validationCodeManager.refreshAndQueueValidationCode(
             user = user,

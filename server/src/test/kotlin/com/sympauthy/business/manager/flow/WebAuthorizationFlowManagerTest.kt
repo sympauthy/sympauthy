@@ -123,7 +123,7 @@ class WebAuthorizationFlowManagerTest {
             val mock = this
             every { mock.userId } returns userId
         }
-        coEvery { collectedClaimManager.findClaimsReadableByAttempt(authorizeAttempt) } returns emptyList()
+        coEvery { collectedClaimManager.findByAttempt(authorizeAttempt) } returns emptyList()
         every { collectedClaimManager.areAllRequiredClaimCollected(any()) } returns false
         every { claimValidationManager.getReasonsToSendValidationCode(any()) } returns emptyList()
 
@@ -139,7 +139,7 @@ class WebAuthorizationFlowManagerTest {
             val mock = this
             every { mock.userId } returns userId
         }
-        coEvery { collectedClaimManager.findClaimsReadableByAttempt(authorizeAttempt) } returns emptyList()
+        coEvery { collectedClaimManager.findByAttempt(authorizeAttempt) } returns emptyList()
         every { collectedClaimManager.areAllRequiredClaimCollected(any()) } returns true
         every { claimValidationManager.getReasonsToSendValidationCode(any()) } returns listOf(
             ValidationCodeReason.EMAIL_CLAIM,
@@ -157,7 +157,7 @@ class WebAuthorizationFlowManagerTest {
             val mock = this
             every { mock.userId } returns userId
         }
-        coEvery { collectedClaimManager.findClaimsReadableByAttempt(authorizeAttempt) } returns emptyList()
+        coEvery { collectedClaimManager.findByAttempt(authorizeAttempt) } returns emptyList()
         coEvery { authorizationFlowManager.completeAuthorization(authorizeAttempt, any()) } returns authorizeAttempt
         every { collectedClaimManager.areAllRequiredClaimCollected(any()) } returns true
         every { claimValidationManager.getReasonsToSendValidationCode(any()) } returns emptyList()

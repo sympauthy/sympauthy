@@ -93,14 +93,15 @@ Result containing either:
         authentication: Authentication,
         @Body inputResource: ClaimValidationInputResource
     ): SimpleFlowResource =
-        webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenRunAndRedirect(
+        webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenUpdateAndRedirect(
             state = authentication.stateOrNull,
-            run = { authorizeAttempt, _ ->
+            update = { authorizeAttempt, _ ->
                 claimValidationManager.validateClaimsByCode(
                     authorizeAttempt = authorizeAttempt,
                     media = ValidationCodeMedia.valueOf(inputResource.media),
                     code = inputResource.code
                 )
+                authorizeAttempt
             },
             mapRedirectUriToResource = { redirectUri -> SimpleFlowResource(redirectUri.toString()) }
         )

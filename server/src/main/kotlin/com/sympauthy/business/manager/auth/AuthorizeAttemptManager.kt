@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.auth
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.AuthorizeAttemptMapper
@@ -98,11 +99,13 @@ class AuthorizeAttemptManager(
      * Return a [SuccessVerifyEncodedStateResult] containing the [AuthorizeAttempt] that created the [state]
      * after verifying the [state] has not been tempered with.
      * Otherwise, return a [FailedVerifyEncodedStateResult] with the appropriate error details.
+     *
+     * Note: This method does not check the status of the [AuthorizeAttempt] in order to let the
      */
     suspend fun verifyEncodedInternalState(state: String?): VerifyEncodedStateResult {
         if (state.isNullOrBlank()) {
             return FailedVerifyEncodedStateResult(
-                detailsId = "auth.authorize_attempt.validate.missing",
+                detailsId = "auth.authorize_attempt.validate.missing_state",
                 descriptionId = "description.oauth2.invalid_state"
             )
         }
@@ -121,21 +124,14 @@ class AuthorizeAttemptManager(
         val authorizeAttempt = authorizeAttemptRepository.findById(attemptId)
             ?.let(authorizeAttemptMapper::toAuthorizeAttempt)
 
-        return when (authorizeAttempt) {
-            is OnGoingAuthorizeAttempt -> SuccessVerifyEncodedStateResult(authorizeAttempt)
-            is FailedAuthorizeAttempt -> FailedVerifyEncodedStateResult(
-                detailsId = authorizeAttempt.errorDetailsId,
-                descriptionId = authorizeAttempt.errorDescriptionId,
-                values = authorizeAttempt.errorValues
+        return if (authorizeAttempt != null) {
+            SuccessVerifyEncodedStateResult(authorizeAttempt)
+        } else {
+            FailedVerifyEncodedStateResult(
+                detailsId = "auth.authorize_attempt.validate.missing_attempt",
+                descriptionId = "description.oauth2.expired",
+                values = mapOf("attemptId" to attemptId.toString())
             )
-
-            else -> {
-                // If the attempt is missing in DB, most likely a cron cleaned it.
-                FailedVerifyEncodedStateResult(
-                    detailsId = "auth.authorize_attempt.validate.expired",
-                    descriptionId = "description.oauth2.expired",
-                )
-            }
         }
     }
 
@@ -151,8 +147,7 @@ class AuthorizeAttemptManager(
             id = authorizeAttempt.id,
             userId = userId
         )
-        return authorizeAttemptMapper.copy(
-            authorizeAttempt = authorizeAttempt,
+        return authorizeAttempt.copy(
             userId = userId
         )
     }
@@ -170,8 +165,7 @@ class AuthorizeAttemptManager(
             id = authorizeAttempt.id,
             grantedScopes = grantedScopeIds
         )
-        return authorizeAttemptMapper.copy(
-            authorizeAttempt = authorizeAttempt,
+        return authorizeAttempt.copy(
             grantedScopes = grantedScopeIds
         )
     }
@@ -194,12 +188,14 @@ class AuthorizeAttemptManager(
             errorDescriptionId = error.descriptionId,
             errorValues = error.values
         )
-        return authorizeAttemptMapper.toFailedAuthorizeAttempt(
-            authorizeAttempt = authorizeAttempt,
+        return FailedAuthorizeAttempt(
+            id = authorizeAttempt.id,
+            authorizationFlowId = authorizeAttempt.authorizationFlowId,
+            errorDate = errorDate,
             errorDetailsId = error.detailsId,
             errorDescriptionId = error.descriptionId,
             errorValues = error.values,
-            errorDate = errorDate
+            expirationDate = authorizeAttempt.expirationDate
         )
     }
 
@@ -214,8 +210,21 @@ class AuthorizeAttemptManager(
             id = authorizeAttempt.id,
             completeDate = LocalDateTime.now()
         )
-        return authorizeAttemptMapper.toCompletedAuthorizeAttempt(
-            authorizeAttempt = authorizeAttempt,
+        val userId = authorizeAttempt.userId ?: throw internalBusinessExceptionOf(
+            "auth.authorize_attempt.complete.missing_user"
+        )
+        return CompletedAuthorizeAttempt(
+            id = authorizeAttempt.id,
+            authorizationFlowId = authorizeAttempt.authorizationFlowId,
+            expirationDate = authorizeAttempt.expirationDate,
+            clientId = authorizeAttempt.clientId,
+            requestedScopes = authorizeAttempt.requestedScopes,
+            redirectUri = authorizeAttempt.redirectUri,
+            state = authorizeAttempt.state,
+            nonce = authorizeAttempt.nonce,
+            userId = userId,
+            grantedScopes = authorizeAttempt.grantedScopes ?: emptyList(),
+            attemptDate = authorizeAttempt.attemptDate,
             completeDate = LocalDateTime.now()
         )
     }

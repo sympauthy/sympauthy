@@ -48,10 +48,10 @@ must be redirected to continue the authorization flow.
     @Get
     suspend fun getCollectedClaims(
         authentication: Authentication,
-    ): ClaimsFlowResource = webAuthorizationFlowControllerUtil.fetchOnGoingAttemptWithUserThenRunAndRedirect(
+    ): ClaimsFlowResource = webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenRunAndRedirect(
         state = authentication.stateOrNull,
-        run = { _, _, user ->
-            collectedClaimManager.findReadableUserInfoByUserId(user.id).ifEmpty { null }
+        run = { authorizeAttempt, _ ->
+            collectedClaimManager.findByAttempt(authorizeAttempt).ifEmpty { null }
         },
         mapResultToResource = { claimsMapper.toResource(it) },
         mapRedirectUriToResource = { claimsMapper.toResource(it) },
@@ -82,9 +82,9 @@ but they chose not to provide a value.
         authentication: Authentication,
         @Body inputResource: ClaimInputResource
     ): SimpleFlowResource =
-        webAuthorizationFlowControllerUtil.fetchOnGoingAttemptWithUserThenRunAndRedirect(
+        webAuthorizationFlowControllerUtil.fetchOnGoingAttemptWithUserThenUpdateAndRedirect(
             state = authentication.stateOrNull,
-            run = { _, _, user ->
+            update = { authorizeAttempt, _, user ->
                 val signUpClaims = passwordFlowManager.getSignUpClaims()
                 collectedClaimManager.update(
                     user = user,
@@ -92,6 +92,7 @@ but they chose not to provide a value.
                         .filter { it.claim.userInputted }
                         .filter { !signUpClaims.contains(it.claim) }
                 )
+                authorizeAttempt
             },
             mapRedirectUriToResource = { SimpleFlowResource(it.toString()) }
         )

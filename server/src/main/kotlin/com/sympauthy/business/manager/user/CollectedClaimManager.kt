@@ -30,12 +30,36 @@ open class CollectedClaimManager(
 ) {
 
     /**
+     * Return the list of [CollectedClaim] collected from the user identified by [userId].
+     *
+     * Note: This method is insecure and may leak information to the client that the end-user has not granted access to,
+     * use [findByUserIdAndReadableByScopes] instead. This method is intended when the authorization server requires
+     *  having full access to the user's claims (ex. when creating a new user).
+     */
+    suspend fun findByUserId(userId: UUID): List<CollectedClaim> {
+        return collectedClaimRepository.findByUserId(userId)
+            .asSequence()
+            .mapNotNull(collectedClaimMapper::toCollectedClaim)
+            .toList()
+    }
+
+    /**
+     * Return the list of [CollectedClaim] collected from the user identified by [userId] and accessible to the
+     * client according to the provided [scopes].
+     */
+    suspend fun findByUserIdAndReadableByScopes(
+        userId: UUID,
+        scopes: List<String>
+    ): List<CollectedClaim> {
+        return findByUserId(userId).filter { it.claim.canBeRead(scopes) }
+    }
+
+    /**
      * Return the list of [CollectedClaim] collected from the user associated to the [authorizeAttempt].
      *
-     * Only the claims that are readable according to the client and the scopes
-     * of the [authorizeAttempt] will be returned.
+     * Only the claims that are readable according to the client and the scopes of the [authorizeAttempt] will be returned.
      */
-    suspend fun findClaimsReadableByAttempt(
+    suspend fun findByAttempt(
         authorizeAttempt: AuthorizeAttempt
     ): List<CollectedClaim> {
         return when (authorizeAttempt) {
@@ -44,36 +68,19 @@ open class CollectedClaimManager(
                 if (authorizeAttempt.userId == null) {
                     return emptyList()
                 }
-                findReadableUserInfoByUserId(
+                findByUserIdAndReadableByScopes(
                     userId = authorizeAttempt.userId,
                     scopes = authorizeAttempt.grantedScopes ?: authorizeAttempt.requestedScopes
                 )
             }
 
             is CompletedAuthorizeAttempt -> {
-                findReadableUserInfoByUserId(
+                findByUserIdAndReadableByScopes(
                     userId = authorizeAttempt.userId,
                     scopes = authorizeAttempt.grantedScopes
                 )
             }
         }
-    }
-
-    /**
-     * Return the user info we have collected for the user identified by [userId].
-     * [scopes] can be provided to return only the claims accessible by the provided [scopes].
-     */
-    suspend fun findReadableUserInfoByUserId(
-        userId: UUID,
-        scopes: List<String>? = null
-    ): List<CollectedClaim> {
-        var claims = collectedClaimRepository.findByUserId(userId)
-            .asSequence()
-            .mapNotNull(collectedClaimMapper::toCollectedClaim)
-        if (scopes != null) {
-            claims = claims.filter { it.claim.canBeRead(scopes) }
-        }
-        return claims.toList()
     }
 
     /**

@@ -208,6 +208,134 @@ class WebAuthorizationFlowControllerUtil(
     }
 
     /**
+     * Call the [update] function with the [OnGoingAuthorizeAttempt] and [WebAuthorizationFlow] associated to the [state].
+     * Return the result of [mapRedirectUriToResource] containing the URI where the end-user must be redirected to
+     * continue the authorization flow.
+     *
+     * [BusinessException] thrown by the [update] function will be caught and handled differently:
+     * - if recoverable, the [BusinessException] will be presented as BAD_REQUEST with
+     * - if unrecoverable, the [AuthorizeAttempt] will be marked as failed and the end-user will be redirected to the error page.
+     *
+     * This method is intended to be used by POST operation handling information provided by the end-user to complete
+     * a step of the authorization flow. (ex. providing its login and password to sign in).
+     */
+    suspend fun <FlowResource> fetchOnGoingAttemptThenUpdateAndRedirect(
+        state: String?,
+        update: suspend (OnGoingAuthorizeAttempt, WebAuthorizationFlow) -> AuthorizeAttempt,
+        mapRedirectUriToResource: suspend (URI) -> FlowResource,
+    ): FlowResource {
+        val authorizeAttempt = fetchAuthorizeAttempt(state)
+
+        val flow = try {
+            webAuthorizationFlowManager.findById(authorizeAttempt.authorizationFlowId)
+        } catch (_: BusinessException) {
+            // Redirect to the error page of the default flow since the information on the exact flow is missing.
+            val redirectUri = redirectUriBuilder.getErrorUri(
+                authorizeAttempt = authorizeAttempt,
+                flow = webAuthorizationFlowManager.defaultWebAuthorizationFlow,
+            )
+            return mapRedirectUriToResource(redirectUri)
+        }
+
+        var updatedAuthorizeAttempt = authorizeAttempt
+        val onGoingAuthorizeAttempt = authorizeAttempt as? OnGoingAuthorizeAttempt
+
+        val updateException = if (onGoingAuthorizeAttempt != null) {
+            try {
+                updatedAuthorizeAttempt = update(onGoingAuthorizeAttempt, flow)
+                null
+            } catch (e: BusinessException) {
+                e
+            }
+        } else null
+
+        if (updateException != null && onGoingAuthorizeAttempt != null) {
+            authorizeAttemptManager.markAsFailedIfNotRecoverable(
+                authorizeAttempt = onGoingAuthorizeAttempt,
+                error = updateException
+            )
+        }
+
+        val status = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
+            authorizeAttempt = updatedAuthorizeAttempt,
+        )
+        val redirectUri = redirectUriBuilder.getRedirectUri(
+            authorizeAttempt = updatedAuthorizeAttempt,
+            flow = flow,
+            status = status
+        )
+        return mapRedirectUriToResource(redirectUri)
+    }
+
+    /**
+     * Call the [update] function with the [OnGoingAuthorizeAttempt], [WebAuthorizationFlow] and [User] associated to the [state].
+     * Return the result of [mapRedirectUriToResource] containing the URI where the end-user must be redirected to
+     * continue the authorization flow.
+     *
+     * [BusinessException] thrown by the [update] function will be caught and handled differently:
+     * - if recoverable, the [BusinessException] will be presented as BAD_REQUEST with
+     * - if unrecoverable, the [AuthorizeAttempt] will be marked as failed and the end-user will be redirected to the error page.
+     *
+     * This method is intended to be used by POST operation handling information provided by the end-user to complete
+     * a step of the authorization flow. (ex. providing its login and password to sign in).
+     */
+    suspend fun <FlowResource> fetchOnGoingAttemptWithUserThenUpdateAndRedirect(
+        state: String?,
+        update: suspend (OnGoingAuthorizeAttempt, WebAuthorizationFlow, User) -> AuthorizeAttempt,
+        mapRedirectUriToResource: suspend (URI) -> FlowResource,
+    ): FlowResource {
+        val authorizeAttempt = fetchAuthorizeAttempt(state)
+
+        val flow = try {
+            webAuthorizationFlowManager.findById(authorizeAttempt.authorizationFlowId)
+        } catch (_: BusinessException) {
+            // Redirect to the error page of the default flow since the information on the exact flow is missing.
+            val redirectUri = redirectUriBuilder.getErrorUri(
+                authorizeAttempt = authorizeAttempt,
+                flow = webAuthorizationFlowManager.defaultWebAuthorizationFlow,
+            )
+            return mapRedirectUriToResource(redirectUri)
+        }
+
+        var updatedAuthorizeAttempt = authorizeAttempt
+        val onGoingAuthorizeAttempt = authorizeAttempt as? OnGoingAuthorizeAttempt
+        val user = try {
+            userManager.findByIdOrNull(onGoingAuthorizeAttempt?.userId)
+        } catch (_: BusinessException) {
+            // If the user is missing for the operation, we let the getStatusAndCompleteIfNecessary and
+            // getRedirectUri methods redirect the user to the proper step.
+            // ex. the end-user is trying to access the claims validation step before signing in.
+            null
+        }
+
+        val updateException = if (onGoingAuthorizeAttempt != null && user != null) {
+            try {
+                updatedAuthorizeAttempt = update(onGoingAuthorizeAttempt, flow, user)
+                null
+            } catch (e: BusinessException) {
+                e
+            }
+        } else null
+
+        if (updateException != null && onGoingAuthorizeAttempt != null) {
+            authorizeAttemptManager.markAsFailedIfNotRecoverable(
+                authorizeAttempt = onGoingAuthorizeAttempt,
+                error = updateException
+            )
+        }
+
+        val status = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
+            authorizeAttempt = updatedAuthorizeAttempt,
+        )
+        val redirectUri = redirectUriBuilder.getRedirectUri(
+            authorizeAttempt = updatedAuthorizeAttempt,
+            flow = flow,
+            status = status
+        )
+        return mapRedirectUriToResource(redirectUri)
+    }
+
+    /**
      * Fetches and validates the authorization attempt associated with the given [state].
      *
      * If the state is valid and corresponds to an authorization attempt, the associated

@@ -10,7 +10,6 @@ import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.data.model.AuthorizeAttemptEntity
 import org.mapstruct.Mapper
 import java.time.LocalDateTime
-import java.util.*
 
 /**
  * Handle the mapping from the [AuthorizeAttemptEntity] to the subclasses of the sealed [AuthorizeAttempt].
@@ -26,13 +25,6 @@ import java.util.*
     config = ToBusinessMapperConfig::class
 )
 abstract class AuthorizeAttemptMapper {
-
-    abstract fun copy(
-        authorizeAttempt: OnGoingAuthorizeAttempt,
-        userId: UUID? = null,
-        grantedScopes: List<String>? = null,
-        completeDate: LocalDateTime? = null
-    ): OnGoingAuthorizeAttempt
 
     fun toOnGoingAuthorizeAttempt(entity: AuthorizeAttemptEntity): OnGoingAuthorizeAttempt {
         return OnGoingAuthorizeAttempt(
@@ -95,44 +87,6 @@ abstract class AuthorizeAttemptMapper {
             errorValues = emptyMap(),
             expirationDate = entity.expirationDate,
             errorDate = entity.expirationDate,
-        )
-    }
-
-    fun toFailedAuthorizeAttempt(
-        authorizeAttempt: AuthorizeAttempt,
-        errorDetailsId: String,
-        errorDescriptionId: String?,
-        errorValues: Map<String, String>?,
-        errorDate: LocalDateTime
-    ): FailedAuthorizeAttempt {
-        return FailedAuthorizeAttempt(
-            id = authorizeAttempt.id,
-            authorizationFlowId = authorizeAttempt.authorizationFlowId,
-            expirationDate = authorizeAttempt.expirationDate,
-            errorDetailsId = errorDetailsId,
-            errorDescriptionId = errorDescriptionId,
-            errorValues = errorValues,
-            errorDate = errorDate,
-        )
-    }
-
-    fun toCompletedAuthorizeAttempt(
-        authorizeAttempt: OnGoingAuthorizeAttempt,
-        completeDate: LocalDateTime
-    ): CompletedAuthorizeAttempt {
-        return CompletedAuthorizeAttempt(
-            id = authorizeAttempt.id,
-            authorizationFlowId = authorizeAttempt.authorizationFlowId,
-            expirationDate = authorizeAttempt.expirationDate,
-            clientId = authorizeAttempt.clientId,
-            requestedScopes = authorizeAttempt.requestedScopes,
-            redirectUri = authorizeAttempt.redirectUri,
-            state = authorizeAttempt.state,
-            nonce = authorizeAttempt.nonce,
-            userId = authorizeAttempt.userId ?: throw invalidBusinessException("userId"),
-            grantedScopes = authorizeAttempt.grantedScopes ?: throw invalidBusinessException("grantedScopes"),
-            attemptDate = authorizeAttempt.attemptDate,
-            completeDate = completeDate,
         )
     }
 

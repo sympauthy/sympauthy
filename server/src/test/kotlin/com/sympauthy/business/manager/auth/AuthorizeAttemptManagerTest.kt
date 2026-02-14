@@ -4,8 +4,6 @@ import com.auth0.jwt.interfaces.DecodedJWT
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.AuthorizeAttemptMapper
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
-import com.sympauthy.business.model.oauth2.FailedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.data.model.AuthorizeAttemptEntity
 import com.sympauthy.data.repository.AuthorizeAttemptRepository
@@ -47,7 +45,7 @@ class AuthorizeAttemptManagerTest {
 
         assertTrue(result is FailedVerifyEncodedStateResult)
         result as FailedVerifyEncodedStateResult
-        assertEquals("auth.authorize_attempt.validate.missing", result.detailsId)
+        assertEquals("auth.authorize_attempt.validate.missing_state", result.detailsId)
     }
 
     @Test
@@ -56,7 +54,7 @@ class AuthorizeAttemptManagerTest {
 
         assertTrue(result is FailedVerifyEncodedStateResult)
         result as FailedVerifyEncodedStateResult
-        assertEquals("auth.authorize_attempt.validate.missing", result.detailsId)
+        assertEquals("auth.authorize_attempt.validate.missing_state", result.detailsId)
     }
 
     @Test
@@ -100,56 +98,7 @@ class AuthorizeAttemptManagerTest {
 
         assertTrue(result is FailedVerifyEncodedStateResult)
         result as FailedVerifyEncodedStateResult
-        assertEquals("auth.authorize_attempt.validate.expired", result.detailsId)
-    }
-
-    @Test
-    fun `verifyEncodedInternalState - Return failure when authorize attempt is expired`() = runTest {
-        val state = "valid.jwt.token"
-        val attemptId = UUID.randomUUID()
-        val jwt = mockk<DecodedJWT> {
-            every { subject } returns attemptId.toString()
-        }
-        val entity = mockk<AuthorizeAttemptEntity>()
-        val authorizeAttempt = mockk<AuthorizeAttempt> {
-            every { expired } returns true
-        }
-        coEvery { jwtManager.decodeAndVerifyOrNull(AuthorizeAttemptManager.STATE_KEY_NAME, state) } returns jwt
-        coEvery { authorizeAttemptRepository.findById(attemptId) } returns entity
-        every { authorizeAttemptMapper.toAuthorizeAttempt(entity) } returns authorizeAttempt
-
-        val result = authorizeAttemptManager.verifyEncodedInternalState(state)
-
-        assertTrue(result is FailedVerifyEncodedStateResult)
-        result as FailedVerifyEncodedStateResult
-        assertEquals("auth.authorize_attempt.validate.expired", result.detailsId)
-    }
-
-    @Test
-    fun `verifyEncodedInternalState - Return failure when authorize attempt has error`() = runTest {
-        val state = "valid.jwt.token"
-        val attemptId = UUID.randomUUID()
-        val jwt = mockk<DecodedJWT> {
-            every { subject } returns attemptId.toString()
-        }
-        val entity = mockk<AuthorizeAttemptEntity>()
-        val errorDetailsId = "error.details"
-        val authorizeAttempt = mockk<FailedAuthorizeAttempt> {
-            val mock = this
-            every { mock.expired } returns false
-            every { mock.errorDetailsId } returns errorDetailsId
-            every { mock.errorDescriptionId } returns null
-            every { mock.errorValues } returns null
-        }
-        coEvery { jwtManager.decodeAndVerifyOrNull(AuthorizeAttemptManager.STATE_KEY_NAME, state) } returns jwt
-        coEvery { authorizeAttemptRepository.findById(attemptId) } returns entity
-        every { authorizeAttemptMapper.toAuthorizeAttempt(entity) } returns authorizeAttempt
-
-        val result = authorizeAttemptManager.verifyEncodedInternalState(state)
-
-        assertTrue(result is FailedVerifyEncodedStateResult)
-        result as FailedVerifyEncodedStateResult
-        assertEquals(errorDetailsId, result.detailsId)
+        assertEquals("auth.authorize_attempt.validate.missing_attempt", result.detailsId)
     }
 
     @Test

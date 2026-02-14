@@ -38,9 +38,9 @@ class SignInController(
         authentication: Authentication,
         @Body inputResource: SignInInputResource
     ): SimpleFlowResource =
-        webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenRunAndRedirect(
+        webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenUpdateAndRedirect(
             state = authentication.stateOrNull,
-            run = { authorizeAttempt, _ ->
+            update = { authorizeAttempt, _ ->
                 passwordFlowManager.signInWithPassword(
                     authorizeAttempt = authorizeAttempt,
                     login = inputResource.login,
