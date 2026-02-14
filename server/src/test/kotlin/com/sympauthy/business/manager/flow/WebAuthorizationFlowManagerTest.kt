@@ -8,6 +8,7 @@ import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.model.code.ValidationCodeReason
 import com.sympauthy.business.model.flow.NonInteractiveAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
+import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import io.mockk.coEvery
 import io.mockk.every
@@ -117,50 +118,49 @@ class WebAuthorizationFlowManagerTest {
     }
 
     @Test
-    fun `completeAuthorizationFlowOrRedirect - Non complete if missing claims`() = runTest {
+    fun `getStatusForOnGoingAuthorizeAttempt - Non complete if missing claims`() = runTest {
         val userId = UUID.randomUUID()
         val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
             val mock = this
             every { mock.userId } returns userId
         }
-        coEvery { collectedClaimManager.findByAttempt(authorizeAttempt) } returns emptyList()
+        coEvery { collectedClaimManager.findByUserId(userId) } returns emptyList()
         every { collectedClaimManager.areAllRequiredClaimCollected(any()) } returns false
         every { claimValidationManager.getReasonsToSendValidationCode(any()) } returns emptyList()
 
-        val result = manager.getStatusAndCompleteIfNecessary(authorizeAttempt)
+        val result = manager.getStatusForOnGoingAuthorizeAttempt(authorizeAttempt)
 
         assertTrue(result.missingRequiredClaims)
     }
 
     @Test
-    fun `completeAuthorizationFlowOrRedirect - Non complete if missing validation`() = runTest {
+    fun `getStatusForOnGoingAuthorizeAttempt - Non complete if missing validation`() = runTest {
         val userId = UUID.randomUUID()
         val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
             val mock = this
             every { mock.userId } returns userId
         }
-        coEvery { collectedClaimManager.findByAttempt(authorizeAttempt) } returns emptyList()
+        coEvery { collectedClaimManager.findByUserId(userId) } returns emptyList()
         every { collectedClaimManager.areAllRequiredClaimCollected(any()) } returns true
         every { claimValidationManager.getReasonsToSendValidationCode(any()) } returns listOf(
             ValidationCodeReason.EMAIL_CLAIM,
         )
 
-        val result = manager.getStatusAndCompleteIfNecessary(authorizeAttempt)
+        val result = manager.getStatusForOnGoingAuthorizeAttempt(authorizeAttempt)
 
         assertTrue(result.missingMediaForClaimValidation.isNotEmpty())
     }
 
     @Test
     fun `getStatusAndCompleteIfNecessary - Complete`() = runTest {
-        val userId = UUID.randomUUID()
-        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
-            val mock = this
-            every { mock.userId } returns userId
+        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
+        val status = mockk<WebAuthorizationFlowStatus> {
+            every { allCollectedClaims } returns emptyList()
+            every { complete } returns true
         }
-        coEvery { collectedClaimManager.findByAttempt(authorizeAttempt) } returns emptyList()
+
+        coEvery { manager.getStatus(authorizeAttempt) } returns status
         coEvery { authorizationFlowManager.completeAuthorization(authorizeAttempt, any()) } returns authorizeAttempt
-        every { collectedClaimManager.areAllRequiredClaimCollected(any()) } returns true
-        every { claimValidationManager.getReasonsToSendValidationCode(any()) } returns emptyList()
 
         val result = manager.getStatusAndCompleteIfNecessary(authorizeAttempt)
 
