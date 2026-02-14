@@ -3,6 +3,9 @@ package com.sympauthy.business.manager.user
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.mapper.CollectedClaimMapper
 import com.sympauthy.business.mapper.CollectedClaimUpdateMapper
+import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
+import com.sympauthy.business.model.oauth2.FailedAuthorizeAttempt
+import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
@@ -41,6 +44,152 @@ class CollectedClaimManagerTest {
     @SpyK
     @InjectMockKs
     lateinit var manager: CollectedClaimManager
+
+    @Test
+    fun `findByUserId - Return collected claims for user`() = runTest {
+        val userId = UUID.randomUUID()
+        val entity1 = mockk<CollectedClaimEntity>()
+        val entity2 = mockk<CollectedClaimEntity>()
+        val collectedClaim1 = mockk<CollectedClaim>()
+        val collectedClaim2 = mockk<CollectedClaim>()
+
+        coEvery { collectedClaimRepository.findByUserId(userId) } returns listOf(entity1, entity2)
+        every { collectedClaimMapper.toCollectedClaim(entity1) } returns collectedClaim1
+        every { collectedClaimMapper.toCollectedClaim(entity2) } returns collectedClaim2
+
+        val result = manager.findByUserId(userId)
+
+        assertEquals(2, result.count())
+        assertSame(collectedClaim1, result[0])
+        assertSame(collectedClaim2, result[1])
+    }
+
+    @Test
+    fun `findByUserId - Filter out null values from mapper`() = runTest {
+        val userId = UUID.randomUUID()
+        val entity1 = mockk<CollectedClaimEntity>()
+        val entity2 = mockk<CollectedClaimEntity>()
+        val collectedClaim1 = mockk<CollectedClaim>()
+
+        coEvery { collectedClaimRepository.findByUserId(userId) } returns listOf(entity1, entity2)
+        every { collectedClaimMapper.toCollectedClaim(entity1) } returns collectedClaim1
+        every { collectedClaimMapper.toCollectedClaim(entity2) } returns null
+
+        val result = manager.findByUserId(userId)
+
+        assertEquals(1, result.count())
+        assertSame(collectedClaim1, result[0])
+    }
+
+    @Test
+    fun `findByUserIdAndReadableByScopes - Return only claims readable by scopes`() = runTest {
+        val userId = UUID.randomUUID()
+        val scope1 = "scope1"
+        val scope2 = "scope2"
+
+        val claim1 = mockk<Claim> {
+            every { readScopes } returns setOf(scope1)
+            every { canBeRead(any()) } answers { callOriginal() }
+        }
+        val claim2 = mockk<Claim> {
+            every { readScopes } returns setOf(scope2)
+            every { canBeRead(any()) } answers { callOriginal() }
+        }
+
+        val collectedClaim1 = mockk<CollectedClaim> {
+            every { claim } returns claim1
+        }
+        val collectedClaim2 = mockk<CollectedClaim> {
+            every { claim } returns claim2
+        }
+
+        coEvery { manager.findByUserId(userId) } returns listOf(collectedClaim1, collectedClaim2)
+
+        val result = manager.findByUserIdAndReadableByScopes(userId, listOf(scope1))
+
+        assertEquals(1, result.count())
+        assertSame(collectedClaim1, result[0])
+    }
+
+    @Test
+    fun `findByAttempt - Return empty list for FailedAuthorizeAttempt`() = runTest {
+        val attempt = mockk<FailedAuthorizeAttempt>()
+
+        val result = manager.findByAttempt(attempt)
+
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun `findByAttempt - Return empty list for OnGoingAuthorizeAttempt with no userId`() = runTest {
+        val attempt = mockk<OnGoingAuthorizeAttempt> {
+            every { userId } returns null
+        }
+
+        val result = manager.findByAttempt(attempt)
+
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun `findByAttempt - Return claims for OnGoingAuthorizeAttempt with userId and grantedScopes`() = runTest {
+        val userId = UUID.randomUUID()
+        val grantedScopes = listOf("scope1", "scope2")
+        val requestedScopes = listOf("scope1", "scope2", "scope3")
+        val collectedClaim1 = mockk<CollectedClaim>()
+
+        val attempt = mockk<OnGoingAuthorizeAttempt> {
+            every { this@mockk.userId } returns userId
+            every { this@mockk.grantedScopes } returns grantedScopes
+            every { this@mockk.requestedScopes } returns requestedScopes
+        }
+
+        coEvery { manager.findByUserIdAndReadableByScopes(userId, grantedScopes) } returns listOf(collectedClaim1)
+
+        val result = manager.findByAttempt(attempt)
+
+        assertEquals(1, result.count())
+        assertSame(collectedClaim1, result[0])
+    }
+
+    @Test
+    fun `findByAttempt - Return claims for OnGoingAuthorizeAttempt with userId and no grantedScopes`() = runTest {
+        val userId = UUID.randomUUID()
+        val requestedScopes = listOf("scope1", "scope2", "scope3")
+        val collectedClaim1 = mockk<CollectedClaim>()
+
+        val attempt = mockk<OnGoingAuthorizeAttempt> {
+            every { this@mockk.userId } returns userId
+            every { grantedScopes } returns null
+            every { this@mockk.requestedScopes } returns requestedScopes
+        }
+
+        coEvery { manager.findByUserIdAndReadableByScopes(userId, requestedScopes) } returns listOf(collectedClaim1)
+
+        val result = manager.findByAttempt(attempt)
+
+        assertEquals(1, result.count())
+        assertSame(collectedClaim1, result[0])
+    }
+
+    @Test
+    fun `findByAttempt - Return claims for CompletedAuthorizeAttempt`() = runTest {
+        val userId = UUID.randomUUID()
+        val grantedScopes = listOf("scope1", "scope2")
+        val collectedClaim1 = mockk<CollectedClaim>()
+
+        val attempt = mockk<CompletedAuthorizeAttempt> {
+            every { this@mockk.userId } returns userId
+            every { this@mockk.grantedScopes } returns grantedScopes
+        }
+
+        coEvery { manager.findByUserIdAndReadableByScopes(userId, grantedScopes) } returns listOf(collectedClaim1)
+
+        val result = manager.findByAttempt(attempt)
+
+        assertEquals(1, result.count())
+        assertSame(collectedClaim1, result[0])
+    }
 
     @Test
     fun `areAllRequiredClaimCollected - True if all required claims are collected false otherwise`() {

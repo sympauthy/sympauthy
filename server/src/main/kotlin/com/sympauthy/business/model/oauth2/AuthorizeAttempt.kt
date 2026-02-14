@@ -1,7 +1,5 @@
 package com.sympauthy.business.model.oauth2
 
-import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.model.Expirable
 import java.time.LocalDateTime
 import java.util.*
@@ -186,14 +184,4 @@ class FailedAuthorizeAttempt(
     id = id,
     authorizationFlowId = authorizationFlowId,
     expirationDate = expirationDate
-) {
-    /**
-     * The business exception that caused this attempt to fail.
-     */
-    val businessException: BusinessException
-        get() = businessExceptionOf(
-            detailsId = errorDetailsId,
-            descriptionId = errorDescriptionId,
-            values = errorValues?.map { it.key to it.value }?.toTypedArray() ?: emptyArray(),
-        )
-}
+)
