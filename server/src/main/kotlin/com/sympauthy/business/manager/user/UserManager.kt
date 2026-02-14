@@ -59,9 +59,8 @@ open class UserManager(
             status = UserStatus.ENABLED.name,
             creationDate = now()
         )
-        userRepository.save(entity)
-
-        return userMapper.toUser(entity)
+        val savedEntity = userRepository.save(entity)
+        return userMapper.toUser(savedEntity)
     }
 }
 
