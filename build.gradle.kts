@@ -33,7 +33,7 @@ allprojects {
         set("evalExVersion", "3.6.0")
 
         // Test dependencies
-        set("junitJupiterVersion", "6.0.2")
+        set("junitJupiterVersion", "6.0.3")
         set("mockkVersion", "1.14.9")
     }
 
