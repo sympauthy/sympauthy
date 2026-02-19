@@ -8,7 +8,6 @@ import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.ScopesConfig
 import com.sympauthy.config.model.StandardScopeConfig
 import com.sympauthy.config.model.orThrow
-import com.sympauthy.exception.LocalizedException
 import io.micronaut.http.uri.UriBuilder
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -66,17 +65,6 @@ class ScopeManager(
             admin = false,
             discoverable = true
         )
-    }
-
-    /**
-     * Parse the request scope provided to the authorization endpoint into a list of known [Scope].
-     * Throws a [LocalizedException] if one of the request scope cannot be found according to the rules described
-     * on [findOrThrow].
-     */
-    suspend fun parseRequestScope(requestScope: String?): List<Scope>? {
-        return requestScope?.split(" ")
-            ?.filter { it.isNotBlank() }
-            ?.map { findOrThrow(it) }
     }
 
     /**

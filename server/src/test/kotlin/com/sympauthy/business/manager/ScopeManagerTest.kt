@@ -31,26 +31,6 @@ class ScopeManagerTest {
     @InjectMockKs
     lateinit var scopeManager: ScopeManager
 
-    @Test
-    fun `parseRequestScope - Parse request scopes`() = runTest {
-        val scopeOne = "scope/one"
-        val foundScopeOne = mockk<Scope> {
-            every { scope } returns scopeOne
-        }
-        coEvery { scopeManager.find(scopeOne) } returns foundScopeOne
-
-        val scopeTwo = "scope/tow"
-        val foundScopeTwo = mockk<Scope> {
-            every { scope } returns scopeTwo
-        }
-        coEvery { scopeManager.find(scopeTwo) } returns foundScopeTwo
-
-        val result = scopeManager.parseRequestScope("$scopeOne     $scopeTwo")
-
-        assertEquals(2, result?.count())
-        assertSame(foundScopeOne, result?.getOrNull(0))
-        assertSame(foundScopeTwo, result?.getOrNull(1))
-    }
 
     @Test
     fun `findOrThrow - Find scope`() = runTest {
@@ -84,6 +64,7 @@ class ScopeManagerTest {
 
         assertSame(foundScope, result)
     }
+
 
     @Test
     fun `findForClientOrThrow - Return scope when found and client allows it`() = runTest {

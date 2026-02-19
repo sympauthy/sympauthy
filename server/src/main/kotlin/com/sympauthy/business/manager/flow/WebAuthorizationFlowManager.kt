@@ -98,7 +98,10 @@ class WebAuthorizationFlowManager(
 
         val (scopes, scopeException) = if (client != null) {
             try {
-                scopeManager.parseRequestScope(uncheckedScopes) to null
+                scopeManager.parseRequestedScopes(
+                    client = client,
+                    uncheckedScopes = uncheckedScopes
+                ) to null
             } catch (e: BusinessException) {
                 emptyList<Scope>() to e
             }
@@ -108,7 +111,10 @@ class WebAuthorizationFlowManager(
 
         val (redirectUri, redirectUriException) = if (client != null) {
             try {
-                parseRequestedRedirectUri(client, uncheckedRedirectUri) to null
+                parseRequestedRedirectUri(
+                    client = client,
+                    uncheckedRedirectUri = uncheckedRedirectUri
+                ) to null
             } catch (e: BusinessException) {
                 null to e
             }
