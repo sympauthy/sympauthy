@@ -26,6 +26,16 @@ class FeaturesConfigFactory(
     ): FeaturesConfig {
         val errors = mutableListOf<ConfigurationException>()
 
+        val allowAccessToClientWithoutScope = try {
+            parser.getBooleanOrThrow(
+                propertiesList, "$FEATURES_KEY.allow-access-to-client-without-scope",
+                FeaturesConfigurationProperties::allowAccessToClientWithoutScope
+            )
+        } catch (e: ConfigurationException) {
+            errors.add(e)
+            null
+        }
+
         val emailValidation = try {
             getEmailValidation(propertiesList)
         } catch (e: ConfigurationException) {
@@ -33,9 +43,21 @@ class FeaturesConfigFactory(
             null
         }
 
+        val printDetailsInError = try {
+            parser.getBooleanOrThrow(
+                propertiesList, "$FEATURES_KEY.print-details-in-error",
+                FeaturesConfigurationProperties::printDetailsInError
+            )
+        } catch (e: ConfigurationException) {
+            errors.add(e)
+            null
+        }
+
         return if (errors.isEmpty()) {
             EnabledFeaturesConfig(
-                emailValidation = emailValidation!!
+                allowAccessToClientWithoutScope = allowAccessToClientWithoutScope!!,
+                emailValidation = emailValidation!!,
+                printDetailsInError = printDetailsInError!!
             )
         } else {
             DisabledFeaturesConfig(errors)

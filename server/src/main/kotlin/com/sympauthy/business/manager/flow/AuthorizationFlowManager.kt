@@ -4,7 +4,7 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.ScopeGrantingManager
 import com.sympauthy.business.model.flow.AuthorizationFlow
-import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_AUTHORIZATION_FLOW_ID
+import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ID
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
@@ -37,7 +37,7 @@ class AuthorizationFlowManager(
             .let(UriBuilder::of)
             .path(USER_FLOW_ENDPOINT)
         WebAuthorizationFlow(
-            id = DEFAULT_AUTHORIZATION_FLOW_ID,
+            id = DEFAULT_WEB_AUTHORIZATION_FLOW_ID,
             signInUri = builder.path("sign-in").build(),
             collectClaimsUri = builder.path("claims/edit").build(),
             validateClaimsUri = builder.path("claims/validate").build(),
@@ -49,7 +49,7 @@ class AuthorizationFlowManager(
      * Return the [AuthorizationFlow] identified by [id] or null.
      */
     fun findByIdOrNull(id: String): AuthorizationFlow? {
-        if (id == DEFAULT_AUTHORIZATION_FLOW_ID) {
+        if (id == DEFAULT_WEB_AUTHORIZATION_FLOW_ID) {
             return defaultWebAuthorizationFlow
         }
         return authorizationFlowsConfig.orThrow().flows

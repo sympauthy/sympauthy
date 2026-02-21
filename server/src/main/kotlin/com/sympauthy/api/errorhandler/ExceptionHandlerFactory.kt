@@ -8,16 +8,16 @@ import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
 /**
- * This class replace all defaults exception handler provided by frameworks (like Micronaut security)
+ * This class replaces all defaults exception handler provided by frameworks (like Micronaut security)
  * by our own [ThrowableExceptionHandler].
  *
  * This helps to make our error messages uniform across the whole application
- * and to keep the logic factorized into the [ExceptionConverter] and the [ThrowableExceptionHandler].
+ * and to keep the logic factorized into the [ExceptionNormalizer] and the [ThrowableExceptionHandler].
  */
 @Factory
 class ExceptionHandlerFactory(
-    @Inject private val exceptionConverter: ExceptionConverter,
-    @Inject private val exceptionHandler: LocalizedHttpExceptionHandler
+    @Inject private val exceptionNormalizer: ExceptionNormalizer,
+    @Inject private val exceptionHandler: LocalizedExceptionHandler
 ) {
 
     @Singleton
@@ -28,5 +28,5 @@ class ExceptionHandlerFactory(
     fun throwableExceptionHandler() = exceptionHandler<Throwable>()
 
     private inline fun <reified T : Throwable> exceptionHandler() =
-        ThrowableExceptionHandler<T>(exceptionConverter, exceptionHandler)
+        ThrowableExceptionHandler<T>(exceptionNormalizer, exceptionHandler)
 }

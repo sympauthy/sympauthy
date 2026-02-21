@@ -4,6 +4,21 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import io.micronaut.serde.annotation.Serdeable
 import io.swagger.v3.oas.annotations.media.Schema
 
+@Schema(
+    description = """
+Error response returned by the SympAuthy authorization server when a request fails.
+
+This resource provides comprehensive error information including:
+- The HTTP status code of the response
+- A unique error code identifying the specific type of error
+- A user-friendly description that can be displayed to end-users with guidance on how to resolve the issue
+- Technical details intended for developers to debug the issue
+- Optionally, a list of property-specific validation errors when the request contains invalid fields
+
+Developers should use the error_code field to programmatically handle different error scenarios,
+while the description field can be presented directly to end-users.
+"""
+)
 @Serdeable
 data class ErrorResource(
     @get:Schema(description = "The HTTP status of the response.")

@@ -6,7 +6,7 @@ sealed class AuthorizationFlow(
     val id: String
 ) {
     companion object {
-        const val DEFAULT_AUTHORIZATION_FLOW_ID = "default"
+        const val DEFAULT_WEB_AUTHORIZATION_FLOW_ID = "default_web"
     }
 }
 

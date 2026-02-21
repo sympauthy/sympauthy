@@ -34,7 +34,9 @@ clients:
     flow: default
 
 features:
+  allow-access-to-client-without-scope: false
   email-validation: false
+  print-details-in-error: false
 
 scope-granting-rules:
   default:

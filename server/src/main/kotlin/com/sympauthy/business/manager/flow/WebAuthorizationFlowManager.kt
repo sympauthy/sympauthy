@@ -8,7 +8,7 @@ import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.code.ValidationCodeReason
-import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_AUTHORIZATION_FLOW_ID
+import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ID
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
 import com.sympauthy.business.model.oauth2.*
@@ -93,7 +93,7 @@ class WebAuthorizationFlowManager(
         val (flow, flowException) = try {
             findById(authorizationFlowId) to null
         } catch (e: BusinessException) {
-            findById(DEFAULT_AUTHORIZATION_FLOW_ID) to e
+            findById(DEFAULT_WEB_AUTHORIZATION_FLOW_ID) to e
         }
 
         val (scopes, scopeException) = if (client != null) {

@@ -34,11 +34,11 @@ open class LocalizedException(
     val throwable: Throwable? = null
 ) : Exception(formatMessage(detailsId, values), throwable) {
     companion object {
-        private fun formatMessage(messageId: String, values: Map<String, String>): String {
+        private fun formatMessage(detailsId: String, values: Map<String, String>): String {
             return if (values.isEmpty()) {
-                messageId
+                detailsId
             } else {
-                "$messageId: $values"
+                "$detailsId: $values"
             }
         }
     }

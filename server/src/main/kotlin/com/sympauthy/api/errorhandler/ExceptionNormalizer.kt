@@ -10,16 +10,16 @@ import io.micronaut.http.HttpStatus.*
 import io.micronaut.security.authentication.AuthorizationException
 import jakarta.inject.Singleton
 
+/**
+ * Normalize all kinds of exceptions thrown by various frameworks like Micronaut Security
+ * into our common [LocalizedHttpException] with proper http status to respond and details/description
+ * for the end-user.
+ *
+ * Currently unhandled exception will be converted into 500 errors.
+ */
 @Singleton
-class ExceptionConverter {
+class ExceptionNormalizer {
 
-    /**
-     * Normalize all kinds of [throwable] that can thrown by various framework like Micronaut Security
-     * into our common [LocalizedHttpException] with proper http status to respond and details/description
-     * for the end-user.
-     *
-     * Currently unhandled exception will be converted into 500 error.
-     */
     fun normalize(throwable: Throwable): LocalizedHttpException {
         return when (throwable) {
             is AuthorizationException -> toException(throwable)
@@ -48,21 +48,3 @@ class ExceptionConverter {
         }
     }
 }
-
-/* FIXME
-@Produces
-@Singleton
-@Replaces(ConstraintExceptionHandler::class)
-class ConstraintViolationExceptionHandler(
-    private val errorResourceMapper: ErrorResourceMapper
-) : ExceptionHandler<ConstraintViolationException, HttpResponse<ErrorResource>> {
-
-    override fun handle(request: HttpRequest<*>, exception: ConstraintViolationException): HttpResponse<ErrorResource> {
-        val locale = request.locale.orElse(Locale.US)
-        return HttpResponseFactory.INSTANCE.status(
-            BAD_REQUEST,
-            errorResourceMapper.toErrorResource(exception, locale)
-        )
-    }
-}
- */
