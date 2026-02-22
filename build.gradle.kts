@@ -27,7 +27,7 @@ allprojects {
         set("kotlinCoroutinesVersion", "1.10.2")
         set("mapStructVersion", "1.6.3")
         set("javaJwtVersion", "4.5.0")
-        set("jsonPathVersion", "2.10.0")
+        set("jsonPathVersion", "3.0.0")
         set("bouncyCastleVersion", "1.83")
         set("freemarkerVersion", "2.3.34")
         set("evalExVersion", "3.6.0")
