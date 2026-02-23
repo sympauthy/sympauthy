@@ -11,6 +11,7 @@ import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.config.model.AuthorizationFlowsConfig
+import com.sympauthy.config.model.FeaturesConfig
 import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.view.DefaultAuthorizationFlowController.Companion.USER_FLOW_ENDPOINT
@@ -26,7 +27,8 @@ class AuthorizationFlowManager(
     @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
     @Inject private val scopeGrantingManager: ScopeGrantingManager,
     @Inject private val authorizationFlowsConfig: AuthorizationFlowsConfig,
-    @Inject private val uncheckedUrlsConfig: UrlsConfig
+    @Inject private val uncheckedUrlsConfig: UrlsConfig,
+    @Inject private val uncheckedFeaturesConfig: FeaturesConfig,
 ) {
 
     /**
@@ -72,12 +74,17 @@ class AuthorizationFlowManager(
     /**
      * Complete the authorization flow for the given [authorizeAttempt] and return the completed [authorizeAttempt].
      *
+     * Is the allowAccessToClientWithoutScope flag is false: If no scope have been granted, then the [authorizeAttempt]
+     * is marked as failed and the end-user is not allowed to continue to the client.
+     *
      * The list of [allCollectedClaims] may be provided to prevent loading them again.
      */
     suspend fun completeAuthorization(
         authorizeAttempt: AuthorizeAttempt,
         allCollectedClaims: List<CollectedClaim>,
     ): AuthorizeAttempt {
+        val featuresConfig = uncheckedFeaturesConfig.orThrow()
+
         if (authorizeAttempt !is OnGoingAuthorizeAttempt) {
             return authorizeAttempt
         }
@@ -93,6 +100,17 @@ class AuthorizationFlowManager(
             grantedScopes = grantScopesResult.grantedScopes
         )
 
-        return authorizeAttemptManager.markAsComplete(modifiedAuthorizedAttempt)
+        return if (modifiedAuthorizedAttempt.grantedScopes.isNullOrEmpty() && !featuresConfig.allowAccessToClientWithoutScope) {
+            // Mark attempt as failed since no scope have been granted and the end-user is not allowed to continue
+            // to the client in this state.
+            authorizeAttemptManager.markAsFailedIfNotRecoverable(
+                authorizeAttempt = authorizeAttempt,
+                error = businessExceptionOf(
+                    detailsId = "flow.authorization_flow.complete.no_scope"
+                )
+            )
+        } else {
+            authorizeAttemptManager.markAsComplete(modifiedAuthorizedAttempt)
+        }
     }
 }
