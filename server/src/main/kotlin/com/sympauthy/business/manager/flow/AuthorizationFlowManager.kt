@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.flow
 
+import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.ScopeGrantingManager
@@ -105,8 +106,10 @@ class AuthorizationFlowManager(
             // to the client in this state.
             authorizeAttemptManager.markAsFailedIfNotRecoverable(
                 authorizeAttempt = authorizeAttempt,
-                error = businessExceptionOf(
-                    detailsId = "flow.authorization_flow.complete.no_scope"
+                error = BusinessException(
+                    recoverable = false,
+                    detailsId = "flow.authorization_flow.complete.no_scope",
+                    descriptionId = "description.flow.unauthorized_to_access_client",
                 )
             )
         } else {
