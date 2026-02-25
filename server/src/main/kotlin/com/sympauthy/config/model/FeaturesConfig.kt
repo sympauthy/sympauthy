@@ -17,6 +17,20 @@ data class EnabledFeaturesConfig(
      */
     val emailValidation: Boolean,
     /**
+     * Automatically grant ALL scopes requested by the client that are not explicitly granted nor declined
+     * by any scope granting method.
+     *
+     * When enabled: Any scope not explicitly granted nor declined is automatically granted.
+     * When disabled: Scopes not explicitly granted are rejected (secure default).
+     *
+     * To know more about existing scope granting methods, see this
+     * [documentation](https://sympauthy.github.io/documentation/functional/authorization.html#granting-scope).
+     *
+     * ⚠️ **UNSAFE - DEVELOPMENT ONLY**
+     * This bypasses authorization checks. Never enable in production.
+     */
+    val grantUnhandledScopes: Boolean,
+    /**
      * Print technical details in error messages for debugging purposes.
      */
     val printDetailsInError: Boolean

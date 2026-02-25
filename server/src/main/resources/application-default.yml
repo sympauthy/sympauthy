@@ -36,15 +36,8 @@ clients:
 features:
   allow-access-to-client-without-scope: false
   email-validation: false
+  grant-unhandled-scopes: false
   print-details-in-error: false
-
-scope-granting-rules:
-  default:
-    scopes:
-      - openid
-      - profile
-    rules:
-      - anyUser
 
 ui:
   display-name: SympAuthy

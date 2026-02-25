@@ -7,6 +7,8 @@ import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.user.CollectedClaim
+import com.sympauthy.config.model.FeaturesConfig
+import com.sympauthy.config.model.orThrow
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
@@ -27,7 +29,8 @@ import jakarta.inject.Singleton
 @Singleton
 class ScopeGrantingManager(
     @Inject private val scopeManager: ScopeManager,
-    @Inject private val scopeGrantingRuleManager: ScopeGrantingRuleManager
+    @Inject private val scopeGrantingRuleManager: ScopeGrantingRuleManager,
+    @Inject private val featuresConfig: FeaturesConfig
 ) {
 
     /**
@@ -91,10 +94,18 @@ class ScopeGrantingManager(
         requestedScopes: List<Scope>,
         collectedClaims: List<CollectedClaim> = emptyList()
     ): ScopeGrantingMethodResult {
-        return ScopeGrantingMethodResult(
-            grantedScopes = emptyList(),
-            declinedScopes = requestedScopes
-        )
+        val grantUnhandledScopes = featuresConfig.orThrow().grantUnhandledScopes
+        return if (grantUnhandledScopes) {
+            ScopeGrantingMethodResult(
+                grantedScopes = requestedScopes,
+                declinedScopes = emptyList()
+            )
+        } else {
+            ScopeGrantingMethodResult(
+                grantedScopes = emptyList(),
+                declinedScopes = requestedScopes
+            )
+        }
     }
 }
 

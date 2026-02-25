@@ -7,6 +7,7 @@ import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.user.CollectedClaim
+import com.sympauthy.config.model.EnabledFeaturesConfig
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -15,7 +16,7 @@ import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
-import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertEquals
@@ -28,6 +29,9 @@ class ScopeGrantingManagerTest {
 
     @MockK
     lateinit var scopeGrantingRuleManager: ScopeGrantingRuleManager
+
+    @MockK
+    lateinit var featuresConfig: EnabledFeaturesConfig
 
     @SpyK
     @InjectMockKs
@@ -92,16 +96,31 @@ class ScopeGrantingManagerTest {
     }
 
     @Test
-    fun `applyDefaultBehavior - decline all requested scopes`() = runBlocking {
+    fun `applyDefaultBehavior - decline all requested scopes when grantUnhandledScopes is disabled`() = runBlocking {
         val scope = mockk<Scope>()
+        every { featuresConfig.grantUnhandledScopes } returns false
 
         val result = scopeGrantingManager.applyDefaultBehavior(
             authorizeAttempt = mockk(),
             requestedScopes = listOf(scope),
         )
 
-        Assertions.assertTrue(result.grantedScopes.isEmpty())
+        assertTrue(result.grantedScopes.isEmpty())
         assertEquals(listOf(scope), result.declinedScopes)
+    }
+
+    @Test
+    fun `applyDefaultBehavior - grant all requested scopes when grantUnhandledScopes is enabled`() = runBlocking {
+        val scope = mockk<Scope>()
+        every { featuresConfig.grantUnhandledScopes } returns true
+
+        val result = scopeGrantingManager.applyDefaultBehavior(
+            authorizeAttempt = mockk(),
+            requestedScopes = listOf(scope),
+        )
+
+        assertEquals(listOf(scope), result.grantedScopes)
+        assertTrue(result.declinedScopes.isEmpty())
     }
 
     @Test

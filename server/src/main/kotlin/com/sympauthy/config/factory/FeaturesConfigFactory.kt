@@ -43,6 +43,16 @@ class FeaturesConfigFactory(
             null
         }
 
+        val grantUnhandledScopes = try {
+            parser.getBooleanOrThrow(
+                propertiesList, "$FEATURES_KEY.grant-unhandled-scopes",
+                FeaturesConfigurationProperties::grantUnhandledScopes
+            )
+        } catch (e: ConfigurationException) {
+            errors.add(e)
+            null
+        }
+
         val printDetailsInError = try {
             parser.getBooleanOrThrow(
                 propertiesList, "$FEATURES_KEY.print-details-in-error",
@@ -57,6 +67,7 @@ class FeaturesConfigFactory(
             EnabledFeaturesConfig(
                 allowAccessToClientWithoutScope = allowAccessToClientWithoutScope!!,
                 emailValidation = emailValidation!!,
+                grantUnhandledScopes = grantUnhandledScopes!!,
                 printDetailsInError = printDetailsInError!!
             )
         } else {

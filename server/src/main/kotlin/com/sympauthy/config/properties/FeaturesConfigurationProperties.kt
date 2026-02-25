@@ -7,6 +7,7 @@ import io.micronaut.context.annotation.ConfigurationProperties
 interface FeaturesConfigurationProperties {
     val allowAccessToClientWithoutScope: String?
     val emailValidation: String?
+    val grantUnhandledScopes: String?
     val printDetailsInError: String?
 
     companion object {
