@@ -17,7 +17,7 @@ import jakarta.inject.Singleton
 @Factory
 class FeaturesConfigFactory(
     @Inject private val parser: ConfigParser,
-    @Inject @Nullable private val mailSender: MailSender?
+    @Inject @param:Nullable private val mailSender: MailSender?
 ) {
 
     @Singleton

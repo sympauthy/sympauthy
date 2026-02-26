@@ -109,7 +109,7 @@ internal class ClaimsMerger(
                 info.claim.id == LOCALE && info.value is String -> builder.withLocale(info.value)
                 info.claim.id == PHONE_NUMBER && info.value is String -> builder.withPhoneNumber(info.value, info.verified ?: false)
             }
-            if (updatedAt == null || updatedAt?.isBefore(info.collectionDate) == true) {
+            if (updatedAt == null || updatedAt.isBefore(info.collectionDate)) {
                 updatedAt = info.collectionDate
             }
         }
