@@ -26,7 +26,7 @@ allprojects {
         set("kotlinVersion", project.findProperty("kotlinVersion"))
         set("kotlinCoroutinesVersion", "1.10.2")
         set("mapStructVersion", "1.6.3")
-        set("javaJwtVersion", "4.5.0")
+        set("javaJwtVersion", "4.5.1")
         set("jsonPathVersion", "3.0.0")
         set("bouncyCastleVersion", "1.83")
         set("freemarkerVersion", "2.3.34")
