@@ -1,7 +1,7 @@
 name: Build & Push SympAuthy docker image to GitHub Container Registry
 
 env:
-  JAVA_VERSION: 21
+  JAVA_VERSION: 25
 
 on:
   workflow_call:
