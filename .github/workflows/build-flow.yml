@@ -31,7 +31,7 @@ jobs:
         run: npm run build-only -- --base=/flow/
 
       - name: Archive production artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: sympauthy-flow-dist
           path: dist

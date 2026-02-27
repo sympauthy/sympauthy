@@ -52,7 +52,7 @@ jobs:
         run: mkdir -p server/src/main/resources/sympauthy-flow
 
       - name: Install sympauthy-flow into resources
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: sympauthy-flow-dist
           path: server/src/main/resources/sympauthy-flow
