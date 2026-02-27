@@ -136,10 +136,15 @@ open class TokenManager(
             throw oauth2ExceptionOf(INVALID_GRANT, "token.invalid_token_id")
         }
         val token = findById(id)
+
+        // For client credentials tokens, subject is the client ID
+        // For user tokens, subject is the user ID
+        val expectedSubject = token?.userId?.toString() ?: token?.clientId
+
         return when {
             token == null -> throw oauth2ExceptionOf(INVALID_GRANT, "token.invalid_token_id")
             token.revoked -> throw oauth2ExceptionOf(INVALID_GRANT, "token.revoked")
-            decodedToken.subject != token.userId.toString() -> throw oauth2ExceptionOf(
+            decodedToken.subject != expectedSubject -> throw oauth2ExceptionOf(
                 INVALID_GRANT, "token.invalid_token_id"
             )
 

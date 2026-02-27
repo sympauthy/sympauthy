@@ -35,7 +35,8 @@ class RefreshTokenGenerator(
         userId = userId,
         clientId = authorizeAttempt.clientId,
         scopeTokens = authorizeAttempt.grantedScopes,
-        authorizeAttemptId = authorizeAttempt.id
+        authorizeAttemptId = authorizeAttempt.id,
+        grantType = "authorization_code"
     )
 
     /**
@@ -47,14 +48,16 @@ class RefreshTokenGenerator(
         userId = refreshToken.userId,
         clientId = refreshToken.clientId,
         scopeTokens = refreshToken.scopes,
-        authorizeAttemptId = refreshToken.authorizeAttemptId
+        authorizeAttemptId = refreshToken.authorizeAttemptId,
+        grantType = "refresh_token"
     )
 
     internal suspend fun generateRefreshToken(
-        userId: UUID,
+        userId: UUID?,
         clientId: String,
         scopeTokens: List<String>,
-        authorizeAttemptId: UUID
+        authorizeAttemptId: UUID?,
+        grantType: String
     ): EncodedAuthenticationToken? {
         val enabledAuthConfig = authConfig.orThrow()
         if (!enabledAuthConfig.token.refreshEnabled) {
@@ -69,6 +72,7 @@ class RefreshTokenGenerator(
             clientId = clientId,
             scopes = scopeTokens.toTypedArray(),
             authorizeAttemptId = authorizeAttemptId,
+            grantType = grantType,
             revoked = false,
             issueDate = issueDate,
             expirationDate = expirationDate
@@ -77,7 +81,7 @@ class RefreshTokenGenerator(
         val encodedToken = jwtManager.create(JwtManager.REFRESH_KEY) {
             entity.id?.toString()?.let(this::withJWTId)
             enabledAuthConfig.audience?.let { this.withAudience(it) }
-            withSubject(userId.toString())
+            withSubject(userId?.toString() ?: clientId)
             withIssuedAt(issueDate.toInstant(ZoneOffset.UTC))
             expirationDate?.toInstant(ZoneOffset.UTC)?.let(this::withExpiresAt)
         }

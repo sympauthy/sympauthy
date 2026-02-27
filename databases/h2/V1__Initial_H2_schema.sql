@@ -135,10 +135,11 @@ CREATE TABLE authentication_tokens
 (
     id                   uuid       NOT NULL DEFAULT random_uuid(),
     type                 text       NOT NULL,
-    user_id              uuid       NOT NULL,
+    user_id              uuid,
     client_id            text       NOT NULL,
     scopes               text array NOT NULL,
-    authorize_attempt_id uuid       NOT NULL,
+    authorize_attempt_id uuid,
+    grant_type           text       NOT NULL,
 
     revoked              boolean    NOT NULL,
     issue_date           timestamp  NOT NULL,

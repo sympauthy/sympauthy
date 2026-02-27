@@ -34,7 +34,8 @@ class AccessTokenGenerator(
         userId = userId,
         clientId = authorizeAttempt.clientId,
         scopes = authorizeAttempt.grantedScopes,
-        authorizeAttemptId = authorizeAttempt.id
+        authorizeAttemptId = authorizeAttempt.id,
+        grantType = "authorization_code"
     )
 
     /**
@@ -46,14 +47,33 @@ class AccessTokenGenerator(
         userId = refreshToken.userId,
         clientId = refreshToken.clientId,
         scopes = refreshToken.scopes,
-        authorizeAttemptId = refreshToken.authorizeAttemptId
+        authorizeAttemptId = refreshToken.authorizeAttemptId,
+        grantType = "refresh_token"
     )
 
+    /**
+     * Generate an access token for client credentials flow (machine-to-machine).
+     * This token is not associated with any end-user.
+     */
+    suspend fun generateAccessTokenForClient(
+        clientId: String,
+        scopes: List<String>
+    ): EncodedAuthenticationToken {
+        return generateAccessToken(
+            userId = null,
+            clientId = clientId,
+            scopes = scopes,
+            authorizeAttemptId = null,
+            grantType = "client_credentials"
+        )
+    }
+
     internal suspend fun generateAccessToken(
-        userId: UUID,
+        userId: UUID?,
         clientId: String,
         scopes: List<String>,
-        authorizeAttemptId: UUID
+        authorizeAttemptId: UUID?,
+        grantType: String
     ): EncodedAuthenticationToken {
         val authConfig = uncheckedAuthConfig.orThrow()
 
@@ -65,6 +85,7 @@ class AccessTokenGenerator(
             clientId = clientId,
             scopes = scopes.toTypedArray(),
             authorizeAttemptId = authorizeAttemptId,
+            grantType = grantType,
             revoked = false,
             issueDate = issueDate,
             expirationDate = expirationDate
@@ -73,7 +94,7 @@ class AccessTokenGenerator(
         val encodedToken = jwtManager.create(JwtManager.PUBLIC_KEY) {
             entity.id?.toString()?.let(this::withJWTId)
             authConfig.audience?.let { this.withAudience(it) }
-            withSubject(userId.toString())
+            withSubject(userId?.toString() ?: clientId)
             withIssuedAt(issueDate.toInstant(ZoneOffset.UTC))
             withExpiresAt(expirationDate.toInstant(ZoneOffset.UTC))
         }

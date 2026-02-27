@@ -11,13 +11,23 @@ import java.util.*
 @MappedEntity("authentication_tokens")
 class AuthenticationTokenEntity(
     val type: String,
-    val userId: UUID,
+    /**
+     * User ID associated with this token.
+     * This can be null for tokens issued via client credentials flow (machine-to-machine).
+     */
+    val userId: UUID?,
     val clientId: String,
     val scopes: Array<String>,
     /**
-     * There is no foreign key
+     * There is no foreign key.
+     * This can be null for tokens issued via client credentials flow.
      */
-    val authorizeAttemptId: UUID,
+    val authorizeAttemptId: UUID?,
+    /**
+     * The OAuth2 grant type used to generate this token.
+     * Examples: "authorization_code", "refresh_token", "client_credentials"
+     */
+    val grantType: String,
 
     val revoked: Boolean,
     val issueDate: LocalDateTime,

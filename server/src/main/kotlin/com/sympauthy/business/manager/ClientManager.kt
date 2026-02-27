@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 
 @Singleton
-class ClientManager(
+open class ClientManager(
     @Inject private val uncheckedClientsConfig: Flow<ClientsConfig>
 ) {
 

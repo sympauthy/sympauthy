@@ -32,7 +32,8 @@ class ClientAuthenticationFetcher(
 
     private fun getClientCredentialsFromRequest(request: HttpRequest<*>): ClientCredentials? {
         return sequenceOf(
-            this::getClientCredentialsFromHeader
+            this::getClientCredentialsFromHeader,
+            this::getClientCredentialsFromBody
         ).firstNotNullOfOrNull { it.invoke(request) }
     }
 
@@ -45,6 +46,15 @@ class ClientAuthenticationFetcher(
             clientId = credentials.username,
             clientSecret = credentials.password
         )
+    }
+
+    private fun getClientCredentialsFromBody(request: HttpRequest<*>): ClientCredentials? {
+        val body = request.body.orElse(null) as? Map<*, *> ?: return null
+        val clientId = body["client_id"] as? String
+        val clientSecret = body["client_secret"] as? String
+        return if (clientId != null && clientSecret != null) {
+            ClientCredentials(clientId, clientSecret)
+        } else null
     }
 
     private suspend fun authenticateClient(credentials: ClientCredentials?): Authentication? {

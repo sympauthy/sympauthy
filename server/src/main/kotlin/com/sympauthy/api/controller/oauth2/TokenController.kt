@@ -3,7 +3,9 @@ package com.sympauthy.api.controller.oauth2
 import com.sympauthy.api.controller.oauth2.TokenController.Companion.OAUTH2_TOKEN_ENDPOINT
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.api.resource.oauth2.TokenResource
+import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
+import com.sympauthy.business.manager.auth.oauth2.AccessTokenGenerator
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
 import com.sympauthy.business.manager.flow.AuthorizationFlowManager
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
@@ -29,7 +31,9 @@ import java.time.ZoneOffset
 class TokenController(
     @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
     @Inject private val authorizeFlowManager: AuthorizationFlowManager,
-    @Inject private val tokenManager: TokenManager
+    @Inject private val tokenManager: TokenManager,
+    @Inject private val accessTokenGenerator: AccessTokenGenerator,
+    @Inject private val scopeManager: ScopeManager
 ) {
 
     @Operation(
@@ -43,6 +47,7 @@ class TokenController(
         @Part(CODE_PARAM) code: String?,
         @Part("redirect_uri") redirectUri: String?,
         @Part(REFRESH_TOKEN_PARAM) refreshToken: String?,
+        @Part("scope") scope: String?
     ): TokenResource {
         return when (grantType) {
             "authorization_code" -> getTokensUsingAuthorizationCode(
@@ -53,6 +58,11 @@ class TokenController(
             "refresh_token" -> getTokensUsingRefreshToken(
                 authentication = authentication,
                 encodedRefreshToken = refreshToken
+            )
+
+            "client_credentials" -> getTokensUsingClientCredentials(
+                authentication = authentication,
+                scope = scope
             )
 
             else -> throw oauth2ExceptionOf(
@@ -106,6 +116,32 @@ class TokenController(
             expiredIn = getExpiredIn(accessToken),
             scope = getScope(accessToken),
             refreshToken = refreshedRefreshToken?.token ?: encodedRefreshToken
+        )
+    }
+
+    private suspend fun getTokensUsingClientCredentials(
+        authentication: Authentication,
+        scope: String?
+    ): TokenResource {
+        val client = authentication.client
+
+        // Parse and validate the requested scopes
+        val requestedScopes = scopeManager.parseRequestedScopes(client, scope)
+        val scopeStrings = requestedScopes.map { it.scope }
+
+        // Generate access token for the client (no user context)
+        val accessToken = accessTokenGenerator.generateAccessTokenForClient(
+            clientId = client.id,
+            scopes = scopeStrings
+        )
+
+        return TokenResource(
+            accessToken = accessToken.token,
+            tokenType = "bearer",
+            expiredIn = getExpiredIn(accessToken),
+            scope = getScope(accessToken),
+            refreshToken = null, // No refresh token for client credentials flow
+            idToken = null // No ID token for client credentials flow
         )
     }
 
