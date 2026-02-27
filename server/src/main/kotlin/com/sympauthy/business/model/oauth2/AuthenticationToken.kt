@@ -7,7 +7,11 @@ import java.util.*
 data class AuthenticationToken(
     val id: UUID,
     val type: AuthenticationTokenType,
-    val userId: UUID,
+    /**
+     * User ID associated with this token.
+     * This can be null for tokens issued via client credentials flow (machine-to-machine).
+     */
+    val userId: UUID?,
     val clientId: String,
     val scopes: List<String>,
     /**
@@ -18,8 +22,15 @@ data class AuthenticationToken(
      *
      * All refreshed tokens will carry the same identifier as the on they are refresh from.
      * This allows to revoke all tokens associated to the "session" when the user tries to log-out.
+     *
+     * This can be null for tokens issued via client credentials flow.
      */
-    val authorizeAttemptId: UUID,
+    val authorizeAttemptId: UUID?,
+    /**
+     * The OAuth2 grant type used to generate this token.
+     * Examples: "authorization_code", "refresh_token", "client_credentials"
+     */
+    val grantType: String,
 
     val revoked: Boolean,
     val issueDate: LocalDateTime,

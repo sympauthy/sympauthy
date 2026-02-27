@@ -81,6 +81,15 @@ enum class OAuth2ErrorCode(
     ),
 
     /**
+     * Client authentication failed (e.g., unknown client, no client authentication included, or unsupported authentication method).
+     */
+    INVALID_CLIENT(
+        UNAUTHORIZED,
+        "invalid_client",
+        "description.oauth2.invalid_client"
+    ),
+
+    /**
      * The authorization server encountered an unexpected condition that prevented it from fulfilling the request.
      */
     SERVER_ERROR(

@@ -50,10 +50,10 @@ class OpenIdConfigurationController(
             jwksUri = urlsConfig.getUri(OPENID_JWKS_ENDPOINT).toString(),
             scopesSupported = scopes,
             responseTypesSupported = listOf("code", "id_token", "token id_token"),
-            grantTypesSupported = listOf("authorization_code", "refresh_token"),
+            grantTypesSupported = listOf("authorization_code", "refresh_token", "client_credentials"),
             subjectTypesSupported = listOf("public"),
             idTokenSigningAlgValuesSupported = listOf("RS256"),
-            tokenEndpointAuthMethodsSupported = listOf("client_secret_basic"),
+            tokenEndpointAuthMethodsSupported = listOf("client_secret_basic", "client_secret_post"),
             claimsSupported = claims
         )
     }

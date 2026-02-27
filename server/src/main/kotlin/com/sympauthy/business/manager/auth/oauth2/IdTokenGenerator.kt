@@ -46,6 +46,7 @@ class IdTokenGenerator(
         scopes = authorizeAttempt.grantedScopes,
         nonce = authorizeAttempt.nonce,
         accessToken = accessToken,
+        grantType = "authorization_code"
     )
 
     /**
@@ -59,17 +60,24 @@ class IdTokenGenerator(
         clientId = refreshToken.clientId,
         scopes = refreshToken.scopes,
         authorizeAttemptId = refreshToken.authorizeAttemptId,
-        accessToken = accessToken
+        accessToken = accessToken,
+        grantType = "refresh_token"
     )
 
     internal suspend fun generateIdToken(
-        userId: UUID,
+        userId: UUID?,
         clientId: String,
         scopes: List<String>,
-        authorizeAttemptId: UUID,
+        authorizeAttemptId: UUID?,
         accessToken: EncodedAuthenticationToken,
-        nonce: String? = null
+        nonce: String? = null,
+        grantType: String
     ): EncodedAuthenticationToken? {
+        // ID tokens are only for user authentication, not client credentials
+        if (userId == null) {
+            return null
+        }
+
         val authConfig = uncheckedAuthConfig.orThrow()
 
         // FIXME compute at_hash with accessToken
@@ -87,6 +95,7 @@ class IdTokenGenerator(
             clientId = clientId,
             scopes = scopes.toTypedArray(),
             authorizeAttemptId = authorizeAttemptId,
+            grantType = grantType,
             revoked = false,
             issueDate = issueDate,
             expirationDate = expirationDate
