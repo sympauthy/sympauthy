@@ -1,4 +1,4 @@
-name: Publish changes on develop every night
+name: Publish changes on main every night
 
 on:
   # Automatic nightly at 23:45 PM UTC
@@ -13,6 +13,6 @@ permissions:
 
 jobs:
   publish_nightly:
-    uses: sympauthy/sympauthy/.github/workflows/publish-develop.yml@develop
+    uses: sympauthy/sympauthy/.github/workflows/publish-nightly.yml@main
     with:
-      ref: develop
+      ref: main
