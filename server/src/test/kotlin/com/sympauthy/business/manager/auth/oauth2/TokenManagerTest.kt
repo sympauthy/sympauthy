@@ -208,10 +208,14 @@ class TokenManagerTest {
     @Test
     fun `getAuthenticationToken - Throws if token is revoked`() = runTest {
         val tokenId = UUID.randomUUID()
-        val decodedToken = mockk<DecodedJWT>()
-        val token = mockk<AuthenticationToken>()
+        val userId = UUID.randomUUID()
+        val decodedToken = mockk<DecodedJWT> {
+            every { id } returns tokenId.toString()
+        }
+        val token = mockk<AuthenticationToken> {
+            every { this@mockk.userId } returns userId
+        }
 
-        every { decodedToken.id } returns tokenId.toString()
         coEvery { tokenManager.findById(tokenId) } returns token
         every { token.revoked } returns true
 
