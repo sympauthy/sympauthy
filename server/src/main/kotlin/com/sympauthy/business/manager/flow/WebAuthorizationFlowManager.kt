@@ -232,13 +232,13 @@ class WebAuthorizationFlowManager(
 
     suspend fun getStatusAndCompleteIfNecessary(
         authorizeAttempt: AuthorizeAttempt
-    ): WebAuthorizationFlowStatus {
+    ): Pair<AuthorizeAttempt, WebAuthorizationFlowStatus> {
         val status = getStatus(authorizeAttempt)
-        completeIfNecessary(
+        val completedAuthorizeAttempt = completeIfNecessary(
             authorizeAttempt = authorizeAttempt,
             status = status
         )
-        return status
+        return completedAuthorizeAttempt to status
     }
 }
 

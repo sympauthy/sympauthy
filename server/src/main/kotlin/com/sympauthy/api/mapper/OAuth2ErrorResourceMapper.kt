@@ -10,7 +10,7 @@ import java.util.*
 
 @Singleton
 class OAuth2ErrorResourceMapper(
-    @Inject @ErrorMessages private val messageSource: MessageSource
+    @Inject @param:ErrorMessages private val messageSource: MessageSource
 ) {
 
     fun toResource(

@@ -168,12 +168,14 @@ open class WebAuthorizationFlowClaimValidationManager(
         val matchingValidationCode = validationCodes.firstOrNull { it.code == code }
         if (matchingValidationCode == null) {
             throw recoverableBusinessExceptionOf(
-                detailsId = "flow.claim_validation.invalid_code"
+                detailsId = "flow.claim_validation.invalid_code",
+                descriptionId = "description.flow.claim_validation.invalid_code"
             )
         }
         if (matchingValidationCode.expired) {
             throw recoverableBusinessExceptionOf(
-                detailsId = "flow.claim_validation.expired_code"
+                detailsId = "flow.claim_validation.expired_code",
+                descriptionId = "description.flow.claim_validation.expired_code"
             )
         }
 

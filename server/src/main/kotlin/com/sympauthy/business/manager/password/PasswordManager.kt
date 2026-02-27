@@ -54,7 +54,7 @@ class PasswordManager(
      */
     suspend fun arePasswordMatching(user: User, password: String): Boolean = coroutineScope {
         passwordRepository.findByUserId(user.id)
-            .filter { it.expirationDate == null || it.expirationDate?.isBefore(now()) == true }
+            .filter { it.expirationDate == null || it.expirationDate.isBefore(now()) }
             .map { async { isPasswordMatching(it, password) } }
             .let { awaitAll(*it.toTypedArray()) }
             .any { it }

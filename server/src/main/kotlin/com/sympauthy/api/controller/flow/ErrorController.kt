@@ -67,13 +67,13 @@ Result containing either:
                         val flow = webAuthorizationFlowManager.findById(
                             verifyResult.authorizeAttempt.authorizationFlowId
                         )
-                        val result = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
+                        val (potentiallyCompletedAuthorizeAttempt, status) = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
                             authorizeAttempt = verifyResult.authorizeAttempt,
                         )
                         val redirectUri = redirectUriBuilder.getRedirectUri(
-                            authorizeAttempt = verifyResult.authorizeAttempt,
+                            authorizeAttempt = potentiallyCompletedAuthorizeAttempt,
                             flow = flow,
-                            status = result
+                            status = status
                         )
                         flowErrorResourceMapper.toResource(redirectUri)
                     }

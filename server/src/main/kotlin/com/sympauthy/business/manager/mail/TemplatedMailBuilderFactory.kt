@@ -9,8 +9,8 @@ import java.util.*
 
 @Singleton
 class TemplatedMailBuilderFactory(
-    @Value("\${javamail.properties.mail.from}") private val defaultFrom: String?,
-    @Inject @MailMessages private val messageSource: MessageSource
+    @param:Value("\${javamail.properties.mail.from}") private val defaultFrom: String?,
+    @Inject @param:MailMessages private val messageSource: MessageSource
 ) {
 
     fun builder(

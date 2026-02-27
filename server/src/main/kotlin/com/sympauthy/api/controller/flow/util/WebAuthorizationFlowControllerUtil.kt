@@ -110,23 +110,21 @@ class WebAuthorizationFlowControllerUtil(
             null to null
         }
 
-        if (onGoingAuthorizeAttempt != null && runException != null) {
-            authorizeAttemptManager.markAsFailedIfNotRecoverable(
-                authorizeAttempt = onGoingAuthorizeAttempt,
-                error = runException
-            )
-        }
+        val afterExceptionHandlingAuthorizeAttempt = handleException(
+            authorizeAttempt = authorizeAttempt,
+            exception = runException
+        )
 
         return if (runResult != null && mapResultToResource != null) {
             mapResultToResource(runResult)
         } else {
-            val result = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
-                authorizeAttempt = authorizeAttempt,
+            val (afterCompleteAuthorizeAttempt, status) = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
+                authorizeAttempt = afterExceptionHandlingAuthorizeAttempt,
             )
             val redirectUri = redirectUriBuilder.getRedirectUri(
-                authorizeAttempt = authorizeAttempt,
+                authorizeAttempt = afterCompleteAuthorizeAttempt,
                 flow = flow,
-                status = result
+                status = status
             )
             mapRedirectUriToResource(redirectUri)
         }
@@ -185,23 +183,21 @@ class WebAuthorizationFlowControllerUtil(
             null to null
         }
 
-        if (onGoingAuthorizeAttempt != null && runException != null) {
-            authorizeAttemptManager.markAsFailedIfNotRecoverable(
-                authorizeAttempt = onGoingAuthorizeAttempt,
-                error = runException
-            )
-        }
+        val afterExceptionHandlingAuthorizeAttempt = handleException(
+            authorizeAttempt = authorizeAttempt,
+            exception = runException
+        )
 
         return if (runResult != null && mapResultToResource != null) {
             mapResultToResource(runResult)
         } else {
-            val result = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
-                authorizeAttempt = authorizeAttempt,
+            val (afterCompleteAuthorizeAttempt, status) = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
+                authorizeAttempt = afterExceptionHandlingAuthorizeAttempt,
             )
             val redirectUri = redirectUriBuilder.getRedirectUri(
-                authorizeAttempt = authorizeAttempt,
+                authorizeAttempt = afterCompleteAuthorizeAttempt,
                 flow = flow,
-                status = result
+                status = status
             )
             mapRedirectUriToResource(redirectUri)
         }
@@ -237,30 +233,28 @@ class WebAuthorizationFlowControllerUtil(
             return mapRedirectUriToResource(redirectUri)
         }
 
-        var updatedAuthorizeAttempt = authorizeAttempt
+        var afterUpdateAuthorizeAttempt = authorizeAttempt
         val onGoingAuthorizeAttempt = authorizeAttempt as? OnGoingAuthorizeAttempt
 
         val updateException = if (onGoingAuthorizeAttempt != null) {
             try {
-                updatedAuthorizeAttempt = update(onGoingAuthorizeAttempt, flow)
+                afterUpdateAuthorizeAttempt = update(onGoingAuthorizeAttempt, flow)
                 null
             } catch (e: BusinessException) {
                 e
             }
         } else null
 
-        if (updateException != null && onGoingAuthorizeAttempt != null) {
-            authorizeAttemptManager.markAsFailedIfNotRecoverable(
-                authorizeAttempt = onGoingAuthorizeAttempt,
-                error = updateException
-            )
-        }
+        val afterExceptionHandlingAuthorizeAttempt = handleException(
+            authorizeAttempt = afterUpdateAuthorizeAttempt,
+            exception = updateException
+        )
 
-        val status = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
-            authorizeAttempt = updatedAuthorizeAttempt,
+        val (afterCompleteAuthorizeAttempt, status) = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
+            authorizeAttempt = afterExceptionHandlingAuthorizeAttempt,
         )
         val redirectUri = redirectUriBuilder.getRedirectUri(
-            authorizeAttempt = updatedAuthorizeAttempt,
+            authorizeAttempt = afterCompleteAuthorizeAttempt,
             flow = flow,
             status = status
         )
@@ -297,7 +291,7 @@ class WebAuthorizationFlowControllerUtil(
             return mapRedirectUriToResource(redirectUri)
         }
 
-        var updatedAuthorizeAttempt = authorizeAttempt
+        var afterUpdateAuthorizeAttempt = authorizeAttempt
         val onGoingAuthorizeAttempt = authorizeAttempt as? OnGoingAuthorizeAttempt
         val user = try {
             userManager.findByIdOrNull(onGoingAuthorizeAttempt?.userId)
@@ -310,25 +304,23 @@ class WebAuthorizationFlowControllerUtil(
 
         val updateException = if (onGoingAuthorizeAttempt != null && user != null) {
             try {
-                updatedAuthorizeAttempt = update(onGoingAuthorizeAttempt, flow, user)
+                afterUpdateAuthorizeAttempt = update(onGoingAuthorizeAttempt, flow, user)
                 null
             } catch (e: BusinessException) {
                 e
             }
         } else null
 
-        if (updateException != null && onGoingAuthorizeAttempt != null) {
-            authorizeAttemptManager.markAsFailedIfNotRecoverable(
-                authorizeAttempt = onGoingAuthorizeAttempt,
-                error = updateException
-            )
-        }
+        val afterExceptionHandlingAuthorizeAttempt = handleException(
+            authorizeAttempt = afterUpdateAuthorizeAttempt,
+            exception = updateException
+        )
 
-        val status = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
-            authorizeAttempt = updatedAuthorizeAttempt,
+        val (afterCompleteAuthorizeAttempt, status) = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
+            authorizeAttempt = afterExceptionHandlingAuthorizeAttempt,
         )
         val redirectUri = redirectUriBuilder.getRedirectUri(
-            authorizeAttempt = updatedAuthorizeAttempt,
+            authorizeAttempt = afterCompleteAuthorizeAttempt,
             flow = flow,
             status = status
         )
@@ -356,5 +348,33 @@ class WebAuthorizationFlowControllerUtil(
                 )
             }
         }
+    }
+
+    /**
+     * Handles a business exception that occurred during the business logic of the authorization flow.
+     *
+     * If the exception is recoverable, it is thrown to be handled by the caller.
+     * If the exception is not recoverable and the authorize attempt is ongoing, the attempt is marked as failed
+     * with the specific error.
+     *
+     * The [authorizeAttempt] is just returned if the exception is null. Or returns the [authorizeAttempt] updated
+     * by the [AuthorizeAttemptManager.markAsFailedIfNotRecoverable] method.
+     */
+    internal suspend fun handleException(
+        authorizeAttempt: AuthorizeAttempt,
+        exception: BusinessException?
+    ): AuthorizeAttempt {
+        if (exception == null) {
+            return authorizeAttempt
+        }
+        if (exception.recoverable) {
+            throw exception
+        }
+        return if (authorizeAttempt is OnGoingAuthorizeAttempt) {
+            authorizeAttemptManager.markAsFailedIfNotRecoverable(
+                authorizeAttempt = authorizeAttempt,
+                error = exception
+            )
+        } else authorizeAttempt
     }
 }

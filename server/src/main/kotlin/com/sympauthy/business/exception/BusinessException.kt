@@ -55,7 +55,7 @@ fun businessExceptionOf(
  */
 fun recoverableBusinessExceptionOf(
     detailsId: String,
-    descriptionId: String? = null,
+    descriptionId: String,
     vararg values: Pair<String, String>
 ) = BusinessException(
     recoverable = true,

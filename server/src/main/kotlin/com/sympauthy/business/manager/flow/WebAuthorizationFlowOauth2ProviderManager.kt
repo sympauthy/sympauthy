@@ -11,6 +11,7 @@ import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.CreateOrAssociateResult
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
+import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.business.model.provider.Provider
@@ -102,7 +103,7 @@ open class WebAuthorizationFlowOauth2ProviderManager(
         authorizeAttempt: OnGoingAuthorizeAttempt,
         providerId: String?,
         authorizeCode: String?
-    ): WebAuthorizationFlowStatus {
+    ): Pair<AuthorizeAttempt, WebAuthorizationFlowStatus> {
         // Those errors are marked unrecoverable because a proper provider should never end up in this case.
         // Therefore, the user retrying the request should not change the result.
         // We redirect the user to the error page so it can continue back to the application to retry.

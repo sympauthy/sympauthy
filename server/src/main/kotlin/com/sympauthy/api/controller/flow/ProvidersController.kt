@@ -79,14 +79,15 @@ Redirection to either:
         providerId: String,
         @QueryValue("code") code: String?,
         @QueryValue("state") state: String?
-    ) = webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenRunAndRedirect(
+    ) = webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenUpdateAndRedirect(
         state = state,
-        run = { authorizeAttempt, _ ->
-            webAuthorizationFlowOauth2ProviderManager.signInOrSignUpUsingProvider(
+        update = { authorizeAttempt, _ ->
+            val (updatedAuthorizeAttempt, _) = webAuthorizationFlowOauth2ProviderManager.signInOrSignUpUsingProvider(
                 authorizeAttempt = authorizeAttempt,
                 providerId = providerId,
                 authorizeCode = code
             )
+            updatedAuthorizeAttempt
         },
         mapRedirectUriToResource = { redirectUri -> HttpResponse.temporaryRedirect<Any>(redirectUri) }
     )

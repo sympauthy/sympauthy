@@ -9,6 +9,7 @@ import com.sympauthy.business.model.code.ValidationCodeReason
 import com.sympauthy.business.model.flow.NonInteractiveAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
+import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import io.mockk.coEvery
 import io.mockk.every
@@ -154,16 +155,23 @@ class WebAuthorizationFlowManagerTest {
     @Test
     fun `getStatusAndCompleteIfNecessary - Complete`() = runTest {
         val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
+        val completeAuthorizeAttempt = mockk<CompletedAuthorizeAttempt>()
         val status = mockk<WebAuthorizationFlowStatus> {
             every { allCollectedClaims } returns emptyList()
             every { complete } returns true
         }
 
         coEvery { manager.getStatus(authorizeAttempt) } returns status
-        coEvery { authorizationFlowManager.completeAuthorization(authorizeAttempt, any()) } returns authorizeAttempt
+        coEvery {
+            authorizationFlowManager.completeAuthorization(
+                authorizeAttempt,
+                any()
+            )
+        } returns completeAuthorizeAttempt
 
         val result = manager.getStatusAndCompleteIfNecessary(authorizeAttempt)
 
-        assertTrue(result.complete)
+        assertSame(completeAuthorizeAttempt, result.first)
+        assertTrue(result.second.complete)
     }
 }

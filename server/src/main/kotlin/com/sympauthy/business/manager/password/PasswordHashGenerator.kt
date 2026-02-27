@@ -16,7 +16,7 @@ import java.util.concurrent.ExecutorService
  */
 @Singleton
 class PasswordHashGenerator(
-    @Inject @Computation private val executorService: ExecutorService,
+    @Inject @param:Computation private val executorService: ExecutorService,
     @Inject private val uncheckedAdvancedConfig: AdvancedConfig
 ) {
     /**

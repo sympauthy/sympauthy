@@ -86,17 +86,26 @@ open class WebAuthorizationFlowPasswordManager(
             throw internalBusinessExceptionOf("flow.password.sign_in.disabled")
         }
         if (login.isNullOrBlank() || password.isNullOrBlank()) {
-            throw recoverableBusinessExceptionOf("flow.password.sign_in.invalid")
+            throw recoverableBusinessExceptionOf(
+                detailsId = "flow.password.sign_in.invalid",
+                descriptionId = "description.flow.password.sign_in.invalid"
+            )
         }
 
         val user = findByLogin(login)
         // The user does not exist or has been created using a third-party provider.
         if (user == null || user.status != UserStatus.ENABLED) {
-            throw recoverableBusinessExceptionOf("flow.password.sign_in.invalid")
+            throw recoverableBusinessExceptionOf(
+                detailsId = "flow.password.sign_in.invalid",
+                descriptionId = "description.flow.password.sign_in.invalid"
+            )
         }
 
         if (!passwordManager.arePasswordMatching(user, password)) {
-            throw recoverableBusinessExceptionOf("flow.password.sign_in.invalid")
+            throw recoverableBusinessExceptionOf(
+                detailsId = "flow.password.sign_in.invalid",
+                descriptionId = "description.flow.password.sign_in.invalid"
+            )
         }
 
         // Update the authorize attempt with the id of the user so they can retrieve their access token.
@@ -173,7 +182,7 @@ open class WebAuthorizationFlowPasswordManager(
         if (missingClaim != null) {
             throw recoverableBusinessExceptionOf(
                 detailsId = "flow.password.sign_up.missing_claim",
-                descriptionId = "flow.password.sign_up.missing_claim",
+                descriptionId = "description.flow.password.sign_up.missing_claim",
                 "claim" to missingClaim.id
             )
         }
@@ -193,7 +202,10 @@ open class WebAuthorizationFlowPasswordManager(
             .mapNotNull(claimValueMapper::toEntity)
         val existingCollectedClaims = collectedClaimRepository.findAnyClaimMatching(claimIds, values)
         if (existingCollectedClaims.isNotEmpty()) {
-            throw recoverableBusinessExceptionOf("flow.password.sign_up.existing")
+            throw recoverableBusinessExceptionOf(
+                detailsId = "flow.password.sign_up.existing",
+                descriptionId = "description.flow.password.sign_up.existing"
+            )
         }
     }
 }

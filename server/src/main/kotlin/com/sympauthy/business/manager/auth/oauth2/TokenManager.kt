@@ -10,7 +10,6 @@ import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.SERVER_ERROR
 import com.sympauthy.data.repository.AuthenticationTokenRepository
 import com.sympauthy.exception.LocalizedException
 import io.micronaut.transaction.annotation.Transactional
@@ -54,22 +53,18 @@ open class TokenManager(
             throw oauth2ExceptionOf(INVALID_GRANT, "token.expired", "description.oauth2.expired")
         }
 
-        val userId = authorizeAttempt.userId ?: throw oauth2ExceptionOf(
-            SERVER_ERROR, "token.attempt_missing_user"
-        )
-
         val deferredAccessToken = async {
-            accessTokenGenerator.generateAccessToken(authorizeAttempt, userId)
+            accessTokenGenerator.generateAccessToken(authorizeAttempt, authorizeAttempt.userId)
         }
         val deferredRefreshToken = async {
-            refreshTokenGenerator.generateRefreshToken(authorizeAttempt, userId)
+            refreshTokenGenerator.generateRefreshToken(authorizeAttempt, authorizeAttempt.userId)
         }
 
         val accessToken = deferredAccessToken.await()
         val deferredIdToken = async {
             idTokenGenerator.generateIdToken(
                 authorizeAttempt = authorizeAttempt,
-                userId = userId,
+                userId = authorizeAttempt.userId,
                 accessToken = accessToken
             )
         }
