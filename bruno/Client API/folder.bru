@@ -1,6 +1,5 @@
 meta {
-  name: Admin
-  seq: 1
+  name: Client API
 }
 
 auth {
@@ -8,20 +7,16 @@ auth {
 }
 
 auth:oauth2 {
-  grant_type: authorization_code
-  callback_url: https://example.com
-  authorization_url: {{serverUrl}}/api/oauth2/authorize
+  grant_type: client_credentials
   access_token_url: {{serverUrl}}/api/oauth2/token
   refresh_token_url: 
-  client_id: dev
+  client_id: {{clientId}}
   client_secret: {{clientSecret}}
-  scope: openid
-  state: 
-  pkce: false
+  scope: 
   credentials_placement: body
-  credentials_id: credentials
+  credentials_id: client
   token_placement: header
   token_header_prefix: Bearer
   auto_fetch_token: true
-  auto_refresh_token: true
+  auto_refresh_token: false
 }

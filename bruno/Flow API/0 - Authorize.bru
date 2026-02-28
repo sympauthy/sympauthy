@@ -1,0 +1,33 @@
+meta {
+  name: 0 - Authorize
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{serverUrl}}/api/oauth2/authorize?client_id={{clientId}}&redirect_uri=https://example.com&response_type=code
+  body: none
+  auth: none
+}
+
+params:query {
+  client_id: {{clientId}}
+  redirect_uri: https://example.com
+  response_type: code
+}
+
+script:post-response {
+  const location = res.getHeader('location');
+  if (location) {
+    const queryString = location.split('?')[1] || '';
+    const params = Object.fromEntries(queryString.split('&').map(p => p.split('=')));
+    bru.setVar('state', decodeURIComponent(params['state'] || ''));
+  }
+}
+
+settings {
+  encodeUrl: false
+  followRedirects: false
+  maxRedirects: 5
+  timeout: inherit
+}

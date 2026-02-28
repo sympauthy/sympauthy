@@ -122,9 +122,13 @@ http://localhost:8080/api/oauth2/authorize?client_id=dev&redirect_uri=https://ex
 
 A [Bruno](https://www.usebruno.com/) collection is available in the `bruno/` folder to test the API endpoints.
 
-Open the collection in Bruno, then set the `clientSecret` secret variable for the **Local** environment:
+Open the collection in Bruno, then configure the **Local** environment:
 
 1. Open the **Environments** panel and select **Local**
-2. Click on `clientSecret` and enter `my-secret` (or the value you configured in your `application.yml`)
+2. Set `clientId` to the ID of the OAuth2 client you want to test with (defaults to `dev` as configured above)
+3. Set the following secret variables:
+   - `clientSecret`: the secret of the OAuth2 client (defaults to `my-secret`)
+   - `login`: the login of the test user
+   - `password`: the password of the test user
 
 Bruno stores secret variable values locally and never writes them back to the collection files, so credentials are never committed to the repository.

@@ -1,0 +1,18 @@
+meta {
+  name: 1 - Sign In
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{serverUrl}}/api/v1/flow/sign-in
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "login": "{{login}}",
+    "password": "{{password}}"
+  }
+}
