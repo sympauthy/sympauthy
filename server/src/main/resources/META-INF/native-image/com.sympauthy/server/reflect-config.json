@@ -36,6 +36,15 @@
     ]
   },
   {
+    "name": "com.sympauthy.api.mapper.flow.ClaimsValidationFlowResultResourceMapperImpl",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
     "name": "com.sympauthy.api.mapper.flow.ClaimsResourceMapperImpl",
     "methods": [
       {
@@ -136,6 +145,15 @@
   },
   {
     "name": "com.sympauthy.business.mapper.UserMapperImpl",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sympauthy.business.mapper.ValidationCodeMapperImpl",
     "methods": [
       {
         "name": "<init>",
