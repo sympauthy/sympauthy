@@ -117,3 +117,14 @@ Open the following URL in your browser to access the authorization flow:
 ```
 http://localhost:8080/api/oauth2/authorize?client_id=dev&redirect_uri=https://example.com&response_type=code
 ```
+
+#### Bruno collection
+
+A [Bruno](https://www.usebruno.com/) collection is available in the `bruno/` folder to test the API endpoints.
+
+Open the collection in Bruno, then set the `clientSecret` secret variable for the **Local** environment:
+
+1. Open the **Environments** panel and select **Local**
+2. Click on `clientSecret` and enter `my-secret` (or the value you configured in your `application.yml`)
+
+Bruno stores secret variable values locally and never writes them back to the collection files, so credentials are never committed to the repository.
