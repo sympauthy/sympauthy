@@ -145,6 +145,14 @@ graalvmNative {
     }
 }
 
+kapt {
+    arguments {
+        // Configuration for Swagger
+        // https://micronaut-projects.github.io/micronaut-openapi/snapshot/guide/#swaggerui
+        arg("micronaut.openapi.views.spec", "swagger-ui.enabled=true,swagger-ui.theme=material,swagger-ui.spec.url=openapi.yml")
+    }
+}
+
 tasks {
     compileKotlin {
         compilerOptions {
