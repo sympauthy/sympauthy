@@ -1,0 +1,17 @@
+meta {
+  name: Authorize
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{serverUrl}}/api/oauth2/authorize?client_id=example&redirect_uri=https://example.com&response_type=code
+  body: none
+  auth: none
+}
+
+params:query {
+  client_id: example
+  redirect_uri: https://example.com
+  response_type: code
+}
