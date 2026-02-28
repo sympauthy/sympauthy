@@ -25,10 +25,6 @@ micronaut:
         http-method: GET
         access:
           - isAnonymous()
-      - pattern: /redoc/**
-        http-method: GET
-        access:
-          - isAnonymous()
 
   router:
     static-resources:
@@ -41,9 +37,6 @@ micronaut:
       swagger-ui:
         paths: classpath:META-INF/swagger/views/swagger-ui
         mapping: /swagger-ui/**
-      redoc:
-        paths: classpath:META-INF/swagger/views/redoc
-        mapping: /redoc/**
 
 netty:
   default:
