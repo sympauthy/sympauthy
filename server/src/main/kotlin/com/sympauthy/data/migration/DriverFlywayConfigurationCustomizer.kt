@@ -114,6 +114,9 @@ open class DriverFlywayConfigurationCustomizer(
      */
     private fun isResourceForDriver(resource: LoadableResource): Boolean {
         val resourcePath = Path.of(resource.absolutePath)
-        return resourcePath.parent.pathString == driver
+        if (resourcePath.parent == null) {
+            return false
+        }
+        return resourcePath.parent.fileName.pathString == driver
     }
 }
