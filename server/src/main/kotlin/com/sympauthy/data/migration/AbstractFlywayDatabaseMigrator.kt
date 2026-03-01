@@ -2,43 +2,74 @@ package com.sympauthy.data.migration
 
 import com.sympauthy.util.loggerForClass
 import io.micronaut.flyway.FlywayConfigurationProperties
+import jakarta.annotation.PostConstruct
 import org.flywaydb.core.api.Location
-import java.nio.file.Files
 import java.nio.file.Path
 import javax.sql.DataSource
+import kotlin.io.path.pathString
 
 /**
- * Migrate a SQL database using Flyway.
+ * Applies Flyway database migrations for a specific SQL [driver] (e.g. `postgresql`, `h2`).
  *
- * To support Graalvm, the migrations are not contained in the classpath but must be provided inside a directory.
+ * ## Migration script layout
  *
- * For each file system locations configured, this migrator will check if the configured directory does not
- * contain a directory specific to the driver. If it does, the specific directory will be used for the migration.
- * This is done in order to allow SympAuthy to ship migrations for all databases it supports.
+ * Scripts must live under `resources/databases/<driver>/` so that a single classpath can ship
+ * migrations for every supported database and each concrete migrator only picks up the scripts
+ * that match its own driver:
+ *
+ * ```
+ * resources/
+ *   databases/
+ *     postgresql/   ← picked up by PostgreSQLDatabaseMigrator (driver = "postgresql")
+ *       V1__init.sql
+ *     h2/           ← picked up by H2DatabaseMigration (driver = "h2")
+ *       V1__init.sql
+ * ```
+ *
+ * ## GraalVM native image
+ *
+ * Classpath resources are not automatically discoverable inside a native image binary.
+ * Every `databases/<driver>` location must therefore be declared explicitly in two places:
+ * - `resources/application.yml` under `flyway.datasources.default.locations`
+ * - `build.gradle.kts` as a `-Dflyway.datasources.default.locations` build argument for the
+ *   `nativeCompile` task, so Flyway can resolve them at build time.
+ *
+ * ## Startup ordering
+ *
+ * Concrete subclasses must be scoped with `@Context` (eager singleton). This guarantees that
+ * the [DataSource] dependency is initialised and migrations are fully applied before any other
+ * bean can interact with the database.
  */
 abstract class AbstractFlywayDatabaseMigrator(
     private val driver: String,
     private val dataSource: DataSource,
     private val configuration: FlywayConfigurationProperties
-) : DatabaseMigrator {
+) {
 
     private val logger = loggerForClass()
 
-    override val enabled: Boolean
-        get() = configuration.isEnabled
+    /**
+     * Initialize the migration of the database in the post construct to ensure migration
+     * are finished before any other code can use it.
+     */
+    @PostConstruct
+    fun init() {
+        migrate()
+    }
 
     /**
      * Run the database migrations.
-     *
-     * /!\ We do not use the AbstractFlywayMigration provided by micronaut-flyway to avoid it loading
-     * the feature for graalvm. The Feature will cause flyway to ignore all other locations.
      */
-    override fun migrate() {
+    fun migrate() {
         if (!configuration.isEnabled) {
             return
         }
 
-        val locations = getLocations() ?: return
+        val locations = getClassPathLocationsForDriver()
+        if (locations.isEmpty()) {
+            logger.error("No migration found for $driver.")
+        }
+
         val fluentConfiguration = configuration.fluentConfiguration.also {
             it.dataSource(dataSource)
             it.cleanDisabled(!configuration.isCleanSchema)
@@ -58,47 +89,32 @@ abstract class AbstractFlywayDatabaseMigrator(
         flyway.migrate()
     }
 
-    private fun getLocations(): List<Location>? {
-        val classPathLocations = configuration.fluentConfiguration.locations
+    /**
+     * Filter the configured Flyway locations to only return classpath locations that contain
+     * migrations for this [driver].
+     *
+     * A location is considered to target this driver if its last path segment matches [driver]
+     * (e.g. `classpath:databases/postgresql` matches driver `postgresql`).
+     * Regex-based locations are ignored since their path cannot be inspected reliably.
+     *
+     * Returns an empty list when no matching location is found.
+     */
+    private fun getClassPathLocationsForDriver(): List<Location> {
+        return configuration.fluentConfiguration.locations
             .filter { it.isClassPath }
-            .joinToString(",") { it.descriptor }
-        if (classPathLocations.isNotEmpty()) {
-            logger.error("Classpath location are not supported for database migration. Migrate the following locations to directories: $classPathLocations.")
-            return null
-        }
-
-        val fileSystemLocations = configuration.fluentConfiguration.locations
-            .filter { it.isFileSystem }
-            .map(this::getDriverSpecificLocation)
-            .toList()
-        val otherLocations = configuration.fluentConfiguration.locations
-            .filter { !it.isFileSystem }
-            .toList()
-
-        val locations = fileSystemLocations + otherLocations
-        if (locations.isEmpty()) {
-            logger.error("Classpath location are not supported for database migration. Migrate the following locations to directories: $classPathLocations.")
-            return null
-        }
-        return locations
+            .filter { isMigrationForDriver(it) }
     }
 
     /**
-     * Check if the [location] contains a directory specific to the [driver].
-     * In it does, the location will be changed to point to the specific directory instead.
-     * Otherwise, the location is returned without modification.
+     * Check if the [location] ends with a directory named like the [driver].
+     * Return true, means the location contains migration designed for the driver.
+     * False otherwise.
      */
-    private fun getDriverSpecificLocation(location: Location): Location {
-        // Do nothing if the location is a regex.
+    private fun isMigrationForDriver(location: Location): Boolean {
         if (location.pathRegex != null) {
-            return location
+            return false
         }
-
-        val specificDriverPath = Path.of(location.rootPath, driver)
-        return if (Files.isDirectory(specificDriverPath)) {
-            Location("${location.prefix}$specificDriverPath")
-        } else {
-            location
-        }
+        val locationPath = Path.of(location.rootPath)
+        return locationPath.lastOrNull()?.pathString == driver
     }
 }

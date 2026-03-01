@@ -109,6 +109,8 @@ dependencies {
     implementation("com.ezylang:EvalEx:${project.extra["evalExVersion"]}")
 
     // Testing
+    kspTest("io.micronaut:micronaut-inject-java")
+    testImplementation("io.micronaut.test:micronaut-test-junit5")
     testImplementation("org.junit.jupiter:junit-jupiter:${project.extra["junitJupiterVersion"]}")
     testImplementation("io.mockk:mockk:${project.extra["mockkVersion"]}")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:${project.extra["kotlinCoroutinesVersion"]}")
@@ -149,6 +151,9 @@ graalvmNative {
     binaries {
         named("main") {
             verbose.set(true)
+            // Classpaths for all supported databases must be listed under location and all terminate by the name of the driver: postgresql, h2
+            // https://micronaut-projects.github.io/micronaut-flyway/latest/guide/#graalvm
+            buildArgs.add("-Dflyway.locations=classpath:databases/postgresql,classpath:databases/h2")
         }
     }
 }
@@ -157,7 +162,10 @@ kapt {
     arguments {
         // Configuration for Swagger
         // https://micronaut-projects.github.io/micronaut-openapi/snapshot/guide/#swaggerui
-        arg("micronaut.openapi.views.spec", "swagger-ui.enabled=true,swagger-ui.theme=material,swagger-ui.spec.url=openapi.yml")
+        arg(
+            "micronaut.openapi.views.spec",
+            "swagger-ui.enabled=true,swagger-ui.theme=material,swagger-ui.spec.url=openapi.yml"
+        )
     }
 }
 
