@@ -1,6 +1,7 @@
 package com.sympauthy.data.h2
 
 import com.sympauthy.util.loggerForClass
+import io.micronaut.context.annotation.Context
 import io.micronaut.context.annotation.Factory
 import io.micronaut.context.annotation.Requires
 import io.r2dbc.h2.H2ConnectionConfiguration
@@ -9,7 +10,7 @@ import io.r2dbc.spi.ConnectionFactory
 import io.r2dbc.spi.ConnectionFactoryOptions
 import io.r2dbc.spi.ConnectionFactoryOptions.*
 import jakarta.inject.Inject
-import jakarta.inject.Singleton
+import jakarta.inject.Named
 import org.h2.jdbcx.JdbcDataSource
 import javax.sql.DataSource
 
@@ -31,7 +32,8 @@ class H2DefaultDataSourceFactory(
 
     private val log = loggerForClass()
 
-    @Singleton
+    @Context
+    @Named("default")
     fun provideDataSource(): DataSource {
         log.debug("Initializing H2 JDBC data source from R2DBC connection factory.")
         val connectionString = createJDBCConnectionString(connectionFactoryOptions)
