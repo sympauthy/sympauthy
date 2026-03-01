@@ -9,7 +9,7 @@ micronaut:
 
   server:
     cors:
-      enabled: true
+      enabled: false
 
   security:
     enabled: true
