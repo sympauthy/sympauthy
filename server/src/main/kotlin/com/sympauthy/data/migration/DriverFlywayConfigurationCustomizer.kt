@@ -1,8 +1,11 @@
 package com.sympauthy.data.migration
 
+import com.sympauthy.util.loggerForClass
 import io.micronaut.flyway.FlywayConfigurationCustomizer
 import org.flywaydb.core.api.Location
+import org.flywaydb.core.api.ResourceProvider
 import org.flywaydb.core.api.configuration.FluentConfiguration
+import org.flywaydb.core.api.resource.LoadableResource
 import java.nio.file.Path
 import kotlin.io.path.pathString
 
@@ -46,11 +49,19 @@ open class DriverFlywayConfigurationCustomizer(
     val driver: String,
 ) : FlywayConfigurationCustomizer {
 
+    private val logger = loggerForClass()
+
     override fun getName() = "default"
 
     override fun customizeFluentConfiguration(fluentConfiguration: FluentConfiguration) {
+        logger.info("Customizing Flyway configuration for $driver")
         val locations = getClassPathLocationsForDriver(fluentConfiguration)
         fluentConfiguration.locations(*locations.toTypedArray())
+
+        val resourceProvider = getResourceProviderForDriver(fluentConfiguration)
+        if (resourceProvider != null) {
+            fluentConfiguration.resourceProvider(resourceProvider)
+        }
     }
 
     /**
@@ -80,5 +91,29 @@ open class DriverFlywayConfigurationCustomizer(
         }
         val locationPath = Path.of(location.rootPath)
         return locationPath.lastOrNull()?.pathString == driver
+    }
+
+    private fun getResourceProviderForDriver(fluentConfiguration: FluentConfiguration): ResourceProvider? {
+        val resourceProvider = fluentConfiguration.resourceProvider ?: return null
+        return object : ResourceProvider {
+            override fun getResource(name: String) = resourceProvider.getResource(name)
+
+            override fun getResources(
+                prefix: String?,
+                suffixes: Array<out String?>?
+            ): Collection<LoadableResource>? {
+                return resourceProvider.getResources(prefix, suffixes)?.filter(this@DriverFlywayConfigurationCustomizer::isResourceForDriver)
+            }
+        }
+    }
+
+    /**
+     * Check if the [resource] contains a directory named like the [driver].
+     * Return true, means the resource is a migration designed for the driver.
+     * False otherwise.
+     */
+    private fun isResourceForDriver(resource: LoadableResource): Boolean {
+        val resourcePath = Path.of(resource.absolutePath)
+        return resourcePath.parent.pathString == driver
     }
 }
