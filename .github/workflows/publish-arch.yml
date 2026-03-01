@@ -1,8 +1,5 @@
 name: Build & Push SympAuthy docker image to GitHub Container Registry
 
-env:
-  JAVA_VERSION: 25
-
 on:
   workflow_call:
     inputs:
@@ -48,6 +45,18 @@ jobs:
           images: ${{ inputs.image }}
           tags: type=raw,value=${{ inputs.tag }}
 
+      - name: Extract Gradle version from wrapper
+        id: gradle-version
+        run: |
+          VERSION=$(grep -oP 'distributionUrl=.*gradle-\K[0-9]+(\.[0-9]+)+(?=-bin)' gradle/wrapper/gradle-wrapper.properties)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Extract Java version from build script
+        id: java-version
+        run: |
+          VERSION=$(grep -oP 'JavaVersion\.VERSION_\K[0-9]+' server/build.gradle.kts)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Create sympauthy-flow directory into resources
         run: mkdir -p server/src/main/resources/sympauthy-flow
 
@@ -69,4 +78,5 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             ARCH=${{ inputs.arch }}
-            JAVA_VERSION=${{ env.JAVA_VERSION }}
+            JAVA_VERSION=${{ steps.java-version.outputs.version }}
+            GRADLE_VERSION=${{ steps.gradle-version.outputs.version }}
