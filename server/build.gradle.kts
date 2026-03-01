@@ -92,7 +92,9 @@ dependencies {
     // API documentation
     // Must be above 6.3.0 to fix KSP issue: https://github.com/micronaut-projects/micronaut-openapi/issues/1154
     ksp("io.micronaut.openapi:micronaut-openapi")
-    compileOnly("io.micronaut.openapi:micronaut-openapi-annotations")
+    // Must be implementation (not compileOnly) so annotation classes are available at runtime.
+    // OpenApiController reads @OpenAPIDefinition via reflection to derive the generated spec filename.
+    implementation("io.micronaut.openapi:micronaut-openapi-annotations")
 
     // YAML: for configuration
     runtimeOnly("org.yaml:snakeyaml")

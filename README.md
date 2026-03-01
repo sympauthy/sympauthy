@@ -6,7 +6,7 @@ An open-source, self-hosted authorization server.
 
 ### Requirements
 
-- JDK 21
+- **JDK**: Oracle GraalVM 25
 
 ### Create the application configuration
 
@@ -102,13 +102,44 @@ MICRONAUT_CONFIG_FILES=$(pwd)/config/application.yml MICRONAUT_ENVIRONMENTS=defa
 #### IntelliJ
 
 Add a new **Micronaut** configuration:
-- **Name**: Application
+- **Name**: JVM - Application
 - **Main class**: com.sympauthy.Application
 - **Classpath**: sympauthy.server.main
 - **Working directory**: $ProjectFileDir$
 - **Environment variables**:
   - **MICRONAUT_ENVIRONMENTS**: default
   - **MICRONAUT_CONFIG_FILES**: config/application.yml
+
+### Build and run the native image locally
+
+#### Requirements
+
+- GraalVM 25
+
+#### Gradle
+
+```bash
+./gradlew nativeCompile
+MICRONAUT_CONFIG_FILES=$(pwd)/config/application.yml MICRONAUT_ENVIRONMENTS=default ./server/build/native/nativeCompile/server
+```
+
+#### IntelliJ
+
+Open the **Gradle** window and double-click on **sympauthy > server > Tasks > build > nativeCompile**.
+It should create a new configuration that you can rename into: Native - Compile.
+
+Then add a new **Shell script** configuration:
+- **Name**: Native - Application
+- **Execute**: Script Text
+- **Script text**: MICRONAUT_CONFIG_FILES=config/application.yml MICRONAUT_ENVIRONMENTS=default ./server/build/native/nativeCompile/server
+- **Working directory**: $ProjectFileDir$
+- **Execute in Terminal**: Unchecked
+
+Then click on **Add** button in the **Before launch** section:
+- Select a **Run another configuration**
+- Select the Gradle configuration we have created.
+
+> Native compilation is slow. You may create an additional configuration without the Before launch to only run the previous build.
 
 ### Test the application
 
