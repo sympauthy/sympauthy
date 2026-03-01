@@ -1,15 +1,13 @@
 package com.sympauthy.data.migration
 
-import com.sympauthy.util.loggerForClass
-import io.micronaut.flyway.FlywayConfigurationProperties
-import jakarta.annotation.PostConstruct
+import io.micronaut.flyway.FlywayConfigurationCustomizer
 import org.flywaydb.core.api.Location
+import org.flywaydb.core.api.configuration.FluentConfiguration
 import java.nio.file.Path
-import javax.sql.DataSource
 import kotlin.io.path.pathString
 
 /**
- * Applies Flyway database migrations for a specific SQL [driver] (e.g. `postgresql`, `h2`).
+ * Customize the configuration of Flyway to only keep locations containing script designed for the [driver].
  *
  * ## Migration script layout
  *
@@ -34,59 +32,25 @@ import kotlin.io.path.pathString
  * - `build.gradle.kts` as a `-Dflyway.datasources.default.locations` build argument for the
  *   `nativeCompile` task, so Flyway can resolve them at build time.
  *
- * ## Startup ordering
+ * ## Implementation
  *
- * Concrete subclasses must be scoped with `@Context` (eager singleton). This guarantees that
- * the [DataSource] dependency is initialised and migrations are fully applied before any other
- * bean can interact with the database.
+ * Each supported driver must have its own singleton extending this class. Ex. for PG:
+ *
+ * ```
+ * @Singleton
+ * @Requires(condition = DefaultDataSourceIsPostgreSQL::class)
+ * class PostgreSQLFlywayConfigurationCustomizer: DriverFlywayConfigurationCustomizer("postgresql")
+ * ```
  */
-abstract class AbstractFlywayDatabaseMigrator(
-    private val driver: String,
-    private val dataSource: DataSource,
-    private val configuration: FlywayConfigurationProperties
-) {
+open class DriverFlywayConfigurationCustomizer(
+    val driver: String,
+) : FlywayConfigurationCustomizer {
 
-    private val logger = loggerForClass()
+    override fun getName() = "default"
 
-    /**
-     * Initialize the migration of the database in the post construct to ensure migration
-     * are finished before any other code can use it.
-     */
-    @PostConstruct
-    fun init() {
-        migrate()
-    }
-
-    /**
-     * Run the database migrations.
-     */
-    fun migrate() {
-        if (!configuration.isEnabled) {
-            return
-        }
-
-        val locations = getClassPathLocationsForDriver()
-        if (locations.isEmpty()) {
-            logger.error("No migration found for $driver.")
-        }
-
-        val fluentConfiguration = configuration.fluentConfiguration.also {
-            it.dataSource(dataSource)
-            it.cleanDisabled(!configuration.isCleanSchema)
-            it.configuration(configuration.properties)
-            it.locations(*locations.toTypedArray())
-        }
-
-        val flyway = fluentConfiguration.load()
-        if (configuration.isCleanSchema) {
-            logger.info("Cleaning schema for ${configuration.nameQualifier} database.")
-            flyway.clean()
-        }
-
-        fluentConfiguration.locations.joinToString(", ") { it.descriptor }.let {
-            logger.info("Running migrations for ${configuration.nameQualifier} database and found at following locations: $it")
-        }
-        flyway.migrate()
+    override fun customizeFluentConfiguration(fluentConfiguration: FluentConfiguration) {
+        val locations = getClassPathLocationsForDriver(fluentConfiguration)
+        fluentConfiguration.locations(*locations.toTypedArray())
     }
 
     /**
@@ -99,8 +63,8 @@ abstract class AbstractFlywayDatabaseMigrator(
      *
      * Returns an empty list when no matching location is found.
      */
-    private fun getClassPathLocationsForDriver(): List<Location> {
-        return configuration.fluentConfiguration.locations
+    private fun getClassPathLocationsForDriver(fluentConfiguration: FluentConfiguration): List<Location> {
+        return fluentConfiguration.locations
             .filter { it.isClassPath }
             .filter { isMigrationForDriver(it) }
     }

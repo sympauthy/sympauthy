@@ -3,6 +3,7 @@ package com.sympauthy.data.postgresql
 import com.sympauthy.data.postgresql.util.PostgresqlConnectionConfigurationProxy
 import com.sympauthy.data.postgresql.util.configurationProxy
 import com.sympauthy.util.loggerForClass
+import io.micronaut.context.annotation.Context
 import io.micronaut.context.annotation.Factory
 import io.micronaut.context.annotation.Requires
 import io.r2dbc.postgresql.PostgresqlConnectionFactory
@@ -10,7 +11,7 @@ import io.r2dbc.postgresql.client.MultiHostConfiguration
 import io.r2dbc.postgresql.client.SingleHostConfiguration
 import io.r2dbc.spi.ConnectionFactory
 import jakarta.inject.Inject
-import jakarta.inject.Singleton
+import jakarta.inject.Named
 import kotlinx.coroutines.reactive.awaitFirst
 import kotlinx.coroutines.runBlocking
 import org.postgresql.ds.PGSimpleDataSource
@@ -30,7 +31,8 @@ class PostgreSQLDefaultDataSourceFactory(
 
     private val log = loggerForClass()
 
-    @Singleton
+    @Context
+    @Named("default")
     fun provideDataSource(): DataSource? {
         return if (connectionFactory is PostgresqlConnectionFactory) {
             log.debug("Initializing PostgreSQL JDBC data source from R2DBC connection factory.")
