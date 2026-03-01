@@ -1,5 +1,14 @@
 [
   {
+    "name": "ch.qos.logback.core.status.NopStatusListener",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
     "name": "com.sympauthy.api.mapper.CollectedClaimUpdateMapperImpl",
     "methods": [
       {
