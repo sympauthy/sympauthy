@@ -16,7 +16,13 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:${project.extra["kotlinCoroutinesVersion"]}")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-rx3:${project.extra["kotlinCoroutinesVersion"]}")
     implementation("io.micronaut.kotlin:micronaut-kotlin-runtime")
-    implementation("io.micronaut.kotlin:micronaut-kotlin-extension-functions")
+    implementation("io.micronaut.kotlin:micronaut-kotlin-extension-functions") {
+        // micronaut-kotlin-extension-functions transitively pulls in micronaut-jackson-databind, which ships a
+        // GraalVM JacksonDatabindFeature referencing PropertyNamingStrategy$UpperCamelCaseStrategy — an inner class
+        // removed in Jackson 2.21. Since this project uses micronaut-serde-jackson, micronaut-jackson-databind is
+        // not needed and must be excluded to allow the native image build to succeed.
+        exclude(group = "io.micronaut", module = "micronaut-jackson-databind")
+    }
 
     // Micronaut
     implementation("io.micronaut:micronaut-runtime")
