@@ -53,12 +53,17 @@ endpoints:
     jdbc:
       enabled: false
 
+# Classpaths for all supported databases must be listed under location and all terminate by the name of the driver: postgresql, h2
+# They should also be listed in the build.gradle.kts, in the graalvmNative configuration.
+# See https://micronaut-projects.github.io/micronaut-flyway/latest/guide/#graalvm
 flyway:
+  enabled: true
   datasources:
     default:
       enabled: true
       locations:
-        - filesystem:./databases
+        - classpath:databases/postgresql
+        - classpath:databases/h2
 
 # Disable otherwise JavaMailConfiguration is created empty, which causes problems to detect if mails are in-fact enabled.
 # As soon as it is enabled, it will cause the application to fail with the following message if the rest of the

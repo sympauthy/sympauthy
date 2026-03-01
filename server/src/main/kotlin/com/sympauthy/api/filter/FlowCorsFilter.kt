@@ -53,7 +53,7 @@ class FlowCorsFilter(
     @Inject private val authorizationFlowManager: AuthorizationFlowManager
 ) : HttpServerFilter, Ordered {
 
-    override fun getOrder(): Int = ServerFilterPhase.SECURITY.before()
+    override fun getOrder(): Int = ServerFilterPhase.FIRST.before()
 
     private val allowedOrigins: Set<String> by lazy { buildAllowedOrigins() }
 
