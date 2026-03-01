@@ -2,6 +2,10 @@
 
 An open-source, self-hosted authorization server.
 
+## Getting started
+
+To get started with SympAuthy, please refer to the [Getting Started guide](https://sympauthy.github.io/getting-started/).
+
 ## Setting up the application for local development
 
 ### Requirements
@@ -111,10 +115,6 @@ Add a new **Micronaut** configuration:
   - **MICRONAUT_CONFIG_FILES**: config/application.yml
 
 ### Build and run the native image locally
-
-#### Requirements
-
-- GraalVM 25
 
 #### Gradle
 
