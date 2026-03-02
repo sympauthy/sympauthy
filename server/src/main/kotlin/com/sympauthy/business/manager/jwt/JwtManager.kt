@@ -91,7 +91,7 @@ class JwtManager(
      * Return the key ID embedded in the [token] header without verifying the signature, or null if the token
      * is malformed or carries no key ID.
      */
-    fun getKeyId(token: String): String? {
+    fun getKeyIdOrNull(token: String): String? {
         return try {
             JWT.decode(token).keyId
         } catch (e: JWTDecodeException) {

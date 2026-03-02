@@ -265,7 +265,7 @@ class TokenManagerTest {
     @Test
     fun `revokeTokenByEncodedToken - Does not throw when token cannot be decoded`() = runTest {
         val client = mockk<Client>()
-        every { jwtManager.getKeyId("invalid") } returns null
+        every { jwtManager.getKeyIdOrNull("invalid") } returns null
 
         tokenManager.revokeTokenByEncodedToken(client, "invalid", null)
     }
@@ -278,7 +278,7 @@ class TokenManagerTest {
         val token = mockk<AuthenticationToken>()
 
         every { client.id } returns "client-a"
-        every { jwtManager.getKeyId("token") } returns PUBLIC_KEY
+        every { jwtManager.getKeyIdOrNull("token") } returns PUBLIC_KEY
         coEvery { jwtManager.decodeAndVerifyOrNull(PUBLIC_KEY, "token") } returns decodedToken
         every { decodedToken.id } returns tokenId.toString()
         coEvery { tokenManager.findById(tokenId) } returns token
@@ -299,7 +299,7 @@ class TokenManagerTest {
         val token = mockk<AuthenticationToken>()
 
         every { client.id } returns clientId
-        every { jwtManager.getKeyId("token") } returns PUBLIC_KEY
+        every { jwtManager.getKeyIdOrNull("token") } returns PUBLIC_KEY
         coEvery { jwtManager.decodeAndVerifyOrNull(PUBLIC_KEY, "token") } returns decodedToken
         every { decodedToken.id } returns tokenId.toString()
         coEvery { tokenManager.findById(tokenId) } returns token

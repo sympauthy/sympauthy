@@ -141,7 +141,7 @@ open class TokenManager(
         val decodedToken = when (tokenTypeHint) {
             "access_token" -> jwtManager.decodeAndVerifyOrNull(PUBLIC_KEY,  encodedToken)
             "refresh_token" -> jwtManager.decodeAndVerifyOrNull(REFRESH_KEY, encodedToken)
-            else -> when (jwtManager.getKeyId(encodedToken)) {
+            else -> when (jwtManager.getKeyIdOrNull(encodedToken)) {
                 PUBLIC_KEY -> jwtManager.decodeAndVerifyOrNull(PUBLIC_KEY, encodedToken)
                 REFRESH_KEY -> jwtManager.decodeAndVerifyOrNull(REFRESH_KEY, encodedToken)
                 else -> null
