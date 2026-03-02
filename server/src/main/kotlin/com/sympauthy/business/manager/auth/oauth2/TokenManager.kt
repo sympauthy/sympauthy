@@ -3,7 +3,9 @@ package com.sympauthy.business.manager.auth.oauth2
 import com.auth0.jwt.interfaces.DecodedJWT
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.manager.jwt.JwtManager
+import com.sympauthy.business.manager.jwt.JwtManager.Companion.PUBLIC_KEY
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.REFRESH_KEY
+import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
 import com.sympauthy.business.mapper.AuthenticationTokenMapper
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.AuthenticationToken
@@ -118,6 +120,47 @@ open class TokenManager(
             refreshToken.expirationDate == null -> false
             accessToken.expirationDate == null || refreshToken.expirationDate.isBefore(accessToken.expirationDate) -> true
             else -> false
+        }
+    }
+
+    /**
+     * Decode and revoke the [encodedToken] issued to [client].
+     *
+     * Per RFC 7009, this method does not throw if the token is invalid, expired, already revoked, or not found.
+     * Only tokens owned by [client] are revoked.
+     *
+     * If the token is a refresh token, all tokens associated to the same session ([AuthenticationToken.authorizeAttemptId])
+     * are revoked as well (cascading revocation).
+     */
+    @Transactional
+    open suspend fun revokeTokenByEncodedToken(
+        client: Client,
+        encodedToken: String,
+        tokenTypeHint: String?
+    ) {
+        val decodedToken = when (tokenTypeHint) {
+            "access_token" -> jwtManager.decodeAndVerifyOrNull(PUBLIC_KEY,  encodedToken)
+            "refresh_token" -> jwtManager.decodeAndVerifyOrNull(REFRESH_KEY, encodedToken)
+            else -> when (jwtManager.getKeyIdOrNull(encodedToken)) {
+                PUBLIC_KEY -> jwtManager.decodeAndVerifyOrNull(PUBLIC_KEY, encodedToken)
+                REFRESH_KEY -> jwtManager.decodeAndVerifyOrNull(REFRESH_KEY, encodedToken)
+                else -> null
+            }
+        } ?: return
+
+        val tokenId = try {
+            UUID.fromString(decodedToken.id)
+        } catch (e: IllegalArgumentException) {
+            return
+        }
+
+        val token = findById(tokenId) ?: return
+        if (token.clientId != client.id) return
+
+        if (token.type == REFRESH && token.authorizeAttemptId != null) {
+            tokenRepository.updateRevokedByAuthorizeAttemptId(token.authorizeAttemptId, true)
+        } else {
+            tokenRepository.updateRevokedById(token.id, true)
         }
     }
 

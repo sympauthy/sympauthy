@@ -1,0 +1,22 @@
+meta {
+  name: Revoke
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{serverUrl}}/api/oauth2/revoke
+  body: formUrlEncoded
+  auth: inherit
+}
+
+body:form-urlencoded {
+  client_id: {{clientId}}
+  client_secret: {{clientSecret}}
+  token: test
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

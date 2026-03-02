@@ -6,5 +6,7 @@ import java.util.*
 
 interface AuthenticationTokenRepository : CoroutineCrudRepository<AuthenticationTokenEntity, UUID> {
 
-    fun updateRevokedById(id: UUID, revoked: Boolean)
+    suspend fun updateRevokedById(id: UUID, revoked: Boolean)
+
+    suspend fun updateRevokedByAuthorizeAttemptId(authorizeAttemptId: UUID, revoked: Boolean)
 }

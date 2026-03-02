@@ -88,6 +88,18 @@ class JwtManager(
     }
 
     /**
+     * Return the key ID embedded in the [token] header without verifying the signature, or null if the token
+     * is malformed or carries no key ID.
+     */
+    fun getKeyIdOrNull(token: String): String? {
+        return try {
+            JWT.decode(token).keyId
+        } catch (e: JWTDecodeException) {
+            null
+        }
+    }
+
+    /**
      * Return the [PUBLIC_KEY] key set used to sign access tokens and id tokens.
      *
      * The key set only includes the public key as the private key must remain known only by the authorization server.
