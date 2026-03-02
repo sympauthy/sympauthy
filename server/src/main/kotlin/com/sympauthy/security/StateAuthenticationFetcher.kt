@@ -1,5 +1,6 @@
 package com.sympauthy.security
 
+import io.micronaut.http.HttpMethod
 import io.micronaut.http.HttpRequest
 import io.micronaut.security.authentication.Authentication
 import io.micronaut.security.filters.AuthenticationFetcher
@@ -22,8 +23,14 @@ class StateAuthenticationFetcher : AuthenticationFetcher<HttpRequest<*>> {
                 return@publish
             }
 
-            val state = request.parameters["state"]?.let {
-                if (it.isNotBlank()) it else null
+            val state = if (request.method == HttpMethod.POST) {
+                request.headers.authorization
+                    ?.orElse(null)
+                    ?.takeIf { it.startsWith("State ") }
+                    ?.removePrefix("State ")
+                    ?.takeIf { it.isNotBlank() }
+            } else {
+                request.parameters["state"]?.takeIf { it.isNotBlank() }
             }
             this.send(StateAuthentication(state))
         }

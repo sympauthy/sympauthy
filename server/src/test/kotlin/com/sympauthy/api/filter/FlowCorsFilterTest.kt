@@ -20,8 +20,7 @@ class FlowCorsFilterTest : AbstractFlowIntegrationTest() {
 
     @Test
     fun `OPTIONS preflight with allowed origin returns 200 with full CORS headers`() {
-        val state = createAuthorizeAttempt()
-        val request = HttpRequest.OPTIONS<Any>("$postPath?state=$state")
+        val request = HttpRequest.OPTIONS<Any>(postPath)
             .header(HttpHeaders.ORIGIN, allowedOrigin)
             .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, HttpMethod.POST)
 
@@ -36,8 +35,7 @@ class FlowCorsFilterTest : AbstractFlowIntegrationTest() {
 
     @Test
     fun `OPTIONS preflight with unknown origin returns 200 without CORS headers`() {
-        val state = createAuthorizeAttempt()
-        val request = HttpRequest.OPTIONS<Any>("$postPath?state=$state")
+        val request = HttpRequest.OPTIONS<Any>(postPath)
             .header(HttpHeaders.ORIGIN, unknownOrigin)
             .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, HttpMethod.POST)
 

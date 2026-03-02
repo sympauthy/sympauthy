@@ -9,7 +9,7 @@ class StateAuthentication(
     override fun getName(): String = state ?: ""
 
     override fun getRoles(): Collection<String> {
-        return listOf(HAS_STATE)
+        return if (state != null) listOf(HAS_STATE) else emptyList()
     }
 
     override fun getAttributes(): Map<String, Any> {

@@ -7,7 +7,13 @@ meta {
 post {
   url: {{serverUrl}}/api/v1/flow/sign-in
   body: json
-  auth: inherit
+  auth: apikey
+}
+
+auth:apikey {
+  key: Authorization
+  value: State {{state}}
+  placement: header
 }
 
 body:json {
