@@ -35,6 +35,8 @@ abstract class AbstractFlowIntegrationTest {
     @field:Client("/")
     lateinit var httpClient: HttpClient
 
+    fun stateAuthorizationHeader(state: String): String = "State $state"
+
     fun createAuthorizeAttempt(): String {
         val config = DefaultHttpClientConfiguration()
         config.isFollowRedirects = false
