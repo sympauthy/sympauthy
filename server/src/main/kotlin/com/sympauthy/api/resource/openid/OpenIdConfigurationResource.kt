@@ -25,6 +25,8 @@ data class OpenIdConfigurationResource(
     val jwksUri: String,
     @get:JsonProperty("registration_endpoint")
     val registrationEndpoint: String? = null,
+    @get:JsonProperty("revocation_endpoint")
+    val revocationEndpoint: String? = null,
     @get:JsonProperty("scopes_supported")
     val scopesSupported: List<String>? = null,
     @get:JsonProperty("response_types_supported")

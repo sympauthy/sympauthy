@@ -3,15 +3,19 @@ package com.sympauthy.business.manager.auth.oauth2
 import com.auth0.jwt.interfaces.DecodedJWT
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.business.manager.jwt.JwtManager
+import com.sympauthy.business.manager.jwt.JwtManager.Companion.PUBLIC_KEY
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.REFRESH_KEY
 import com.sympauthy.business.mapper.AuthenticationTokenMapper
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.AuthenticationToken
+import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
+import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.data.repository.AuthenticationTokenRepository
 import com.sympauthy.exception.localizedExceptionOf
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
@@ -256,5 +260,104 @@ class TokenManagerTest {
         every { token.revoked } returns false
 
         assertSame(token, tokenManager.getAuthenticationToken(decodedToken))
+    }
+
+    @Test
+    fun `revokeTokenByEncodedToken - Does not throw when token cannot be decoded`() = runTest {
+        val client = mockk<Client>()
+        every { jwtManager.getKeyId("invalid") } returns null
+
+        tokenManager.revokeTokenByEncodedToken(client, "invalid", null)
+    }
+
+    @Test
+    fun `revokeTokenByEncodedToken - Does not revoke when token belongs to another client`() = runTest {
+        val tokenId = UUID.randomUUID()
+        val client = mockk<Client>()
+        val decodedToken = mockk<DecodedJWT>()
+        val token = mockk<AuthenticationToken>()
+
+        every { client.id } returns "client-a"
+        every { jwtManager.getKeyId("token") } returns PUBLIC_KEY
+        coEvery { jwtManager.decodeAndVerifyOrNull(PUBLIC_KEY, "token") } returns decodedToken
+        every { decodedToken.id } returns tokenId.toString()
+        coEvery { tokenManager.findById(tokenId) } returns token
+        every { token.clientId } returns "client-b"
+
+        tokenManager.revokeTokenByEncodedToken(client, "token", null)
+
+        coVerify(exactly = 0) { tokenRepository.updateRevokedById(any(), any()) }
+        coVerify(exactly = 0) { tokenRepository.updateRevokedByAuthorizeAttemptId(any(), any()) }
+    }
+
+    @Test
+    fun `revokeTokenByEncodedToken - Revokes access token`() = runTest {
+        val clientId = "client-a"
+        val tokenId = UUID.randomUUID()
+        val client = mockk<Client>()
+        val decodedToken = mockk<DecodedJWT>()
+        val token = mockk<AuthenticationToken>()
+
+        every { client.id } returns clientId
+        every { jwtManager.getKeyId("token") } returns PUBLIC_KEY
+        coEvery { jwtManager.decodeAndVerifyOrNull(PUBLIC_KEY, "token") } returns decodedToken
+        every { decodedToken.id } returns tokenId.toString()
+        coEvery { tokenManager.findById(tokenId) } returns token
+        every { token.clientId } returns clientId
+        every { token.type } returns ACCESS
+        every { token.id } returns tokenId
+        coEvery { tokenRepository.updateRevokedById(tokenId, true) } returns Unit
+
+        tokenManager.revokeTokenByEncodedToken(client, "token", null)
+
+        coVerify(exactly = 1) { tokenRepository.updateRevokedById(tokenId, true) }
+    }
+
+    @Test
+    fun `revokeTokenByEncodedToken - Cascades revocation for refresh token`() = runTest {
+        val clientId = "client-a"
+        val tokenId = UUID.randomUUID()
+        val attemptId = UUID.randomUUID()
+        val client = mockk<Client>()
+        val decodedToken = mockk<DecodedJWT>()
+        val token = mockk<AuthenticationToken>()
+
+        every { client.id } returns clientId
+        coEvery { jwtManager.decodeAndVerifyOrNull(REFRESH_KEY, "token") } returns decodedToken
+        every { decodedToken.id } returns tokenId.toString()
+        coEvery { tokenManager.findById(tokenId) } returns token
+        every { token.clientId } returns clientId
+        every { token.type } returns REFRESH
+        every { token.authorizeAttemptId } returns attemptId
+        coEvery { tokenRepository.updateRevokedByAuthorizeAttemptId(attemptId, true) } returns Unit
+
+        tokenManager.revokeTokenByEncodedToken(client, "token", "refresh_token")
+
+        coVerify(exactly = 1) { tokenRepository.updateRevokedByAuthorizeAttemptId(attemptId, true) }
+        coVerify(exactly = 0) { tokenRepository.updateRevokedById(any(), any()) }
+    }
+
+    @Test
+    fun `revokeTokenByEncodedToken - Tries refresh key first when hint is refresh_token`() = runTest {
+        val client = mockk<Client>()
+        val decodedToken = mockk<DecodedJWT>()
+        val clientId = "client-a"
+        val tokenId = UUID.randomUUID()
+        val token = mockk<AuthenticationToken>()
+
+        every { client.id } returns clientId
+        coEvery { jwtManager.decodeAndVerifyOrNull(REFRESH_KEY, "token") } returns decodedToken
+        every { decodedToken.id } returns tokenId.toString()
+        coEvery { tokenManager.findById(tokenId) } returns token
+        every { token.clientId } returns clientId
+        every { token.type } returns REFRESH
+        every { token.authorizeAttemptId } returns null
+        every { token.id } returns tokenId
+        coEvery { tokenRepository.updateRevokedById(tokenId, true) } returns Unit
+
+        tokenManager.revokeTokenByEncodedToken(client, "token", "refresh_token")
+
+        coVerify(exactly = 0) { jwtManager.decodeAndVerifyOrNull(PUBLIC_KEY, any()) }
+        coVerify(exactly = 1) { jwtManager.decodeAndVerifyOrNull(REFRESH_KEY, "token") }
     }
 }
