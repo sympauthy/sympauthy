@@ -54,6 +54,11 @@ class WebAuthorizationFlowRedirectUriBuilder(
                     uri = flow.signInUri
                 )
 
+                status.missingMfa -> appendStateToUri(
+                    authorizeAttempt = authorizeAttempt,
+                    uri = flow.mfaUri ?: throw internalBusinessExceptionOf("flow.mfa.uri.missing")
+                )
+
                 status.missingRequiredClaims -> appendStateToUri(
                     authorizeAttempt = authorizeAttempt,
                     uri = flow.collectClaimsUri

@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager.flow.mfa
 
 import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.user.User
@@ -25,6 +26,9 @@ class WebAuthorizationFlowTotpChallengeManagerTest {
     @MockK
     lateinit var totpManager: TotpManager
 
+    @MockK
+    lateinit var authorizeAttemptManager: AuthorizeAttemptManager
+
     @InjectMockKs
     lateinit var manager: WebAuthorizationFlowTotpChallengeManager
 
@@ -35,12 +39,15 @@ class WebAuthorizationFlowTotpChallengeManagerTest {
     // --- validateTotpChallenge ---
 
     @Test
-    fun `validateTotpChallenge - Returns attempt unchanged when code is valid`() = runTest {
+    fun `validateTotpChallenge - Records mfaPassedDate and returns updated attempt when code is valid`() = runTest {
+        val updatedAttempt = mockk<OnGoingAuthorizeAttempt>()
         coEvery { totpManager.isCodeValidForUser(userId, "123456") } returns true
+        coEvery { authorizeAttemptManager.setMfaPassed(authorizeAttempt) } returns updatedAttempt
 
         val result = manager.validateTotpChallenge(authorizeAttempt, user, "123456")
 
-        assertSame(authorizeAttempt, result)
+        assertSame(updatedAttempt, result)
+        coVerify(exactly = 1) { authorizeAttemptManager.setMfaPassed(authorizeAttempt) }
     }
 
     @Test
@@ -52,6 +59,7 @@ class WebAuthorizationFlowTotpChallengeManagerTest {
         assertEquals("flow.mfa.totp.challenge.invalid_code", exception.detailsId)
         assertTrue(exception.recoverable)
         coVerify(exactly = 0) { totpManager.isCodeValidForUser(any(), any()) }
+        coVerify(exactly = 0) { authorizeAttemptManager.setMfaPassed(any()) }
     }
 
     @Test
@@ -63,6 +71,7 @@ class WebAuthorizationFlowTotpChallengeManagerTest {
         assertEquals("flow.mfa.totp.challenge.invalid_code", exception.detailsId)
         assertTrue(exception.recoverable)
         coVerify(exactly = 0) { totpManager.isCodeValidForUser(any(), any()) }
+        coVerify(exactly = 0) { authorizeAttemptManager.setMfaPassed(any()) }
     }
 
     @Test
@@ -75,5 +84,6 @@ class WebAuthorizationFlowTotpChallengeManagerTest {
 
         assertEquals("flow.mfa.totp.challenge.invalid_code", exception.detailsId)
         assertTrue(exception.recoverable)
+        coVerify(exactly = 0) { authorizeAttemptManager.setMfaPassed(any()) }
     }
 }

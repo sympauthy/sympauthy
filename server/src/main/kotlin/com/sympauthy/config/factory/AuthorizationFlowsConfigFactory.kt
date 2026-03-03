@@ -122,6 +122,18 @@ class AuthorizationFlowsConfigFactory(
             null
         }
 
+        val mfaUri = properties.mfa?.let {
+            try {
+                getWebAuthenticationFlowUri(
+                    properties, "$AUTHORIZATION_FLOWS_KEY.${properties.id}.mfa", rootUri,
+                    AuthorizationFlowConfigurationProperties::mfa
+                )
+            } catch (e: ConfigurationException) {
+                flowErrors.add(e)
+                null
+            }
+        }
+
         val mfaTotpEnrollUri = properties.mfaTotpEnroll?.let {
             try {
                 getWebAuthenticationFlowUri(
@@ -153,6 +165,7 @@ class AuthorizationFlowsConfigFactory(
                 collectClaimsUri = collectClaimsUri!!,
                 validateClaimsUri = validateClaimsUri!!,
                 errorUri = errorUri!!,
+                mfaUri = mfaUri,
                 mfaTotpEnrollUri = mfaTotpEnrollUri,
                 mfaTotpChallengeUri = mfaTotpChallengeUri,
             )

@@ -19,6 +19,7 @@ class AuthorizationFlowConfigurationProperties(
     var error: String? = null
 
     // Properties for MFA steps (optional; only required when MFA is enabled)
+    var mfa: String? = null
     var mfaTotpEnroll: String? = null
     var mfaTotpChallenge: String? = null
 

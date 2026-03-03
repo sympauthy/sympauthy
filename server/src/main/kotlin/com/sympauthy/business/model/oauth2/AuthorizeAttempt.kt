@@ -67,6 +67,11 @@ class OnGoingAuthorizeAttempt(
      */
     val grantedScopes: List<String>?,
     /**
+     * When the end-user successfully completed the MFA step for this authorization attempt.
+     * Null if MFA has not been completed yet.
+     */
+    val mfaPassedDate: LocalDateTime? = null,
+    /**
      * When the user initiated the authentication.
      */
     val attemptDate: LocalDateTime,
@@ -75,9 +80,15 @@ class OnGoingAuthorizeAttempt(
     authorizationFlowId = authorizationFlowId,
     expirationDate = expirationDate
 ) {
+    /**
+     * True if the end-user has successfully completed the MFA step for this authorization attempt.
+     */
+    val mfaPassed: Boolean get() = mfaPassedDate != null
+
     fun copy(
         userId: UUID? = null,
-        grantedScopes: List<String>? = null
+        grantedScopes: List<String>? = null,
+        mfaPassedDate: LocalDateTime? = null
     ) = OnGoingAuthorizeAttempt(
         id = this.id,
         authorizationFlowId = this.authorizationFlowId,
@@ -89,6 +100,7 @@ class OnGoingAuthorizeAttempt(
         nonce = this.nonce,
         userId = userId ?: this.userId,
         grantedScopes = grantedScopes ?: this.grantedScopes,
+        mfaPassedDate = mfaPassedDate ?: this.mfaPassedDate,
         attemptDate = this.attemptDate
     )
 }

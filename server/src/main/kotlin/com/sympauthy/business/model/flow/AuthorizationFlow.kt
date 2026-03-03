@@ -54,6 +54,13 @@ class WebAuthorizationFlow(
      */
     val errorUri: URI,
     /**
+     * [URI] of the MFA router page.
+     * The end-user is redirected here when MFA is required. That page calls GET /api/v1/flow/mfa
+     * to determine which MFA sub-step to present next (enrollment or challenge).
+     * Null if MFA is not configured for this flow.
+     */
+    val mfaUri: URI? = null,
+    /**
      * [URI] of the page allowing the user to enroll a TOTP authenticator app.
      * Null if MFA via TOTP is not configured for this flow.
      */

@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager.flow.mfa
 
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
+import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
@@ -10,7 +11,8 @@ import jakarta.inject.Singleton
 
 @Singleton
 class WebAuthorizationFlowTotpChallengeManager(
-    @Inject private val totpManager: TotpManager
+    @Inject private val totpManager: TotpManager,
+    @Inject private val authorizeAttemptManager: AuthorizeAttemptManager
 ) {
 
     /**
@@ -20,7 +22,8 @@ class WebAuthorizationFlowTotpChallengeManager(
      * - the [code] is null or blank.
      * - the [code] does not match any of the user's confirmed TOTP enrollments.
      *
-     * Returns the [authorizeAttempt] unchanged on success.
+     * On success, records [com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt.mfaPassedDate]
+     * on the attempt and returns the updated attempt.
      */
     suspend fun validateTotpChallenge(
         authorizeAttempt: OnGoingAuthorizeAttempt,
@@ -33,6 +36,6 @@ class WebAuthorizationFlowTotpChallengeManager(
                 descriptionId = "description.flow.mfa.totp.challenge.invalid_code"
             )
         }
-        return authorizeAttempt
+        return authorizeAttemptManager.setMfaPassed(authorizeAttempt)
     }
 }
