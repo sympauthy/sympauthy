@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.flow
 
+import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
@@ -114,6 +115,26 @@ class WebAuthorizationFlowRedirectUriBuilder(
         authorizationCodeManager.generateCode(authorizeAttempt)
             .let { builder.queryParam("code", it.code) }
         return builder.build()
+    }
+
+    /**
+     * Return the [URI] where the end-user must be redirected for the MFA step.
+     *
+     * Routes to the TOTP challenge page if [hasEnrollment] is true, or to the TOTP enrollment page otherwise.
+     * Throws an unrecoverable [com.sympauthy.business.exception.BusinessException] if the required URI is not
+     * configured in the flow.
+     */
+    suspend fun getMfaRedirectUri(
+        authorizeAttempt: AuthorizeAttempt,
+        flow: WebAuthorizationFlow,
+        hasEnrollment: Boolean
+    ): URI {
+        val targetUri = if (hasEnrollment) {
+            flow.mfaTotpChallengeUri ?: throw internalBusinessExceptionOf("flow.mfa.totp.challenge_uri.missing")
+        } else {
+            flow.mfaTotpEnrollUri ?: throw internalBusinessExceptionOf("flow.mfa.totp.enroll_uri.missing")
+        }
+        return appendStateToUri(authorizeAttempt, targetUri)
     }
 
     internal suspend fun appendStateToUri(

@@ -52,7 +52,17 @@ class WebAuthorizationFlow(
     /**
      * [URI] of the page displaying an error to the end-user.
      */
-    val errorUri: URI
+    val errorUri: URI,
+    /**
+     * [URI] of the page allowing the user to enroll a TOTP authenticator app.
+     * Null if MFA via TOTP is not configured for this flow.
+     */
+    val mfaTotpEnrollUri: URI? = null,
+    /**
+     * [URI] of the page allowing the user to complete the TOTP challenge.
+     * Null if MFA via TOTP is not configured for this flow.
+     */
+    val mfaTotpChallengeUri: URI? = null,
 ) : AuthorizationFlow(
     id = id
 )

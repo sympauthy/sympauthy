@@ -122,13 +122,39 @@ class AuthorizationFlowsConfigFactory(
             null
         }
 
+        val mfaTotpEnrollUri = properties.mfaTotpEnroll?.let {
+            try {
+                getWebAuthenticationFlowUri(
+                    properties, "$AUTHORIZATION_FLOWS_KEY.${properties.id}.mfa-totp-enroll", rootUri,
+                    AuthorizationFlowConfigurationProperties::mfaTotpEnroll
+                )
+            } catch (e: ConfigurationException) {
+                flowErrors.add(e)
+                null
+            }
+        }
+
+        val mfaTotpChallengeUri = properties.mfaTotpChallenge?.let {
+            try {
+                getWebAuthenticationFlowUri(
+                    properties, "$AUTHORIZATION_FLOWS_KEY.${properties.id}.mfa-totp-challenge", rootUri,
+                    AuthorizationFlowConfigurationProperties::mfaTotpChallenge
+                )
+            } catch (e: ConfigurationException) {
+                flowErrors.add(e)
+                null
+            }
+        }
+
         return if (flowErrors.isEmpty()) {
             WebAuthorizationFlow(
                 id = properties.id,
                 signInUri = signInUri!!,
                 collectClaimsUri = collectClaimsUri!!,
                 validateClaimsUri = validateClaimsUri!!,
-                errorUri = errorUri!!
+                errorUri = errorUri!!,
+                mfaTotpEnrollUri = mfaTotpEnrollUri,
+                mfaTotpChallengeUri = mfaTotpChallengeUri,
             )
         } else {
             errors.addAll(flowErrors)
