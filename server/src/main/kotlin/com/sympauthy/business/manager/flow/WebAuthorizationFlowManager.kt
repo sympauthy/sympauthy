@@ -14,6 +14,7 @@ import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.config.model.EnabledMfaConfig
 import com.sympauthy.config.model.MfaConfig
+import com.sympauthy.config.model.orThrow
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.net.URI
@@ -197,9 +198,7 @@ class WebAuthorizationFlowManager(
         val allCollectedClaims = authorizeAttempt.userId?.let { collectedClaimManager.findByUserId(it) } ?: emptyList()
 
         val missingUser = authorizeAttempt.userId == null
-        val mfaConfig = uncheckedMfaConfig as? EnabledMfaConfig
-        val missingMfa = !missingUser && !authorizeAttempt.mfaPassed && mfaConfig != null &&
-            (mfaConfig.required || mfaConfig.totp)
+        val missingMfa = uncheckedMfaConfig.orThrow().enabled && !authorizeAttempt.mfaPassed
         val missingRequiredClaims = !collectedClaimManager.areAllRequiredClaimCollected(allCollectedClaims)
         val missingMediaForClaimValidation = claimValidationManager.getReasonsToSendValidationCode(allCollectedClaims)
             .map(ValidationCodeReason::media)

@@ -16,7 +16,13 @@ data class EnabledMfaConfig(
      * When true and no method is enrolled, triggers enrollment.
      */
     val required: Boolean
-) : MfaConfig()
+) : MfaConfig() {
+    /**
+     * Where at least one MFA method is enabled.
+     */
+    val enabled: Boolean
+        get() = this.totp
+}
 
 class DisabledMfaConfig(
     configurationErrors: List<ConfigurationException>
