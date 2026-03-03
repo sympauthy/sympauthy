@@ -5,7 +5,6 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
-import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.code.ValidationCodeReason
@@ -38,8 +37,7 @@ class WebAuthorizationFlowManager(
     @Inject private val claimValidationManager: WebAuthorizationFlowClaimValidationManager,
     @Inject private val clientManager: ClientManager,
     @Inject private val scopeManager: ScopeManager,
-    @Inject private val uncheckedMfaConfig: MfaConfig,
-    @Inject private val totpManager: TotpManager
+    @Inject private val uncheckedMfaConfig: MfaConfig
 ) {
 
     /**
@@ -201,9 +199,7 @@ class WebAuthorizationFlowManager(
         val missingUser = authorizeAttempt.userId == null
         val mfaConfig = uncheckedMfaConfig as? EnabledMfaConfig
         val missingMfa = !missingUser && !authorizeAttempt.mfaPassed && mfaConfig != null &&
-            (mfaConfig.required || (mfaConfig.totp && authorizeAttempt.userId?.let {
-                totpManager.findConfirmedEnrollments(it).isNotEmpty()
-            } ?: false))
+            (mfaConfig.required || mfaConfig.totp)
         val missingRequiredClaims = !collectedClaimManager.areAllRequiredClaimCollected(allCollectedClaims)
         val missingMediaForClaimValidation = claimValidationManager.getReasonsToSendValidationCode(allCollectedClaims)
             .map(ValidationCodeReason::media)
