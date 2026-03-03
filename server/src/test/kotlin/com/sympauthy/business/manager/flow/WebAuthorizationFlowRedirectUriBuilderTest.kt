@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
+import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
@@ -30,6 +31,9 @@ class WebAuthorizationFlowRedirectUriBuilderTest {
 
     @MockK
     lateinit var authorizationCodeManager: AuthorizationCodeManager
+
+    @MockK
+    lateinit var uncheckedUrlsConfig: UrlsConfig
 
     @SpyK
     @InjectMockKs

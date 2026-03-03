@@ -5,6 +5,7 @@ import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
+import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.business.model.code.ValidationCodeReason
 import com.sympauthy.business.model.flow.NonInteractiveAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
@@ -45,6 +46,9 @@ class WebAuthorizationFlowManagerTest {
 
     @MockK
     lateinit var scopeManager: ScopeManager
+
+    @MockK
+    lateinit var uncheckedMfaConfig: MfaConfig
 
     @SpyK
     @InjectMockKs
@@ -124,6 +128,7 @@ class WebAuthorizationFlowManagerTest {
         val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
             val mock = this
             every { mock.userId } returns userId
+            every { mock.mfaPassed } returns false
         }
         coEvery { collectedClaimManager.findByUserId(userId) } returns emptyList()
         every { collectedClaimManager.areAllRequiredClaimCollected(any()) } returns false
@@ -140,6 +145,7 @@ class WebAuthorizationFlowManagerTest {
         val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
             val mock = this
             every { mock.userId } returns userId
+            every { mock.mfaPassed } returns false
         }
         coEvery { collectedClaimManager.findByUserId(userId) } returns emptyList()
         every { collectedClaimManager.areAllRequiredClaimCollected(any()) } returns true
