@@ -5,6 +5,8 @@ import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ConfigReadinessManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.rule.ScopeGrantingRuleManager
+import com.sympauthy.config.model.EnabledMfaConfig
+import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.server.ErrorMessages
 import com.sympauthy.util.DEFAULT_ENVIRONMENT
 import com.sympauthy.util.getKeyAndLocalizedMessage
@@ -30,6 +32,7 @@ class ApplicationReadinessStatusPrinter(
     @Inject private val clientManager: ClientManager,
     @Inject private val scopeManager: ScopeManager,
     @Inject private val scopeGrantingRuleManager: ScopeGrantingRuleManager,
+    @Inject private val uncheckedMfaConfig: MfaConfig,
     @Inject private val environment: Environment,
     @param:ErrorMessages @Inject private val messageSource: MessageSource,
 ) : ApplicationEventListener<ServiceReadyEvent> {
@@ -78,6 +81,16 @@ class ApplicationReadinessStatusPrinter(
             0
         }
         logger.info("- $rulesCount rule(s).")
+
+        val mfaConfig = uncheckedMfaConfig as? EnabledMfaConfig
+        if (mfaConfig == null) {
+            logger.info("- MFA disabled.")
+        } else {
+            val methods = listOfNotNull("TOTP".takeIf { mfaConfig.totp })
+            val methodsLabel = if (methods.isEmpty()) "no methods enabled" else methods.joinToString()
+            val requiredLabel = if (mfaConfig.required) "required" else "optional"
+            logger.info("- MFA enabled ($requiredLabel, $methodsLabel).")
+        }
     }
 
     private suspend fun printErrorBanner(configurationErrors: List<Exception>) {
