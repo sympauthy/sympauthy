@@ -1,7 +1,9 @@
 package com.sympauthy.data.repository
 
 import com.sympauthy.data.model.TotpEnrollmentEntity
+import io.micronaut.data.annotation.Id
 import io.micronaut.data.repository.kotlin.CoroutineCrudRepository
+import java.time.LocalDateTime
 import java.util.*
 
 interface TotpEnrollmentRepository : CoroutineCrudRepository<TotpEnrollmentEntity, UUID> {
@@ -11,4 +13,6 @@ interface TotpEnrollmentRepository : CoroutineCrudRepository<TotpEnrollmentEntit
     suspend fun findByUserIdAndConfirmedDateIsNotNull(userId: UUID): List<TotpEnrollmentEntity>
 
     suspend fun findByUserIdAndConfirmedDateIsNull(userId: UUID): List<TotpEnrollmentEntity>
+
+    suspend fun updateConfirmedDate(@Id id: UUID, confirmedDate: LocalDateTime)
 }
