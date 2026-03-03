@@ -9,6 +9,10 @@ import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.FailedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
+import com.sympauthy.config.model.EnabledUrlsConfig
+import com.sympauthy.config.model.UrlsConfig
+import com.sympauthy.config.model.getUri
+import com.sympauthy.config.model.orThrow
 import io.micronaut.http.uri.UriBuilder
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -21,7 +25,8 @@ import java.net.URI
 @Singleton
 class WebAuthorizationFlowRedirectUriBuilder(
     @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
-    @Inject private val authorizationCodeManager: AuthorizationCodeManager
+    @Inject private val authorizationCodeManager: AuthorizationCodeManager,
+    @Inject private val uncheckedUrlsConfig: UrlsConfig
 ) {
 
     /**
@@ -123,23 +128,39 @@ class WebAuthorizationFlowRedirectUriBuilder(
     }
 
     /**
-     * Return the [URI] where the end-user must be redirected for the MFA step.
-     *
-     * Routes to the TOTP challenge page if [hasEnrollment] is true, or to the TOTP enrollment page otherwise.
-     * Throws an unrecoverable [com.sympauthy.business.exception.BusinessException] if the required URI is not
-     * configured in the flow.
+     * Return the [URI] where the end-user must be redirected to enroll a TOTP authenticator.
+     * Throws an unrecoverable [com.sympauthy.business.exception.BusinessException] if the URI is not configured.
      */
-    suspend fun getMfaRedirectUri(
+    suspend fun getMfaTotpEnrollUri(
         authorizeAttempt: AuthorizeAttempt,
-        flow: WebAuthorizationFlow,
-        hasEnrollment: Boolean
+        flow: WebAuthorizationFlow
     ): URI {
-        val targetUri = if (hasEnrollment) {
-            flow.mfaTotpChallengeUri ?: throw internalBusinessExceptionOf("flow.mfa.totp.challenge_uri.missing")
-        } else {
-            flow.mfaTotpEnrollUri ?: throw internalBusinessExceptionOf("flow.mfa.totp.enroll_uri.missing")
-        }
-        return appendStateToUri(authorizeAttempt, targetUri)
+        val uri = flow.mfaTotpEnrollUri ?: throw internalBusinessExceptionOf("flow.mfa.totp.enroll_uri.missing")
+        return appendStateToUri(authorizeAttempt, uri)
+    }
+
+    /**
+     * Return the [URI] where the end-user must be redirected to complete the TOTP challenge.
+     * Throws an unrecoverable [com.sympauthy.business.exception.BusinessException] if the URI is not configured.
+     */
+    suspend fun getMfaTotpChallengeUri(
+        authorizeAttempt: AuthorizeAttempt,
+        flow: WebAuthorizationFlow
+    ): URI {
+        val uri = flow.mfaTotpChallengeUri ?: throw internalBusinessExceptionOf("flow.mfa.totp.challenge_uri.missing")
+        return appendStateToUri(authorizeAttempt, uri)
+    }
+
+    /**
+     * Return the [URI] of the MFA skip API endpoint, with the state appended.
+     * Used as the `skip_redirect_url` in the MFA selection screen response.
+     */
+    suspend fun getMfaSkipUri(
+        authorizeAttempt: AuthorizeAttempt,
+        skipEndpointPath: String
+    ): URI {
+        val uri = uncheckedUrlsConfig.orThrow().getUri(skipEndpointPath)
+        return appendStateToUri(authorizeAttempt, uri)
     }
 
     internal suspend fun appendStateToUri(

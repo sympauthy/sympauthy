@@ -5,28 +5,69 @@ import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.user.User
+import com.sympauthy.config.model.EnabledMfaConfig
+import com.sympauthy.config.model.MfaConfig
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.net.URI
 
+sealed class MfaRoutingResult
+
+data class MfaAutoRedirect(val uri: URI) : MfaRoutingResult()
+
+data class MfaMethodSelection(
+    val methods: List<AvailableMfaMethod>,
+    val skipUri: URI
+) : MfaRoutingResult()
+
+data class AvailableMfaMethod(val name: String, val uri: URI)
+
 @Singleton
 class WebAuthorizationFlowMfaManager(
+    @Inject private val uncheckedMfaConfig: MfaConfig,
     @Inject private val totpManager: TotpManager,
     @Inject private val redirectUriBuilder: WebAuthorizationFlowRedirectUriBuilder
 ) {
 
     /**
-     * Returns the [URI] where the end-user must be redirected for the MFA step.
+     * Returns the [MfaRoutingResult] describing what the end-user must do for the MFA step.
      *
-     * Routes to the TOTP challenge page if the [user] has at least one confirmed TOTP enrollment,
-     * or to the TOTP enrollment page otherwise.
+     * Routing table:
+     * | required | enrolled | Result                                     |
+     * |----------|----------|--------------------------------------------|
+     * | true     | false    | Auto-redirect to TOTP enrollment           |
+     * | true     | true     | Auto-redirect to TOTP challenge            |
+     * | false    | true     | Method selection screen with a skip option |
      */
-    suspend fun getMfaRedirectUri(
+    suspend fun getMfaResult(
         authorizeAttempt: AuthorizeAttempt,
         user: User,
-        flow: WebAuthorizationFlow
-    ): URI {
+        flow: WebAuthorizationFlow,
+        skipEndpointPath: String
+    ): MfaRoutingResult {
+        val mfaConfig = uncheckedMfaConfig as? EnabledMfaConfig
         val hasEnrollment = totpManager.findConfirmedEnrollments(user.id).isNotEmpty()
-        return redirectUriBuilder.getMfaRedirectUri(authorizeAttempt, flow, hasEnrollment)
+
+        return when {
+            mfaConfig?.required == true && !hasEnrollment ->
+                MfaAutoRedirect(redirectUriBuilder.getMfaTotpEnrollUri(authorizeAttempt, flow))
+
+            mfaConfig?.required == true ->
+                MfaAutoRedirect(redirectUriBuilder.getMfaTotpChallengeUri(authorizeAttempt, flow))
+
+            hasEnrollment -> MfaMethodSelection(
+                methods = listOf(
+                    AvailableMfaMethod(
+                        name = "TOTP",
+                        uri = redirectUriBuilder.getMfaTotpChallengeUri(authorizeAttempt, flow)
+                    )
+                ),
+                skipUri = redirectUriBuilder.getMfaSkipUri(authorizeAttempt, skipEndpointPath)
+            )
+
+            // mfa.required=false and no enrollment: missingMfa is false so this branch
+            // should never be reached in normal flow.
+            else -> MfaAutoRedirect(redirectUriBuilder.getMfaTotpEnrollUri(authorizeAttempt, flow))
+        }
     }
 }
