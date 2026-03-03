@@ -1,13 +1,13 @@
 package com.sympauthy.api.controller.flow
 
 import com.sympauthy.api.controller.flow.MfaSkipController.Companion.MFA_SKIP_ENDPOINT
-import com.sympauthy.api.resource.flow.SimpleFlowResource
 import com.sympauthy.api.controller.flow.util.WebAuthorizationFlowControllerUtil
-import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
+import com.sympauthy.business.manager.flow.mfa.WebAuthorizationFlowMfaManager
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
+import io.micronaut.http.HttpResponse
 import io.micronaut.http.annotation.Controller
-import io.micronaut.http.annotation.Post
+import io.micronaut.http.annotation.Get
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.swagger.v3.oas.annotations.Operation
@@ -17,7 +17,7 @@ import jakarta.inject.Inject
 @Secured(HAS_STATE)
 @Controller(MFA_SKIP_ENDPOINT)
 class MfaSkipController(
-    @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
+    @Inject private val mfaManager: WebAuthorizationFlowMfaManager,
     @Inject private val webAuthorizationFlowControllerUtil: WebAuthorizationFlowControllerUtil
 ) {
 
@@ -34,22 +34,21 @@ one enrolled method. The MFA step is marked as resolved so the flow does not pro
         """,
         responses = [
             ApiResponse(
-                responseCode = "200",
-                description = "MFA skipped. Contains the redirect URL to the next step of the authorization flow.",
-                useReturnTypeSchema = true
+                responseCode = "307",
+                description = "MFA skipped. Redirects the browser to the next step of the authorization flow."
             )
         ],
         tags = ["flow"]
     )
-    @Post
+    @Get
     suspend fun skipMfa(
         authentication: Authentication
-    ): SimpleFlowResource =
+    ): HttpResponse<*> =
         webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenUpdateAndRedirect(
             state = authentication.stateOrNull,
             update = { authorizeAttempt, _ ->
-                authorizeAttemptManager.setMfaPassed(authorizeAttempt)
+                mfaManager.skipMfa(authorizeAttempt)
             },
-            mapRedirectUriToResource = { redirectUri -> SimpleFlowResource(redirectUri.toString()) }
+            mapRedirectUriToResource = { redirectUri -> HttpResponse.temporaryRedirect<Any>(redirectUri) }
         )
 }

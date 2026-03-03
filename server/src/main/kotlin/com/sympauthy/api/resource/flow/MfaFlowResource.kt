@@ -27,8 +27,8 @@ data class MfaFlowResource(
     val methods: List<MfaMethodResource>? = null,
     @get:Schema(
         description = """
-URL to POST to in order to skip the MFA step.
-Only present when MFA is optional and the end-user has at least one enrolled method.
+URL to navigate to in order to skip the MFA step.
+Only present when MFA is optional (`mfa.required=false`).
         """
     )
     @get:JsonProperty("skip_redirect_url")
