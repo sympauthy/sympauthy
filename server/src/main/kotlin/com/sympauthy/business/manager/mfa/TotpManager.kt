@@ -87,6 +87,15 @@ class TotpManager(
     }
 
     /**
+     * Returns the pending (unconfirmed) TOTP enrollment for the given [userId], or null if none exists.
+     */
+    suspend fun findPendingEnrollmentOrNull(userId: UUID): TotpEnrollment? {
+        return totpEnrollmentRepository.findByUserIdAndConfirmedDateIsNull(userId)
+            .firstOrNull()
+            ?.let(totpEnrollmentMapper::toTotpEnrollment)
+    }
+
+    /**
      * Returns all confirmed TOTP enrollments for the given [userId].
      */
     suspend fun findConfirmedEnrollments(userId: UUID): List<TotpEnrollment> {
