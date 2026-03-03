@@ -80,8 +80,7 @@ On failure, a recoverable 4xx error is returned so the end-user can retry with t
         webAuthorizationFlowControllerUtil.fetchOnGoingAttemptWithUserThenUpdateAndRedirect(
             state = authentication.stateOrNull,
             update = { authorizeAttempt, _, user ->
-                enrollmentManager.confirmEnrollment(user, inputResource.code.orEmpty())
-                authorizeAttempt
+                enrollmentManager.confirmEnrollment(authorizeAttempt, user, inputResource.code.orEmpty())
             },
             mapRedirectUriToResource = { redirectUri -> SimpleFlowResource(redirectUri.toString()) }
         )
