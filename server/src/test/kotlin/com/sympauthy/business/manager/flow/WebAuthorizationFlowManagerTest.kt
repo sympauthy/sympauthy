@@ -12,6 +12,7 @@ import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
+import com.sympauthy.config.model.EnabledMfaConfig
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -48,7 +49,7 @@ class WebAuthorizationFlowManagerTest {
     lateinit var scopeManager: ScopeManager
 
     @MockK
-    lateinit var uncheckedMfaConfig: MfaConfig
+    lateinit var uncheckedMfaConfig: EnabledMfaConfig
 
     @SpyK
     @InjectMockKs
@@ -130,6 +131,7 @@ class WebAuthorizationFlowManagerTest {
             every { mock.userId } returns userId
             every { mock.mfaPassed } returns false
         }
+        every { uncheckedMfaConfig.enabled } returns false
         coEvery { collectedClaimManager.findByUserId(userId) } returns emptyList()
         every { collectedClaimManager.areAllRequiredClaimCollected(any()) } returns false
         every { claimValidationManager.getReasonsToSendValidationCode(any()) } returns emptyList()
@@ -147,6 +149,7 @@ class WebAuthorizationFlowManagerTest {
             every { mock.userId } returns userId
             every { mock.mfaPassed } returns false
         }
+        every { uncheckedMfaConfig.enabled } returns false
         coEvery { collectedClaimManager.findByUserId(userId) } returns emptyList()
         every { collectedClaimManager.areAllRequiredClaimCollected(any()) } returns true
         every { claimValidationManager.getReasonsToSendValidationCode(any()) } returns listOf(
@@ -156,6 +159,42 @@ class WebAuthorizationFlowManagerTest {
         val result = manager.getStatusForOnGoingAuthorizeAttempt(authorizeAttempt)
 
         assertTrue(result.missingMediaForClaimValidation.isNotEmpty())
+    }
+
+    @Test
+    fun `getStatusForOnGoingAuthorizeAttempt - Missing MFA when user has not passed MFA and MFA is enabled`() = runTest {
+        val userId = UUID.randomUUID()
+        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
+            val mock = this
+            every { mock.userId } returns userId
+            every { mock.mfaPassed } returns false
+        }
+        every { uncheckedMfaConfig.enabled } returns true
+        coEvery { collectedClaimManager.findByUserId(userId) } returns emptyList()
+        every { collectedClaimManager.areAllRequiredClaimCollected(any()) } returns true
+        every { claimValidationManager.getReasonsToSendValidationCode(any()) } returns emptyList()
+
+        val result = manager.getStatusForOnGoingAuthorizeAttempt(authorizeAttempt)
+
+        assertTrue(result.missingMfa)
+    }
+
+    @Test
+    fun `getStatusForOnGoingAuthorizeAttempt - Not missing MFA when user has already passed MFA`() = runTest {
+        val userId = UUID.randomUUID()
+        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
+            val mock = this
+            every { mock.userId } returns userId
+            every { mock.mfaPassed } returns true
+        }
+        every { uncheckedMfaConfig.enabled } returns true
+        coEvery { collectedClaimManager.findByUserId(userId) } returns emptyList()
+        every { collectedClaimManager.areAllRequiredClaimCollected(any()) } returns true
+        every { claimValidationManager.getReasonsToSendValidationCode(any()) } returns emptyList()
+
+        val result = manager.getStatusForOnGoingAuthorizeAttempt(authorizeAttempt)
+
+        assertFalse(result.missingMfa)
     }
 
     @Test
