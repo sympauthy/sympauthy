@@ -2,6 +2,7 @@ package com.sympauthy.config.factory
 
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
+import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.DisabledMfaConfig
 import com.sympauthy.config.model.EnabledMfaConfig
 import com.sympauthy.config.model.MfaConfig
@@ -26,23 +27,27 @@ class MfaConfigFactory(
         val errors = mutableListOf<ConfigurationException>()
 
         val required = try {
-            parser.getBoolean(
+            parser.getBooleanOrThrow(
                 properties, "$MFA_KEY.required",
                 MfaConfigurationProperties::required
-            ) ?: false
+            )
         } catch (e: ConfigurationException) {
             errors.add(e)
             null
         }
 
         val totpEnabled = try {
-            parser.getBoolean(
+            parser.getBooleanOrThrow(
                 totpProperties, "$MFA_TOTP_KEY.enabled",
                 MfaTotpConfigurationProperties::enabled
-            ) ?: false
+            )
         } catch (e: ConfigurationException) {
             errors.add(e)
             null
+        }
+
+        if (required == true && totpEnabled == false) {
+            errors.add(configExceptionOf("$MFA_TOTP_KEY.enabled", "config.mfa.totp.disabled_when_required"))
         }
 
         return if (errors.isEmpty()) {

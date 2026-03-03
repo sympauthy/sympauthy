@@ -5,6 +5,7 @@ import com.sympauthy.business.model.flow.AuthorizationFlowType
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
+import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.*
 import com.sympauthy.config.properties.AuthorizationFlowConfigurationProperties
 import com.sympauthy.config.properties.AuthorizationFlowConfigurationProperties.Companion.AUTHORIZATION_FLOWS_KEY
@@ -17,7 +18,8 @@ import java.net.URI
 @Factory
 class AuthorizationFlowsConfigFactory(
     @Inject private val parser: ConfigParser,
-    @Inject private val uncheckedUrlsConfig: UrlsConfig
+    @Inject private val uncheckedUrlsConfig: UrlsConfig,
+    @Inject private val uncheckedMfaConfig: MfaConfig
 ) {
 
     @Singleton
@@ -156,6 +158,32 @@ class AuthorizationFlowsConfigFactory(
                 flowErrors.add(e)
                 null
             }
+        }
+
+        val mfaConfig = uncheckedMfaConfig as? EnabledMfaConfig
+        if (mfaConfig?.required == true && mfaUri == null) {
+            flowErrors.add(
+                configExceptionOf(
+                    "$AUTHORIZATION_FLOWS_KEY.${properties.id}.mfa",
+                    "config.flow.mfa.missing"
+                )
+            )
+        }
+        if (mfaConfig?.totp == true && mfaTotpEnrollUri == null) {
+            flowErrors.add(
+                configExceptionOf(
+                    "$AUTHORIZATION_FLOWS_KEY.${properties.id}.mfa-totp-enroll",
+                    "config.flow.mfa.totp.enroll.missing"
+                )
+            )
+        }
+        if (mfaConfig?.totp == true && mfaTotpChallengeUri == null) {
+            flowErrors.add(
+                configExceptionOf(
+                    "$AUTHORIZATION_FLOWS_KEY.${properties.id}.mfa-totp-challenge",
+                    "config.flow.mfa.totp.challenge.missing"
+                )
+            )
         }
 
         return if (flowErrors.isEmpty()) {
