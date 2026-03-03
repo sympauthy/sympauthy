@@ -42,5 +42,7 @@ interface AuthorizeAttemptRepository : CoroutineCrudRepository<AuthorizeAttemptE
 
     suspend fun updateCompleteDate(@Id id: UUID, completeDate: LocalDateTime?)
 
+    suspend fun updateMfaPassedDate(@Id id: UUID, mfaPassedDate: LocalDateTime)
+
     suspend fun deleteByIds(ids: List<UUID>): Int
 }

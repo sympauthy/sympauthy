@@ -18,6 +18,11 @@ class AuthorizationFlowConfigurationProperties(
     var validateClaims: String? = null
     var error: String? = null
 
+    // Properties for MFA steps (optional; only required when MFA is enabled)
+    var mfa: String? = null
+    var mfaTotpEnroll: String? = null
+    var mfaTotpChallenge: String? = null
+
     companion object {
         const val AUTHORIZATION_FLOWS_KEY = "flows"
     }

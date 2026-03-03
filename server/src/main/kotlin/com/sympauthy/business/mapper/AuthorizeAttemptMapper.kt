@@ -38,6 +38,7 @@ abstract class AuthorizeAttemptMapper {
             nonce = entity.nonce,
             userId = entity.userId,
             grantedScopes = entity.grantedScopes?.toList(),
+            mfaPassedDate = entity.mfaPassedDate,
             attemptDate = entity.attemptDate
         )
     }

@@ -33,6 +33,11 @@ clients:
       - profile
     flow: default
 
+mfa:
+  required: false
+  totp:
+    enabled: false
+
 features:
   allow-access-to-client-without-scope: false
   email-validation: false

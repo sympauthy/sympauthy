@@ -152,6 +152,21 @@ class AuthorizeAttemptManager(
     }
 
     /**
+     * Records that the end-user has passed the MFA step for this [authorizeAttempt].
+     * Persists the [mfaPassedDate] and returns the updated attempt.
+     */
+    suspend fun setMfaPassed(
+        authorizeAttempt: OnGoingAuthorizeAttempt
+    ): OnGoingAuthorizeAttempt {
+        val mfaPassedDate = LocalDateTime.now()
+        authorizeAttemptRepository.updateMfaPassedDate(
+            id = authorizeAttempt.id,
+            mfaPassedDate = mfaPassedDate
+        )
+        return authorizeAttempt.copy(mfaPassedDate = mfaPassedDate)
+    }
+
+    /**
      * Set and save the list of scopes that have been granted to the user.
      * Do nothing if the [authorizeAttempt] has already been completed or is already in error.
      */
