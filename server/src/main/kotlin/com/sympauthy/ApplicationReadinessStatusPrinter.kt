@@ -83,13 +83,12 @@ class ApplicationReadinessStatusPrinter(
         logger.info("- $rulesCount rule(s).")
 
         val mfaConfig = uncheckedMfaConfig as? EnabledMfaConfig
-        if (mfaConfig == null) {
+        val mfaMethods = listOfNotNull("TOTP".takeIf { mfaConfig?.totp == true })
+        if (mfaConfig == null || (!mfaConfig.required && mfaMethods.isEmpty())) {
             logger.info("- MFA disabled.")
         } else {
-            val methods = listOfNotNull("TOTP".takeIf { mfaConfig.totp })
-            val methodsLabel = if (methods.isEmpty()) "no methods enabled" else methods.joinToString()
             val requiredLabel = if (mfaConfig.required) "required" else "optional"
-            logger.info("- MFA enabled ($requiredLabel, $methodsLabel).")
+            logger.info("- MFA enabled ($requiredLabel, ${mfaMethods.joinToString()}).")
         }
     }
 
