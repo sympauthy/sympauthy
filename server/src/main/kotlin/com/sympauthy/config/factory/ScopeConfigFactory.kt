@@ -1,8 +1,10 @@
 package com.sympauthy.config.factory
 
+import com.sympauthy.business.model.oauth2.isAdminScope
 import com.sympauthy.business.model.user.isStandardScope
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
+import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.*
 import com.sympauthy.config.properties.ScopeConfigurationProperties
 import com.sympauthy.config.properties.ScopeConfigurationProperties.Companion.SCOPES_KEY
@@ -21,10 +23,17 @@ class ScopeConfigFactory(
     ): ScopesConfig {
         val errors = mutableListOf<ConfigurationException>()
         val scopes = propertiesList.mapNotNull { properties ->
-            if (properties.id.isStandardScope()) {
-                getStandardScope(properties = properties, errors = errors)
-            } else {
-                getCustomScope(properties = properties, errors = errors)
+            when {
+                properties.id.isAdminScope() -> {
+                    errors.add(configExceptionOf(
+                        "$SCOPES_KEY.${properties.id}",
+                        "config.scope.admin_not_configurable",
+                        "scope" to properties.id
+                    ))
+                    null
+                }
+                properties.id.isStandardScope() -> getStandardScope(properties = properties, errors = errors)
+                else -> getCustomScope(properties = properties, errors = errors)
             }
         }
 

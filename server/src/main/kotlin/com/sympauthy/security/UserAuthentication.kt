@@ -30,8 +30,10 @@ class UserAuthentication(
 
     override fun getRoles(): Collection<String> {
         val roles = mutableListOf(IS_USER)
-        if (scopes.any { it.admin }) {
+        val adminScopes = scopes.filter { it.admin }
+        if (adminScopes.isNotEmpty()) {
             roles.add(IS_ADMIN)
+            adminScopes.forEach { roles.add("SCOPE_${it.scope}") }
         }
         return roles
     }

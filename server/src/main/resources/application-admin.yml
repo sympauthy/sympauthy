@@ -1,0 +1,29 @@
+# This configuration creates an admin client used by the admin UI application.
+# End-users authenticating through it can be granted admin scopes via scope granting rules.
+#
+# Activate this environment by adding "admin" to MICRONAUT_ENVIRONMENTS (e.g. "default,admin").
+
+clients:
+  admin:
+    allowed-scopes:
+      - openid
+      - profile
+      - admin:clients:read
+      - admin:users:read
+      - admin:users:write
+      - admin:users:delete
+      - admin:access:read
+      - admin:access:write
+      - admin:sessions:read
+      - admin:sessions:write
+    default-scopes:
+      - openid
+      - profile
+      - admin:clients:read
+      - admin:users:read
+      - admin:users:write
+      - admin:users:delete
+      - admin:access:read
+      - admin:access:write
+      - admin:sessions:read
+      - admin:sessions:write

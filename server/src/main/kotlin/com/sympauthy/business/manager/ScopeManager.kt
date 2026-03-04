@@ -2,13 +2,12 @@ package com.sympauthy.business.manager
 
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.oauth2.AdminScope
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.user.StandardScope
-import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.ScopesConfig
 import com.sympauthy.config.model.StandardScopeConfig
 import com.sympauthy.config.model.orThrow
-import io.micronaut.http.uri.UriBuilder
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -18,7 +17,6 @@ import kotlinx.coroutines.flow.toList
 
 @Singleton
 class ScopeManager(
-    @Inject private val uncheckedAuthConfig: AuthConfig,
     @Inject private val uncheckedScopesConfig: ScopesConfig
 ) {
     /**
@@ -35,19 +33,15 @@ class ScopeManager(
     }.buffer()
 
     /**
-     * Custom scope allowing the user to access the administration APIs of this authorization server.
+     * Built-in scopes granting access to the administration APIs of this authorization server.
      */
-    val adminScope: Scope
-        get() {
-            val adminScope = UriBuilder.of(uncheckedAuthConfig.orThrow().issuer)
-                .path("admin")
-                .build()
-            return Scope(
-                scope = adminScope.toASCIIString(),
-                admin = true,
-                discoverable = false
-            )
-        }
+    val adminScopes: List<Scope> = AdminScope.entries.map { adminScope ->
+        Scope(
+            scope = adminScope.scope,
+            admin = true,
+            discoverable = false
+        )
+    }
 
     /**
      * Convert a [standardScope] into a [Scope].
@@ -74,7 +68,7 @@ class ScopeManager(
      * the operator of this authorization server.
      */
     suspend fun listScopes(): List<Scope> {
-        return listOf(adminScope) + enabledStandardScopes.toList()
+        return adminScopes + enabledStandardScopes.toList()
     }
 
     /**
