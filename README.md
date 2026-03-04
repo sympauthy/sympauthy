@@ -41,15 +41,8 @@ auth:
 clients:
   default:
     authorization-flow: local
-  dev:
-    secret: my-secret
-    flow: local
-    allowed-redirect-urls:
-      - https://example.com
-    allowed-scopes:
-      - openid
-      - profile
-      - http://localhost:8080/admin
+  admin:
+    secret: admin
 
 flows:
   local:
@@ -100,7 +93,7 @@ You can launch it with any IDE supporting Gradle or directly using Gradle in the
 #### Gradle
 
 ```bash
-MICRONAUT_CONFIG_FILES=$(pwd)/config/application.yml MICRONAUT_ENVIRONMENTS=default ./gradlew :core:run
+MICRONAUT_CONFIG_FILES=$(pwd)/config/application.yml MICRONAUT_ENVIRONMENTS=default,admin ./gradlew :core:run
 ```
 
 #### IntelliJ
@@ -111,7 +104,7 @@ Add a new **Micronaut** configuration:
 - **Classpath**: sympauthy.server.main
 - **Working directory**: $ProjectFileDir$
 - **Environment variables**:
-  - **MICRONAUT_ENVIRONMENTS**: default
+  - **MICRONAUT_ENVIRONMENTS**: default,admin
   - **MICRONAUT_CONFIG_FILES**: config/application.yml
 
 ### Build and run the native image locally
@@ -120,7 +113,7 @@ Add a new **Micronaut** configuration:
 
 ```bash
 ./gradlew nativeCompile
-MICRONAUT_CONFIG_FILES=$(pwd)/config/application.yml MICRONAUT_ENVIRONMENTS=default ./server/build/native/nativeCompile/server
+MICRONAUT_CONFIG_FILES=$(pwd)/config/application.yml MICRONAUT_ENVIRONMENTS=default,admin ./server/build/native/nativeCompile/server
 ```
 
 #### IntelliJ
@@ -131,7 +124,7 @@ It should create a new configuration that you can rename into: Native - Compile.
 Then add a new **Shell script** configuration:
 - **Name**: Native - Application
 - **Execute**: Script Text
-- **Script text**: MICRONAUT_CONFIG_FILES=config/application.yml MICRONAUT_ENVIRONMENTS=default ./server/build/native/nativeCompile/server
+- **Script text**: MICRONAUT_CONFIG_FILES=config/application.yml MICRONAUT_ENVIRONMENTS=default,admin ./server/build/native/nativeCompile/server
 - **Working directory**: $ProjectFileDir$
 - **Execute in Terminal**: Unchecked
 
@@ -146,7 +139,7 @@ Then click on **Add** button in the **Before launch** section:
 Open the following URL in your browser to access the authorization flow:
 
 ```
-http://localhost:8080/api/oauth2/authorize?client_id=dev&redirect_uri=https://example.com&response_type=code
+http://localhost:8080/api/oauth2/authorize?client_id=admin&redirect_uri=https://example.com&response_type=code
 ```
 
 #### Bruno collection
@@ -156,9 +149,9 @@ A [Bruno](https://www.usebruno.com/) collection is available in the `bruno/` fol
 Open the collection in Bruno, then configure the **Local** environment:
 
 1. Open the **Environments** panel and select **Local**
-2. Set `clientId` to the ID of the OAuth2 client you want to test with (defaults to `dev` as configured above)
+2. Set `clientId` to the ID of the OAuth2 client you want to test with (defaults to `admin` as configured above)
 3. Set the following secret variables:
-   - `clientSecret`: the secret of the OAuth2 client (defaults to `my-secret`)
+   - `clientSecret`: the secret of the OAuth2 client (defaults to `admin`)
    - `login`: the login of the test user
    - `password`: the password of the test user
 

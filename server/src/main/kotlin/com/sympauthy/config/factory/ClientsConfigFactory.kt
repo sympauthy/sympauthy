@@ -61,6 +61,8 @@ class ClientsConfigFactory(
         defaultProperties: ClientConfigurationProperties?,
         errors: MutableList<ConfigurationException>
     ): Client? {
+        val clientErrors = mutableListOf<ConfigurationException>()
+
         val isPublic = parser.getBoolean(
             properties, "$CLIENTS_KEY.${properties.id}.public",
             ClientConfigurationProperties::`public`
@@ -81,7 +83,7 @@ class ClientsConfigFactory(
             }
             value
         } catch (e: ConfigurationException) {
-            errors.add(e)
+            clientErrors.add(e)
             null
         }
 
@@ -91,7 +93,7 @@ class ClientsConfigFactory(
                 flowId = properties.authorizationFlow ?: defaultProperties?.authorizationFlow
             )
         } catch (e: ConfigurationException) {
-            errors.add(e)
+            clientErrors.add(e)
             null
         }
 
@@ -102,7 +104,7 @@ class ClientsConfigFactory(
                 errors = errors
             )
         } catch (e: ConfigurationException) {
-            errors.add(e)
+            clientErrors.add(e)
             null
         }
 
@@ -110,10 +112,10 @@ class ClientsConfigFactory(
             getScopes(
                 key = "$CLIENTS_KEY.${properties.id}.allowed-scopes",
                 scopes = properties.allowedScopes ?: defaultProperties?.allowedScopes,
-                errors = errors
+                errors = clientErrors
             )?.toSet()
         } catch (e: ConfigurationException) {
-            errors.add(e)
+            clientErrors.add(e)
             null
         }
 
@@ -121,15 +123,15 @@ class ClientsConfigFactory(
             getScopes(
                 key = "$CLIENTS_KEY.${properties.id}.default-scopes",
                 scopes = properties.defaultScopes ?: defaultProperties?.defaultScopes,
-                errors = errors
+                errors = clientErrors
             )
         } catch (e: ConfigurationException) {
-            errors.add(e)
+            clientErrors.add(e)
             null
         }
 
-        return if (errors.isEmpty()) {
-            return Client(
+        return if (clientErrors.isEmpty()) {
+            Client(
                 id = properties.id,
                 secret = secret,
                 public = isPublic,
@@ -138,7 +140,10 @@ class ClientsConfigFactory(
                 allowedScopes = allowedScopes,
                 defaultScopes = defaultScopes
             )
-        } else null
+        } else {
+            errors.addAll(clientErrors)
+            null
+        }
     }
 
     private fun getAllowedRedirectUris(
