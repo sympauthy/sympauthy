@@ -3,6 +3,10 @@
 #
 # Activate this environment by adding "admin" to MICRONAUT_ENVIRONMENTS (e.g. "default,admin").
 
+admin:
+  enabled: true
+  integrated-ui: true
+
 clients:
   admin:
     public: true

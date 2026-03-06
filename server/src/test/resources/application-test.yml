@@ -14,3 +14,7 @@ auth:
 
 urls:
   root: http://localhost:18080
+
+admin:
+  enabled: true
+  integrated-ui: true
