@@ -3,16 +3,20 @@ package com.sympauthy.api.controller.oauth2
 import com.sympauthy.api.controller.oauth2.TokenController.Companion.OAUTH2_TOKEN_ENDPOINT
 import com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil
 import com.sympauthy.api.exception.oauth2ExceptionOf
+import com.sympauthy.api.exception.toOauth2Exception
 import com.sympauthy.api.resource.oauth2.TokenResource
+import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.oauth2.AccessTokenGenerator
+import com.sympauthy.business.manager.auth.oauth2.PkceManager
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
 import com.sympauthy.business.manager.flow.AuthorizationFlowManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.UNSUPPORTED_GRANT_TYPE
 import com.sympauthy.util.nullIfBlank
@@ -39,7 +43,8 @@ class TokenController(
     @Inject private val tokenManager: TokenManager,
     @Inject private val accessTokenGenerator: AccessTokenGenerator,
     @Inject private val scopeManager: ScopeManager,
-    @Inject private val clientAuthenticationUtil: ClientAuthenticationUtil
+    @Inject private val clientAuthenticationUtil: ClientAuthenticationUtil,
+    @Inject private val pkceManager: PkceManager
 ) {
 
     @Operation(
@@ -89,6 +94,11 @@ Client authentication is supported via:
                 name = "client_secret",
                 description = "The client secret. Used when client credentials are passed in the request body instead of via Basic Auth.",
                 schema = Schema(type = "string")
+            ),
+            Parameter(
+                name = "code_verifier",
+                description = "The PKCE code verifier (RFC 7636). Required when a code_challenge was sent during authorization.",
+                schema = Schema(type = "string")
             )
         ],
         externalDocs = ExternalDocumentation(
@@ -107,23 +117,35 @@ Client authentication is supported via:
         @Part("scope") scope: String?,
         @Part("client_id") clientId: String?,
         @Part("client_secret") clientSecret: String?,
+        @Part("code_verifier") codeVerifier: String?,
     ): TokenResource {
-        val client = clientAuthenticationUtil.resolveClient(request, clientId, clientSecret)
         return when (grantType) {
-            "authorization_code" -> getTokensUsingAuthorizationCode(
-                code = code,
-                redirectUri = redirectUri
-            )
+            "authorization_code" -> {
+                val client = clientAuthenticationUtil.resolveClientForAuthorizationCodeGrant(
+                    request, clientId, clientSecret
+                )
+                getTokensUsingAuthorizationCode(
+                    code = code,
+                    redirectUri = redirectUri,
+                    codeVerifier = codeVerifier
+                )
+            }
 
-            "refresh_token" -> getTokensUsingRefreshToken(
-                client = client,
-                encodedRefreshToken = refreshToken
-            )
+            "refresh_token" -> {
+                val client = clientAuthenticationUtil.resolveClient(request, clientId, clientSecret)
+                getTokensUsingRefreshToken(
+                    client = client,
+                    encodedRefreshToken = refreshToken
+                )
+            }
 
-            "client_credentials" -> getTokensUsingClientCredentials(
-                client = client,
-                scope = scope
-            )
+            "client_credentials" -> {
+                val client = clientAuthenticationUtil.resolveClient(request, clientId, clientSecret)
+                getTokensUsingClientCredentials(
+                    client = client,
+                    scope = scope
+                )
+            }
 
             else -> throw oauth2ExceptionOf(
                 UNSUPPORTED_GRANT_TYPE, "token.unsupported_grant_type",
@@ -134,7 +156,8 @@ Client authentication is supported via:
 
     private suspend fun getTokensUsingAuthorizationCode(
         code: String?,
-        redirectUri: String?
+        redirectUri: String?,
+        codeVerifier: String?
     ): TokenResource {
         if (code.isNullOrBlank()) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token.missing_param", "param" to CODE_PARAM)
@@ -145,6 +168,17 @@ Client authentication is supported via:
         val completedAttempt = authorizeFlowManager.checkCanIssueToken(attempt)
         if (completedAttempt.redirectUri != redirectUri) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token.non_matching_redirect_uri")
+        }
+
+        // Verify PKCE before issuing tokens
+        try {
+            pkceManager.verifyCodeVerifier(
+                codeVerifier = codeVerifier,
+                codeChallenge = completedAttempt.codeChallenge,
+                codeChallengeMethod = completedAttempt.codeChallengeMethod
+            )
+        } catch (e: BusinessException) {
+            throw e.toOauth2Exception(INVALID_GRANT)
         }
 
         val tokens = tokenManager.generateTokens(completedAttempt)

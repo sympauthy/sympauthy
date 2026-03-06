@@ -82,5 +82,7 @@ data class OpenIdConfigurationResource(
     @get:JsonProperty("op_policy_uri")
     val opPolicyUri: String? = null,
     @get:JsonProperty("op_tos_uri")
-    val opTosUri: String? = null
+    val opTosUri: String? = null,
+    @get:JsonProperty("code_challenge_methods_supported")
+    val codeChallengeMethodsSupported: List<String>? = null
 )

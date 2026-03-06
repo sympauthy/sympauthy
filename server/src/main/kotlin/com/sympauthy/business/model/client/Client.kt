@@ -6,7 +6,13 @@ import java.net.URI
 
 data class Client(
     val id: String,
-    val secret: String,
+    val secret: String?,
+
+    /**
+     * Whether this client is a public client (e.g. SPA, mobile app, CLI tool).
+     * Public clients cannot hold credentials securely and must use PKCE for authorization code flows.
+     */
+    val public: Boolean = false,
 
     /**
      * The [AuthorizationFlow] the user will go through when redirected to the authorization server by this [Client]

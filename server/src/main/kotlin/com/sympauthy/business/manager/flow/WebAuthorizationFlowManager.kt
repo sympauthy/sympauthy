@@ -12,6 +12,7 @@ import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
 import com.sympauthy.business.model.oauth2.*
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.config.model.EnabledMfaConfig
 import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.config.model.orThrow
@@ -85,7 +86,9 @@ class WebAuthorizationFlowManager(
         uncheckedClientState: String?,
         uncheckedClientNonce: String?,
         uncheckedScopes: String?,
-        uncheckedRedirectUri: String?
+        uncheckedRedirectUri: String?,
+        uncheckedCodeChallenge: String? = null,
+        uncheckedCodeChallengeMethod: String? = null
     ): Pair<AuthorizeAttempt, WebAuthorizationFlow> {
         val (client, clientException) = try {
             clientManager.parseRequestedClient(uncheckedClientId) to null
@@ -126,15 +129,61 @@ class WebAuthorizationFlowManager(
             null to null
         }
 
+        val (codeChallenge, codeChallengeMethod, pkceException) = parseCodeChallenge(
+            client = client,
+            uncheckedCodeChallenge = uncheckedCodeChallenge,
+            uncheckedCodeChallengeMethod = uncheckedCodeChallengeMethod
+        )
+
         val authorizeAttempt = authorizeAttemptManager.newAuthorizeAttempt(
             client = client,
             clientState = uncheckedClientState,
             authorizationFlow = flow,
             scopes = scopes,
             redirectUri = redirectUri,
-            error = listOfNotNull(clientException, flowException, scopeException, redirectUriException).firstOrNull()
+            codeChallenge = codeChallenge,
+            codeChallengeMethod = codeChallengeMethod,
+            error = listOfNotNull(clientException, flowException, scopeException, redirectUriException, pkceException).firstOrNull()
         )
         return authorizeAttempt to flow
+    }
+
+    /**
+     * Parses and validates PKCE parameters (RFC 7636).
+     *
+     * - If `code_challenge` is present with no method, defaults to `S256`.
+     * - If the method is provided but not recognized, returns an error.
+     * - If the client is public and `code_challenge` is missing, returns an error.
+     */
+    internal fun parseCodeChallenge(
+        client: Client?,
+        uncheckedCodeChallenge: String?,
+        uncheckedCodeChallengeMethod: String?
+    ): Triple<String?, CodeChallengeMethod?, BusinessException?> {
+        if (uncheckedCodeChallenge.isNullOrBlank()) {
+            if (client?.public == true) {
+                return Triple(
+                    null, null, businessExceptionOf(
+                        detailsId = "authorize.pkce.missing_code_challenge"
+                    )
+                )
+            }
+            return Triple(null, null, null)
+        }
+
+        val method = if (uncheckedCodeChallengeMethod.isNullOrBlank()) {
+            CodeChallengeMethod.S256
+        } else {
+            CodeChallengeMethod.fromValueOrNull(uncheckedCodeChallengeMethod)
+                ?: return Triple(
+                    null, null, businessExceptionOf(
+                        detailsId = "authorize.pkce.unsupported_method",
+                        values = arrayOf("method" to uncheckedCodeChallengeMethod)
+                    )
+                )
+        }
+
+        return Triple(uncheckedCodeChallenge, method, null)
     }
 
     /**

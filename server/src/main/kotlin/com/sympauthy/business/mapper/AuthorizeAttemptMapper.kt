@@ -3,10 +3,7 @@ package com.sympauthy.business.mapper
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.mapper.config.ToBusinessMapperConfig
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
-import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
-import com.sympauthy.business.model.oauth2.FailedAuthorizeAttempt
-import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
+import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.data.model.AuthorizeAttemptEntity
 import org.mapstruct.Mapper
 import java.time.LocalDateTime
@@ -27,6 +24,7 @@ import java.time.LocalDateTime
 abstract class AuthorizeAttemptMapper {
 
     fun toOnGoingAuthorizeAttempt(entity: AuthorizeAttemptEntity): OnGoingAuthorizeAttempt {
+        val (codeChallenge, codeChallengeMethod) = mapCodeChallenge(entity)
         return OnGoingAuthorizeAttempt(
             id = entity.id ?: throw invalidBusinessException("id"),
             authorizationFlowId = entity.authorizationFlowId,
@@ -39,11 +37,14 @@ abstract class AuthorizeAttemptMapper {
             userId = entity.userId,
             grantedScopes = entity.grantedScopes?.toList(),
             mfaPassedDate = entity.mfaPassedDate,
+            codeChallenge = codeChallenge,
+            codeChallengeMethod = codeChallengeMethod,
             attemptDate = entity.attemptDate
         )
     }
 
     fun toCompletedAuthorizeAttempt(entity: AuthorizeAttemptEntity): CompletedAuthorizeAttempt {
+        val (codeChallenge, codeChallengeMethod) = mapCodeChallenge(entity)
         return CompletedAuthorizeAttempt(
             id = entity.id ?: throw invalidBusinessException("id"),
             authorizationFlowId = entity.authorizationFlowId,
@@ -55,6 +56,8 @@ abstract class AuthorizeAttemptMapper {
             nonce = entity.nonce,
             userId = entity.userId ?: throw invalidBusinessException("userId"),
             grantedScopes = entity.grantedScopes?.toList() ?: throw invalidBusinessException("grantedScopes"),
+            codeChallenge = codeChallenge,
+            codeChallengeMethod = codeChallengeMethod,
             attemptDate = entity.attemptDate,
             completeDate = entity.completeDate ?: throw invalidBusinessException("completeDate")
         )
@@ -70,6 +73,33 @@ abstract class AuthorizeAttemptMapper {
             errorValues = entity.errorValues,
             errorDate = entity.errorDate ?: throw invalidBusinessException("errorDate")
         )
+    }
+
+    /**
+     * Map the PKCE fields from the entity, validating consistency:
+     * - If `codeChallengeMethod` is present but cannot be decoded, throw.
+     * - If only one of `codeChallenge` / `codeChallengeMethod` is present, throw.
+     */
+    private fun mapCodeChallenge(
+        entity: AuthorizeAttemptEntity
+    ): Pair<String?, CodeChallengeMethod?> {
+        val codeChallenge = entity.codeChallenge
+        val rawMethod = entity.codeChallengeMethod
+
+        if (codeChallenge == null && rawMethod == null) {
+            return null to null
+        }
+        if (codeChallenge != null && rawMethod == null) {
+            throw invalidBusinessException("codeChallengeMethod")
+        }
+        if (codeChallenge == null && rawMethod != null) {
+            throw invalidBusinessException("codeChallenge")
+        }
+
+        val method = CodeChallengeMethod.fromValueOrNull(rawMethod)
+            ?: throw invalidBusinessException("codeChallengeMethod")
+
+        return codeChallenge to method
     }
 
     private fun invalidBusinessException(invalidProperty: String): BusinessException {

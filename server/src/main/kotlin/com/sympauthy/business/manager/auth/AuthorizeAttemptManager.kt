@@ -9,6 +9,7 @@ import com.sympauthy.business.mapper.AuthorizeAttemptMapper
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.oauth2.*
+import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.user.User
 import com.sympauthy.data.model.AuthorizeAttemptEntity
@@ -51,6 +52,8 @@ class AuthorizeAttemptManager(
         authorizationFlow: AuthorizationFlow? = null,
         scopes: List<Scope>? = null,
         redirectUri: URI? = null,
+        codeChallenge: String? = null,
+        codeChallengeMethod: CodeChallengeMethod? = null,
         error: BusinessException? = null
     ): AuthorizeAttempt {
         val now = LocalDateTime.now()
@@ -67,6 +70,9 @@ class AuthorizeAttemptManager(
             errorDetailsId = error?.detailsId,
             errorDescriptionId = error?.descriptionId,
             errorValues = error?.values,
+
+            codeChallenge = codeChallenge,
+            codeChallengeMethod = codeChallengeMethod?.value,
 
             attemptDate = now,
             expirationDate = now.plusMinutes(15) // TODO: Add to advanced config
@@ -238,6 +244,8 @@ class AuthorizeAttemptManager(
             nonce = authorizeAttempt.nonce,
             userId = userId,
             grantedScopes = authorizeAttempt.grantedScopes ?: emptyList(),
+            codeChallenge = authorizeAttempt.codeChallenge,
+            codeChallengeMethod = authorizeAttempt.codeChallengeMethod,
             attemptDate = authorizeAttempt.attemptDate,
             completeDate = LocalDateTime.now()
         )
