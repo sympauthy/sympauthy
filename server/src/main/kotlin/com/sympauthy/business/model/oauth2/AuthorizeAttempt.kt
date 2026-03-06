@@ -72,6 +72,14 @@ class OnGoingAuthorizeAttempt(
      */
     val mfaPassedDate: LocalDateTime? = null,
     /**
+     * The PKCE code challenge provided during authorization (RFC 7636).
+     */
+    val codeChallenge: String? = null,
+    /**
+     * The PKCE code challenge method used (RFC 7636).
+     */
+    val codeChallengeMethod: CodeChallengeMethod? = null,
+    /**
      * When the user initiated the authentication.
      */
     val attemptDate: LocalDateTime,
@@ -101,6 +109,8 @@ class OnGoingAuthorizeAttempt(
         userId = userId ?: this.userId,
         grantedScopes = grantedScopes ?: this.grantedScopes,
         mfaPassedDate = mfaPassedDate ?: this.mfaPassedDate,
+        codeChallenge = this.codeChallenge,
+        codeChallengeMethod = this.codeChallengeMethod,
         attemptDate = this.attemptDate
     )
 }
@@ -148,6 +158,14 @@ class CompletedAuthorizeAttempt(
      * The scopes that were granted to the user during the authorization process.
      */
     val grantedScopes: List<String>,
+    /**
+     * The PKCE code challenge provided during authorization (RFC 7636).
+     */
+    val codeChallenge: String? = null,
+    /**
+     * The PKCE code challenge method used (RFC 7636).
+     */
+    val codeChallengeMethod: CodeChallengeMethod? = null,
     /**
      * When the user initiated the authentication.
      */

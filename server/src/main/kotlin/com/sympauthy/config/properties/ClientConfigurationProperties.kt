@@ -11,6 +11,7 @@ import io.micronaut.context.annotation.Parameter
 class ClientConfigurationProperties(
     @param:Parameter val id: String
 ) {
+    var public: Boolean? = null
     var secret: String? = null
     var authorizationFlow: String? = null
     var allowedRedirectUris: List<String>? = null

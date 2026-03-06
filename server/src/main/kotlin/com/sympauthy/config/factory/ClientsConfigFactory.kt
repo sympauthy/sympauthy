@@ -61,11 +61,25 @@ class ClientsConfigFactory(
         defaultProperties: ClientConfigurationProperties?,
         errors: MutableList<ConfigurationException>
     ): Client? {
+        val isPublic = parser.getBoolean(
+            properties, "$CLIENTS_KEY.${properties.id}.public",
+            ClientConfigurationProperties::`public`
+        ) ?: defaultProperties?.let {
+            parser.getBoolean(
+                it, "$CLIENTS_KEY.${properties.id}.public",
+                ClientConfigurationProperties::`public`
+            )
+        } ?: false
+
         val secret = try {
-            parser.getString(
+            val value = parser.getString(
                 properties, "$CLIENTS_KEY.${properties.id}.secret",
                 ClientConfigurationProperties::secret
             )
+            if (!isPublic && value == null) {
+                throw configExceptionOf("$CLIENTS_KEY.${properties.id}.secret", "config.missing")
+            }
+            value
         } catch (e: ConfigurationException) {
             errors.add(e)
             null
@@ -117,7 +131,8 @@ class ClientsConfigFactory(
         return if (errors.isEmpty()) {
             return Client(
                 id = properties.id,
-                secret = secret!!,
+                secret = secret,
+                public = isPublic,
                 authorizationFlow = authorizationFlow,
                 allowedRedirectUris = allowedRedirectUris,
                 allowedScopes = allowedScopes,

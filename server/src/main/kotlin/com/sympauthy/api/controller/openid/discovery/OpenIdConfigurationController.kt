@@ -56,7 +56,8 @@ class OpenIdConfigurationController(
             subjectTypesSupported = listOf("public"),
             idTokenSigningAlgValuesSupported = listOf("RS256"),
             tokenEndpointAuthMethodsSupported = listOf("client_secret_basic", "client_secret_post"),
-            claimsSupported = claims
+            claimsSupported = claims,
+            codeChallengeMethodsSupported = listOf("S256")
         )
     }
 }

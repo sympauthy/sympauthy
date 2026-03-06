@@ -28,6 +28,8 @@ class AuthorizeAttemptEntity(
     val errorValues: Map<String, String>? = null,
     val completeDate: LocalDateTime? = null,
     val mfaPassedDate: LocalDateTime? = null,
+    val codeChallenge: String? = null,
+    val codeChallengeMethod: String? = null,
     val expirationDate: LocalDateTime
 ) {
     @Id

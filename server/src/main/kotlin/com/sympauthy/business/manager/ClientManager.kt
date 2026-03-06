@@ -49,6 +49,14 @@ class ClientManager(
     }
 
     /**
+     * Return the [Client] identified by [id] only if it is a public client.
+     * Otherwise, return null.
+     */
+    suspend fun findPublicClientByIdOrNull(id: String): Client? {
+        return listClients().firstOrNull { it.id == id && it.public }
+    }
+
+    /**
      * Return the [Client] identified by [clientId] if the [clientSecret] matches the one configured.
      * Otherwise, return null whether no client matches or the secret does not match.
      */

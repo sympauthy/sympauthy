@@ -5,11 +5,12 @@ import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
-import com.sympauthy.config.model.MfaConfig
+import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.code.ValidationCodeReason
 import com.sympauthy.business.model.flow.NonInteractiveAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
+import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.config.model.EnabledMfaConfig
@@ -218,5 +219,59 @@ class WebAuthorizationFlowManagerTest {
 
         assertSame(completeAuthorizeAttempt, result.first)
         assertTrue(result.second.complete)
+    }
+
+    // --- PKCE parseCodeChallenge tests ---
+
+    @Test
+    fun `parseCodeChallenge - Returns challenge and S256 method when both provided`() {
+        val client = mockk<Client> { every { `public` } returns false }
+        val (challenge, method, error) = manager.parseCodeChallenge(client, "test-challenge", "S256")
+
+        assertEquals("test-challenge", challenge)
+        assertEquals(CodeChallengeMethod.S256, method)
+        assertNull(error)
+    }
+
+    @Test
+    fun `parseCodeChallenge - Defaults to S256 when method not provided`() {
+        val client = mockk<Client> { every { `public` } returns false }
+        val (challenge, method, error) = manager.parseCodeChallenge(client, "test-challenge", null)
+
+        assertEquals("test-challenge", challenge)
+        assertEquals(CodeChallengeMethod.S256, method)
+        assertNull(error)
+    }
+
+    @Test
+    fun `parseCodeChallenge - Returns error for unsupported method`() {
+        val client = mockk<Client> { every { `public` } returns false }
+        val (challenge, method, error) = manager.parseCodeChallenge(client, "test-challenge", "plain")
+
+        assertNull(challenge)
+        assertNull(method)
+        assertNotNull(error)
+        assertEquals("authorize.pkce.unsupported_method", error!!.detailsId)
+    }
+
+    @Test
+    fun `parseCodeChallenge - Returns error when public client has no code_challenge`() {
+        val client = mockk<Client> { every { `public` } returns true }
+        val (challenge, method, error) = manager.parseCodeChallenge(client, null, null)
+
+        assertNull(challenge)
+        assertNull(method)
+        assertNotNull(error)
+        assertEquals("authorize.pkce.missing_code_challenge", error!!.detailsId)
+    }
+
+    @Test
+    fun `parseCodeChallenge - No error when confidential client has no code_challenge`() {
+        val client = mockk<Client> { every { `public` } returns false }
+        val (challenge, method, error) = manager.parseCodeChallenge(client, null, null)
+
+        assertNull(challenge)
+        assertNull(method)
+        assertNull(error)
     }
 }

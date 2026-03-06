@@ -85,6 +85,23 @@ The authorization server includes this value unmodified in the ID Token.
                 schema = Schema(
                     type = "string"
                 )
+            ),
+            Parameter(
+                name = "code_challenge",
+                `in` = QUERY,
+                description = "PKCE code challenge (RFC 7636). Required for public clients.",
+                schema = Schema(
+                    type = "string"
+                )
+            ),
+            Parameter(
+                name = "code_challenge_method",
+                `in` = QUERY,
+                description = "PKCE code challenge method (RFC 7636). Only 'S256' is supported. Defaults to 'S256' if code_challenge is present.",
+                schema = Schema(
+                    type = "string",
+                    allowableValues = ["S256"]
+                )
             )
         ],
         externalDocs = ExternalDocumentation(
@@ -105,7 +122,11 @@ The authorization server includes this value unmodified in the ID Token.
         @QueryValue("state")
         uncheckedClientState: String?,
         @QueryValue("nonce")
-        uncheckedClientNonce: String?
+        uncheckedClientNonce: String?,
+        @QueryValue("code_challenge")
+        uncheckedCodeChallenge: String?,
+        @QueryValue("code_challenge_method")
+        uncheckedCodeChallengeMethod: String?
     ): HttpResponse<*> {
         return when {
             responseType.isNullOrBlank() -> throw oauth2ExceptionOf(
@@ -117,7 +138,9 @@ The authorization server includes this value unmodified in the ID Token.
                 uncheckedClientState = uncheckedClientState,
                 uncheckedClientNonce = uncheckedClientNonce,
                 uncheckedScopes = uncheckedScopes,
-                uncheckedRedirectUri = uncheckedRedirectUri
+                uncheckedRedirectUri = uncheckedRedirectUri,
+                uncheckedCodeChallenge = uncheckedCodeChallenge,
+                uncheckedCodeChallengeMethod = uncheckedCodeChallengeMethod
             )
 
             else -> throw oauth2ExceptionOf(
@@ -132,14 +155,18 @@ The authorization server includes this value unmodified in the ID Token.
         uncheckedClientState: String?,
         uncheckedClientNonce: String?,
         uncheckedScopes: String?,
-        uncheckedRedirectUri: String?
+        uncheckedRedirectUri: String?,
+        uncheckedCodeChallenge: String?,
+        uncheckedCodeChallengeMethod: String?
     ): HttpResponse<*> {
         val (authorizeAttempt, flow) = webAuthorizationFlowManager.startAuthorizationWith(
             uncheckedClientId = uncheckedClientId,
             uncheckedClientState = uncheckedClientState,
             uncheckedClientNonce = uncheckedClientNonce,
             uncheckedScopes = uncheckedScopes,
-            uncheckedRedirectUri = uncheckedRedirectUri
+            uncheckedRedirectUri = uncheckedRedirectUri,
+            uncheckedCodeChallenge = uncheckedCodeChallenge,
+            uncheckedCodeChallengeMethod = uncheckedCodeChallengeMethod
         )
         return HttpResponse.temporaryRedirect<Any>(
             webFlowRedirectBuilder.getSignInRedirectUri(
