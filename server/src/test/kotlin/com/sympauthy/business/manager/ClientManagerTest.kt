@@ -114,7 +114,7 @@ class ClientManagerTest {
     }
 
     @Test
-    fun `authenticateClient - Return client when clientId and clientSecret match`() = runTest {
+    fun `authenticateClientOrNull - Return client when clientId and clientSecret match`() = runTest {
         val client1 = mockk<Client> {
             every { id } returns "client1"
             every { secret } returns "secret1"
@@ -128,13 +128,13 @@ class ClientManagerTest {
 
         val clientManager = ClientManager(uncheckedClientsConfig)
 
-        val result = clientManager.authenticateClient("client2", "secret2")
+        val result = clientManager.authenticateClientOrNull("client2", "secret2")
 
         assertSame(client2, result)
     }
 
     @Test
-    fun `authenticateClient - Return null when clientId does not exist`() = runTest {
+    fun `authenticateClientOrNull - Return null when clientId does not exist`() = runTest {
         val client1 = mockk<Client> {
             every { id } returns "client1"
             every { secret } returns "secret1"
@@ -144,13 +144,13 @@ class ClientManagerTest {
 
         val clientManager = ClientManager(uncheckedClientsConfig)
 
-        val result = clientManager.authenticateClient("nonexistent", "secret1")
+        val result = clientManager.authenticateClientOrNull("nonexistent", "secret1")
 
         assertNull(result)
     }
 
     @Test
-    fun `authenticateClient - Return null when clientSecret does not match`() = runTest {
+    fun `authenticateClientOrNull - Return null when clientSecret does not match`() = runTest {
         val client1 = mockk<Client> {
             every { id } returns "client1"
             every { secret } returns "secret1"
@@ -160,7 +160,7 @@ class ClientManagerTest {
 
         val clientManager = ClientManager(uncheckedClientsConfig)
 
-        val result = clientManager.authenticateClient("client1", "wrongsecret")
+        val result = clientManager.authenticateClientOrNull("client1", "wrongsecret")
 
         assertNull(result)
     }

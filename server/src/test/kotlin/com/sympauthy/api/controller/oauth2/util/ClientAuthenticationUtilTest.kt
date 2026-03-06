@@ -51,7 +51,7 @@ class ClientAuthenticationUtilTest {
     @Test
     fun `resolveClient - Authenticates with form params`() = runTest {
         val client = mockk<Client>()
-        coEvery { clientManager.authenticateClient("client1", "secret1") } returns client
+        coEvery { clientManager.authenticateClientOrNull("client1", "secret1") } returns client
 
         val result = util.resolveClient(mockRequestWithoutAuth(), "client1", "secret1")
 
@@ -68,7 +68,7 @@ class ClientAuthenticationUtilTest {
 
     @Test
     fun `resolveClient - Throws when credentials are wrong`() = runTest {
-        coEvery { clientManager.authenticateClient("client1", "wrong") } returns null
+        coEvery { clientManager.authenticateClientOrNull("client1", "wrong") } returns null
 
         val exception = assertThrows<OAuth2Exception> {
             util.resolveClient(mockRequestWithoutAuth(), "client1", "wrong")
@@ -81,7 +81,7 @@ class ClientAuthenticationUtilTest {
     @Test
     fun `resolveClientForAuthorizationCodeGrant - Authenticates confidential client`() = runTest {
         val client = mockk<Client>()
-        coEvery { clientManager.authenticateClient("client1", "secret1") } returns client
+        coEvery { clientManager.authenticateClientOrNull("client1", "secret1") } returns client
 
         val result = util.resolveClientForAuthorizationCodeGrant(
             mockRequestWithoutAuth(), "client1", "secret1"
@@ -129,7 +129,7 @@ class ClientAuthenticationUtilTest {
     @Test
     fun `resolveClientForAuthorizationCodeGrant - Uses Basic Auth when present`() = runTest {
         val client = mockk<Client>()
-        coEvery { clientManager.authenticateClient("client1", "secret1") } returns client
+        coEvery { clientManager.authenticateClientOrNull("client1", "secret1") } returns client
 
         val result = util.resolveClientForAuthorizationCodeGrant(
             mockRequestWithBasicAuth("client1", "secret1"), null, null
