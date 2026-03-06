@@ -16,11 +16,11 @@ auth:oauth2 {
   client_secret: {{clientSecret}}
   scope: 
   state: 
-  pkce: false
+  pkce: true
   credentials_placement: body
   credentials_id: admin
   token_placement: header
   token_header_prefix: Bearer
   auto_fetch_token: true
-  auto_refresh_token: true
+  auto_refresh_token: false
 }

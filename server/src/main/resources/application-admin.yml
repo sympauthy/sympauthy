@@ -5,6 +5,7 @@
 
 clients:
   admin:
+    public: true
     allowed-scopes:
       - openid
       - profile

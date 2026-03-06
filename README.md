@@ -14,15 +14,15 @@ To get started with SympAuthy, please refer to the [Getting Started guide](https
 
 ### Create the application configuration
 
-For development purpose, we will create an OAuth2 client that has access to Admin APIs to be able to test all
+For development purpose, we will create an OAuth2 client that has access to all APIs to be able to test all
 the features of SympAuthy:
 
 - **Client ID**: dev
-- **Client Secret**: my-secret
+- **Client Secret**: dev
 - **Allowed Scopes**:
   - openid: Required to access to the authorization flow.
-  - profile: Authorize us to get our personal user info.
-  - http://localhost:8090/admin: Authorizes us to access Admin APIs of SympAuthy.
+  - profile: Authorize the end-user(you) to get their personal user info.
+  - admin:*: Authorize the end-user(you) to access Admin APIs of SympAuthy.
 
 As SympAuthy is fully configurable using a text file, we can create a file **application.yml** in the **config**
 directory
@@ -41,8 +41,20 @@ auth:
 clients:
   default:
     authorization-flow: local
-  admin:
-    secret: admin
+  dev:
+    public: false
+    secret: dev
+    allowed-scopes:
+      - openid
+      - profile
+      - admin:clients:read
+      - admin:users:read
+      - admin:users:write
+      - admin:users:delete
+      - admin:access:read
+      - admin:access:write
+      - admin:sessions:read
+      - admin:sessions:write
 
 flows:
   local:
@@ -139,7 +151,7 @@ Then click on **Add** button in the **Before launch** section:
 Open the following URL in your browser to access the authorization flow:
 
 ```
-http://localhost:8080/api/oauth2/authorize?client_id=admin&redirect_uri=https://example.com&response_type=code
+http://localhost:8080/api/oauth2/authorize?client_id=dev&redirect_uri=https://example.com&response_type=code
 ```
 
 #### Bruno collection
@@ -151,7 +163,6 @@ Open the collection in Bruno, then configure the **Local** environment:
 1. Open the **Environments** panel and select **Local**
 2. Set `clientId` to the ID of the OAuth2 client you want to test with (defaults to `admin` as configured above)
 3. Set the following secret variables:
-   - `clientSecret`: the secret of the OAuth2 client (defaults to `admin`)
    - `login`: the login of the test user
    - `password`: the password of the test user
 
