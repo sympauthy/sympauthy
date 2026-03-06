@@ -126,7 +126,7 @@ class ScopeManager(
         return if (uncheckedScopes.isNullOrBlank()) {
             client.defaultScopes ?: emptyList()
         } else {
-            uncheckedScopes.split(",")
+            uncheckedScopes.split(" ")
                 .map { it.trim() }
                 .filter { it.isNotBlank() }
                 .map {
