@@ -85,7 +85,7 @@ class TokenControllerTest {
     // --- getTokens routing tests ---
 
     @Test
-    fun `getTokens - client_credentials uses resolveClient, not resolveClientForAuthorizationCodeGrant`() = runTest {
+    fun `getTokens - client_credentials uses resolveClient, not resolveClientAllowingPublic`() = runTest {
         val request = mockRequestWithoutAuth()
         coEvery {
             clientAuthenticationUtil.resolveClient(request, any(), any())
@@ -106,14 +106,14 @@ class TokenControllerTest {
         }
 
         coVerify(exactly = 1) { clientAuthenticationUtil.resolveClient(request, any(), any()) }
-        coVerify(exactly = 0) { clientAuthenticationUtil.resolveClientForAuthorizationCodeGrant(any(), any(), any()) }
+        coVerify(exactly = 0) { clientAuthenticationUtil.resolveClientAllowingPublic(any(), any(), any()) }
     }
 
     @Test
-    fun `getTokens - refresh_token uses resolveClient, not resolveClientForAuthorizationCodeGrant`() = runTest {
+    fun `getTokens - refresh_token uses resolveClientAllowingPublic, not resolveClient`() = runTest {
         val request = mockRequestWithoutAuth()
         coEvery {
-            clientAuthenticationUtil.resolveClient(request, any(), any())
+            clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
         } throws oauth2ExceptionOf(INVALID_GRANT, "authentication.wrong")
 
         assertThrows<OAuth2Exception> {
@@ -130,15 +130,15 @@ class TokenControllerTest {
             )
         }
 
-        coVerify(exactly = 1) { clientAuthenticationUtil.resolveClient(request, any(), any()) }
-        coVerify(exactly = 0) { clientAuthenticationUtil.resolveClientForAuthorizationCodeGrant(any(), any(), any()) }
+        coVerify(exactly = 1) { clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any()) }
+        coVerify(exactly = 0) { clientAuthenticationUtil.resolveClient(any(), any(), any()) }
     }
 
     @Test
-    fun `getTokens - authorization_code uses resolveClientForAuthorizationCodeGrant, not resolveClient`() = runTest {
+    fun `getTokens - authorization_code uses resolveClientAllowingPublic, not resolveClient`() = runTest {
         val request = mockRequestWithoutAuth()
         coEvery {
-            clientAuthenticationUtil.resolveClientForAuthorizationCodeGrant(request, any(), any())
+            clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
         } throws oauth2ExceptionOf(INVALID_GRANT, "authentication.wrong")
 
         assertThrows<OAuth2Exception> {
@@ -155,7 +155,7 @@ class TokenControllerTest {
             )
         }
 
-        coVerify(exactly = 1) { clientAuthenticationUtil.resolveClientForAuthorizationCodeGrant(request, any(), any()) }
+        coVerify(exactly = 1) { clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any()) }
         coVerify(exactly = 0) { clientAuthenticationUtil.resolveClient(any(), any(), any()) }
     }
 
@@ -183,7 +183,7 @@ class TokenControllerTest {
     fun `getTokensUsingAuthorizationCode - Throws when code is missing`() = runTest {
         val request = mockRequestWithoutAuth()
         coEvery {
-            clientAuthenticationUtil.resolveClientForAuthorizationCodeGrant(request, any(), any())
+            clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
         } returns mockClient()
 
         val exception = assertThrows<OAuth2Exception> {
@@ -212,7 +212,7 @@ class TokenControllerTest {
             every { codeChallengeMethod } returns null
         }
         coEvery {
-            clientAuthenticationUtil.resolveClientForAuthorizationCodeGrant(request, any(), any())
+            clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
         } returns mockClient()
         coEvery { authorizeAttemptManager.findByCodeOrNull("the-code") } returns completedAttempt
         coEvery { authorizeFlowManager.checkCanIssueToken(completedAttempt) } returns completedAttempt
@@ -242,7 +242,7 @@ class TokenControllerTest {
             every { codeChallengeMethod } returns CodeChallengeMethod.S256
         }
         coEvery {
-            clientAuthenticationUtil.resolveClientForAuthorizationCodeGrant(request, any(), any())
+            clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
         } returns mockClient()
         coEvery { authorizeAttemptManager.findByCodeOrNull("the-code") } returns completedAttempt
         coEvery { authorizeFlowManager.checkCanIssueToken(completedAttempt) } returns completedAttempt
@@ -279,7 +279,7 @@ class TokenControllerTest {
             every { codeChallengeMethod } returns null
         }
         coEvery {
-            clientAuthenticationUtil.resolveClientForAuthorizationCodeGrant(request, any(), any())
+            clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
         } returns mockClient()
         coEvery { authorizeAttemptManager.findByCodeOrNull("the-code") } returns completedAttempt
         coEvery { authorizeFlowManager.checkCanIssueToken(completedAttempt) } returns completedAttempt
@@ -314,7 +314,7 @@ class TokenControllerTest {
     fun `getTokensUsingRefreshToken - Throws when refresh_token is missing`() = runTest {
         val request = mockRequestWithoutAuth()
         val client = mockClient()
-        coEvery { clientAuthenticationUtil.resolveClient(request, any(), any()) } returns client
+        coEvery { clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any()) } returns client
 
         val exception = assertThrows<OAuth2Exception> {
             controller.getTokens(
@@ -340,7 +340,7 @@ class TokenControllerTest {
         val accessToken = mockEncodedToken("new-access", listOf("openid"), type = ACCESS)
         val newRefreshToken = mockEncodedToken("new-refresh", type = REFRESH)
 
-        coEvery { clientAuthenticationUtil.resolveClient(request, any(), any()) } returns client
+        coEvery { clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any()) } returns client
         coEvery { tokenManager.refreshToken(client, "old-refresh") } returns listOf(accessToken, newRefreshToken)
 
         val result = controller.getTokens(
@@ -365,7 +365,7 @@ class TokenControllerTest {
         val client = mockClient()
         val accessToken = mockEncodedToken("new-access", type = ACCESS)
 
-        coEvery { clientAuthenticationUtil.resolveClient(request, any(), any()) } returns client
+        coEvery { clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any()) } returns client
         coEvery { tokenManager.refreshToken(client, "old-refresh") } returns listOf(accessToken)
 
         val result = controller.getTokens(

@@ -121,7 +121,7 @@ Client authentication is supported via:
     ): TokenResource {
         return when (grantType) {
             "authorization_code" -> {
-                val client = clientAuthenticationUtil.resolveClientForAuthorizationCodeGrant(
+                val client = clientAuthenticationUtil.resolveClientAllowingPublic(
                     request, clientId, clientSecret
                 )
                 getTokensUsingAuthorizationCode(
@@ -132,7 +132,7 @@ Client authentication is supported via:
             }
 
             "refresh_token" -> {
-                val client = clientAuthenticationUtil.resolveClient(request, clientId, clientSecret)
+                val client = clientAuthenticationUtil.resolveClientAllowingPublic(request, clientId, clientSecret)
                 getTokensUsingRefreshToken(
                     client = client,
                     encodedRefreshToken = refreshToken

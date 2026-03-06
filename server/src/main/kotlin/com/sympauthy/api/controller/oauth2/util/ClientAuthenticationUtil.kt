@@ -31,7 +31,7 @@ class ClientAuthenticationUtil(
 
     /**
      * Resolve and authenticate the client for grants that always require client credentials
-     * (`client_credentials`, `refresh_token`).
+     * (`client_credentials`).
      * Public clients are rejected by this method since they cannot authenticate.
      */
     suspend fun resolveClient(
@@ -54,12 +54,12 @@ class ClientAuthenticationUtil(
     }
 
     /**
-     * Resolve the client for the `authorization_code` grant.
+     * Resolve the client for grants that support public clients (`authorization_code`, `refresh_token`).
      *
      * - Confidential clients must authenticate with credentials (Basic Auth or form params).
-     * - Public clients only need to provide `client_id` (no secret required); they rely on PKCE for security.
+     * - Public clients only need to provide `client_id` (no secret required).
      */
-    suspend fun resolveClientForAuthorizationCodeGrant(
+    suspend fun resolveClientAllowingPublic(
         request: HttpRequest<*>,
         clientId: String?,
         clientSecret: String?

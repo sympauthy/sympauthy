@@ -76,14 +76,14 @@ class ClientAuthenticationUtilTest {
         assertEquals("authentication.wrong", exception.detailsId)
     }
 
-    // --- resolveClientForAuthorizationCodeGrant tests ---
+    // --- resolveClientAllowingPublic tests ---
 
     @Test
-    fun `resolveClientForAuthorizationCodeGrant - Authenticates confidential client`() = runTest {
+    fun `resolveClientAllowingPublic - Authenticates confidential client`() = runTest {
         val client = mockk<Client>()
         coEvery { clientManager.authenticateClientOrNull("client1", "secret1") } returns client
 
-        val result = util.resolveClientForAuthorizationCodeGrant(
+        val result = util.resolveClientAllowingPublic(
             mockRequestWithoutAuth(), "client1", "secret1"
         )
 
@@ -91,11 +91,11 @@ class ClientAuthenticationUtilTest {
     }
 
     @Test
-    fun `resolveClientForAuthorizationCodeGrant - Resolves public client without secret`() = runTest {
+    fun `resolveClientAllowingPublic - Resolves public client without secret`() = runTest {
         val publicClient = mockk<Client> { every { `public` } returns true }
         coEvery { clientManager.findPublicClientByIdOrNull("public-app") } returns publicClient
 
-        val result = util.resolveClientForAuthorizationCodeGrant(
+        val result = util.resolveClientAllowingPublic(
             mockRequestWithoutAuth(), "public-app", null
         )
 
@@ -103,11 +103,11 @@ class ClientAuthenticationUtilTest {
     }
 
     @Test
-    fun `resolveClientForAuthorizationCodeGrant - Rejects unknown client without secret`() = runTest {
+    fun `resolveClientAllowingPublic - Rejects unknown client without secret`() = runTest {
         coEvery { clientManager.findPublicClientByIdOrNull("unknown") } returns null
 
         val exception = assertThrows<OAuth2Exception> {
-            util.resolveClientForAuthorizationCodeGrant(
+            util.resolveClientAllowingPublic(
                 mockRequestWithoutAuth(), "unknown", null
             )
         }
@@ -115,11 +115,11 @@ class ClientAuthenticationUtilTest {
     }
 
     @Test
-    fun `resolveClientForAuthorizationCodeGrant - Rejects confidential client without secret`() = runTest {
+    fun `resolveClientAllowingPublic - Rejects confidential client without secret`() = runTest {
         coEvery { clientManager.findPublicClientByIdOrNull("confidential") } returns null
 
         val exception = assertThrows<OAuth2Exception> {
-            util.resolveClientForAuthorizationCodeGrant(
+            util.resolveClientAllowingPublic(
                 mockRequestWithoutAuth(), "confidential", ""
             )
         }
@@ -127,11 +127,11 @@ class ClientAuthenticationUtilTest {
     }
 
     @Test
-    fun `resolveClientForAuthorizationCodeGrant - Uses Basic Auth when present`() = runTest {
+    fun `resolveClientAllowingPublic - Uses Basic Auth when present`() = runTest {
         val client = mockk<Client>()
         coEvery { clientManager.authenticateClientOrNull("client1", "secret1") } returns client
 
-        val result = util.resolveClientForAuthorizationCodeGrant(
+        val result = util.resolveClientAllowingPublic(
             mockRequestWithBasicAuth("client1", "secret1"), null, null
         )
 
@@ -139,9 +139,9 @@ class ClientAuthenticationUtilTest {
     }
 
     @Test
-    fun `resolveClientForAuthorizationCodeGrant - Throws when no credentials provided`() = runTest {
+    fun `resolveClientAllowingPublic - Throws when no credentials provided`() = runTest {
         val exception = assertThrows<OAuth2Exception> {
-            util.resolveClientForAuthorizationCodeGrant(
+            util.resolveClientAllowingPublic(
                 mockRequestWithoutAuth(), null, null
             )
         }
