@@ -13,14 +13,14 @@ auth:oauth2 {
   access_token_url: {{serverUrl}}/api/oauth2/token
   refresh_token_url: 
   client_id: {{clientId}}
-  client_secret: {{clientSecret}}
+  client_secret: 
   scope: 
   state: 
-  pkce: false
+  pkce: true
   credentials_placement: body
   credentials_id: admin
   token_placement: header
   token_header_prefix: Bearer
   auto_fetch_token: true
-  auto_refresh_token: true
+  auto_refresh_token: false
 }

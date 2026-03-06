@@ -1,8 +1,8 @@
 package com.sympauthy.business.manager
 
 import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.model.oauth2.AdminScope
 import com.sympauthy.business.model.oauth2.Scope
-import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.config.model.EnabledScopesConfig
 import io.mockk.coEvery
 import io.mockk.every
@@ -12,17 +12,13 @@ import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertSame
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 
 @ExtendWith(MockKExtension::class)
 class ScopeManagerTest {
-
-    @MockK
-    lateinit var authConfig: EnabledAuthConfig
 
     @MockK
     lateinit var scopesConfig: EnabledScopesConfig
@@ -167,5 +163,16 @@ class ScopeManagerTest {
         val result = scopeManager.parseRequestedScopes(client, null)
 
         assertEquals(listOf(defaultScope), result)
+    }
+
+    @Test
+    fun `adminScopes - Contains all admin scopes`() {
+        val adminScopes = scopeManager.adminScopes
+        assertEquals(AdminScope.entries.size, adminScopes.size)
+        AdminScope.entries.forEach { adminScope ->
+            val scope = adminScopes.first { it.scope == adminScope.scope }
+            assertTrue(scope.admin)
+            assertFalse(scope.discoverable)
+        }
     }
 }

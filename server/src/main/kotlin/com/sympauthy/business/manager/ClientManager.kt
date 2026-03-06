@@ -60,7 +60,7 @@ class ClientManager(
      * Return the [Client] identified by [clientId] if the [clientSecret] matches the one configured.
      * Otherwise, return null whether no client matches or the secret does not match.
      */
-    suspend fun authenticateClient(clientId: String, clientSecret: String): Client? {
+    suspend fun authenticateClientOrNull(clientId: String, clientSecret: String): Client? {
         return listClients().firstOrNull { it.id == clientId && it.secret == clientSecret }
     }
 }

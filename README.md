@@ -14,15 +14,15 @@ To get started with SympAuthy, please refer to the [Getting Started guide](https
 
 ### Create the application configuration
 
-For development purpose, we will create an OAuth2 client that has access to Admin APIs to be able to test all
+For development purpose, we will create an OAuth2 client that has access to all APIs to be able to test all
 the features of SympAuthy:
 
 - **Client ID**: dev
-- **Client Secret**: my-secret
+- **Client Secret**: dev
 - **Allowed Scopes**:
   - openid: Required to access to the authorization flow.
-  - profile: Authorize us to get our personal user info.
-  - http://localhost:8090/admin: Authorizes us to access Admin APIs of SympAuthy.
+  - profile: Authorize the end-user(you) to get their personal user info.
+  - admin:*: Authorize the end-user(you) to access Admin APIs of SympAuthy.
 
 As SympAuthy is fully configurable using a text file, we can create a file **application.yml** in the **config**
 directory
@@ -42,14 +42,19 @@ clients:
   default:
     authorization-flow: local
   dev:
-    secret: my-secret
-    flow: local
-    allowed-redirect-urls:
-      - https://example.com
+    public: false
+    secret: dev
     allowed-scopes:
       - openid
       - profile
-      - http://localhost:8080/admin
+      - admin:clients:read
+      - admin:users:read
+      - admin:users:write
+      - admin:users:delete
+      - admin:access:read
+      - admin:access:write
+      - admin:sessions:read
+      - admin:sessions:write
 
 flows:
   local:
@@ -100,7 +105,7 @@ You can launch it with any IDE supporting Gradle or directly using Gradle in the
 #### Gradle
 
 ```bash
-MICRONAUT_CONFIG_FILES=$(pwd)/config/application.yml MICRONAUT_ENVIRONMENTS=default ./gradlew :core:run
+MICRONAUT_CONFIG_FILES=$(pwd)/config/application.yml MICRONAUT_ENVIRONMENTS=default,admin ./gradlew :core:run
 ```
 
 #### IntelliJ
@@ -111,7 +116,7 @@ Add a new **Micronaut** configuration:
 - **Classpath**: sympauthy.server.main
 - **Working directory**: $ProjectFileDir$
 - **Environment variables**:
-  - **MICRONAUT_ENVIRONMENTS**: default
+  - **MICRONAUT_ENVIRONMENTS**: default,admin
   - **MICRONAUT_CONFIG_FILES**: config/application.yml
 
 ### Build and run the native image locally
@@ -120,7 +125,7 @@ Add a new **Micronaut** configuration:
 
 ```bash
 ./gradlew nativeCompile
-MICRONAUT_CONFIG_FILES=$(pwd)/config/application.yml MICRONAUT_ENVIRONMENTS=default ./server/build/native/nativeCompile/server
+MICRONAUT_CONFIG_FILES=$(pwd)/config/application.yml MICRONAUT_ENVIRONMENTS=default,admin ./server/build/native/nativeCompile/server
 ```
 
 #### IntelliJ
@@ -131,7 +136,7 @@ It should create a new configuration that you can rename into: Native - Compile.
 Then add a new **Shell script** configuration:
 - **Name**: Native - Application
 - **Execute**: Script Text
-- **Script text**: MICRONAUT_CONFIG_FILES=config/application.yml MICRONAUT_ENVIRONMENTS=default ./server/build/native/nativeCompile/server
+- **Script text**: MICRONAUT_CONFIG_FILES=config/application.yml MICRONAUT_ENVIRONMENTS=default,admin ./server/build/native/nativeCompile/server
 - **Working directory**: $ProjectFileDir$
 - **Execute in Terminal**: Unchecked
 
@@ -156,9 +161,8 @@ A [Bruno](https://www.usebruno.com/) collection is available in the `bruno/` fol
 Open the collection in Bruno, then configure the **Local** environment:
 
 1. Open the **Environments** panel and select **Local**
-2. Set `clientId` to the ID of the OAuth2 client you want to test with (defaults to `dev` as configured above)
+2. Set `clientId` to the ID of the OAuth2 client you want to test with (defaults to `admin` as configured above)
 3. Set the following secret variables:
-   - `clientSecret`: the secret of the OAuth2 client (defaults to `my-secret`)
    - `login`: the login of the test user
    - `password`: the password of the test user
 

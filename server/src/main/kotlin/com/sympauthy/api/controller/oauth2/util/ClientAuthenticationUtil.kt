@@ -43,11 +43,11 @@ class ClientAuthenticationUtil(
             ?.flatMap(BasicAuthUtils::parseCredentials)
             ?.orElse(null)
         if (headerCredentials != null) {
-            return clientManager.authenticateClient(headerCredentials.username, headerCredentials.password)
+            return clientManager.authenticateClientOrNull(headerCredentials.username, headerCredentials.password)
                 ?: throw oauth2ExceptionOf(INVALID_GRANT, "authentication.wrong")
         }
         if (clientId != null) {
-            return clientManager.authenticateClient(clientId, clientSecret ?: "")
+            return clientManager.authenticateClientOrNull(clientId, clientSecret ?: "")
                 ?: throw oauth2ExceptionOf(INVALID_GRANT, "authentication.wrong")
         }
         throw oauth2ExceptionOf(INVALID_GRANT, "authentication.missing_credentials")
@@ -68,13 +68,13 @@ class ClientAuthenticationUtil(
             ?.flatMap(BasicAuthUtils::parseCredentials)
             ?.orElse(null)
         if (headerCredentials != null) {
-            return clientManager.authenticateClient(headerCredentials.username, headerCredentials.password)
+            return clientManager.authenticateClientOrNull(headerCredentials.username, headerCredentials.password)
                 ?: throw oauth2ExceptionOf(INVALID_GRANT, "authentication.wrong")
         }
         if (clientId != null) {
             // If a secret is provided, authenticate normally
             if (!clientSecret.isNullOrBlank()) {
-                return clientManager.authenticateClient(clientId, clientSecret)
+                return clientManager.authenticateClientOrNull(clientId, clientSecret)
                     ?: throw oauth2ExceptionOf(INVALID_GRANT, "authentication.wrong")
             }
             // No secret: only allow if the client is public
