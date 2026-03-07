@@ -116,7 +116,7 @@ class ScopeManagerTest {
         coEvery { scopeManager.findForClientOrThrow(client, scopeOne) } returns foundScopeOne
         coEvery { scopeManager.findForClientOrThrow(client, scopeTwo) } returns foundScopeTwo
 
-        val result = scopeManager.parseRequestedScopes(client, "$scopeOne,$scopeTwo")
+        val result = scopeManager.parseRequestedScopes(client, "$scopeOne $scopeTwo")
 
         assertEquals(2, result.size)
         assertSame(foundScopeOne, result[0])
@@ -134,7 +134,7 @@ class ScopeManagerTest {
         coEvery { scopeManager.findForClientOrThrow(client, scopeOne) } returns foundScopeOne
         coEvery { scopeManager.findForClientOrThrow(client, scopeTwo) } returns foundScopeTwo
 
-        val result = scopeManager.parseRequestedScopes(client, " $scopeOne , $scopeTwo ")
+        val result = scopeManager.parseRequestedScopes(client, " $scopeOne  $scopeTwo ")
 
         assertEquals(2, result.size)
         assertSame(foundScopeOne, result[0])
