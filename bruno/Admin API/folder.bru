@@ -11,7 +11,7 @@ auth:oauth2 {
   callback_url: https://example.com
   authorization_url: {{serverUrl}}/api/oauth2/authorize
   access_token_url: {{serverUrl}}/api/oauth2/token
-  refresh_token_url: 
+  refresh_token_url: {{serverUrl}}/api/oauth2/token
   client_id: {{clientId}}
   client_secret: 
   scope: 
@@ -22,5 +22,5 @@ auth:oauth2 {
   token_placement: header
   token_header_prefix: Bearer
   auto_fetch_token: true
-  auto_refresh_token: false
+  auto_refresh_token: true
 }

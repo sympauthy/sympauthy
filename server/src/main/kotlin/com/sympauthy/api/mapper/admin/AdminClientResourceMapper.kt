@@ -6,10 +6,12 @@ import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.Scope
 import org.mapstruct.Mapper
 import org.mapstruct.Mapping
+import org.mapstruct.NullValueMappingStrategy
 import java.net.URI
 
 @Mapper(
-    config = OutputResourceMapperConfig::class
+    config = OutputResourceMapperConfig::class,
+    nullValueIterableMappingStrategy = NullValueMappingStrategy.RETURN_DEFAULT
 )
 abstract class AdminClientResourceMapper {
 
