@@ -46,8 +46,8 @@ class UserSearchManager(
         claimFilters.keys.forEach { claimId ->
             if (claimId !in enabledClaimIds) {
                 throw recoverableBusinessExceptionOf(
-                    "admin.users.invalid_claim",
-                    "description.admin.users.invalid_claim",
+                    "user.search.invalid_claim",
+                    "description.user.search.invalid_claim",
                     "claim" to claimId
                 )
             }
@@ -56,8 +56,8 @@ class UserSearchManager(
         // Validate sort property
         if (sort != null && sort != "created_at" && sort != "status" && sort !in enabledClaimIds) {
             throw recoverableBusinessExceptionOf(
-                "admin.users.invalid_sort",
-                "description.admin.users.invalid_sort",
+                "user.search.invalid_sort",
+                "description.user.search.invalid_sort",
                 "property" to sort
             )
         }
@@ -68,8 +68,8 @@ class UserSearchManager(
                 UserStatus.valueOf(it.uppercase())
             } catch (_: IllegalArgumentException) {
                 throw recoverableBusinessExceptionOf(
-                    "admin.users.invalid_status",
-                    "description.admin.users.invalid_status",
+                    "user.search.invalid_status",
+                    "description.user.search.invalid_status",
                     "status" to it,
                     "supportedValues" to UserStatus.entries.joinToString(", ") { s -> s.name.lowercase() }
                 )
@@ -159,8 +159,8 @@ class UserSearchManager(
         val enabledClaimMap = enabledClaims.associateBy { it.id }
         return claimIds.map { id ->
             enabledClaimMap[id] ?: throw recoverableBusinessExceptionOf(
-                "admin.users.invalid_claim",
-                "description.admin.users.invalid_claim",
+                "user.search.invalid_claim",
+                "description.user.search.invalid_claim",
                 "claim" to id
             )
         }

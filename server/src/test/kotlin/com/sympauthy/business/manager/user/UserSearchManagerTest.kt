@@ -125,7 +125,7 @@ class UserSearchManagerTest {
             )
         }
 
-        assertEquals("admin.users.invalid_status", exception.detailsId)
+        assertEquals("user.search.invalid_status", exception.detailsId)
         assertTrue(exception.recoverable)
     }
 
@@ -140,7 +140,7 @@ class UserSearchManagerTest {
             )
         }
 
-        assertEquals("admin.users.invalid_claim", exception.detailsId)
+        assertEquals("user.search.invalid_claim", exception.detailsId)
         assertTrue(exception.recoverable)
     }
 
@@ -154,7 +154,7 @@ class UserSearchManagerTest {
             )
         }
 
-        assertEquals("admin.users.invalid_sort", exception.detailsId)
+        assertEquals("user.search.invalid_sort", exception.detailsId)
         assertTrue(exception.recoverable)
     }
 
@@ -256,7 +256,7 @@ class UserSearchManagerTest {
             manager.validateAndResolveClaimIds(listOf("unknown"))
         }
 
-        assertEquals("admin.users.invalid_claim", exception.detailsId)
+        assertEquals("user.search.invalid_claim", exception.detailsId)
         assertTrue(exception.recoverable)
     }
 }
