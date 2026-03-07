@@ -9,9 +9,12 @@ import io.swagger.v3.oas.annotations.media.Schema
 )
 @Serdeable
 data class AdminClientResource(
-    val id: String,
+    @get:JsonProperty("client_id")
+    val clientId: String,
     @get:JsonProperty("allowed_scopes")
     val allowedScopes: List<String>,
     @get:JsonProperty("default_scopes")
-    val defaultScopes: List<String>
+    val defaultScopes: List<String>,
+    @get:JsonProperty("allowed_redirect_uris")
+    val allowedRedirectUris: List<String>
 )
