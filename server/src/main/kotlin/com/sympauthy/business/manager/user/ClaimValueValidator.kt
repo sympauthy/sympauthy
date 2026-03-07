@@ -30,24 +30,24 @@ class ClaimValueValidator {
     fun validateAndCleanValueForClaim(claim: Claim, value: Any?): Optional<Any> {
         if (value != null && claim.dataType.typeClass != value::class) {
             throw recoverableBusinessExceptionOf(
-                "claim.validate.invalid_type",
-                "description.claim.validate.invalid_type",
+                "user.claim_value_validator.invalid_type",
+                "description.user.claim_value_validator.invalid_type",
                 "claim" to claim.id,
                 "type" to claim.dataType.name
             )
         }
         if (claim.allowedValues != null && value != null && !claim.allowedValues.contains(value)) {
             throw recoverableBusinessExceptionOf(
-                "claim.validate.invalid_value",
-                "description.claim.validate.invalid_value"
+                "user.claim_value_validator.invalid_value",
+                "description.user.claim_value_validator.invalid_value"
             )
         }
         return when (value) {
             null -> Optional.empty()
             is String -> validateAndCleanStringForClaim(claim, value)
             else -> throw recoverableBusinessExceptionOf(
-                "claim.validate.unsupported_type",
-                "description.claim.validate.unsupported_type",
+                "user.claim_value_validator.unsupported_type",
+                "description.user.claim_value_validator.unsupported_type",
                 "claim" to claim.id
             )
         }
@@ -66,8 +66,8 @@ class ClaimValueValidator {
             STRING -> Optional.of(trimmedValue)
             TIMEZONE -> validateTimeZoneForClaim(value)
             else -> throw recoverableBusinessExceptionOf(
-                "claim.validate.unsupported_type",
-                "description.claim.validate.unsupported_type",
+                "user.claim_value_validator.unsupported_type",
+                "description.user.claim_value_validator.unsupported_type",
                 "claim" to claim.id
             )
         }
@@ -78,8 +78,8 @@ class ClaimValueValidator {
             dateFormat.parse(value)
         } catch (e: ParseException) {
             throw recoverableBusinessExceptionOf(
-                "claim.validate.invalid_date",
-                "description.claim.validate.invalid_date"
+                "user.claim_value_validator.invalid_date",
+                "description.user.claim_value_validator.invalid_date"
             )
         }
         return Optional.of(value)
@@ -100,8 +100,8 @@ class ClaimValueValidator {
         val parts = value.split("@")
         if (parts.size != 2 || parts.getOrNull(0).isNullOrBlank() || parts.getOrNull(1).isNullOrBlank()) {
             throw recoverableBusinessExceptionOf(
-                "claim.validate.invalid_email",
-                "description.claim.validate.invalid_email"
+                "user.claim_value_validator.invalid_email",
+                "description.user.claim_value_validator.invalid_email"
             )
         }
         return Optional.of(value)
@@ -116,13 +116,13 @@ class ClaimValueValidator {
             ZoneId.of(value)
         } catch (e: DateTimeException) {
             throw recoverableBusinessExceptionOf(
-                "claim.validate.invalid_time_zone",
-                "description.claim.validate.invalid_time_zone"
+                "user.claim_value_validator.invalid_time_zone",
+                "description.user.claim_value_validator.invalid_time_zone"
             )
         } catch (e: ZoneRulesException) {
             throw recoverableBusinessExceptionOf(
-                "claim.validate.invalid_time_zone",
-                "description.claim.validate.invalid_time_zone"
+                "user.claim_value_validator.invalid_time_zone",
+                "description.user.claim_value_validator.invalid_time_zone"
             )
         }
         return Optional.of(value)

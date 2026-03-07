@@ -22,7 +22,7 @@ class ClaimValueValidatorTest {
             every { dataType } returns STRING
             every { allowedValues } returns emptyList()
         }
-        assertThrowsLocalizedException("claim.validate.invalid_value") {
+        assertThrowsLocalizedException("user.claim_value_validator.invalid_value") {
             validator.validateAndCleanValueForClaim(claim, "value")
         }
     }
