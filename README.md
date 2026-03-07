@@ -47,7 +47,7 @@ clients:
     allowed-scopes:
       - openid
       - profile
-      - admin:clients:read
+      - admin:config:read
       - admin:users:read
       - admin:users:write
       - admin:users:delete

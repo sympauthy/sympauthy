@@ -6,7 +6,7 @@ import com.sympauthy.api.resource.admin.AdminClientResource
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.ClientManager
-import com.sympauthy.security.SecurityRule.ADMIN_CLIENTS_READ
+import com.sympauthy.security.SecurityRule.ADMIN_CONFIG_READ
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
 import io.micronaut.http.annotation.PathVariable
@@ -19,7 +19,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse
 import jakarta.inject.Inject
 
 @Controller("/api/v1/admin/clients")
-@Secured(ADMIN_CLIENTS_READ)
+@Secured(ADMIN_CONFIG_READ)
 class AdminClientController(
     @Inject private val clientManager: ClientManager,
     @Inject private val clientMapper: AdminClientResourceMapper
@@ -43,7 +43,7 @@ class AdminClientController(
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of clients."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
-            ApiResponse(responseCode = "403", description = "The access token does not include the required scope: admin:clients:read.")
+            ApiResponse(responseCode = "403", description = "The access token does not include the required scope: admin:config:read.")
         ]
     )
     @Get
@@ -78,7 +78,7 @@ class AdminClientController(
         responses = [
             ApiResponse(responseCode = "200", description = "Client details."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
-            ApiResponse(responseCode = "403", description = "The access token does not include the required scope: admin:clients:read."),
+            ApiResponse(responseCode = "403", description = "The access token does not include the required scope: admin:config:read."),
             ApiResponse(responseCode = "404", description = "No client found with the given identifier.")
         ]
     )

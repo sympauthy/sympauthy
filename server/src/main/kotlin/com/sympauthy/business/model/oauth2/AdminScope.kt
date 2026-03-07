@@ -7,7 +7,7 @@ package com.sympauthy.business.model.oauth2
  * They are granted to end-users through scope granting rules during the authorization code flow.
  *
  * Each scope controls access to a specific area of the admin API:
- * - `clients`: manage OAuth2 clients registered on this server.
+ * - `config`: read server configuration (clients, flows, etc.).
  * - `users`: manage end-users (read, write, delete).
  * - `access`: manage access tokens and authorizations.
  * - `sessions`: manage user sessions.
@@ -17,7 +17,7 @@ package com.sympauthy.business.model.oauth2
 enum class AdminScope(
     val scope: String
 ) {
-    CLIENTS_READ(AdminScopeId.CLIENTS_READ),
+    CONFIG_READ(AdminScopeId.CONFIG_READ),
     USERS_READ(AdminScopeId.USERS_READ),
     USERS_WRITE(AdminScopeId.USERS_WRITE),
     USERS_DELETE(AdminScopeId.USERS_DELETE),
@@ -33,7 +33,7 @@ enum class AdminScope(
 fun String.isAdminScope(): Boolean = AdminScope.entries.any { it.scope == this }
 
 object AdminScopeId {
-    const val CLIENTS_READ = "admin:clients:read"
+    const val CONFIG_READ = "admin:config:read"
     const val USERS_READ = "admin:users:read"
     const val USERS_WRITE = "admin:users:write"
     const val USERS_DELETE = "admin:users:delete"
