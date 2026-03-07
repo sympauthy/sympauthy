@@ -8,6 +8,7 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
@@ -38,6 +39,9 @@ class UserSearchManagerTest {
     lateinit var claimManager: ClaimManager
 
     @MockK
+    lateinit var claimValueValidator: ClaimValueValidator
+
+    @MockK
     lateinit var userMapper: UserMapper
 
     @MockK
@@ -46,10 +50,11 @@ class UserSearchManagerTest {
     @InjectMockKs
     lateinit var manager: UserSearchManager
 
-    private fun mockClaim(id: String, enabled: Boolean = true): Claim {
+    private fun mockClaim(id: String, enabled: Boolean = true, dataType: ClaimDataType = ClaimDataType.STRING): Claim {
         return mockk<Claim> {
             every { this@mockk.id } returns id
             every { this@mockk.enabled } returns enabled
+            every { this@mockk.dataType } returns dataType
         }
     }
 
@@ -171,6 +176,7 @@ class UserSearchManagerTest {
         val cc2 = mockCollectedClaim(user2.id, emailClaim, "john@example.com")
 
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim)
+        every { claimValueValidator.validateAndCleanValueForClaim(emailClaim, "jane@example.com") } returns Optional.of("jane@example.com")
         coEvery { userRepository.findAll() } returns flowOf(entity1, entity2)
         every { userMapper.toUser(entity1) } returns user1
         every { userMapper.toUser(entity2) } returns user2

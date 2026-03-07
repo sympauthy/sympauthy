@@ -19,6 +19,7 @@ class UserSearchManager(
     @Inject private val userRepository: UserRepository,
     @Inject private val collectedClaimRepository: CollectedClaimRepository,
     @Inject private val claimManager: ClaimManager,
+    @Inject private val claimValueValidator: ClaimValueValidator,
     @Inject private val userMapper: UserMapper,
     @Inject private val collectedClaimMapper: CollectedClaimMapper
 ) {
@@ -42,15 +43,17 @@ class UserSearchManager(
         val enabledClaims = claimManager.listEnabledClaims()
         val enabledClaimIds = enabledClaims.map { it.id }.toSet()
 
-        // Validate claim filter keys
-        claimFilters.keys.forEach { claimId ->
-            if (claimId !in enabledClaimIds) {
-                throw recoverableBusinessExceptionOf(
-                    "user.search.invalid_claim",
-                    "description.user.search.invalid_claim",
-                    "claim" to claimId
-                )
-            }
+        // Validate claim filter keys and deserialize filter values
+        val enabledClaimMap = enabledClaims.associateBy { it.id }
+        val deserializedFilters = claimFilters.map { (claimId, rawValue) ->
+            val claim = enabledClaimMap[claimId] ?: throw recoverableBusinessExceptionOf(
+                "user.search.invalid_claim",
+                "description.user.search.invalid_claim",
+                "claim" to claimId
+            )
+            val value = claimValueValidator.validateAndCleanValueForClaim(claim, rawValue)
+                .orElse(null)
+            claimId to value
         }
 
         // Validate sort property
@@ -104,11 +107,11 @@ class UserSearchManager(
         }
 
         // Apply exact claim filters
-        if (claimFilters.isNotEmpty()) {
+        if (deserializedFilters.isNotEmpty()) {
             result = result.filter { uwc ->
-                claimFilters.all { (claimId, expectedValue) ->
+                deserializedFilters.all { (claimId, expectedValue) ->
                     uwc.collectedClaims.any { cc ->
-                        cc.claim.id == claimId && cc.value?.toString() == expectedValue
+                        cc.claim.id == claimId && cc.value == expectedValue
                     }
                 }
             }
