@@ -44,15 +44,6 @@
     ]
   },
   {
-    "name": "com.sympauthy.api.mapper.admin.AdminUserResourceMapperImpl",
-    "methods": [
-      {
-        "name": "<init>",
-        "parameterTypes": []
-      }
-    ]
-  },
-  {
     "name": "com.sympauthy.api.mapper.flow.ClaimsValidationFlowResultResourceMapperImpl",
     "methods": [
       {
