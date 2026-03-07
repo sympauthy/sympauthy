@@ -11,18 +11,22 @@ import org.reactivestreams.Publisher
 import kotlin.jvm.optionals.getOrNull
 
 /**
- * CORS filter for OpenID discovery endpoints (`/.well-known/`).
+ * Wildcard CORS filter for endpoints that allow all origins (`Access-Control-Allow-Origin: *`).
  *
- * These endpoints serve public metadata (OpenID configuration, JWKS) and, per standard OIDC practice,
- * allow all origins (`Access-Control-Allow-Origin: *`).
+ * Covers:
+ * - **OpenID discovery** (`/.well-known`) — public metadata per OIDC spec.
+ * - **OAuth 2.0** (`/api/oauth2`) — token and revocation endpoints called directly by public clients (e.g. SPAs).
  *
  * ## Request handling
  * - **No `Origin` header** — not a browser CORS request; passed through unchanged.
  * - **OPTIONS preflight** — short-circuited with `200` and wildcard CORS headers.
  * - **Regular request with `Origin`** — proceeds through the chain; wildcard CORS header appended.
  */
-@Filter("/.well-known/**")
-class DiscoveryCorsFilter : HttpServerFilter, Ordered {
+@Filter(
+    "/.well-known/**",
+    "/api/oauth2/**"
+)
+class WildcardCorsFilter : HttpServerFilter, Ordered {
 
     override fun getOrder(): Int = ServerFilterPhase.FIRST.before()
 
@@ -48,7 +52,7 @@ class DiscoveryCorsFilter : HttpServerFilter, Ordered {
     private fun addCorsHeaders(response: MutableHttpResponse<*>, preflight: Boolean) {
         response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
         if (preflight) {
-            response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, "GET, OPTIONS")
+            response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, OPTIONS")
             response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type, Authorization")
             response.headers.add(HttpHeaders.ACCESS_CONTROL_MAX_AGE, "86400")
         }
