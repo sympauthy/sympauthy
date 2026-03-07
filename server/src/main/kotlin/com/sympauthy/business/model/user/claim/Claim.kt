@@ -6,6 +6,10 @@ sealed class Claim(
      */
     val id: String,
     /**
+     * Whether the claim is enabled on this authorization server.
+     */
+    val enabled: Boolean,
+    /**
      * Identifier of the claim indicating the value of this claims has been verified by the authorization server.
      * Ex. email_verified for the standard email claim.
      */

@@ -7,6 +7,7 @@ class CustomClaim(
     allowedValues: List<Any>?
 ): Claim(
     id = id,
+    enabled = true,
     verifiedId = null, // Add support for verification on custom claim.
     dataType = dataType,
     group = null,

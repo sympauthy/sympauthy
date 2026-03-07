@@ -25,7 +25,7 @@ class ClaimsConfigFactory(
     ): ClaimsConfig {
         val errors = mutableListOf<ConfigurationException>()
 
-        val standardClaims = OpenIdClaim.entries.mapNotNull { openIdClaim ->
+        val standardClaims = OpenIdClaim.entries.map { openIdClaim ->
             provideStandardClaim(
                 properties = propertiesList.firstOrNull { it.id == openIdClaim.id },
                 openIdClaim = openIdClaim,
@@ -47,7 +47,7 @@ class ClaimsConfigFactory(
         // We ignore the check is the config is invalid since to avoid crashing the server.
         if (uncheckedAdvancedConfig is EnabledAdvancedConfig) {
             val emailClaim = standardClaims.firstOrNull { it.id == EMAIL }
-            if (uncheckedAdvancedConfig.userMergingStrategy == BY_MAIL && emailClaim == null) {
+            if (uncheckedAdvancedConfig.userMergingStrategy == BY_MAIL && emailClaim?.enabled != true) {
                 errors.add(
                     configExceptionOf(
                         "$CLAIMS_KEY.${EMAIL}",
@@ -68,9 +68,14 @@ class ClaimsConfigFactory(
         properties: ClaimConfigurationProperties?,
         openIdClaim: OpenIdClaim,
         errors: MutableList<ConfigurationException>
-    ): Claim? {
+    ): Claim {
         if (properties == null) {
-            return null
+            return StandardClaim(
+                openIdClaim = openIdClaim,
+                enabled = false,
+                required = false,
+                allowedValues = null
+            )
         }
         val enabled = try {
             parser.getBooleanOrThrow(
@@ -79,7 +84,6 @@ class ClaimsConfigFactory(
             )
         } catch (e: ConfigurationException) {
             errors.add(e)
-            return null
         }
         val required = try {
             parser.getBoolean(
@@ -88,7 +92,6 @@ class ClaimsConfigFactory(
             ) ?: false
         } catch (e: ConfigurationException) {
             errors.add(e)
-            return null
         }
         val allowedValues = getAllowedValues(
             properties = properties,
@@ -96,13 +99,12 @@ class ClaimsConfigFactory(
             type = openIdClaim.type,
             errors = errors
         )
-        return if (enabled) {
-            StandardClaim(
-                openIdClaim = openIdClaim,
-                required = required,
-                allowedValues = allowedValues
-            )
-        } else null
+        return StandardClaim(
+            openIdClaim = openIdClaim,
+            enabled = enabled,
+            required = required,
+            allowedValues = allowedValues
+        )
     }
 
     private fun getAllowedValues(

@@ -5,6 +5,7 @@ package com.sympauthy.business.model.user.claim
  */
 class StandardClaim(
     openIdClaim: OpenIdClaim,
+    enabled: Boolean,
     required: Boolean,
     allowedValues: List<Any>?
 ) : Claim(
@@ -12,6 +13,7 @@ class StandardClaim(
     verifiedId = openIdClaim.verifiedId,
     dataType = openIdClaim.type,
     group = openIdClaim.group,
+    enabled = enabled,
     required = required,
     userInputted = !openIdClaim.generated,
     allowedValues = allowedValues

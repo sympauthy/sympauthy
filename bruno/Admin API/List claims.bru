@@ -1,0 +1,18 @@
+meta {
+  name: List claims
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{serverUrl}}/api/v1/admin/claims
+  body: none
+  auth: inherit
+}
+
+params:query {
+  ~page: 0
+  ~size: 20
+  ~enabled: true
+  ~required: true
+}

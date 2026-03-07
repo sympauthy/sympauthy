@@ -30,7 +30,14 @@ class ClaimManager(
     /**
      * Return all [Claim] enabled on this authorization server.
      */
-    fun listClaims(): List<Claim> {
+    fun listEnabledClaims(): List<Claim> {
+        return cachedClaimsMap.values.filter { it.enabled }
+    }
+
+    /**
+     * Return all [Claim] configured on this authorization server, including disabled ones.
+     */
+    fun listAllClaims(): List<Claim> {
         return cachedClaimsMap.values.toList()
     }
 
@@ -38,14 +45,14 @@ class ClaimManager(
      * List all [Claim] that we want to present to the end-user during the authentication flow.
      */
     fun listCollectableClaims(): List<Claim> {
-        return listClaims().filter(Claim::userInputted)
+        return listEnabledClaims().filter(Claim::userInputted)
     }
 
     /**
      * Return all [Claim] required to be provided by the end-user during its authorization flow.
      */
     fun listRequiredClaims(): List<Claim> {
-        return listClaims().filter(Claim::required)
+        return listEnabledClaims().filter(Claim::required)
     }
 
     /**

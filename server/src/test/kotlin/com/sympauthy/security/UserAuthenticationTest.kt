@@ -34,14 +34,14 @@ class UserAuthenticationTest {
         val auth = createAuthentication(
             listOf(
                 Scope(scope = "openid", admin = false, discoverable = true),
-                Scope(scope = AdminScopeId.CLIENTS_READ, admin = true, discoverable = false),
+                Scope(scope = AdminScopeId.CONFIG_READ, admin = true, discoverable = false),
                 Scope(scope = AdminScopeId.USERS_READ, admin = true, discoverable = false)
             )
         )
         val roles = auth.roles.toList()
         assertTrue(roles.contains(IS_USER))
         assertTrue(roles.contains(IS_ADMIN))
-        assertTrue(roles.contains("SCOPE_${AdminScopeId.CLIENTS_READ}"))
+        assertTrue(roles.contains("SCOPE_${AdminScopeId.CONFIG_READ}"))
         assertTrue(roles.contains("SCOPE_${AdminScopeId.USERS_READ}"))
         assertEquals(4, roles.size)
     }
