@@ -38,7 +38,11 @@ class ExceptionNormalizer {
 
     private fun toException(exception: AuthorizationException): LocalizedHttpException {
         return if (exception.authentication != null && exception.isForbidden) {
-            httpExceptionOf(FORBIDDEN, "forbidden")
+            httpExceptionOf(
+                status = FORBIDDEN,
+                detailsId = "forbidden",
+                descriptionId = "description.forbidden"
+            )
         } else {
             httpExceptionOf(
                 status = UNAUTHORIZED,
