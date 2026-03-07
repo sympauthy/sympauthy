@@ -1,17 +1,25 @@
 package com.sympauthy
 
+import com.sympauthy.api.controller.openapi.OpenApiController.Companion.OPENAPI_ENDPOINT
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ConfigReadinessManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.rule.ScopeGrantingRuleManager
+import com.sympauthy.config.model.AdminConfig
+import com.sympauthy.config.model.EnabledAdminConfig
 import com.sympauthy.config.model.EnabledMfaConfig
+import com.sympauthy.config.model.EnabledUrlsConfig
 import com.sympauthy.config.model.MfaConfig
+import com.sympauthy.config.model.UrlsConfig
+import com.sympauthy.config.model.getOrNull
+import com.sympauthy.config.model.getUri
 import com.sympauthy.server.ErrorMessages
 import com.sympauthy.util.DEFAULT_ENVIRONMENT
 import com.sympauthy.util.getKeyAndLocalizedMessage
 import com.sympauthy.util.isDefaultActive
 import com.sympauthy.util.loggerForClass
+import com.sympauthy.view.DefaultAuthorizationFlowController.Companion.USER_FLOW_ENDPOINT
 import io.micronaut.context.MessageSource
 import io.micronaut.context.env.Environment
 import io.micronaut.context.event.ApplicationEventListener
@@ -33,6 +41,8 @@ class ApplicationReadinessStatusPrinter(
     @Inject private val scopeManager: ScopeManager,
     @Inject private val scopeGrantingRuleManager: ScopeGrantingRuleManager,
     @Inject private val uncheckedMfaConfig: MfaConfig,
+    @Inject private val uncheckedUrlsConfig: UrlsConfig,
+    @Inject private val adminConfig: AdminConfig,
     @Inject private val environment: Environment,
     @param:ErrorMessages @Inject private val messageSource: MessageSource,
 ) : ApplicationEventListener<ServiceReadyEvent> {
@@ -45,6 +55,7 @@ class ApplicationReadinessStatusPrinter(
                 val configurationErrors = configReadinessManager.getConfigurationErrors()
                 if (configurationErrors.isEmpty()) {
                     printReadyBanner()
+                    printServingBanner()
                 } else {
                     printErrorBanner(configurationErrors)
                 }
@@ -89,6 +100,30 @@ class ApplicationReadinessStatusPrinter(
         } else {
             val requiredLabel = if (mfaConfig.required) "required" else "optional"
             logger.info("- MFA enabled ($requiredLabel, ${mfaMethods.joinToString()}).")
+        }
+    }
+
+    private fun printServingBanner() {
+        val urlsConfig = uncheckedUrlsConfig.getOrNull() ?: return
+        val entries = mutableListOf<Pair<String, String>>()
+
+        entries.add("OpenAPI documentation" to urlsConfig.getUri(OPENAPI_ENDPOINT).toString())
+        entries.add("Swagger UI" to urlsConfig.getUri("/swagger-ui").toString())
+        entries.add("Default end-user flow" to urlsConfig.getUri(USER_FLOW_ENDPOINT).toString())
+
+        val enabledAdminConfig = adminConfig as? EnabledAdminConfig
+        if (enabledAdminConfig != null && enabledAdminConfig.enabled && enabledAdminConfig.integratedUi) {
+            val enabledUrlsConfig = uncheckedUrlsConfig as? EnabledUrlsConfig
+            if (enabledUrlsConfig != null) {
+                entries.add("Admin UI" to "${enabledUrlsConfig.root}/admin")
+            }
+        }
+
+        if (entries.isNotEmpty()) {
+            logger.info("SympAuthy is currently serving:")
+            entries.forEach { (label, url) ->
+                logger.info("- $label: $url")
+            }
         }
     }
 
