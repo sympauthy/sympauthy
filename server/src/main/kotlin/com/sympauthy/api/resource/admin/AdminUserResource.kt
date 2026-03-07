@@ -12,12 +12,21 @@ import java.util.*
 @Serdeable
 data class AdminUserResource(
     @get:Schema(
-        description = "Uniq identifier of the user."
+        description = "Unique identifier of the user."
     )
-    val id: UUID,
+    @get:JsonProperty("user_id")
+    val userId: UUID,
+    @get:Schema(
+        description = "Status of the user."
+    )
+    val status: String,
     @get:Schema(
         description = "The date and time (in UTC timezone) at which the user has been created."
     )
-    @get:JsonProperty("creation_date")
-    val creationDate: LocalDateTime
+    @get:JsonProperty("created_at")
+    val createdAt: LocalDateTime,
+    @get:Schema(
+        description = "Claims associated to the user. Keys are claim identifiers, values are claim values. Null when claims are not requested."
+    )
+    val claims: Map<String, Any?>? = null
 )

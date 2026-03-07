@@ -9,7 +9,4 @@ class AdminApiMapperFactory {
 
     @Singleton
     fun clientResourceMapper(): AdminClientResourceMapper = Mappers.getMapper(AdminClientResourceMapper::class.java)
-
-    @Singleton
-    fun userResourceMapper(): AdminUserResourceMapper = Mappers.getMapper(AdminUserResourceMapper::class.java)
 }
