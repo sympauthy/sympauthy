@@ -97,7 +97,7 @@ class WebAuthorizationFlowManager(
         }
 
         val authorizationFlowId = client?.authorizationFlow?.id
-        val defaultWebAuthorizationFlow = findByIdOrNull(DEFAULT_WEB_AUTHORIZATION_FLOW_ID)
+        val defaultWebAuthorizationFlow = findById(DEFAULT_WEB_AUTHORIZATION_FLOW_ID)
         val (flow, flowException) = if (authorizationFlowId != null) {
             try {
                 findById(authorizationFlowId) to null
