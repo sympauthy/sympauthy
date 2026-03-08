@@ -1,13 +1,13 @@
 package com.sympauthy.config.factory
 
+import com.sympauthy.business.model.user.claim.OpenIdClaim
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
-import com.sympauthy.config.model.AuthConfig
-import com.sympauthy.config.model.DisabledAuthConfig
-import com.sympauthy.config.model.EnabledAuthConfig
-import com.sympauthy.config.model.TokenConfig
+import com.sympauthy.config.model.*
 import com.sympauthy.config.properties.AuthConfigurationProperties
 import com.sympauthy.config.properties.AuthConfigurationProperties.Companion.AUTH_KEY
+import com.sympauthy.config.properties.ByPasswordConfigurationProperties
+import com.sympauthy.config.properties.ByPasswordConfigurationProperties.Companion.BY_PASSWORD_KEY
 import com.sympauthy.config.properties.TokenConfigurationProperties
 import com.sympauthy.config.properties.TokenConfigurationProperties.Companion.TOKEN_KEY
 import io.micronaut.context.annotation.Factory
@@ -22,7 +22,8 @@ class AuthConfigFactory(
     @Singleton
     fun provideAuthConfig(
         properties: AuthConfigurationProperties,
-        tokenProperties: TokenConfigurationProperties?
+        tokenProperties: TokenConfigurationProperties?,
+        byPasswordProperties: ByPasswordConfigurationProperties?
     ): AuthConfig {
         val errors = mutableListOf<ConfigurationException>()
 
@@ -69,6 +70,24 @@ class AuthConfigFactory(
             null
         }
 
+        val loginClaims = try {
+            properties.loginClaims?.map {
+                parser.convertToEnum<OpenIdClaim>("$AUTH_KEY.login-claims", it)
+            } ?: listOf(OpenIdClaim.EMAIL)
+        } catch (e: ConfigurationException) {
+            errors.add(e)
+            null
+        }
+
+        val byPasswordEnabled = try {
+            byPasswordProperties?.let {
+                parser.getBoolean(it, "$BY_PASSWORD_KEY.enabled", ByPasswordConfigurationProperties::enabled)
+            } ?: true
+        } catch (e: ConfigurationException) {
+            errors.add(e)
+            null
+        }
+
         return if (errors.isEmpty()) {
             EnabledAuthConfig(
                 issuer = issuer!!,
@@ -78,6 +97,10 @@ class AuthConfigFactory(
                     idExpiration = idExpiration!!,
                     refreshEnabled = refreshEnabled!!,
                     refreshExpiration = refreshExpiration
+                ),
+                loginClaims = loginClaims!!,
+                byPassword = ByPasswordConfig(
+                    enabled = byPasswordEnabled!!
                 )
             )
         } else {

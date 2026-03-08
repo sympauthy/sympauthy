@@ -10,7 +10,7 @@ data class SignInInputResource(
 Login of the end-user.
 
 This value will be matched against the claims collected by this authentication as a first-party
-and configured as login claim (see ```password-auth.login-claims``` configuration).
+and configured as login claim (see ```auth.login-claims``` configuration).
         """
     )
     val login: String?,
