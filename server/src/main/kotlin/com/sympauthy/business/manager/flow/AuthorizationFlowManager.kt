@@ -36,15 +36,19 @@ class AuthorizationFlowManager(
      * Note: The default web authentication flow is hardcoded since it is bundled with this authorization server.
      */
     val defaultWebAuthorizationFlow: WebAuthorizationFlow by lazy {
-        val builder = uncheckedUrlsConfig.orThrow().root
+        val rootUri = uncheckedUrlsConfig.orThrow().root
             .let(UriBuilder::of)
             .path(USER_FLOW_ENDPOINT)
+            .build()
         WebAuthorizationFlow(
             id = DEFAULT_WEB_AUTHORIZATION_FLOW_ID,
-            signInUri = builder.path("sign-in").build(),
-            collectClaimsUri = builder.path("claims/edit").build(),
-            validateClaimsUri = builder.path("claims/validate").build(),
-            errorUri = builder.path("error").build(),
+            signInUri = UriBuilder.of(rootUri).path("sign-in").build(),
+            mfaUri = UriBuilder.of(rootUri).path("mfa").build(),
+            mfaTotpChallengeUri = UriBuilder.of(rootUri).path("mfa/totp").build(),
+            mfaTotpEnrollUri = UriBuilder.of(rootUri).path("mfa/totp/enroll").build(),
+            collectClaimsUri = UriBuilder.of(rootUri).path("claims/edit").build(),
+            validateClaimsUri = UriBuilder.of(rootUri).path("claims/validate").build(),
+            errorUri = UriBuilder.of(rootUri).path("error").build(),
         )
     }
 
