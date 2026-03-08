@@ -1,5 +1,6 @@
 package com.sympauthy.config.model
 
+import com.sympauthy.business.model.user.claim.OpenIdClaim
 import com.sympauthy.config.exception.ConfigurationException
 
 sealed class AuthConfig(
@@ -9,7 +10,12 @@ sealed class AuthConfig(
 data class EnabledAuthConfig(
     val issuer: String,
     val audience: String?,
-    val token: TokenConfig
+    val token: TokenConfig,
+    /**
+     * List of [OpenIdClaim] that the user can use as a login to sign-in.
+     */
+    val loginClaims: List<OpenIdClaim>,
+    val byPassword: ByPasswordConfig
 ) : AuthConfig()
 
 class DisabledAuthConfig(

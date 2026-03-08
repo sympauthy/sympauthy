@@ -19,7 +19,6 @@ class ConfigReadinessManager(
     @Inject private val clientsConfig: Flow<ClientsConfig>,
     @Inject private val featuresConfig: FeaturesConfig,
     @Inject private val mfaConfig: MfaConfig,
-    @Inject private val passwordAuthConfig: PasswordAuthConfig,
     @Inject private val rulesConfig: Flow<ScopeGrantingRulesConfig>,
     @Inject private val scopesConfig: ScopesConfig,
     @Inject private val uiConfig: UIConfig,
@@ -35,7 +34,6 @@ class ConfigReadinessManager(
         claimsConfig,
         featuresConfig,
         mfaConfig,
-        passwordAuthConfig,
         scopesConfig,
         uiConfig,
         urlsConfig

@@ -16,8 +16,8 @@ import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.OpenIdClaim
-import com.sympauthy.config.model.EnabledPasswordAuthConfig
-import com.sympauthy.config.model.PasswordAuthConfig
+import com.sympauthy.config.model.AuthConfig
+import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.UserRepository
@@ -43,27 +43,31 @@ open class WebAuthorizationFlowPasswordManager(
     @Inject private val userRepository: UserRepository,
     @Inject private val claimValueMapper: ClaimValueMapper,
     @Inject private val userMapper: UserMapper,
-    @Inject private val uncheckedPasswordAuthConfig: PasswordAuthConfig
+    @Inject private val uncheckedAuthConfig: AuthConfig
 ) {
 
     /**
      * True if the sign-in by login/password is enabled. False otherwise.
      */
     val signInEnabled: Boolean
-        get() = uncheckedPasswordAuthConfig.orThrow().enabled
+        get() = uncheckedAuthConfig.orThrow().let {
+            it.byPassword.enabled && it.loginClaims.isNotEmpty()
+        }
 
     /**
      * True if the sign-up by login/password is enabled. False otherwise.
      */
     val signUpEnabled: Boolean
-        get() = uncheckedPasswordAuthConfig.orThrow().enabled
+        get() = uncheckedAuthConfig.orThrow().let {
+            it.byPassword.enabled && it.loginClaims.isNotEmpty()
+        }
 
     /**
      * Find the end-user with a claim matching the [login].
-     * The claims used to match the login are configured in [EnabledPasswordAuthConfig.loginClaims].
+     * The claims used to match the login are configured in [EnabledAuthConfig.loginClaims].
      */
     internal suspend fun findByLogin(login: String): User? {
-        val loginClaims = uncheckedPasswordAuthConfig.orThrow().loginClaims
+        val loginClaims = uncheckedAuthConfig.orThrow().loginClaims
         val userInfo = collectedClaimRepository.findAnyClaimMatching(
             claimIds = loginClaims.map(OpenIdClaim::id),
             value = claimValueMapper.toEntity(login) ?: return null,
@@ -123,7 +127,7 @@ open class WebAuthorizationFlowPasswordManager(
      * Return a list of [Claim] the end-user can use as a login for the password flow.
      */
     fun getSignInClaims(): List<Claim> {
-        return uncheckedPasswordAuthConfig.orThrow()
+        return uncheckedAuthConfig.orThrow()
             .loginClaims
             .mapNotNull { claimManager.findById(it.id) }
     }

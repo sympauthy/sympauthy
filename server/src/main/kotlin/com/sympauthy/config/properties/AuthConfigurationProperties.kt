@@ -7,6 +7,7 @@ import io.micronaut.context.annotation.ConfigurationProperties
 interface AuthConfigurationProperties {
     val issuer: String?
     val audience: String?
+    val loginClaims: List<String>?
 
     companion object {
         const val AUTH_KEY = "auth"

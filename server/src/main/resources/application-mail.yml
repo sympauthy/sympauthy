@@ -23,7 +23,8 @@ features:
 javamail:
   enabled: true
 
-password-auth:
-  enabled: true
+auth:
   login-claims:
     - email
+  by-password:
+    enabled: true
