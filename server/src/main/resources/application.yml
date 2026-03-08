@@ -21,6 +21,10 @@ micronaut:
         http-method: GET
         access:
           - isAnonymous()
+      - pattern: /admin/**
+        http-method: GET
+        access:
+          - isAnonymous()
       - pattern: /swagger-ui/**
         http-method: GET
         access:
