@@ -19,7 +19,8 @@ sealed class Claim(
      */
     val dataType: ClaimDataType,
     /**
-     *
+     * Optional group this claim belongs to (ex. identity, address).
+     * Groups are used to organize claims when presenting them to the end-user during authentication flows.
      */
     val group: ClaimGroup?,
     /**
