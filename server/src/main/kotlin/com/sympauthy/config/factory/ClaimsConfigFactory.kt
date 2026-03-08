@@ -13,6 +13,12 @@ import io.micronaut.context.annotation.Factory
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
+/**
+ * Micronaut normalizes property keys to kebab-case (e.g. `preferred_username` becomes `preferred-username`).
+ * OpenID claim IDs use underscores. This function normalizes the Micronaut key back to match the OpenID ID.
+ */
+private fun String.normalizeClaimId() = replace('-', '_')
+
 @Factory
 class ClaimsConfigFactory(
     @Inject private val parser: ConfigParser,
@@ -27,14 +33,14 @@ class ClaimsConfigFactory(
 
         val standardClaims = OpenIdClaim.entries.map { openIdClaim ->
             provideStandardClaim(
-                properties = propertiesList.firstOrNull { it.id == openIdClaim.id },
+                properties = propertiesList.firstOrNull { it.id.normalizeClaimId() == openIdClaim.id },
                 openIdClaim = openIdClaim,
                 errors = errors
             )
         }
 
         val customClaims = propertiesList.mapNotNull { claimProperties ->
-            if (OpenIdClaim.entries.none { it.id == claimProperties.id }) {
+            if (OpenIdClaim.entries.none { it.id == claimProperties.id.normalizeClaimId() }) {
                 provideCustomClaim(
                     properties = claimProperties,
                     claim = claimProperties.id,
