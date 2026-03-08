@@ -17,6 +17,8 @@ interface CollectedClaimRepository : CoroutineCrudRepository<CollectedClaimEntit
 
     suspend fun findByUserId(userId: UUID): List<CollectedClaimEntity>
 
+    suspend fun findByUserIdInList(userId: List<UUID>): List<CollectedClaimEntity>
+
     /**
      * Set verified on a collected [claim] for a given user (identified by [userId]) and update the verification date to now.
      * If the verified is already at true, the verification date will not be updated to keep the original date.

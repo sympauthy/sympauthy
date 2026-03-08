@@ -1,10 +1,9 @@
 package com.sympauthy.business.manager.user
 
-import com.sympauthy.business.exception.internalBusinessExceptionOf
+import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimDataType.*
-import com.sympauthy.exception.localizedExceptionOf
 import jakarta.inject.Singleton
 import java.text.ParseException
 import java.text.SimpleDateFormat
@@ -30,20 +29,26 @@ class ClaimValueValidator {
      */
     fun validateAndCleanValueForClaim(claim: Claim, value: Any?): Optional<Any> {
         if (value != null && claim.dataType.typeClass != value::class) {
-            throw internalBusinessExceptionOf(
-                detailsId = "claim.validate.invalid_type",
+            throw recoverableBusinessExceptionOf(
+                "user.claim_value_validator.invalid_type",
+                "description.user.claim_value_validator.invalid_type",
                 "claim" to claim.id,
                 "type" to claim.dataType.name
             )
         }
         if (claim.allowedValues != null && value != null && !claim.allowedValues.contains(value)) {
-            throw localizedExceptionOf("claim.validate.invalid_value")
+            throw recoverableBusinessExceptionOf(
+                "user.claim_value_validator.invalid_value",
+                "description.user.claim_value_validator.invalid_value"
+            )
         }
         return when (value) {
             null -> Optional.empty()
             is String -> validateAndCleanStringForClaim(claim, value)
-            else -> throw internalBusinessExceptionOf(
-                "claim.validate.unsupported_type", "claim" to claim.id
+            else -> throw recoverableBusinessExceptionOf(
+                "user.claim_value_validator.unsupported_type",
+                "description.user.claim_value_validator.unsupported_type",
+                "claim" to claim.id
             )
         }
     }
@@ -60,7 +65,11 @@ class ClaimValueValidator {
             PHONE_NUMBER -> validatePhoneNumberForClaim(value)
             STRING -> Optional.of(trimmedValue)
             TIMEZONE -> validateTimeZoneForClaim(value)
-            else -> throw IllegalArgumentException("Claim of type ${claim.dataType} do not expect string value.}")
+            else -> throw recoverableBusinessExceptionOf(
+                "user.claim_value_validator.unsupported_type",
+                "description.user.claim_value_validator.unsupported_type",
+                "claim" to claim.id
+            )
         }
     }
 
@@ -68,7 +77,10 @@ class ClaimValueValidator {
         try {
             dateFormat.parse(value)
         } catch (e: ParseException) {
-            throw internalBusinessExceptionOf("claim.validate.invalid_date")
+            throw recoverableBusinessExceptionOf(
+                "user.claim_value_validator.invalid_date",
+                "description.user.claim_value_validator.invalid_date"
+            )
         }
         return Optional.of(value)
     }
@@ -87,7 +99,10 @@ class ClaimValueValidator {
     internal fun validateEmailForClaim(value: String): Optional<Any> {
         val parts = value.split("@")
         if (parts.size != 2 || parts.getOrNull(0).isNullOrBlank() || parts.getOrNull(1).isNullOrBlank()) {
-            throw internalBusinessExceptionOf("claim.validate.invalid_email")
+            throw recoverableBusinessExceptionOf(
+                "user.claim_value_validator.invalid_email",
+                "description.user.claim_value_validator.invalid_email"
+            )
         }
         return Optional.of(value)
     }
@@ -100,9 +115,15 @@ class ClaimValueValidator {
         try {
             ZoneId.of(value)
         } catch (e: DateTimeException) {
-            throw internalBusinessExceptionOf("claim.validate.invalid_time_zone")
+            throw recoverableBusinessExceptionOf(
+                "user.claim_value_validator.invalid_time_zone",
+                "description.user.claim_value_validator.invalid_time_zone"
+            )
         } catch (e: ZoneRulesException) {
-            throw internalBusinessExceptionOf("claim.validate.invalid_time_zone")
+            throw recoverableBusinessExceptionOf(
+                "user.claim_value_validator.invalid_time_zone",
+                "description.user.claim_value_validator.invalid_time_zone"
+            )
         }
         return Optional.of(value)
     }
