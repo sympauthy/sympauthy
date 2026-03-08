@@ -14,6 +14,17 @@ import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.flow.toList
 
+/**
+ * Manager responsible for searching, filtering, and sorting users along with their collected claims.
+ *
+ * All filtering, text search, and sorting operations are performed in-memory rather than in the database.
+ * This design choice is driven by the fact that claim values are stored in a separate table (collected_claims)
+ * with a generic key-value structure, making SQL-based cross-claim filtering and sorting impractical — especially
+ * across different database engines (H2 and PostgreSQL). This approach is consistent with the pattern used by
+ * other admin endpoints (ex. [com.sympauthy.api.controller.admin.AdminClaimController]).
+ *
+ * This design should remain sustainable up to thousands of users, which is beyond the intended scale for SympAuthy.
+ */
 @Singleton
 class UserSearchManager(
     @Inject private val userRepository: UserRepository,
