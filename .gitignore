@@ -21,6 +21,12 @@ gradle-app.setting
 # Cache of project
 .gradletasknamecache
 
+# Bundled UI assets (injected by CI)
+server/src/main/resources/sympauthy-flow/*
+!server/src/main/resources/sympauthy-flow/.gitkeep
+server/src/main/resources/sympauthy-admin/*
+!server/src/main/resources/sympauthy-admin/.gitkeep
+
 # Eclipse Gradle plugin generated files
 # Eclipse Core
 .project
