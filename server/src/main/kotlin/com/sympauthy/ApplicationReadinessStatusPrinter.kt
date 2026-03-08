@@ -19,6 +19,7 @@ import com.sympauthy.util.DEFAULT_ENVIRONMENT
 import com.sympauthy.util.getKeyAndLocalizedMessage
 import com.sympauthy.util.isDefaultActive
 import com.sympauthy.util.loggerForClass
+import com.sympauthy.view.AdminUiController.Companion.ADMIN_UI_ENDPOINT
 import com.sympauthy.view.DefaultAuthorizationFlowController.Companion.USER_FLOW_ENDPOINT
 import io.micronaut.context.MessageSource
 import io.micronaut.context.env.Environment
@@ -115,7 +116,7 @@ class ApplicationReadinessStatusPrinter(
         if (enabledAdminConfig != null && enabledAdminConfig.enabled && enabledAdminConfig.integratedUi) {
             val enabledUrlsConfig = uncheckedUrlsConfig as? EnabledUrlsConfig
             if (enabledUrlsConfig != null) {
-                entries.add("Admin UI" to "${enabledUrlsConfig.root}/admin")
+                entries.add("Admin UI" to "${enabledUrlsConfig.root}${ADMIN_UI_ENDPOINT}")
             }
         }
 

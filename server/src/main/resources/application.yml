@@ -21,6 +21,10 @@ micronaut:
         http-method: GET
         access:
           - isAnonymous()
+      - pattern: /admin/**
+        http-method: GET
+        access:
+          - isAnonymous()
       - pattern: /swagger-ui/**
         http-method: GET
         access:
@@ -34,6 +38,12 @@ micronaut:
       flow-assets:
         paths: classpath:sympauthy-flow/assets
         mapping: /flow/assets/**
+      admin-non-html:
+        paths: classpath:sympauthy-admin
+        mapping: /admin/*.ico
+      admin-assets:
+        paths: classpath:sympauthy-admin/assets
+        mapping: /admin/assets/**
       swagger-ui:
         paths: classpath:META-INF/swagger/views/swagger-ui
         mapping: /swagger-ui/**
