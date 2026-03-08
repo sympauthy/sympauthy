@@ -25,8 +25,13 @@ class AdminUiController(
     @Inject private val resourceResolver: ResourceResolver,
 ) {
 
+    @Get(value = "/", produces = [TEXT_HTML])
+    fun root(): StreamedFile? = serveIndex()
+
     @Get(value = "/{path:[^\\.]*}", produces = [TEXT_HTML])
-    fun forward(path: String?): StreamedFile? {
+    fun forward(path: String?): StreamedFile? = serveIndex()
+
+    private fun serveIndex(): StreamedFile? {
         return resourceResolver.getResource("classpath:sympauthy-admin/index.html")
             ?.map(::StreamedFile)
             ?.getOrNull()

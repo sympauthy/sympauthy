@@ -2,6 +2,8 @@ package com.sympauthy
 
 import com.sympauthy.api.controller.openapi.OpenApiController.Companion.OPENAPI_ENDPOINT
 import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.model.user.claim.CustomClaim
+import com.sympauthy.business.model.user.claim.StandardClaim
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ConfigReadinessManager
 import com.sympauthy.business.manager.ScopeManager
@@ -66,19 +68,24 @@ class ApplicationReadinessStatusPrinter(
 
     private suspend fun printReadyBanner() {
         logger.info("SympAuthy is ready and has found the following elements in its configuration:")
-        val claimsCount = try {
-            claimManager.listStandardClaims().size
+        val enabledClaims = try {
+            claimManager.listEnabledClaims()
         } catch (_: Throwable) {
-            0
+            emptyList()
         }
-        logger.info("- $claimsCount claim(s).")
+        val standardClaimsCount = enabledClaims.count { it is StandardClaim }
+        val customClaimsCount = enabledClaims.count { it is CustomClaim }
+        logger.info("- ${enabledClaims.size} claim(s) ($standardClaimsCount standard, $customClaimsCount custom).")
 
-        val scopesCount = try {
-            scopeManager.listScopes().size
+        val scopes = try {
+            scopeManager.listScopes()
         } catch (_: Throwable) {
-            0
+            emptyList()
         }
-        logger.info("- $scopesCount scope(s).")
+        val standardScopesCount = scopes.count { !it.admin && it.discoverable }
+        val adminScopesCount = scopes.count { it.admin }
+        val customScopesCount = scopes.count { !it.admin && !it.discoverable }
+        logger.info("- ${scopes.size} scope(s) ($standardScopesCount standard, $adminScopesCount admin, $customScopesCount custom).")
 
         val clientsCount = try {
             clientManager.listClients().size
