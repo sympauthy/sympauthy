@@ -97,10 +97,15 @@ class WebAuthorizationFlowManager(
         }
 
         val authorizationFlowId = client?.authorizationFlow?.id
-        val (flow, flowException) = try {
-            findById(authorizationFlowId) to null
-        } catch (e: BusinessException) {
-            findById(DEFAULT_WEB_AUTHORIZATION_FLOW_ID) to e
+        val defaultWebAuthorizationFlow = findByIdOrNull(DEFAULT_WEB_AUTHORIZATION_FLOW_ID)
+        val (flow, flowException) = if (authorizationFlowId != null) {
+            try {
+                findById(authorizationFlowId) to null
+            } catch (e: BusinessException) {
+                defaultWebAuthorizationFlow to e
+            }
+        } else {
+            defaultWebAuthorizationFlow to null
         }
 
         val (scopes, scopeException) = if (client != null) {
