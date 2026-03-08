@@ -3,6 +3,7 @@ package com.sympauthy.config.factory
 import com.sympauthy.business.model.user.claim.OpenIdClaim
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
+import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.*
 import com.sympauthy.config.properties.AuthConfigurationProperties
 import com.sympauthy.config.properties.AuthConfigurationProperties.Companion.AUTH_KEY
@@ -23,7 +24,8 @@ class AuthConfigFactory(
     fun provideAuthConfig(
         properties: AuthConfigurationProperties,
         tokenProperties: TokenConfigurationProperties?,
-        byPasswordProperties: ByPasswordConfigurationProperties?
+        byPasswordProperties: ByPasswordConfigurationProperties?,
+        uncheckedClaimsConfig: ClaimsConfig
     ): AuthConfig {
         val errors = mutableListOf<ConfigurationException>()
 
@@ -70,22 +72,24 @@ class AuthConfigFactory(
             null
         }
 
-        val loginClaims = try {
-            properties.loginClaims?.map {
-                parser.convertToEnum<OpenIdClaim>("$AUTH_KEY.login-claims", it)
-            } ?: listOf(OpenIdClaim.EMAIL)
+        val loginClaims = parseLoginClaims(properties, uncheckedClaimsConfig, errors)
+
+        val byPasswordEnabled = try {
+            byPasswordProperties?.let {
+                parser.getBoolean(it, "$BY_PASSWORD_KEY.enabled", ByPasswordConfigurationProperties::enabled)
+            } ?: false
         } catch (e: ConfigurationException) {
             errors.add(e)
             null
         }
 
-        val byPasswordEnabled = try {
-            byPasswordProperties?.let {
-                parser.getBoolean(it, "$BY_PASSWORD_KEY.enabled", ByPasswordConfigurationProperties::enabled)
-            } ?: true
-        } catch (e: ConfigurationException) {
-            errors.add(e)
-            null
+        if (byPasswordEnabled == true && loginClaims.isNullOrEmpty()) {
+            errors.add(
+                configExceptionOf(
+                    "$BY_PASSWORD_KEY.enabled",
+                    "config.auth.by_password.no_login_claim"
+                )
+            )
         }
 
         return if (errors.isEmpty()) {
@@ -106,5 +110,50 @@ class AuthConfigFactory(
         } else {
             DisabledAuthConfig(errors)
         }
+    }
+
+    private fun parseLoginClaims(
+        properties: AuthConfigurationProperties,
+        uncheckedClaimsConfig: ClaimsConfig,
+        errors: MutableList<ConfigurationException>
+    ): List<OpenIdClaim>? {
+        val loginClaimsErrors = mutableListOf<ConfigurationException>()
+        val loginClaims = try {
+            properties.loginClaims?.map {
+                parser.convertToEnum<OpenIdClaim>("$AUTH_KEY.login-claims", it)
+            } ?: emptyList()
+        } catch (e: ConfigurationException) {
+            loginClaimsErrors.add(e)
+            null
+        }
+
+        // Validate that each login claim is enabled in the claims configuration.
+        val enabledClaimsConfig = uncheckedClaimsConfig as? EnabledClaimsConfig
+        if (enabledClaimsConfig != null) {
+            val enabledClaimIds = enabledClaimsConfig.claims
+                .filter { it.enabled }
+                .map { it.id }
+                .toSet()
+            loginClaims?.forEach { loginClaim ->
+                if (loginClaim.id !in enabledClaimIds) {
+                    loginClaimsErrors.add(
+                        configExceptionOf(
+                            "$AUTH_KEY.login-claims",
+                            "config.auth.login_claim.disabled",
+                            "claim" to loginClaim.id
+                        )
+                    )
+                }
+            }
+
+            return if (errors.isEmpty()) {
+                loginClaims
+            } else {
+                errors.addAll(loginClaimsErrors)
+                null
+            }
+        }
+
+        return loginClaims
     }
 }
