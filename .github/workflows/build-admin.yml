@@ -1,0 +1,37 @@
+name: Build SympAuthy admin
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Git reference of the commit to build
+        type: string
+        required: true
+
+jobs:
+  build:
+    name: Build SympAuthy admin
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: 'sympauthy/sympauthy-admin'
+          ref: ${{ inputs.ref }}
+
+      - name: Setup Node version configured in .nvmrc
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install node dependencies
+        run: npm install
+
+      - name: Build sympauthy-admin to be served on /admin by the server
+        run: npm run build-only -- --base=/admin/
+
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: sympauthy-admin-dist
+          path: dist

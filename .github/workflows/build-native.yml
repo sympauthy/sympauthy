@@ -22,6 +22,15 @@ jobs:
           name: sympauthy-flow-dist
           path: server/src/main/resources/sympauthy-flow
 
+      - name: Create sympauthy-admin directory into resources
+        run: mkdir -p server/src/main/resources/sympauthy-admin
+
+      - name: Install sympauthy-admin into resources
+        uses: actions/download-artifact@v8
+        with:
+          name: sympauthy-admin-dist
+          path: server/src/main/resources/sympauthy-admin
+
       - name: Extract Java version from build script
         id: java-version
         run: |
