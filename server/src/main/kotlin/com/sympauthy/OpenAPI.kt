@@ -29,9 +29,9 @@ import jakarta.inject.Singleton
     tags = [
         Tag(
             name = "oauth2",
-            description = "OAuth 2.0",
+            description = "OAuth 2.1",
             externalDocs = ExternalDocumentation(
-                url = "https://datatracker.ietf.org/doc/html/rfc6749"
+                url = "https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1"
             )
         ),
         Tag(

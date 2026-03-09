@@ -103,7 +103,7 @@ Client authentication is supported via:
         ],
         externalDocs = ExternalDocumentation(
             description = "Token Endpoint specification",
-            url = "https://datatracker.ietf.org/doc/html/rfc6749#section-3.2"
+            url = "https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1#section-3.2"
         )
     )
     @Secured(SecurityRule.IS_ANONYMOUS)

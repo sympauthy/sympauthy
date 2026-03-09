@@ -106,7 +106,7 @@ The authorization server includes this value unmodified in the ID Token.
         ],
         externalDocs = ExternalDocumentation(
             description = "Authorize Endpoint specification",
-            url = "https://datatracker.ietf.org/doc/html/rfc6749#section-3.1"
+            url = "https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1#section-3.1"
         )
     )
     @Get
