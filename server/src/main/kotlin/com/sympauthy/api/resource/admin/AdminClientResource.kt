@@ -11,6 +11,12 @@ import io.swagger.v3.oas.annotations.media.Schema
 data class AdminClientResource(
     @get:JsonProperty("client_id")
     val clientId: String,
+    @Schema(
+        description = "Whether the client is public or confidential. " +
+            "See [OAuth 2.1 - Client Types](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1-12#section-2.1).",
+        allowableValues = ["public", "confidential"]
+    )
+    val type: String,
     @get:JsonProperty("allowed_scopes")
     val allowedScopes: List<String>,
     @get:JsonProperty("default_scopes")

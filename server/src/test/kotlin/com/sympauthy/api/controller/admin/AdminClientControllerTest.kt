@@ -38,6 +38,7 @@ class AdminClientControllerTest {
 
     private fun mockResource(clientId: String): AdminClientResource = AdminClientResource(
         clientId = clientId,
+        type = "confidential",
         allowedScopes = emptyList(),
         defaultScopes = emptyList(),
         allowedRedirectUris = emptyList()
