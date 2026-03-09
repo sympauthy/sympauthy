@@ -16,7 +16,11 @@ import java.net.URI
 abstract class AdminClientResourceMapper {
 
     @Mapping(source = "id", target = "clientId")
+    @Mapping(source = "public", target = "type", qualifiedByName = ["toClientType"])
     abstract fun toResource(client: Client): AdminClientResource
+
+    @org.mapstruct.Named("toClientType")
+    fun toClientType(public: Boolean): String = if (public) "public" else "confidential"
 
     fun toScope(scope: Scope): String = scope.scope
 
