@@ -92,7 +92,7 @@ suspend fun CollectedClaimRepository.findAnyClaimMatching(
  * A user matches only if they have a matching value for every claim in the map.
  */
 suspend fun CollectedClaimRepository.findUserIdsMatchingAllClaims(
-    claimValues: Map<String, String>,
+    claimValues: Map<String, String?>,
 ): List<UUID> {
     if (claimValues.isEmpty()) {
         return emptyList()

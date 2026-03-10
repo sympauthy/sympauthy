@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
@@ -20,6 +21,9 @@ open class UserManager(
     @Inject private val userRepository: UserRepository,
     @Inject private val userMapper: UserMapper
 ) {
+
+    @Inject
+    private lateinit var claimValueMapper: ClaimValueMapper
 
     /**
      * Find the end-user identified by [id]. Otherwise, return null.
@@ -44,7 +48,8 @@ open class UserManager(
      * Returns the first matching user, or null if none found.
      */
     suspend fun findByIdentifierClaims(claimValues: Map<String, String>): User? {
-        val userIds = collectedClaimRepository.findUserIdsMatchingAllClaims(claimValues)
+        val entityClaimValues = claimValues.mapValues { entry -> claimValueMapper.toEntity(entry.value) }
+        val userIds = collectedClaimRepository.findUserIdsMatchingAllClaims(entityClaimValues)
         return userIds.firstOrNull()
             ?.let { userRepository.findById(it) }
             ?.let(userMapper::toUser)
