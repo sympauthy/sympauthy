@@ -1,5 +1,6 @@
 package com.sympauthy.business.model.user
 
+import com.sympauthy.business.model.user.claim.OpenIdClaim
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.*
@@ -39,7 +40,30 @@ data class RawProviderClaims(
     val phoneNumberVerified: Boolean? = null,
 
     val updatedAt: LocalDateTime? = null
-)
+) {
+    /**
+     * Return the value of the given [claim] as a string, or null if not available.
+     */
+    fun getClaimValueOrNull(claim: OpenIdClaim): String? = when (claim) {
+        OpenIdClaim.SUBJECT -> subject
+        OpenIdClaim.NAME -> name
+        OpenIdClaim.GIVEN_NAME -> givenName
+        OpenIdClaim.FAMILY_NAME -> familyName
+        OpenIdClaim.MIDDLE_NAME -> middleName
+        OpenIdClaim.NICKNAME -> nickname
+        OpenIdClaim.PREFERRED_USERNAME -> preferredUsername
+        OpenIdClaim.PROFILE -> profile
+        OpenIdClaim.PICTURE -> picture
+        OpenIdClaim.WEBSITE -> website
+        OpenIdClaim.EMAIL -> email
+        OpenIdClaim.GENDER -> gender
+        OpenIdClaim.BIRTH_DATE -> birthDate?.toString()
+        OpenIdClaim.ZONE_INFO -> zoneInfo
+        OpenIdClaim.LOCALE -> locale
+        OpenIdClaim.PHONE_NUMBER -> phoneNumber
+        OpenIdClaim.UPDATED_AT -> updatedAt?.toString()
+    }
+}
 
 class RawUserInfoBuilder(
     private val userId: UUID

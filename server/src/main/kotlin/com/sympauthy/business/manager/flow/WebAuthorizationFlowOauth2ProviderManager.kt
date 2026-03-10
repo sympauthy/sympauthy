@@ -24,6 +24,7 @@ import com.sympauthy.business.model.user.RawProviderClaims
 import com.sympauthy.business.model.user.claim.OpenIdClaim
 import com.sympauthy.client.oauth2.TokenEndpointClient
 import com.sympauthy.config.model.AuthConfig
+import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.config.model.getUri
 import com.sympauthy.config.model.orThrow
@@ -146,51 +147,64 @@ open class WebAuthorizationFlowOauth2ProviderManager(
         provider: EnabledProvider,
         providerUserInfo: RawProviderClaims
     ): CreateOrAssociateResult {
-        return if (uncheckedAuthConfig.orThrow().userMergingEnabled) {
-            createOrAssociateUserByEmailWithProviderUserInfo(provider, providerUserInfo)
+        val authConfig = uncheckedAuthConfig.orThrow()
+        return if (authConfig.userMergingEnabled) {
+            createOrAssociateUserByIdentifierClaimsWithProviderUserInfo(authConfig, provider, providerUserInfo)
         } else {
             createUserWithProviderUserInfo(provider, providerUserInfo)
         }
     }
 
     /**
-     * Create a new [com.sympauthy.business.model.user.User] or associate it to a [com.sympauthy.business.model.user.User] that have the same email.
-     * and update the user info collected by the [provider] with the [providerUserInfo].
+     * Create a new [com.sympauthy.business.model.user.User] or associate it to an existing user
+     * that has matching values for all configured identifier claims.
      *
-     * If ```auth.user-merging-enabled``` is set to ```true```, we will check if we have an existing user
-     * with the email first. If yes, we will only update the user info, otherwise, we will create it.
-     *
-     * The email is collected and copied as a first party data. We want this information to be stable
-     * and not be affected by changes from the third party in the future.
+     * The identifier claim values are collected and copied as first-party data. We want this information
+     * to be stable and not be affected by changes from the third party in the future.
      * Otherwise, an update from a provider may break our uniqueness and cause uncontrolled side effects.
      */
     @Transactional
-    internal open suspend fun createOrAssociateUserByEmailWithProviderUserInfo(
+    internal open suspend fun createOrAssociateUserByIdentifierClaimsWithProviderUserInfo(
+        authConfig: EnabledAuthConfig,
         provider: EnabledProvider,
         providerUserInfo: RawProviderClaims
     ): CreateOrAssociateResult {
-        val email = providerUserInfo.email ?: throw businessExceptionOf(
-            "user.create_with_provider.missing_identifier_claim",
-            values = arrayOf("providerId" to provider.id, "claim" to OpenIdClaim.Id.EMAIL)
-        )
-        val emailClaim = claimManager.findById(OpenIdClaim.Id.EMAIL) ?: throw businessExceptionOf(
-            "user.create_with_provider.missing_identifier_claim_config",
-            values = arrayOf("claim" to OpenIdClaim.Id.EMAIL)
-        )
-        val existingUser = userManager.findByEmail(email)
-        val user = existingUser
-            ?: userManager.createUser().apply {
-                // We do not pass the scopes to forcefully update since we must save the email even if it was not requested by the client.
-                collectedClaimManager.update(
-                    user = this,
-                    updates = listOf(
-                        CollectedClaimUpdate(
-                            claim = emailClaim,
-                            value = Optional.of(email)
-                        )
-                    )
+        val identifierClaims = authConfig.identifierClaims
+
+        // Extract identifier claim values from provider user info.
+        val claimValues = identifierClaims.associateWith { claim ->
+            providerUserInfo.getClaimValueOrNull(claim)
+                ?: throw businessExceptionOf(
+                    "user.create_with_provider.missing_identifier_claim",
+                    "providerId" to provider.id,
+                    "claim" to claim.id
                 )
-            }
+        }
+
+        // Resolve the Claim business objects for each identifier claim.
+        val claimObjects = identifierClaims.associateWith { claim ->
+            claimManager.findById(claim.id)
+                ?: throw businessExceptionOf(
+                    "user.create_with_provider.missing_identifier_claim_config",
+                    "claim" to claim.id
+                )
+        }
+
+        // Look up existing user matching ALL identifier claims.
+        val identifierMap = claimValues.map { (claim, value) -> claim.id to value }.toMap()
+        val existingUser = userManager.findByIdentifierClaims(identifierMap)
+
+        val user = existingUser ?: userManager.createUser().also { newUser ->
+            collectedClaimManager.update(
+                user = newUser,
+                updates = claimValues.map { (claim, value) ->
+                    CollectedClaimUpdate(
+                        claim = claimObjects.getValue(claim),
+                        value = Optional.of(value)
+                    )
+                }
+            )
+        }
 
         providerClaimsManager.saveUserInfo(
             provider = provider,

@@ -10,6 +10,7 @@ import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.business.model.provider.config.ProviderOauth2Config
 import com.sympauthy.business.model.provider.config.ProviderUserInfoConfig
+import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.RawProviderClaims
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
@@ -103,7 +104,7 @@ class WebAuthorizationFlowOauth2ProviderManagerTest {
     // --- createOrAssociateUserWithProviderUserInfo ---
 
     @Test
-    fun `createOrAssociateUserWithProviderUserInfo - Merge by email when user merging enabled and user exists`() = runTest {
+    fun `createOrAssociateUserWithProviderUserInfo - Merge when merging enabled and user exists with matching identifier claims`() = runTest {
         val provider = createProvider()
         val providerUserInfo = RawProviderClaims(
             subject = "sub-123",
@@ -113,8 +114,9 @@ class WebAuthorizationFlowOauth2ProviderManagerTest {
         val emailClaim = mockk<Claim>()
 
         every { uncheckedAuthConfig.userMergingEnabled } returns true
+        every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdClaim.EMAIL)
         every { claimManager.findById(OpenIdClaim.Id.EMAIL) } returns emailClaim
-        coEvery { userManager.findByEmail("user@example.com") } returns existingUser
+        coEvery { userManager.findByIdentifierClaims(mapOf("email" to "user@example.com")) } returns existingUser
         coJustRun { providerClaimsManager.saveUserInfo(provider, existingUser.id, providerUserInfo) }
 
         val result = manager.createOrAssociateUserWithProviderUserInfo(provider, providerUserInfo)
@@ -135,8 +137,9 @@ class WebAuthorizationFlowOauth2ProviderManagerTest {
         val emailClaim = mockk<Claim>()
 
         every { uncheckedAuthConfig.userMergingEnabled } returns true
+        every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdClaim.EMAIL)
         every { claimManager.findById(OpenIdClaim.Id.EMAIL) } returns emailClaim
-        coEvery { userManager.findByEmail("new@example.com") } returns null
+        coEvery { userManager.findByIdentifierClaims(mapOf("email" to "new@example.com")) } returns null
         coEvery { userManager.createUser() } returns newUser
         coJustRun { collectedClaimManager.update(newUser, any()) }
         coJustRun { providerClaimsManager.saveUserInfo(provider, newUser.id, providerUserInfo) }
@@ -145,12 +148,79 @@ class WebAuthorizationFlowOauth2ProviderManagerTest {
 
         assertTrue(result.created)
         assertSame(newUser, result.user)
-        coVerify { collectedClaimManager.update(newUser, any()) }
-        coVerify { providerClaimsManager.saveUserInfo(provider, newUser.id, providerUserInfo) }
+        coVerify {
+            collectedClaimManager.update(newUser, withArg { updates ->
+                assertEquals(1, updates.size)
+                assertEquals(emailClaim, updates[0].claim)
+                assertEquals(Optional.of("new@example.com"), updates[0].value)
+            })
+        }
     }
 
     @Test
-    fun `createOrAssociateUserWithProviderUserInfo - Throw when merging enabled but no email provided`() = runTest {
+    fun `createOrAssociateUserWithProviderUserInfo - Merge with multiple identifier claims`() = runTest {
+        val provider = createProvider()
+        val providerUserInfo = RawProviderClaims(
+            subject = "sub-123",
+            email = "user@example.com",
+            phoneNumber = "+33612345678"
+        )
+        val existingUser = createUser()
+        val emailClaim = mockk<Claim>()
+        val phoneClaim = mockk<Claim>()
+
+        every { uncheckedAuthConfig.userMergingEnabled } returns true
+        every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdClaim.EMAIL, OpenIdClaim.PHONE_NUMBER)
+        every { claimManager.findById(OpenIdClaim.Id.EMAIL) } returns emailClaim
+        every { claimManager.findById(OpenIdClaim.Id.PHONE_NUMBER) } returns phoneClaim
+        coEvery {
+            userManager.findByIdentifierClaims(mapOf("email" to "user@example.com", "phone_number" to "+33612345678"))
+        } returns existingUser
+        coJustRun { providerClaimsManager.saveUserInfo(provider, existingUser.id, providerUserInfo) }
+
+        val result = manager.createOrAssociateUserWithProviderUserInfo(provider, providerUserInfo)
+
+        assertFalse(result.created)
+        assertSame(existingUser, result.user)
+    }
+
+    @Test
+    fun `createOrAssociateUserWithProviderUserInfo - Create with multiple identifier claims when no existing user`() = runTest {
+        val provider = createProvider()
+        val providerUserInfo = RawProviderClaims(
+            subject = "sub-123",
+            email = "new@example.com",
+            phoneNumber = "+33612345678"
+        )
+        val newUser = createUser()
+        val emailClaim = mockk<Claim>()
+        val phoneClaim = mockk<Claim>()
+
+        every { uncheckedAuthConfig.userMergingEnabled } returns true
+        every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdClaim.EMAIL, OpenIdClaim.PHONE_NUMBER)
+        every { claimManager.findById(OpenIdClaim.Id.EMAIL) } returns emailClaim
+        every { claimManager.findById(OpenIdClaim.Id.PHONE_NUMBER) } returns phoneClaim
+        coEvery {
+            userManager.findByIdentifierClaims(mapOf("email" to "new@example.com", "phone_number" to "+33612345678"))
+        } returns null
+        coEvery { userManager.createUser() } returns newUser
+        coJustRun { collectedClaimManager.update(newUser, any()) }
+        coJustRun { providerClaimsManager.saveUserInfo(provider, newUser.id, providerUserInfo) }
+
+        val result = manager.createOrAssociateUserWithProviderUserInfo(provider, providerUserInfo)
+
+        assertTrue(result.created)
+        coVerify {
+            collectedClaimManager.update(newUser, withArg { updates ->
+                assertEquals(2, updates.size)
+                assertTrue(updates.any { it.claim == emailClaim && it.value == Optional.of("new@example.com") })
+                assertTrue(updates.any { it.claim == phoneClaim && it.value == Optional.of("+33612345678") })
+            })
+        }
+    }
+
+    @Test
+    fun `createOrAssociateUserWithProviderUserInfo - Throw when merging enabled but identifier claim not provided by provider`() = runTest {
         val provider = createProvider()
         val providerUserInfo = RawProviderClaims(
             subject = "sub-123",
@@ -158,16 +228,18 @@ class WebAuthorizationFlowOauth2ProviderManagerTest {
         )
 
         every { uncheckedAuthConfig.userMergingEnabled } returns true
+        every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdClaim.EMAIL)
 
         val exception = assertThrows<BusinessException> {
             manager.createOrAssociateUserWithProviderUserInfo(provider, providerUserInfo)
         }
 
         assertEquals("user.create_with_provider.missing_identifier_claim", exception.detailsId)
+        assertEquals("email", exception.values["claim"])
     }
 
     @Test
-    fun `createOrAssociateUserWithProviderUserInfo - Throw when merging enabled but email claim not configured`() = runTest {
+    fun `createOrAssociateUserWithProviderUserInfo - Throw when merging enabled but identifier claim not configured`() = runTest {
         val provider = createProvider()
         val providerUserInfo = RawProviderClaims(
             subject = "sub-123",
@@ -175,6 +247,7 @@ class WebAuthorizationFlowOauth2ProviderManagerTest {
         )
 
         every { uncheckedAuthConfig.userMergingEnabled } returns true
+        every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdClaim.EMAIL)
         every { claimManager.findById(OpenIdClaim.Id.EMAIL) } returns null
 
         val exception = assertThrows<BusinessException> {
@@ -182,6 +255,7 @@ class WebAuthorizationFlowOauth2ProviderManagerTest {
         }
 
         assertEquals("user.create_with_provider.missing_identifier_claim_config", exception.detailsId)
+        assertEquals("email", exception.values["claim"])
     }
 
     @Test
@@ -199,7 +273,7 @@ class WebAuthorizationFlowOauth2ProviderManagerTest {
             manager.createOrAssociateUserWithProviderUserInfo(provider, providerUserInfo)
         }
 
-        // Verify we never tried to merge by email
-        coVerify(exactly = 0) { userManager.findByEmail(any()) }
+        // Verify we never tried to merge
+        coVerify(exactly = 0) { userManager.findByIdentifierClaims(any()) }
     }
 }
