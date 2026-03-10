@@ -1,12 +1,14 @@
 package com.sympauthy.config.factory
 
-import com.sympauthy.business.model.user.UserMergingStrategy.BY_MAIL
 import com.sympauthy.business.model.user.claim.*
 import com.sympauthy.business.model.user.claim.OpenIdClaim.Id.EMAIL
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.exception.configExceptionOf
-import com.sympauthy.config.model.*
+import com.sympauthy.config.model.ClaimsConfig
+import com.sympauthy.config.model.DisabledClaimsConfig
+import com.sympauthy.config.model.EnabledClaimsConfig
+import com.sympauthy.config.properties.AuthConfigurationProperties
 import com.sympauthy.config.properties.ClaimConfigurationProperties
 import com.sympauthy.config.properties.ClaimConfigurationProperties.Companion.CLAIMS_KEY
 import io.micronaut.context.annotation.Factory
@@ -22,7 +24,7 @@ private fun String.normalizeClaimId() = replace('-', '_')
 @Factory
 class ClaimsConfigFactory(
     @Inject private val parser: ConfigParser,
-    @Inject private val uncheckedAdvancedConfig: AdvancedConfig
+    @Inject private val authProperties: AuthConfigurationProperties
 ) {
 
     @Singleton
@@ -49,17 +51,22 @@ class ClaimsConfigFactory(
             } else null
         }
 
-        // Check if claims are properly configured for by-mail user merging strategy.
-        // We ignore the check is the config is invalid since to avoid crashing the server.
-        if (uncheckedAdvancedConfig is EnabledAdvancedConfig) {
-            val emailClaim = standardClaims.firstOrNull { it.id == EMAIL }
-            if (uncheckedAdvancedConfig.userMergingStrategy == BY_MAIL && emailClaim?.enabled != true) {
-                errors.add(
-                    configExceptionOf(
-                        "$CLAIMS_KEY.${EMAIL}",
-                        "config.claim.email.disabled"
+        // Check if claims are properly configured for user merging.
+        if (authProperties.userMergingEnabled == true) {
+            val identifierClaimIds = authProperties.identifierClaims
+                ?.mapNotNull { id -> OpenIdClaim.entries.firstOrNull { it.id == id } }
+                ?: emptyList()
+            val enabledClaimIds = standardClaims.filter { it.enabled }.map { it.id }.toSet()
+            identifierClaimIds.forEach { identifierClaim ->
+                if (identifierClaim.id !in enabledClaimIds) {
+                    errors.add(
+                        configExceptionOf(
+                            "$CLAIMS_KEY.${identifierClaim.id}",
+                            "config.auth.identifier_claim.disabled",
+                            "claim" to identifierClaim.id
+                        )
                     )
-                )
+                }
             }
         }
 

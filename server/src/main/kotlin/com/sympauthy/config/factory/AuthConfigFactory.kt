@@ -74,6 +74,16 @@ class AuthConfigFactory(
 
         val identifierClaims = parseIdentifierClaims(properties, uncheckedClaimsConfig, errors)
 
+        val userMergingEnabled = try {
+            parser.getBooleanOrThrow(
+                properties, "$AUTH_KEY.user-merging-enabled",
+                AuthConfigurationProperties::userMergingEnabled
+            )
+        } catch (e: ConfigurationException) {
+            errors.add(e)
+            null
+        }
+
         val byPasswordEnabled = try {
             byPasswordProperties?.let {
                 parser.getBoolean(it, "$BY_PASSWORD_KEY.enabled", ByPasswordConfigurationProperties::enabled)
@@ -103,6 +113,7 @@ class AuthConfigFactory(
                     refreshExpiration = refreshExpiration
                 ),
                 identifierClaims = identifierClaims!!,
+                userMergingEnabled = userMergingEnabled!!,
                 byPassword = ByPasswordConfig(
                     enabled = byPasswordEnabled!!
                 )

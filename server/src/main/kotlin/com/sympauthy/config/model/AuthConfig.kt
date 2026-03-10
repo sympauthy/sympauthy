@@ -16,6 +16,7 @@ data class EnabledAuthConfig(
      * Used as login claims for password sign-in and as merging keys for provider-based authentication.
      */
     val identifierClaims: List<OpenIdClaim>,
+    val userMergingEnabled: Boolean,
     val byPassword: ByPasswordConfig
 ) : AuthConfig()
 

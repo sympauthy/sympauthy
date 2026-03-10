@@ -14,13 +14,13 @@ advanced:
     public-alg: rs256
     private-alg: rs256
   keys-generation-strategy: autoincrement
-  user-merging-strategy: none
   validation-code:
     length: 6
     resend-delay: 1m
     expiration: 10m
 
 auth:
+  user-merging-enabled: false
   token:
     access-expiration: 1h
     refresh-enabled: true

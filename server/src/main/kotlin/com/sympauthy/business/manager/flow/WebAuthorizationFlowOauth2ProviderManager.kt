@@ -21,10 +21,9 @@ import com.sympauthy.business.model.provider.oauth2.ProviderOauth2Tokens
 import com.sympauthy.business.model.redirect.ProviderOauth2AuthorizationRedirect
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.RawProviderClaims
-import com.sympauthy.business.model.user.UserMergingStrategy
 import com.sympauthy.business.model.user.claim.OpenIdClaim
 import com.sympauthy.client.oauth2.TokenEndpointClient
-import com.sympauthy.config.model.AdvancedConfig
+import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.config.model.getUri
 import com.sympauthy.config.model.orThrow
@@ -48,7 +47,7 @@ open class WebAuthorizationFlowOauth2ProviderManager(
     @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
     @Inject private val tokenEndpointClient: TokenEndpointClient,
     @Inject private val userManager: UserManager,
-    @Inject private val uncheckedAdvancedConfig: AdvancedConfig,
+    @Inject private val uncheckedAuthConfig: AuthConfig,
     @Inject private val uncheckedUrlsConfig: UrlsConfig
 ) {
 
@@ -139,17 +138,18 @@ open class WebAuthorizationFlowOauth2ProviderManager(
      * Create a new [com.sympauthy.business.model.user.User] or associate to an existing [com.sympauthy.business.model.user.User].
      * Then update the provider user info with the newly collected [providerUserInfo].
      *
-     * Depending on the ```advanced.user-merging-strategy```, we may instead associate the [providerUserInfo] to
-     * an existing user.
+     * Depending on ```auth.user-merging-enabled```, we may instead associate the [providerUserInfo] to
+     * an existing user based on the configured identifier claims.
      */
     @Transactional
     open suspend fun createOrAssociateUserWithProviderUserInfo(
         provider: EnabledProvider,
         providerUserInfo: RawProviderClaims
     ): CreateOrAssociateResult {
-        return when (uncheckedAdvancedConfig.orThrow().userMergingStrategy) {
-            UserMergingStrategy.BY_MAIL -> createOrAssociateUserByEmailWithProviderUserInfo(provider, providerUserInfo)
-            UserMergingStrategy.NONE -> createUserWithProviderUserInfo(provider, providerUserInfo)
+        return if (uncheckedAuthConfig.orThrow().userMergingEnabled) {
+            createOrAssociateUserByEmailWithProviderUserInfo(provider, providerUserInfo)
+        } else {
+            createUserWithProviderUserInfo(provider, providerUserInfo)
         }
     }
 
@@ -157,7 +157,7 @@ open class WebAuthorizationFlowOauth2ProviderManager(
      * Create a new [com.sympauthy.business.model.user.User] or associate it to a [com.sympauthy.business.model.user.User] that have the same email.
      * and update the user info collected by the [provider] with the [providerUserInfo].
      *
-     * If the ```advanced.user-merging-strategy``` is set to ```by-mail```, we will check if we have an existing user
+     * If ```auth.user-merging-enabled``` is set to ```true```, we will check if we have an existing user
      * with the email first. If yes, we will only update the user info, otherwise, we will create it.
      *
      * The email is collected and copied as a first party data. We want this information to be stable
@@ -170,11 +170,12 @@ open class WebAuthorizationFlowOauth2ProviderManager(
         providerUserInfo: RawProviderClaims
     ): CreateOrAssociateResult {
         val email = providerUserInfo.email ?: throw businessExceptionOf(
-            "user.create_with_provider.missing_email",
-            values = arrayOf("providerId" to provider.id)
+            "user.create_with_provider.missing_identifier_claim",
+            values = arrayOf("providerId" to provider.id, "claim" to OpenIdClaim.Id.EMAIL)
         )
         val emailClaim = claimManager.findById(OpenIdClaim.Id.EMAIL) ?: throw businessExceptionOf(
-            "user.create_with_provider.missing_email_claim"
+            "user.create_with_provider.missing_identifier_claim_config",
+            values = arrayOf("claim" to OpenIdClaim.Id.EMAIL)
         )
         val existingUser = userManager.findByEmail(email)
         val user = existingUser

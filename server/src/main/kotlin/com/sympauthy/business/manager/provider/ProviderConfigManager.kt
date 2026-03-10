@@ -11,8 +11,7 @@ import com.sympauthy.business.model.provider.ProviderUserInfoPathKey.SUB
 import com.sympauthy.business.model.provider.config.ProviderAuthConfig
 import com.sympauthy.business.model.provider.config.ProviderOauth2Config
 import com.sympauthy.business.model.provider.config.ProviderUserInfoConfig
-import com.sympauthy.business.model.user.UserMergingStrategy.BY_MAIL
-import com.sympauthy.config.model.AdvancedConfig
+import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.config.properties.ProviderConfigurationProperties
 import com.sympauthy.config.properties.ProviderConfigurationProperties.Companion.PROVIDERS_KEY
@@ -41,7 +40,7 @@ import java.util.*
 open class ProviderConfigManager(
     @Inject private val providers: List<ProviderConfigurationProperties>,
     @param:ErrorMessages @Inject private val messageSource: MessageSource,
-    @Inject private val advancedConfig: AdvancedConfig
+    @Inject private val authConfig: AuthConfig
 ) : ApplicationEventListener<ServiceReadyEvent> {
 
     private val logger = loggerForClass()
@@ -166,7 +165,7 @@ open class ProviderConfigManager(
                 "key" to "${PROVIDERS_KEY}.user-info.paths"
             )
         }
-        if (advancedConfig.orThrow().userMergingStrategy == BY_MAIL && paths[EMAIL] == null) {
+        if (authConfig.orThrow().userMergingEnabled && paths[EMAIL] == null) {
             throw localizedExceptionOf(
                 "config.provider.user_info.missing_email_key",
                 "key" to "${PROVIDERS_KEY}.user-info.paths"
