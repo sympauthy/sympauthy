@@ -128,18 +128,9 @@ If null or not present, the authentication by password is disabled by the author
 @Serdeable
 data class PasswordConfigurationResource(
     @get:Schema(
-        name = "login_claims",
-        description = "List of claims that the end-user can use as login to sign-in."
+        name = "identifier_claims",
+        description = "List of claims that uniquely identify a user. Used as login for sign-in and as required claims for sign-up."
     )
-    @get:JsonProperty("login_claims")
-    val loginClaims: List<String>,
-    @get:Schema(
-        name = "sign_up_claims",
-        description = """
-List of claims the end-user MUST provide in addition to its password to sign-up.
-Not present if the sign-up by password is disabled on this authorization server.
-"""
-    )
-    @get:JsonProperty("sign_up_claims")
-    val signUpClaims: List<String>?,
+    @get:JsonProperty("identifier_claims")
+    val identifierClaims: List<String>,
 )

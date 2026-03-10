@@ -12,9 +12,11 @@ data class EnabledAuthConfig(
     val audience: String?,
     val token: TokenConfig,
     /**
-     * List of [OpenIdClaim] that the user can use as a login to sign-in.
+     * List of [OpenIdClaim] that uniquely identify a user.
+     * Used as login claims for password sign-in and as merging keys for provider-based authentication.
      */
-    val loginClaims: List<OpenIdClaim>,
+    val identifierClaims: List<OpenIdClaim>,
+    val userMergingEnabled: Boolean,
     val byPassword: ByPasswordConfig
 ) : AuthConfig()
 

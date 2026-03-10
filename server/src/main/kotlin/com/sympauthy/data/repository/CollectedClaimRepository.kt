@@ -84,3 +84,36 @@ suspend fun CollectedClaimRepository.findAnyClaimMatching(
     }
     return findAll(PredicateSpecification.where(criteria)).toList()
 }
+
+/**
+ * Find all distinct user IDs that have collected claims matching ALL entries in [claimValues].
+ * Each entry maps a claim ID to its expected value.
+ *
+ * A user matches only if they have a matching value for every claim in the map.
+ */
+suspend fun CollectedClaimRepository.findUserIdsMatchingAllClaims(
+    claimValues: Map<String, String?>,
+): List<UUID> {
+    if (claimValues.isEmpty()) {
+        return emptyList()
+    }
+    val criteria = where<CollectedClaimEntity> {
+        or {
+            claimValues.forEach { (claimId, value) ->
+                and {
+                    root[CollectedClaimEntity::claim] eq claimId
+                    root[CollectedClaimEntity::value] eq value
+                }
+            }
+        }
+    }
+    val entities = findAll(PredicateSpecification.where(criteria)).toList()
+    val expectedClaimIds = claimValues.keys
+    return entities
+        .groupBy { it.userId }
+        .filterValues { matched ->
+            expectedClaimIds.all { claimId -> matched.any { it.claim == claimId } }
+        }
+        .keys
+        .toList()
+}

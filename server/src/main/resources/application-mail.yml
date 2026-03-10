@@ -3,9 +3,6 @@
 #
 # Can be enabled by appending 'mail' to the Micronaut environments.
 
-advanced:
-  user-merging-strategy: by-mail
-
 claims:
   email:
     enabled: true
@@ -24,7 +21,8 @@ javamail:
   enabled: true
 
 auth:
-  login-claims:
+  user-merging-enabled: true
+  identifier-claims:
     - email
   by-password:
     enabled: true

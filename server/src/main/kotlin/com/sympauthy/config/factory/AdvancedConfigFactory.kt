@@ -2,7 +2,6 @@ package com.sympauthy.config.factory
 
 import com.sympauthy.business.manager.jwt.CryptoKeysGenerationStrategy
 import com.sympauthy.business.model.jwt.JwtAlgorithm
-import com.sympauthy.business.model.user.UserMergingStrategy
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.exception.configExceptionOf
@@ -33,15 +32,6 @@ class AdvancedConfigFactory(
         keyGenerationStrategies: Map<String, CryptoKeysGenerationStrategy>,
     ): AdvancedConfig {
         val errors = mutableListOf<ConfigurationException>()
-        val userMergingStrategy = try {
-            parser.getEnumOrThrow<AdvancedConfigurationProperties, UserMergingStrategy>(
-                properties, "$ADVANCED_KEY.user-merging-strategy",
-                AdvancedConfigurationProperties::userMergingStrategy
-            )
-        } catch (e: ConfigurationException) {
-            errors.add(e)
-            null
-        }
 
         val keysGenerationStrategy = try {
             getKeysGenerationStrategy(properties, keyGenerationStrategies)
@@ -75,7 +65,6 @@ class AdvancedConfigFactory(
 
         return if (errors.isEmpty()) {
             return EnabledAdvancedConfig(
-                userMergingStrategy = userMergingStrategy!!,
                 keysGenerationStrategy = keysGenerationStrategy!!,
                 publicJwtAlgorithm = publicJwtAlgorithm!!,
                 privateJwtAlgorithm = privateJwtAlgorithm!!,

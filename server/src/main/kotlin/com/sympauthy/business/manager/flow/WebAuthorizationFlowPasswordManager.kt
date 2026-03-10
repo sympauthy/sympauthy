@@ -51,7 +51,7 @@ open class WebAuthorizationFlowPasswordManager(
      */
     val signInEnabled: Boolean
         get() = uncheckedAuthConfig.orThrow().let {
-            it.byPassword.enabled && it.loginClaims.isNotEmpty()
+            it.byPassword.enabled && it.identifierClaims.isNotEmpty()
         }
 
     /**
@@ -59,17 +59,17 @@ open class WebAuthorizationFlowPasswordManager(
      */
     val signUpEnabled: Boolean
         get() = uncheckedAuthConfig.orThrow().let {
-            it.byPassword.enabled && it.loginClaims.isNotEmpty()
+            it.byPassword.enabled && it.identifierClaims.isNotEmpty()
         }
 
     /**
      * Find the end-user with a claim matching the [login].
-     * The claims used to match the login are configured in [EnabledAuthConfig.loginClaims].
+     * The claims used to match the login are configured in [EnabledAuthConfig.identifierClaims].
      */
     internal suspend fun findByLogin(login: String): User? {
-        val loginClaims = uncheckedAuthConfig.orThrow().loginClaims
+        val identifierClaims = uncheckedAuthConfig.orThrow().identifierClaims
         val userInfo = collectedClaimRepository.findAnyClaimMatching(
-            claimIds = loginClaims.map(OpenIdClaim::id),
+            claimIds = identifierClaims.map(OpenIdClaim::id),
             value = claimValueMapper.toEntity(login) ?: return null,
         )
         return userInfo?.userId
@@ -124,19 +124,13 @@ open class WebAuthorizationFlowPasswordManager(
     }
 
     /**
-     * Return a list of [Claim] the end-user can use as a login for the password flow.
+     * Return the list of [Claim] configured as identifier claims.
+     * Used as login for sign-in and as required claims for sign-up.
      */
-    fun getSignInClaims(): List<Claim> {
+    fun getIdentifierClaims(): List<Claim> {
         return uncheckedAuthConfig.orThrow()
-            .loginClaims
+            .identifierClaims
             .mapNotNull { claimManager.findById(it.id) }
-    }
-
-    /**
-     * Return a list of [Claim] that may be collected alongside the end-user password during the sign-up.
-     */
-    fun getSignUpClaims(): List<Claim> {
-        return getSignInClaims()
     }
 
     /**
@@ -148,7 +142,7 @@ open class WebAuthorizationFlowPasswordManager(
         unfilteredUpdates: List<CollectedClaimUpdate>,
         password: String
     ): AuthorizeAttempt {
-        val claimUpdateMap = getSignUpClaims().associateWith { claim ->
+        val claimUpdateMap = getIdentifierClaims().associateWith { claim ->
             unfilteredUpdates.firstOrNull { it.claim == claim }
         }
         val claimUpdates = claimUpdateMap.values.filterNotNull()

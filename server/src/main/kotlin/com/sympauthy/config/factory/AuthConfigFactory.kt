@@ -72,7 +72,17 @@ class AuthConfigFactory(
             null
         }
 
-        val loginClaims = parseLoginClaims(properties, uncheckedClaimsConfig, errors)
+        val identifierClaims = parseIdentifierClaims(properties, uncheckedClaimsConfig, errors)
+
+        val userMergingEnabled = try {
+            parser.getBooleanOrThrow(
+                properties, "$AUTH_KEY.user-merging-enabled",
+                AuthConfigurationProperties::userMergingEnabled
+            )
+        } catch (e: ConfigurationException) {
+            errors.add(e)
+            null
+        }
 
         val byPasswordEnabled = try {
             byPasswordProperties?.let {
@@ -83,11 +93,11 @@ class AuthConfigFactory(
             null
         }
 
-        if (byPasswordEnabled == true && loginClaims.isNullOrEmpty()) {
+        if (byPasswordEnabled == true && identifierClaims.isNullOrEmpty()) {
             errors.add(
                 configExceptionOf(
                     "$BY_PASSWORD_KEY.enabled",
-                    "config.auth.by_password.no_login_claim"
+                    "config.auth.by_password.no_identifier_claim"
                 )
             )
         }
@@ -102,7 +112,8 @@ class AuthConfigFactory(
                     refreshEnabled = refreshEnabled!!,
                     refreshExpiration = refreshExpiration
                 ),
-                loginClaims = loginClaims!!,
+                identifierClaims = identifierClaims!!,
+                userMergingEnabled = userMergingEnabled!!,
                 byPassword = ByPasswordConfig(
                     enabled = byPasswordEnabled!!
                 )
@@ -112,48 +123,48 @@ class AuthConfigFactory(
         }
     }
 
-    private fun parseLoginClaims(
+    private fun parseIdentifierClaims(
         properties: AuthConfigurationProperties,
         uncheckedClaimsConfig: ClaimsConfig,
         errors: MutableList<ConfigurationException>
     ): List<OpenIdClaim>? {
-        val loginClaimsErrors = mutableListOf<ConfigurationException>()
-        val loginClaims = try {
-            properties.loginClaims?.map {
-                parser.convertToEnum<OpenIdClaim>("$AUTH_KEY.login-claims", it)
+        val identifierClaimsErrors = mutableListOf<ConfigurationException>()
+        val identifierClaims = try {
+            properties.identifierClaims?.map {
+                parser.convertToEnum<OpenIdClaim>("$AUTH_KEY.identifier-claims", it)
             } ?: emptyList()
         } catch (e: ConfigurationException) {
-            loginClaimsErrors.add(e)
+            identifierClaimsErrors.add(e)
             null
         }
 
-        // Validate that each login claim is enabled in the claims configuration.
+        // Validate that each identifier claim is enabled in the claims configuration.
         val enabledClaimsConfig = uncheckedClaimsConfig as? EnabledClaimsConfig
         if (enabledClaimsConfig != null) {
             val enabledClaimIds = enabledClaimsConfig.claims
                 .filter { it.enabled }
                 .map { it.id }
                 .toSet()
-            loginClaims?.forEach { loginClaim ->
-                if (loginClaim.id !in enabledClaimIds) {
-                    loginClaimsErrors.add(
+            identifierClaims?.forEach { identifierClaim ->
+                if (identifierClaim.id !in enabledClaimIds) {
+                    identifierClaimsErrors.add(
                         configExceptionOf(
-                            "$AUTH_KEY.login-claims",
-                            "config.auth.login_claim.disabled",
-                            "claim" to loginClaim.id
+                            "$AUTH_KEY.identifier-claims",
+                            "config.auth.identifier_claim.disabled",
+                            "claim" to identifierClaim.id
                         )
                     )
                 }
             }
 
             return if (errors.isEmpty()) {
-                loginClaims
+                identifierClaims
             } else {
-                errors.addAll(loginClaimsErrors)
+                errors.addAll(identifierClaimsErrors)
                 null
             }
         }
 
-        return loginClaims
+        return identifierClaims
     }
 }

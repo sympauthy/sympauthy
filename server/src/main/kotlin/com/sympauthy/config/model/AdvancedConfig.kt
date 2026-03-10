@@ -2,7 +2,6 @@ package com.sympauthy.config.model
 
 import com.sympauthy.business.manager.jwt.CryptoKeysGenerationStrategy
 import com.sympauthy.business.model.jwt.JwtAlgorithm
-import com.sympauthy.business.model.user.UserMergingStrategy
 import com.sympauthy.config.exception.ConfigurationException
 import java.time.Duration
 
@@ -11,7 +10,6 @@ sealed class AdvancedConfig(
 ) : Config(configurationErrors)
 
 data class EnabledAdvancedConfig(
-    val userMergingStrategy: UserMergingStrategy,
     val keysGenerationStrategy: CryptoKeysGenerationStrategy,
     val publicJwtAlgorithm: JwtAlgorithm,
     val privateJwtAlgorithm: JwtAlgorithm,

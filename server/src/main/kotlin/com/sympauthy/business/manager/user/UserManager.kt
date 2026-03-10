@@ -1,14 +1,14 @@
 package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
-import com.sympauthy.business.model.user.claim.OpenIdClaim.EMAIL
 import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.UserRepository
-import com.sympauthy.data.repository.findAnyClaimMatching
+import com.sympauthy.data.repository.findUserIdsMatchingAllClaims
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -21,6 +21,9 @@ open class UserManager(
     @Inject private val userRepository: UserRepository,
     @Inject private val userMapper: UserMapper
 ) {
+
+    @Inject
+    private lateinit var claimValueMapper: ClaimValueMapper
 
     /**
      * Find the end-user identified by [id]. Otherwise, return null.
@@ -41,11 +44,13 @@ open class UserManager(
     }
 
     /**
-     * Find the end-user with a collected email claim matching the [email].
+     * Find an end-user whose collected claims match ALL entries in [claimValues].
+     * Returns the first matching user, or null if none found.
      */
-    suspend fun findByEmail(email: String): User? {
-        val userInfo = collectedClaimRepository.findAnyClaimMatching(listOf(EMAIL.id), email)
-        return userInfo?.userId
+    suspend fun findByIdentifierClaims(claimValues: Map<String, String>): User? {
+        val entityClaimValues = claimValues.mapValues { entry -> claimValueMapper.toEntity(entry.value) }
+        val userIds = collectedClaimRepository.findUserIdsMatchingAllClaims(entityClaimValues)
+        return userIds.firstOrNull()
             ?.let { userRepository.findById(it) }
             ?.let(userMapper::toUser)
     }
