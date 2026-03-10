@@ -85,12 +85,12 @@ but they chose not to provide a value.
         webAuthorizationFlowControllerUtil.fetchOnGoingAttemptWithUserThenUpdateAndRedirect(
             state = authentication.stateOrNull,
             update = { authorizeAttempt, _, user ->
-                val signUpClaims = passwordFlowManager.getSignUpClaims()
+                val identifierClaims = passwordFlowManager.getIdentifierClaims()
                 collectedClaimManager.update(
                     user = user,
                     updates = collectedClaimUpdateMapper.toUpdates(inputResource.claims)
                         .filter { it.claim.userInputted }
-                        .filter { !signUpClaims.contains(it.claim) }
+                        .filter { !identifierClaims.contains(it.claim) }
                 )
                 authorizeAttempt
             },

@@ -24,7 +24,7 @@ javamail:
   enabled: true
 
 auth:
-  login-claims:
+  identifier-claims:
     - email
   by-password:
     enabled: true
