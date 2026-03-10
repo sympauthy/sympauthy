@@ -14,6 +14,7 @@ data class AdminClaimResource(
     val standard: Boolean,
     val enabled: Boolean,
     val required: Boolean,
+    val identifier: Boolean,
     @get:JsonProperty("allowed_values")
     val allowedValues: List<Any>?,
     val group: String?
