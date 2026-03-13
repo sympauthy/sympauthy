@@ -6,7 +6,7 @@ import com.sympauthy.api.exception.toHttpException
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
 import com.sympauthy.business.manager.jwt.JwtManager
-import com.sympauthy.business.manager.jwt.JwtManager.Companion.PUBLIC_KEY
+import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.exception.LocalizedException
 import io.micronaut.http.HttpStatus.UNAUTHORIZED
 import io.micronaut.security.authentication.Authentication
@@ -22,7 +22,7 @@ import java.util.*
  *
  * To authorize the user, we need:
  * - to decode the token.
- * - to validate the token signature against our [PUBLIC_KEY] signature key.
+ * - to validate the token signature against our [ACCESS_KEY] signature key.
  * - to check the token is not expired.
  * - to validate the token is an access token.
  * - to retrieve the user and scope this token is associated to.
@@ -37,7 +37,7 @@ class AccessTokenValidator<T>(
 
     override fun validateToken(token: String, request: T): Publisher<Authentication> = publish {
         val decodedToken = try {
-            jwtManager.decodeAndVerify(PUBLIC_KEY, token)
+            jwtManager.decodeAndVerify(ACCESS_KEY, token)
         } catch (e: LocalizedException) {
             throw e.toHttpException(UNAUTHORIZED)
         }

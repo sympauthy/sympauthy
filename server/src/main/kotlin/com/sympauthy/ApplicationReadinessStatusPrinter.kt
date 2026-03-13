@@ -9,6 +9,7 @@ import com.sympauthy.business.manager.ConfigReadinessManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.rule.ScopeGrantingRuleManager
 import com.sympauthy.config.model.AdminConfig
+import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.EnabledAdminConfig
 import com.sympauthy.config.model.EnabledMfaConfig
 import com.sympauthy.config.model.EnabledUrlsConfig
@@ -16,6 +17,7 @@ import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.config.model.getOrNull
 import com.sympauthy.config.model.getUri
+import com.sympauthy.config.model.orThrow
 import com.sympauthy.server.ErrorMessages
 import com.sympauthy.util.DEFAULT_ENVIRONMENT
 import com.sympauthy.util.getKeyAndLocalizedMessage
@@ -43,6 +45,7 @@ class ApplicationReadinessStatusPrinter(
     @Inject private val clientManager: ClientManager,
     @Inject private val scopeManager: ScopeManager,
     @Inject private val scopeGrantingRuleManager: ScopeGrantingRuleManager,
+    @Inject private val uncheckedAuthConfig: AuthConfig,
     @Inject private val uncheckedMfaConfig: MfaConfig,
     @Inject private val uncheckedUrlsConfig: UrlsConfig,
     @Inject private val adminConfig: AdminConfig,
@@ -68,6 +71,8 @@ class ApplicationReadinessStatusPrinter(
 
     private suspend fun printReadyBanner() {
         logger.info("SympAuthy is ready and has found the following elements in its configuration:")
+        val authConfig = uncheckedAuthConfig.orThrow()
+        logger.info("- Issuer: ${authConfig.issuer} / Audience: ${authConfig.audience}")
         val enabledClaims = try {
             claimManager.listEnabledClaims()
         } catch (_: Throwable) {

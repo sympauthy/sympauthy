@@ -30,10 +30,14 @@ class JwtManager(
 
     suspend fun create(
         name: String,
+        headers: Map<String, Any> = emptyMap(),
         block: JWTCreator.Builder.() -> Unit
     ): String {
         val algorithm = getAlgorithm(name)
         return JWT.create().apply {
+            if (headers.isNotEmpty()) {
+                withHeader(headers)
+            }
             authConfig.orThrow().issuer.let(this::withIssuer)
             block(this)
         }.sign(algorithm)
@@ -100,15 +104,22 @@ class JwtManager(
     }
 
     /**
-     * Return the [PUBLIC_KEY] key set used to sign access tokens and id tokens.
+     * Return the key set containing the public keys used to verify access tokens and id tokens.
      *
-     * The key set only includes the public key as the private key must remain known only by the authorization server.
+     * The key set only includes the public keys as the private keys must remain known only by the authorization server.
      */
     suspend fun getPublicKeySet(): JWKSet {
-        val algorithm = advancedConfig.orThrow().publicJwtAlgorithm
-        val keys = keyManager.getKey(PUBLIC_KEY, algorithm.keyAlgorithm)
-        val publicKey = algorithm.keyAlgorithm.impl.serializePublicKey(keys)
-        return JWKSet(publicKey)
+        val config = advancedConfig.orThrow()
+
+        val idTokenAlgorithm = config.publicJwtAlgorithm
+        val idTokenKeys = keyManager.getKey(PUBLIC_KEY, idTokenAlgorithm.keyAlgorithm)
+        val idTokenPublicKey = idTokenAlgorithm.keyAlgorithm.impl.serializePublicKey(idTokenKeys)
+
+        val accessTokenAlgorithm = config.accessJwtAlgorithm
+        val accessTokenKeys = keyManager.getKey(ACCESS_KEY, accessTokenAlgorithm.keyAlgorithm)
+        val accessTokenPublicKey = accessTokenAlgorithm.keyAlgorithm.impl.serializePublicKey(accessTokenKeys)
+
+        return JWKSet(listOf(idTokenPublicKey, accessTokenPublicKey))
     }
 
     /**
@@ -118,9 +129,11 @@ class JwtManager(
      * then it will be generated according to the key generation strategy.
      */
     suspend fun getAlgorithm(name: String): Algorithm {
+        val config = advancedConfig.orThrow()
         val algorithm = when(name) {
-            PUBLIC_KEY -> advancedConfig.orThrow().publicJwtAlgorithm
-            else -> advancedConfig.orThrow().privateJwtAlgorithm
+            PUBLIC_KEY -> config.publicJwtAlgorithm
+            ACCESS_KEY -> config.accessJwtAlgorithm
+            else -> config.privateJwtAlgorithm
         }
         val key = keyManager.getKey(name, algorithm.keyAlgorithm)
         return algorithm.impl.initializeWithKeys(key)
@@ -128,9 +141,14 @@ class JwtManager(
 
     companion object {
         /**
-         * Name of the public key used to sign access tokens and id tokens.
+         * Name of the public key used to sign id tokens.
          */
         const val PUBLIC_KEY = "public"
+
+        /**
+         * Name of the public key used to sign access tokens.
+         */
+        const val ACCESS_KEY = "access"
 
         /**
          * Name of key used to sign refresh tokens.

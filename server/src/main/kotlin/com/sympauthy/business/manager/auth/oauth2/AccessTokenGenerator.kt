@@ -91,10 +91,15 @@ class AccessTokenGenerator(
             expirationDate = expirationDate
         ).let { tokenRepository.save(it) }
 
-        val encodedToken = jwtManager.create(JwtManager.PUBLIC_KEY) {
+        val encodedToken = jwtManager.create(
+            name = JwtManager.ACCESS_KEY,
+            headers = mapOf("typ" to "at+jwt")
+        ) {
             entity.id?.toString()?.let(this::withJWTId)
-            authConfig.audience?.let { this.withAudience(it) }
+            withAudience(authConfig.audience)
             withSubject(userId?.toString() ?: clientId)
+            withClaim("client_id", clientId)
+            withClaim("scope", scopes.joinToString(" "))
             withIssuedAt(issueDate.toInstant(ZoneOffset.UTC))
             withExpiresAt(expirationDate.toInstant(ZoneOffset.UTC))
         }
