@@ -7,6 +7,7 @@ import io.micronaut.context.annotation.ConfigurationProperties
 @ConfigurationProperties(JWT_KEY)
 interface JwtConfigurationProperties {
     val publicAlg: String?
+    val accessAlg: String?
     val privateAlg: String?
 
     companion object {

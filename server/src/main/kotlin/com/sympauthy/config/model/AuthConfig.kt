@@ -9,7 +9,7 @@ sealed class AuthConfig(
 
 data class EnabledAuthConfig(
     val issuer: String,
-    val audience: String?,
+    val audience: String,
     val token: TokenConfig,
     /**
      * List of [OpenIdClaim] that uniquely identify a user.

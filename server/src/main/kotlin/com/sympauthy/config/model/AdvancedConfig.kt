@@ -12,6 +12,7 @@ sealed class AdvancedConfig(
 data class EnabledAdvancedConfig(
     val keysGenerationStrategy: CryptoKeysGenerationStrategy,
     val publicJwtAlgorithm: JwtAlgorithm,
+    val accessJwtAlgorithm: JwtAlgorithm,
     val privateJwtAlgorithm: JwtAlgorithm,
     val hashConfig: HashConfig,
     val validationCode: ValidationCodeConfig,

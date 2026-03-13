@@ -47,6 +47,13 @@ class AdvancedConfigFactory(
             null
         }
 
+        val accessJwtAlgorithm = try {
+            getAccessKeyAlgorithm(jwtProperties)
+        } catch (e: ConfigurationException) {
+            errors.add(e)
+            null
+        }
+
         val privateJwtAlgorithm = try {
             parser.getEnumOrThrow<JwtConfigurationProperties, JwtAlgorithm>(
                 jwtProperties, "$JWT_KEY.private-alg",
@@ -67,6 +74,7 @@ class AdvancedConfigFactory(
             return EnabledAdvancedConfig(
                 keysGenerationStrategy = keysGenerationStrategy!!,
                 publicJwtAlgorithm = publicJwtAlgorithm!!,
+                accessJwtAlgorithm = accessJwtAlgorithm!!,
                 privateJwtAlgorithm = privateJwtAlgorithm!!,
                 hashConfig = hashConfig!!,
                 validationCode = validationCodeConfig!!,
@@ -109,6 +117,25 @@ class AdvancedConfigFactory(
             )
         }
         return publicJwtAlgorithm
+    }
+
+    private fun getAccessKeyAlgorithm(
+        properties: JwtConfigurationProperties
+    ): JwtAlgorithm {
+        val accessJwtAlgorithm: JwtAlgorithm = parser.getEnumOrThrow(
+            properties, "$JWT_KEY.access-alg",
+            JwtConfigurationProperties::accessAlg
+        )
+        if (!accessJwtAlgorithm.keyAlgorithm.supportsPublicKey) {
+            throw configExceptionOf(
+                "$JWT_KEY.access-alg",
+                "config.advanced.jwt.access_alg.unsupported_public_key",
+                "algorithms" to JwtAlgorithm.entries
+                    .filter { it.keyAlgorithm.supportsPublicKey }
+                    .joinToString(", ")
+            )
+        }
+        return accessJwtAlgorithm
     }
 
     private fun getHashConfig(

@@ -3,7 +3,7 @@ package com.sympauthy.business.manager.auth.oauth2
 import com.auth0.jwt.interfaces.DecodedJWT
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.business.manager.jwt.JwtManager
-import com.sympauthy.business.manager.jwt.JwtManager.Companion.PUBLIC_KEY
+import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.REFRESH_KEY
 import com.sympauthy.business.mapper.AuthenticationTokenMapper
 import com.sympauthy.business.model.client.Client
@@ -278,8 +278,8 @@ class TokenManagerTest {
         val token = mockk<AuthenticationToken>()
 
         every { client.id } returns "client-a"
-        every { jwtManager.getKeyIdOrNull("token") } returns PUBLIC_KEY
-        coEvery { jwtManager.decodeAndVerifyOrNull(PUBLIC_KEY, "token") } returns decodedToken
+        every { jwtManager.getKeyIdOrNull("token") } returns ACCESS_KEY
+        coEvery { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, "token") } returns decodedToken
         every { decodedToken.id } returns tokenId.toString()
         coEvery { tokenManager.findById(tokenId) } returns token
         every { token.clientId } returns "client-b"
@@ -299,8 +299,8 @@ class TokenManagerTest {
         val token = mockk<AuthenticationToken>()
 
         every { client.id } returns clientId
-        every { jwtManager.getKeyIdOrNull("token") } returns PUBLIC_KEY
-        coEvery { jwtManager.decodeAndVerifyOrNull(PUBLIC_KEY, "token") } returns decodedToken
+        every { jwtManager.getKeyIdOrNull("token") } returns ACCESS_KEY
+        coEvery { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, "token") } returns decodedToken
         every { decodedToken.id } returns tokenId.toString()
         coEvery { tokenManager.findById(tokenId) } returns token
         every { token.clientId } returns clientId
@@ -333,7 +333,7 @@ class TokenManagerTest {
 
         tokenManager.revokeTokenByEncodedToken(client, "token", "refresh_token")
 
-        coVerify(exactly = 0) { jwtManager.decodeAndVerifyOrNull(PUBLIC_KEY, any()) }
+        coVerify(exactly = 0) { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, any()) }
         coVerify(exactly = 1) { tokenRepository.updateRevokedByAuthorizeAttemptId(attemptId, true) }
         coVerify(exactly = 0) { tokenRepository.updateRevokedById(any(), any()) }
     }
@@ -347,7 +347,7 @@ class TokenManagerTest {
         val token = mockk<AuthenticationToken>()
 
         every { client.id } returns clientId
-        coEvery { jwtManager.decodeAndVerifyOrNull(PUBLIC_KEY, "token") } returns decodedToken
+        coEvery { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, "token") } returns decodedToken
         every { decodedToken.id } returns tokenId.toString()
         coEvery { tokenManager.findById(tokenId) } returns token
         every { token.clientId } returns clientId
@@ -382,7 +382,7 @@ class TokenManagerTest {
 
         tokenManager.revokeTokenByEncodedToken(client, "token", null)
 
-        coVerify(exactly = 0) { jwtManager.decodeAndVerifyOrNull(PUBLIC_KEY, any()) }
+        coVerify(exactly = 0) { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, any()) }
         coVerify(exactly = 1) { tokenRepository.updateRevokedByAuthorizeAttemptId(attemptId, true) }
     }
 }

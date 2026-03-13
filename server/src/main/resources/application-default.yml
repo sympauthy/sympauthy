@@ -12,6 +12,7 @@ advanced:
     salt-length: 256
   jwt:
     public-alg: rs256
+    access-alg: rs256
     private-alg: rs256
   keys-generation-strategy: autoincrement
   validation-code:

@@ -17,7 +17,8 @@ import jakarta.inject.Singleton
 
 @Factory
 class AuthConfigFactory(
-    @Inject private val parser: ConfigParser
+    @Inject private val parser: ConfigParser,
+    @Inject private val uncheckedUrlsConfig: UrlsConfig
 ) {
 
     @Singleton
@@ -34,6 +35,18 @@ class AuthConfigFactory(
         } catch (e: ConfigurationException) {
             errors.add(e)
             null
+        }
+
+        val audience = properties.audience
+            ?: uncheckedUrlsConfig.getOrNull()?.root?.toString()
+
+        if (audience == null) {
+            errors.add(
+                configExceptionOf(
+                    "$AUTH_KEY.audience",
+                    "config.auth.audience.missing"
+                )
+            )
         }
 
         val accessExpiration = try {
@@ -105,7 +118,7 @@ class AuthConfigFactory(
         return if (errors.isEmpty()) {
             EnabledAuthConfig(
                 issuer = issuer!!,
-                audience = properties.audience,
+                audience = audience!!,
                 token = TokenConfig(
                     accessExpiration = accessExpiration!!,
                     idExpiration = idExpiration!!,
