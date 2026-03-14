@@ -339,8 +339,8 @@ class TokenManagerTest {
 
         tokenManager.revokeTokenByEncodedToken(client, "token", null)
 
-        coVerify(exactly = 0) { tokenRepository.updateRevokedById(any(), any()) }
-        coVerify(exactly = 0) { tokenRepository.updateRevokedByAuthorizeAttemptId(any(), any()) }
+        coVerify(exactly = 0) { tokenRepository.updateRevokedAt(any(), any(), any(), any()) }
+        coVerify(exactly = 0) { tokenRepository.updateRevokedAtByAuthorizeAttemptId(any(), any(), any(), any()) }
     }
 
     @Test
@@ -359,11 +359,11 @@ class TokenManagerTest {
         every { token.clientId } returns clientId
         every { token.type } returns ACCESS
         every { token.id } returns tokenId
-        coEvery { tokenRepository.updateRevokedById(tokenId, true) } returns Unit
+        coEvery { tokenRepository.updateRevokedAt(tokenId, any(), "CLIENT", null) } returns Unit
 
         tokenManager.revokeTokenByEncodedToken(client, "token", null)
 
-        coVerify(exactly = 1) { tokenRepository.updateRevokedById(tokenId, true) }
+        coVerify(exactly = 1) { tokenRepository.updateRevokedAt(tokenId, any(), "CLIENT", null) }
     }
 
     @Test
@@ -382,13 +382,13 @@ class TokenManagerTest {
         every { token.clientId } returns clientId
         every { token.type } returns REFRESH
         every { token.authorizeAttemptId } returns attemptId
-        coEvery { tokenRepository.updateRevokedByAuthorizeAttemptId(attemptId, true) } returns Unit
+        coEvery { tokenRepository.updateRevokedAtByAuthorizeAttemptId(attemptId, any(), "CLIENT", null) } returns Unit
 
         tokenManager.revokeTokenByEncodedToken(client, "token", "refresh_token")
 
         coVerify(exactly = 0) { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, any()) }
-        coVerify(exactly = 1) { tokenRepository.updateRevokedByAuthorizeAttemptId(attemptId, true) }
-        coVerify(exactly = 0) { tokenRepository.updateRevokedById(any(), any()) }
+        coVerify(exactly = 1) { tokenRepository.updateRevokedAtByAuthorizeAttemptId(attemptId, any(), "CLIENT", null) }
+        coVerify(exactly = 0) { tokenRepository.updateRevokedAt(any(), any(), any(), any()) }
     }
 
     @Test
@@ -406,12 +406,12 @@ class TokenManagerTest {
         every { token.clientId } returns clientId
         every { token.type } returns ACCESS
         every { token.id } returns tokenId
-        coEvery { tokenRepository.updateRevokedById(tokenId, true) } returns Unit
+        coEvery { tokenRepository.updateRevokedAt(tokenId, any(), "CLIENT", null) } returns Unit
 
         tokenManager.revokeTokenByEncodedToken(client, "token", "access_token")
 
         coVerify(exactly = 0) { jwtManager.decodeAndVerifyOrNull(REFRESH_KEY, any()) }
-        coVerify(exactly = 1) { tokenRepository.updateRevokedById(tokenId, true) }
+        coVerify(exactly = 1) { tokenRepository.updateRevokedAt(tokenId, any(), "CLIENT", null) }
     }
 
     @Test
@@ -431,11 +431,11 @@ class TokenManagerTest {
         every { token.clientId } returns clientId
         every { token.type } returns REFRESH
         every { token.authorizeAttemptId } returns attemptId
-        coEvery { tokenRepository.updateRevokedByAuthorizeAttemptId(attemptId, true) } returns Unit
+        coEvery { tokenRepository.updateRevokedAtByAuthorizeAttemptId(attemptId, any(), "CLIENT", null) } returns Unit
 
         tokenManager.revokeTokenByEncodedToken(client, "token", null)
 
         coVerify(exactly = 0) { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, any()) }
-        coVerify(exactly = 1) { tokenRepository.updateRevokedByAuthorizeAttemptId(attemptId, true) }
+        coVerify(exactly = 1) { tokenRepository.updateRevokedAtByAuthorizeAttemptId(attemptId, any(), "CLIENT", null) }
     }
 }

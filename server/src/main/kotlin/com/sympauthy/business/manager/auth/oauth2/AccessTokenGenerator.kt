@@ -86,7 +86,6 @@ class AccessTokenGenerator(
             scopes = scopes.toTypedArray(),
             authorizeAttemptId = authorizeAttemptId,
             grantType = grantType,
-            revoked = false,
             issueDate = issueDate,
             expirationDate = expirationDate
         ).let { tokenRepository.save(it) }

@@ -4,6 +4,7 @@ import com.sympauthy.business.mapper.ConsentMapper
 import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.oauth2.ConsentRevokedBy
 import com.sympauthy.data.model.ConsentEntity
+import com.sympauthy.business.model.oauth2.TokenRevokedBy
 import com.sympauthy.data.repository.AuthenticationTokenRepository
 import com.sympauthy.data.repository.ConsentRepository
 import io.micronaut.transaction.annotation.Transactional
@@ -101,7 +102,13 @@ open class ConsentManager(
             revokedById = revokedById
         )
         if (updatedCount > 0) {
-            tokenRepository.updateRevokedByUserIdAndClientId(consent.userId, consent.clientId, true)
+            tokenRepository.updateRevokedAtByUserIdAndClientId(
+                userId = consent.userId,
+                clientId = consent.clientId,
+                revokedAt = LocalDateTime.now(),
+                revokedBy = TokenRevokedBy.CONSENT_REVOKED.name,
+                revokedById = revokedById
+            )
         }
     }
 }

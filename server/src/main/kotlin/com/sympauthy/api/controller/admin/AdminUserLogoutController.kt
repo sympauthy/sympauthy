@@ -5,11 +5,14 @@ import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
 import com.sympauthy.business.manager.user.UserManager
+import com.sympauthy.business.model.oauth2.TokenRevokedBy
 import com.sympauthy.security.SecurityRule.ADMIN_ACCESS_WRITE
+import com.sympauthy.security.userId
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.PathVariable
 import io.micronaut.http.annotation.Post
 import io.micronaut.security.annotation.Secured
+import io.micronaut.security.authentication.Authentication
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
@@ -47,10 +50,15 @@ class AdminUserLogoutController(
     @Post
     @Secured(ADMIN_ACCESS_WRITE)
     suspend fun forceLogout(
-        @PathVariable userId: UUID
+        @PathVariable userId: UUID,
+        authentication: Authentication
     ): AdminForceLogoutResource {
         userManager.findByIdOrNull(userId).orNotFound()
-        val tokensRevoked = tokenManager.revokeTokensByUser(userId)
+        val tokensRevoked = tokenManager.revokeTokensByUser(
+            userId = userId,
+            revokedBy = TokenRevokedBy.ADMIN,
+            revokedById = authentication.userId
+        )
         return AdminForceLogoutResource(
             userId = userId,
             clientId = null,
@@ -87,11 +95,17 @@ class AdminUserLogoutController(
     @Secured(ADMIN_ACCESS_WRITE)
     suspend fun forceClientLogout(
         @PathVariable userId: UUID,
-        @PathVariable clientId: String
+        @PathVariable clientId: String,
+        authentication: Authentication
     ): AdminForceLogoutResource {
         userManager.findByIdOrNull(userId).orNotFound()
         clientManager.findClientByIdOrNull(clientId).orNotFound()
-        val tokensRevoked = tokenManager.revokeTokensByUserAndClient(userId, clientId)
+        val tokensRevoked = tokenManager.revokeTokensByUserAndClient(
+            userId = userId,
+            clientId = clientId,
+            revokedBy = TokenRevokedBy.ADMIN,
+            revokedById = authentication.userId
+        )
         return AdminForceLogoutResource(
             userId = userId,
             clientId = clientId,

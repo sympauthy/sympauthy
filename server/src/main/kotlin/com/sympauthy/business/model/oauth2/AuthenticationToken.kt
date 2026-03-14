@@ -32,7 +32,15 @@ data class AuthenticationToken(
      */
     val grantType: String,
 
-    val revoked: Boolean,
+    /** Date and time at which this token was revoked, or null if still active. */
+    val revokedAt: LocalDateTime?,
+    /** Actor who revoked this token, or null if still active. */
+    val revokedBy: TokenRevokedBy?,
+    /** Identifier of the user or admin who revoked this token, or null if still active or not applicable. */
+    val revokedById: UUID?,
     val issueDate: LocalDateTime,
     override val expirationDate: LocalDateTime?
-): MaybeExpirable
+): MaybeExpirable {
+    /** Whether this token has been revoked. */
+    val revoked: Boolean get() = revokedAt != null
+}
