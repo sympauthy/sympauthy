@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.auth.oauth2
 
 import com.auth0.jwt.interfaces.DecodedJWT
 import com.sympauthy.api.exception.OAuth2Exception
+import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.REFRESH_KEY
@@ -46,6 +47,9 @@ class TokenManagerTest {
 
     @MockK
     lateinit var idTokenGenerator: IdTokenGenerator
+
+    @MockK
+    lateinit var consentManager: ConsentManager
 
     @MockK
     lateinit var tokenRepository: AuthenticationTokenRepository
@@ -113,6 +117,7 @@ class TokenManagerTest {
 
     @Test
     fun `refreshToken - Generates both tokens if refresh should be refreshed`() = runTest {
+        val userId = UUID.randomUUID()
         val clientId = "test-client"
         val encodedRefreshToken = "token"
         val client = mockk<Client>()
@@ -125,6 +130,8 @@ class TokenManagerTest {
         coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, encodedRefreshToken) } returns decodedToken
         coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
         every { refreshToken.clientId } returns clientId
+        every { refreshToken.userId } returns userId
+        coEvery { consentManager.findActiveConsentOrNull(userId, clientId) } returns mockk()
         coEvery { accessTokenGenerator.generateAccessToken(refreshToken) } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns true
         coEvery { refreshTokenGenerator.generateRefreshToken(refreshToken) } returns refreshedRefreshToken
@@ -138,6 +145,7 @@ class TokenManagerTest {
 
     @Test
     fun `refreshToken - Generates only access token`() = runTest {
+        val userId = UUID.randomUUID()
         val clientId = "test-client"
         val encodedRefreshToken = "token"
         val client = mockk<Client>()
@@ -149,6 +157,8 @@ class TokenManagerTest {
         coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, encodedRefreshToken) } returns decodedToken
         coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
         every { refreshToken.clientId } returns clientId
+        every { refreshToken.userId } returns userId
+        coEvery { consentManager.findActiveConsentOrNull(userId, clientId) } returns mockk()
         coEvery { accessTokenGenerator.generateAccessToken(refreshToken) } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
 
@@ -156,6 +166,49 @@ class TokenManagerTest {
 
         assertEquals(1, tokens.count())
         assertSame(accessToken, tokens[0])
+    }
+
+    @Test
+    fun `refreshToken - Throws INVALID_GRANT when consent is revoked`() = runTest {
+        val userId = UUID.randomUUID()
+        val clientId = "test-client"
+        val client = mockk<Client>()
+        val decodedToken = mockk<DecodedJWT>()
+        val refreshToken = mockk<AuthenticationToken>()
+
+        every { client.id } returns clientId
+        coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, "token") } returns decodedToken
+        coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
+        every { refreshToken.clientId } returns clientId
+        every { refreshToken.userId } returns userId
+        coEvery { consentManager.findActiveConsentOrNull(userId, clientId) } returns null
+
+        val exception = assertThrows<OAuth2Exception> {
+            tokenManager.refreshToken(client, "token")
+        }
+        assertEquals("token.consent_revoked", exception.detailsId)
+    }
+
+    @Test
+    fun `refreshToken - Skips consent check for client_credentials tokens`() = runTest {
+        val clientId = "test-client"
+        val client = mockk<Client>()
+        val decodedToken = mockk<DecodedJWT>()
+        val refreshToken = mockk<AuthenticationToken>()
+        val accessToken = mockk<EncodedAuthenticationToken>()
+
+        every { client.id } returns clientId
+        coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, "token") } returns decodedToken
+        coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
+        every { refreshToken.clientId } returns clientId
+        every { refreshToken.userId } returns null
+        coEvery { accessTokenGenerator.generateAccessToken(refreshToken) } returns accessToken
+        every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
+
+        val tokens = tokenManager.refreshToken(client, "token")
+
+        assertEquals(1, tokens.count())
+        coVerify(exactly = 0) { consentManager.findActiveConsentOrNull(any(), any()) }
     }
 
     @Test

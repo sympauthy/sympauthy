@@ -44,6 +44,15 @@
     ]
   },
   {
+    "name": "com.sympauthy.api.mapper.admin.AdminConsentResourceMapperImpl",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
     "name": "com.sympauthy.api.mapper.flow.ClaimsValidationFlowResultResourceMapperImpl",
     "methods": [
       {
@@ -90,6 +99,15 @@
   },
   {
     "name": "com.sympauthy.business.mapper.AuthorizeAttemptMapperImpl",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sympauthy.business.mapper.ConsentMapperImpl",
     "methods": [
       {
         "name": "<init>",

@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.auth.oauth2
 
 import com.auth0.jwt.interfaces.DecodedJWT
 import com.sympauthy.api.exception.oauth2ExceptionOf
+import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.REFRESH_KEY
@@ -28,6 +29,7 @@ open class TokenManager(
     @Inject private val accessTokenGenerator: AccessTokenGenerator,
     @Inject private val refreshTokenGenerator: RefreshTokenGenerator,
     @Inject private val idTokenGenerator: IdTokenGenerator,
+    @Inject private val consentManager: ConsentManager,
     @Inject private val tokenRepository: AuthenticationTokenRepository,
     @Inject private val tokenMapper: AuthenticationTokenMapper
 ) {
@@ -102,6 +104,12 @@ open class TokenManager(
         val refreshToken = getAuthenticationToken(decodedToken)
         if (refreshToken.clientId != client.id) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token.mismatching_client")
+        }
+
+        // For user tokens, verify the consent has not been revoked
+        if (refreshToken.userId != null) {
+            consentManager.findActiveConsentOrNull(refreshToken.userId, refreshToken.clientId)
+                ?: throw oauth2ExceptionOf(INVALID_GRANT, "token.consent_revoked")
         }
 
         val accessToken = accessTokenGenerator.generateAccessToken(refreshToken)

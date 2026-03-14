@@ -30,6 +30,10 @@ micronaut:
         access:
           - isAnonymous()
 
+  serde:
+    serialization:
+      inclusion: NON_NULL
+
   router:
     static-resources:
       flow-non-html:

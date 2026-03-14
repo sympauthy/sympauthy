@@ -4,6 +4,7 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.ScopeGrantingManager
+import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ID
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
@@ -21,12 +22,14 @@ import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
 /**
- * Manager providing methods shared between all types of authorization flows.
+ * Manager providing methods shared between all types of end-user authorization flows.
+ * This does not handle client authentication (e.g. client_credentials).
  */
 @Singleton
 class AuthorizationFlowManager(
     @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
     @Inject private val scopeGrantingManager: ScopeGrantingManager,
+    @Inject private val consentManager: ConsentManager,
     @Inject private val authorizationFlowsConfig: AuthorizationFlowsConfig,
     @Inject private val uncheckedUrlsConfig: UrlsConfig,
     @Inject private val uncheckedFeaturesConfig: FeaturesConfig,
@@ -79,8 +82,11 @@ class AuthorizationFlowManager(
     /**
      * Complete the authorization flow for the given [authorizeAttempt] and return the completed [authorizeAttempt].
      *
-     * Is the allowAccessToClientWithoutScope flag is false: If no scope have been granted, then the [authorizeAttempt]
+     * If the allowAccessToClientWithoutScope flag is false and no scope has been granted, the [authorizeAttempt]
      * is marked as failed and the end-user is not allowed to continue to the client.
+     *
+     * On success, a [Consent] is persisted recording which scopes the user authorized for the client.
+     * If an active consent already exists for this user+client pair, it is revoked and replaced.
      *
      * The list of [allCollectedClaims] may be provided to prevent loading them again.
      */
@@ -117,7 +123,15 @@ class AuthorizationFlowManager(
                 )
             )
         } else {
-            authorizeAttemptManager.markAsComplete(modifiedAuthorizedAttempt)
+            val completedAttempt = authorizeAttemptManager.markAsComplete(modifiedAuthorizedAttempt)
+            if (completedAttempt is CompletedAuthorizeAttempt) {
+                consentManager.saveGrantedConsent(
+                    userId = completedAttempt.userId,
+                    clientId = completedAttempt.clientId,
+                    scopes = completedAttempt.grantedScopes
+                )
+            }
+            completedAttempt
         }
     }
 }

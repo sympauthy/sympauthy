@@ -56,5 +56,8 @@ class BusinessMapperFactory {
     fun totpEnrollmentMapper() = Mappers.getMapper(TotpEnrollmentMapper::class.java)
 
     @Singleton
+    fun consentMapper() = Mappers.getMapper(ConsentMapper::class.java)
+
+    @Singleton
     fun validationCodeMapper() = Mappers.getMapper(ValidationCodeMapper::class.java)
 }
