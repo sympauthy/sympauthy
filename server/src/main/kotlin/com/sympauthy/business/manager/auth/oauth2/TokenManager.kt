@@ -49,6 +49,24 @@ open class TokenManager(
         return tokenRepository.updateRevokedById(id, true)
     }
 
+    /**
+     * Revoke all tokens issued to [userId], regardless of client.
+     * Returns the number of tokens revoked.
+     */
+    @Transactional
+    open suspend fun revokeTokensByUser(userId: UUID): Int {
+        return tokenRepository.updateRevokedByUserId(userId, true)
+    }
+
+    /**
+     * Revoke all tokens issued to [userId] for [clientId].
+     * Returns the number of tokens revoked.
+     */
+    @Transactional
+    open suspend fun revokeTokensByUserAndClient(userId: UUID, clientId: String): Int {
+        return tokenRepository.updateRevokedByUserIdAndClientId(userId, clientId, true)
+    }
+
     @Transactional
     open suspend fun generateTokens(
         authorizeAttempt: CompletedAuthorizeAttempt
