@@ -18,6 +18,4 @@ object SecurityRule {
     const val ADMIN_USERS_DELETE = "SCOPE_${AdminScopeId.USERS_DELETE}"
     const val ADMIN_ACCESS_READ = "SCOPE_${AdminScopeId.ACCESS_READ}"
     const val ADMIN_ACCESS_WRITE = "SCOPE_${AdminScopeId.ACCESS_WRITE}"
-    const val ADMIN_SESSIONS_READ = "SCOPE_${AdminScopeId.SESSIONS_READ}"
-    const val ADMIN_SESSIONS_WRITE = "SCOPE_${AdminScopeId.SESSIONS_WRITE}"
 }
