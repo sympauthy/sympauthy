@@ -1,0 +1,16 @@
+meta {
+  name: Revoke consent
+  type: http
+  seq: 6
+}
+
+delete {
+  url: {{serverUrl}}/api/v1/admin/users/:userId/consents/:clientId
+  body: none
+  auth: inherit
+}
+
+params:path {
+  userId:
+  clientId:
+}
