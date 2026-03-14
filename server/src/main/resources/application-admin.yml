@@ -19,8 +19,6 @@ clients:
       - admin:users:delete
       - admin:access:read
       - admin:access:write
-      - admin:sessions:read
-      - admin:sessions:write
     default-scopes:
       - openid
       - profile
@@ -30,5 +28,3 @@ clients:
       - admin:users:delete
       - admin:access:read
       - admin:access:write
-      - admin:sessions:read
-      - admin:sessions:write

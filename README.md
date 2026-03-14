@@ -53,8 +53,6 @@ clients:
       - admin:users:delete
       - admin:access:read
       - admin:access:write
-      - admin:sessions:read
-      - admin:sessions:write
 
 flows:
   local:

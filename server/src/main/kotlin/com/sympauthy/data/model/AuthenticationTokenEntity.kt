@@ -29,7 +29,9 @@ class AuthenticationTokenEntity(
      */
     val grantType: String,
 
-    val revoked: Boolean,
+    val revokedAt: LocalDateTime? = null,
+    val revokedBy: String? = null,
+    val revokedById: UUID? = null,
     val issueDate: LocalDateTime,
     val expirationDate: LocalDateTime?
 ) {

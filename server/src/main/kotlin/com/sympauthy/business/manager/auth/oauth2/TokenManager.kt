@@ -13,6 +13,7 @@ import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
+import com.sympauthy.business.model.oauth2.TokenRevokedBy
 import com.sympauthy.data.repository.AuthenticationTokenRepository
 import com.sympauthy.exception.LocalizedException
 import io.micronaut.transaction.annotation.Transactional
@@ -21,6 +22,7 @@ import jakarta.inject.Singleton
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.supervisorScope
+import java.time.LocalDateTime
 import java.util.*
 
 @Singleton
@@ -42,11 +44,37 @@ open class TokenManager(
     }
 
     /**
-     * Revoke the token identified by [id].
-     * A revoked token cannot be used anymore whether it is for authentication or for refresh.
+     * Revoke all tokens issued to [userId], regardless of client.
+     * Returns the number of tokens revoked.
      */
-    suspend fun revokeToken(id: UUID) {
-        return tokenRepository.updateRevokedById(id, true)
+    @Transactional
+    open suspend fun revokeTokensByUser(userId: UUID, revokedBy: TokenRevokedBy, revokedById: UUID?): Int {
+        return tokenRepository.updateRevokedAtByUserId(
+            userId = userId,
+            revokedAt = LocalDateTime.now(),
+            revokedBy = revokedBy.name,
+            revokedById = revokedById
+        )
+    }
+
+    /**
+     * Revoke all tokens issued to [userId] for [clientId].
+     * Returns the number of tokens revoked.
+     */
+    @Transactional
+    open suspend fun revokeTokensByUserAndClient(
+        userId: UUID,
+        clientId: String,
+        revokedBy: TokenRevokedBy,
+        revokedById: UUID?
+    ): Int {
+        return tokenRepository.updateRevokedAtByUserIdAndClientId(
+            userId = userId,
+            clientId = clientId,
+            revokedAt = LocalDateTime.now(),
+            revokedBy = revokedBy.name,
+            revokedById = revokedById
+        )
     }
 
     @Transactional
@@ -165,10 +193,21 @@ open class TokenManager(
         val token = findById(tokenId) ?: return
         if (token.clientId != client.id) return
 
+        val now = LocalDateTime.now()
         if (token.type == REFRESH && token.authorizeAttemptId != null) {
-            tokenRepository.updateRevokedByAuthorizeAttemptId(token.authorizeAttemptId, true)
+            tokenRepository.updateRevokedAtByAuthorizeAttemptId(
+                authorizeAttemptId = token.authorizeAttemptId,
+                revokedAt = now,
+                revokedBy = TokenRevokedBy.CLIENT.name,
+                revokedById = null
+            )
         } else {
-            tokenRepository.updateRevokedById(token.id, true)
+            tokenRepository.updateRevokedAt(
+                id = token.id,
+                revokedAt = now,
+                revokedBy = TokenRevokedBy.CLIENT.name,
+                revokedById = null
+            )
         }
     }
 

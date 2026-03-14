@@ -73,7 +73,6 @@ class RefreshTokenGenerator(
             scopes = scopeTokens.toTypedArray(),
             authorizeAttemptId = authorizeAttemptId,
             grantType = grantType,
-            revoked = false,
             issueDate = issueDate,
             expirationDate = expirationDate
         ).let { tokenRepository.save(it) }
