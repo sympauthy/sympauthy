@@ -10,5 +10,7 @@ interface AuthenticationTokenRepository : CoroutineCrudRepository<Authentication
 
     suspend fun updateRevokedByAuthorizeAttemptId(authorizeAttemptId: UUID, revoked: Boolean)
 
-    suspend fun updateRevokedByUserIdAndClientId(userId: UUID, clientId: String, revoked: Boolean)
+    suspend fun updateRevokedByUserIdAndClientId(userId: UUID, clientId: String, revoked: Boolean): Int
+
+    suspend fun updateRevokedByUserId(userId: UUID, revoked: Boolean): Int
 }
