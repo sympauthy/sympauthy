@@ -16,7 +16,7 @@ interface ConsentRepository : CoroutineCrudRepository<ConsentEntity, UUID> {
 
     suspend fun findByClientId(clientId: String): List<ConsentEntity>
 
-    suspend fun updateRevokedAtAndRevokedByAndRevokedById(
+    suspend fun updateRevokedAt(
         @Id id: UUID,
         revokedAt: LocalDateTime,
         revokedBy: String,

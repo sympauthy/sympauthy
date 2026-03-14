@@ -43,7 +43,7 @@ open class ConsentManager(
     ): Consent {
         val existingConsent = consentRepository.findByUserIdAndClientIdAndRevokedAtIsNull(userId, clientId)
         if (existingConsent != null) {
-            consentRepository.updateRevokedAtAndRevokedByAndRevokedById(
+            consentRepository.updateRevokedAt(
                 id = existingConsent.id!!,
                 revokedAt = LocalDateTime.now(),
                 revokedBy = ConsentRevokedBy.USER.name,
@@ -94,13 +94,12 @@ open class ConsentManager(
         revokedBy: ConsentRevokedBy,
         revokedById: UUID
     ) {
-        val updatedCount = consentRepository.updateRevokedAtAndRevokedByAndRevokedById(
+        val updatedCount = consentRepository.updateRevokedAt(
             id = consent.id,
             revokedAt = LocalDateTime.now(),
             revokedBy = revokedBy.name,
             revokedById = revokedById
         )
-
         if (updatedCount > 0) {
             tokenRepository.updateRevokedByUserIdAndClientId(consent.userId, consent.clientId, true)
         }

@@ -48,7 +48,7 @@ class ConsentManagerTest {
 
         assertSame(consent, result)
         coVerify(exactly = 0) {
-            consentRepository.updateRevokedAtAndRevokedByAndRevokedById(any(), any(), any(), any())
+            consentRepository.updateRevokedAt(any(), any(), any(), any())
         }
     }
 
@@ -62,7 +62,7 @@ class ConsentManagerTest {
 
         coEvery { consentRepository.findByUserIdAndClientIdAndRevokedAtIsNull(userId, clientId) } returns existingEntity
         coEvery {
-            consentRepository.updateRevokedAtAndRevokedByAndRevokedById(existingId, any(), "USER", userId)
+            consentRepository.updateRevokedAt(existingId, any(), "USER", userId)
         } returns 1
         coEvery { consentRepository.save(any<ConsentEntity>()) } answers { firstArg() }
         every { consentMapper.toConsent(any()) } returns consent
@@ -71,7 +71,7 @@ class ConsentManagerTest {
 
         assertSame(consent, result)
         coVerify(exactly = 1) {
-            consentRepository.updateRevokedAtAndRevokedByAndRevokedById(existingId, any(), "USER", userId)
+            consentRepository.updateRevokedAt(existingId, any(), "USER", userId)
         }
     }
 
@@ -131,14 +131,14 @@ class ConsentManagerTest {
         )
 
         coEvery {
-            consentRepository.updateRevokedAtAndRevokedByAndRevokedById(consentId, any(), "ADMIN", adminId)
+            consentRepository.updateRevokedAt(consentId, any(), "ADMIN", adminId)
         } returns 1
         coEvery { tokenRepository.updateRevokedByUserIdAndClientId(userId, clientId, true) } just runs
 
         consentManager.revokeConsent(consent, ConsentRevokedBy.ADMIN, adminId)
 
         coVerify(exactly = 1) {
-            consentRepository.updateRevokedAtAndRevokedByAndRevokedById(consentId, any(), "ADMIN", adminId)
+            consentRepository.updateRevokedAt(consentId, any(), "ADMIN", adminId)
         }
         coVerify(exactly = 1) {
             tokenRepository.updateRevokedByUserIdAndClientId(userId, clientId, true)
