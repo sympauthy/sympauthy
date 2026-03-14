@@ -1,0 +1,29 @@
+package com.sympauthy.business.model.oauth2
+
+import java.time.LocalDateTime
+import java.util.*
+
+/**
+ * A record of the scopes a user has authorized for a given client.
+ *
+ * Only one active (non-revoked) consent may exist per user+client pair at any time.
+ * A consent is considered active when [revokedAt] is null.
+ */
+data class Consent(
+    /** Unique identifier of the consent. */
+    val id: UUID,
+    /** Identifier of the user who granted the consent. */
+    val userId: UUID,
+    /** Identifier of the client the consent was granted to. */
+    val clientId: String,
+    /** List of scope identifiers the user authorized for this client. */
+    val scopes: List<String>,
+    /** Date and time at which the user granted the consent. */
+    val consentedAt: LocalDateTime,
+    /** Date and time at which the consent was revoked, or null if still active. */
+    val revokedAt: LocalDateTime?,
+    /** Actor who revoked the consent (e.g. "user", "admin"), or null if still active. */
+    val revokedBy: String?,
+    /** Identifier of the user or admin who revoked the consent, or null if still active. */
+    val revokedById: UUID?
+)

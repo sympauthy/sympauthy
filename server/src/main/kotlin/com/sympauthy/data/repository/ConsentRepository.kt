@@ -21,5 +21,5 @@ interface ConsentRepository : CoroutineCrudRepository<ConsentEntity, UUID> {
         revokedAt: LocalDateTime,
         revokedBy: String,
         revokedById: UUID
-    )
+    ): Int
 }

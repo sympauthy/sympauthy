@@ -98,6 +98,15 @@
     ]
   },
   {
+    "name": "com.sympauthy.business.mapper.ConsentMapperImpl",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
     "name": "com.sympauthy.business.mapper.CollectedClaimMapperImpl",
     "methods": [
       {
