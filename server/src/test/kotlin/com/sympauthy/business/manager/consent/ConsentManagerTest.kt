@@ -133,7 +133,7 @@ class ConsentManagerTest {
         coEvery {
             consentRepository.updateRevokedAt(consentId, any(), "ADMIN", adminId)
         } returns 1
-        coEvery { tokenRepository.updateRevokedByUserIdAndClientId(userId, clientId, true) } just runs
+        coEvery { tokenRepository.updateRevokedByUserIdAndClientId(userId, clientId, true) } returns 1
 
         consentManager.revokeConsent(consent, ConsentRevokedBy.ADMIN, adminId)
 
