@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.consent
 
 import com.sympauthy.business.mapper.ConsentMapper
 import com.sympauthy.business.model.oauth2.Consent
+import com.sympauthy.business.model.oauth2.ConsentRevokedBy
 import com.sympauthy.data.model.ConsentEntity
 import com.sympauthy.data.repository.AuthenticationTokenRepository
 import com.sympauthy.data.repository.ConsentRepository
@@ -61,8 +62,8 @@ class ConsentManagerTest {
 
         coEvery { consentRepository.findByUserIdAndClientIdAndRevokedAtIsNull(userId, clientId) } returns existingEntity
         coEvery {
-            consentRepository.updateRevokedAtAndRevokedByAndRevokedById(existingId, any(), "user", userId)
-        } just runs
+            consentRepository.updateRevokedAtAndRevokedByAndRevokedById(existingId, any(), "USER", userId)
+        } returns 1
         coEvery { consentRepository.save(any<ConsentEntity>()) } answers { firstArg() }
         every { consentMapper.toConsent(any()) } returns consent
 
@@ -70,7 +71,7 @@ class ConsentManagerTest {
 
         assertSame(consent, result)
         coVerify(exactly = 1) {
-            consentRepository.updateRevokedAtAndRevokedByAndRevokedById(existingId, any(), "user", userId)
+            consentRepository.updateRevokedAtAndRevokedByAndRevokedById(existingId, any(), "USER", userId)
         }
     }
 
@@ -130,14 +131,14 @@ class ConsentManagerTest {
         )
 
         coEvery {
-            consentRepository.updateRevokedAtAndRevokedByAndRevokedById(consentId, any(), "admin", adminId)
+            consentRepository.updateRevokedAtAndRevokedByAndRevokedById(consentId, any(), "ADMIN", adminId)
         } returns 1
         coEvery { tokenRepository.updateRevokedByUserIdAndClientId(userId, clientId, true) } just runs
 
-        consentManager.revokeConsent(consent, "admin", adminId)
+        consentManager.revokeConsent(consent, ConsentRevokedBy.ADMIN, adminId)
 
         coVerify(exactly = 1) {
-            consentRepository.updateRevokedAtAndRevokedByAndRevokedById(consentId, any(), "admin", adminId)
+            consentRepository.updateRevokedAtAndRevokedByAndRevokedById(consentId, any(), "ADMIN", adminId)
         }
         coVerify(exactly = 1) {
             tokenRepository.updateRevokedByUserIdAndClientId(userId, clientId, true)

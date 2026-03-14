@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.consent
 
 import com.sympauthy.business.mapper.ConsentMapper
 import com.sympauthy.business.model.oauth2.Consent
+import com.sympauthy.business.model.oauth2.ConsentRevokedBy
 import com.sympauthy.data.model.ConsentEntity
 import com.sympauthy.data.repository.AuthenticationTokenRepository
 import com.sympauthy.data.repository.ConsentRepository
@@ -45,7 +46,7 @@ open class ConsentManager(
             consentRepository.updateRevokedAtAndRevokedByAndRevokedById(
                 id = existingConsent.id!!,
                 revokedAt = LocalDateTime.now(),
-                revokedBy = "user",
+                revokedBy = ConsentRevokedBy.USER.name,
                 revokedById = userId
             )
         }
@@ -90,13 +91,13 @@ open class ConsentManager(
     @Transactional
     open suspend fun revokeConsent(
         consent: Consent,
-        revokedBy: String,
+        revokedBy: ConsentRevokedBy,
         revokedById: UUID
     ) {
         val updatedCount = consentRepository.updateRevokedAtAndRevokedByAndRevokedById(
             id = consent.id,
             revokedAt = LocalDateTime.now(),
-            revokedBy = revokedBy,
+            revokedBy = revokedBy.name,
             revokedById = revokedById
         )
 
