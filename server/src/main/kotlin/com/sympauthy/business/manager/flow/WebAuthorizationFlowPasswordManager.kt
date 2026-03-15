@@ -130,7 +130,7 @@ open class WebAuthorizationFlowPasswordManager(
     fun getIdentifierClaims(): List<Claim> {
         return uncheckedAuthConfig.orThrow()
             .identifierClaims
-            .mapNotNull { claimManager.findById(it.id) }
+            .mapNotNull { claimManager.findByIdOrNull(it.id) }
     }
 
     /**

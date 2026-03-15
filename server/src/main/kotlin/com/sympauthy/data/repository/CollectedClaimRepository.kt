@@ -17,6 +17,8 @@ interface CollectedClaimRepository : CoroutineCrudRepository<CollectedClaimEntit
 
     suspend fun findByUserId(userId: UUID): List<CollectedClaimEntity>
 
+    suspend fun findByUserIdAndClaimInList(userId: UUID, claim: List<String>): List<CollectedClaimEntity>
+
     suspend fun findByUserIdInList(userId: List<UUID>): List<CollectedClaimEntity>
 
     /**

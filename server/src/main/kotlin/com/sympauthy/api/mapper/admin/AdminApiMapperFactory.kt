@@ -12,4 +12,7 @@ class AdminApiMapperFactory {
 
     @Singleton
     fun consentResourceMapper(): AdminConsentResourceMapper = Mappers.getMapper(AdminConsentResourceMapper::class.java)
+
+    @Singleton
+    fun userDetailResourceMapper(): AdminUserDetailResourceMapper = Mappers.getMapper(AdminUserDetailResourceMapper::class.java)
 }

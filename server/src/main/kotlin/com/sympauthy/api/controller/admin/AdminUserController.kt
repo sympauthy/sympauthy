@@ -1,6 +1,8 @@
 package com.sympauthy.api.controller.admin
 
+import com.sympauthy.api.mapper.admin.AdminUserDetailResourceMapper
 import com.sympauthy.api.mapper.admin.AdminUserResourceMapper
+import com.sympauthy.api.resource.admin.AdminUserDetailResource
 import com.sympauthy.api.resource.admin.AdminUserListResource
 import com.sympauthy.api.resource.admin.AdminUserResource
 import com.sympauthy.api.util.orNotFound
@@ -30,7 +32,8 @@ class AdminUserController(
     @Inject private val userSearchManager: UserSearchManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val claimManager: ClaimManager,
-    @Inject private val userMapper: AdminUserResourceMapper
+    @Inject private val userMapper: AdminUserResourceMapper,
+    @Inject private val userDetailMapper: AdminUserDetailResourceMapper
 ) {
 
     companion object {
@@ -161,12 +164,10 @@ class AdminUserController(
     @Get("/{id}")
     suspend fun getUser(
         @PathVariable id: UUID
-    ): AdminUserResource {
+    ): AdminUserDetailResource {
         val user = userManager.findByIdOrNull(id).orNotFound()
-        val collectedClaims = collectedClaimManager.findByUserId(user.id)
-        val enabledClaims = claimManager.listEnabledClaims()
-        val claimsMap = userMapper.buildClaimsMap(collectedClaims, enabledClaims)
-        return userMapper.toResource(user, claimsMap)
+        val identifierClaims = collectedClaimManager.findIdentifierByUserId(user.id)
+        return userDetailMapper.toResource(user, identifierClaims)
     }
 
     /**
