@@ -22,7 +22,7 @@ class CollectedClaimUpdateMapper(
         val exceptionByClaimMap = mutableMapOf<Claim, LocalizedException>()
 
         for ((claimId, value) in values) {
-            val claim = claimManager.findById(claimId) ?: continue
+            val claim = claimManager.findByIdOrNull(claimId) ?: continue
             try {
                 val validatedAndCleanedValue = claimValueValidator.validateAndCleanValueForClaim(claim, value)
                 claimUpdates.add(

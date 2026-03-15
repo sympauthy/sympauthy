@@ -44,7 +44,7 @@ open class WebAuthorizationFlowClaimValidationManager(
             PHONE_NUMBER_CLAIM -> PHONE_NUMBER_CLAIM.media.claim
             else -> null
         }
-        return claimId?.let(claimManager::findById)
+        return claimId?.let(claimManager::findByIdOrNull)
     }
 
     /**

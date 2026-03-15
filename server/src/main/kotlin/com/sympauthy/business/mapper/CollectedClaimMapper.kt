@@ -22,7 +22,7 @@ abstract class CollectedClaimMapper {
      * has changed and the data cannot be deserialized anymore.
      */
     fun toCollectedClaim(entity: CollectedClaimEntity): CollectedClaim? {
-        val claim = claimManager.findById(entity.claim) ?: return null
+        val claim = claimManager.findByIdOrNull(entity.claim) ?: return null
         val value = if (entity.value != null) {
             claimValueMapper.toBusiness(entity.value, claim.dataType) ?: return null
         } else null

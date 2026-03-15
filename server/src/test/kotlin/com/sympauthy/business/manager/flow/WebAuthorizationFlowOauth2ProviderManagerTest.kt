@@ -115,7 +115,7 @@ class WebAuthorizationFlowOauth2ProviderManagerTest {
 
         every { uncheckedAuthConfig.userMergingEnabled } returns true
         every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdClaim.EMAIL)
-        every { claimManager.findById(OpenIdClaim.Id.EMAIL) } returns emailClaim
+        every { claimManager.findByIdOrNull(OpenIdClaim.Id.EMAIL) } returns emailClaim
         coEvery { userManager.findByIdentifierClaims(mapOf("email" to "user@example.com")) } returns existingUser
         coJustRun { providerClaimsManager.saveUserInfo(provider, existingUser.id, providerUserInfo) }
 
@@ -138,7 +138,7 @@ class WebAuthorizationFlowOauth2ProviderManagerTest {
 
         every { uncheckedAuthConfig.userMergingEnabled } returns true
         every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdClaim.EMAIL)
-        every { claimManager.findById(OpenIdClaim.Id.EMAIL) } returns emailClaim
+        every { claimManager.findByIdOrNull(OpenIdClaim.Id.EMAIL) } returns emailClaim
         coEvery { userManager.findByIdentifierClaims(mapOf("email" to "new@example.com")) } returns null
         coEvery { userManager.createUser() } returns newUser
         coJustRun { collectedClaimManager.update(newUser, any()) }
@@ -171,8 +171,8 @@ class WebAuthorizationFlowOauth2ProviderManagerTest {
 
         every { uncheckedAuthConfig.userMergingEnabled } returns true
         every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdClaim.EMAIL, OpenIdClaim.PHONE_NUMBER)
-        every { claimManager.findById(OpenIdClaim.Id.EMAIL) } returns emailClaim
-        every { claimManager.findById(OpenIdClaim.Id.PHONE_NUMBER) } returns phoneClaim
+        every { claimManager.findByIdOrNull(OpenIdClaim.Id.EMAIL) } returns emailClaim
+        every { claimManager.findByIdOrNull(OpenIdClaim.Id.PHONE_NUMBER) } returns phoneClaim
         coEvery {
             userManager.findByIdentifierClaims(mapOf("email" to "user@example.com", "phone_number" to "+33612345678"))
         } returns existingUser
@@ -198,8 +198,8 @@ class WebAuthorizationFlowOauth2ProviderManagerTest {
 
         every { uncheckedAuthConfig.userMergingEnabled } returns true
         every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdClaim.EMAIL, OpenIdClaim.PHONE_NUMBER)
-        every { claimManager.findById(OpenIdClaim.Id.EMAIL) } returns emailClaim
-        every { claimManager.findById(OpenIdClaim.Id.PHONE_NUMBER) } returns phoneClaim
+        every { claimManager.findByIdOrNull(OpenIdClaim.Id.EMAIL) } returns emailClaim
+        every { claimManager.findByIdOrNull(OpenIdClaim.Id.PHONE_NUMBER) } returns phoneClaim
         coEvery {
             userManager.findByIdentifierClaims(mapOf("email" to "new@example.com", "phone_number" to "+33612345678"))
         } returns null
@@ -248,7 +248,7 @@ class WebAuthorizationFlowOauth2ProviderManagerTest {
 
         every { uncheckedAuthConfig.userMergingEnabled } returns true
         every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdClaim.EMAIL)
-        every { claimManager.findById(OpenIdClaim.Id.EMAIL) } returns null
+        every { claimManager.findByIdOrNull(OpenIdClaim.Id.EMAIL) } returns null
 
         val exception = assertThrows<BusinessException> {
             manager.createOrAssociateUserWithProviderUserInfo(provider, providerUserInfo)

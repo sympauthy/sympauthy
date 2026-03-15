@@ -183,7 +183,7 @@ open class WebAuthorizationFlowOauth2ProviderManager(
 
         // Resolve the Claim business objects for each identifier claim.
         val claimObjects = identifierClaims.associateWith { claim ->
-            claimManager.findById(claim.id)
+            claimManager.findByIdOrNull(claim.id)
                 ?: throw businessExceptionOf(
                     "user.create_with_provider.missing_identifier_claim_config",
                     "claim" to claim.id

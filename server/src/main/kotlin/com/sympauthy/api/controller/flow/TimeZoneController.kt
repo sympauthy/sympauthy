@@ -40,7 +40,7 @@ This is why it has been decided than this operation will not support pagination.
     suspend fun listTimeZones(
         @PathVariable claimId: String
     ): List<TimeZoneResource> {
-        val claim = claimManager.findById(claimId).orNotFound()
+        val claim = claimManager.findByIdOrNull(claimId).orNotFound()
         val timeZones = timeZoneProvider.listAvailableTimezones(claim)
         return timeZoneResourceMapper.toResources(timeZones)
     }
