@@ -15,4 +15,7 @@ class AdminApiMapperFactory {
 
     @Singleton
     fun userDetailResourceMapper(): AdminUserDetailResourceMapper = Mappers.getMapper(AdminUserDetailResourceMapper::class.java)
+
+    @Singleton
+    fun userClaimResourceMapper(): AdminUserClaimResourceMapper = Mappers.getMapper(AdminUserClaimResourceMapper::class.java)
 }

@@ -53,6 +53,15 @@
     ]
   },
   {
+    "name": "com.sympauthy.api.mapper.admin.AdminUserClaimResourceMapperImpl",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
     "name": "com.sympauthy.api.mapper.admin.AdminUserDetailResourceMapperImpl",
     "methods": [
       {
