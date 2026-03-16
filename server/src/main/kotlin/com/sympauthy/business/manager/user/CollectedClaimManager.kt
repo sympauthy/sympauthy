@@ -44,6 +44,19 @@ open class CollectedClaimManager(
     }
 
     /**
+     * Return the list of [CollectedClaim] for the given [claims] collected from the user identified by [userId].
+     *
+     * Note: This method is insecure and may leak information to the client that the end-user has not granted access to.
+     *      * This method is intended when the authorization server requires having full access to the user's claims
+     *      * (ex. when creating a new user, admin endpoints, etc.).
+     */
+    suspend fun findByUserIdAndClaims(userId: UUID, claims: List<Claim>): List<CollectedClaim> {
+        val claimIds = claims.map { it.id }
+        return collectedClaimRepository.findByUserIdAndClaimInList(userId, claimIds)
+            .mapNotNull(collectedClaimMapper::toCollectedClaim)
+    }
+
+    /**
      * Return the list of [CollectedClaim] for the identifier claims collected from the user identified by [userId].
      *
      * Note: This method is insecure and may leak information to the client that the end-user has not granted access to.
@@ -51,9 +64,7 @@ open class CollectedClaimManager(
      * (ex. when creating a new user, admin endpoints, etc.).
      */
     suspend fun findIdentifierByUserId(userId: UUID): List<CollectedClaim> {
-        val identifierClaimIds = claimManager.listIdentifierClaims().map { it.id }
-        return collectedClaimRepository.findByUserIdAndClaimInList(userId, identifierClaimIds)
-            .mapNotNull(collectedClaimMapper::toCollectedClaim)
+        return findByUserIdAndClaims(userId, claimManager.listIdentifierClaims())
     }
 
     /**
