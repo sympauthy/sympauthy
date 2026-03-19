@@ -21,6 +21,7 @@ class StandardScopeConfig(
 
 class CustomScopeConfig(
     scope: String,
+    val consentable: Boolean
 ): ScopeConfig(scope)
 
 class DisabledScopesConfig(

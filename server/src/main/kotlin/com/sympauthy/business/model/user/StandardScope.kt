@@ -10,7 +10,6 @@ package com.sympauthy.business.model.user
 enum class StandardScope(
     val scope: String
 ) {
-    OPENID(StandardScopeId.OPENID),
     PROFILE(StandardScopeId.PROFILE),
     EMAIL(StandardScopeId.EMAIL),
     ADDRESS(StandardScopeId.ADDRESS),
@@ -23,7 +22,6 @@ enum class StandardScope(
 fun String.isStandardScope(): Boolean = StandardScope.entries.any { it.scope == this }
 
 object StandardScopeId {
-    const val OPENID = "openid"
     const val PROFILE = "profile"
     const val EMAIL = "email"
     const val ADDRESS = "address"

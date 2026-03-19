@@ -8,6 +8,7 @@ import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ConfigReadinessManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.rule.ScopeGrantingRuleManager
+import com.sympauthy.business.model.oauth2.isAdmin
 import com.sympauthy.config.model.AdminConfig
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.EnabledAdminConfig
@@ -87,10 +88,11 @@ class ApplicationReadinessStatusPrinter(
         } catch (_: Throwable) {
             emptyList()
         }
-        val standardScopesCount = scopes.count { !it.admin && it.discoverable }
-        val adminScopesCount = scopes.count { it.admin }
-        val customScopesCount = scopes.count { !it.admin && !it.discoverable }
-        logger.info("- ${scopes.size} scope(s) ($standardScopesCount standard, $adminScopesCount admin, $customScopesCount custom).")
+        val consentableScopesCount = scopes.count { it is com.sympauthy.business.model.oauth2.ConsentableUserScope }
+        val adminScopesCount = scopes.count { it is com.sympauthy.business.model.oauth2.GrantableUserScope && it.isAdmin }
+        val grantableScopesCount = scopes.count { it is com.sympauthy.business.model.oauth2.GrantableUserScope && !it.isAdmin }
+        val clientScopesCount = scopes.count { it is com.sympauthy.business.model.oauth2.ClientScope }
+        logger.info("- ${scopes.size} scope(s) ($consentableScopesCount consentable, $grantableScopesCount grantable, $adminScopesCount admin, $clientScopesCount client).")
 
         val clientsCount = try {
             clientManager.listClients().size

@@ -173,8 +173,7 @@ class AuthorizeAttemptManager(
     }
 
     /**
-     * Set and save the list of scopes that have been granted to the user.
-     * Do nothing if the [authorizeAttempt] has already been completed or is already in error.
+     * Set and save the grantable scopes granted through granting rules for this authorize attempt.
      */
     suspend fun setGrantedScopes(
         authorizeAttempt: OnGoingAuthorizeAttempt,
@@ -187,6 +186,23 @@ class AuthorizeAttemptManager(
         )
         return authorizeAttempt.copy(
             grantedScopes = grantedScopeIds
+        )
+    }
+
+    /**
+     * Set and save the consentable scopes obtained through user consent for this authorize attempt.
+     */
+    suspend fun setConsentedScopes(
+        authorizeAttempt: OnGoingAuthorizeAttempt,
+        consentedScopes: List<Scope>
+    ): OnGoingAuthorizeAttempt {
+        val consentedScopeIds = consentedScopes.map(Scope::scope)
+        authorizeAttemptRepository.updateConsentedScopes(
+            id = authorizeAttempt.id,
+            consentedScopes = consentedScopeIds
+        )
+        return authorizeAttempt.copy(
+            consentedScopes = consentedScopeIds
         )
     }
 
@@ -244,6 +260,7 @@ class AuthorizeAttemptManager(
             nonce = authorizeAttempt.nonce,
             userId = userId,
             grantedScopes = authorizeAttempt.grantedScopes ?: emptyList(),
+            consentedScopes = authorizeAttempt.consentedScopes ?: emptyList(),
             codeChallenge = authorizeAttempt.codeChallenge,
             codeChallengeMethod = authorizeAttempt.codeChallengeMethod,
             attemptDate = authorizeAttempt.attemptDate,

@@ -216,12 +216,12 @@ Client authentication is supported via:
         client: Client,
         scope: String?
     ): TokenResource {
-        val requestedScopes = scopeManager.parseRequestedScopes(client, scope)
+        val requestedScopes = scopeManager.parseRequestedClientScopes(client, scope)
         val scopeStrings = requestedScopes.map { it.scope }
 
         val accessToken = accessTokenGenerator.generateAccessTokenForClient(
             clientId = client.id,
-            scopes = scopeStrings
+            clientScopes = scopeStrings
         )
 
         return TokenResource(

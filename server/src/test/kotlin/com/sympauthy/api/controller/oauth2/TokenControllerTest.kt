@@ -390,13 +390,13 @@ class TokenControllerTest {
     fun `getTokensUsingClientCredentials - Returns access token without refresh or id token`() = runTest {
         val request = mockRequestWithoutAuth()
         val client = mockClient("my-client")
-        val scope = mockk<Scope> { every { this@mockk.scope } returns "read" }
+        val scope = mockk<com.sympauthy.business.model.oauth2.ClientScope> { every { this@mockk.scope } returns "read" }
         val accessToken = mockEncodedToken("cc-access", listOf("read"))
 
         coEvery { clientAuthenticationUtil.resolveClient(request, any(), any()) } returns client
-        coEvery { scopeManager.parseRequestedScopes(client, "read") } returns listOf(scope)
+        coEvery { scopeManager.parseRequestedClientScopes(client, "read") } returns listOf(scope)
         coEvery {
-            accessTokenGenerator.generateAccessTokenForClient(clientId = "my-client", scopes = listOf("read"))
+            accessTokenGenerator.generateAccessTokenForClient(clientId = "my-client", clientScopes = listOf("read"))
         } returns accessToken
 
         val result = controller.getTokens(

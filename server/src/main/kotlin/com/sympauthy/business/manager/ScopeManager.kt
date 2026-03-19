@@ -2,9 +2,9 @@ package com.sympauthy.business.manager
 
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.oauth2.AdminScope
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.user.StandardScope
+import com.sympauthy.config.model.CustomScopeConfig
 import com.sympauthy.config.model.ScopesConfig
 import com.sympauthy.config.model.StandardScopeConfig
 import com.sympauthy.config.model.orThrow
@@ -20,7 +20,7 @@ class ScopeManager(
     @Inject private val uncheckedScopesConfig: ScopesConfig
 ) {
     /**
-     * List of scopes defined in the OAuth 2 & OpenId specifications.
+     * Consentable scopes defined in the OpenID specification (profile, email, address, phone).
      */
     private val enabledStandardScopes: Flow<Scope> = flow {
         StandardScope.entries.forEach { standardScope ->
@@ -33,18 +33,50 @@ class ScopeManager(
     }.buffer()
 
     /**
+     * Custom scopes defined in configuration, typed as consentable or grantable.
+     */
+    private val customScopes: Flow<Scope> = flow {
+        uncheckedScopesConfig.orThrow().scopes
+            .filterIsInstance<CustomScopeConfig>()
+            .forEach { config ->
+                val scope = if (config.consentable) {
+                    ConsentableUserScope(scope = config.scope, discoverable = true)
+                } else {
+                    GrantableUserScope(scope = config.scope, discoverable = true)
+                }
+                emit(scope)
+            }
+    }.buffer()
+
+    /**
      * Built-in scopes granting access to the administration APIs of this authorization server.
      */
     val adminScopes: List<Scope> = AdminScope.entries.map { adminScope ->
-        Scope(
+        GrantableUserScope(
             scope = adminScope.scope,
-            admin = true,
             discoverable = false
         )
     }
 
     /**
-     * Convert a [standardScope] into a [Scope].
+     * Built-in grantable scopes (e.g., openid) that are not admin scopes.
+     */
+    val builtInGrantableScopes: List<Scope> = BuiltInGrantableScope.entries.map { builtIn ->
+        GrantableUserScope(
+            scope = builtIn.scope,
+            discoverable = builtIn.discoverable
+        )
+    }
+
+    /**
+     * Built-in client scopes for `client_credentials` flows.
+     */
+    val clientScopes: List<Scope> = BuiltInClientScope.entries.map { builtIn ->
+        ClientScope(scope = builtIn.scope)
+    }
+
+    /**
+     * Convert a [standardScope] into a [ConsentableUserScope].
      * Return null if the scope has been disabled by the [config].
      */
     private fun toScope(
@@ -54,21 +86,21 @@ class ScopeManager(
         if (config != null && !config.enabled) {
             return null
         }
-        return Scope(
+        return ConsentableUserScope(
             scope = standardScope.scope,
-            admin = false,
             discoverable = true
         )
     }
 
     /**
-     * List of [Scope] enabled on this authorization server.
+     * List of all [Scope] enabled on this authorization server.
      *
-     * The list contains both standard claims defined in the OpenID specification and custom scopes defined by
-     * the operator of this authorization server.
+     * Includes built-in grantable scopes, admin scopes, client scopes,
+     * standard consentable scopes, and custom scopes.
      */
     suspend fun listScopes(): List<Scope> {
-        return adminScopes + enabledStandardScopes.toList()
+        return builtInGrantableScopes + adminScopes + clientScopes +
+            enabledStandardScopes.toList() + customScopes.toList()
     }
 
     /**
@@ -103,7 +135,7 @@ class ScopeManager(
         // If client has allowedScopes defined, check if the scope is in the allowed list
         if (client.allowedScopes != null && !client.allowedScopes.contains(foundScope)) {
             throw businessExceptionOf(
-                detailsId = "scope.unsupported",
+                detailsId = "scope.not_allowed",
                 values = arrayOf("scope" to scope)
             )
         }
@@ -113,6 +145,7 @@ class ScopeManager(
 
     /**
      * Parses and processes the scopes requested by the end-user.
+     * Only returns user scopes (consentable and grantable), not client scopes.
      *
      * This method does the following:
      * - If no scope is provided by the end-user, return the default scopes defined by the [client].
@@ -136,5 +169,28 @@ class ScopeManager(
                     )
                 }
         }
+    }
+
+    /**
+     * Parses and validates the scopes requested in a `client_credentials` flow.
+     * Only returns [ClientScope] instances. Throws if any requested scope is not a client scope.
+     */
+    suspend fun parseRequestedClientScopes(
+        client: Client,
+        uncheckedScopes: String?
+    ): List<ClientScope> {
+        if (uncheckedScopes.isNullOrBlank()) {
+            return emptyList()
+        }
+        return uncheckedScopes.split(" ")
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .map { scopeStr ->
+                val scope = findForClientOrThrow(client, scopeStr)
+                scope as? ClientScope ?: throw businessExceptionOf(
+                    detailsId = "scope.not_client_scope",
+                    values = arrayOf("scope" to scopeStr)
+                )
+            }
     }
 }

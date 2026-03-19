@@ -13,7 +13,18 @@ data class AuthenticationToken(
      */
     val userId: UUID?,
     val clientId: String,
-    val scopes: List<String>,
+    /**
+     * Grantable scopes granted through granting rules.
+     */
+    val grantedScopes: List<String>,
+    /**
+     * Consentable scopes obtained through user consent.
+     */
+    val consentedScopes: List<String>,
+    /**
+     * Client scopes for client_credentials flows.
+     */
+    val clientScopes: List<String>,
     /**
      * Identifies all the tokens generated during a "session" of the end-user:
      * - the "session" starts when the end-user attempts authorization flow.
@@ -43,4 +54,7 @@ data class AuthenticationToken(
 ): MaybeExpirable {
     /** Whether this token has been revoked. */
     val revoked: Boolean get() = revokedAt != null
+
+    /** All scopes combined (granted + consented + client) for JWT `scope` claim. */
+    val allScopes: List<String> get() = grantedScopes + consentedScopes + clientScopes
 }

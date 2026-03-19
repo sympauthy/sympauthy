@@ -2,7 +2,8 @@ package com.sympauthy.security
 
 import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.business.model.oauth2.AuthenticationToken
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.ConsentableUserScope
+import com.sympauthy.business.model.oauth2.GrantableUserScope
 import com.sympauthy.security.SecurityRule.IS_ADMIN
 import com.sympauthy.security.SecurityRule.IS_USER
 import io.mockk.every
@@ -13,7 +14,7 @@ import java.util.*
 
 class UserAuthenticationTest {
 
-    private fun createAuthentication(scopes: List<Scope>): UserAuthentication {
+    private fun createAuthentication(scopes: List<com.sympauthy.business.model.oauth2.Scope>): UserAuthentication {
         val token = mockk<AuthenticationToken> {
             every { userId } returns UUID.randomUUID()
         }
@@ -23,7 +24,7 @@ class UserAuthenticationTest {
     @Test
     fun `getRoles - Returns IS_USER when no admin scopes`() {
         val auth = createAuthentication(
-            listOf(Scope(scope = "openid", admin = false, discoverable = true))
+            listOf(GrantableUserScope(scope = "openid", discoverable = true))
         )
         val roles = auth.roles
         assertEquals(listOf(IS_USER), roles.toList())
@@ -33,9 +34,9 @@ class UserAuthenticationTest {
     fun `getRoles - Returns IS_ADMIN and per-scope roles when admin scopes present`() {
         val auth = createAuthentication(
             listOf(
-                Scope(scope = "openid", admin = false, discoverable = true),
-                Scope(scope = AdminScopeId.CONFIG_READ, admin = true, discoverable = false),
-                Scope(scope = AdminScopeId.USERS_READ, admin = true, discoverable = false)
+                GrantableUserScope(scope = "openid", discoverable = true),
+                GrantableUserScope(scope = AdminScopeId.CONFIG_READ, discoverable = false),
+                GrantableUserScope(scope = AdminScopeId.USERS_READ, discoverable = false)
             )
         )
         val roles = auth.roles.toList()
@@ -50,8 +51,8 @@ class UserAuthenticationTest {
     fun `getRoles - Does not add IS_ADMIN when only non-admin scopes`() {
         val auth = createAuthentication(
             listOf(
-                Scope(scope = "openid", admin = false, discoverable = true),
-                Scope(scope = "profile", admin = false, discoverable = true)
+                GrantableUserScope(scope = "openid", discoverable = true),
+                ConsentableUserScope(scope = "profile", discoverable = true)
             )
         )
         val roles = auth.roles.toList()

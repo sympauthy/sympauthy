@@ -20,7 +20,14 @@ class AuthorizeAttemptEntity(
     val state: String? = null,
     val nonce: String? = null,
     val userId: UUID? = null,
+    /**
+     * Scopes granted through granting rules (grantable scopes only).
+     */
     val grantedScopes: Array<String>? = null,
+    /**
+     * Scopes obtained through user consent (consentable scopes only).
+     */
+    val consentedScopes: Array<String>? = null,
     val errorDate: LocalDateTime? = null,
     val errorDetailsId: String? = null,
     val errorDescriptionId: String? = null,

@@ -3,6 +3,7 @@ package com.sympauthy.config.factory
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.rule.InvalidScopeGrantingRuleException
 import com.sympauthy.business.manager.rule.ScopeGrantingRuleExpressionExecutor
+import com.sympauthy.business.model.oauth2.ConsentableUserScope
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.rule.ScopeGrantingRule
 import com.sympauthy.business.model.rule.ScopeGrantingRuleBehavior
@@ -140,11 +141,15 @@ class ScopeGrantingRulesConfigFactory(
             try {
                 val verifiedScope = scopeManager.find(scope)
                 if (verifiedScope == null) {
-                    val error = configExceptionOf(
+                    scopeErrors.add(configExceptionOf(
                         "$key[${index}]", "config.rule.scope.invalid",
                         "scope" to scope
-                    )
-                    scopeErrors.add(error)
+                    ))
+                } else if (verifiedScope is ConsentableUserScope) {
+                    scopeErrors.add(configExceptionOf(
+                        "$key[${index}]", "config.rule.scope.consentable_not_allowed",
+                        "scope" to scope
+                    ))
                 }
                 verifiedScope
             } catch (t: Throwable) {

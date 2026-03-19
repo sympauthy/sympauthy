@@ -3,6 +3,7 @@ package com.sympauthy.security
 import com.sympauthy.api.exception.httpExceptionOf
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.isAdmin
 import com.sympauthy.security.SecurityRule.IS_ADMIN
 import com.sympauthy.security.SecurityRule.IS_USER
 import io.micronaut.http.HttpStatus.FORBIDDEN
@@ -30,7 +31,7 @@ class UserAuthentication(
 
     override fun getRoles(): Collection<String> {
         val roles = mutableListOf(IS_USER)
-        val adminScopes = scopes.filter { it.admin }
+        val adminScopes = scopes.filter { it.isAdmin }
         if (adminScopes.isNotEmpty()) {
             roles.add(IS_ADMIN)
             adminScopes.forEach { roles.add("SCOPE_${it.scope}") }
