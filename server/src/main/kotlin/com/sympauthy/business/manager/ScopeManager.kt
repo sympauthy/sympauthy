@@ -135,7 +135,7 @@ class ScopeManager(
         // If client has allowedScopes defined, check if the scope is in the allowed list
         if (client.allowedScopes != null && !client.allowedScopes.contains(foundScope)) {
             throw businessExceptionOf(
-                detailsId = "scope.unsupported",
+                detailsId = "scope.not_allowed",
                 values = arrayOf("scope" to scope)
             )
         }
