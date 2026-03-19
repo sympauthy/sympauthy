@@ -2,7 +2,9 @@ package com.sympauthy.business.manager
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.model.oauth2.AdminScope
+import com.sympauthy.business.model.oauth2.GrantableUserScope
 import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.isAdmin
 import com.sympauthy.config.model.EnabledScopesConfig
 import io.mockk.coEvery
 import io.mockk.every
@@ -171,7 +173,8 @@ class ScopeManagerTest {
         assertEquals(AdminScope.entries.size, adminScopes.size)
         AdminScope.entries.forEach { adminScope ->
             val scope = adminScopes.first { it.scope == adminScope.scope }
-            assertTrue(scope.admin)
+            assertTrue(scope.isAdmin)
+            assertTrue(scope is GrantableUserScope)
             assertFalse(scope.discoverable)
         }
     }

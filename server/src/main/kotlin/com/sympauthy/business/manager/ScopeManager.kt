@@ -3,6 +3,8 @@ package com.sympauthy.business.manager
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.AdminScope
+import com.sympauthy.business.model.oauth2.ConsentableUserScope
+import com.sympauthy.business.model.oauth2.GrantableUserScope
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.user.StandardScope
 import com.sympauthy.config.model.ScopesConfig
@@ -36,9 +38,8 @@ class ScopeManager(
      * Built-in scopes granting access to the administration APIs of this authorization server.
      */
     val adminScopes: List<Scope> = AdminScope.entries.map { adminScope ->
-        Scope(
+        GrantableUserScope(
             scope = adminScope.scope,
-            admin = true,
             discoverable = false
         )
     }
@@ -54,9 +55,8 @@ class ScopeManager(
         if (config != null && !config.enabled) {
             return null
         }
-        return Scope(
+        return ConsentableUserScope(
             scope = standardScope.scope,
-            admin = false,
             discoverable = true
         )
     }
