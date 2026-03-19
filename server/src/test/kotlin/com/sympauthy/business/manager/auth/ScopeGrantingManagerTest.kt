@@ -5,6 +5,7 @@ import com.sympauthy.business.manager.rule.ScopeGrantingRuleManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
+import com.sympauthy.business.model.oauth2.GrantableUserScope
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.config.model.EnabledFeaturesConfig
@@ -42,9 +43,9 @@ class ScopeGrantingManagerTest {
         val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
         every { authorizeAttempt.requestedScopes } returns listOf("grantedScope1", "declinedScope1", "declinedScope2")
 
-        val grantedScope1 = mockk<Scope>()
-        val declinedScope1 = mockk<Scope>()
-        val declinedScope2 = mockk<Scope>()
+        val grantedScope1 = GrantableUserScope("grantedScope1", discoverable = false)
+        val declinedScope1 = GrantableUserScope("declinedScope1", discoverable = false)
+        val declinedScope2 = GrantableUserScope("declinedScope2", discoverable = false)
 
         coEvery { scopeManager.findOrThrow("grantedScope1") } returns grantedScope1
         coEvery { scopeManager.findOrThrow("declinedScope1") } returns declinedScope1

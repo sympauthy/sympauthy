@@ -4,6 +4,8 @@ import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.rule.ScopeGrantingRuleManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
+import com.sympauthy.business.model.oauth2.BuiltInGrantableScope
+import com.sympauthy.business.model.oauth2.GrantableUserScope
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.user.CollectedClaim
@@ -34,7 +36,11 @@ class ScopeGrantingManager(
 ) {
 
     /**
-     * Pass the [AuthorizeAttempt.requestedScopes] through the chain of scope granting methods.
+     * Pass the grantable scopes from [AuthorizeAttempt.requestedScopes] through the chain of scope granting methods.
+     * Consentable and client scopes are excluded from this pipeline.
+     *
+     * Built-in grantable scopes marked as [BuiltInGrantableScope.autoGranted] (e.g. `openid`) are automatically
+     * granted when requested, without going through the granting rules.
      *
      * Some methods may require access to the claims collected by the authorization flow during the authorization process,
      * it should be provided in the [allCollectedClaims] parameter.
@@ -43,17 +49,33 @@ class ScopeGrantingManager(
         authorizeAttempt: OnGoingAuthorizeAttempt,
         allCollectedClaims: List<CollectedClaim>
     ): GrantScopesResult {
-        val requestedScopes = authorizeAttempt.requestedScopes.map {
+        val allRequestedScopes = authorizeAttempt.requestedScopes.map {
             scopeManager.findOrThrow(it)
         }
+        // Only grantable scopes go through the granting pipeline
+        val requestedGrantableScopes = allRequestedScopes.filterIsInstance<GrantableUserScope>()
+
+        // Auto-grant built-in grantable scopes that are marked as auto-granted (e.g. openid)
+        val autoGrantedScopeIds = BuiltInGrantableScope.entries
+            .filter { it.autoGranted }
+            .map { it.scope }
+            .toSet()
+        val (autoGranted, needsRules) = requestedGrantableScopes.partition { it.scope in autoGrantedScopeIds }
 
         val results = mutableListOf<ScopeGrantingMethodResult>()
-        getScopeGrantingMethods().forEach { methods ->
+        if (autoGranted.isNotEmpty()) {
+            results.add(ScopeGrantingMethodResult(
+                grantedScopes = autoGranted,
+                declinedScopes = emptyList()
+            ))
+        }
+
+        getScopeGrantingMethods().forEach { method ->
             val unhandledRequestedScopes = getUnhandledRequestedScopes(
-                requestedScopes = requestedScopes,
+                requestedScopes = needsRules,
                 results = results
             )
-            val result = methods.invoke(
+            val result = method.invoke(
                 authorizeAttempt,
                 unhandledRequestedScopes,
                 allCollectedClaims
@@ -62,7 +84,7 @@ class ScopeGrantingManager(
         }
 
         return GrantScopesResult(
-            requestedScopes = requestedScopes,
+            requestedScopes = requestedGrantableScopes,
             results = results.toList()
         )
     }
