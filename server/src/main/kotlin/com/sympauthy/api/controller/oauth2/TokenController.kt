@@ -221,7 +221,7 @@ Client authentication is supported via:
 
         val accessToken = accessTokenGenerator.generateAccessTokenForClient(
             clientId = client.id,
-            scopes = scopeStrings
+            clientScopes = scopeStrings
         )
 
         return TokenResource(

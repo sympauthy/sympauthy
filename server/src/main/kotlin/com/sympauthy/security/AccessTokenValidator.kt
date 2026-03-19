@@ -54,7 +54,7 @@ class AccessTokenValidator<T>(
             throw e.toHttpException(UNAUTHORIZED)
         }
 
-        val scopes = authenticationToken.scopes.mapNotNull {
+        val scopes = authenticationToken.allScopes.mapNotNull {
             scopeManager.find(it)
         }
 

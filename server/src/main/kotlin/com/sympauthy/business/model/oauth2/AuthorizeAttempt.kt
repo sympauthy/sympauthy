@@ -62,10 +62,14 @@ class OnGoingAuthorizeAttempt(
      * The identifier of the user that was connected at the end of the authentication process.
      */
     val userId: UUID?,
-    /*
-     * The scopes that were granted to the user during the authorization process.
+    /**
+     * Grantable scopes that were granted to the user through granting rules during the authorization process.
      */
     val grantedScopes: List<String>?,
+    /**
+     * Consentable scopes that the user consented to during the authorization process.
+     */
+    val consentedScopes: List<String>?,
     /**
      * When the end-user successfully completed the MFA step for this authorization attempt.
      * Null if MFA has not been completed yet.
@@ -96,6 +100,7 @@ class OnGoingAuthorizeAttempt(
     fun copy(
         userId: UUID? = null,
         grantedScopes: List<String>? = null,
+        consentedScopes: List<String>? = null,
         mfaPassedDate: LocalDateTime? = null
     ) = OnGoingAuthorizeAttempt(
         id = this.id,
@@ -108,6 +113,7 @@ class OnGoingAuthorizeAttempt(
         nonce = this.nonce,
         userId = userId ?: this.userId,
         grantedScopes = grantedScopes ?: this.grantedScopes,
+        consentedScopes = consentedScopes ?: this.consentedScopes,
         mfaPassedDate = mfaPassedDate ?: this.mfaPassedDate,
         codeChallenge = this.codeChallenge,
         codeChallengeMethod = this.codeChallengeMethod,
@@ -154,10 +160,14 @@ class CompletedAuthorizeAttempt(
      * The identifier of the user that was connected at the end of the authentication process.
      */
     val userId: UUID,
-    /*
-     * The scopes that were granted to the user during the authorization process.
+    /**
+     * Grantable scopes that were granted to the user through granting rules during the authorization process.
      */
     val grantedScopes: List<String>,
+    /**
+     * Consentable scopes that the user consented to during the authorization process.
+     */
+    val consentedScopes: List<String>,
     /**
      * The PKCE code challenge provided during authorization (RFC 7636).
      */

@@ -34,7 +34,9 @@ class RefreshTokenGenerator(
     ) = generateRefreshToken(
         userId = userId,
         clientId = authorizeAttempt.clientId,
-        scopeTokens = authorizeAttempt.grantedScopes,
+        grantedScopes = authorizeAttempt.grantedScopes,
+        consentedScopes = authorizeAttempt.consentedScopes,
+        clientScopes = emptyList(),
         authorizeAttemptId = authorizeAttempt.id,
         grantType = "authorization_code"
     )
@@ -47,7 +49,9 @@ class RefreshTokenGenerator(
     ) = generateRefreshToken(
         userId = refreshToken.userId,
         clientId = refreshToken.clientId,
-        scopeTokens = refreshToken.scopes,
+        grantedScopes = refreshToken.grantedScopes,
+        consentedScopes = refreshToken.consentedScopes,
+        clientScopes = refreshToken.clientScopes,
         authorizeAttemptId = refreshToken.authorizeAttemptId,
         grantType = "refresh_token"
     )
@@ -55,7 +59,9 @@ class RefreshTokenGenerator(
     internal suspend fun generateRefreshToken(
         userId: UUID?,
         clientId: String,
-        scopeTokens: List<String>,
+        grantedScopes: List<String>,
+        consentedScopes: List<String>,
+        clientScopes: List<String>,
         authorizeAttemptId: UUID?,
         grantType: String
     ): EncodedAuthenticationToken? {
@@ -70,7 +76,9 @@ class RefreshTokenGenerator(
             userId = userId,
             type = REFRESH.name,
             clientId = clientId,
-            scopes = scopeTokens.toTypedArray(),
+            grantedScopes = grantedScopes.toTypedArray(),
+            consentedScopes = consentedScopes.toTypedArray(),
+            clientScopes = clientScopes.toTypedArray(),
             authorizeAttemptId = authorizeAttemptId,
             grantType = grantType,
             issueDate = issueDate,

@@ -396,7 +396,7 @@ class TokenControllerTest {
         coEvery { clientAuthenticationUtil.resolveClient(request, any(), any()) } returns client
         coEvery { scopeManager.parseRequestedScopes(client, "read") } returns listOf(scope)
         coEvery {
-            accessTokenGenerator.generateAccessTokenForClient(clientId = "my-client", scopes = listOf("read"))
+            accessTokenGenerator.generateAccessTokenForClient(clientId = "my-client", clientScopes = listOf("read"))
         } returns accessToken
 
         val result = controller.getTokens(

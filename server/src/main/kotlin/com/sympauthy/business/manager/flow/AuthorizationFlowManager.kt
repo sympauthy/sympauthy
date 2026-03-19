@@ -11,6 +11,8 @@ import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
+import com.sympauthy.business.manager.ScopeManager
+import com.sympauthy.business.model.oauth2.ConsentableUserScope
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.config.model.AuthorizationFlowsConfig
 import com.sympauthy.config.model.FeaturesConfig
@@ -29,6 +31,7 @@ import jakarta.inject.Singleton
 class AuthorizationFlowManager(
     @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
     @Inject private val scopeGrantingManager: ScopeGrantingManager,
+    @Inject private val scopeManager: ScopeManager,
     @Inject private val consentManager: ConsentManager,
     @Inject private val authorizationFlowsConfig: AuthorizationFlowsConfig,
     @Inject private val uncheckedUrlsConfig: UrlsConfig,
@@ -102,6 +105,13 @@ class AuthorizationFlowManager(
         var modifiedAuthorizedAttempt = authorizeAttempt
         // FIXME: Verify that the attempt is completable (has a user ?, more ?)
 
+        // Resolve requested scope strings to typed Scope objects
+        val requestedScopes = authorizeAttempt.requestedScopes.mapNotNull { scopeManager.find(it) }
+
+        // Separate consentable scopes (auto-consented for now) from grantable scopes
+        val consentedScopes = requestedScopes.filterIsInstance<ConsentableUserScope>()
+
+        // Grant only grantable scopes through the granting pipeline
         val grantScopesResult = scopeGrantingManager.grantScopes(
             authorizeAttempt = authorizeAttempt,
             allCollectedClaims = allCollectedClaims
@@ -110,8 +120,15 @@ class AuthorizationFlowManager(
             authorizeAttempt = modifiedAuthorizedAttempt,
             grantedScopes = grantScopesResult.grantedScopes
         )
+        // Auto-consent all requested consentable scopes (no consent screen yet)
+        modifiedAuthorizedAttempt = authorizeAttemptManager.setConsentedScopes(
+            authorizeAttempt = modifiedAuthorizedAttempt,
+            consentedScopes = consentedScopes
+        )
 
-        return if (modifiedAuthorizedAttempt.grantedScopes.isNullOrEmpty() && !featuresConfig.allowAccessToClientWithoutScope) {
+        val hasAnyScope = !modifiedAuthorizedAttempt.grantedScopes.isNullOrEmpty() ||
+            !modifiedAuthorizedAttempt.consentedScopes.isNullOrEmpty()
+        return if (!hasAnyScope && !featuresConfig.allowAccessToClientWithoutScope) {
             // Mark attempt as failed since no scope have been granted and the end-user is not allowed to continue
             // to the client in this state.
             authorizeAttemptManager.markAsFailedIfNotRecoverable(
@@ -128,7 +145,7 @@ class AuthorizationFlowManager(
                 consentManager.saveGrantedConsent(
                     userId = completedAttempt.userId,
                     clientId = completedAttempt.clientId,
-                    scopes = completedAttempt.grantedScopes
+                    scopes = completedAttempt.consentedScopes
                 )
             }
             completedAttempt

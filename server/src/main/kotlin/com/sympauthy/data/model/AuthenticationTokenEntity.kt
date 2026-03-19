@@ -17,7 +17,18 @@ class AuthenticationTokenEntity(
      */
     val userId: UUID?,
     val clientId: String,
-    val scopes: Array<String>,
+    /**
+     * Scopes granted through granting rules (grantable scopes only).
+     */
+    val grantedScopes: Array<String>,
+    /**
+     * Scopes obtained through user consent (consentable scopes only).
+     */
+    val consentedScopes: Array<String>,
+    /**
+     * Scopes for client_credentials flows (client scopes only).
+     */
+    val clientScopes: Array<String>,
     /**
      * There is no foreign key.
      * This can be null for tokens issued via client credentials flow.

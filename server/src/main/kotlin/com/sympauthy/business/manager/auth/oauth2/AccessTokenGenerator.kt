@@ -33,7 +33,9 @@ class AccessTokenGenerator(
     ) = generateAccessToken(
         userId = userId,
         clientId = authorizeAttempt.clientId,
-        scopes = authorizeAttempt.grantedScopes,
+        grantedScopes = authorizeAttempt.grantedScopes,
+        consentedScopes = authorizeAttempt.consentedScopes,
+        clientScopes = emptyList(),
         authorizeAttemptId = authorizeAttempt.id,
         grantType = "authorization_code"
     )
@@ -46,7 +48,9 @@ class AccessTokenGenerator(
     ) = generateAccessToken(
         userId = refreshToken.userId,
         clientId = refreshToken.clientId,
-        scopes = refreshToken.scopes,
+        grantedScopes = refreshToken.grantedScopes,
+        consentedScopes = refreshToken.consentedScopes,
+        clientScopes = refreshToken.clientScopes,
         authorizeAttemptId = refreshToken.authorizeAttemptId,
         grantType = "refresh_token"
     )
@@ -57,12 +61,14 @@ class AccessTokenGenerator(
      */
     suspend fun generateAccessTokenForClient(
         clientId: String,
-        scopes: List<String>
+        clientScopes: List<String>
     ): EncodedAuthenticationToken {
         return generateAccessToken(
             userId = null,
             clientId = clientId,
-            scopes = scopes,
+            grantedScopes = emptyList(),
+            consentedScopes = emptyList(),
+            clientScopes = clientScopes,
             authorizeAttemptId = null,
             grantType = "client_credentials"
         )
@@ -71,11 +77,14 @@ class AccessTokenGenerator(
     internal suspend fun generateAccessToken(
         userId: UUID?,
         clientId: String,
-        scopes: List<String>,
+        grantedScopes: List<String>,
+        consentedScopes: List<String>,
+        clientScopes: List<String>,
         authorizeAttemptId: UUID?,
         grantType: String
     ): EncodedAuthenticationToken {
         val authConfig = uncheckedAuthConfig.orThrow()
+        val allScopes = grantedScopes + consentedScopes + clientScopes
 
         val issueDate = LocalDateTime.now()
         val expirationDate = issueDate.plus(authConfig.token.accessExpiration)
@@ -83,7 +92,9 @@ class AccessTokenGenerator(
             userId = userId,
             type = ACCESS.name,
             clientId = clientId,
-            scopes = scopes.toTypedArray(),
+            grantedScopes = grantedScopes.toTypedArray(),
+            consentedScopes = consentedScopes.toTypedArray(),
+            clientScopes = clientScopes.toTypedArray(),
             authorizeAttemptId = authorizeAttemptId,
             grantType = grantType,
             issueDate = issueDate,
@@ -98,7 +109,7 @@ class AccessTokenGenerator(
             withAudience(authConfig.audience)
             withSubject(userId?.toString() ?: clientId)
             withClaim("client_id", clientId)
-            withClaim("scope", scopes.joinToString(" "))
+            withClaim("scope", allScopes.joinToString(" "))
             withIssuedAt(issueDate.toInstant(ZoneOffset.UTC))
             withExpiresAt(expirationDate.toInstant(ZoneOffset.UTC))
         }

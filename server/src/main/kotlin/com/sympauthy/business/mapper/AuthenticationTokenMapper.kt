@@ -6,6 +6,7 @@ import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.data.model.AuthenticationTokenEntity
 import org.mapstruct.AfterMapping
 import org.mapstruct.Mapper
+import org.mapstruct.Mapping
 import org.mapstruct.MappingTarget
 
 @Mapper(
@@ -13,6 +14,7 @@ import org.mapstruct.MappingTarget
 )
 abstract class AuthenticationTokenMapper {
 
+    @Mapping(target = "allScopes", ignore = true)
     abstract fun toToken(entity: AuthenticationTokenEntity): AuthenticationToken
 
     @AfterMapping

@@ -43,14 +43,15 @@ class IdTokenGenerator(
         userId = userId,
         authorizeAttemptId = authorizeAttempt.id,
         clientId = authorizeAttempt.clientId,
-        scopes = authorizeAttempt.grantedScopes,
+        grantedScopes = authorizeAttempt.grantedScopes,
+        consentedScopes = authorizeAttempt.consentedScopes,
         nonce = authorizeAttempt.nonce,
         accessToken = accessToken,
         grantType = "authorization_code"
     )
 
     /**
-     * Generate a new access token using the information stored in a [refreshToken].
+     * Generate a new id token using the information stored in a [refreshToken].
      */
     suspend fun generateIdToken(
         refreshToken: AuthenticationToken,
@@ -58,7 +59,8 @@ class IdTokenGenerator(
     ) = generateIdToken(
         userId = refreshToken.userId,
         clientId = refreshToken.clientId,
-        scopes = refreshToken.scopes,
+        grantedScopes = refreshToken.grantedScopes,
+        consentedScopes = refreshToken.consentedScopes,
         authorizeAttemptId = refreshToken.authorizeAttemptId,
         accessToken = accessToken,
         grantType = "refresh_token"
@@ -67,7 +69,8 @@ class IdTokenGenerator(
     internal suspend fun generateIdToken(
         userId: UUID?,
         clientId: String,
-        scopes: List<String>,
+        grantedScopes: List<String>,
+        consentedScopes: List<String>,
         authorizeAttemptId: UUID?,
         accessToken: EncodedAuthenticationToken,
         nonce: String? = null,
@@ -79,12 +82,13 @@ class IdTokenGenerator(
         }
 
         val authConfig = uncheckedAuthConfig.orThrow()
+        val allScopes = grantedScopes + consentedScopes
 
         // FIXME compute at_hash with accessToken
 
         val claims = collectedClaimManager.findByUserIdAndReadableByScopes(
             userId = userId,
-            scopes = scopes
+            scopes = allScopes
         )
 
         val issueDate = LocalDateTime.now()
@@ -93,7 +97,9 @@ class IdTokenGenerator(
             userId = userId,
             type = AuthenticationTokenType.ID.name,
             clientId = clientId,
-            scopes = scopes.toTypedArray(),
+            grantedScopes = grantedScopes.toTypedArray(),
+            consentedScopes = consentedScopes.toTypedArray(),
+            clientScopes = emptyArray(),
             authorizeAttemptId = authorizeAttemptId,
             grantType = grantType,
             issueDate = issueDate,
