@@ -3,7 +3,7 @@ package com.sympauthy.business.manager.auth.oauth2
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
-import com.sympauthy.business.model.user.StandardScope
+import com.sympauthy.business.model.oauth2.BuiltInGrantableScopeId
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.data.repository.AuthenticationTokenRepository
 import io.mockk.impl.annotations.InjectMockKs
@@ -37,7 +37,7 @@ class IdTokenGeneratorTest {
 
     @Test
     fun shouldGenerateIdToken() {
-        assertTrue(generator.shouldGenerateIdToken(listOf(StandardScope.OPENID.scope)))
+        assertTrue(generator.shouldGenerateIdToken(listOf(BuiltInGrantableScopeId.OPENID)))
         assertFalse(generator.shouldGenerateIdToken(emptyList()))
     }
 }

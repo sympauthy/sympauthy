@@ -9,7 +9,7 @@ import com.sympauthy.business.model.oauth2.AuthenticationTokenType
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.business.model.user.StandardScope
+import com.sympauthy.business.model.oauth2.BuiltInGrantableScopeId
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.AuthenticationTokenEntity
@@ -119,7 +119,7 @@ class IdTokenGenerator(
     }
 
     internal fun shouldGenerateIdToken(scopes: List<String>): Boolean {
-        return scopes.contains(StandardScope.OPENID.scope)
+        return scopes.contains(BuiltInGrantableScopeId.OPENID)
     }
 
     private fun JWTCreator.Builder.withClaim(claim: CollectedClaim) {
