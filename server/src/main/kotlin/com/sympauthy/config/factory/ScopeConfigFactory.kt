@@ -1,6 +1,8 @@
 package com.sympauthy.config.factory
 
 import com.sympauthy.business.model.oauth2.isAdminScope
+import com.sympauthy.business.model.oauth2.isBuiltInClientScope
+import com.sympauthy.business.model.oauth2.isBuiltInGrantableScope
 import com.sympauthy.business.model.user.isStandardScope
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
@@ -28,6 +30,22 @@ class ScopeConfigFactory(
                     errors.add(configExceptionOf(
                         "$SCOPES_KEY.${properties.id}",
                         "config.scope.admin_not_configurable",
+                        "scope" to properties.id
+                    ))
+                    null
+                }
+                properties.id.isBuiltInGrantableScope() -> {
+                    errors.add(configExceptionOf(
+                        "$SCOPES_KEY.${properties.id}",
+                        "config.scope.builtin_not_configurable",
+                        "scope" to properties.id
+                    ))
+                    null
+                }
+                properties.id.isBuiltInClientScope() -> {
+                    errors.add(configExceptionOf(
+                        "$SCOPES_KEY.${properties.id}",
+                        "config.scope.builtin_not_configurable",
                         "scope" to properties.id
                     ))
                     null
@@ -77,9 +95,33 @@ class ScopeConfigFactory(
     ): ScopeConfig? {
         val scopeErrors = mutableListOf<ConfigurationException>()
 
+        val type = properties.type?.lowercase()
+        val consentable = when (type) {
+            null, "grantable" -> false
+            "consentable" -> true
+            "client" -> {
+                scopeErrors.add(configExceptionOf(
+                    "$SCOPES_KEY.${properties.id}.type",
+                    "config.scope.custom_client_type_not_allowed",
+                    "scope" to properties.id
+                ))
+                null
+            }
+            else -> {
+                scopeErrors.add(configExceptionOf(
+                    "$SCOPES_KEY.${properties.id}.type",
+                    "config.scope.invalid_type",
+                    "scope" to properties.id,
+                    "type" to type
+                ))
+                null
+            }
+        }
+
         return if (scopeErrors.isEmpty()) {
             CustomScopeConfig(
-                scope = properties.id
+                scope = properties.id,
+                consentable = consentable!!
             )
         } else {
             errors.addAll(scopeErrors)
