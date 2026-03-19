@@ -9,7 +9,7 @@ package com.sympauthy.business.model.oauth2
  * Each scope controls access to a specific area of the admin API:
  * - `config`: read server configuration (clients, flows, etc.).
  * - `users`: manage end-users (read, write, delete).
- * - `access`: manage access tokens, authorizations, consents, and force logout.
+ * - `consent`: manage consents and force logout.
  *
  * @see AdminScopeId for the string constants used in configuration and token claims.
  */
@@ -20,8 +20,8 @@ enum class AdminScope(
     USERS_READ(AdminScopeId.USERS_READ),
     USERS_WRITE(AdminScopeId.USERS_WRITE),
     USERS_DELETE(AdminScopeId.USERS_DELETE),
-    ACCESS_READ(AdminScopeId.ACCESS_READ),
-    ACCESS_WRITE(AdminScopeId.ACCESS_WRITE);
+    CONSENT_READ(AdminScopeId.CONSENT_READ),
+    CONSENT_WRITE(AdminScopeId.CONSENT_WRITE);
 }
 
 /**
@@ -34,6 +34,6 @@ object AdminScopeId {
     const val USERS_READ = "admin:users:read"
     const val USERS_WRITE = "admin:users:write"
     const val USERS_DELETE = "admin:users:delete"
-    const val ACCESS_READ = "admin:access:read"
-    const val ACCESS_WRITE = "admin:access:write"
+    const val CONSENT_READ = "admin:consent:read"
+    const val CONSENT_WRITE = "admin:consent:write"
 }

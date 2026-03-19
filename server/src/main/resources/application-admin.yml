@@ -17,8 +17,8 @@ clients:
       - admin:users:read
       - admin:users:write
       - admin:users:delete
-      - admin:access:read
-      - admin:access:write
+      - admin:consent:read
+      - admin:consent:write
     default-scopes:
       - openid
       - profile
@@ -26,5 +26,5 @@ clients:
       - admin:users:read
       - admin:users:write
       - admin:users:delete
-      - admin:access:read
-      - admin:access:write
+      - admin:consent:read
+      - admin:consent:write

@@ -6,7 +6,7 @@ import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.oauth2.TokenRevokedBy
-import com.sympauthy.security.SecurityRule.ADMIN_ACCESS_WRITE
+import com.sympauthy.security.SecurityRule.ADMIN_CONSENT_WRITE
 import com.sympauthy.security.userId
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.PathVariable
@@ -42,13 +42,13 @@ class AdminUserLogoutController(
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: admin:access:write."
+                description = "The access token does not include the required scope: admin:consent:write."
             ),
             ApiResponse(responseCode = "404", description = "No user found with the given identifier.")
         ]
     )
     @Post
-    @Secured(ADMIN_ACCESS_WRITE)
+    @Secured(ADMIN_CONSENT_WRITE)
     suspend fun forceLogout(
         @PathVariable userId: UUID,
         authentication: Authentication
@@ -86,13 +86,13 @@ class AdminUserLogoutController(
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: admin:access:write."
+                description = "The access token does not include the required scope: admin:consent:write."
             ),
             ApiResponse(responseCode = "404", description = "No user or client found with the given identifier.")
         ]
     )
     @Post("/{clientId}")
-    @Secured(ADMIN_ACCESS_WRITE)
+    @Secured(ADMIN_CONSENT_WRITE)
     suspend fun forceClientLogout(
         @PathVariable userId: UUID,
         @PathVariable clientId: String,

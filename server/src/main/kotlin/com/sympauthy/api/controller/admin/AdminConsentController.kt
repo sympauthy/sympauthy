@@ -7,8 +7,8 @@ import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.oauth2.ConsentRevokedBy
-import com.sympauthy.security.SecurityRule.ADMIN_ACCESS_READ
-import com.sympauthy.security.SecurityRule.ADMIN_ACCESS_WRITE
+import com.sympauthy.security.SecurityRule.ADMIN_CONSENT_READ
+import com.sympauthy.security.SecurityRule.ADMIN_CONSENT_WRITE
 import com.sympauthy.security.userId
 import io.micronaut.http.HttpStatus
 import io.micronaut.http.annotation.*
@@ -53,13 +53,13 @@ class AdminConsentController(
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: admin:access:read."
+                description = "The access token does not include the required scope: admin:consent:read."
             ),
             ApiResponse(responseCode = "404", description = "No user found with the given identifier.")
         ]
     )
     @Get
-    @Secured(ADMIN_ACCESS_READ)
+    @Secured(ADMIN_CONSENT_READ)
     suspend fun listConsents(
         @PathVariable userId: UUID,
         @QueryValue page: Int?,
@@ -101,13 +101,13 @@ class AdminConsentController(
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: admin:access:write."
+                description = "The access token does not include the required scope: admin:consent:write."
             ),
             ApiResponse(responseCode = "404", description = "No active consent found for this user and client.")
         ]
     )
     @Delete("/{clientId}")
-    @Secured(ADMIN_ACCESS_WRITE)
+    @Secured(ADMIN_CONSENT_WRITE)
     @Status(HttpStatus.NO_CONTENT)
     suspend fun revokeConsent(
         @PathVariable userId: UUID,

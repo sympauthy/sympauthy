@@ -51,8 +51,8 @@ clients:
       - admin:users:read
       - admin:users:write
       - admin:users:delete
-      - admin:access:read
-      - admin:access:write
+      - admin:consent:read
+      - admin:consent:write
 
 flows:
   local:
