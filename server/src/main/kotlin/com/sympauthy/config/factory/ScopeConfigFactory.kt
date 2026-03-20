@@ -3,7 +3,7 @@ package com.sympauthy.config.factory
 import com.sympauthy.business.model.oauth2.isAdminScope
 import com.sympauthy.business.model.oauth2.isBuiltInClientScope
 import com.sympauthy.business.model.oauth2.isBuiltInGrantableScope
-import com.sympauthy.business.model.user.isStandardScope
+import com.sympauthy.business.model.user.isOpenIdConnectScope
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.exception.configExceptionOf
@@ -50,7 +50,7 @@ class ScopeConfigFactory(
                     ))
                     null
                 }
-                properties.id.isStandardScope() -> getStandardScope(properties = properties, errors = errors)
+                properties.id.isOpenIdConnectScope() -> getOpenIdConnectScope(properties = properties, errors = errors)
                 else -> getCustomScope(properties = properties, errors = errors)
             }
         }
@@ -62,7 +62,7 @@ class ScopeConfigFactory(
         }
     }
 
-    private fun getStandardScope(
+    private fun getOpenIdConnectScope(
         properties: ScopeConfigurationProperties,
         errors: MutableList<ConfigurationException>
     ): ScopeConfig? {
@@ -79,7 +79,7 @@ class ScopeConfigFactory(
         }
 
         return if (scopeErrors.isEmpty()) {
-            StandardScopeConfig(
+            OpenIdConnectScopeConfig(
                 scope = properties.id,
                 enabled = enabled!!
             )

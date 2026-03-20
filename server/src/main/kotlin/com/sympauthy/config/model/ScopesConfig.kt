@@ -14,7 +14,7 @@ sealed class ScopeConfig(
     val scope: String
 )
 
-class StandardScopeConfig(
+class OpenIdConnectScopeConfig(
     scope: String,
     val enabled: Boolean
 ): ScopeConfig(scope)

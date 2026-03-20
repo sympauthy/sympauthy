@@ -3,10 +3,10 @@ package com.sympauthy.business.manager
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.*
-import com.sympauthy.business.model.user.StandardScope
+import com.sympauthy.business.model.user.OpenIdConnectScope
 import com.sympauthy.config.model.CustomScopeConfig
 import com.sympauthy.config.model.ScopesConfig
-import com.sympauthy.config.model.StandardScopeConfig
+import com.sympauthy.config.model.OpenIdConnectScopeConfig
 import com.sympauthy.config.model.orThrow
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -20,12 +20,12 @@ class ScopeManager(
     @Inject private val uncheckedScopesConfig: ScopesConfig
 ) {
     /**
-     * Consentable scopes defined in the OpenID specification (profile, email, address, phone).
+     * Consentable scopes defined in the OpenID Connect specification (profile, email, address, phone).
      */
-    private val enabledStandardScopes: Flow<Scope> = flow {
-        StandardScope.entries.forEach { standardScope ->
+    private val enabledOpenIdConnectScopes: Flow<Scope> = flow {
+        OpenIdConnectScope.entries.forEach { standardScope ->
             val config = uncheckedScopesConfig.orThrow().scopes.asSequence()
-                .filterIsInstance<StandardScopeConfig>()
+                .filterIsInstance<OpenIdConnectScopeConfig>()
                 .firstOrNull { it.scope == standardScope.scope }
             val scope = toScope(config = config, standardScope = standardScope)
             scope?.let { emit(it) }
@@ -76,12 +76,12 @@ class ScopeManager(
     }
 
     /**
-     * Convert a [standardScope] into a [ConsentableUserScope].
+     * Convert an [OpenIdConnectScope] into a [ConsentableUserScope].
      * Return null if the scope has been disabled by the [config].
      */
     private fun toScope(
-        config: StandardScopeConfig?,
-        standardScope: StandardScope
+        config: OpenIdConnectScopeConfig?,
+        standardScope: OpenIdConnectScope
     ): Scope? {
         if (config != null && !config.enabled) {
             return null
@@ -96,17 +96,17 @@ class ScopeManager(
      * List of all [Scope] enabled on this authorization server.
      *
      * Includes built-in grantable scopes, admin scopes, client scopes,
-     * standard consentable scopes, and custom scopes.
+     * OpenID Connect consentable scopes, and custom scopes.
      */
     suspend fun listScopes(): List<Scope> {
         return builtInGrantableScopes + adminScopes + clientScopes +
-            enabledStandardScopes.toList() + customScopes.toList()
+            enabledOpenIdConnectScopes.toList() + customScopes.toList()
     }
 
     /**
      * Return the [Scope], otherwise null, if:
-     * - [scope] is a standard scope and its has not been explicitly disabled by configuration.
-     * - [scope] is a custom scope and have been properly defined in the configuration.
+     * - [scope] is an OpenID Connect scope and has not been explicitly disabled by configuration.
+     * - [scope] is a custom scope and has been properly defined in the configuration.
      */
     suspend fun find(scope: String): Scope? {
         return listScopes().firstOrNull { it.scope == scope }
@@ -114,8 +114,8 @@ class ScopeManager(
 
     /**
      * Return the [Scope] if:
-     * - [scope] is a standard scope and its has not been explicitly disabled by configuration.
-     * - [scope] is a custom scope and have been properly defined in the configuration.
+     * - [scope] is an OpenID Connect scope and has not been explicitly disabled by configuration.
+     * - [scope] is a custom scope and has been properly defined in the configuration.
      * Otherwise, throws an unrecoverable "scope.unsupported" exception.
      */
     suspend fun findOrThrow(scope: String): Scope {
