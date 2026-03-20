@@ -25,6 +25,9 @@ class ScopeManagerTest {
     @MockK
     lateinit var scopesConfig: EnabledScopesConfig
 
+    @MockK
+    lateinit var claimManager: ClaimManager
+
     @SpyK
     @InjectMockKs
     lateinit var scopeManager: ScopeManager
