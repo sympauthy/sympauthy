@@ -4,6 +4,7 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.user.OpenIdConnectScope
+import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.config.model.CustomScopeConfig
 import com.sympauthy.config.model.ScopesConfig
 import com.sympauthy.config.model.OpenIdConnectScopeConfig
@@ -17,7 +18,8 @@ import kotlinx.coroutines.flow.toList
 
 @Singleton
 class ScopeManager(
-    @Inject private val uncheckedScopesConfig: ScopesConfig
+    @Inject private val uncheckedScopesConfig: ScopesConfig,
+    @Inject private val claimManager: ClaimManager
 ) {
     /**
      * Consentable scopes defined in the OpenID Connect specification (profile, email, address, phone).
@@ -141,6 +143,18 @@ class ScopeManager(
         }
 
         return foundScope
+    }
+
+    /**
+     * Return the list of [Claim] that are protected by the given [scope].
+     * A claim is protected by a scope if the scope must be requested to read the claim.
+     *
+     * Only consentable scopes protect claims. Returns an empty list for grantable and client scopes.
+     */
+    fun listClaimsProtectedByScope(scope: Scope): List<Claim> {
+        if (scope !is ConsentableUserScope) return emptyList()
+        return claimManager.listAllClaims()
+            .filter { it.readScopes.contains(scope.scope) }
     }
 
     /**

@@ -1,5 +1,7 @@
 package com.sympauthy.business.model.oauth2
 
+import com.sympauthy.business.model.user.isOpenIdConnectScope
+
 /**
  * Represents a scope that can be requested during an OAuth2/OpenID Connect flow.
  *
@@ -61,3 +63,25 @@ val Scope.isUserScope: Boolean get() = this is ConsentableUserScope || this is G
  * True if this scope is a client scope for `client_credentials` flows.
  */
 val Scope.isClientScope: Boolean get() = this is ClientScope
+
+/**
+ * Origin of a scope, indicating which specification or system defines it.
+ */
+enum class ScopeOrigin(val value: String) {
+    /** Scope defined by the OpenID Connect specification. */
+    OPENID("openid"),
+    /** Scope defined by SympAuthy for administration or client APIs. */
+    SYSTEM("system"),
+    /** Scope defined by the operator in configuration. */
+    CUSTOM("custom")
+}
+
+/**
+ * The origin of this scope, indicating where it is defined.
+ */
+val Scope.origin: ScopeOrigin
+    get() = when {
+        scope.isOpenIdConnectScope() || scope.isBuiltInGrantableScope() -> ScopeOrigin.OPENID
+        scope.isAdminScope() || scope.isBuiltInClientScope() -> ScopeOrigin.SYSTEM
+        else -> ScopeOrigin.CUSTOM
+    }
