@@ -1,5 +1,6 @@
 package com.sympauthy.api.resource.admin
 
+import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonProperty
 import io.micronaut.serde.annotation.Serdeable
 import io.swagger.v3.oas.annotations.media.Schema
@@ -26,7 +27,9 @@ data class AdminUserResource(
     @get:JsonProperty("created_at")
     val createdAt: LocalDateTime,
     @get:Schema(
-        description = "Claims associated to the user. Keys are claim identifiers, values are claim values. Null when claims are not requested."
+        description = "Claims associated to the user. Keys are claim identifiers, values are claim values. Null when claims are not requested.",
+        nullable = true
     )
+    @get:JsonInclude(JsonInclude.Include.ALWAYS)
     val claims: Map<String, Any?>? = null
 )

@@ -1,5 +1,6 @@
 package com.sympauthy.api.resource.admin
 
+import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonProperty
 import io.micronaut.serde.annotation.Serdeable
 import io.swagger.v3.oas.annotations.media.Schema
@@ -25,14 +26,20 @@ data class AdminConsentResource(
     @get:Schema(description = "Date and time at which the user consented.")
     @get:JsonProperty("consented_at")
     val consentedAt: LocalDateTime,
-    @get:Schema(description = "Date and time at which the consent was revoked, or null if still active.")
+    @get:Schema(description = "Date and time at which the consent was revoked, or null if still active.", nullable = true)
     @get:JsonProperty("revoked_at")
+    @get:JsonInclude(JsonInclude.Include.ALWAYS)
     val revokedAt: LocalDateTime?,
-    @get:Schema(description = "Actor who revoked the consent, or null if still active. " +
-        "Values: user (revoked by the user themselves), admin (revoked by an administrator).")
+    @get:Schema(
+        description = "Actor who revoked the consent, or null if still active.",
+        nullable = true,
+        allowableValues = ["user", "admin"]
+    )
     @get:JsonProperty("revoked_by")
+    @get:JsonInclude(JsonInclude.Include.ALWAYS)
     val revokedBy: String?,
-    @get:Schema(description = "Identifier of the user or admin who revoked the consent, or null if still active.")
+    @get:Schema(description = "Identifier of the user or admin who revoked the consent, or null if still active.", nullable = true)
     @get:JsonProperty("revoked_by_id")
+    @get:JsonInclude(JsonInclude.Include.ALWAYS)
     val revokedById: UUID?
 )
