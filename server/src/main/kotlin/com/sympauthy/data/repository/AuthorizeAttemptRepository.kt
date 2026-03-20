@@ -23,7 +23,7 @@ interface AuthorizeAttemptRepository : CoroutineCrudRepository<AuthorizeAttemptE
     @Query(
         """
         SELECT * FROM authorize_attempts
-        WHERE expiration_date < now() at time zone 'utc'
+        WHERE expiration_date < CURRENT_TIMESTAMP
         """
     )
     suspend fun findExpired(): List<AuthorizeAttemptEntity>
