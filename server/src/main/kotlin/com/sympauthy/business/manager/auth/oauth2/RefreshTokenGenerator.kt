@@ -87,7 +87,7 @@ class RefreshTokenGenerator(
 
         val encodedToken = jwtManager.create(JwtManager.REFRESH_KEY) {
             entity.id?.toString()?.let(this::withJWTId)
-            enabledAuthConfig.audience?.let { this.withAudience(it) }
+            withAudience(enabledAuthConfig.audience)
             withSubject(userId?.toString() ?: clientId)
             withIssuedAt(issueDate.toInstant(ZoneOffset.UTC))
             expirationDate?.toInstant(ZoneOffset.UTC)?.let(this::withExpiresAt)

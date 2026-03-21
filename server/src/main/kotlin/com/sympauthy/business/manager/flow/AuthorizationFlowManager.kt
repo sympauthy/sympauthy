@@ -141,13 +141,11 @@ class AuthorizationFlowManager(
             )
         } else {
             val completedAttempt = authorizeAttemptManager.markAsComplete(modifiedAuthorizedAttempt)
-            if (completedAttempt is CompletedAuthorizeAttempt) {
-                consentManager.saveGrantedConsent(
-                    userId = completedAttempt.userId,
-                    clientId = completedAttempt.clientId,
-                    scopes = completedAttempt.consentedScopes
-                )
-            }
+            consentManager.saveGrantedConsent(
+                userId = completedAttempt.userId,
+                clientId = completedAttempt.clientId,
+                scopes = completedAttempt.consentedScopes
+            )
             completedAttempt
         }
     }

@@ -19,7 +19,9 @@ abstract class CollectedClaimUpdateMapper {
     lateinit var claimValueMapper: ClaimValueMapper
 
     @Mappings(
+        Mapping(target = "id", ignore = true),
         Mapping(target = "verified", expression = "java(null)"),
+        Mapping(target = "verificationDate", expression = "java(null)"),
         Mapping(target = "collectionDate", expression = "java(java.time.LocalDateTime.now())")
     )
     abstract fun toEntity(
@@ -29,7 +31,9 @@ abstract class CollectedClaimUpdateMapper {
 
     @Mappings(
         Mapping(target = "id", ignore = true),
+        Mapping(target = "userId", ignore = true),
         Mapping(target = "verified", ignore = true),
+        Mapping(target = "verificationDate", ignore = true),
         Mapping(target = "collectionDate", expression = "java(java.time.LocalDateTime.now())")
     )
     abstract fun updateEntity(
