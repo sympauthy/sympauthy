@@ -6,7 +6,7 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimGroup
-import com.sympauthy.business.model.user.claim.StandardClaim
+import com.sympauthy.business.model.user.claim.origin
 import org.mapstruct.Mapper
 import org.mapstruct.Mapping
 import org.mapstruct.Named
@@ -18,7 +18,7 @@ abstract class AdminUserClaimResourceMapper {
 
     @Mapping(source = "claim.id", target = "claimId")
     @Mapping(source = "claim.dataType", target = "type", qualifiedByName = ["toTypeString"])
-    @Mapping(source = "claim", target = "standard", qualifiedByName = ["toStandard"])
+    @Mapping(source = "claim", target = "origin", qualifiedByName = ["toOrigin"])
     @Mapping(source = "claim.required", target = "required")
     @Mapping(source = "identifier", target = "identifier")
     @Mapping(source = "claim.group", target = "group", qualifiedByName = ["toGroupString"])
@@ -30,8 +30,8 @@ abstract class AdminUserClaimResourceMapper {
     @Named("toTypeString")
     fun toTypeString(dataType: ClaimDataType): String = dataType.name.lowercase()
 
-    @Named("toStandard")
-    fun toStandard(claim: Claim): Boolean = claim is StandardClaim
+    @Named("toOrigin")
+    fun toOrigin(claim: Claim): String = claim.origin.value
 
     @Named("toGroupString")
     fun toGroupString(group: ClaimGroup?): String? = group?.name?.lowercase()

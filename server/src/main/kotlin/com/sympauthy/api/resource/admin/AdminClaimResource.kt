@@ -14,8 +14,8 @@ data class AdminClaimResource(
     val id: String,
     @get:Schema(description = "Data type expected for this claim.", allowableValues = ["string", "number", "date"])
     val type: String,
-    @get:Schema(description = "Whether this is an OpenID Connect standard claim.")
-    val standard: Boolean,
+    @get:Schema(description = "Where the claim is defined.", allowableValues = ["openid", "custom"])
+    val origin: String,
     @get:Schema(description = "Whether collection is enabled for this claim.")
     val enabled: Boolean,
     @get:Schema(description = "Whether the end-user must provide this claim to complete an authorization flow.")

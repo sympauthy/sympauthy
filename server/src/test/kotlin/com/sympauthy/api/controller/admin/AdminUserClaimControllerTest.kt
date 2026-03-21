@@ -115,7 +115,7 @@ class AdminUserClaimControllerTest {
         claimId = claimId,
         value = value,
         type = "string",
-        standard = true,
+        origin = "openid",
         required = false,
         identifier = false,
         group = null,
@@ -269,7 +269,7 @@ class AdminUserClaimControllerTest {
     }
 
     @Test
-    fun `listUserClaims - Filter by standard`() = runTest {
+    fun `listUserClaims - Filter by origin`() = runTest {
         val ctrl = createController()
         coEvery { userManager.findByIdOrNull(userId) } returns mockUser()
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim, customClaim)
@@ -278,7 +278,7 @@ class AdminUserClaimControllerTest {
         val customResource = mockResource("custom_field")
         every { userClaimMapper.toResource(customClaim, null, false) } returns customResource
 
-        val result = ctrl.listUserClaims(userId, null, null, null, null, null, null, null, false)
+        val result = ctrl.listUserClaims(userId, null, null, null, null, null, null, null, "custom")
 
         assertEquals(1, result.total)
         assertEquals("custom_field", result.claims[0].claimId)
@@ -332,7 +332,7 @@ class AdminUserClaimControllerTest {
             claimId = "name",
             value = null,
             type = "string",
-            standard = true,
+            origin = "openid",
             required = false,
             identifier = false,
             group = "identity",

@@ -5,6 +5,7 @@ import com.sympauthy.api.resource.admin.AdminClaimListResource
 import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.origin
 import com.sympauthy.security.SecurityRule.ADMIN_CONFIG_READ
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
@@ -46,6 +47,11 @@ class AdminClaimController(
                 name = "required",
                 description = "Filter by required status.",
                 schema = Schema(type = "boolean")
+            ),
+            Parameter(
+                name = "origin",
+                description = "Filter by claim origin.",
+                schema = Schema(type = "string", allowableValues = ["openid", "custom"])
             )
         ],
         responses = [
@@ -62,12 +68,14 @@ class AdminClaimController(
         @QueryValue page: Int?,
         @QueryValue size: Int?,
         @QueryValue enabled: Boolean?,
-        @QueryValue required: Boolean?
+        @QueryValue required: Boolean?,
+        @QueryValue origin: String?
     ): AdminClaimListResource {
         val (page, size) = resolvePageParams(page, size)
         val claims = claimManager.listAllClaims()
             .let { list -> if (enabled != null) list.filter { it.enabled == enabled } else list }
             .let { list -> if (required != null) list.filter { it.required == required } else list }
+            .let { list -> if (origin != null) list.filter { it.origin.value == origin.lowercase() } else list }
             .sortedWith(compareByDescending<Claim> { it.enabled }.thenBy { it.id })
         val paged = claims
             .drop(page * size)

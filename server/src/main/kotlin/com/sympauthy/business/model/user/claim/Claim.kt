@@ -64,3 +64,14 @@ sealed class Claim(
         return scopes.any { writeScopes.contains(it) }
     }
 }
+
+enum class ClaimOrigin(val value: String) {
+    OPENID("openid"),
+    CUSTOM("custom")
+}
+
+val Claim.origin: ClaimOrigin
+    get() = when (this) {
+        is StandardClaim -> ClaimOrigin.OPENID
+        is CustomClaim -> ClaimOrigin.CUSTOM
+    }

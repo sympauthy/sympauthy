@@ -7,7 +7,7 @@ import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
-import com.sympauthy.business.model.user.claim.StandardClaim
+import com.sympauthy.business.model.user.claim.origin
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.security.SecurityRule.ADMIN_USERS_READ
@@ -77,9 +77,9 @@ class AdminUserClaimController(
                 schema = Schema(type = "boolean")
             ),
             Parameter(
-                name = "standard",
-                description = "Filter by whether the claim is a standard OpenID Connect claim.",
-                schema = Schema(type = "boolean")
+                name = "origin",
+                description = "Filter by claim origin.",
+                schema = Schema(type = "string", allowableValues = ["openid", "custom"])
             )
         ],
         responses = [
@@ -103,7 +103,7 @@ class AdminUserClaimController(
         @QueryValue required: Boolean?,
         @QueryValue collected: Boolean?,
         @QueryValue verified: Boolean?,
-        @QueryValue standard: Boolean?
+        @QueryValue origin: String?
     ): AdminUserClaimListResource {
         userManager.findByIdOrNull(userId).orNotFound()
         val (resolvedPage, resolvedSize) = resolvePageParams(page, size)
@@ -130,8 +130,8 @@ class AdminUserClaimController(
         if (required != null) {
             filteredClaims = filteredClaims.filter { it.required == required }
         }
-        if (standard != null) {
-            filteredClaims = filteredClaims.filter { (it is StandardClaim) == standard }
+        if (origin != null) {
+            filteredClaims = filteredClaims.filter { it.origin.value == origin.lowercase() }
         }
 
         // Fetch collected claims only for the filtered set
