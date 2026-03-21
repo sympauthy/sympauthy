@@ -237,6 +237,59 @@ class TotpManagerTest {
         assertFalse(manager.isCodeValidForUser(userId, invalidCode))
     }
 
+    // --- findConfirmedEnrollmentOrNull ---
+
+    @Test
+    fun `findConfirmedEnrollmentOrNull - Returns enrollment when found and confirmed`() = runTest {
+        val enrollmentId = UUID.randomUUID()
+        val entity = mockk<TotpEnrollmentEntity> {
+            every { confirmedDate } returns java.time.LocalDateTime.now()
+        }
+        val enrollment = mockk<TotpEnrollment>()
+
+        coEvery { totpEnrollmentRepository.findById(enrollmentId) } returns entity
+        every { totpEnrollmentMapper.toTotpEnrollment(entity) } returns enrollment
+
+        val result = manager.findConfirmedEnrollmentOrNull(enrollmentId)
+
+        assertSame(enrollment, result)
+    }
+
+    @Test
+    fun `findConfirmedEnrollmentOrNull - Returns null when not found`() = runTest {
+        val enrollmentId = UUID.randomUUID()
+
+        coEvery { totpEnrollmentRepository.findById(enrollmentId) } returns null
+
+        assertNull(manager.findConfirmedEnrollmentOrNull(enrollmentId))
+    }
+
+    @Test
+    fun `findConfirmedEnrollmentOrNull - Returns null when found but not confirmed`() = runTest {
+        val enrollmentId = UUID.randomUUID()
+        val entity = mockk<TotpEnrollmentEntity> {
+            every { confirmedDate } returns null
+        }
+
+        coEvery { totpEnrollmentRepository.findById(enrollmentId) } returns entity
+
+        assertNull(manager.findConfirmedEnrollmentOrNull(enrollmentId))
+    }
+
+    // --- deleteEnrollment ---
+
+    @Test
+    fun `deleteEnrollment - Deletes enrollment by id`() = runTest {
+        val enrollmentId = UUID.randomUUID()
+        val enrollment = mockk<TotpEnrollment> { every { id } returns enrollmentId }
+
+        coEvery { totpEnrollmentRepository.deleteById(enrollmentId) } returns 1
+
+        manager.deleteEnrollment(enrollment)
+
+        coVerify { totpEnrollmentRepository.deleteById(enrollmentId) }
+    }
+
     // --- findConfirmedEnrollments ---
 
     @Test

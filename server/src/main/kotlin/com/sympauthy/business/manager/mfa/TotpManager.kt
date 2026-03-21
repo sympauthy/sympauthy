@@ -104,6 +104,22 @@ class TotpManager(
     }
 
     /**
+     * Returns the confirmed TOTP enrollment with the given [enrollmentId], or null if not found or not confirmed.
+     */
+    suspend fun findConfirmedEnrollmentOrNull(enrollmentId: UUID): TotpEnrollment? {
+        return totpEnrollmentRepository.findById(enrollmentId)
+            ?.takeIf { it.confirmedDate != null }
+            ?.let(totpEnrollmentMapper::toTotpEnrollment)
+    }
+
+    /**
+     * Deletes the given TOTP [enrollment].
+     */
+    suspend fun deleteEnrollment(enrollment: TotpEnrollment) {
+        totpEnrollmentRepository.deleteById(enrollment.id)
+    }
+
+    /**
      * Builds a standard otpauth:// URI ready for QR code generation.
      *
      * The [issuer] is the name of the service (e.g. the configured application name or domain).
