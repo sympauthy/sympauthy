@@ -19,7 +19,7 @@ buildscript {
 allprojects {
     apply<JavaPlugin>()
 
-    version = "0.1"
+    version = "0.5.0"
     group = "com.sympauthy"
 
     extra.apply {

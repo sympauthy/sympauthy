@@ -73,7 +73,11 @@ Scopes use a sealed class hierarchy (`Scope` → `ConsentableUserScope`, `Granta
 
 - **PostgreSQL** (production) and **H2** (development) via R2DBC
 - **Flyway migrations** in `server/src/main/resources/databases/postgresql/` and `databases/h2/` (both must be kept in sync)
-- Migration naming: `V{N}__{description}.sql`
+- Migration naming: `V{major}_{minor}_{patch}_{sequence}__{table_name}_{new|edit}.sql`
+  - Version reflects the SympAuthy version from `build.gradle.kts` (e.g., `0_5_0` for version `0.5.0`)
+  - `_new` suffix: full CREATE TABLE + indexes (one file per table, always reflects the complete current state)
+  - `_edit` suffix: ALTER TABLE changes for future incremental modifications
+  - Example: `V0_5_0_1__users_new.sql`, `V0_6_0_1__users_edit.sql`
 
 ## Configuration
 
