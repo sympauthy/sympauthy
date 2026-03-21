@@ -29,18 +29,22 @@ abstract class AuthorizeAttemptMapper {
             id = entity.id ?: throw invalidBusinessException("id"),
             authorizationFlowId = entity.authorizationFlowId,
             expirationDate = entity.expirationDate,
+            attemptDate = entity.attemptDate,
             clientId = entity.clientId ?: throw invalidBusinessException("clientId"),
-            requestedScopes = entity.requestedScopes.toList(),
             redirectUri = entity.redirectUri ?: throw invalidBusinessException("redirectUri"),
+            requestedScopes = entity.requestedScopes.toList(),
             state = entity.state,
             nonce = entity.nonce,
-            userId = entity.userId,
-            grantedScopes = entity.grantedScopes?.toList(),
-            consentedScopes = entity.consentedScopes?.toList(),
-            mfaPassedDate = entity.mfaPassedDate,
             codeChallenge = codeChallenge,
             codeChallengeMethod = codeChallengeMethod,
-            attemptDate = entity.attemptDate
+            userId = entity.userId,
+            consentedScopes = entity.consentedScopes?.toList(),
+            consentedAt = entity.consentedAt,
+            consentedBy = entity.consentedBy?.let { ConsentedBy.valueOf(it) },
+            mfaPassedDate = entity.mfaPassedDate,
+            grantedScopes = entity.grantedScopes?.toList(),
+            grantedAt = entity.grantedAt,
+            grantedBy = entity.grantedBy?.let { GrantedBy.valueOf(it) },
         )
     }
 
@@ -50,18 +54,24 @@ abstract class AuthorizeAttemptMapper {
             id = entity.id ?: throw invalidBusinessException("id"),
             authorizationFlowId = entity.authorizationFlowId,
             expirationDate = entity.expirationDate,
+            attemptDate = entity.attemptDate,
             clientId = entity.clientId ?: throw invalidBusinessException("clientId"),
-            requestedScopes = entity.requestedScopes.toList(),
             redirectUri = entity.redirectUri ?: throw invalidBusinessException("redirectUri"),
+            requestedScopes = entity.requestedScopes.toList(),
             state = entity.state,
             nonce = entity.nonce,
-            userId = entity.userId ?: throw invalidBusinessException("userId"),
-            grantedScopes = entity.grantedScopes?.toList() ?: throw invalidBusinessException("grantedScopes"),
-            consentedScopes = entity.consentedScopes?.toList() ?: throw invalidBusinessException("consentedScopes"),
             codeChallenge = codeChallenge,
             codeChallengeMethod = codeChallengeMethod,
-            attemptDate = entity.attemptDate,
-            completeDate = entity.completeDate ?: throw invalidBusinessException("completeDate")
+            userId = entity.userId ?: throw invalidBusinessException("userId"),
+            consentedScopes = entity.consentedScopes?.toList() ?: throw invalidBusinessException("consentedScopes"),
+            consentedAt = entity.consentedAt ?: throw invalidBusinessException("consentedAt"),
+            consentedBy = entity.consentedBy?.let { ConsentedBy.valueOf(it) }
+                ?: throw invalidBusinessException("consentedBy"),
+            grantedScopes = entity.grantedScopes?.toList() ?: throw invalidBusinessException("grantedScopes"),
+            grantedAt = entity.grantedAt ?: throw invalidBusinessException("grantedAt"),
+            grantedBy = entity.grantedBy?.let { GrantedBy.valueOf(it) }
+                ?: throw invalidBusinessException("grantedBy"),
+            completeDate = entity.completeDate ?: throw invalidBusinessException("completeDate"),
         )
     }
 

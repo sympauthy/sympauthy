@@ -18,9 +18,25 @@ data class AuthenticationToken(
      */
     val grantedScopes: List<String>,
     /**
+     * When the grantable scopes were granted.
+     */
+    val grantedAt: LocalDateTime?,
+    /**
+     * How the grantable scopes were granted (auto or rule).
+     */
+    val grantedBy: GrantedBy?,
+    /**
      * Consentable scopes obtained through user consent.
      */
     val consentedScopes: List<String>,
+    /**
+     * When the consentable scopes were consented.
+     */
+    val consentedAt: LocalDateTime?,
+    /**
+     * How the consentable scopes were consented (auto or user).
+     */
+    val consentedBy: ConsentedBy?,
     /**
      * Client scopes for client_credentials flows.
      */

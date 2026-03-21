@@ -177,15 +177,21 @@ class AuthorizeAttemptManager(
      */
     suspend fun setGrantedScopes(
         authorizeAttempt: OnGoingAuthorizeAttempt,
-        grantedScopes: List<Scope>
+        grantedScopes: List<Scope>,
+        grantedBy: GrantedBy
     ): OnGoingAuthorizeAttempt {
         val grantedScopeIds = grantedScopes.map(Scope::scope)
+        val grantedAt = LocalDateTime.now()
         authorizeAttemptRepository.updateGrantedScopes(
             id = authorizeAttempt.id,
-            grantedScopes = grantedScopeIds
+            grantedScopes = grantedScopeIds,
+            grantedAt = grantedAt,
+            grantedBy = grantedBy.name
         )
         return authorizeAttempt.copy(
-            grantedScopes = grantedScopeIds
+            grantedScopes = grantedScopeIds,
+            grantedAt = grantedAt,
+            grantedBy = grantedBy
         )
     }
 
@@ -194,15 +200,21 @@ class AuthorizeAttemptManager(
      */
     suspend fun setConsentedScopes(
         authorizeAttempt: OnGoingAuthorizeAttempt,
-        consentedScopes: List<Scope>
+        consentedScopes: List<Scope>,
+        consentedBy: ConsentedBy
     ): OnGoingAuthorizeAttempt {
         val consentedScopeIds = consentedScopes.map(Scope::scope)
+        val consentedAt = LocalDateTime.now()
         authorizeAttemptRepository.updateConsentedScopes(
             id = authorizeAttempt.id,
-            consentedScopes = consentedScopeIds
+            consentedScopes = consentedScopeIds,
+            consentedAt = consentedAt,
+            consentedBy = consentedBy.name
         )
         return authorizeAttempt.copy(
-            consentedScopes = consentedScopeIds
+            consentedScopes = consentedScopeIds,
+            consentedAt = consentedAt,
+            consentedBy = consentedBy
         )
     }
 
@@ -253,17 +265,29 @@ class AuthorizeAttemptManager(
             id = authorizeAttempt.id,
             authorizationFlowId = authorizeAttempt.authorizationFlowId,
             expirationDate = authorizeAttempt.expirationDate,
+            attemptDate = authorizeAttempt.attemptDate,
             clientId = authorizeAttempt.clientId,
-            requestedScopes = authorizeAttempt.requestedScopes,
             redirectUri = authorizeAttempt.redirectUri,
+            requestedScopes = authorizeAttempt.requestedScopes,
             state = authorizeAttempt.state,
             nonce = authorizeAttempt.nonce,
-            userId = userId,
-            grantedScopes = authorizeAttempt.grantedScopes ?: emptyList(),
-            consentedScopes = authorizeAttempt.consentedScopes ?: emptyList(),
             codeChallenge = authorizeAttempt.codeChallenge,
             codeChallengeMethod = authorizeAttempt.codeChallengeMethod,
-            attemptDate = authorizeAttempt.attemptDate,
+            userId = userId,
+            consentedScopes = authorizeAttempt.consentedScopes ?: emptyList(),
+            consentedAt = authorizeAttempt.consentedAt ?: throw businessExceptionOf(
+                "auth.authorize_attempt.complete.missing_consented_at"
+            ),
+            consentedBy = authorizeAttempt.consentedBy ?: throw businessExceptionOf(
+                "auth.authorize_attempt.complete.missing_consented_by"
+            ),
+            grantedScopes = authorizeAttempt.grantedScopes ?: emptyList(),
+            grantedAt = authorizeAttempt.grantedAt ?: throw businessExceptionOf(
+                "auth.authorize_attempt.complete.missing_granted_at"
+            ),
+            grantedBy = authorizeAttempt.grantedBy ?: throw businessExceptionOf(
+                "auth.authorize_attempt.complete.missing_granted_by"
+            ),
             completeDate = LocalDateTime.now()
         )
     }

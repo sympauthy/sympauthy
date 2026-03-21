@@ -12,32 +12,43 @@ import java.util.*
 @Serdeable
 @MappedEntity("authorize_attempts")
 class AuthorizeAttemptEntity(
+    // Attempt metadata
     val attemptDate: LocalDateTime,
-    val clientId: String? = null,
     val authorizationFlowId: String? = null,
+    val expirationDate: LocalDateTime,
+
+    // Authorize endpoint fields
+    val clientId: String? = null,
     val redirectUri: String? = null,
     val requestedScopes: Array<String> = emptyArray(),
     val state: String? = null,
     val nonce: String? = null,
+    val codeChallenge: String? = null,
+    val codeChallengeMethod: String? = null,
+
+    // User identification
     val userId: UUID? = null,
-    /**
-     * Scopes granted through granting rules (grantable scopes only).
-     */
-    val grantedScopes: Array<String>? = null,
-    /**
-     * Scopes obtained through user consent (consentable scopes only).
-     */
+
+    // Consent
     val consentedScopes: Array<String>? = null,
+    val consentedAt: LocalDateTime? = null,
+    val consentedBy: String? = null,
+
+    // MFA
+    val mfaPassedDate: LocalDateTime? = null,
+
+    // Granting / Authorization
+    val grantedScopes: Array<String>? = null,
+    val grantedAt: LocalDateTime? = null,
+    val grantedBy: String? = null,
+    val completeDate: LocalDateTime? = null,
+
+    // Error
     val errorDate: LocalDateTime? = null,
     val errorDetailsId: String? = null,
     val errorDescriptionId: String? = null,
     @MappedProperty(type = DataType.JSON)
     val errorValues: Map<String, String>? = null,
-    val completeDate: LocalDateTime? = null,
-    val mfaPassedDate: LocalDateTime? = null,
-    val codeChallenge: String? = null,
-    val codeChallengeMethod: String? = null,
-    val expirationDate: LocalDateTime
 ) {
     @Id
     @GeneratedValue
