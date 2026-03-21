@@ -84,8 +84,7 @@ open class ProviderConfigManager(
     }
 
     private fun configureProviders(): List<Provider> {
-        logger.info("Detected ${providers.count()} provider(s) in the configuration.")
-        val configuredProviders = providers.map {
+        return providers.map {
             try {
                 configureProvider(it)
             } catch (e: LocalizedException) {
@@ -95,13 +94,6 @@ open class ProviderConfigManager(
                 DisabledProvider(it.id, e)
             }
         }
-        val enabledProviderCount = configuredProviders.filterIsInstance<EnabledProvider>().count()
-        if (enabledProviderCount == providers.count()) {
-            logger.info("All $enabledProviderCount provider(s) configured.")
-        } else {
-            logger.error("$enabledProviderCount/${providers.count()} provider(s) configured. Fix error(s) above.")
-        }
-        return configuredProviders
     }
 
     internal fun configureProvider(config: ProviderConfigurationProperties): EnabledProvider {

@@ -7,6 +7,7 @@ import com.sympauthy.business.model.user.claim.StandardClaim
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ConfigReadinessManager
 import com.sympauthy.business.manager.ScopeManager
+import com.sympauthy.business.manager.provider.ProviderConfigManager
 import com.sympauthy.business.manager.rule.ScopeGrantingRuleManager
 import com.sympauthy.business.model.oauth2.isAdmin
 import com.sympauthy.config.model.AdminConfig
@@ -46,6 +47,7 @@ class ApplicationReadinessStatusPrinter(
     @Inject private val clientManager: ClientManager,
     @Inject private val scopeManager: ScopeManager,
     @Inject private val scopeGrantingRuleManager: ScopeGrantingRuleManager,
+    @Inject private val providerConfigManager: ProviderConfigManager,
     @Inject private val uncheckedAuthConfig: AuthConfig,
     @Inject private val uncheckedMfaConfig: MfaConfig,
     @Inject private val uncheckedUrlsConfig: UrlsConfig,
@@ -74,6 +76,29 @@ class ApplicationReadinessStatusPrinter(
         logger.info("SympAuthy is ready and has found the following elements in its configuration:")
         val authConfig = uncheckedAuthConfig.orThrow()
         logger.info("- Issuer: ${authConfig.issuer} / Audience: ${authConfig.audience}")
+
+        val byPasswordLabel = if (authConfig.byPassword.enabled) "enabled" else "disabled"
+        logger.info("- Authentication by password: $byPasswordLabel.")
+        val enabledProviders = try {
+            providerConfigManager.listEnabledProviders()
+        } catch (_: Throwable) {
+            emptyList()
+        }
+        if (enabledProviders.isEmpty()) {
+            logger.info("- Authentication by provider: disabled.")
+        } else {
+            logger.info("- Authentication by provider: enabled (${pluralize(enabledProviders.size, "provider")}).")
+        }
+
+        val mfaConfig = uncheckedMfaConfig as? EnabledMfaConfig
+        val mfaMethods = listOfNotNull("TOTP".takeIf { mfaConfig?.totp == true })
+        if (mfaConfig == null || (!mfaConfig.required && mfaMethods.isEmpty())) {
+            logger.info("- MFA disabled.")
+        } else {
+            val requiredLabel = if (mfaConfig.required) "required" else "optional"
+            logger.info("- MFA enabled ($requiredLabel, ${mfaMethods.joinToString()}).")
+        }
+
         val enabledClaims = try {
             claimManager.listEnabledClaims()
         } catch (_: Throwable) {
@@ -81,7 +106,7 @@ class ApplicationReadinessStatusPrinter(
         }
         val standardClaimsCount = enabledClaims.count { it is StandardClaim }
         val customClaimsCount = enabledClaims.count { it is CustomClaim }
-        logger.info("- ${enabledClaims.size} claim(s) ($standardClaimsCount standard, $customClaimsCount custom).")
+        logger.info("- ${pluralize(enabledClaims.size, "claim")} (${pluralize(standardClaimsCount, "standard")}, ${pluralize(customClaimsCount, "custom")}).")
 
         val scopes = try {
             scopeManager.listScopes()
@@ -92,31 +117,24 @@ class ApplicationReadinessStatusPrinter(
         val adminScopesCount = scopes.count { it is com.sympauthy.business.model.oauth2.GrantableUserScope && it.isAdmin }
         val grantableScopesCount = scopes.count { it is com.sympauthy.business.model.oauth2.GrantableUserScope && !it.isAdmin }
         val clientScopesCount = scopes.count { it is com.sympauthy.business.model.oauth2.ClientScope }
-        logger.info("- ${scopes.size} scope(s) ($consentableScopesCount consentable, $grantableScopesCount grantable, $adminScopesCount admin, $clientScopesCount client).")
+        logger.info("- ${pluralize(scopes.size, "scope")} (${pluralize(consentableScopesCount, "consentable")}, ${pluralize(grantableScopesCount, "grantable")}, ${pluralize(adminScopesCount, "admin")}, ${pluralize(clientScopesCount, "client")}).")
 
         val clientsCount = try {
             clientManager.listClients().size
         } catch (_: Throwable) {
             0
         }
-        logger.info("- $clientsCount client(s).")
+        logger.info("- ${pluralize(clientsCount, "client")}.")
 
         val rulesCount = try {
             scopeGrantingRuleManager.listScopeGrantingRules().size
         } catch (_: Throwable) {
             0
         }
-        logger.info("- $rulesCount rule(s).")
-
-        val mfaConfig = uncheckedMfaConfig as? EnabledMfaConfig
-        val mfaMethods = listOfNotNull("TOTP".takeIf { mfaConfig?.totp == true })
-        if (mfaConfig == null || (!mfaConfig.required && mfaMethods.isEmpty())) {
-            logger.info("- MFA disabled.")
-        } else {
-            val requiredLabel = if (mfaConfig.required) "required" else "optional"
-            logger.info("- MFA enabled ($requiredLabel, ${mfaMethods.joinToString()}).")
-        }
+        logger.info("- ${pluralize(rulesCount, "rule")}.")
     }
+
+    private fun pluralize(count: Int, singular: String) = if (count <= 1) "$count $singular" else "$count ${singular}s"
 
     private fun printServingBanner() {
         val urlsConfig = uncheckedUrlsConfig.getOrNull() ?: return
