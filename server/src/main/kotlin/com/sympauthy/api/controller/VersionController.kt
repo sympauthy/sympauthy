@@ -14,7 +14,9 @@ import kotlinx.coroutines.rx3.await
 
 @Controller("/version")
 @Secured(IS_ANONYMOUS)
-class VersionController {
+class VersionController(
+    @param:io.micronaut.context.annotation.Value("\${micronaut.application.version}") private val version: String,
+) {
 
     private val apiVersion = Single.create {
         val annotation = OpenAPI::class.annotations
@@ -31,6 +33,7 @@ class VersionController {
     suspend fun get(): VersionResource {
         val apiVersion = apiVersion.await()
         return VersionResource(
+            version = version,
             apiVersions = listOf(apiVersion)
         )
     }

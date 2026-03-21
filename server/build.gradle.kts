@@ -191,4 +191,9 @@ tasks {
     withType<Jar> {
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     }
+    processResources {
+        filesMatching("application.yml") {
+            expand(project.properties)
+        }
+    }
 }

@@ -54,6 +54,7 @@ class ApplicationReadinessStatusPrinter(
     @Inject private val adminConfig: AdminConfig,
     @Inject private val environment: Environment,
     @param:ErrorMessages @Inject private val messageSource: MessageSource,
+    @Inject @param:io.micronaut.context.annotation.Value("\${micronaut.application.version}") private val version: String,
 ) : ApplicationEventListener<ServiceReadyEvent> {
 
     private val logger = loggerForClass()
@@ -73,7 +74,7 @@ class ApplicationReadinessStatusPrinter(
     }
 
     private suspend fun printReadyBanner() {
-        logger.info("SympAuthy is ready and has found the following elements in its configuration:")
+        logger.info("SympAuthy v$version is ready and has found the following elements in its configuration:")
         val authConfig = uncheckedAuthConfig.orThrow()
         logger.info("- Issuer: ${authConfig.issuer} / Audience: ${authConfig.audience}")
 
@@ -153,7 +154,7 @@ class ApplicationReadinessStatusPrinter(
         }
 
         if (entries.isNotEmpty()) {
-            logger.info("SympAuthy is currently serving:")
+            logger.info("SympAuthy v$version is currently serving:")
             entries.forEach { (label, url) ->
                 logger.info("- $label: $url")
             }

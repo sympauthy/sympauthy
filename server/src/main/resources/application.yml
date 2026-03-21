@@ -6,6 +6,7 @@
 micronaut:
   application:
     name: sympauthy
+    version: ${version}
 
   server:
     cors:
