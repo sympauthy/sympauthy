@@ -45,12 +45,24 @@ Multi-module Gradle project (root + `server`). All source code is in `server/src
 
 ### Key Conventions
 
-- **Managers never return entities** — only `business.model` types are exposed to controllers
-- **Nullable methods use `OrNull` suffix** — e.g., `findByCodeOrNull()` returns `T?`
-- **All async operations use `suspend` functions** — no callbacks or reactive streams in business logic
+#### Config (com.sympauthy.config)
+
 - **Config sealed class pattern** — `EnabledXxxConfig` / `DisabledXxxConfig` with `orThrow()` extension for required configs, `as? EnabledXxxConfig` for optional feature checks
+
+#### Business (com.sympauthy.business)
+
+- **Business manager guidelines**: https://sympauthy.github.io/contributing/backend/how-to-write-a-business-manager.html
+- **Managers never return entities** — only `business.model` types are exposed to controllers
 - **Exception factory methods** — `businessExceptionOf()`, `recoverableBusinessExceptionOf()` (user-retryable), `internalBusinessExceptionOf()` (server errors). Error messages in `error_messages.properties`
+
+#### Data (com.sympauthy.data)
+
 - **Repository update methods** — `suspend fun updateXxx(@Id id: UUID, xxx: T)`. Never use `And` in update method names. `delete()` returns `Int` in Micronaut Data 4.x
+
+#### Others
+
+- **Nullable methods use `OrNull` suffix** — e.g., `findByCodeOrNull()` returns `T?`
+- **All async operations prefer `suspend` functions** — no callbacks or reactive streams
 - **MapStruct mappers** — Compile-time generation. New `*Impl` classes must be registered in `META-INF/native-image/.../reflect-config.json` for native image support
 
 ### Scope Type Hierarchy
