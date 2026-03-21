@@ -145,4 +145,12 @@ data class GrantScopesResult(
      * List of [Scope] that have been declined after all scope-granting methods have been applied.
      */
     val declinedScopes = results.fold(emptyList<Scope>()) { acc, result -> acc + result.declinedScopes }
+
+    /**
+     * True if all granted scopes were auto-granted (built-in scopes with autoGranted flag),
+     * meaning no granting rules or default behavior contributed any scopes.
+     * The first element in [results] is always the auto-granted partition.
+     */
+    val allAutoGranted: Boolean
+        get() = results.drop(1).all { it.grantedScopes.isEmpty() }
 }

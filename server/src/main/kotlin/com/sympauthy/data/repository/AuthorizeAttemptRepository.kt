@@ -30,9 +30,19 @@ interface AuthorizeAttemptRepository : CoroutineCrudRepository<AuthorizeAttemptE
 
     suspend fun updateUserId(@Id id: UUID, userId: UUID)
 
-    suspend fun updateGrantedScopes(@Id id: UUID, grantedScopes: List<String>?)
+    suspend fun updateGrantedScopes(
+        @Id id: UUID,
+        grantedScopes: List<String>?,
+        grantedAt: LocalDateTime,
+        grantedBy: String
+    )
 
-    suspend fun updateConsentedScopes(@Id id: UUID, consentedScopes: List<String>?)
+    suspend fun updateConsentedScopes(
+        @Id id: UUID,
+        consentedScopes: List<String>?,
+        consentedAt: LocalDateTime,
+        consentedBy: String
+    )
 
     suspend fun updateError(
         @Id id: UUID,

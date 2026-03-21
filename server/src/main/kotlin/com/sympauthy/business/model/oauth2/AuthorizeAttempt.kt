@@ -33,6 +33,14 @@ class OnGoingAuthorizeAttempt(
     id: UUID,
     authorizationFlowId: String?,
     expirationDate: LocalDateTime,
+
+    // Attempt metadata
+    /**
+     * When the user initiated the authentication.
+     */
+    val attemptDate: LocalDateTime,
+
+    // Authorize endpoint fields
     /**
      * The identifier of the client that initiated the authentication.
      *
@@ -40,16 +48,16 @@ class OnGoingAuthorizeAttempt(
      */
     val clientId: String,
     /**
+     * The URI where we must redirect the user once the authentication flow is finished.
+     */
+    val redirectUri: String,
+    /**
      * Sanitized scopes requested by the client.
      * Un-allowed and invalid scopes have already been filtered out.
      *
      * @see <a href="https://datatracker.ietf.org/doc/html/rfc6749#section-3.3">Scope</a>
      */
     val requestedScopes: List<String>,
-    /**
-     * The URI where we must redirect the user once the authentication flow is finished.
-     */
-    val redirectUri: String,
     /**
      * The state passed by the client to the authorize endpoint.
      */
@@ -59,23 +67,6 @@ class OnGoingAuthorizeAttempt(
      */
     val nonce: String? = null,
     /**
-     * The identifier of the user that was connected at the end of the authentication process.
-     */
-    val userId: UUID?,
-    /**
-     * Grantable scopes that were granted to the user through granting rules during the authorization process.
-     */
-    val grantedScopes: List<String>?,
-    /**
-     * Consentable scopes that the user consented to during the authorization process.
-     */
-    val consentedScopes: List<String>?,
-    /**
-     * When the end-user successfully completed the MFA step for this authorization attempt.
-     * Null if MFA has not been completed yet.
-     */
-    val mfaPassedDate: LocalDateTime? = null,
-    /**
      * The PKCE code challenge provided during authorization (RFC 7636).
      */
     val codeChallenge: String? = null,
@@ -83,10 +74,47 @@ class OnGoingAuthorizeAttempt(
      * The PKCE code challenge method used (RFC 7636).
      */
     val codeChallengeMethod: CodeChallengeMethod? = null,
+
+    // User identification
     /**
-     * When the user initiated the authentication.
+     * The identifier of the user that was connected at the end of the authentication process.
      */
-    val attemptDate: LocalDateTime,
+    val userId: UUID?,
+
+    // Consent
+    /**
+     * Consentable scopes that the user consented to during the authorization process.
+     */
+    val consentedScopes: List<String>?,
+    /**
+     * When the consentable scopes were consented.
+     */
+    val consentedAt: LocalDateTime? = null,
+    /**
+     * How the consentable scopes were consented (auto or user).
+     */
+    val consentedBy: ConsentedBy? = null,
+
+    // MFA
+    /**
+     * When the end-user successfully completed the MFA step for this authorization attempt.
+     * Null if MFA has not been completed yet.
+     */
+    val mfaPassedDate: LocalDateTime? = null,
+
+    // Granting / Authorization
+    /**
+     * Grantable scopes that were granted to the user through granting rules during the authorization process.
+     */
+    val grantedScopes: List<String>?,
+    /**
+     * When the grantable scopes were granted.
+     */
+    val grantedAt: LocalDateTime? = null,
+    /**
+     * How the grantable scopes were granted (auto or rule).
+     */
+    val grantedBy: GrantedBy? = null,
 ) : AuthorizeAttempt(
     id = id,
     authorizationFlowId = authorizationFlowId,
@@ -99,25 +127,33 @@ class OnGoingAuthorizeAttempt(
 
     fun copy(
         userId: UUID? = null,
-        grantedScopes: List<String>? = null,
         consentedScopes: List<String>? = null,
-        mfaPassedDate: LocalDateTime? = null
+        consentedAt: LocalDateTime? = null,
+        consentedBy: ConsentedBy? = null,
+        mfaPassedDate: LocalDateTime? = null,
+        grantedScopes: List<String>? = null,
+        grantedAt: LocalDateTime? = null,
+        grantedBy: GrantedBy? = null,
     ) = OnGoingAuthorizeAttempt(
         id = this.id,
         authorizationFlowId = this.authorizationFlowId,
         expirationDate = this.expirationDate,
+        attemptDate = this.attemptDate,
         clientId = this.clientId,
-        requestedScopes = this.requestedScopes,
         redirectUri = this.redirectUri,
+        requestedScopes = this.requestedScopes,
         state = this.state,
         nonce = this.nonce,
-        userId = userId ?: this.userId,
-        grantedScopes = grantedScopes ?: this.grantedScopes,
-        consentedScopes = consentedScopes ?: this.consentedScopes,
-        mfaPassedDate = mfaPassedDate ?: this.mfaPassedDate,
         codeChallenge = this.codeChallenge,
         codeChallengeMethod = this.codeChallengeMethod,
-        attemptDate = this.attemptDate
+        userId = userId ?: this.userId,
+        consentedScopes = consentedScopes ?: this.consentedScopes,
+        consentedAt = consentedAt ?: this.consentedAt,
+        consentedBy = consentedBy ?: this.consentedBy,
+        mfaPassedDate = mfaPassedDate ?: this.mfaPassedDate,
+        grantedScopes = grantedScopes ?: this.grantedScopes,
+        grantedAt = grantedAt ?: this.grantedAt,
+        grantedBy = grantedBy ?: this.grantedBy,
     )
 }
 
@@ -131,6 +167,14 @@ class CompletedAuthorizeAttempt(
     id: UUID,
     authorizationFlowId: String?,
     expirationDate: LocalDateTime,
+
+    // Attempt metadata
+    /**
+     * When the user initiated the authentication.
+     */
+    val attemptDate: LocalDateTime,
+
+    // Authorize endpoint fields
     /**
      * The identifier of the client that initiated the authentication.
      *
@@ -138,16 +182,16 @@ class CompletedAuthorizeAttempt(
      */
     val clientId: String,
     /**
+     * The URI where we must redirect the user once the authentication flow is finished.
+     */
+    val redirectUri: String,
+    /**
      * Sanitized scopes requested by the client.
      * Un-allowed and invalid scopes have already been filtered out.
      *
      * @see <a href="https://datatracker.ietf.org/doc/html/rfc6749#section-3.3">Scope</a>
      */
     val requestedScopes: List<String>,
-    /**
-     * The URI where we must redirect the user once the authentication flow is finished.
-     */
-    val redirectUri: String,
     /**
      * The state passed by the client to the authorize endpoint.
      */
@@ -157,18 +201,6 @@ class CompletedAuthorizeAttempt(
      */
     val nonce: String? = null,
     /**
-     * The identifier of the user that was connected at the end of the authentication process.
-     */
-    val userId: UUID,
-    /**
-     * Grantable scopes that were granted to the user through granting rules during the authorization process.
-     */
-    val grantedScopes: List<String>,
-    /**
-     * Consentable scopes that the user consented to during the authorization process.
-     */
-    val consentedScopes: List<String>,
-    /**
      * The PKCE code challenge provided during authorization (RFC 7636).
      */
     val codeChallenge: String? = null,
@@ -176,10 +208,40 @@ class CompletedAuthorizeAttempt(
      * The PKCE code challenge method used (RFC 7636).
      */
     val codeChallengeMethod: CodeChallengeMethod? = null,
+
+    // User identification
     /**
-     * When the user initiated the authentication.
+     * The identifier of the user that was connected at the end of the authentication process.
      */
-    val attemptDate: LocalDateTime,
+    val userId: UUID,
+
+    // Consent
+    /**
+     * Consentable scopes that the user consented to during the authorization process.
+     */
+    val consentedScopes: List<String>,
+    /**
+     * When the consentable scopes were consented.
+     */
+    val consentedAt: LocalDateTime,
+    /**
+     * How the consentable scopes were consented (auto or user).
+     */
+    val consentedBy: ConsentedBy,
+
+    // Granting / Authorization
+    /**
+     * Grantable scopes that were granted to the user through granting rules during the authorization process.
+     */
+    val grantedScopes: List<String>,
+    /**
+     * When the grantable scopes were granted.
+     */
+    val grantedAt: LocalDateTime,
+    /**
+     * How the grantable scopes were granted (auto or rule).
+     */
+    val grantedBy: GrantedBy,
     /**
      * When the user has completed the authorization flow.
      */

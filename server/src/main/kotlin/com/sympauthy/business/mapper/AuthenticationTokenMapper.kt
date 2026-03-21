@@ -3,6 +3,8 @@ package com.sympauthy.business.mapper
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.mapper.config.ToBusinessMapperConfig
 import com.sympauthy.business.model.oauth2.AuthenticationToken
+import com.sympauthy.business.model.oauth2.ConsentedBy
+import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.data.model.AuthenticationTokenEntity
 import org.mapstruct.AfterMapping
 import org.mapstruct.Mapper
@@ -15,7 +17,13 @@ import org.mapstruct.MappingTarget
 abstract class AuthenticationTokenMapper {
 
     @Mapping(target = "allScopes", ignore = true)
+    @Mapping(target = "consentedBy", expression = "java(mapConsentedBy(entity.getConsentedBy()))")
+    @Mapping(target = "grantedBy", expression = "java(mapGrantedBy(entity.getGrantedBy()))")
     abstract fun toToken(entity: AuthenticationTokenEntity): AuthenticationToken
+
+    fun mapConsentedBy(value: String?): ConsentedBy? = value?.let { ConsentedBy.valueOf(it) }
+
+    fun mapGrantedBy(value: String?): GrantedBy? = value?.let { GrantedBy.valueOf(it) }
 
     @AfterMapping
     protected fun validateTokenCoherence(@MappingTarget token: AuthenticationToken) {

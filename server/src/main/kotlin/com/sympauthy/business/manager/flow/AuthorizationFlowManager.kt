@@ -13,6 +13,8 @@ import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.model.oauth2.ConsentableUserScope
+import com.sympauthy.business.model.oauth2.ConsentedBy
+import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.config.model.AuthorizationFlowsConfig
 import com.sympauthy.config.model.FeaturesConfig
@@ -118,12 +120,14 @@ class AuthorizationFlowManager(
         )
         modifiedAuthorizedAttempt = authorizeAttemptManager.setGrantedScopes(
             authorizeAttempt = modifiedAuthorizedAttempt,
-            grantedScopes = grantScopesResult.grantedScopes
+            grantedScopes = grantScopesResult.grantedScopes,
+            grantedBy = if (grantScopesResult.allAutoGranted) GrantedBy.AUTO else GrantedBy.RULE
         )
         // Auto-consent all requested consentable scopes (no consent screen yet)
         modifiedAuthorizedAttempt = authorizeAttemptManager.setConsentedScopes(
             authorizeAttempt = modifiedAuthorizedAttempt,
-            consentedScopes = consentedScopes
+            consentedScopes = consentedScopes,
+            consentedBy = ConsentedBy.AUTO
         )
 
         val hasAnyScope = !modifiedAuthorizedAttempt.grantedScopes.isNullOrEmpty() ||

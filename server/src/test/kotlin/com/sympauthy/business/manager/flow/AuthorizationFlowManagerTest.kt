@@ -8,7 +8,9 @@ import com.sympauthy.business.manager.auth.ScopeGrantingManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
+import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.FailedAuthorizeAttempt
+import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.user.CollectedClaim
@@ -108,10 +110,10 @@ class AuthorizationFlowManagerTest {
         )
         coEvery { scopeGrantingManager.grantScopes(onGoingAttempt, collectedClaims) } returns grantScopesResult
         coEvery {
-            authorizeAttemptManager.setGrantedScopes(onGoingAttempt, grantedScopeObjects)
+            authorizeAttemptManager.setGrantedScopes(onGoingAttempt, grantedScopeObjects, any())
         } returns afterGranted
         coEvery {
-            authorizeAttemptManager.setConsentedScopes(afterGranted, emptyList())
+            authorizeAttemptManager.setConsentedScopes(afterGranted, emptyList(), any())
         } returns afterConsented
         coEvery { authorizeAttemptManager.markAsComplete(afterConsented) } returns completedAttempt
         coEvery { consentManager.saveGrantedConsent(userId, clientId, consentedScopes) } returns mockk()
@@ -151,10 +153,10 @@ class AuthorizationFlowManagerTest {
             )
             coEvery { scopeGrantingManager.grantScopes(onGoingAttempt, collectedClaims) } returns grantScopesResult
             coEvery {
-                authorizeAttemptManager.setGrantedScopes(onGoingAttempt, emptyList())
+                authorizeAttemptManager.setGrantedScopes(onGoingAttempt, emptyList(), any())
             } returns afterGranted
             coEvery {
-                authorizeAttemptManager.setConsentedScopes(afterGranted, emptyList())
+                authorizeAttemptManager.setConsentedScopes(afterGranted, emptyList(), any())
             } returns afterConsented
             coEvery { authorizeAttemptManager.markAsComplete(afterConsented) } returns completedAttempt
             coEvery { consentManager.saveGrantedConsent(userId, clientId, emptyList()) } returns mockk()
@@ -189,10 +191,10 @@ class AuthorizationFlowManagerTest {
             )
             coEvery { scopeGrantingManager.grantScopes(onGoingAttempt, collectedClaims) } returns grantScopesResult
             coEvery {
-                authorizeAttemptManager.setGrantedScopes(onGoingAttempt, emptyList())
+                authorizeAttemptManager.setGrantedScopes(onGoingAttempt, emptyList(), any())
             } returns afterGranted
             coEvery {
-                authorizeAttemptManager.setConsentedScopes(afterGranted, emptyList())
+                authorizeAttemptManager.setConsentedScopes(afterGranted, emptyList(), any())
             } returns afterConsented
             coEvery {
                 authorizeAttemptManager.markAsFailedIfNotRecoverable(onGoingAttempt, any())
@@ -238,10 +240,10 @@ class AuthorizationFlowManagerTest {
         )
         coEvery { scopeGrantingManager.grantScopes(onGoingAttempt, collectedClaims) } returns grantScopesResult
         coEvery {
-            authorizeAttemptManager.setGrantedScopes(onGoingAttempt, grantedScopeObjects)
+            authorizeAttemptManager.setGrantedScopes(onGoingAttempt, grantedScopeObjects, any())
         } returns afterGranted
         coEvery {
-            authorizeAttemptManager.setConsentedScopes(afterGranted, emptyList())
+            authorizeAttemptManager.setConsentedScopes(afterGranted, emptyList(), any())
         } returns afterConsented
         coEvery { authorizeAttemptManager.markAsComplete(afterConsented) } returns completedAttempt
         coEvery { consentManager.saveGrantedConsent(userId, clientId, emptyList()) } returns mockk()
@@ -260,15 +262,15 @@ class AuthorizationFlowManagerTest {
             id = UUID.randomUUID(),
             authorizationFlowId = "flow-id",
             expirationDate = LocalDateTime.now().plusHours(1),
+            attemptDate = LocalDateTime.now(),
             clientId = "client-id",
-            requestedScopes = emptyList(),
             redirectUri = "https://example.com/callback",
+            requestedScopes = emptyList(),
             state = "state",
             nonce = "nonce",
             userId = userId,
-            grantedScopes = grantedScopes,
             consentedScopes = consentedScopes,
-            attemptDate = LocalDateTime.now()
+            grantedScopes = grantedScopes,
         )
     }
 

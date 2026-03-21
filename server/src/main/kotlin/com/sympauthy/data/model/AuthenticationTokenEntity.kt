@@ -21,10 +21,14 @@ class AuthenticationTokenEntity(
      * Scopes granted through granting rules (grantable scopes only).
      */
     val grantedScopes: Array<String>,
+    val grantedAt: LocalDateTime? = null,
+    val grantedBy: String? = null,
     /**
      * Scopes obtained through user consent (consentable scopes only).
      */
     val consentedScopes: Array<String>,
+    val consentedAt: LocalDateTime? = null,
+    val consentedBy: String? = null,
     /**
      * Scopes for client_credentials flows (client scopes only).
      */
