@@ -222,5 +222,14 @@
         "parameterTypes": []
       }
     ]
+  },
+  {
+    "name": "com.sympauthy.api.mapper.client.ClientUserResourceMapperImpl",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
   }
 ]
