@@ -3,7 +3,6 @@ package com.sympauthy.api.controller.client
 import com.sympauthy.api.mapper.CollectedClaimUpdateMapper
 import com.sympauthy.api.mapper.client.ClientUserClaimResourceMapper
 import com.sympauthy.api.resource.client.ClientUserClaimResource
-import com.sympauthy.api.resource.client.ClientUserClaimUpdateResource
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
@@ -96,12 +95,12 @@ class ClientUserClaimController(
     suspend fun updateUserClaims(
         authentication: Authentication,
         @PathVariable userId: UUID,
-        @Body body: ClientUserClaimUpdateResource
+        @Body body: Map<String, Any?>
     ): ClientUserClaimResource {
         val clientAuth = authentication.clientAuthentication
 
         // Validate all keys are custom claims
-        val invalidClaim = body.claims.keys.firstOrNull { claimId ->
+        val invalidClaim = body.keys.firstOrNull { claimId ->
             val claim = claimManager.findByIdOrNull(claimId)
             claim == null || claim !is CustomClaim
         }
@@ -115,7 +114,7 @@ class ClientUserClaimController(
 
         val clientUser = clientUserManager.findUserForClientOrNull(clientAuth.clientId, userId).orNotFound()
         val consent = consentManager.findActiveConsentOrNull(userId, clientAuth.clientId).orNotFound()
-        val updates = collectedClaimUpdateMapper.toUpdates(body.claims)
+        val updates = collectedClaimUpdateMapper.toUpdates(body)
         consentAwareCollectedClaimManager.update(clientUser.user, updates, consent.scopes)
 
         // Return the full claim set after update
