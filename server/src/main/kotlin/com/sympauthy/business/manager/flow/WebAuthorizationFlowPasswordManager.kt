@@ -30,6 +30,9 @@ import kotlin.jvm.optionals.getOrNull
 /**
  * Manager in charge of the authentication and registration of an end-user going through a web authorization flow
  * using a password.
+ *
+ * This manager uses [CollectedClaimManager] (not consent-aware) because identifier claims
+ * may not be part of the scopes requested by the client.
  */
 @Singleton
 open class WebAuthorizationFlowPasswordManager(
