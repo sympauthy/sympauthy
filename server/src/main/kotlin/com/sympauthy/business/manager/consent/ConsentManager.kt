@@ -79,6 +79,14 @@ open class ConsentManager(
     }
 
     /**
+     * Find all active (non-revoked) consents for the given [clientId].
+     */
+    suspend fun findActiveConsentsByClient(clientId: String): List<Consent> {
+        return consentRepository.findByClientIdAndRevokedAtIsNull(clientId)
+            .map(consentMapper::toConsent)
+    }
+
+    /**
      * Find all consents (including revoked) for the given [userId].
      */
     suspend fun findAllConsentsByUser(userId: UUID): List<Consent> {

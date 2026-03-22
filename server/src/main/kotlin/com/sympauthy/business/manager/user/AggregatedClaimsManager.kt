@@ -14,20 +14,20 @@ import java.util.*
  */
 @Singleton
 class AggregatedClaimsManager(
-    @Inject private val collectedClaimManager: CollectedClaimManager,
+    @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
     @Inject private val providerClaimsManager: ProviderClaimsManager
 ) {
 
     /**
      * Merge all the claims collected about the user identified by [userId].
-     * Only claims readable according to the [scopes] will be populated in the return object.
+     * Only claims readable according to the [consentedScopes] will be populated in the return object.
      */
     suspend fun aggregateClaims(
         userId: UUID,
-        scopes: List<String>
+        consentedScopes: List<String>
     ): RawProviderClaims = coroutineScope {
         val deferredCollectedUserInfoList = async {
-            collectedClaimManager.findByUserIdAndReadableByScopes(userId, scopes)
+            consentAwareCollectedClaimManager.findByUserIdAndReadableByScopes(userId, consentedScopes)
         }
         val deferredProviderUserInfoList = async {
             providerClaimsManager.findByUserId(userId)

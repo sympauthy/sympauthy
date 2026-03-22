@@ -2,7 +2,7 @@ package com.sympauthy.business.manager.auth.oauth2
 
 import com.auth0.jwt.JWTCreator
 import com.sympauthy.business.manager.jwt.JwtManager
-import com.sympauthy.business.manager.user.CollectedClaimManager
+import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType
@@ -23,7 +23,7 @@ import java.util.*
 
 @Singleton
 class IdTokenGenerator(
-    @Inject private val collectedClaimManager: CollectedClaimManager,
+    @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
     @Inject private val jwtManager: JwtManager,
     @Inject private val tokenRepository: AuthenticationTokenRepository,
     @Inject private val tokenMapper: EncodedAuthenticationTokenMapper,
@@ -82,13 +82,12 @@ class IdTokenGenerator(
         }
 
         val authConfig = uncheckedAuthConfig.orThrow()
-        val allScopes = grantedScopes + consentedScopes
 
         // FIXME compute at_hash with accessToken
 
-        val claims = collectedClaimManager.findByUserIdAndReadableByScopes(
+        val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByScopes(
             userId = userId,
-            scopes = allScopes
+            consentedScopes = consentedScopes
         )
 
         val issueDate = LocalDateTime.now()

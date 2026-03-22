@@ -36,7 +36,7 @@ class OpenIdUserInfoController(
     ): UserInfoResource {
         val userInfo = aggregatedClaimsManager.aggregateClaims(
             userId = authentication.userId,
-            scopes = authentication.scopes.map(Scope::scope)
+            consentedScopes = authentication.scopes.map(Scope::scope)
         )
         return userInfoMapper.toResource(userInfo)
     }

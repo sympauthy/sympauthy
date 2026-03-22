@@ -25,7 +25,7 @@ class UserAuthentication(
 ): Authentication {
 
     override fun getName(): String = authenticationToken.userId?.toString()
-        ?: throw httpExceptionOf(FORBIDDEN, "authentication.no_user")
+        ?: throw httpExceptionOf(FORBIDDEN, "authentication.no_user", "description.authentication.no_user")
 
     override fun getAttributes(): Map<String, Any> = emptyMap()
 
@@ -55,5 +55,5 @@ val Authentication.scopes: List<Scope>
 
 val Authentication.userId: UUID
     get() = this.userAuthentication.authenticationToken.userId
-        ?: throw httpExceptionOf(FORBIDDEN, "authentication.no_user")
+        ?: throw httpExceptionOf(FORBIDDEN, "authentication.no_user", "description.authentication.no_user")
 

@@ -1,0 +1,22 @@
+meta {
+  name: Update user claims
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{serverUrl}}/api/v1/client/users/:userId/claims
+  body: json
+  auth: inherit
+}
+
+params:path {
+  userId:
+}
+
+body:json {
+  {
+    "custom_department": "Engineering",
+    "custom_employee_id": "EMP-12345"
+  }
+}

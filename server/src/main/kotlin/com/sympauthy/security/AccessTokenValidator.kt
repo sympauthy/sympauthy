@@ -1,7 +1,6 @@
 package com.sympauthy.security
 
 import com.sympauthy.api.exception.OAuth2Exception
-import com.sympauthy.api.exception.httpExceptionOf
 import com.sympauthy.api.exception.toHttpException
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
@@ -15,18 +14,19 @@ import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.reactive.publish
 import org.reactivestreams.Publisher
-import java.util.*
 
 /**
  * [TokenValidator] that validates token we have issued with this authorization server.
  *
- * To authorize the user, we need:
+ * To authorize the request, we need:
  * - to decode the token.
  * - to validate the token signature against our [ACCESS_KEY] signature key.
  * - to check the token is not expired.
  * - to validate the token is an access token.
- * - to retrieve the user and scope this token is associated to.
- * - to check the subject and the user id matches.
+ * - to retrieve the token and scopes it is associated to.
+ *
+ * Depending on whether the token is associated with a user (authorization_code/refresh_token flows)
+ * or a client only (client_credentials flow), we return a [UserAuthentication] or [ClientAuthentication].
  */
 @Singleton
 class AccessTokenValidator<T>(
@@ -42,12 +42,6 @@ class AccessTokenValidator<T>(
             throw e.toHttpException(UNAUTHORIZED)
         }
 
-        val userId = try {
-            UUID.fromString(decodedToken.subject)
-        } catch (e: IllegalArgumentException) {
-            throw httpExceptionOf(UNAUTHORIZED, "access.invalid_token")
-        }
-
         val authenticationToken = try {
             tokenManager.getAuthenticationToken(decodedToken)
         } catch (e: OAuth2Exception) {
@@ -58,10 +52,17 @@ class AccessTokenValidator<T>(
             scopeManager.find(it)
         }
 
-        val authentication = UserAuthentication(
-            authenticationToken = authenticationToken,
-            scopes = scopes
-        )
+        val authentication = if (authenticationToken.userId != null) {
+            UserAuthentication(
+                authenticationToken = authenticationToken,
+                scopes = scopes
+            )
+        } else {
+            ClientAuthentication(
+                authenticationToken = authenticationToken,
+                scopes = scopes
+            )
+        }
         send(authentication)
     }
 }

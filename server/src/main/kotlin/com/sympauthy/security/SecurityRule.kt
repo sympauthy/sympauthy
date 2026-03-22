@@ -1,6 +1,7 @@
 package com.sympauthy.security
 
 import com.sympauthy.business.model.oauth2.AdminScopeId
+import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
 
 object SecurityRule {
 
@@ -18,4 +19,8 @@ object SecurityRule {
     const val ADMIN_USERS_DELETE = "SCOPE_${AdminScopeId.USERS_DELETE}"
     const val ADMIN_CONSENT_READ = "SCOPE_${AdminScopeId.CONSENT_READ}"
     const val ADMIN_CONSENT_WRITE = "SCOPE_${AdminScopeId.CONSENT_WRITE}"
+
+    const val CLIENT_USERS_READ = "SCOPE_${BuiltInClientScopeId.USERS_READ}"
+    const val CLIENT_USERS_CLAIMS_READ = "SCOPE_${BuiltInClientScopeId.USERS_CLAIMS_READ}"
+    const val CLIENT_USERS_CLAIMS_WRITE = "SCOPE_${BuiltInClientScopeId.USERS_CLAIMS_WRITE}"
 }

@@ -1,7 +1,7 @@
 package com.sympauthy.business.manager.auth.oauth2
 
 import com.sympauthy.business.manager.jwt.JwtManager
-import com.sympauthy.business.manager.user.CollectedClaimManager
+import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
 import com.sympauthy.business.model.oauth2.BuiltInGrantableScopeId
 import com.sympauthy.config.model.AuthConfig
@@ -18,7 +18,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 class IdTokenGeneratorTest {
 
     @MockK
-    lateinit var collectedClaimManager: CollectedClaimManager
+    lateinit var consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager
 
     @MockK
     lateinit var jwtManager: JwtManager

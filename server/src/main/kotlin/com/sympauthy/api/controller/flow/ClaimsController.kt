@@ -7,7 +7,7 @@ import com.sympauthy.api.resource.flow.ClaimInputResource
 import com.sympauthy.api.resource.flow.ClaimsFlowResource
 import com.sympauthy.api.resource.flow.SimpleFlowResource
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowPasswordManager
-import com.sympauthy.business.manager.user.CollectedClaimManager
+import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
 import io.micronaut.http.annotation.Body
@@ -23,7 +23,7 @@ import jakarta.inject.Inject
 @Secured(HAS_STATE)
 @Controller("/api/v1/flow/claims")
 class ClaimsController(
-    @Inject private val collectedClaimManager: CollectedClaimManager,
+    @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
     @Inject private val passwordFlowManager: WebAuthorizationFlowPasswordManager,
     @Inject private val claimsMapper: ClaimsResourceMapper,
     @Inject private val collectedClaimUpdateMapper: CollectedClaimUpdateMapper,
@@ -51,7 +51,7 @@ must be redirected to continue the authorization flow.
     ): ClaimsFlowResource = webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenRunAndRedirect(
         state = authentication.stateOrNull,
         run = { authorizeAttempt, _ ->
-            collectedClaimManager.findByAttempt(authorizeAttempt).ifEmpty { null }
+            consentAwareCollectedClaimManager.findByAttempt(authorizeAttempt).ifEmpty { null }
         },
         mapResultToResource = { claimsMapper.toResource(it) },
         mapRedirectUriToResource = { claimsMapper.toResource(it) },
@@ -86,11 +86,12 @@ but they chose not to provide a value.
             state = authentication.stateOrNull,
             update = { authorizeAttempt, _, user ->
                 val identifierClaims = passwordFlowManager.getIdentifierClaims()
-                collectedClaimManager.update(
+                consentAwareCollectedClaimManager.update(
                     user = user,
                     updates = collectedClaimUpdateMapper.toUpdates(inputResource.claims)
                         .filter { it.claim.userInputted }
-                        .filter { !identifierClaims.contains(it.claim) }
+                        .filter { !identifierClaims.contains(it.claim) },
+                    consentedScopes = authorizeAttempt.consentedScopes ?: emptyList()
                 )
                 authorizeAttempt
             },

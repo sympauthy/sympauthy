@@ -3,10 +3,6 @@ package com.sympauthy.business.manager.user
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.mapper.CollectedClaimMapper
 import com.sympauthy.business.mapper.CollectedClaimUpdateMapper
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
-import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
-import com.sympauthy.business.model.oauth2.FailedAuthorizeAttempt
-import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
@@ -32,9 +28,9 @@ open class CollectedClaimManager(
     /**
      * Return the list of [CollectedClaim] collected from the user identified by [userId].
      *
-     * Note: This method is insecure and may leak information to the client that the end-user has not granted access to,
-     * use [findByUserIdAndReadableByScopes] instead. This method is intended when the authorization server requires
-     *  having full access to the user's claims (ex. when creating a new user, admin endpoints, etc.).
+     * Note: This method is not restricted by consent or scopes and returns all claims for the user.
+     * It is intended for use by the authorization server internals and admin endpoints.
+     * For consent-restricted access, use [ConsentedClaimManager] instead.
      */
     suspend fun findByUserId(userId: UUID): List<CollectedClaim> {
         return collectedClaimRepository.findByUserId(userId)
@@ -46,9 +42,8 @@ open class CollectedClaimManager(
     /**
      * Return the list of [CollectedClaim] for the given [claims] collected from the user identified by [userId].
      *
-     * Note: This method is insecure and may leak information to the client that the end-user has not granted access to.
-     *      * This method is intended when the authorization server requires having full access to the user's claims
-     *      * (ex. when creating a new user, admin endpoints, etc.).
+     * Note: This method is not restricted by consent or scopes.
+     * It is intended for use by the authorization server internals and admin endpoints.
      */
     suspend fun findByUserIdAndClaims(userId: UUID, claims: List<Claim>): List<CollectedClaim> {
         val claimIds = claims.map { it.id }
@@ -59,52 +54,11 @@ open class CollectedClaimManager(
     /**
      * Return the list of [CollectedClaim] for the identifier claims collected from the user identified by [userId].
      *
-     * Note: This method is insecure and may leak information to the client that the end-user has not granted access to.
-     * This method is intended when the authorization server requires having full access to the user's claims
-     * (ex. when creating a new user, admin endpoints, etc.).
+     * Note: This method is not restricted by consent or scopes.
+     * It is intended for use by the authorization server internals and admin endpoints.
      */
     suspend fun findIdentifierByUserId(userId: UUID): List<CollectedClaim> {
         return findByUserIdAndClaims(userId, claimManager.listIdentifierClaims())
-    }
-
-    /**
-     * Return the list of [CollectedClaim] collected from the user identified by [userId] and accessible to the
-     * client according to the provided [scopes].
-     */
-    suspend fun findByUserIdAndReadableByScopes(
-        userId: UUID,
-        scopes: List<String>
-    ): List<CollectedClaim> {
-        return findByUserId(userId).filter { it.claim.canBeRead(scopes) }
-    }
-
-    /**
-     * Return the list of [CollectedClaim] collected from the end-user associated to the [authorizeAttempt].
-     *
-     * Only the claims that are readable according to the client and the scopes of the [authorizeAttempt] will be returned.
-     */
-    suspend fun findByAttempt(
-        authorizeAttempt: AuthorizeAttempt
-    ): List<CollectedClaim> {
-        return when (authorizeAttempt) {
-            is FailedAuthorizeAttempt -> emptyList()
-            is OnGoingAuthorizeAttempt -> {
-                if (authorizeAttempt.userId == null) {
-                    return emptyList()
-                }
-                findByUserIdAndReadableByScopes(
-                    userId = authorizeAttempt.userId,
-                    scopes = authorizeAttempt.grantedScopes ?: authorizeAttempt.requestedScopes
-                )
-            }
-
-            is CompletedAuthorizeAttempt -> {
-                findByUserIdAndReadableByScopes(
-                    userId = authorizeAttempt.userId,
-                    scopes = authorizeAttempt.grantedScopes
-                )
-            }
-        }
     }
 
     /**
@@ -123,31 +77,25 @@ open class CollectedClaimManager(
     }
 
     /**
-     * Update the claims collected for the [user] and return all the claims readable according to the [scopes].
-     * Only claims that are editable according to the [scopes] will be modified. Other update will be ignored.
+     * Update the claims collected for the [user] and return all the claims collected for the user.
+     * All [updates] will be applied without any scope restriction.
      *
-     * If [scopes] is ```null```, all [updates] will be applied instead and return all claims will be returned.
+     * For consent-restricted updates, use [ConsentedClaimManager.update] instead.
      */
     @Transactional
     open suspend fun update(
         user: User,
-        updates: List<CollectedClaimUpdate>,
-        scopes: List<String>? = null
-    ): List<CollectedClaim>  {
-        val applicableUpdates = getApplicableUpdates(updates, scopes)
-        val collectedClaims = applyUpdates(user, applicableUpdates)
-        return if (scopes != null) {
-            collectedClaims.filter { it.claim.canBeRead(scopes) }
-        } else {
-            collectedClaims
-        }
+        updates: List<CollectedClaimUpdate>
+    ): List<CollectedClaim> {
+        return applyUpdates(user, updates)
     }
 
     /**
      * Update the claims collected for the [user] and return all the claims collected for the user
      * (including one previously collected but not updated by the call to this method).
      */
-    internal suspend fun applyUpdates(
+    @Transactional
+    open suspend fun applyUpdates(
         user: User,
         applicableUpdates: List<CollectedClaimUpdate>
     ) : List<CollectedClaim> = coroutineScope {
@@ -170,15 +118,6 @@ open class CollectedClaimManager(
 
         (deferredCreatedEntities.await() + updatedEntities + nonUpdatedOrDeletedEntities)
             .mapNotNull(collectedClaimMapper::toCollectedClaim)
-    }
-
-    internal fun getApplicableUpdates(
-        updates: List<CollectedClaimUpdate>,
-        scopes: List<String>? = null
-    ): List<CollectedClaimUpdate> {
-        return if (scopes != null) {
-            updates.filter { it.claim.canBeWritten(scopes) }
-        } else updates
     }
 
     internal suspend fun deleteExistingClaimsUpdatedToNull(
