@@ -6,6 +6,7 @@ import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.origin
+import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.security.SecurityRule.ADMIN_CONFIG_READ
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
@@ -15,10 +16,12 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
+import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
 
 @Controller("/api/v1/admin/claims")
 @Secured(ADMIN_CONFIG_READ)
+@SecurityRequirement(name = "admin", scopes = [AdminScopeId.CONFIG_READ])
 class AdminClaimController(
     @Inject private val claimManager: ClaimManager,
     @Inject private val claimMapper: AdminClaimResourceMapper

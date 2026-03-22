@@ -30,6 +30,9 @@ micronaut:
         http-method: GET
         access:
           - isAnonymous()
+      - pattern: /oauth2-redirect.html
+        access:
+          - isAnonymous()
 
   serde:
     serialization:

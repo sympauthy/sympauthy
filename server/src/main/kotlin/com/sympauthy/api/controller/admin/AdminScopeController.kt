@@ -5,6 +5,7 @@ import com.sympauthy.api.resource.admin.AdminScopeListResource
 import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.model.oauth2.*
+import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.security.SecurityRule.ADMIN_CONFIG_READ
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
@@ -14,10 +15,12 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
+import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
 
 @Controller("/api/v1/admin/scopes")
 @Secured(ADMIN_CONFIG_READ)
+@SecurityRequirement(name = "admin", scopes = [AdminScopeId.CONFIG_READ])
 class AdminScopeController(
     @Inject private val scopeManager: ScopeManager,
     @Inject private val scopeMapper: AdminScopeResourceMapper

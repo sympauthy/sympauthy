@@ -7,6 +7,7 @@ import com.sympauthy.api.util.orNotFound
 import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.user.UserManager
+import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.security.SecurityRule.ADMIN_USERS_READ
 import com.sympauthy.security.SecurityRule.ADMIN_USERS_WRITE
 import io.micronaut.http.annotation.*
@@ -15,6 +16,7 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
+import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
 import java.util.*
 
@@ -56,6 +58,7 @@ class AdminUserProviderController(
     )
     @Get
     @Secured(ADMIN_USERS_READ)
+    @SecurityRequirement(name = "admin", scopes = [AdminScopeId.USERS_READ])
     suspend fun listProviders(
         @PathVariable userId: UUID,
         @QueryValue page: Int?,
@@ -112,6 +115,7 @@ class AdminUserProviderController(
     )
     @Delete("/{providerId}")
     @Secured(ADMIN_USERS_WRITE)
+    @SecurityRequirement(name = "admin", scopes = [AdminScopeId.USERS_WRITE])
     suspend fun unlinkProvider(
         @PathVariable userId: UUID,
         @PathVariable providerId: String

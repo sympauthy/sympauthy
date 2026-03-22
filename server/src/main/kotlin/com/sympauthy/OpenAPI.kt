@@ -1,5 +1,7 @@
 package com.sympauthy
 
+import com.sympauthy.business.model.oauth2.AdminScopeId
+import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
 import io.swagger.v3.oas.annotations.ExternalDocumentation
 import io.swagger.v3.oas.annotations.OpenAPIDefinition
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType.OAUTH2
@@ -51,13 +53,19 @@ import jakarta.inject.Singleton
         Tag(
             name = "flow"
         ),
+        Tag(
+            name = "admin"
+        ),
+        Tag(
+            name = "client"
+        ),
     ]
 )
 @SecuritySchemes(
     value = [
         SecurityScheme(
-            name = "SympAuthy",
-            description = "Authenticate to this authorization server to access its protected resources.",
+            name = "admin",
+            description = "Authenticate to this authorization server to access admin resources.",
             type = OAUTH2,
             flows = OAuthFlows(
                 authorizationCode = OAuthFlow(
@@ -65,7 +73,27 @@ import jakarta.inject.Singleton
                     tokenUrl = "{rootUrl}/api/oauth2/token",
                     refreshUrl = "{rootUrl}/api/oauth2/token",
                     scopes = [
-                        OAuthScope(name = "profile")
+                        OAuthScope(name = AdminScopeId.CONFIG_READ),
+                        OAuthScope(name = AdminScopeId.USERS_READ),
+                        OAuthScope(name = AdminScopeId.USERS_WRITE),
+                        OAuthScope(name = AdminScopeId.USERS_DELETE),
+                        OAuthScope(name = AdminScopeId.CONSENT_READ),
+                        OAuthScope(name = AdminScopeId.CONSENT_WRITE)
+                    ]
+                )
+            )
+        ),
+        SecurityScheme(
+            name = "client",
+            description = "Authenticate as a client using client credentials to access client API resources.",
+            type = OAUTH2,
+            flows = OAuthFlows(
+                clientCredentials = OAuthFlow(
+                    tokenUrl = "{rootUrl}/api/oauth2/token",
+                    scopes = [
+                        OAuthScope(name = BuiltInClientScopeId.USERS_READ),
+                        OAuthScope(name = BuiltInClientScopeId.USERS_CLAIMS_READ),
+                        OAuthScope(name = BuiltInClientScopeId.USERS_CLAIMS_WRITE)
                     ]
                 )
             )

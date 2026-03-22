@@ -6,6 +6,7 @@ import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.oauth2.TokenRevokedBy
+import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.security.SecurityRule.ADMIN_CONSENT_WRITE
 import com.sympauthy.security.userId
 import io.micronaut.http.annotation.Controller
@@ -17,10 +18,12 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
+import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
 import java.util.*
 
 @Controller("/api/v1/admin/users/{userId}/logout")
+@SecurityRequirement(name = "admin", scopes = [AdminScopeId.CONSENT_WRITE])
 class AdminUserLogoutController(
     @Inject private val userManager: UserManager,
     @Inject private val clientManager: ClientManager,

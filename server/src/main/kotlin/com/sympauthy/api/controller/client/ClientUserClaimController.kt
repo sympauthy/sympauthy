@@ -10,6 +10,7 @@ import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.user.ClientUserManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.user.claim.CustomClaim
+import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
 import com.sympauthy.security.SecurityRule.CLIENT_USERS_CLAIMS_READ
 import com.sympauthy.security.SecurityRule.CLIENT_USERS_CLAIMS_WRITE
 import com.sympauthy.security.clientAuthentication
@@ -20,6 +21,7 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
+import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
 import java.util.*
 
@@ -55,6 +57,7 @@ class ClientUserClaimController(
     )
     @Get
     @Secured(CLIENT_USERS_CLAIMS_READ)
+    @SecurityRequirement(name = "client", scopes = [BuiltInClientScopeId.USERS_CLAIMS_READ])
     suspend fun getUserClaims(
         authentication: Authentication,
         @PathVariable userId: UUID
@@ -92,6 +95,7 @@ class ClientUserClaimController(
     )
     @Patch
     @Secured(CLIENT_USERS_CLAIMS_WRITE)
+    @SecurityRequirement(name = "client", scopes = [BuiltInClientScopeId.USERS_CLAIMS_WRITE])
     suspend fun updateUserClaims(
         authentication: Authentication,
         @PathVariable userId: UUID,

@@ -7,6 +7,7 @@ import com.sympauthy.api.util.orNotFound
 import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.user.ClientUserManager
+import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
 import com.sympauthy.security.SecurityRule.CLIENT_USERS_READ
 import com.sympauthy.security.clientAuthentication
 import io.micronaut.http.annotation.Controller
@@ -19,11 +20,13 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
+import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
 import java.util.*
 
 @Controller("/api/v1/client/users")
 @Secured(CLIENT_USERS_READ)
+@SecurityRequirement(name = "client", scopes = [BuiltInClientScopeId.USERS_READ])
 class ClientUserController(
     @Inject private val clientUserManager: ClientUserManager,
     @Inject private val userMapper: ClientUserResourceMapper

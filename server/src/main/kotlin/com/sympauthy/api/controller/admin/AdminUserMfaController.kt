@@ -8,6 +8,7 @@ import com.sympauthy.api.util.orNotFound
 import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.manager.user.UserManager
+import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.security.SecurityRule.ADMIN_USERS_READ
 import com.sympauthy.security.SecurityRule.ADMIN_USERS_WRITE
 import io.micronaut.http.HttpStatus.NOT_FOUND
@@ -17,6 +18,7 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
+import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
 import java.util.*
 
@@ -59,6 +61,7 @@ class AdminUserMfaController(
     )
     @Get
     @Secured(ADMIN_USERS_READ)
+    @SecurityRequirement(name = "admin", scopes = [AdminScopeId.USERS_READ])
     suspend fun listMfaMethods(
         @PathVariable userId: UUID,
         @QueryValue page: Int?,
@@ -107,6 +110,7 @@ class AdminUserMfaController(
     )
     @Delete("/{mfaId}")
     @Secured(ADMIN_USERS_WRITE)
+    @SecurityRequirement(name = "admin", scopes = [AdminScopeId.USERS_WRITE])
     suspend fun revokeMfaMethod(
         @PathVariable userId: UUID,
         @PathVariable mfaId: UUID

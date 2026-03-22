@@ -10,6 +10,7 @@ import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.user.claim.origin
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
+import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.security.SecurityRule.ADMIN_USERS_READ
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
@@ -20,10 +21,12 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
+import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
 import java.util.*
 
 @Controller("/api/v1/admin/users/{userId}/claims")
+@SecurityRequirement(name = "admin", scopes = [AdminScopeId.USERS_READ])
 class AdminUserClaimController(
     @Inject private val userManager: UserManager,
     @Inject private val claimManager: ClaimManager,

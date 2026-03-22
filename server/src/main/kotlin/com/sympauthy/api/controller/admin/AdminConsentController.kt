@@ -7,6 +7,7 @@ import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.oauth2.ConsentRevokedBy
+import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.security.SecurityRule.ADMIN_CONSENT_READ
 import com.sympauthy.security.SecurityRule.ADMIN_CONSENT_WRITE
 import com.sympauthy.security.userId
@@ -18,6 +19,7 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
+import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
 import java.util.*
 
@@ -60,6 +62,7 @@ class AdminConsentController(
     )
     @Get
     @Secured(ADMIN_CONSENT_READ)
+    @SecurityRequirement(name = "admin", scopes = [AdminScopeId.CONSENT_READ])
     suspend fun listConsents(
         @PathVariable userId: UUID,
         @QueryValue page: Int?,
@@ -108,6 +111,7 @@ class AdminConsentController(
     )
     @Delete("/{clientId}")
     @Secured(ADMIN_CONSENT_WRITE)
+    @SecurityRequirement(name = "admin", scopes = [AdminScopeId.CONSENT_WRITE])
     @Status(HttpStatus.NO_CONTENT)
     suspend fun revokeConsent(
         @PathVariable userId: UUID,
