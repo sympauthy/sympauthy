@@ -15,6 +15,7 @@ auth:oauth2 {
   scope: users:read users:claims:read users:claims:write
   credentials_placement: body
   credentials_id: client
+  token_source: access_token
   token_placement: header
   token_header_prefix: Bearer
   auto_fetch_token: true

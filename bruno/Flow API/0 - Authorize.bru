@@ -5,13 +5,13 @@ meta {
 }
 
 get {
-  url: {{serverUrl}}/api/oauth2/authorize?client_id={{clientId}}&redirect_uri=https://example.com&response_type=code
+  url: {{serverUrl}}/api/oauth2/authorize?client_id={{clientApiClientId}}&redirect_uri=https://example.com&response_type=code
   body: none
   auth: none
 }
 
 params:query {
-  client_id: {{clientId}}
+  client_id: {{clientApiClientId}}
   redirect_uri: https://example.com
   response_type: code
 }
@@ -27,7 +27,7 @@ script:post-response {
 
 settings {
   encodeUrl: false
+  timeout: inherit
   followRedirects: false
   maxRedirects: 5
-  timeout: inherit
 }
