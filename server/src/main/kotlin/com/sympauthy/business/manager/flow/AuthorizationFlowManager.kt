@@ -11,9 +11,6 @@ import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
-import com.sympauthy.business.manager.ScopeManager
-import com.sympauthy.business.model.oauth2.ConsentableUserScope
-import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.config.model.AuthorizationFlowsConfig
@@ -33,7 +30,6 @@ import jakarta.inject.Singleton
 class AuthorizationFlowManager(
     @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
     @Inject private val scopeGrantingManager: ScopeGrantingManager,
-    @Inject private val scopeManager: ScopeManager,
     @Inject private val consentManager: ConsentManager,
     @Inject private val authorizationFlowsConfig: AuthorizationFlowsConfig,
     @Inject private val uncheckedUrlsConfig: UrlsConfig,
@@ -107,12 +103,6 @@ class AuthorizationFlowManager(
         var modifiedAuthorizedAttempt = authorizeAttempt
         // FIXME: Verify that the attempt is completable (has a user ?, more ?)
 
-        // Resolve requested scope strings to typed Scope objects
-        val requestedScopes = authorizeAttempt.requestedScopes.mapNotNull { scopeManager.find(it) }
-
-        // Separate consentable scopes (auto-consented for now) from grantable scopes
-        val consentedScopes = requestedScopes.filterIsInstance<ConsentableUserScope>()
-
         // Grant only grantable scopes through the granting pipeline
         val grantScopesResult = scopeGrantingManager.grantScopes(
             authorizeAttempt = authorizeAttempt,
@@ -122,12 +112,6 @@ class AuthorizationFlowManager(
             authorizeAttempt = modifiedAuthorizedAttempt,
             grantedScopes = grantScopesResult.grantedScopes,
             grantedBy = if (grantScopesResult.allAutoGranted) GrantedBy.AUTO else GrantedBy.RULE
-        )
-        // Auto-consent all requested consentable scopes (no consent screen yet)
-        modifiedAuthorizedAttempt = authorizeAttemptManager.setConsentedScopes(
-            authorizeAttempt = modifiedAuthorizedAttempt,
-            consentedScopes = consentedScopes,
-            consentedBy = ConsentedBy.AUTO
         )
 
         val hasAnyScope = !modifiedAuthorizedAttempt.grantedScopes.isNullOrEmpty() ||

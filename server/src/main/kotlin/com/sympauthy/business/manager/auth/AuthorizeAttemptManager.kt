@@ -10,6 +10,7 @@ import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
+import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.user.User
 import com.sympauthy.data.model.AuthorizeAttemptEntity
@@ -58,6 +59,11 @@ class AuthorizeAttemptManager(
     ): AuthorizeAttempt {
         val now = LocalDateTime.now()
 
+        // When no error, auto-consent consentable scopes at creation time
+        val consentableScopes = if (error == null) {
+            (scopes ?: emptyList()).filterIsInstance<ConsentableUserScope>()
+        } else null
+
         val entity = AuthorizeAttemptEntity(
             clientId = client?.id,
             authorizationFlowId = authorizationFlow?.id,
@@ -70,6 +76,10 @@ class AuthorizeAttemptManager(
             errorDetailsId = error?.detailsId,
             errorDescriptionId = error?.descriptionId,
             errorValues = error?.values,
+
+            consentedScopes = consentableScopes?.map(Scope::scope)?.toTypedArray(),
+            consentedAt = consentableScopes?.let { now },
+            consentedBy = consentableScopes?.let { ConsentedBy.AUTO.name },
 
             codeChallenge = codeChallenge,
             codeChallengeMethod = codeChallengeMethod?.value,
