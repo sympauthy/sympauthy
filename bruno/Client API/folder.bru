@@ -12,7 +12,7 @@ auth:oauth2 {
   refresh_token_url: 
   client_id: {{clientApiClientId}}
   client_secret: {{clientApiClientSecret}}
-  scope: 
+  scope: users:read users:claims:read users:claims:write
   credentials_placement: body
   credentials_id: client
   token_placement: header
