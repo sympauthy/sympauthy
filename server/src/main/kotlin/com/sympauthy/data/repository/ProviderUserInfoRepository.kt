@@ -12,4 +12,8 @@ interface ProviderUserInfoRepository : CoroutineCrudRepository<ProviderUserInfoE
     suspend fun findByUserId(userId: UUID): List<ProviderUserInfoEntity>
 
     suspend fun findByUserIdInList(userId: List<UUID>): List<ProviderUserInfoEntity>
+
+    suspend fun findByProviderIdAndUserId(providerId: String, userId: UUID): ProviderUserInfoEntity?
+
+    suspend fun deleteByProviderIdAndUserId(providerId: String, userId: UUID): Int
 }

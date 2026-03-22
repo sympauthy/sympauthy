@@ -35,6 +35,15 @@ class ProviderClaimsManager(
             .map(userInfoMapper::toProviderUserInfo)
     }
 
+    suspend fun findByUserIdAndProviderIdOrNull(userId: UUID, providerId: String): ProviderUserInfo? {
+        return userInfoRepository.findByProviderIdAndUserId(providerId, userId)
+            ?.let(userInfoMapper::toProviderUserInfo)
+    }
+
+    suspend fun deleteProviderLink(userId: UUID, providerId: String): Int {
+        return userInfoRepository.deleteByProviderIdAndUserId(providerId, userId)
+    }
+
     suspend fun fetchUserInfo(
         provider: EnabledProvider,
         credentials: ProviderCredentials
