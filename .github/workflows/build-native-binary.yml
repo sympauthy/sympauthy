@@ -55,7 +55,7 @@ jobs:
         uses: graalvm/setup-graalvm@v1
         with:
           java-version: ${{ steps.java-version.outputs.version }}
-          distribution: oracle
+          distribution: graalvm
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build native image
