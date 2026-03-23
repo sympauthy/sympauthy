@@ -60,7 +60,7 @@ jobs:
 
       - name: Build native image
         shell: bash
-        run: gradle :server:nativeCompile
+        run: ./gradlew :server:nativeCompile
 
       - name: Prepare binary for upload
         shell: bash
