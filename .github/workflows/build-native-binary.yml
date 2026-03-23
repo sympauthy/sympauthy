@@ -46,11 +46,6 @@ jobs:
           VERSION=$(grep -E 'JavaVersion\.VERSION_[0-9]+' server/build.gradle.kts | grep -oE '[0-9]+$')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
-        with:
-          gradle-version: wrapper
-
       - name: Setup GraalVM for JDK ${{ steps.java-version.outputs.version }}
         uses: graalvm/setup-graalvm@v1
         with:
