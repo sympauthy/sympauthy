@@ -177,6 +177,23 @@ jobs:
             ghcr.io/sympauthy/sympauthy-nightly:latest-linux-x64 \
             ghcr.io/sympauthy/sympauthy-nightly:latest-linux-arm64
 
+  cleanup_docker:
+    name: Clean up old untagged Docker images
+    needs: [should_build, publish_docker_manifest]
+    if: needs.should_build.outputs.result == '1'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete untagged package versions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api orgs/sympauthy/packages/container/sympauthy-nightly/versions --paginate \
+            --jq '.[] | select(.metadata.container.tags | length == 0) | .id' \
+          | while read -r VERSION_ID; do
+              echo "Deleting untagged version $VERSION_ID"
+              gh api --method DELETE orgs/sympauthy/packages/container/sympauthy-nightly/versions/$VERSION_ID
+            done
+
   publish_release:
     name: Publish to nightly release
     needs: [should_build, build_binary]
