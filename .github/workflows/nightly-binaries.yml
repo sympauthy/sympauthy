@@ -1,0 +1,196 @@
+name: Nightly native binaries
+
+on:
+  schedule:
+    - cron: '30 23 * * *'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git reference to build
+        type: string
+        default: main
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  today:
+    name: Today
+    runs-on: ubuntu-latest
+    outputs:
+      today: ${{ steps.set_today.outputs.today }}
+    steps:
+      - id: set_today
+        run: echo today="$(date +'%Y%m%d')" >> "$GITHUB_OUTPUT"
+
+  has_changed:
+    name: Check if sympauthy has changed today.
+    needs: [today]
+    runs-on: ubuntu-latest
+    outputs:
+      result: ${{ steps.has_changed.outputs.result }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || 'main' }}
+      - id: has_changed
+        uses: ./.github/actions/has_changed
+        with:
+          name: sympauthy
+          today: ${{ needs.today.outputs.today }}
+
+  has_flow_changed:
+    name: Check if sympauthy-flow has changed today.
+    needs: [today]
+    runs-on: ubuntu-latest
+    outputs:
+      result: ${{ steps.has_changed.outputs.result }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || 'main' }}
+      - uses: actions/checkout@v6
+        with:
+          repository: 'sympauthy/sympauthy-flow'
+          ref: ${{ inputs.ref || 'main' }}
+          path: sympauthy-flow
+      - id: has_changed
+        uses: ./.github/actions/has_changed
+        with:
+          name: sympauthy-flow
+          today: ${{ needs.today.outputs.today }}
+          path: sympauthy-flow
+
+  has_admin_changed:
+    name: Check if sympauthy-admin has changed today.
+    needs: [today]
+    runs-on: ubuntu-latest
+    outputs:
+      result: ${{ steps.has_changed.outputs.result }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || 'main' }}
+      - uses: actions/checkout@v6
+        with:
+          repository: 'sympauthy/sympauthy-admin'
+          ref: ${{ inputs.ref || 'main' }}
+          path: sympauthy-admin
+      - id: has_changed
+        uses: ./.github/actions/has_changed
+        with:
+          name: sympauthy-admin
+          today: ${{ needs.today.outputs.today }}
+          path: sympauthy-admin
+
+  should_build:
+    name: Determine if build is needed
+    needs: [has_changed, has_flow_changed, has_admin_changed]
+    runs-on: ubuntu-latest
+    outputs:
+      result: ${{ steps.check.outputs.result }}
+    steps:
+      - id: check
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "result=1" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ needs.has_changed.outputs.result }}" == "1" || "${{ needs.has_flow_changed.outputs.result }}" == "1" || "${{ needs.has_admin_changed.outputs.result }}" == "1" ]]; then
+            echo "result=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "result=0" >> "$GITHUB_OUTPUT"
+          fi
+
+  build_flow:
+    needs: [should_build]
+    if: needs.should_build.outputs.result == '1'
+    uses: ./.github/workflows/build-flow.yml
+    with:
+      ref: ${{ inputs.ref || 'main' }}
+
+  build_admin:
+    needs: [should_build]
+    if: needs.should_build.outputs.result == '1'
+    uses: ./.github/workflows/build-admin.yml
+    with:
+      ref: ${{ inputs.ref || 'main' }}
+
+  build_binary:
+    needs: [should_build, build_flow, build_admin]
+    if: needs.should_build.outputs.result == '1'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x64
+            runner: ubuntu-latest
+          - platform: linux-arm64
+            runner: ubuntu-24.04-arm
+          - platform: macos-x64
+            runner: macos-13
+          - platform: macos-arm64
+            runner: macos-latest
+          - platform: windows-x64
+            runner: windows-latest
+    uses: ./.github/workflows/build-native-binary.yml
+    with:
+      runner: ${{ matrix.runner }}
+      platform: ${{ matrix.platform }}
+
+  publish_docker:
+    needs: [should_build, build_binary]
+    if: needs.should_build.outputs.result == '1'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x64
+          - platform: linux-arm64
+    uses: ./.github/workflows/publish-docker.yml
+    with:
+      ref: ${{ inputs.ref || 'main' }}
+      image: ghcr.io/sympauthy/sympauthy-nightly
+      tag: latest
+      platform: ${{ matrix.platform }}
+
+  publish_release:
+    name: Publish to nightly release
+    needs: [should_build, build_binary]
+    if: needs.should_build.outputs.result == '1'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download all binary artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: binaries
+          pattern: sympauthy-*
+          merge-multiple: true
+
+      - name: List binaries
+        run: ls -la binaries/
+
+      - name: Create or update nightly release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete nightly --yes --cleanup-tag 2>/dev/null || true
+          gh release create nightly \
+            --title "Nightly Build ($(date +'%Y-%m-%d'))" \
+            --notes "$(cat <<'EOF'
+          Automated nightly build from `${{ inputs.ref || 'main' }}` branch.
+
+          ## Binaries
+          | File | Platform |
+          |------|----------|
+          | sympauthy-linux-x64 | Linux x86_64 |
+          | sympauthy-linux-arm64 | Linux ARM64 |
+          | sympauthy-macos-x64 | macOS Intel |
+          | sympauthy-macos-arm64 | macOS Apple Silicon |
+          | sympauthy-windows-x64.exe | Windows x86_64 |
+          EOF
+          )" \
+            --prerelease \
+            --target "${{ inputs.ref || 'main' }}" \
+            binaries/*
