@@ -17,12 +17,12 @@ import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.business.model.provider.Provider
-import com.sympauthy.business.model.provider.config.ProviderOauth2Config
+import com.sympauthy.business.model.provider.config.ProviderAuthConfig
+import com.sympauthy.business.model.provider.config.ProviderOAuth2Config
 import com.sympauthy.business.model.provider.config.ProviderOpenIdConnectConfig
 import com.sympauthy.business.model.provider.oauth2.ProviderOAuth2TokenRequest
-import com.sympauthy.business.model.provider.oauth2.ProviderOauth2Tokens
-import com.sympauthy.business.model.provider.openidconnect.ProviderOpenIdConnectTokens
-import com.sympauthy.business.model.redirect.ProviderOauth2AuthorizationRedirect
+import com.sympauthy.business.model.provider.oauth2.ProviderOAuth2Tokens
+import com.sympauthy.business.model.redirect.ProviderOAuth2AuthorizationRedirect
 import com.sympauthy.business.model.redirect.ProviderOpenIdConnectAuthorizationRedirect
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.RawProviderClaims
@@ -44,7 +44,7 @@ import java.util.*
  * using an OAuth 2 or OIDC provider.
  */
 @Singleton
-open class WebAuthorizationFlowOauth2ProviderManager(
+open class WebAuthorizationFlowOAuth2ProviderManager(
     @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
@@ -59,8 +59,8 @@ open class WebAuthorizationFlowOauth2ProviderManager(
     @Inject private val uncheckedUrlsConfig: UrlsConfig
 ) {
 
-    fun getOauth2(provider: EnabledProvider): ProviderOauth2Config {
-        if (provider.auth !is ProviderOauth2Config) {
+    fun getOAuth2(provider: EnabledProvider): ProviderOAuth2Config {
+        if (provider.auth !is ProviderOAuth2Config) {
             throw businessExceptionOf("provider.oauth2.unsupported")
         }
         return provider.auth
@@ -100,9 +100,9 @@ open class WebAuthorizationFlowOauth2ProviderManager(
                     nonce = nonce
                 ).build()
             }
-            is ProviderOauth2Config -> {
+            is ProviderOAuth2Config -> {
                 authorizeAttemptManager.setProvider(authorizeAttempt, providerId)
-                ProviderOauth2AuthorizationRedirect(
+                ProviderOAuth2AuthorizationRedirect(
                     oauth2 = auth,
                     responseType = "code",
                     redirectUri = getRedirectUri(provider),
@@ -139,7 +139,7 @@ open class WebAuthorizationFlowOauth2ProviderManager(
                 val nonce = authorizeAttemptManager.buildProviderNonceOrNull(authorizeAttempt)
                 fetchOpenIdConnectClaims(provider, auth, authorizeCode, nonce)
             }
-            is ProviderOauth2Config -> {
+            is ProviderOAuth2Config -> {
                 val authentication = fetchTokens(provider, auth, authorizeCode)
                 providerClaimsManager.fetchUserInfo(provider, authentication)
             }
@@ -173,11 +173,16 @@ open class WebAuthorizationFlowOauth2ProviderManager(
         authorizeCode: String,
         expectedNonce: String?
     ): RawProviderClaims {
-        val openIdConnectTokens = fetchOpenIdConnectTokens(provider, openIdConnectConfig, authorizeCode)
+        val tokens = fetchTokens(provider, openIdConnectConfig, authorizeCode)
+        val idToken = tokens.idToken
+            ?: throw businessExceptionOf(
+                "provider.openid_connect.missing_id_token",
+                "providerId" to provider.id
+            )
 
         val idTokenClaims = providerIdTokenManager.validateAndExtractClaims(
             openIdConnectConfig = openIdConnectConfig,
-            idTokenRaw = openIdConnectTokens.idToken,
+            idTokenRaw = idToken,
             expectedNonce = expectedNonce
         )
 
@@ -185,7 +190,7 @@ open class WebAuthorizationFlowOauth2ProviderManager(
 
         // If userinfo endpoint is configured, merge claims from both sources (ID token takes precedence)
         if (openIdConnectConfig.userinfoUri != null && provider.userInfo != null) {
-            val userinfoUserInfo = providerClaimsManager.fetchUserInfo(provider, openIdConnectTokens)
+            val userinfoUserInfo = providerClaimsManager.fetchUserInfo(provider, tokens)
             return mergeProviderClaims(idTokenUserInfo, userinfoUserInfo)
         }
 
@@ -314,49 +319,29 @@ open class WebAuthorizationFlowOauth2ProviderManager(
 
     suspend fun fetchTokens(
         provider: Provider,
-        oauth2: ProviderOauth2Config,
+        auth: ProviderAuthConfig,
         authorizeCode: String
-    ): ProviderOauth2Tokens {
-        val request = ProviderOAuth2TokenRequest(
-            oauth2 = oauth2,
-            authorizeCode = authorizeCode,
-            redirectUri = getRedirectUri(provider)
-        )
-        val tokens = tokenEndpointClient.fetchTokens(request)
-        return ProviderOauth2Tokens(
-            accessToken = tokens.accessToken,
-            refreshToken = tokens.refreshToken
-        )
-    }
-
-    private suspend fun fetchOpenIdConnectTokens(
-        provider: Provider,
-        openIdConnectConfig: ProviderOpenIdConnectConfig,
-        authorizeCode: String
-    ): ProviderOpenIdConnectTokens {
-        // Reuse the OAuth2 token exchange — OIDC uses the same protocol
-        val oauth2Config = ProviderOauth2Config(
-            clientId = openIdConnectConfig.clientId,
-            clientSecret = openIdConnectConfig.clientSecret,
-            scopes = openIdConnectConfig.scopes,
-            authorizationUri = openIdConnectConfig.authorizationUri,
-            tokenUri = openIdConnectConfig.tokenUri
-        )
+    ): ProviderOAuth2Tokens {
+        val oauth2Config = when (auth) {
+            is ProviderOAuth2Config -> auth
+            is ProviderOpenIdConnectConfig -> ProviderOAuth2Config(
+                clientId = auth.clientId,
+                clientSecret = auth.clientSecret,
+                scopes = auth.scopes,
+                authorizationUri = auth.authorizationUri,
+                tokenUri = auth.tokenUri
+            )
+        }
         val request = ProviderOAuth2TokenRequest(
             oauth2 = oauth2Config,
             authorizeCode = authorizeCode,
             redirectUri = getRedirectUri(provider)
         )
         val tokens = tokenEndpointClient.fetchTokens(request)
-        val idToken = tokens.idToken
-            ?: throw businessExceptionOf(
-                "provider.openid_connect.missing_id_token",
-                "providerId" to provider.id
-            )
-        return ProviderOpenIdConnectTokens(
+        return ProviderOAuth2Tokens(
             accessToken = tokens.accessToken,
             refreshToken = tokens.refreshToken,
-            idToken = idToken
+            idToken = tokens.idToken
         )
     }
 }

@@ -7,7 +7,7 @@ sealed class ProviderAuthConfig(
     val type: ProviderAuthType
 )
 
-class ProviderOauth2Config(
+class ProviderOAuth2Config(
     val clientId: String,
     val clientSecret: String,
     val scopes: List<String>?,

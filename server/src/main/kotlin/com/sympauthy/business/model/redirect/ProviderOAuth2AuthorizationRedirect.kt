@@ -1,6 +1,6 @@
 package com.sympauthy.business.model.redirect
 
-import com.sympauthy.business.model.provider.config.ProviderOauth2Config
+import com.sympauthy.business.model.provider.config.ProviderOAuth2Config
 import io.micronaut.http.uri.UriBuilder
 import java.net.URI
 
@@ -8,8 +8,8 @@ import java.net.URI
  * Contains all the information required to generate the URI where the user must be redirected to initiate
  * an authentication to a third-party provider.
  */
-data class ProviderOauth2AuthorizationRedirect(
-    val oauth2: ProviderOauth2Config,
+data class ProviderOAuth2AuthorizationRedirect(
+    val oauth2: ProviderOAuth2Config,
     val responseType: String,
     val state: String?,
     val redirectUri: URI?,

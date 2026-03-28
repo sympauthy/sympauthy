@@ -2,7 +2,7 @@ package com.sympauthy.api.controller.flow
 
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_ENDPOINTS
 import com.sympauthy.api.controller.flow.util.WebAuthorizationFlowControllerUtil
-import com.sympauthy.business.manager.flow.WebAuthorizationFlowOauth2ProviderManager
+import com.sympauthy.business.manager.flow.WebAuthorizationFlowOAuth2ProviderManager
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
 import io.micronaut.http.HttpResponse
@@ -19,7 +19,7 @@ import jakarta.inject.Inject
 @Secured(HAS_STATE)
 @Controller(FLOW_PROVIDER_ENDPOINTS)
 class ProvidersController(
-    @Inject private val webAuthorizationFlowOauth2ProviderManager: WebAuthorizationFlowOauth2ProviderManager,
+    @Inject private val webAuthorizationFlowOAuth2ProviderManager: WebAuthorizationFlowOAuth2ProviderManager,
     @Inject private val webAuthorizationFlowControllerUtil: WebAuthorizationFlowControllerUtil
 ) {
 
@@ -46,7 +46,7 @@ defined in ```urls.flow.error``` configuration.
         webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenRunAndRedirect(
             state = authentication.stateOrNull,
             run = { authorizeAttempt, _ ->
-                webAuthorizationFlowOauth2ProviderManager.authorizeWithProvider(
+                webAuthorizationFlowOAuth2ProviderManager.authorizeWithProvider(
                     authorizeAttempt,
                     providerId = providerId
                 )
@@ -82,7 +82,7 @@ Redirection to either:
     ) = webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenUpdateAndRedirect(
         state = state,
         update = { authorizeAttempt, _ ->
-            val (updatedAuthorizeAttempt, _) = webAuthorizationFlowOauth2ProviderManager.signInOrSignUpUsingProvider(
+            val (updatedAuthorizeAttempt, _) = webAuthorizationFlowOAuth2ProviderManager.signInOrSignUpUsingProvider(
                 authorizeAttempt = authorizeAttempt,
                 providerId = providerId,
                 authorizeCode = code

@@ -9,7 +9,7 @@ import com.sympauthy.business.model.provider.ProviderUserInfoPathKey
 import com.sympauthy.business.model.provider.ProviderUserInfoPathKey.EMAIL
 import com.sympauthy.business.model.provider.ProviderUserInfoPathKey.SUB
 import com.sympauthy.business.model.provider.config.ProviderAuthConfig
-import com.sympauthy.business.model.provider.config.ProviderOauth2Config
+import com.sympauthy.business.model.provider.config.ProviderOAuth2Config
 import com.sympauthy.business.model.provider.config.ProviderOpenIdConnectConfig
 import com.sympauthy.business.model.provider.config.ProviderUserInfoConfig
 import com.sympauthy.client.openidconnect.OpenIdConnectDiscoveryClient
@@ -179,38 +179,38 @@ open class ProviderConfigManager(
     private fun configureProviderAuth(config: ProviderConfigurationProperties): ProviderAuthConfig {
         return when {
             config.oidc != null -> configureProviderOpenIdConnect(config, config.oidc!!)
-            config.oauth2 != null -> configureProviderOauth2(config, config.oauth2!!)
+            config.oauth2 != null -> configureProviderOAuth2(config, config.oauth2!!)
             else -> throw localizedExceptionOf(
                 "config.auth.missing"
             )
         }
     }
 
-    private fun configureProviderOauth2(
+    private fun configureProviderOAuth2(
         config: ProviderConfigurationProperties,
-        oauth2: ProviderConfigurationProperties.Oauth2Config
-    ): ProviderOauth2Config {
-        return ProviderOauth2Config(
+        oauth2: ProviderConfigurationProperties.OAuth2Config
+    ): ProviderOAuth2Config {
+        return ProviderOAuth2Config(
             clientId = getStringOrThrow(
                 oauth2,
                 "${PROVIDERS_KEY}.${config.id}.client-id",
-                ProviderConfigurationProperties.Oauth2Config::clientId
+                ProviderConfigurationProperties.OAuth2Config::clientId
             ),
             clientSecret = getStringOrThrow(
                 oauth2,
                 "${PROVIDERS_KEY}.${config.id}.client-secret",
-                ProviderConfigurationProperties.Oauth2Config::clientSecret
+                ProviderConfigurationProperties.OAuth2Config::clientSecret
             ),
             scopes = oauth2.scopes,
             authorizationUri = getUriOrThrow(
                 oauth2,
                 "${PROVIDERS_KEY}.${config.id}.authorization-url",
-                ProviderConfigurationProperties.Oauth2Config::authorizationUrl
+                ProviderConfigurationProperties.OAuth2Config::authorizationUrl
             ),
             tokenUri = getUriOrThrow(
                 oauth2,
                 "${PROVIDERS_KEY}.${config.id}.token-url",
-                ProviderConfigurationProperties.Oauth2Config::tokenUrl
+                ProviderConfigurationProperties.OAuth2Config::tokenUrl
             )
         )
     }

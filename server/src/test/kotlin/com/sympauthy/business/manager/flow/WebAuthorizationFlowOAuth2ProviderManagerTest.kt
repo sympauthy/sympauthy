@@ -10,7 +10,7 @@ import com.sympauthy.business.manager.provider.openidconnect.ProviderIdTokenMana
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.provider.EnabledProvider
-import com.sympauthy.business.model.provider.config.ProviderOauth2Config
+import com.sympauthy.business.model.provider.config.ProviderOAuth2Config
 import com.sympauthy.business.model.provider.config.ProviderUserInfoConfig
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.RawProviderClaims
@@ -34,7 +34,7 @@ import java.time.LocalDateTime
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
-class WebAuthorizationFlowOauth2ProviderManagerTest {
+class WebAuthorizationFlowOAuth2ProviderManagerTest {
 
     @MockK
     lateinit var authorizeAttemptManager: AuthorizeAttemptManager
@@ -73,14 +73,14 @@ class WebAuthorizationFlowOauth2ProviderManagerTest {
     lateinit var uncheckedUrlsConfig: UrlsConfig
 
     @InjectMockKs
-    lateinit var manager: WebAuthorizationFlowOauth2ProviderManager
+    lateinit var manager: WebAuthorizationFlowOAuth2ProviderManager
 
     private fun createProvider(): EnabledProvider {
         return EnabledProvider(
             id = "test-provider",
             name = "Test Provider",
             userInfo = mockk<ProviderUserInfoConfig>(),
-            auth = mockk<ProviderOauth2Config>()
+            auth = mockk<ProviderOAuth2Config>()
         )
     }
 
@@ -92,11 +92,11 @@ class WebAuthorizationFlowOauth2ProviderManagerTest {
         )
     }
 
-    // --- getOauth2 ---
+    // --- getOAuth2 ---
 
     @Test
-    fun `getOauth2 - Return config when provider uses OAuth2`() {
-        val oauth2Config = mockk<ProviderOauth2Config>()
+    fun `getOAuth2 - Return config when provider uses OAuth2`() {
+        val oauth2Config = mockk<ProviderOAuth2Config>()
         val provider = EnabledProvider(
             id = "test-provider",
             name = "Test Provider",
@@ -104,7 +104,7 @@ class WebAuthorizationFlowOauth2ProviderManagerTest {
             auth = oauth2Config
         )
 
-        val result = manager.getOauth2(provider)
+        val result = manager.getOAuth2(provider)
 
         assertSame(oauth2Config, result)
     }
