@@ -68,7 +68,7 @@ jobs:
 
       - id: build
         name: Build & Push docker image (${{ inputs.platform }})
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           push: true
           context: .github/docker
