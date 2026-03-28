@@ -41,7 +41,7 @@ jobs:
 
       - id: meta
         name: Generate Docker metadata
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ inputs.image }}
           tags: type=raw,value=${{ inputs.tag }}
