@@ -9,6 +9,7 @@ import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
+import com.sympauthy.config.model.EnabledUrlsConfig
 import io.micronaut.http.HttpHeaders
 import io.micronaut.http.HttpMethod
 import io.micronaut.http.HttpRequest
@@ -28,7 +29,8 @@ import java.util.*
 
 class DpopManagerTest {
 
-    private val dpopManager = DpopManager()
+    private val urlsConfig = EnabledUrlsConfig(root = URI.create("https://auth.example.com"))
+    private val dpopManager = DpopManager(urlsConfig)
 
     private lateinit var ecKey: ECKey
     private lateinit var signer: ECDSASigner
@@ -48,7 +50,7 @@ class DpopManagerTest {
 
     private fun mockRequest(
         method: HttpMethod = HttpMethod.POST,
-        uri: URI = URI.create("https://auth.example.com/api/oauth2/token"),
+        uri: URI = URI.create("/api/oauth2/token"),
         dpopHeaders: List<String> = emptyList()
     ): HttpRequest<*> {
         val headers = mockk<HttpHeaders> {
@@ -280,7 +282,7 @@ class DpopManagerTest {
     @Test
     fun `validateProof - Strips query string from request URI for htu comparison`() {
         val proof = createValidDpopProof(htu = "https://auth.example.com/api/oauth2/token")
-        val request = mockRequest(uri = URI.create("https://auth.example.com/api/oauth2/token?foo=bar"))
+        val request = mockRequest(uri = URI.create("/api/oauth2/token?foo=bar"))
 
         val result = dpopManager.validateProof(proof, request)
         assertNotNull(result)
@@ -375,14 +377,14 @@ class DpopManagerTest {
     // --- getRequestUri ---
 
     @Test
-    fun `getRequestUri - Strips query and fragment`() {
-        val request = mockRequest(uri = URI.create("https://auth.example.com/api/oauth2/token?code=abc&state=xyz"))
+    fun `getRequestUri - Strips query from request path`() {
+        val request = mockRequest(uri = URI.create("/api/oauth2/token?code=abc&state=xyz"))
         assertEquals("https://auth.example.com/api/oauth2/token", dpopManager.getRequestUri(request))
     }
 
     @Test
-    fun `getRequestUri - Preserves port`() {
-        val request = mockRequest(uri = URI.create("https://auth.example.com:8443/api/oauth2/token"))
-        assertEquals("https://auth.example.com:8443/api/oauth2/token", dpopManager.getRequestUri(request))
+    fun `getRequestUri - Uses urls root for scheme and authority`() {
+        val request = mockRequest(uri = URI.create("/api/oauth2/token"))
+        assertEquals("https://auth.example.com/api/oauth2/token", dpopManager.getRequestUri(request))
     }
 }

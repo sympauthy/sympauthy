@@ -10,7 +10,10 @@ import com.nimbusds.jwt.SignedJWT
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.model.oauth2.DpopProof
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
+import com.sympauthy.config.model.UrlsConfig
+import com.sympauthy.config.model.orThrow
 import io.micronaut.http.HttpRequest
+import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.text.ParseException
 import java.time.Duration
@@ -23,7 +26,9 @@ import java.time.Instant
  * @see <a href="https://datatracker.ietf.org/doc/html/rfc9449">RFC 9449</a>
  */
 @Singleton
-class DpopManager {
+class DpopManager(
+    @Inject private val uncheckedUrlsConfig: UrlsConfig
+) {
 
     /**
      * Extracts and validates the DPoP proof from the request, if present.
@@ -144,11 +149,12 @@ class DpopManager {
     }
 
     /**
-     * Returns the request URI without query string and fragment, as required by RFC 9449.
+     * Returns the full request URI without query string and fragment, as required by RFC 9449.
+     * Uses the configured [UrlsConfig.root] to build the absolute URI.
      */
     internal fun getRequestUri(request: HttpRequest<*>): String {
-        val uri = request.uri
-        return "${uri.scheme}://${uri.authority}${uri.path}"
+        val root = uncheckedUrlsConfig.orThrow().root
+        return "${root.scheme}://${root.authority}${request.uri.path}"
     }
 
     companion object {
