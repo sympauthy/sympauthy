@@ -15,8 +15,8 @@ import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
 /**
- * Manager in charge of determining which scopes among the one requested by the user,
- * which should be granted or declined.
+ * Manager in charge of determining which user scopes among the ones requested,
+ * should be granted or declined.
  *
  * There are multiple methods that can grant/decline the requested scopes:
  * - call the third-party authorization delegation API configured for the client.
@@ -26,10 +26,10 @@ import jakarta.inject.Singleton
  * The scopes that have not been granted or declined by a higher order method will be passed to
  * the next one, and the process continues until there is no more scope or no more method.
  *
- * @see [ScopeGrantingRuleManager.applyScopeGrantingRules]
+ * @see [ScopeGrantingRuleManager.applyUserScopeGrantingRules]
  */
 @Singleton
-class ScopeGrantingManager(
+class UserScopeGrantingManager(
     @Inject private val scopeManager: ScopeManager,
     @Inject private val scopeGrantingRuleManager: ScopeGrantingRuleManager,
     @Inject private val featuresConfig: FeaturesConfig
@@ -48,7 +48,7 @@ class ScopeGrantingManager(
     suspend fun grantScopes(
         authorizeAttempt: OnGoingAuthorizeAttempt,
         allCollectedClaims: List<CollectedClaim>
-    ): GrantScopesResult {
+    ): UserGrantScopesResult {
         val allRequestedScopes = authorizeAttempt.requestedScopes.map {
             scopeManager.findOrThrow(it)
         }
@@ -83,7 +83,7 @@ class ScopeGrantingManager(
             results.add(result)
         }
 
-        return GrantScopesResult(
+        return UserGrantScopesResult(
             requestedScopes = requestedGrantableScopes,
             results = results.toList()
         )
@@ -94,7 +94,7 @@ class ScopeGrantingManager(
      */
     internal fun getScopeGrantingMethods(): List<suspend (authorizeAttempt: AuthorizeAttempt, requestedScopes: List<Scope>, collectedClaims: List<CollectedClaim>) -> ScopeGrantingMethodResult> {
         return listOf(
-            scopeGrantingRuleManager::applyScopeGrantingRules,
+            scopeGrantingRuleManager::applyUserScopeGrantingRules,
             this::applyDefaultBehavior
         )
     }
@@ -131,7 +131,7 @@ class ScopeGrantingManager(
     }
 }
 
-data class GrantScopesResult(
+data class UserGrantScopesResult(
     val requestedScopes: List<Scope>,
     val results: List<ScopeGrantingMethodResult>
 ) {

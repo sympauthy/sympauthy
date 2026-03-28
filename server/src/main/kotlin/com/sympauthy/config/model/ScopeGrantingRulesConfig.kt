@@ -8,7 +8,8 @@ sealed class ScopeGrantingRulesConfig(
 ) : Config(configurationErrors)
 
 data class EnabledScopeGrantingRulesConfig(
-    val scopeGrantingRules: List<ScopeGrantingRule>
+    val userScopeGrantingRules: List<ScopeGrantingRule>,
+    val clientScopeGrantingRules: List<ScopeGrantingRule>
 ) : ScopeGrantingRulesConfig()
 
 class DisabledScopeGrantingRulesConfig(

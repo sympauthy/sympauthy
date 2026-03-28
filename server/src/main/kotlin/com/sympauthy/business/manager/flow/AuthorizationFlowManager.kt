@@ -3,7 +3,7 @@ package com.sympauthy.business.manager.flow
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
-import com.sympauthy.business.manager.auth.ScopeGrantingManager
+import com.sympauthy.business.manager.auth.UserScopeGrantingManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ID
@@ -29,7 +29,7 @@ import jakarta.inject.Singleton
 @Singleton
 class AuthorizationFlowManager(
     @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
-    @Inject private val scopeGrantingManager: ScopeGrantingManager,
+    @Inject private val scopeGrantingManager: UserScopeGrantingManager,
     @Inject private val consentManager: ConsentManager,
     @Inject private val authorizationFlowsConfig: AuthorizationFlowsConfig,
     @Inject private val uncheckedUrlsConfig: UrlsConfig,

@@ -6,7 +6,10 @@ import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
+import com.sympauthy.business.manager.auth.ClientGrantScopesResult
+import com.sympauthy.business.manager.auth.ClientScopeGrantingManager
 import com.sympauthy.business.manager.auth.oauth2.*
+import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.manager.flow.AuthorizationFlowManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.*
@@ -51,6 +54,9 @@ class TokenControllerTest {
 
     @MockK
     lateinit var pkceManager: PkceManager
+
+    @MockK
+    lateinit var clientScopeGrantingManager: ClientScopeGrantingManager
 
     @InjectMockKs
     lateinit var controller: TokenController
@@ -395,6 +401,10 @@ class TokenControllerTest {
 
         coEvery { clientAuthenticationUtil.resolveClient(request, any(), any()) } returns client
         coEvery { scopeManager.parseRequestedClientScopes(client, "read") } returns listOf(scope)
+        coEvery { clientScopeGrantingManager.grantClientScopes(client, listOf(scope)) } returns ClientGrantScopesResult(
+            requestedScopes = listOf(scope),
+            results = listOf(ScopeGrantingMethodResult(grantedScopes = listOf(scope), declinedScopes = emptyList()))
+        )
         coEvery {
             accessTokenGenerator.generateAccessTokenForClient(clientId = "my-client", clientScopes = listOf("read"))
         } returns accessToken

@@ -23,7 +23,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertEquals
 
 @ExtendWith(MockKExtension::class)
-class ScopeGrantingManagerTest {
+class UserScopeGrantingManagerTest {
 
     @MockK
     lateinit var scopeManager: ScopeManager
@@ -36,7 +36,7 @@ class ScopeGrantingManagerTest {
 
     @SpyK
     @InjectMockKs
-    lateinit var scopeGrantingManager: ScopeGrantingManager
+    lateinit var scopeGrantingManager: UserScopeGrantingManager
 
     @Test
     fun `grantScopes - apply methods returned by getScopeGrantingMethods`() = runBlocking {
@@ -125,7 +125,7 @@ class ScopeGrantingManagerTest {
     }
 
     @Test
-    fun `GrantScopesResult - grantedScopes - List all scopes granted in result of different methods`() {
+    fun `UserGrantScopesResult - grantedScopes - List all scopes granted in result of different methods`() {
         val grantedScope1 = mockk<Scope>()
         val grantedScope2 = mockk<Scope>()
         val grantedScope3 = mockk<Scope>()
@@ -138,7 +138,7 @@ class ScopeGrantingManagerTest {
         )
         val result3 = ScopeGrantingMethodResult()
 
-        val result = GrantScopesResult(
+        val result = UserGrantScopesResult(
             requestedScopes = emptyList(),
             results = listOf(result1, result2, result3)
         )
@@ -146,7 +146,7 @@ class ScopeGrantingManagerTest {
     }
 
     @Test
-    fun `GrantScopesResult - declineScope - List all scopes declined in result of different methods`() {
+    fun `UserGrantScopesResult - declineScope - List all scopes declined in result of different methods`() {
         val declinedScope1 = mockk<Scope>()
         val declinedScope2 = mockk<Scope>()
         val declinedScope3 = mockk<Scope>()
@@ -159,7 +159,7 @@ class ScopeGrantingManagerTest {
         )
         val result3 = ScopeGrantingMethodResult()
 
-        val result = GrantScopesResult(
+        val result = UserGrantScopesResult(
             requestedScopes = emptyList(),
             results = listOf(result1, result2, result3)
         )

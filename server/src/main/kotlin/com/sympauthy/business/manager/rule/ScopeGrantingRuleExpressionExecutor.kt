@@ -6,6 +6,8 @@ import com.ezylang.evalex.data.EvaluationValue.DataType.BOOLEAN
 import com.ezylang.evalex.parser.ParseException
 import com.sympauthy.business.manager.rule.function.ClaimFunction
 import com.sympauthy.business.manager.rule.function.ClaimIsVerifiedFunction
+import com.sympauthy.business.manager.rule.function.ClientFunction
+import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.user.CollectedClaim
 import jakarta.inject.Singleton
@@ -29,10 +31,10 @@ class ScopeGrantingRuleExpressionExecutor {
     }
 
     /**
-     * A dummy [ExpressionConfiguration] configured with non-working custom functions and operators allowing
-     * the validation of scope granting rule during SympAuthy configuration.
+     * A dummy [ExpressionConfiguration] configured with non-working custom functions allowing
+     * the validation of user scope granting rules during SympAuthy configuration.
      */
-    internal val dummyConfiguration = lazy {
+    internal val userDummyConfiguration = lazy {
         defaultConfiguration.value
             .withAdditionalFunctions(
                 entry(ClaimFunction.FUNCTION_NAME, ClaimFunction()),
@@ -41,8 +43,19 @@ class ScopeGrantingRuleExpressionExecutor {
     }
 
     /**
-     * Return the [ExpressionConfiguration] with the custom functions and operator configured with
-     * the information relative to the [authorizeAttempt].
+     * A dummy [ExpressionConfiguration] configured with non-working custom functions allowing
+     * the validation of client scope granting rules during SympAuthy configuration.
+     */
+    internal val clientDummyConfiguration = lazy {
+        defaultConfiguration.value
+            .withAdditionalFunctions(
+                entry(ClientFunction.FUNCTION_NAME, ClientFunction())
+            )
+    }
+
+    /**
+     * Return the [ExpressionConfiguration] with the custom functions configured with
+     * the information relative to the [authorizeAttempt] for user scope granting rules.
      */
     suspend fun getConfiguration(
         authorizeAttempt: AuthorizeAttempt,
@@ -56,11 +69,30 @@ class ScopeGrantingRuleExpressionExecutor {
     }
 
     /**
-     * Validate that the [expressionString] is a valid by evaluating the expression with a dummy [ExpressionConfiguration].
+     * Return the [ExpressionConfiguration] with the custom functions configured with
+     * the information relative to the [client] for client scope granting rules.
+     */
+    fun getClientConfiguration(client: Client): ExpressionConfiguration {
+        return defaultConfiguration.value
+            .withAdditionalFunctions(
+                entry(ClientFunction.FUNCTION_NAME, ClientFunction(client))
+            )
+    }
+
+    /**
+     * Validate that the [expressionString] is a valid user scope granting rule expression.
      * Throw a [InvalidScopeGrantingRuleException] if the [expressionString] is not valid.
      */
-    suspend fun validateExpression(expressionString: String) {
-        evaluateExpressionOrThrow(expressionString, dummyConfiguration.value)
+    suspend fun validateUserExpression(expressionString: String) {
+        evaluateExpressionOrThrow(expressionString, userDummyConfiguration.value)
+    }
+
+    /**
+     * Validate that the [expressionString] is a valid client scope granting rule expression.
+     * Throw a [InvalidScopeGrantingRuleException] if the [expressionString] is not valid.
+     */
+    suspend fun validateClientExpression(expressionString: String) {
+        evaluateExpressionOrThrow(expressionString, clientDummyConfiguration.value)
     }
 
     /**
