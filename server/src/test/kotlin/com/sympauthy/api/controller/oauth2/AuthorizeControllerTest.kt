@@ -128,7 +128,7 @@ class AuthorizeControllerTest {
     // --- Successful delegation ---
 
     @Test
-    fun `authorize - Returns 307 redirect to sign-in URI on valid code request`() = runTest {
+    fun `authorize - Returns 303 redirect to sign-in URI on valid code request`() = runTest {
         val authorizeAttempt = mockk<AuthorizeAttempt>()
         val flow = mockk<WebAuthorizationFlow>()
         val status = mockk<WebAuthorizationFlowStatus>()
@@ -167,7 +167,7 @@ class AuthorizeControllerTest {
             uncheckedCodeChallengeMethod = null
         )
 
-        assertEquals(HttpStatus.TEMPORARY_REDIRECT, result.status)
+        assertEquals(HttpStatus.SEE_OTHER, result.status)
         assertEquals(signInUri, result.header("Location")?.let { URI(it) })
     }
 

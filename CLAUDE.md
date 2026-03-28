@@ -45,6 +45,10 @@ Multi-module Gradle project (root + `server`). All source code is in `server/src
 
 ### Key Conventions
 
+#### API (com.sympauthy.api)
+
+- **No HTTP 307 redirects** — OAuth 2.1 [forbids 307 redirects](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1#name-http-307-redirect) because they cause the browser to resubmit the POST body (including credentials) to the redirect target. Always use **303 See Other** (`HttpResponse.seeOther()`) which forces a GET on the redirect target.
+
 #### Config (com.sympauthy.config)
 
 - **Config sealed class pattern** — `EnabledXxxConfig` / `DisabledXxxConfig` with `orThrow()` extension for required configs, `as? EnabledXxxConfig` for optional feature checks

@@ -50,14 +50,14 @@ class AuthorizeControllerIntegrationTest : AbstractFlowIntegrationTest() {
     // --- Successful authorization ---
 
     @Test
-    fun `GET authorize - Returns 307 with Location header for valid code request`() {
+    fun `GET authorize - Returns 303 with Location header for valid code request`() {
         val client = noRedirectClient()
         val request = HttpRequest.GET<Any>(
             "$OAUTH2_AUTHORIZE_ENDPOINT?response_type=code&client_id=default"
         )
         val response = client.toBlocking().exchange(request, String::class.java)
 
-        assertEquals(HttpStatus.TEMPORARY_REDIRECT, response.status)
+        assertEquals(HttpStatus.SEE_OTHER, response.status)
         assertNotNull(response.header(HttpHeaders.LOCATION))
     }
 
@@ -79,33 +79,33 @@ class AuthorizeControllerIntegrationTest : AbstractFlowIntegrationTest() {
     // --- Client validation ---
 
     @Test
-    fun `GET authorize - Returns 307 to error page when client_id is missing`() {
+    fun `GET authorize - Returns 303 to error page when client_id is missing`() {
         val client = noRedirectClient()
         val request = HttpRequest.GET<Any>(
             "$OAUTH2_AUTHORIZE_ENDPOINT?response_type=code"
         )
         val response = client.toBlocking().exchange(request, String::class.java)
 
-        assertEquals(HttpStatus.TEMPORARY_REDIRECT, response.status)
+        assertEquals(HttpStatus.SEE_OTHER, response.status)
         assertNotNull(response.header(HttpHeaders.LOCATION))
     }
 
     @Test
-    fun `GET authorize - Returns 307 to error page when client_id is unknown`() {
+    fun `GET authorize - Returns 303 to error page when client_id is unknown`() {
         val client = noRedirectClient()
         val request = HttpRequest.GET<Any>(
             "$OAUTH2_AUTHORIZE_ENDPOINT?response_type=code&client_id=nonexistent"
         )
         val response = client.toBlocking().exchange(request, String::class.java)
 
-        assertEquals(HttpStatus.TEMPORARY_REDIRECT, response.status)
+        assertEquals(HttpStatus.SEE_OTHER, response.status)
         assertNotNull(response.header(HttpHeaders.LOCATION))
     }
 
     // --- Redirect URI ---
 
     @Test
-    fun `GET authorize - Returns 307 to error page when redirect_uri is missing`() {
+    fun `GET authorize - Returns 303 to error page when redirect_uri is missing`() {
         // The default client has no allowedRedirectUris restrictions,
         // but redirect_uri is still required by parseRequestedRedirectUri
         val client = noRedirectClient()
@@ -116,6 +116,6 @@ class AuthorizeControllerIntegrationTest : AbstractFlowIntegrationTest() {
         // and redirects (the error is stored in the attempt)
         val response = client.toBlocking().exchange(request, String::class.java)
 
-        assertEquals(HttpStatus.TEMPORARY_REDIRECT, response.status)
+        assertEquals(HttpStatus.SEE_OTHER, response.status)
     }
 }

@@ -174,7 +174,7 @@ The authorization server includes this value unmodified in the ID Token.
             flow = flow,
             status = status
         )
-        return HttpResponse.temporaryRedirect<Any>(redirectUri)
+        return HttpResponse.seeOther<Any>(redirectUri)
     }
 
     companion object {

@@ -51,8 +51,8 @@ defined in ```urls.flow.error``` configuration.
                     providerId = providerId
                 )
             },
-            mapRedirectUriToResource = { redirectUri -> HttpResponse.temporaryRedirect<Any>(redirectUri) },
-            mapResultToResource = { HttpResponse.temporaryRedirect<Any>(it) }
+            mapRedirectUriToResource = { redirectUri -> HttpResponse.seeOther<Any>(redirectUri) },
+            mapResultToResource = { HttpResponse.seeOther<Any>(it) }
         )
 
     @Operation(
@@ -89,7 +89,7 @@ Redirection to either:
             )
             updatedAuthorizeAttempt
         },
-        mapRedirectUriToResource = { redirectUri -> HttpResponse.temporaryRedirect<Any>(redirectUri) }
+        mapRedirectUriToResource = { redirectUri -> HttpResponse.seeOther<Any>(redirectUri) }
     )
 
     companion object {

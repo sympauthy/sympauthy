@@ -34,7 +34,7 @@ one enrolled method. The MFA step is marked as resolved so the flow does not pro
         """,
         responses = [
             ApiResponse(
-                responseCode = "307",
+                responseCode = "303",
                 description = "MFA skipped. Redirects the browser to the next step of the authorization flow."
             )
         ],
@@ -49,6 +49,6 @@ one enrolled method. The MFA step is marked as resolved so the flow does not pro
             update = { authorizeAttempt, _ ->
                 mfaManager.skipMfa(authorizeAttempt)
             },
-            mapRedirectUriToResource = { redirectUri -> HttpResponse.temporaryRedirect<Any>(redirectUri) }
+            mapRedirectUriToResource = { redirectUri -> HttpResponse.seeOther<Any>(redirectUri) }
         )
 }
