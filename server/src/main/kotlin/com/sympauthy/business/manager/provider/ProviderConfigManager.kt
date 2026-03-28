@@ -230,11 +230,6 @@ open class ProviderConfigManager(
             if ("openid" !in scopes) listOf("openid") + scopes else scopes
         }
 
-        val userinfoEnabled = oidc.userinfoEnabled ?: false
-        val userinfoUri = if (userinfoEnabled) {
-            discovery.userinfoEndpoint?.let { URI.create(it) }
-        } else null
-
         return ProviderOpenIdConnectConfig(
             clientId = clientId,
             clientSecret = clientSecret,
@@ -242,8 +237,7 @@ open class ProviderConfigManager(
             issuer = issuer,
             authorizationUri = URI.create(discovery.authorizationEndpoint),
             tokenUri = URI.create(discovery.tokenEndpoint),
-            jwksUri = URI.create(discovery.jwksUri),
-            userinfoUri = userinfoUri
+            jwksUri = URI.create(discovery.jwksUri)
         )
     }
 }

@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.provider.openidconnect
 
+import com.nimbusds.jwt.SignedJWT
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.model.user.RawProviderClaims
 import jakarta.inject.Singleton
@@ -12,6 +13,17 @@ import java.time.format.DateTimeParseException
 
 @Singleton
 class ProviderIdTokenClaimsExtractor {
+
+    /**
+     * Decode the payload of an ID token JWT without verifying its signature.
+     * Used when an OAuth2 provider unexpectedly returns an ID token but we have no JWKS to validate against.
+     */
+    fun decodeClaimsWithoutValidation(idTokenRaw: String): Map<String, Any> {
+        val jwt = SignedJWT.parse(idTokenRaw)
+        return jwt.jwtClaimsSet.claims
+            .filterValues { it != null }
+            .mapValues { it.value!! }
+    }
 
     fun extractClaims(providerId: String, idTokenClaims: Map<String, Any>): RawProviderClaims {
         val subject = idTokenClaims["sub"]?.toString()

@@ -76,7 +76,6 @@ class ProviderConfigurationProperties(
         val clientId: String?
         val clientSecret: String?
         val scopes: List<String>?
-        val userinfoEnabled: Boolean?
     }
 
     @ConfigurationProperties("user-info")

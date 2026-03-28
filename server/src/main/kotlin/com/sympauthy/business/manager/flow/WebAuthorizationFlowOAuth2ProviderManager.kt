@@ -6,9 +6,8 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
+import com.sympauthy.business.manager.provider.ProviderClaimsResolver
 import com.sympauthy.business.manager.provider.ProviderConfigManager
-import com.sympauthy.business.manager.provider.openidconnect.ProviderIdTokenClaimsExtractor
-import com.sympauthy.business.manager.provider.openidconnect.ProviderIdTokenManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.CreateOrAssociateResult
 import com.sympauthy.business.manager.user.UserManager
@@ -50,8 +49,7 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val providerConfigManager: ProviderConfigManager,
     @Inject private val providerClaimsManager: ProviderClaimsManager,
-    @Inject private val providerIdTokenManager: ProviderIdTokenManager,
-    @Inject private val providerIdTokenClaimsExtractor: ProviderIdTokenClaimsExtractor,
+    @Inject private val providerClaimsResolver: ProviderClaimsResolver,
     @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
     @Inject private val tokenEndpointClient: TokenEndpointClient,
     @Inject private val userManager: UserManager,
@@ -134,16 +132,9 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
         }
         val provider = providerConfigManager.findByIdAndCheckEnabled(providerId)
 
-        val rawUserInfo = when (val auth = provider.auth) {
-            is ProviderOpenIdConnectConfig -> {
-                val nonce = authorizeAttemptManager.buildProviderNonceOrNull(authorizeAttempt)
-                fetchOpenIdConnectClaims(provider, auth, authorizeCode, nonce)
-            }
-            is ProviderOAuth2Config -> {
-                val authentication = fetchTokens(provider, auth, authorizeCode)
-                providerClaimsManager.fetchUserInfo(provider, authentication)
-            }
-        }
+        val tokens = fetchTokens(provider, provider.auth, authorizeCode)
+        val expectedNonce = authorizeAttemptManager.buildProviderNonceOrNull(authorizeAttempt)
+        val rawUserInfo = providerClaimsResolver.resolveClaims(provider, tokens, expectedNonce)
 
         val existingUserInfo = providerClaimsManager.findByProviderAndSubject(
             provider = provider,
@@ -161,69 +152,6 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
 
         return webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
             authorizeAttempt = updatedAuthorizeAttempt
-        )
-    }
-
-    /**
-     * Fetch tokens from an OIDC provider, validate the ID token, and extract claims.
-     */
-    private suspend fun fetchOpenIdConnectClaims(
-        provider: EnabledProvider,
-        openIdConnectConfig: ProviderOpenIdConnectConfig,
-        authorizeCode: String,
-        expectedNonce: String?
-    ): RawProviderClaims {
-        val tokens = fetchTokens(provider, openIdConnectConfig, authorizeCode)
-        val idToken = tokens.idToken
-            ?: throw businessExceptionOf(
-                "provider.openid_connect.missing_id_token",
-                "providerId" to provider.id
-            )
-
-        val idTokenClaims = providerIdTokenManager.validateAndExtractClaims(
-            openIdConnectConfig = openIdConnectConfig,
-            idTokenRaw = idToken,
-            expectedNonce = expectedNonce
-        )
-
-        val idTokenUserInfo = providerIdTokenClaimsExtractor.extractClaims(provider.id, idTokenClaims)
-
-        // If userinfo endpoint is configured, merge claims from both sources (ID token takes precedence)
-        if (openIdConnectConfig.userinfoUri != null && provider.userInfo != null) {
-            val userinfoUserInfo = providerClaimsManager.fetchUserInfo(provider, tokens)
-            return mergeProviderClaims(idTokenUserInfo, userinfoUserInfo)
-        }
-
-        return idTokenUserInfo
-    }
-
-    /**
-     * Merge claims from ID token and userinfo endpoint.
-     * ID token claims take precedence; userinfo fills in missing values.
-     */
-    private fun mergeProviderClaims(
-        primary: RawProviderClaims,
-        secondary: RawProviderClaims
-    ): RawProviderClaims {
-        return primary.copy(
-            name = primary.name ?: secondary.name,
-            givenName = primary.givenName ?: secondary.givenName,
-            familyName = primary.familyName ?: secondary.familyName,
-            middleName = primary.middleName ?: secondary.middleName,
-            nickname = primary.nickname ?: secondary.nickname,
-            preferredUsername = primary.preferredUsername ?: secondary.preferredUsername,
-            profile = primary.profile ?: secondary.profile,
-            picture = primary.picture ?: secondary.picture,
-            website = primary.website ?: secondary.website,
-            email = primary.email ?: secondary.email,
-            emailVerified = primary.emailVerified ?: secondary.emailVerified,
-            gender = primary.gender ?: secondary.gender,
-            birthDate = primary.birthDate ?: secondary.birthDate,
-            zoneInfo = primary.zoneInfo ?: secondary.zoneInfo,
-            locale = primary.locale ?: secondary.locale,
-            phoneNumber = primary.phoneNumber ?: secondary.phoneNumber,
-            phoneNumberVerified = primary.phoneNumberVerified ?: secondary.phoneNumberVerified,
-            updatedAt = primary.updatedAt ?: secondary.updatedAt
         )
     }
 

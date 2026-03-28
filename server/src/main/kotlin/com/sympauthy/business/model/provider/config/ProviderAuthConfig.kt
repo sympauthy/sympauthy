@@ -27,5 +27,4 @@ class ProviderOpenIdConnectConfig(
     val authorizationUri: URI,
     val tokenUri: URI,
     val jwksUri: URI,
-    val userinfoUri: URI?,
 ) : ProviderAuthConfig(ProviderAuthType.OIDC)
