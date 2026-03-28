@@ -7,7 +7,7 @@ import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderClaimsResolver
-import com.sympauthy.business.manager.provider.ProviderConfigManager
+import com.sympauthy.business.manager.provider.ProviderManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.CreateOrAssociateResult
 import com.sympauthy.business.manager.user.UserManager
@@ -47,7 +47,7 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
     @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
-    @Inject private val providerConfigManager: ProviderConfigManager,
+    @Inject private val providerConfigManager: ProviderManager,
     @Inject private val providerClaimsManager: ProviderClaimsManager,
     @Inject private val providerClaimsResolver: ProviderClaimsResolver,
     @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,

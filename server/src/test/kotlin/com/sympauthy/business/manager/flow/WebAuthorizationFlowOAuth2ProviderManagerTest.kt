@@ -5,7 +5,7 @@ import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderClaimsResolver
-import com.sympauthy.business.manager.provider.ProviderConfigManager
+import com.sympauthy.business.manager.provider.ProviderManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.provider.EnabledProvider
@@ -45,7 +45,7 @@ class WebAuthorizationFlowOAuth2ProviderManagerTest {
     lateinit var collectedClaimManager: CollectedClaimManager
 
     @MockK
-    lateinit var providerConfigManager: ProviderConfigManager
+    lateinit var providerConfigManager: ProviderManager
 
     @MockK
     lateinit var providerClaimsManager: ProviderClaimsManager

@@ -5,7 +5,7 @@ import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROV
 import com.sympauthy.api.resource.flow.*
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowPasswordManager
-import com.sympauthy.business.manager.provider.ProviderConfigManager
+import com.sympauthy.business.manager.provider.ProviderManager
 import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.config.model.EnabledUrlsConfig
 import com.sympauthy.config.model.UrlsConfig
@@ -30,7 +30,7 @@ import java.util.*
 class ConfigurationController(
     @Inject private val claimManager: ClaimManager,
     @Inject private val passwordFlowManager: WebAuthorizationFlowPasswordManager,
-    @Inject private val providerManager: ProviderConfigManager,
+    @Inject private val providerManager: ProviderManager,
     @Inject private val uncheckedUrlsConfig: UrlsConfig,
     @Inject @param:DisplayMessages private val displayMessageSource: MessageSource
 ) {
