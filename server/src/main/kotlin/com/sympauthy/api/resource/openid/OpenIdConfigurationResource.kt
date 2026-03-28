@@ -27,6 +27,10 @@ data class OpenIdConfigurationResource(
     val registrationEndpoint: String? = null,
     @get:JsonProperty("revocation_endpoint")
     val revocationEndpoint: String? = null,
+    @get:JsonProperty("introspection_endpoint")
+    val introspectionEndpoint: String? = null,
+    @get:JsonProperty("introspection_endpoint_auth_methods_supported")
+    val introspectionEndpointAuthMethodsSupported: List<String>? = null,
     @get:JsonProperty("scopes_supported")
     val scopesSupported: List<String>? = null,
     @get:JsonProperty("response_types_supported")

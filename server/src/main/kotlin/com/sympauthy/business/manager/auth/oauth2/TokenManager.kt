@@ -228,6 +228,40 @@ open class TokenManager(
     }
 
     /**
+     * Introspect the [encodedToken] and return the stored [AuthenticationToken] if the token is active,
+     * or `null` if the token is invalid, expired, revoked, or not owned by [client].
+     *
+     * The [tokenTypeHint] is an optional hint about the token type (`access_token` or `refresh_token`)
+     * used to select the correct signing key for verification.
+     */
+    suspend fun introspectToken(
+        client: Client,
+        encodedToken: String,
+        tokenTypeHint: String?
+    ): AuthenticationToken? {
+        val decodedToken = when (tokenTypeHint) {
+            "access_token" -> jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, encodedToken)
+            "refresh_token" -> jwtManager.decodeAndVerifyOrNull(REFRESH_KEY, encodedToken)
+            else -> when (jwtManager.getKeyIdOrNull(encodedToken)) {
+                ACCESS_KEY -> jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, encodedToken)
+                REFRESH_KEY -> jwtManager.decodeAndVerifyOrNull(REFRESH_KEY, encodedToken)
+                else -> null
+            }
+        } ?: return null
+
+        val tokenId = try {
+            UUID.fromString(decodedToken.id)
+        } catch (e: IllegalArgumentException) {
+            return null
+        }
+
+        val token = findById(tokenId) ?: return null
+        if (token.revoked) return null
+        if (token.clientId != client.id) return null
+        return token
+    }
+
+    /**
      * Return the information we stored about the [decodedToken] when we issued it.
      *
      * Throws an [OAuth2Exception] if:

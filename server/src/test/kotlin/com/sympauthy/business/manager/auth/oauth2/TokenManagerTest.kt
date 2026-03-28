@@ -418,6 +418,147 @@ class TokenManagerTest {
         coVerify(exactly = 1) { tokenRepository.updateRevokedAt(tokenId, any(), "CLIENT", null) }
     }
 
+    // --- introspectToken tests ---
+
+    @Test
+    fun `introspectToken - Returns token for active access token with hint`() = runTest {
+        val clientId = "test-client"
+        val tokenId = UUID.randomUUID()
+        val client = mockk<Client> { every { id } returns clientId }
+        val decodedJwt = mockk<DecodedJWT> { every { id } returns tokenId.toString() }
+        val token = mockk<AuthenticationToken> {
+            every { this@mockk.clientId } returns clientId
+            every { revoked } returns false
+        }
+
+        coEvery { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, "encoded-token") } returns decodedJwt
+        coEvery { tokenManager.findById(tokenId) } returns token
+
+        val result = tokenManager.introspectToken(client, "encoded-token", "access_token")
+
+        assertSame(token, result)
+    }
+
+    @Test
+    fun `introspectToken - Returns token for active refresh token with hint`() = runTest {
+        val clientId = "test-client"
+        val tokenId = UUID.randomUUID()
+        val client = mockk<Client> { every { id } returns clientId }
+        val decodedJwt = mockk<DecodedJWT> { every { id } returns tokenId.toString() }
+        val token = mockk<AuthenticationToken> {
+            every { this@mockk.clientId } returns clientId
+            every { revoked } returns false
+        }
+
+        coEvery { jwtManager.decodeAndVerifyOrNull(REFRESH_KEY, "encoded-token") } returns decodedJwt
+        coEvery { tokenManager.findById(tokenId) } returns token
+
+        val result = tokenManager.introspectToken(client, "encoded-token", "refresh_token")
+
+        assertSame(token, result)
+    }
+
+    @Test
+    fun `introspectToken - Falls back to key ID detection without hint`() = runTest {
+        val clientId = "test-client"
+        val tokenId = UUID.randomUUID()
+        val client = mockk<Client> { every { id } returns clientId }
+        val decodedJwt = mockk<DecodedJWT> { every { id } returns tokenId.toString() }
+        val token = mockk<AuthenticationToken> {
+            every { this@mockk.clientId } returns clientId
+            every { revoked } returns false
+        }
+
+        every { jwtManager.getKeyIdOrNull("encoded-token") } returns ACCESS_KEY
+        coEvery { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, "encoded-token") } returns decodedJwt
+        coEvery { tokenManager.findById(tokenId) } returns token
+
+        val result = tokenManager.introspectToken(client, "encoded-token", null)
+
+        assertSame(token, result)
+    }
+
+    @Test
+    fun `introspectToken - Returns null for malformed token`() = runTest {
+        val client = mockk<Client>()
+        every { jwtManager.getKeyIdOrNull("malformed") } returns null
+
+        val result = tokenManager.introspectToken(client, "malformed", null)
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `introspectToken - Returns null for expired token`() = runTest {
+        val client = mockk<Client>()
+        coEvery { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, "expired-token") } returns null
+
+        val result = tokenManager.introspectToken(client, "expired-token", "access_token")
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `introspectToken - Returns null for revoked token`() = runTest {
+        val tokenId = UUID.randomUUID()
+        val client = mockk<Client>()
+        val decodedJwt = mockk<DecodedJWT> { every { id } returns tokenId.toString() }
+        val token = mockk<AuthenticationToken> {
+            every { revoked } returns true
+        }
+
+        coEvery { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, "encoded-token") } returns decodedJwt
+        coEvery { tokenManager.findById(tokenId) } returns token
+
+        val result = tokenManager.introspectToken(client, "encoded-token", "access_token")
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `introspectToken - Returns null when client does not match`() = runTest {
+        val tokenId = UUID.randomUUID()
+        val client = mockk<Client> { every { id } returns "other-client" }
+        val decodedJwt = mockk<DecodedJWT> { every { id } returns tokenId.toString() }
+        val token = mockk<AuthenticationToken> {
+            every { clientId } returns "test-client"
+            every { revoked } returns false
+        }
+
+        coEvery { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, "encoded-token") } returns decodedJwt
+        coEvery { tokenManager.findById(tokenId) } returns token
+
+        val result = tokenManager.introspectToken(client, "encoded-token", "access_token")
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `introspectToken - Returns null when token not found in database`() = runTest {
+        val tokenId = UUID.randomUUID()
+        val client = mockk<Client>()
+        val decodedJwt = mockk<DecodedJWT> { every { id } returns tokenId.toString() }
+
+        coEvery { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, "encoded-token") } returns decodedJwt
+        coEvery { tokenManager.findById(tokenId) } returns null
+
+        val result = tokenManager.introspectToken(client, "encoded-token", "access_token")
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `introspectToken - Returns null when JWT id is not a valid UUID`() = runTest {
+        val client = mockk<Client>()
+        val decodedJwt = mockk<DecodedJWT> { every { id } returns "not-a-uuid" }
+
+        coEvery { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, "encoded-token") } returns decodedJwt
+
+        val result = tokenManager.introspectToken(client, "encoded-token", "access_token")
+
+        assertNull(result)
+    }
+
     @Test
     fun `revokeTokenByEncodedToken - Uses refresh key when no hint and kid is REFRESH_KEY`() = runTest {
         val clientId = "client-a"

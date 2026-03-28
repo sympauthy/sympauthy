@@ -1,6 +1,7 @@
 package com.sympauthy.api.controller.openid.discovery
 
 import com.sympauthy.api.controller.oauth2.AuthorizeController.Companion.OAUTH2_AUTHORIZE_ENDPOINT
+import com.sympauthy.api.controller.oauth2.IntrospectionController.Companion.OAUTH2_INTROSPECTION_ENDPOINT
 import com.sympauthy.api.controller.oauth2.RevokeController.Companion.OAUTH2_REVOKE_ENDPOINT
 import com.sympauthy.api.controller.oauth2.TokenController.Companion.OAUTH2_TOKEN_ENDPOINT
 import com.sympauthy.api.controller.openid.OpenIdUserInfoController.Companion.OPENID_USERINFO_ENDPOINT
@@ -51,6 +52,8 @@ class OpenIdConfigurationController(
             userInfoEndpoint = urlsConfig.getUri(OPENID_USERINFO_ENDPOINT).toString(),
             jwksUri = urlsConfig.getUri(OPENID_JWKS_ENDPOINT).toString(),
             revocationEndpoint = urlsConfig.getUri(OAUTH2_REVOKE_ENDPOINT).toString(),
+            introspectionEndpoint = urlsConfig.getUri(OAUTH2_INTROSPECTION_ENDPOINT).toString(),
+            introspectionEndpointAuthMethodsSupported = listOf("client_secret_basic", "client_secret_post"),
             scopesSupported = scopes,
             responseTypesSupported = listOf("code", "id_token", "token id_token"),
             grantTypesSupported = listOf("authorization_code", "refresh_token", "client_credentials"),

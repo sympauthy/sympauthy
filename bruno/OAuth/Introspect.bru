@@ -1,0 +1,23 @@
+meta {
+  name: Introspect
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{serverUrl}}/api/oauth2/introspect
+  body: formUrlEncoded
+  auth: inherit
+}
+
+body:form-urlencoded {
+  client_id: {{clientId}}
+  client_secret: {{clientSecret}}
+  token: test
+  ~token_type_hint: access_token
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
