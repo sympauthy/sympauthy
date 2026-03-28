@@ -65,6 +65,7 @@ Multi-module Gradle project (root + `server`). All source code is in `server/src
 
 #### Others
 
+- **Naming conventions for protocols** — Use `OAuth2` (not `Oauth2`) and `OpenIdConnect` (not `Oidc` or `OpenId`) in class names, method names, and packages. Examples: `ProviderOAuth2Config`, `WebAuthorizationFlowOAuth2ProviderManager`, `OpenIdConnectDiscoveryClient`, `ProviderOpenIdConnectConfig`. The YAML config key `oidc` is kept as shorthand for user-facing configuration.
 - **Nullable methods use `OrNull` suffix** — e.g., `findByCodeOrNull()` returns `T?`
 - **All async operations prefer `suspend` functions** — no callbacks or reactive streams
 - **MapStruct mappers** — Compile-time generation. New `*Impl` classes must be registered in `META-INF/native-image/.../reflect-config.json` for native image support
