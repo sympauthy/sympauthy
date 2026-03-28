@@ -116,10 +116,12 @@ class ScopeManagerTest {
         val scopeTwo = "profile"
         val foundScopeOne = mockk<Scope>()
         val foundScopeTwo = mockk<Scope>()
-        val client = mockk<com.sympauthy.business.model.client.Client>()
+        val client = mockk<com.sympauthy.business.model.client.Client> {
+            every { allowedScopes } returns setOf(foundScopeOne, foundScopeTwo)
+        }
 
-        coEvery { scopeManager.findForClientOrThrow(client, scopeOne) } returns foundScopeOne
-        coEvery { scopeManager.findForClientOrThrow(client, scopeTwo) } returns foundScopeTwo
+        coEvery { scopeManager.find(scopeOne) } returns foundScopeOne
+        coEvery { scopeManager.find(scopeTwo) } returns foundScopeTwo
 
         val result = scopeManager.parseRequestedScopes(client, "$scopeOne $scopeTwo")
 
@@ -134,10 +136,12 @@ class ScopeManagerTest {
         val scopeTwo = "profile"
         val foundScopeOne = mockk<Scope>()
         val foundScopeTwo = mockk<Scope>()
-        val client = mockk<com.sympauthy.business.model.client.Client>()
+        val client = mockk<com.sympauthy.business.model.client.Client> {
+            every { allowedScopes } returns setOf(foundScopeOne, foundScopeTwo)
+        }
 
-        coEvery { scopeManager.findForClientOrThrow(client, scopeOne) } returns foundScopeOne
-        coEvery { scopeManager.findForClientOrThrow(client, scopeTwo) } returns foundScopeTwo
+        coEvery { scopeManager.find(scopeOne) } returns foundScopeOne
+        coEvery { scopeManager.find(scopeTwo) } returns foundScopeTwo
 
         val result = scopeManager.parseRequestedScopes(client, " $scopeOne  $scopeTwo ")
 

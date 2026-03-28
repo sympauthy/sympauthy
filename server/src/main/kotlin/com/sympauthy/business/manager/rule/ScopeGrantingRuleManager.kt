@@ -1,7 +1,9 @@
 package com.sympauthy.business.manager.rule
 
+import com.ezylang.evalex.config.ExpressionConfiguration
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.model.ScopeGrantingMethodResult
+import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.rule.ScopeGrantingRule
@@ -19,27 +21,62 @@ class ScopeGrantingRuleManager(
     @Inject private val uncheckedScopeGrantingRulesConfigFlow: Flow<ScopeGrantingRulesConfig>,
 ) {
     /**
-     * Return all [ScopeGrantingRule] enabled on this authorization server.
+     * Return all user [ScopeGrantingRule] enabled on this authorization server.
      */
-    suspend fun listScopeGrantingRules(): List<ScopeGrantingRule> {
-        return uncheckedScopeGrantingRulesConfigFlow.firstOrNull()?.orThrow()?.scopeGrantingRules ?: emptyList()
+    suspend fun listUserScopeGrantingRules(): List<ScopeGrantingRule> {
+        return uncheckedScopeGrantingRulesConfigFlow.firstOrNull()?.orThrow()?.userScopeGrantingRules ?: emptyList()
     }
 
     /**
-     * Apply the configured [ScopeGrantingRule] to the [requestedScopes] to
+     * Return all client [ScopeGrantingRule] enabled on this authorization server.
+     */
+    suspend fun listClientScopeGrantingRules(): List<ScopeGrantingRule> {
+        return uncheckedScopeGrantingRulesConfigFlow.firstOrNull()?.orThrow()?.clientScopeGrantingRules ?: emptyList()
+    }
+
+    /**
+     * Apply the configured user [ScopeGrantingRule] to the [requestedScopes] to
      * determine which of the [requestedScopes] are granted.
      */
-    suspend fun applyScopeGrantingRules(
+    suspend fun applyUserScopeGrantingRules(
         authorizeAttempt: AuthorizeAttempt,
         requestedScopes: List<Scope>,
         collectedClaims: List<CollectedClaim>,
     ): ScopeGrantingMethodResult {
-        val results = findApplicableScopeGrantingRulesAccordingToScopes(requestedScopes).map {
+        val configuration = scopeGrantingRuleExpressionExecutor.getConfiguration(authorizeAttempt, collectedClaims)
+        val results = findApplicableScopeGrantingRulesAccordingToScopes(
+            rules = listUserScopeGrantingRules(),
+            requestedScopes = requestedScopes
+        ).map {
             isRuleApplicableAccordingToExpressions(
                 rule = it.rule,
                 applicableRequestedScopes = it.applicableRequestedScopes,
-                authorizeAttempt = authorizeAttempt,
-                collectedClaims = collectedClaims,
+                configuration = configuration,
+            )
+        }
+        return mergeResult(
+            requestedScopes = requestedScopes,
+            results = results,
+        )
+    }
+
+    /**
+     * Apply the configured client [ScopeGrantingRule] to the [requestedScopes] to
+     * determine which of the [requestedScopes] are granted for the [client].
+     */
+    suspend fun applyClientScopeGrantingRules(
+        client: Client,
+        requestedScopes: List<Scope>,
+    ): ScopeGrantingMethodResult {
+        val configuration = scopeGrantingRuleExpressionExecutor.getClientConfiguration(client)
+        val results = findApplicableScopeGrantingRulesAccordingToScopes(
+            rules = listClientScopeGrantingRules(),
+            requestedScopes = requestedScopes
+        ).map {
+            isRuleApplicableAccordingToExpressions(
+                rule = it.rule,
+                applicableRequestedScopes = it.applicableRequestedScopes,
+                configuration = configuration,
             )
         }
         return mergeResult(
@@ -54,10 +91,11 @@ class ScopeGrantingRuleManager(
      *
      * @see [ScopeGrantingRule.getApplicableScopes]
      */
-    internal suspend fun findApplicableScopeGrantingRulesAccordingToScopes(
+    internal fun findApplicableScopeGrantingRulesAccordingToScopes(
+        rules: List<ScopeGrantingRule>,
         requestedScopes: List<Scope>,
     ): List<ApplicableScopeGrantingRule> {
-        return listScopeGrantingRules().mapNotNull { rule ->
+        return rules.mapNotNull { rule ->
             val applicableRequestedScopes = rule.getApplicableScopes(requestedScopes)
             if (applicableRequestedScopes.isNotEmpty()) {
                 ApplicableScopeGrantingRule(
@@ -70,17 +108,15 @@ class ScopeGrantingRuleManager(
 
     /**
      * Applies a specific [ScopeGrantingRule] to determine if the [rule] should be applied when determining the scopes
-     * that should be granted to the end-user.
+     * that should be granted.
      *
      * The [rule] applies if all the [ScopeGrantingRule.expressions] evaluate to true.
      */
     suspend fun isRuleApplicableAccordingToExpressions(
         rule: ScopeGrantingRule,
         applicableRequestedScopes: List<Scope>,
-        authorizeAttempt: AuthorizeAttempt,
-        collectedClaims: List<CollectedClaim>,
+        configuration: ExpressionConfiguration,
     ): ScopeGrantingRuleIsApplicableResult {
-        val configuration = scopeGrantingRuleExpressionExecutor.getConfiguration(authorizeAttempt, collectedClaims)
         val applicable = rule.expressions.all { expression ->
             try {
                 scopeGrantingRuleExpressionExecutor.evaluateExpressionOrThrow(expression, configuration)
@@ -148,13 +184,13 @@ data class ApplicableScopeGrantingRule(
      */
     val rule: ScopeGrantingRule,
     /**
-     * List of [Scope] that where requested in the [AuthorizeAttempt] and applicable to the [rule].
+     * List of [Scope] that where requested and applicable to the [rule].
      */
     val applicableRequestedScopes: List<Scope>
 )
 
 /**
- * Result of the evaluation of a [ScopeGrantingRule.expressions] against a [AuthorizeAttempt].
+ * Result of the evaluation of a [ScopeGrantingRule.expressions].
  */
 data class ScopeGrantingRuleIsApplicableResult(
     /**
@@ -162,12 +198,11 @@ data class ScopeGrantingRuleIsApplicableResult(
      */
     val rule: ScopeGrantingRule,
     /**
-     * List of [Scope] that where requested in the [AuthorizeAttempt] by the end-user and that the [rule] can
-     * grant or decline.
+     * List of [Scope] that where requested and that the [rule] can grant or decline.
      */
     val applicableRequestedScopes: List<Scope>,
     /**
-     * True if the [rule] applies to the [AuthorizeAttempt] according to the result of the evaluation of the
+     * True if the [rule] applies according to the result of the evaluation of the
      * [ScopeGrantingRule.expressions].
      */
     val applicable: Boolean = false

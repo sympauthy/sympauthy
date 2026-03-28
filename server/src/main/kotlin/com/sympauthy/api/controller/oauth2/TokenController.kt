@@ -8,6 +8,7 @@ import com.sympauthy.api.resource.oauth2.TokenResource
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
+import com.sympauthy.business.manager.auth.ClientScopeGrantingManager
 import com.sympauthy.business.manager.auth.oauth2.AccessTokenGenerator
 import com.sympauthy.business.manager.auth.oauth2.PkceManager
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
@@ -44,7 +45,8 @@ class TokenController(
     @Inject private val accessTokenGenerator: AccessTokenGenerator,
     @Inject private val scopeManager: ScopeManager,
     @Inject private val clientAuthenticationUtil: ClientAuthenticationUtil,
-    @Inject private val pkceManager: PkceManager
+    @Inject private val pkceManager: PkceManager,
+    @Inject private val clientScopeGrantingManager: ClientScopeGrantingManager
 ) {
 
     @Operation(
@@ -217,7 +219,8 @@ Client authentication is supported via:
         scope: String?
     ): TokenResource {
         val requestedScopes = scopeManager.parseRequestedClientScopes(client, scope)
-        val scopeStrings = requestedScopes.map { it.scope }
+        val grantResult = clientScopeGrantingManager.grantClientScopes(client, requestedScopes)
+        val scopeStrings = grantResult.grantedScopes.map { it.scope }
 
         val accessToken = accessTokenGenerator.generateAccessTokenForClient(
             clientId = client.id,

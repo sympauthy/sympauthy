@@ -18,14 +18,26 @@ class ScopeGrantingRuleExpressionExecutorTest {
     lateinit var parser: ScopeGrantingRuleExpressionExecutor
 
     @Test
-    fun `validateExpression - Simple expression is valid`() = runTest {
-        parser.validateExpression("true")
+    fun `validateUserExpression - Simple expression is valid`() = runTest {
+        parser.validateUserExpression("true")
     }
 
     @Test
-    fun `validateExpression - Expression with custom function`() = runTest {
-        parser.validateExpression(
+    fun `validateUserExpression - Expression with custom function`() = runTest {
+        parser.validateUserExpression(
             """CLAIM("email") = "test@example.com" && CLAIM_IS_VERIFIED("email")"""
+        )
+    }
+
+    @Test
+    fun `validateClientExpression - Simple expression is valid`() = runTest {
+        parser.validateClientExpression("true")
+    }
+
+    @Test
+    fun `validateClientExpression - Expression with CLIENT function`() = runTest {
+        parser.validateClientExpression(
+            """CLIENT("id") = "my-client-id""""
         )
     }
 }

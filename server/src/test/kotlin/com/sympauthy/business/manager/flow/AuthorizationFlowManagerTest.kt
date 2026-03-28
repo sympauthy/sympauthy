@@ -2,8 +2,8 @@ package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
-import com.sympauthy.business.manager.auth.GrantScopesResult
-import com.sympauthy.business.manager.auth.ScopeGrantingManager
+import com.sympauthy.business.manager.auth.UserGrantScopesResult
+import com.sympauthy.business.manager.auth.UserScopeGrantingManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
@@ -38,7 +38,7 @@ class AuthorizationFlowManagerTest {
     lateinit var authorizeAttemptManager: AuthorizeAttemptManager
 
     @MockK
-    lateinit var scopeGrantingManager: ScopeGrantingManager
+    lateinit var scopeGrantingManager: UserScopeGrantingManager
 
     @MockK
     lateinit var consentManager: ConsentManager
@@ -93,7 +93,7 @@ class AuthorizationFlowManagerTest {
 
         every { uncheckedFeaturesConfig.allowAccessToClientWithoutScope } returns false
 
-        val grantScopesResult = GrantScopesResult(
+        val grantScopesResult = UserGrantScopesResult(
             requestedScopes = grantedScopeObjects,
             results = listOf(
                 ScopeGrantingMethodResult(
@@ -131,7 +131,7 @@ class AuthorizationFlowManagerTest {
 
             every { uncheckedFeaturesConfig.allowAccessToClientWithoutScope } returns true
 
-            val grantScopesResult = GrantScopesResult(
+            val grantScopesResult = UserGrantScopesResult(
                 requestedScopes = emptyList(),
                 results = listOf(
                     ScopeGrantingMethodResult(
@@ -164,7 +164,7 @@ class AuthorizationFlowManagerTest {
 
             every { uncheckedFeaturesConfig.allowAccessToClientWithoutScope } returns false
 
-            val grantScopesResult = GrantScopesResult(
+            val grantScopesResult = UserGrantScopesResult(
                 requestedScopes = emptyList(),
                 results = listOf(
                     ScopeGrantingMethodResult(
@@ -207,7 +207,7 @@ class AuthorizationFlowManagerTest {
         }
         val collectedClaims = listOf(mockk<CollectedClaim>())
 
-        val grantScopesResult = GrantScopesResult(
+        val grantScopesResult = UserGrantScopesResult(
             requestedScopes = emptyList(),
             results = listOf(
                 ScopeGrantingMethodResult(
