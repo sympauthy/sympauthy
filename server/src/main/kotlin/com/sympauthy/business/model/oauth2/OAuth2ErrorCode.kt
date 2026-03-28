@@ -81,6 +81,17 @@ enum class OAuth2ErrorCode(
     ),
 
     /**
+     * The DPoP proof is invalid, malformed, or missing when required.
+     *
+     * @see <a href="https://datatracker.ietf.org/doc/html/rfc9449#section-7">RFC 9449 Section 7</a>
+     */
+    INVALID_DPOP_PROOF(
+        BAD_REQUEST,
+        "invalid_dpop_proof",
+        "description.oauth2.invalid"
+    ),
+
+    /**
      * Client authentication failed (e.g., unknown client, no client authentication included, or unsupported authentication method).
      */
     INVALID_CLIENT(

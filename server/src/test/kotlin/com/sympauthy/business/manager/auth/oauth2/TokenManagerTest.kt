@@ -80,8 +80,8 @@ class TokenManagerTest {
 
         every { authorizedAttempt.expired } returns false
         every { authorizedAttempt.userId } returns userId
-        coEvery { accessTokenGenerator.generateAccessToken(authorizedAttempt, userId) } returns accessToken
-        coEvery { refreshTokenGenerator.generateRefreshToken(authorizedAttempt, userId) } returns refreshToken
+        coEvery { accessTokenGenerator.generateAccessToken(authorizedAttempt, userId, dpopJkt = null) } returns accessToken
+        coEvery { refreshTokenGenerator.generateRefreshToken(authorizedAttempt, userId, dpopJkt = null) } returns refreshToken
         coEvery { idTokenGenerator.generateIdToken(authorizedAttempt, userId, accessToken) } returns idToken
 
         val result = tokenManager.generateTokens(authorizedAttempt)
@@ -130,11 +130,12 @@ class TokenManagerTest {
         coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, encodedRefreshToken) } returns decodedToken
         coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
         every { refreshToken.clientId } returns clientId
+        every { refreshToken.dpopJkt } returns null
         every { refreshToken.userId } returns userId
         coEvery { consentManager.findActiveConsentOrNull(userId, clientId) } returns mockk()
-        coEvery { accessTokenGenerator.generateAccessToken(refreshToken) } returns accessToken
+        coEvery { accessTokenGenerator.generateAccessToken(refreshToken, dpopJkt = null) } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns true
-        coEvery { refreshTokenGenerator.generateRefreshToken(refreshToken) } returns refreshedRefreshToken
+        coEvery { refreshTokenGenerator.generateRefreshToken(refreshToken, dpopJkt = null) } returns refreshedRefreshToken
 
         val tokens = tokenManager.refreshToken(client, encodedRefreshToken)
 
@@ -157,9 +158,10 @@ class TokenManagerTest {
         coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, encodedRefreshToken) } returns decodedToken
         coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
         every { refreshToken.clientId } returns clientId
+        every { refreshToken.dpopJkt } returns null
         every { refreshToken.userId } returns userId
         coEvery { consentManager.findActiveConsentOrNull(userId, clientId) } returns mockk()
-        coEvery { accessTokenGenerator.generateAccessToken(refreshToken) } returns accessToken
+        coEvery { accessTokenGenerator.generateAccessToken(refreshToken, dpopJkt = null) } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
 
         val tokens = tokenManager.refreshToken(client, encodedRefreshToken)
@@ -180,6 +182,7 @@ class TokenManagerTest {
         coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, "token") } returns decodedToken
         coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
         every { refreshToken.clientId } returns clientId
+        every { refreshToken.dpopJkt } returns null
         every { refreshToken.userId } returns userId
         coEvery { consentManager.findActiveConsentOrNull(userId, clientId) } returns null
 
@@ -201,8 +204,9 @@ class TokenManagerTest {
         coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, "token") } returns decodedToken
         coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
         every { refreshToken.clientId } returns clientId
+        every { refreshToken.dpopJkt } returns null
         every { refreshToken.userId } returns null
-        coEvery { accessTokenGenerator.generateAccessToken(refreshToken) } returns accessToken
+        coEvery { accessTokenGenerator.generateAccessToken(refreshToken, dpopJkt = null) } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
 
         val tokens = tokenManager.refreshToken(client, "token")

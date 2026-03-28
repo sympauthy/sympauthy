@@ -84,5 +84,7 @@ data class OpenIdConfigurationResource(
     @get:JsonProperty("op_tos_uri")
     val opTosUri: String? = null,
     @get:JsonProperty("code_challenge_methods_supported")
-    val codeChallengeMethodsSupported: List<String>? = null
+    val codeChallengeMethodsSupported: List<String>? = null,
+    @get:JsonProperty("dpop_signing_alg_values_supported")
+    val dpopSigningAlgValuesSupported: List<String>? = null
 )

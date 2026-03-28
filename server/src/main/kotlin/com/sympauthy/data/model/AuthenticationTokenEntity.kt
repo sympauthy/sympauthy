@@ -44,6 +44,12 @@ class AuthenticationTokenEntity(
      */
     val grantType: String,
 
+    /**
+     * JWK SHA-256 Thumbprint (RFC 7638) of the DPoP public key this token is bound to.
+     * Null for bearer tokens (no DPoP binding).
+     */
+    val dpopJkt: String? = null,
+
     val revokedAt: LocalDateTime? = null,
     val revokedBy: String? = null,
     val revokedById: UUID? = null,

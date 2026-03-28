@@ -8,6 +8,7 @@ import com.sympauthy.api.controller.openid.discovery.PublicKeySetController.Comp
 import com.sympauthy.api.resource.openid.OpenIdConfigurationResource
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.ScopeManager
+import com.sympauthy.business.manager.auth.oauth2.DpopManager
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.config.model.getUri
@@ -57,7 +58,8 @@ class OpenIdConfigurationController(
             idTokenSigningAlgValuesSupported = listOf("RS256"),
             tokenEndpointAuthMethodsSupported = listOf("client_secret_basic", "client_secret_post"),
             claimsSupported = claims,
-            codeChallengeMethodsSupported = listOf("S256")
+            codeChallengeMethodsSupported = listOf("S256"),
+            dpopSigningAlgValuesSupported = DpopManager.SUPPORTED_ALGORITHMS.toList()
         )
     }
 }

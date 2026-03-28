@@ -29,7 +29,8 @@ class AccessTokenGenerator(
      */
     suspend fun generateAccessToken(
         authorizeAttempt: CompletedAuthorizeAttempt,
-        userId: UUID
+        userId: UUID,
+        dpopJkt: String? = null
     ) = generateAccessToken(
         userId = userId,
         clientId = authorizeAttempt.clientId,
@@ -41,14 +42,16 @@ class AccessTokenGenerator(
         consentedBy = authorizeAttempt.consentedBy.name,
         clientScopes = emptyList(),
         authorizeAttemptId = authorizeAttempt.id,
-        grantType = "authorization_code"
+        grantType = "authorization_code",
+        dpopJkt = dpopJkt
     )
 
     /**
      * Generate a new access token using the information stored in a [refreshToken].
      */
     suspend fun generateAccessToken(
-        refreshToken: AuthenticationToken
+        refreshToken: AuthenticationToken,
+        dpopJkt: String? = null
     ) = generateAccessToken(
         userId = refreshToken.userId,
         clientId = refreshToken.clientId,
@@ -60,7 +63,8 @@ class AccessTokenGenerator(
         consentedBy = refreshToken.consentedBy?.name,
         clientScopes = refreshToken.clientScopes,
         authorizeAttemptId = refreshToken.authorizeAttemptId,
-        grantType = "refresh_token"
+        grantType = "refresh_token",
+        dpopJkt = dpopJkt
     )
 
     /**
@@ -69,7 +73,8 @@ class AccessTokenGenerator(
      */
     suspend fun generateAccessTokenForClient(
         clientId: String,
-        clientScopes: List<String>
+        clientScopes: List<String>,
+        dpopJkt: String? = null
     ): EncodedAuthenticationToken {
         return generateAccessToken(
             userId = null,
@@ -82,7 +87,8 @@ class AccessTokenGenerator(
             consentedBy = null,
             clientScopes = clientScopes,
             authorizeAttemptId = null,
-            grantType = "client_credentials"
+            grantType = "client_credentials",
+            dpopJkt = dpopJkt
         )
     }
 
@@ -97,7 +103,8 @@ class AccessTokenGenerator(
         consentedBy: String?,
         clientScopes: List<String>,
         authorizeAttemptId: UUID?,
-        grantType: String
+        grantType: String,
+        dpopJkt: String? = null
     ): EncodedAuthenticationToken {
         val authConfig = uncheckedAuthConfig.orThrow()
         val allScopes = grantedScopes + consentedScopes + clientScopes
@@ -117,6 +124,7 @@ class AccessTokenGenerator(
             clientScopes = clientScopes.toTypedArray(),
             authorizeAttemptId = authorizeAttemptId,
             grantType = grantType,
+            dpopJkt = dpopJkt,
             issueDate = issueDate,
             expirationDate = expirationDate
         ).let { tokenRepository.save(it) }
@@ -130,6 +138,7 @@ class AccessTokenGenerator(
             withSubject(userId?.toString() ?: clientId)
             withClaim("client_id", clientId)
             withClaim("scope", allScopes.joinToString(" "))
+            dpopJkt?.let { withClaim("cnf", mapOf("jkt" to it)) }
             withIssuedAt(issueDate.toInstant(ZoneOffset.UTC))
             withExpiresAt(expirationDate.toInstant(ZoneOffset.UTC))
         }

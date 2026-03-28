@@ -30,7 +30,8 @@ class RefreshTokenGenerator(
      */
     suspend fun generateRefreshToken(
         authorizeAttempt: CompletedAuthorizeAttempt,
-        userId: UUID
+        userId: UUID,
+        dpopJkt: String? = null
     ) = generateRefreshToken(
         userId = userId,
         clientId = authorizeAttempt.clientId,
@@ -42,14 +43,16 @@ class RefreshTokenGenerator(
         consentedBy = authorizeAttempt.consentedBy.name,
         clientScopes = emptyList(),
         authorizeAttemptId = authorizeAttempt.id,
-        grantType = "authorization_code"
+        grantType = "authorization_code",
+        dpopJkt = dpopJkt
     )
 
     /**
      * Generate a new refresh token using the information stored in the previous [refreshToken].
      */
     suspend fun generateRefreshToken(
-        refreshToken: AuthenticationToken
+        refreshToken: AuthenticationToken,
+        dpopJkt: String? = null
     ) = generateRefreshToken(
         userId = refreshToken.userId,
         clientId = refreshToken.clientId,
@@ -61,7 +64,8 @@ class RefreshTokenGenerator(
         consentedBy = refreshToken.consentedBy?.name,
         clientScopes = refreshToken.clientScopes,
         authorizeAttemptId = refreshToken.authorizeAttemptId,
-        grantType = "refresh_token"
+        grantType = "refresh_token",
+        dpopJkt = dpopJkt
     )
 
     internal suspend fun generateRefreshToken(
@@ -75,7 +79,8 @@ class RefreshTokenGenerator(
         consentedBy: String?,
         clientScopes: List<String>,
         authorizeAttemptId: UUID?,
-        grantType: String
+        grantType: String,
+        dpopJkt: String? = null
     ): EncodedAuthenticationToken? {
         val enabledAuthConfig = authConfig.orThrow()
         if (!enabledAuthConfig.token.refreshEnabled) {
@@ -97,6 +102,7 @@ class RefreshTokenGenerator(
             clientScopes = clientScopes.toTypedArray(),
             authorizeAttemptId = authorizeAttemptId,
             grantType = grantType,
+            dpopJkt = dpopJkt,
             issueDate = issueDate,
             expirationDate = expirationDate
         ).let { tokenRepository.save(it) }

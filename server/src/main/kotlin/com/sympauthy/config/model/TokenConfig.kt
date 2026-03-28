@@ -6,5 +6,6 @@ data class TokenConfig(
     val accessExpiration: Duration,
     val idExpiration: Duration,
     val refreshEnabled: Boolean,
-    val refreshExpiration: Duration?
+    val refreshExpiration: Duration?,
+    val dpopRequired: Boolean
 )

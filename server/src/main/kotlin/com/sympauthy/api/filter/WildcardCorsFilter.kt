@@ -39,22 +39,33 @@ class WildcardCorsFilter : HttpServerFilter, Ordered {
 
         if (request.method == HttpMethod.OPTIONS) {
             val response = HttpResponse.ok<Any>()
-            addCorsHeaders(response, preflight = true)
+            addCorsHeaders(response, request, preflight = true)
             return Flowable.just(response)
         }
 
         return Flowable.fromPublisher(chain.proceed(request)).map { response ->
-            addCorsHeaders(response, preflight = false)
+            addCorsHeaders(response, request, preflight = false)
             response
         }
     }
 
-    private fun addCorsHeaders(response: MutableHttpResponse<*>, preflight: Boolean) {
+    private fun addCorsHeaders(response: MutableHttpResponse<*>, request: HttpRequest<*>, preflight: Boolean) {
         response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
         if (preflight) {
             response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, OPTIONS")
-            response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type, Authorization")
+            // The token endpoint accepts the DPoP header for sender-constrained tokens (RFC 9449).
+            // https://datatracker.ietf.org/doc/html/rfc9449#section-5
+            val allowedHeaders = if (request.path == TOKEN_ENDPOINT) {
+                "Content-Type, Authorization, DPoP"
+            } else {
+                "Content-Type, Authorization"
+            }
+            response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, allowedHeaders)
             response.headers.add(HttpHeaders.ACCESS_CONTROL_MAX_AGE, "86400")
         }
+    }
+
+    companion object {
+        private const val TOKEN_ENDPOINT = "/api/oauth2/token"
     }
 }

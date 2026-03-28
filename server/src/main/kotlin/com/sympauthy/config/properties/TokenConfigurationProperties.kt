@@ -10,6 +10,7 @@ interface TokenConfigurationProperties {
     val idExpiration: String?
     val refreshEnabled: String?
     val refreshExpiration: String?
+    val dpopRequired: String?
 
     companion object {
         const val TOKEN_KEY = "$AUTH_KEY.token"

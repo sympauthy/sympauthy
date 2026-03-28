@@ -59,6 +59,12 @@ data class AuthenticationToken(
      */
     val grantType: String,
 
+    /**
+     * JWK SHA-256 Thumbprint (RFC 7638) of the DPoP public key this token is bound to.
+     * Null for bearer tokens (no DPoP binding).
+     */
+    val dpopJkt: String? = null,
+
     /** Date and time at which this token was revoked, or null if still active. */
     val revokedAt: LocalDateTime?,
     /** Actor who revoked this token, or null if still active. */
