@@ -26,6 +26,7 @@ auth:
     access-expiration: 1h
     refresh-enabled: true
     refresh-expiration: 30d
+    dpop-required: false
 
 clients:
   default:

@@ -12,6 +12,7 @@ import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.oauth2.TokenRevokedBy
 import com.sympauthy.data.repository.AuthenticationTokenRepository
@@ -79,17 +80,18 @@ open class TokenManager(
 
     @Transactional
     open suspend fun generateTokens(
-        authorizeAttempt: CompletedAuthorizeAttempt
+        authorizeAttempt: CompletedAuthorizeAttempt,
+        dpopJkt: String? = null
     ): GenerateTokenResult = coroutineScope {
         if (authorizeAttempt.expired) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token.expired", "description.oauth2.expired")
         }
 
         val deferredAccessToken = async {
-            accessTokenGenerator.generateAccessToken(authorizeAttempt, authorizeAttempt.userId)
+            accessTokenGenerator.generateAccessToken(authorizeAttempt, authorizeAttempt.userId, dpopJkt = dpopJkt)
         }
         val deferredRefreshToken = async {
-            refreshTokenGenerator.generateRefreshToken(authorizeAttempt, authorizeAttempt.userId)
+            refreshTokenGenerator.generateRefreshToken(authorizeAttempt, authorizeAttempt.userId, dpopJkt = dpopJkt)
         }
 
         val accessToken = deferredAccessToken.await()
@@ -121,7 +123,8 @@ open class TokenManager(
     @Transactional
     open suspend fun refreshToken(
         client: Client,
-        encodedRefreshToken: String
+        encodedRefreshToken: String,
+        dpopJkt: String? = null
     ): List<EncodedAuthenticationToken> = supervisorScope {
         val decodedToken = try {
             jwtManager.decodeAndVerify(REFRESH_KEY, encodedRefreshToken)
@@ -134,15 +137,28 @@ open class TokenManager(
             throw oauth2ExceptionOf(INVALID_GRANT, "token.mismatching_client")
         }
 
+        // If the refresh token was DPoP-bound, the new proof must use the same key
+        if (refreshToken.dpopJkt != null) {
+            if (dpopJkt == null) {
+                throw oauth2ExceptionOf(INVALID_DPOP_PROOF, "dpop.missing_header")
+            }
+            if (refreshToken.dpopJkt != dpopJkt) {
+                throw oauth2ExceptionOf(INVALID_DPOP_PROOF, "dpop.mismatching_key")
+            }
+        }
+
         // For user tokens, verify the consent has not been revoked
         if (refreshToken.userId != null) {
             consentManager.findActiveConsentOrNull(refreshToken.userId, refreshToken.clientId)
                 ?: throw oauth2ExceptionOf(INVALID_GRANT, "token.consent_revoked")
         }
 
-        val accessToken = accessTokenGenerator.generateAccessToken(refreshToken)
+        // Use the DPoP jkt from the proof, or carry forward the existing binding
+        val effectiveDpopJkt = dpopJkt ?: refreshToken.dpopJkt
+
+        val accessToken = accessTokenGenerator.generateAccessToken(refreshToken, dpopJkt = effectiveDpopJkt)
         val refreshedRefreshToken = if (shouldRefreshToken(refreshToken, accessToken)) {
-            refreshTokenGenerator.generateRefreshToken(refreshToken)
+            refreshTokenGenerator.generateRefreshToken(refreshToken, dpopJkt = effectiveDpopJkt)
         } else null
 
         listOfNotNull(accessToken, refreshedRefreshToken)

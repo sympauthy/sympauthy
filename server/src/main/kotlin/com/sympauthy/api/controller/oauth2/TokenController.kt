@@ -10,16 +10,21 @@ import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.ClientScopeGrantingManager
 import com.sympauthy.business.manager.auth.oauth2.AccessTokenGenerator
+import com.sympauthy.business.manager.auth.oauth2.DpopManager
 import com.sympauthy.business.manager.auth.oauth2.PkceManager
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
 import com.sympauthy.business.manager.flow.AuthorizationFlowManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
+import com.sympauthy.business.model.oauth2.DpopProof
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.UNSUPPORTED_GRANT_TYPE
+import com.sympauthy.config.model.AuthConfig
+import com.sympauthy.config.model.orThrow
 import com.sympauthy.util.nullIfBlank
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.MediaType.APPLICATION_FORM_URLENCODED
@@ -46,7 +51,9 @@ class TokenController(
     @Inject private val scopeManager: ScopeManager,
     @Inject private val clientAuthenticationUtil: ClientAuthenticationUtil,
     @Inject private val pkceManager: PkceManager,
-    @Inject private val clientScopeGrantingManager: ClientScopeGrantingManager
+    @Inject private val clientScopeGrantingManager: ClientScopeGrantingManager,
+    @Inject private val dpopManager: DpopManager,
+    @Inject private val uncheckedAuthConfig: AuthConfig
 ) {
 
     @Operation(
@@ -121,6 +128,13 @@ Client authentication is supported via:
         @Part("client_secret") clientSecret: String?,
         @Part("code_verifier") codeVerifier: String?,
     ): TokenResource {
+        // Validate DPoP proof if present, enforce if required by config
+        val dpopProof = dpopManager.validateDpopProof(request)
+        val authConfig = uncheckedAuthConfig.orThrow()
+        if (dpopProof == null && authConfig.token.dpopRequired) {
+            throw oauth2ExceptionOf(INVALID_DPOP_PROOF, "dpop.missing_header")
+        }
+
         return when (grantType) {
             "authorization_code" -> {
                 val client = clientAuthenticationUtil.resolveClientAllowingPublic(
@@ -129,7 +143,8 @@ Client authentication is supported via:
                 getTokensUsingAuthorizationCode(
                     code = code,
                     redirectUri = redirectUri,
-                    codeVerifier = codeVerifier
+                    codeVerifier = codeVerifier,
+                    dpopProof = dpopProof
                 )
             }
 
@@ -137,7 +152,8 @@ Client authentication is supported via:
                 val client = clientAuthenticationUtil.resolveClientAllowingPublic(request, clientId, clientSecret)
                 getTokensUsingRefreshToken(
                     client = client,
-                    encodedRefreshToken = refreshToken
+                    encodedRefreshToken = refreshToken,
+                    dpopProof = dpopProof
                 )
             }
 
@@ -145,7 +161,8 @@ Client authentication is supported via:
                 val client = clientAuthenticationUtil.resolveClient(request, clientId, clientSecret)
                 getTokensUsingClientCredentials(
                     client = client,
-                    scope = scope
+                    scope = scope,
+                    dpopProof = dpopProof
                 )
             }
 
@@ -159,7 +176,8 @@ Client authentication is supported via:
     private suspend fun getTokensUsingAuthorizationCode(
         code: String?,
         redirectUri: String?,
-        codeVerifier: String?
+        codeVerifier: String?,
+        dpopProof: DpopProof?
     ): TokenResource {
         if (code.isNullOrBlank()) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token.missing_param", "param" to CODE_PARAM)
@@ -183,11 +201,12 @@ Client authentication is supported via:
             throw e.toOauth2Exception(INVALID_GRANT)
         }
 
-        val tokens = tokenManager.generateTokens(completedAttempt)
+        val tokens = tokenManager.generateTokens(completedAttempt, dpopJkt = dpopProof?.jkt)
+        val tokenType = if (dpopProof != null) TOKEN_TYPE_DPOP else TOKEN_TYPE_BEARER
 
         return TokenResource(
             accessToken = tokens.accessToken.token,
-            tokenType = "bearer",
+            tokenType = tokenType,
             expiredIn = getExpiredIn(tokens.accessToken),
             scope = getScope(tokens.accessToken),
             refreshToken = tokens.refreshToken?.token,
@@ -197,17 +216,19 @@ Client authentication is supported via:
 
     private suspend fun getTokensUsingRefreshToken(
         client: Client,
-        encodedRefreshToken: String?
+        encodedRefreshToken: String?,
+        dpopProof: DpopProof?
     ): TokenResource {
         if (encodedRefreshToken.isNullOrBlank()) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token.missing_param", "param" to REFRESH_TOKEN_PARAM)
         }
-        val tokens = tokenManager.refreshToken(client, encodedRefreshToken)
+        val tokens = tokenManager.refreshToken(client, encodedRefreshToken, dpopJkt = dpopProof?.jkt)
         val accessToken = tokens.first { it.type == ACCESS }
         val refreshedRefreshToken = tokens.firstOrNull { it.type == REFRESH }
+        val tokenType = if (dpopProof != null) TOKEN_TYPE_DPOP else TOKEN_TYPE_BEARER
         return TokenResource(
             accessToken = accessToken.token,
-            tokenType = "bearer",
+            tokenType = tokenType,
             expiredIn = getExpiredIn(accessToken),
             scope = getScope(accessToken),
             refreshToken = refreshedRefreshToken?.token ?: encodedRefreshToken
@@ -216,7 +237,8 @@ Client authentication is supported via:
 
     private suspend fun getTokensUsingClientCredentials(
         client: Client,
-        scope: String?
+        scope: String?,
+        dpopProof: DpopProof?
     ): TokenResource {
         val requestedScopes = scopeManager.parseRequestedClientScopes(client, scope)
         val grantResult = clientScopeGrantingManager.grantClientScopes(client, requestedScopes)
@@ -224,12 +246,14 @@ Client authentication is supported via:
 
         val accessToken = accessTokenGenerator.generateAccessTokenForClient(
             clientId = client.id,
-            clientScopes = scopeStrings
+            clientScopes = scopeStrings,
+            dpopJkt = dpopProof?.jkt
         )
+        val tokenType = if (dpopProof != null) TOKEN_TYPE_DPOP else TOKEN_TYPE_BEARER
 
         return TokenResource(
             accessToken = accessToken.token,
-            tokenType = "bearer",
+            tokenType = tokenType,
             expiredIn = getExpiredIn(accessToken),
             scope = getScope(accessToken),
             refreshToken = null,
@@ -256,5 +280,7 @@ Client authentication is supported via:
         const val OAUTH2_TOKEN_ENDPOINT = "/api/oauth2/token"
         const val CODE_PARAM = "code"
         const val REFRESH_TOKEN_PARAM = "refresh_token"
+        const val TOKEN_TYPE_BEARER = "bearer"
+        const val TOKEN_TYPE_DPOP = "DPoP"
     }
 }

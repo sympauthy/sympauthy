@@ -85,6 +85,15 @@ class AuthConfigFactory(
             null
         }
 
+        val dpopRequired = try {
+            tokenProperties?.let {
+                parser.getBoolean(it, "$TOKEN_KEY.dpop-required", TokenConfigurationProperties::dpopRequired)
+            }
+        } catch (e: ConfigurationException) {
+            errors.add(e)
+            null
+        }
+
         val identifierClaims = parseIdentifierClaims(properties, uncheckedClaimsConfig, errors)
 
         val userMergingEnabled = try {
@@ -123,7 +132,8 @@ class AuthConfigFactory(
                     accessExpiration = accessExpiration!!,
                     idExpiration = idExpiration!!,
                     refreshEnabled = refreshEnabled!!,
-                    refreshExpiration = refreshExpiration
+                    refreshExpiration = refreshExpiration,
+                    dpopRequired = dpopRequired ?: false
                 ),
                 identifierClaims = identifierClaims!!,
                 userMergingEnabled = userMergingEnabled!!,

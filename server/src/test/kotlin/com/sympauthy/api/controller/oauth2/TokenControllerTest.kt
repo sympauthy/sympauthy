@@ -8,7 +8,15 @@ import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.ClientGrantScopesResult
 import com.sympauthy.business.manager.auth.ClientScopeGrantingManager
-import com.sympauthy.business.manager.auth.oauth2.*
+import com.sympauthy.business.manager.auth.oauth2.AccessTokenGenerator
+import com.sympauthy.business.manager.auth.oauth2.DpopManager
+import com.sympauthy.business.manager.auth.oauth2.GenerateTokenResult
+import com.sympauthy.business.manager.auth.oauth2.PkceManager
+import com.sympauthy.business.manager.auth.oauth2.TokenManager
+import com.sympauthy.config.model.AuthConfig
+import com.sympauthy.config.model.EnabledAuthConfig
+import com.sympauthy.config.model.ByPasswordConfig
+import com.sympauthy.config.model.TokenConfig
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.manager.flow.AuthorizationFlowManager
 import com.sympauthy.business.model.client.Client
@@ -58,6 +66,24 @@ class TokenControllerTest {
     @MockK
     lateinit var clientScopeGrantingManager: ClientScopeGrantingManager
 
+    @MockK
+    lateinit var dpopManager: DpopManager
+
+    private val uncheckedAuthConfig: AuthConfig = EnabledAuthConfig(
+        issuer = "https://issuer.example.com",
+        audience = "https://audience.example.com",
+        token = TokenConfig(
+            accessExpiration = java.time.Duration.ofHours(1),
+            idExpiration = java.time.Duration.ofHours(1),
+            refreshEnabled = true,
+            refreshExpiration = java.time.Duration.ofDays(30),
+            dpopRequired = false
+        ),
+        identifierClaims = emptyList(),
+        userMergingEnabled = false,
+        byPassword = ByPasswordConfig(enabled = false)
+    )
+
     @InjectMockKs
     lateinit var controller: TokenController
 
@@ -65,8 +91,10 @@ class TokenControllerTest {
         val headers = mockk<HttpHeaders> {
             every { authorization } returns Optional.empty()
         }
-        return mockk {
+        return mockk<HttpRequest<*>> {
             every { this@mockk.headers } returns headers
+        }.also {
+            every { dpopManager.validateDpopProof(it) } returns null
         }
     }
 
@@ -290,7 +318,7 @@ class TokenControllerTest {
         coEvery { authorizeAttemptManager.findByCodeOrNull("the-code") } returns completedAttempt
         coEvery { authorizeFlowManager.checkCanIssueToken(completedAttempt) } returns completedAttempt
         every { pkceManager.verifyCodeVerifier(null, null, null) } just runs
-        coEvery { tokenManager.generateTokens(completedAttempt) } returns GenerateTokenResult(
+        coEvery { tokenManager.generateTokens(completedAttempt, dpopJkt = null) } returns GenerateTokenResult(
             accessToken = accessToken,
             refreshToken = refreshToken,
             idToken = idToken
@@ -347,7 +375,7 @@ class TokenControllerTest {
         val newRefreshToken = mockEncodedToken("new-refresh", type = REFRESH)
 
         coEvery { clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any()) } returns client
-        coEvery { tokenManager.refreshToken(client, "old-refresh") } returns listOf(accessToken, newRefreshToken)
+        coEvery { tokenManager.refreshToken(client, "old-refresh", dpopJkt = null) } returns listOf(accessToken, newRefreshToken)
 
         val result = controller.getTokens(
             request = request,
@@ -372,7 +400,7 @@ class TokenControllerTest {
         val accessToken = mockEncodedToken("new-access", type = ACCESS)
 
         coEvery { clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any()) } returns client
-        coEvery { tokenManager.refreshToken(client, "old-refresh") } returns listOf(accessToken)
+        coEvery { tokenManager.refreshToken(client, "old-refresh", dpopJkt = null) } returns listOf(accessToken)
 
         val result = controller.getTokens(
             request = request,
@@ -406,7 +434,7 @@ class TokenControllerTest {
             results = listOf(ScopeGrantingMethodResult(grantedScopes = listOf(scope), declinedScopes = emptyList()))
         )
         coEvery {
-            accessTokenGenerator.generateAccessTokenForClient(clientId = "my-client", clientScopes = listOf("read"))
+            accessTokenGenerator.generateAccessTokenForClient(clientId = "my-client", clientScopes = listOf("read"), dpopJkt = null)
         } returns accessToken
 
         val result = controller.getTokens(

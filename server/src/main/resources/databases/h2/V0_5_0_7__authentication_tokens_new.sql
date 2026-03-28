@@ -14,6 +14,8 @@ CREATE TABLE authentication_tokens
     authorize_attempt_id uuid,
     grant_type           text       NOT NULL,
 
+    dpop_jkt             text,
+
     revoked_at           timestamp,
     revoked_by           text,
     revoked_by_id        uuid,
