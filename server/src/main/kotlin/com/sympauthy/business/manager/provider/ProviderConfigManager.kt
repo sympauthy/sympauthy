@@ -10,9 +10,9 @@ import com.sympauthy.business.model.provider.ProviderUserInfoPathKey.EMAIL
 import com.sympauthy.business.model.provider.ProviderUserInfoPathKey.SUB
 import com.sympauthy.business.model.provider.config.ProviderAuthConfig
 import com.sympauthy.business.model.provider.config.ProviderOauth2Config
-import com.sympauthy.business.model.provider.config.ProviderOidcConfig
+import com.sympauthy.business.model.provider.config.ProviderOpenIdConnectConfig
 import com.sympauthy.business.model.provider.config.ProviderUserInfoConfig
-import com.sympauthy.client.oidc.OidcDiscoveryClient
+import com.sympauthy.client.openidconnect.OpenIdConnectDiscoveryClient
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.config.properties.ProviderConfigurationProperties
@@ -45,7 +45,7 @@ open class ProviderConfigManager(
     @Inject private val providers: List<ProviderConfigurationProperties>,
     @param:ErrorMessages @Inject private val messageSource: MessageSource,
     @Inject private val authConfig: AuthConfig,
-    @Inject private val oidcDiscoveryClient: OidcDiscoveryClient
+    @Inject private val openIdConnectDiscoveryClient: OpenIdConnectDiscoveryClient
 ) : ApplicationEventListener<ServiceReadyEvent> {
 
     private val logger = loggerForClass()
@@ -104,7 +104,7 @@ open class ProviderConfigManager(
     internal fun configureProvider(config: ProviderConfigurationProperties): EnabledProvider {
         val auth = configureProviderAuth(config)
         val userInfo = when (auth) {
-            is ProviderOidcConfig -> null
+            is ProviderOpenIdConnectConfig -> null
             else -> configureProviderUserInfo(config)
         }
         return EnabledProvider(
@@ -178,7 +178,7 @@ open class ProviderConfigManager(
 
     private fun configureProviderAuth(config: ProviderConfigurationProperties): ProviderAuthConfig {
         return when {
-            config.oidc != null -> configureProviderOidc(config, config.oidc!!)
+            config.oidc != null -> configureProviderOpenIdConnect(config, config.oidc!!)
             config.oauth2 != null -> configureProviderOauth2(config, config.oauth2!!)
             else -> throw localizedExceptionOf(
                 "config.auth.missing"
@@ -215,16 +215,16 @@ open class ProviderConfigManager(
         )
     }
 
-    private fun configureProviderOidc(
+    private fun configureProviderOpenIdConnect(
         config: ProviderConfigurationProperties,
-        oidc: ProviderConfigurationProperties.OidcConfig
-    ): ProviderOidcConfig {
+        oidc: ProviderConfigurationProperties.OpenIdConnectConfig
+    ): ProviderOpenIdConnectConfig {
         val keyPrefix = "${PROVIDERS_KEY}.${config.id}.oidc"
-        val issuer = getUriOrThrow(oidc, "$keyPrefix.issuer", ProviderConfigurationProperties.OidcConfig::issuer)
-        val clientId = getStringOrThrow(oidc, "$keyPrefix.client-id", ProviderConfigurationProperties.OidcConfig::clientId)
-        val clientSecret = getStringOrThrow(oidc, "$keyPrefix.client-secret", ProviderConfigurationProperties.OidcConfig::clientSecret)
+        val issuer = getUriOrThrow(oidc, "$keyPrefix.issuer", ProviderConfigurationProperties.OpenIdConnectConfig::issuer)
+        val clientId = getStringOrThrow(oidc, "$keyPrefix.client-id", ProviderConfigurationProperties.OpenIdConnectConfig::clientId)
+        val clientSecret = getStringOrThrow(oidc, "$keyPrefix.client-secret", ProviderConfigurationProperties.OpenIdConnectConfig::clientSecret)
 
-        val discovery = runBlocking { oidcDiscoveryClient.fetchDiscovery(issuer) }
+        val discovery = runBlocking { openIdConnectDiscoveryClient.fetchDiscovery(issuer) }
 
         val scopes = (oidc.scopes ?: listOf("openid")).let { scopes ->
             if ("openid" !in scopes) listOf("openid") + scopes else scopes
@@ -235,7 +235,7 @@ open class ProviderConfigManager(
             discovery.userinfoEndpoint?.let { URI.create(it) }
         } else null
 
-        return ProviderOidcConfig(
+        return ProviderOpenIdConnectConfig(
             clientId = clientId,
             clientSecret = clientSecret,
             scopes = scopes,

@@ -1,10 +1,10 @@
-package com.sympauthy.client.oidc.model
+package com.sympauthy.client.openidconnect.model
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import io.micronaut.serde.annotation.Serdeable
 
 @Serdeable
-data class OidcDiscoveryResponse(
+data class OpenIdConnectDiscoveryResponse(
     val issuer: String,
     @get:JsonProperty("authorization_endpoint")
     val authorizationEndpoint: String,

@@ -1,4 +1,4 @@
-package com.sympauthy.business.manager.provider.oidc
+package com.sympauthy.business.manager.provider.openidconnect
 
 import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.jwk.source.JWKSourceBuilder
@@ -8,20 +8,19 @@ import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.proc.DefaultJWTClaimsVerifier
 import com.nimbusds.jwt.proc.DefaultJWTProcessor
 import com.sympauthy.business.exception.businessExceptionOf
-import com.sympauthy.business.model.provider.config.ProviderOidcConfig
+import com.sympauthy.business.model.provider.config.ProviderOpenIdConnectConfig
 import jakarta.inject.Singleton
-import java.net.URI
 
 @Singleton
 class ProviderIdTokenManager {
 
     fun validateAndExtractClaims(
-        oidcConfig: ProviderOidcConfig,
+        openIdConnectConfig: ProviderOpenIdConnectConfig,
         idTokenRaw: String,
         expectedNonce: String?
     ): Map<String, Any> {
         try {
-            val jwkSource = JWKSourceBuilder.create<SecurityContext>(oidcConfig.jwksUri.toURL()).build()
+            val jwkSource = JWKSourceBuilder.create<SecurityContext>(openIdConnectConfig.jwksUri.toURL()).build()
 
             val jwtProcessor = DefaultJWTProcessor<SecurityContext>()
             jwtProcessor.jwsKeySelector = JWSVerificationKeySelector(
@@ -34,7 +33,7 @@ class ProviderIdTokenManager {
                 requiredClaims.add("nonce")
             }
             val exactMatchClaims = JWTClaimsSet.Builder()
-                .issuer(oidcConfig.issuer.toString())
+                .issuer(openIdConnectConfig.issuer.toString())
                 .apply {
                     if (expectedNonce != null) {
                         claim("nonce", expectedNonce)
@@ -43,7 +42,7 @@ class ProviderIdTokenManager {
                 .build()
 
             jwtProcessor.jwtClaimsSetVerifier = DefaultJWTClaimsVerifier<SecurityContext>(
-                setOf(oidcConfig.clientId),
+                setOf(openIdConnectConfig.clientId),
                 exactMatchClaims,
                 requiredClaims,
                 emptySet()
@@ -56,8 +55,8 @@ class ProviderIdTokenManager {
                 .mapValues { it.value!! }
         } catch (e: Exception) {
             throw businessExceptionOf(
-                "provider.oidc.invalid_id_token",
-                "providerId" to oidcConfig.clientId
+                "provider.openid_connect.invalid_id_token",
+                "providerId" to openIdConnectConfig.clientId
             )
         }
     }

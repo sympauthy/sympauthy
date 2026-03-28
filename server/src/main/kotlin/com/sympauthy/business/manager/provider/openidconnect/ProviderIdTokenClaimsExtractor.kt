@@ -1,4 +1,4 @@
-package com.sympauthy.business.manager.provider.oidc
+package com.sympauthy.business.manager.provider.openidconnect
 
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.model.user.RawProviderClaims

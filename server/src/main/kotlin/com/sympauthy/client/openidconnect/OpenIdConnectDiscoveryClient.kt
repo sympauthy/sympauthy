@@ -1,6 +1,6 @@
-package com.sympauthy.client.oidc
+package com.sympauthy.client.openidconnect
 
-import com.sympauthy.client.oidc.model.OidcDiscoveryResponse
+import com.sympauthy.client.openidconnect.model.OpenIdConnectDiscoveryResponse
 import com.sympauthy.exception.LocalizedException
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.MediaType.APPLICATION_JSON
@@ -12,11 +12,11 @@ import kotlinx.coroutines.reactive.awaitFirst
 import java.net.URI
 
 @Singleton
-class OidcDiscoveryClient(
+class OpenIdConnectDiscoveryClient(
     @Inject private val httpClient: HttpClient
 ) {
 
-    suspend fun fetchDiscovery(issuerUri: URI): OidcDiscoveryResponse {
+    suspend fun fetchDiscovery(issuerUri: URI): OpenIdConnectDiscoveryResponse {
         val discoveryUri = UriBuilder.of(issuerUri)
             .path(".well-known/openid-configuration")
             .build()
@@ -24,11 +24,11 @@ class OidcDiscoveryClient(
             .accept(APPLICATION_JSON)
 
         return try {
-            httpClient.retrieve(httpRequest, OidcDiscoveryResponse::class.java)
+            httpClient.retrieve(httpRequest, OpenIdConnectDiscoveryResponse::class.java)
                 .awaitFirst()
         } catch (e: Exception) {
             throw LocalizedException(
-                detailsId = "config.provider.oidc.discovery_failed",
+                detailsId = "config.provider.openid_connect.discovery_failed",
                 values = mapOf("issuer" to issuerUri.toString()),
                 throwable = e
             )

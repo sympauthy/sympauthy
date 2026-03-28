@@ -5,8 +5,8 @@ import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderConfigManager
-import com.sympauthy.business.manager.provider.oidc.ProviderIdTokenClaimsExtractor
-import com.sympauthy.business.manager.provider.oidc.ProviderIdTokenManager
+import com.sympauthy.business.manager.provider.openidconnect.ProviderIdTokenClaimsExtractor
+import com.sympauthy.business.manager.provider.openidconnect.ProviderIdTokenManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.provider.EnabledProvider

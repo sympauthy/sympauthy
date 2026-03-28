@@ -17,7 +17,7 @@ class ProviderOauth2Config(
     val tokenUri: URI,
 ) : ProviderAuthConfig(ProviderAuthType.OAUTH2)
 
-class ProviderOidcConfig(
+class ProviderOpenIdConnectConfig(
     val clientId: String,
     val clientSecret: String,
     val scopes: List<String>,

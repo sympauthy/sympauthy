@@ -39,7 +39,7 @@ class ProviderConfigurationProperties(
     /**
      * OpenID Connect configuration. When set, endpoints are auto-discovered from the issuer URL.
      */
-    var oidc: OidcConfig? = null
+    var oidc: OpenIdConnectConfig? = null
 
     // Must be nested: https://github.com/micronaut-projects/micronaut-core/issues/2373
     @ConfigurationProperties("ui")
@@ -71,7 +71,7 @@ class ProviderConfigurationProperties(
     }
 
     @ConfigurationProperties("oidc")
-    interface OidcConfig {
+    interface OpenIdConnectConfig {
         val issuer: String?
         val clientId: String?
         val clientSecret: String?
