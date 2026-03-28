@@ -203,22 +203,28 @@ class WebAuthorizationFlowManager(
         uncheckedRedirectUri: String?
     ): URI {
         if (uncheckedRedirectUri.isNullOrBlank()) {
-            throw businessExceptionOf(
-                detailsId = "flow.web.parse_requested_redirect_uri.missing"
+            throw BusinessException(
+                recoverable = false,
+                detailsId = "flow.web.parse_requested_redirect_uri.missing",
+                descriptionId = "description.flow.web.parse_requested_redirect_uri.missing"
             )
         }
         val redirectURI = try {
             URI(uncheckedRedirectUri)
         } catch (e: URISyntaxException) {
-            throw businessExceptionOf(
+            throw BusinessException(
+                recoverable = false,
                 detailsId = "flow.web.parse_requested_redirect_uri.invalid",
-                values = arrayOf("message" to (e.message ?: ""))
+                descriptionId = "description.flow.web.parse_requested_redirect_uri.invalid",
+                values = mapOf("message" to (e.message ?: ""))
             )
         }
 
         if (client.allowedRedirectUris?.isNotEmpty() == true && !client.allowedRedirectUris.contains(redirectURI)) {
-            throw businessExceptionOf(
-                detailsId = "flow.web.parse_requested_redirect_uri.not_allowed"
+            throw BusinessException(
+                recoverable = false,
+                detailsId = "flow.web.parse_requested_redirect_uri.not_allowed",
+                descriptionId = "description.flow.web.parse_requested_redirect_uri.not_allowed"
             )
         }
         return redirectURI

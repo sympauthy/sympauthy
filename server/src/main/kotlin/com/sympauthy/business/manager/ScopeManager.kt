@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager
 
+import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.*
@@ -176,11 +177,22 @@ class ScopeManager(
             uncheckedScopes.split(" ")
                 .map { it.trim() }
                 .filter { it.isNotBlank() }
-                .map {
-                    findForClientOrThrow(
-                        client = client,
-                        scope = it
+                .map { scope ->
+                    val foundScope = find(scope) ?: throw BusinessException(
+                        recoverable = false,
+                        detailsId = "scope.parse_requested.unsupported",
+                        descriptionId = "description.scope.parse_requested.unsupported",
+                        values = mapOf("scope" to scope)
                     )
+                    if (client.allowedScopes != null && !client.allowedScopes.contains(foundScope)) {
+                        throw BusinessException(
+                            recoverable = false,
+                            detailsId = "scope.parse_requested.not_allowed",
+                            descriptionId = "description.scope.parse_requested.not_allowed",
+                            values = mapOf("scope" to scope)
+                        )
+                    }
+                    foundScope
                 }
         }
     }
