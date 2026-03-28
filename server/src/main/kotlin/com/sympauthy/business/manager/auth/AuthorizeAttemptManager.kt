@@ -111,6 +111,47 @@ class AuthorizeAttemptManager(
     }
 
     /**
+     * Store the third-party provider the user is authenticating with.
+     * For OIDC providers, generates a signed nonce JWT bound to the authorize attempt.
+     * Only the random part (jti) is stored in the database; the full JWT is reconstructed
+     * on callback via [buildProviderNonce].
+     *
+     * @return the full nonce JWT if [generateNonce] is true, null otherwise.
+     */
+    suspend fun setProvider(
+        authorizeAttempt: OnGoingAuthorizeAttempt,
+        providerId: String,
+        generateNonce: Boolean = false
+    ): String? {
+        val jti = if (generateNonce) UUID.randomUUID() else null
+
+        authorizeAttemptRepository.updateProviderIdProviderNonceJsonWebTokenId(
+            id = authorizeAttempt.id,
+            providerId = providerId,
+            providerNonceJsonWebTokenId = jti
+        )
+
+        return if (jti != null) buildProviderNonce(authorizeAttempt.id, jti) else null
+    }
+
+    /**
+     * Reconstruct the full provider nonce JWT from the authorize attempt's stored jti.
+     * Returns null if the attempt has no provider nonce.
+     */
+    suspend fun buildProviderNonceOrNull(authorizeAttempt: OnGoingAuthorizeAttempt): String? {
+        val jti = authorizeAttempt.providerNonceJsonWebTokenId ?: return null
+        return buildProviderNonce(authorizeAttempt.id, jti)
+    }
+
+    private suspend fun buildProviderNonce(attemptId: UUID, jti: UUID): String {
+        return jwtManager.create(PROVIDER_NONCE_KEY_NAME) {
+            withKeyId(PROVIDER_NONCE_KEY_NAME)
+            withSubject(attemptId.toString())
+            withJWTId(jti.toString())
+        }
+    }
+
+    /**
      * Return a [SuccessVerifyEncodedStateResult] containing the [AuthorizeAttempt] that created the [state]
      * after verifying the [state] has not been tempered with.
      * Otherwise, return a [FailedVerifyEncodedStateResult] with the appropriate error details.
@@ -348,13 +389,15 @@ class AuthorizeAttemptManager(
          * Name of the cryptographic key used to sign the state.
          */
         const val STATE_KEY_NAME = "state"
+        const val PROVIDER_NONCE_KEY_NAME = "provider_nonce"
     }
 }
 
 sealed class VerifyEncodedStateResult
 
-class SuccessVerifyEncodedStateResult(val authorizeAttempt: AuthorizeAttempt) :
-    VerifyEncodedStateResult()
+class SuccessVerifyEncodedStateResult(
+    val authorizeAttempt: AuthorizeAttempt
+) : VerifyEncodedStateResult()
 
 class FailedVerifyEncodedStateResult(
     val detailsId: String,

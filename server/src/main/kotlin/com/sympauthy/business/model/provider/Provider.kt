@@ -18,7 +18,7 @@ sealed class Provider(
 class EnabledProvider(
     id: String,
     val name: String,
-    val userInfo: ProviderUserInfoConfig,
+    val userInfo: ProviderUserInfoConfig?,
     val auth: ProviderAuthConfig
 ) : Provider(id, true)
 

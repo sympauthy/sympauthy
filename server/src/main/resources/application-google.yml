@@ -1,0 +1,17 @@
+# Default configuration for Google as a third-party OIDC provider.
+# The missing client-id and client-secret can be obtained on: https://console.cloud.google.com/
+#
+# Enable this preset by adding "google" to the MICRONAUT_ENVIRONMENTS variable.
+# Then provide the client credentials:
+#   providers.google.oidc.client-id: <your-client-id>
+#   providers.google.oidc.client-secret: <your-client-secret>
+
+providers:
+  google:
+    name: Google
+    oidc:
+      issuer: https://accounts.google.com
+      scopes:
+        - openid
+        - email
+        - profile

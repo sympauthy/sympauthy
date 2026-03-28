@@ -16,3 +16,16 @@ class ProviderOauth2Config(
 
     val tokenUri: URI,
 ) : ProviderAuthConfig(ProviderAuthType.OAUTH2)
+
+class ProviderOidcConfig(
+    val clientId: String,
+    val clientSecret: String,
+    val scopes: List<String>,
+
+    val issuer: URI,
+
+    val authorizationUri: URI,
+    val tokenUri: URI,
+    val jwksUri: URI,
+    val userinfoUri: URI?,
+) : ProviderAuthConfig(ProviderAuthType.OIDC)

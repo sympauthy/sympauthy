@@ -12,7 +12,9 @@ data class TokenEndpointResponse(
     @get:JsonProperty("expires_in")
     val expiresIn: Int,
     @get:JsonProperty("refresh_token")
-    val refreshToken: String,
+    val refreshToken: String? = null,
     @get:JsonProperty("scope")
-    val scope: String
+    val scope: String? = null,
+    @get:JsonProperty("id_token")
+    val idToken: String? = null
 )

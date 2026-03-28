@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager.provider
 
 import com.jayway.jsonpath.JsonPath
+import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.mapper.ProviderUserInfoMapper
 import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.business.model.provider.ProviderCredentials
@@ -48,13 +49,15 @@ class ProviderClaimsManager(
         provider: EnabledProvider,
         credentials: ProviderCredentials
     ): RawProviderClaims {
+        val userInfo = provider.userInfo
+            ?: throw businessExceptionOf("provider.user_info.not_configured", "providerId" to provider.id)
         val rawUserInfoMap = userInfoEndpointClient.fetchUserInfo(
-            userInfoConfig = provider.userInfo,
+            userInfoConfig = userInfo,
             credentials = credentials
         )
 
         val document = JsonPath.parse(rawUserInfoMap)
-        return provider.userInfo.paths.entries
+        return userInfo.paths.entries
             .fold(RawProviderClaimsBuilder()) { builder, (pathKey, path) ->
                 builder.withUserInfo(document, pathKey, path)
             }

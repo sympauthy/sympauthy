@@ -10,7 +10,9 @@ import com.sympauthy.business.model.provider.ProviderUserInfoPathKey.EMAIL
 import com.sympauthy.business.model.provider.ProviderUserInfoPathKey.SUB
 import com.sympauthy.business.model.provider.config.ProviderAuthConfig
 import com.sympauthy.business.model.provider.config.ProviderOauth2Config
+import com.sympauthy.business.model.provider.config.ProviderOidcConfig
 import com.sympauthy.business.model.provider.config.ProviderUserInfoConfig
+import com.sympauthy.client.oidc.OidcDiscoveryClient
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.config.properties.ProviderConfigurationProperties
@@ -29,7 +31,9 @@ import io.micronaut.scheduling.annotation.Async
 import io.reactivex.rxjava3.core.Single
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.rx3.await
+import java.net.URI
 import java.util.*
 
 /**
@@ -40,7 +44,8 @@ import java.util.*
 open class ProviderConfigManager(
     @Inject private val providers: List<ProviderConfigurationProperties>,
     @param:ErrorMessages @Inject private val messageSource: MessageSource,
-    @Inject private val authConfig: AuthConfig
+    @Inject private val authConfig: AuthConfig,
+    @Inject private val oidcDiscoveryClient: OidcDiscoveryClient
 ) : ApplicationEventListener<ServiceReadyEvent> {
 
     private val logger = loggerForClass()
@@ -97,11 +102,16 @@ open class ProviderConfigManager(
     }
 
     internal fun configureProvider(config: ProviderConfigurationProperties): EnabledProvider {
+        val auth = configureProviderAuth(config)
+        val userInfo = when (auth) {
+            is ProviderOidcConfig -> null
+            else -> configureProviderUserInfo(config)
+        }
         return EnabledProvider(
             id = config.id,
             name = getStringOrThrow(config, "$PROVIDERS_KEY.name", ProviderConfigurationProperties::name),
-            userInfo = configureProviderUserInfo(config),
-            auth = configureProviderAuth(config)
+            userInfo = userInfo,
+            auth = auth
         )
     }
 
@@ -168,6 +178,7 @@ open class ProviderConfigManager(
 
     private fun configureProviderAuth(config: ProviderConfigurationProperties): ProviderAuthConfig {
         return when {
+            config.oidc != null -> configureProviderOidc(config, config.oidc!!)
             config.oauth2 != null -> configureProviderOauth2(config, config.oauth2!!)
             else -> throw localizedExceptionOf(
                 "config.auth.missing"
@@ -201,6 +212,38 @@ open class ProviderConfigManager(
                 "${PROVIDERS_KEY}.${config.id}.token-url",
                 ProviderConfigurationProperties.Oauth2Config::tokenUrl
             )
+        )
+    }
+
+    private fun configureProviderOidc(
+        config: ProviderConfigurationProperties,
+        oidc: ProviderConfigurationProperties.OidcConfig
+    ): ProviderOidcConfig {
+        val keyPrefix = "${PROVIDERS_KEY}.${config.id}.oidc"
+        val issuer = getUriOrThrow(oidc, "$keyPrefix.issuer", ProviderConfigurationProperties.OidcConfig::issuer)
+        val clientId = getStringOrThrow(oidc, "$keyPrefix.client-id", ProviderConfigurationProperties.OidcConfig::clientId)
+        val clientSecret = getStringOrThrow(oidc, "$keyPrefix.client-secret", ProviderConfigurationProperties.OidcConfig::clientSecret)
+
+        val discovery = runBlocking { oidcDiscoveryClient.fetchDiscovery(issuer) }
+
+        val scopes = (oidc.scopes ?: listOf("openid")).let { scopes ->
+            if ("openid" !in scopes) listOf("openid") + scopes else scopes
+        }
+
+        val userinfoEnabled = oidc.userinfoEnabled ?: false
+        val userinfoUri = if (userinfoEnabled) {
+            discovery.userinfoEndpoint?.let { URI.create(it) }
+        } else null
+
+        return ProviderOidcConfig(
+            clientId = clientId,
+            clientSecret = clientSecret,
+            scopes = scopes,
+            issuer = issuer,
+            authorizationUri = URI.create(discovery.authorizationEndpoint),
+            tokenUri = URI.create(discovery.tokenEndpoint),
+            jwksUri = URI.create(discovery.jwksUri),
+            userinfoUri = userinfoUri
         )
     }
 }

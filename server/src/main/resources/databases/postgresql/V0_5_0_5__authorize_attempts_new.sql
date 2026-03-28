@@ -13,6 +13,9 @@ CREATE TABLE authorize_attempts
     code_challenge        text,
     code_challenge_method text,
 
+    provider_id           text,
+    provider_nonce_json_web_token_id uuid,
+
     user_id               uuid,
 
     consented_scopes      text[],

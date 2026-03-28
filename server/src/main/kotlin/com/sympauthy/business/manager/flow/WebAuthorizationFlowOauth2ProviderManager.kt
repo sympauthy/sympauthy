@@ -7,6 +7,8 @@ import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderConfigManager
+import com.sympauthy.business.manager.provider.oidc.ProviderIdTokenClaimsExtractor
+import com.sympauthy.business.manager.provider.oidc.ProviderIdTokenManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.CreateOrAssociateResult
 import com.sympauthy.business.manager.user.UserManager
@@ -16,9 +18,12 @@ import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.business.model.provider.Provider
 import com.sympauthy.business.model.provider.config.ProviderOauth2Config
+import com.sympauthy.business.model.provider.config.ProviderOidcConfig
 import com.sympauthy.business.model.provider.oauth2.ProviderOAuth2TokenRequest
 import com.sympauthy.business.model.provider.oauth2.ProviderOauth2Tokens
+import com.sympauthy.business.model.provider.oidc.ProviderOidcTokens
 import com.sympauthy.business.model.redirect.ProviderOauth2AuthorizationRedirect
+import com.sympauthy.business.model.redirect.ProviderOidcAuthorizationRedirect
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.RawProviderClaims
 import com.sympauthy.business.model.user.claim.OpenIdClaim
@@ -36,7 +41,7 @@ import java.util.*
 
 /**
  * Manager in charge of the authentication and registration of an end-user going through a web authorization flow
- * using an OAuth 2 provider.
+ * using an OAuth 2 or OIDC provider.
  */
 @Singleton
 open class WebAuthorizationFlowOauth2ProviderManager(
@@ -45,6 +50,8 @@ open class WebAuthorizationFlowOauth2ProviderManager(
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val providerConfigManager: ProviderConfigManager,
     @Inject private val providerClaimsManager: ProviderClaimsManager,
+    @Inject private val providerIdTokenManager: ProviderIdTokenManager,
+    @Inject private val providerIdTokenClaimsExtractor: ProviderIdTokenClaimsExtractor,
     @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
     @Inject private val tokenEndpointClient: TokenEndpointClient,
     @Inject private val userManager: UserManager,
@@ -81,13 +88,28 @@ open class WebAuthorizationFlowOauth2ProviderManager(
         providerId: String
     ): URI {
         val provider = providerConfigManager.findByIdAndCheckEnabled(providerId)
-        val oauth2 = getOauth2(provider)
-        return ProviderOauth2AuthorizationRedirect(
-            oauth2 = oauth2,
-            responseType = "code",
-            redirectUri = getRedirectUri(provider),
-            state = authorizeAttemptManager.encodeState(authorizeAttempt)
-        ).build()
+        val state = authorizeAttemptManager.encodeState(authorizeAttempt)
+        return when (val auth = provider.auth) {
+            is ProviderOidcConfig -> {
+                val nonce = authorizeAttemptManager.setProvider(authorizeAttempt, providerId, generateNonce = true)!!
+                ProviderOidcAuthorizationRedirect(
+                    oidc = auth,
+                    responseType = "code",
+                    redirectUri = getRedirectUri(provider),
+                    state = state,
+                    nonce = nonce
+                ).build()
+            }
+            is ProviderOauth2Config -> {
+                authorizeAttemptManager.setProvider(authorizeAttempt, providerId)
+                ProviderOauth2AuthorizationRedirect(
+                    oauth2 = auth,
+                    responseType = "code",
+                    redirectUri = getRedirectUri(provider),
+                    state = state
+                ).build()
+            }
+        }
     }
 
     /**
@@ -111,10 +133,17 @@ open class WebAuthorizationFlowOauth2ProviderManager(
             throw businessExceptionOf("flow.web_oauth2_provider.missing_code")
         }
         val provider = providerConfigManager.findByIdAndCheckEnabled(providerId)
-        val oauth2 = getOauth2(provider)
-        val authentication = fetchTokens(provider, oauth2, authorizeCode)
 
-        val rawUserInfo = providerClaimsManager.fetchUserInfo(provider, authentication)
+        val rawUserInfo = when (val auth = provider.auth) {
+            is ProviderOidcConfig -> {
+                val nonce = authorizeAttemptManager.buildProviderNonceOrNull(authorizeAttempt)
+                fetchOidcClaims(provider, auth, authorizeCode, nonce)
+            }
+            is ProviderOauth2Config -> {
+                val authentication = fetchTokens(provider, auth, authorizeCode)
+                providerClaimsManager.fetchUserInfo(provider, authentication)
+            }
+        }
 
         val existingUserInfo = providerClaimsManager.findByProviderAndSubject(
             provider = provider,
@@ -132,6 +161,64 @@ open class WebAuthorizationFlowOauth2ProviderManager(
 
         return webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
             authorizeAttempt = updatedAuthorizeAttempt
+        )
+    }
+
+    /**
+     * Fetch tokens from an OIDC provider, validate the ID token, and extract claims.
+     */
+    private suspend fun fetchOidcClaims(
+        provider: EnabledProvider,
+        oidcConfig: ProviderOidcConfig,
+        authorizeCode: String,
+        expectedNonce: String?
+    ): RawProviderClaims {
+        val oidcTokens = fetchOidcTokens(provider, oidcConfig, authorizeCode)
+
+        val idTokenClaims = providerIdTokenManager.validateAndExtractClaims(
+            oidcConfig = oidcConfig,
+            idTokenRaw = oidcTokens.idToken,
+            expectedNonce = expectedNonce
+        )
+
+        val idTokenUserInfo = providerIdTokenClaimsExtractor.extractClaims(provider.id, idTokenClaims)
+
+        // If userinfo endpoint is configured, merge claims from both sources (ID token takes precedence)
+        if (oidcConfig.userinfoUri != null && provider.userInfo != null) {
+            val userinfoUserInfo = providerClaimsManager.fetchUserInfo(provider, oidcTokens)
+            return mergeProviderClaims(idTokenUserInfo, userinfoUserInfo)
+        }
+
+        return idTokenUserInfo
+    }
+
+    /**
+     * Merge claims from ID token and userinfo endpoint.
+     * ID token claims take precedence; userinfo fills in missing values.
+     */
+    private fun mergeProviderClaims(
+        primary: RawProviderClaims,
+        secondary: RawProviderClaims
+    ): RawProviderClaims {
+        return primary.copy(
+            name = primary.name ?: secondary.name,
+            givenName = primary.givenName ?: secondary.givenName,
+            familyName = primary.familyName ?: secondary.familyName,
+            middleName = primary.middleName ?: secondary.middleName,
+            nickname = primary.nickname ?: secondary.nickname,
+            preferredUsername = primary.preferredUsername ?: secondary.preferredUsername,
+            profile = primary.profile ?: secondary.profile,
+            picture = primary.picture ?: secondary.picture,
+            website = primary.website ?: secondary.website,
+            email = primary.email ?: secondary.email,
+            emailVerified = primary.emailVerified ?: secondary.emailVerified,
+            gender = primary.gender ?: secondary.gender,
+            birthDate = primary.birthDate ?: secondary.birthDate,
+            zoneInfo = primary.zoneInfo ?: secondary.zoneInfo,
+            locale = primary.locale ?: secondary.locale,
+            phoneNumber = primary.phoneNumber ?: secondary.phoneNumber,
+            phoneNumberVerified = primary.phoneNumberVerified ?: secondary.phoneNumberVerified,
+            updatedAt = primary.updatedAt ?: secondary.updatedAt
         )
     }
 
@@ -239,6 +326,37 @@ open class WebAuthorizationFlowOauth2ProviderManager(
         return ProviderOauth2Tokens(
             accessToken = tokens.accessToken,
             refreshToken = tokens.refreshToken
+        )
+    }
+
+    private suspend fun fetchOidcTokens(
+        provider: Provider,
+        oidcConfig: ProviderOidcConfig,
+        authorizeCode: String
+    ): ProviderOidcTokens {
+        // Reuse the OAuth2 token exchange — OIDC uses the same protocol
+        val oauth2Config = ProviderOauth2Config(
+            clientId = oidcConfig.clientId,
+            clientSecret = oidcConfig.clientSecret,
+            scopes = oidcConfig.scopes,
+            authorizationUri = oidcConfig.authorizationUri,
+            tokenUri = oidcConfig.tokenUri
+        )
+        val request = ProviderOAuth2TokenRequest(
+            oauth2 = oauth2Config,
+            authorizeCode = authorizeCode,
+            redirectUri = getRedirectUri(provider)
+        )
+        val tokens = tokenEndpointClient.fetchTokens(request)
+        val idToken = tokens.idToken
+            ?: throw businessExceptionOf(
+                "provider.oidc.missing_id_token",
+                "providerId" to provider.id
+            )
+        return ProviderOidcTokens(
+            accessToken = tokens.accessToken,
+            refreshToken = tokens.refreshToken,
+            idToken = idToken
         )
     }
 }

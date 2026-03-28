@@ -1,29 +1,29 @@
 package com.sympauthy.business.model.redirect
 
-import com.sympauthy.business.model.provider.config.ProviderOauth2Config
+import com.sympauthy.business.model.provider.config.ProviderOidcConfig
 import io.micronaut.http.uri.UriBuilder
 import java.net.URI
 
 /**
  * Contains all the information required to generate the URI where the user must be redirected to initiate
- * an authentication to a third-party provider.
+ * an authentication to a third-party OIDC provider.
  */
-data class ProviderOauth2AuthorizationRedirect(
-    val oauth2: ProviderOauth2Config,
+data class ProviderOidcAuthorizationRedirect(
+    val oidc: ProviderOidcConfig,
     val responseType: String,
     val state: String?,
     val redirectUri: URI?,
-    val nonce: String? = null,
+    val nonce: String,
 ) {
 
     fun build(): URI {
-        val builder = UriBuilder.of(oauth2.authorizationUri)
+        val builder = UriBuilder.of(oidc.authorizationUri)
         responseType.let { builder.queryParam("response_type", it) }
-        oauth2.clientId.let { builder.queryParam("client_id", it) }
-        oauth2.scopes?.joinToString(" ")?.let { builder.queryParam("scope", it) }
+        oidc.clientId.let { builder.queryParam("client_id", it) }
+        oidc.scopes.joinToString(" ").let { builder.queryParam("scope", it) }
         state?.let { builder.queryParam("state", it) }
         redirectUri?.toString()?.let { builder.queryParam("redirect_uri", it) }
-        nonce?.let { builder.queryParam("nonce", it) }
+        builder.queryParam("nonce", nonce)
         return builder.build()
     }
 }
