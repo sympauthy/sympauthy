@@ -149,8 +149,11 @@ Then click on **Add** button in the **Before launch** section:
 Open the following URL in your browser to access the authorization flow:
 
 ```
-http://localhost:8080/api/oauth2/authorize?client_id=dev&redirect_uri=https://example.com&response_type=code
+http://localhost:8080/api/oauth2/authorize?client_id=dev&redirect_uri=https://example.com&response_type=code&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256
 ```
+
+> The `code_challenge` above is the S256 hash of the verifier `dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk`.
+> Use this verifier when exchanging the authorization code for tokens at the token endpoint.
 
 #### Bruno collection
 

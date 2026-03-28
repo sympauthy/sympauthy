@@ -266,13 +266,14 @@ class WebAuthorizationFlowManagerTest {
     }
 
     @Test
-    fun `parseCodeChallenge - No error when confidential client has no code_challenge`() {
+    fun `parseCodeChallenge - Returns error when confidential client has no code_challenge`() {
         val client = mockk<Client> { every { `public` } returns false }
         val (challenge, method, error) = manager.parseCodeChallenge(client, null, null)
 
         assertNull(challenge)
         assertNull(method)
-        assertNull(error)
+        assertNotNull(error)
+        assertEquals("authorize.pkce.missing_code_challenge", error!!.detailsId)
     }
 
     // --- startAuthorizationWith tests ---

@@ -89,7 +89,7 @@ The authorization server includes this value unmodified in the ID Token.
             Parameter(
                 name = "code_challenge",
                 `in` = QUERY,
-                description = "PKCE code challenge (RFC 7636). Required for public clients.",
+                description = "PKCE code challenge (RFC 7636). Required for all clients per OAuth 2.1.",
                 schema = Schema(
                     type = "string"
                 )
@@ -168,12 +168,13 @@ The authorization server includes this value unmodified in the ID Token.
             uncheckedCodeChallenge = uncheckedCodeChallenge,
             uncheckedCodeChallengeMethod = uncheckedCodeChallengeMethod
         )
-        return HttpResponse.temporaryRedirect<Any>(
-            webFlowRedirectBuilder.getSignInRedirectUri(
-                authorizeAttempt = authorizeAttempt,
-                flow = flow
-            )
+        val status = webAuthorizationFlowManager.getStatus(authorizeAttempt)
+        val redirectUri = webFlowRedirectBuilder.getRedirectUri(
+            authorizeAttempt = authorizeAttempt,
+            flow = flow,
+            status = status
         )
+        return HttpResponse.temporaryRedirect<Any>(redirectUri)
     }
 
     companion object {

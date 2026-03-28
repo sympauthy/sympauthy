@@ -158,7 +158,7 @@ class WebAuthorizationFlowManager(
      *
      * - If `code_challenge` is present with no method, defaults to `S256`.
      * - If the method is provided but not recognized, returns an error.
-     * - If the client is public and `code_challenge` is missing, returns an error.
+     * - If `code_challenge` is missing, returns an error (PKCE is required for all clients per OAuth 2.1).
      */
     internal fun parseCodeChallenge(
         client: Client?,
@@ -166,14 +166,13 @@ class WebAuthorizationFlowManager(
         uncheckedCodeChallengeMethod: String?
     ): Triple<String?, CodeChallengeMethod?, BusinessException?> {
         if (uncheckedCodeChallenge.isNullOrBlank()) {
-            if (client?.public == true) {
-                return Triple(
-                    null, null, businessExceptionOf(
-                        detailsId = "authorize.pkce.missing_code_challenge"
-                    )
+            return Triple(
+                null, null, BusinessException(
+                    recoverable = false,
+                    detailsId = "authorize.pkce.missing_code_challenge",
+                    descriptionId = "description.authorize.pkce.missing_code_challenge"
                 )
-            }
-            return Triple(null, null, null)
+            )
         }
 
         val method = if (uncheckedCodeChallengeMethod.isNullOrBlank()) {
@@ -181,9 +180,11 @@ class WebAuthorizationFlowManager(
         } else {
             CodeChallengeMethod.fromValueOrNull(uncheckedCodeChallengeMethod)
                 ?: return Triple(
-                    null, null, businessExceptionOf(
+                    null, null, BusinessException(
+                        recoverable = false,
                         detailsId = "authorize.pkce.unsupported_method",
-                        values = arrayOf("method" to uncheckedCodeChallengeMethod)
+                        descriptionId = "description.authorize.pkce.unsupported_method",
+                        values = mapOf("method" to uncheckedCodeChallengeMethod)
                     )
                 )
         }
