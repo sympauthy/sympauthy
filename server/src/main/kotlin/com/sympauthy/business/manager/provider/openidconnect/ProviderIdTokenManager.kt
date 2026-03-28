@@ -11,6 +11,12 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.model.provider.config.ProviderOpenIdConnectConfig
 import jakarta.inject.Singleton
 
+/**
+ * Validates and extracts claims from ID tokens returned by OpenID Connect providers.
+ *
+ * Verification includes signature validation against the provider's JWKS, and standard claim checks:
+ * issuer, audience, expiration, and nonce (if provided).
+ */
 @Singleton
 class ProviderIdTokenManager {
 
