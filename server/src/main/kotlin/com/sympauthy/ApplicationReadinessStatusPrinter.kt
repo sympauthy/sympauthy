@@ -132,14 +132,13 @@ class ApplicationReadinessStatusPrinter(
         } catch (_: Throwable) {
             0
         }
-        logger.info("- ${pluralize(userRulesCount, "user rule")}.")
-
         val clientRulesCount = try {
             scopeGrantingRuleManager.listClientScopeGrantingRules().size
         } catch (_: Throwable) {
             0
         }
-        logger.info("- ${pluralize(clientRulesCount, "client rule")}.")
+        val totalRulesCount = userRulesCount + clientRulesCount
+        logger.info("- ${pluralize(totalRulesCount, "rule")} (${pluralize(userRulesCount, "user")}, ${pluralize(clientRulesCount, "client")}).")
     }
 
     private fun pluralize(count: Int, singular: String) = if (count <= 1) "$count $singular" else "$count ${singular}s"
