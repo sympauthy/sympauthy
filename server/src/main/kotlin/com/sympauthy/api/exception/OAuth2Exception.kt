@@ -29,7 +29,7 @@ fun OAuth2Exception.toHttpException(
     values = values
 )
 
-fun LocalizedException.toOauth2Exception(
+fun LocalizedException.toOAuth2Exception(
     errorCode: OAuth2ErrorCode,
     descriptionId: String? = null
 ) = OAuth2Exception(

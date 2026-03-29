@@ -22,7 +22,8 @@ class ConfigReadinessManager(
     @Inject private val rulesConfig: Flow<ScopeGrantingRulesConfig>,
     @Inject private val scopesConfig: ScopesConfig,
     @Inject private val uiConfig: UIConfig,
-    @Inject private val urlsConfig: UrlsConfig
+    @Inject private val urlsConfig: UrlsConfig,
+    @Inject private val providersConfig: ProvidersConfig
 ) {
     /**
      * List of synchronous configuration objects.
@@ -36,7 +37,8 @@ class ConfigReadinessManager(
         mfaConfig,
         scopesConfig,
         uiConfig,
-        urlsConfig
+        urlsConfig,
+        providersConfig
     )
 
     /**

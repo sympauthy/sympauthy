@@ -6,7 +6,8 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
-import com.sympauthy.business.manager.provider.ProviderConfigManager
+import com.sympauthy.business.manager.provider.ProviderClaimsResolver
+import com.sympauthy.business.manager.provider.ProviderManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.CreateOrAssociateResult
 import com.sympauthy.business.manager.user.UserManager
@@ -15,10 +16,13 @@ import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.business.model.provider.Provider
-import com.sympauthy.business.model.provider.config.ProviderOauth2Config
+import com.sympauthy.business.model.provider.config.ProviderAuthConfig
+import com.sympauthy.business.model.provider.config.ProviderOAuth2Config
+import com.sympauthy.business.model.provider.config.ProviderOpenIdConnectConfig
 import com.sympauthy.business.model.provider.oauth2.ProviderOAuth2TokenRequest
-import com.sympauthy.business.model.provider.oauth2.ProviderOauth2Tokens
-import com.sympauthy.business.model.redirect.ProviderOauth2AuthorizationRedirect
+import com.sympauthy.business.model.provider.oauth2.ProviderOAuth2Tokens
+import com.sympauthy.business.model.redirect.ProviderOAuth2AuthorizationRedirect
+import com.sympauthy.business.model.redirect.ProviderOpenIdConnectAuthorizationRedirect
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.RawProviderClaims
 import com.sympauthy.business.model.user.claim.OpenIdClaim
@@ -36,15 +40,16 @@ import java.util.*
 
 /**
  * Manager in charge of the authentication and registration of an end-user going through a web authorization flow
- * using an OAuth 2 provider.
+ * using an OAuth 2 or OIDC provider.
  */
 @Singleton
-open class WebAuthorizationFlowOauth2ProviderManager(
+open class WebAuthorizationFlowOAuth2ProviderManager(
     @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
-    @Inject private val providerConfigManager: ProviderConfigManager,
+    @Inject private val providerConfigManager: ProviderManager,
     @Inject private val providerClaimsManager: ProviderClaimsManager,
+    @Inject private val providerClaimsResolver: ProviderClaimsResolver,
     @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
     @Inject private val tokenEndpointClient: TokenEndpointClient,
     @Inject private val userManager: UserManager,
@@ -52,8 +57,8 @@ open class WebAuthorizationFlowOauth2ProviderManager(
     @Inject private val uncheckedUrlsConfig: UrlsConfig
 ) {
 
-    fun getOauth2(provider: EnabledProvider): ProviderOauth2Config {
-        if (provider.auth !is ProviderOauth2Config) {
+    fun getOAuth2(provider: EnabledProvider): ProviderOAuth2Config {
+        if (provider.auth !is ProviderOAuth2Config) {
             throw businessExceptionOf("provider.oauth2.unsupported")
         }
         return provider.auth
@@ -81,13 +86,28 @@ open class WebAuthorizationFlowOauth2ProviderManager(
         providerId: String
     ): URI {
         val provider = providerConfigManager.findByIdAndCheckEnabled(providerId)
-        val oauth2 = getOauth2(provider)
-        return ProviderOauth2AuthorizationRedirect(
-            oauth2 = oauth2,
-            responseType = "code",
-            redirectUri = getRedirectUri(provider),
-            state = authorizeAttemptManager.encodeState(authorizeAttempt)
-        ).build()
+        val state = authorizeAttemptManager.encodeState(authorizeAttempt)
+        return when (val auth = provider.auth) {
+            is ProviderOpenIdConnectConfig -> {
+                val nonce = authorizeAttemptManager.setProvider(authorizeAttempt, providerId, generateNonce = true)!!
+                ProviderOpenIdConnectAuthorizationRedirect(
+                    openIdConnect = auth,
+                    responseType = "code",
+                    redirectUri = getRedirectUri(provider),
+                    state = state,
+                    nonce = nonce
+                ).build()
+            }
+            is ProviderOAuth2Config -> {
+                authorizeAttemptManager.setProvider(authorizeAttempt, providerId)
+                ProviderOAuth2AuthorizationRedirect(
+                    oauth2 = auth,
+                    responseType = "code",
+                    redirectUri = getRedirectUri(provider),
+                    state = state
+                ).build()
+            }
+        }
     }
 
     /**
@@ -102,33 +122,53 @@ open class WebAuthorizationFlowOauth2ProviderManager(
     suspend fun signInOrSignUpUsingProvider(
         authorizeAttempt: OnGoingAuthorizeAttempt,
         providerId: String?,
-        authorizeCode: String?
+        authorizeCode: String?,
+        providerError: String? = null,
+        providerErrorDescription: String? = null
     ): Pair<AuthorizeAttempt, WebAuthorizationFlowStatus> {
+        // Check if the provider returned an error instead of a code.
+        if (!providerError.isNullOrBlank()) {
+            throw businessExceptionOf(
+                "flow.web_oauth2_provider.provider_error",
+                "error" to providerError,
+                "errorDescription" to (providerErrorDescription ?: "")
+            )
+        }
+
         // Those errors are marked unrecoverable because a proper provider should never end up in this case.
         // Therefore, the user retrying the request should not change the result.
         // We redirect the user to the error page so it can continue back to the application to retry.
         if (authorizeCode.isNullOrBlank()) {
             throw businessExceptionOf("flow.web_oauth2_provider.missing_code")
         }
-        val provider = providerConfigManager.findByIdAndCheckEnabled(providerId)
-        val oauth2 = getOauth2(provider)
-        val authentication = fetchTokens(provider, oauth2, authorizeCode)
 
-        val rawUserInfo = providerClaimsManager.fetchUserInfo(provider, authentication)
+        // Verify the provider ID in the callback matches the one stored during the authorization redirect.
+        if (authorizeAttempt.providerId != null && authorizeAttempt.providerId != providerId) {
+            throw businessExceptionOf(
+                "flow.web_oauth2_provider.provider_mismatch",
+                "expectedProviderId" to authorizeAttempt.providerId!!,
+                "actualProviderId" to (providerId ?: "")
+            )
+        }
+
+        val provider = providerConfigManager.findByIdAndCheckEnabled(providerId)
+
+        val tokens = fetchTokens(provider, provider.auth, authorizeCode)
+        val expectedNonce = authorizeAttemptManager.buildProviderNonceOrNull(authorizeAttempt)
+        val rawUserInfo = providerClaimsResolver.resolveClaims(provider, tokens, expectedNonce)
 
         val existingUserInfo = providerClaimsManager.findByProviderAndSubject(
             provider = provider,
             subject = rawUserInfo.subject
         )
 
-        val user = if (existingUserInfo == null) {
-            createOrAssociateUserWithProviderUserInfo(provider, rawUserInfo).user
+        val userId = if (existingUserInfo == null) {
+            createOrAssociateUserWithProviderUserInfo(provider, rawUserInfo).user.id
         } else {
             providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo)
             existingUserInfo.userId
-            TODO("FIXME")
         }
-        val updatedAuthorizeAttempt = authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, user.id)
+        val updatedAuthorizeAttempt = authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, userId)
 
         return webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
             authorizeAttempt = updatedAuthorizeAttempt
@@ -227,18 +267,39 @@ open class WebAuthorizationFlowOauth2ProviderManager(
 
     suspend fun fetchTokens(
         provider: Provider,
-        oauth2: ProviderOauth2Config,
+        auth: ProviderAuthConfig,
         authorizeCode: String
-    ): ProviderOauth2Tokens {
+    ): ProviderOAuth2Tokens {
+        val oauth2Config = when (auth) {
+            is ProviderOAuth2Config -> auth
+            is ProviderOpenIdConnectConfig -> ProviderOAuth2Config(
+                clientId = auth.clientId,
+                clientSecret = auth.clientSecret,
+                scopes = auth.scopes,
+                authorizationUri = auth.authorizationUri,
+                tokenUri = auth.tokenUri
+            )
+        }
         val request = ProviderOAuth2TokenRequest(
-            oauth2 = oauth2,
+            oauth2 = oauth2Config,
             authorizeCode = authorizeCode,
             redirectUri = getRedirectUri(provider)
         )
-        val tokens = tokenEndpointClient.fetchTokens(request)
-        return ProviderOauth2Tokens(
-            accessToken = tokens.accessToken,
-            refreshToken = tokens.refreshToken
+        val response = tokenEndpointClient.fetchTokens(request)
+
+        // Verify token type is Bearer (RFC 6749 §7.1)
+        if (!response.tokenType.equals("Bearer", ignoreCase = true)) {
+            throw businessExceptionOf(
+                "flow.web_oauth2_provider.unsupported_token_type",
+                "tokenType" to response.tokenType,
+                "providerId" to provider.id
+            )
+        }
+
+        return ProviderOAuth2Tokens(
+            accessToken = response.accessToken,
+            refreshToken = response.refreshToken,
+            idToken = response.idToken
         )
     }
 }

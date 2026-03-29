@@ -3,7 +3,7 @@ package com.sympauthy.api.controller.oauth2
 import com.sympauthy.api.controller.oauth2.TokenController.Companion.OAUTH2_TOKEN_ENDPOINT
 import com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil
 import com.sympauthy.api.exception.oauth2ExceptionOf
-import com.sympauthy.api.exception.toOauth2Exception
+import com.sympauthy.api.exception.toOAuth2Exception
 import com.sympauthy.api.resource.oauth2.TokenResource
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ScopeManager
@@ -198,7 +198,7 @@ Client authentication is supported via:
                 codeChallengeMethod = completedAttempt.codeChallengeMethod
             )
         } catch (e: BusinessException) {
-            throw e.toOauth2Exception(INVALID_GRANT)
+            throw e.toOAuth2Exception(INVALID_GRANT)
         }
 
         val tokens = tokenManager.generateTokens(completedAttempt, dpopJkt = dpopProof?.jkt)

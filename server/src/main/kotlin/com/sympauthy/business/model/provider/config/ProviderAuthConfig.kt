@@ -7,7 +7,7 @@ sealed class ProviderAuthConfig(
     val type: ProviderAuthType
 )
 
-class ProviderOauth2Config(
+class ProviderOAuth2Config(
     val clientId: String,
     val clientSecret: String,
     val scopes: List<String>?,
@@ -16,3 +16,15 @@ class ProviderOauth2Config(
 
     val tokenUri: URI,
 ) : ProviderAuthConfig(ProviderAuthType.OAUTH2)
+
+class ProviderOpenIdConnectConfig(
+    val clientId: String,
+    val clientSecret: String,
+    val scopes: List<String>,
+
+    val issuer: URI,
+
+    val authorizationUri: URI,
+    val tokenUri: URI,
+    val jwksUri: URI,
+) : ProviderAuthConfig(ProviderAuthType.OIDC)

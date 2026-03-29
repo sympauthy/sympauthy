@@ -7,7 +7,7 @@ import com.sympauthy.business.model.user.claim.StandardClaim
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ConfigReadinessManager
 import com.sympauthy.business.manager.ScopeManager
-import com.sympauthy.business.manager.provider.ProviderConfigManager
+import com.sympauthy.business.manager.provider.ProviderManager
 import com.sympauthy.business.manager.rule.ScopeGrantingRuleManager
 import com.sympauthy.business.model.oauth2.isAdmin
 import com.sympauthy.config.model.AdminConfig
@@ -47,7 +47,7 @@ class ApplicationReadinessStatusPrinter(
     @Inject private val clientManager: ClientManager,
     @Inject private val scopeManager: ScopeManager,
     @Inject private val scopeGrantingRuleManager: ScopeGrantingRuleManager,
-    @Inject private val providerConfigManager: ProviderConfigManager,
+    @Inject private val providerConfigManager: ProviderManager,
     @Inject private val uncheckedAuthConfig: AuthConfig,
     @Inject private val uncheckedMfaConfig: MfaConfig,
     @Inject private val uncheckedUrlsConfig: UrlsConfig,
@@ -88,7 +88,14 @@ class ApplicationReadinessStatusPrinter(
         if (enabledProviders.isEmpty()) {
             logger.info("- Authentication by provider: disabled.")
         } else {
-            logger.info("- Authentication by provider: enabled (${pluralize(enabledProviders.size, "provider")}).")
+            val providerDescriptions = enabledProviders.joinToString(", ") { provider ->
+                val type = when (provider.auth) {
+                    is com.sympauthy.business.model.provider.config.ProviderOpenIdConnectConfig -> "OpenID Connect"
+                    is com.sympauthy.business.model.provider.config.ProviderOAuth2Config -> "OAuth2"
+                }
+                "${provider.name} ($type)"
+            }
+            logger.info("- Authentication by provider: $providerDescriptions.")
         }
 
         val mfaConfig = uncheckedMfaConfig as? EnabledMfaConfig

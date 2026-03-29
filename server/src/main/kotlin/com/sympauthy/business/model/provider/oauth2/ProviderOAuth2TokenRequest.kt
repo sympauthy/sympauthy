@@ -1,6 +1,6 @@
 package com.sympauthy.business.model.provider.oauth2
 
-import com.sympauthy.business.model.provider.config.ProviderOauth2Config
+import com.sympauthy.business.model.provider.config.ProviderOAuth2Config
 import java.net.URI
 
 /**
@@ -8,7 +8,7 @@ import java.net.URI
  * provider.
  */
 data class ProviderOAuth2TokenRequest(
-    val oauth2: ProviderOauth2Config,
+    val oauth2: ProviderOAuth2Config,
     val authorizeCode: String,
     val redirectUri: URI
 )

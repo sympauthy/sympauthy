@@ -34,7 +34,12 @@ class ProviderConfigurationProperties(
     /**
      * To be used the client must support the authorization code grant type
      */
-    var oauth2: Oauth2Config? = null
+    var oauth2: OAuth2Config? = null
+
+    /**
+     * OpenID Connect configuration. When set, endpoints are auto-discovered from the issuer URL.
+     */
+    var oidc: OpenIdConnectConfig? = null
 
     // Must be nested: https://github.com/micronaut-projects/micronaut-core/issues/2373
     @ConfigurationProperties("ui")
@@ -54,7 +59,7 @@ class ProviderConfigurationProperties(
 
     // Only one level of nester properties are supported by Micronaut.
     @ConfigurationProperties("oauth2")
-    interface Oauth2Config {
+    interface OAuth2Config {
         val clientId: String?
         val clientSecret: String?
         val scopes: List<String>?
@@ -63,6 +68,14 @@ class ProviderConfigurationProperties(
 
         val tokenUrl: String?
         val tokenAuthMethod: String?
+    }
+
+    @ConfigurationProperties("oidc")
+    interface OpenIdConnectConfig {
+        val issuer: String?
+        val clientId: String?
+        val clientSecret: String?
+        val scopes: List<String>?
     }
 
     @ConfigurationProperties("user-info")

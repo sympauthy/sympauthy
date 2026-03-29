@@ -75,6 +75,18 @@ class OnGoingAuthorizeAttempt(
      */
     val codeChallengeMethod: CodeChallengeMethod? = null,
 
+    // Third-party provider
+    /**
+     * The identifier of the third-party provider the user is authenticating with.
+     */
+    val providerId: String? = null,
+    /**
+     * The random part (jti) of the nonce JWT sent to the OIDC provider in the authorization request.
+     * Only the jti is stored; the full nonce JWT can be reconstructed using
+     * [com.sympauthy.business.manager.auth.AuthorizeAttemptManager.buildProviderNonceOrNull].
+     */
+    val providerNonceJsonWebTokenId: UUID? = null,
+
     // User identification
     /**
      * The identifier of the user that was connected at the end of the authentication process.
@@ -146,6 +158,8 @@ class OnGoingAuthorizeAttempt(
         nonce = this.nonce,
         codeChallenge = this.codeChallenge,
         codeChallengeMethod = this.codeChallengeMethod,
+        providerId = this.providerId,
+        providerNonceJsonWebTokenId = this.providerNonceJsonWebTokenId,
         userId = userId ?: this.userId,
         consentedScopes = consentedScopes ?: this.consentedScopes,
         consentedAt = consentedAt ?: this.consentedAt,
