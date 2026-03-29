@@ -10,6 +10,7 @@ import com.sympauthy.api.resource.openid.OpenIdConfigurationResource
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.oauth2.DpopManager
+import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.config.model.getUri
@@ -27,7 +28,8 @@ class OpenIdConfigurationController(
     @Inject private val scopeManager: ScopeManager,
     @Inject private val claimManager: ClaimManager,
     @Inject private val uncheckedAuthConfig: AuthConfig,
-    @Inject private val uncheckedUrlsConfig: UrlsConfig
+    @Inject private val uncheckedUrlsConfig: UrlsConfig,
+    @Inject private val uncheckedAdvancedConfig: AdvancedConfig
 ) {
 
     @Operation(
@@ -38,6 +40,7 @@ class OpenIdConfigurationController(
     suspend fun getConfiguration(): OpenIdConfigurationResource {
         val authConfig = uncheckedAuthConfig.orThrow()
         val urlsConfig = uncheckedUrlsConfig.orThrow()
+        val advancedConfig = uncheckedAdvancedConfig.orThrow()
 
         val scopes = scopeManager.listScopes()
             .filter { it.discoverable }
@@ -58,7 +61,7 @@ class OpenIdConfigurationController(
             responseTypesSupported = listOf("code", "id_token", "token id_token"),
             grantTypesSupported = listOf("authorization_code", "refresh_token", "client_credentials"),
             subjectTypesSupported = listOf("public"),
-            idTokenSigningAlgValuesSupported = listOf("RS256"),
+            idTokenSigningAlgValuesSupported = listOf(advancedConfig.publicJwtAlgorithm.name),
             tokenEndpointAuthMethodsSupported = listOf("client_secret_basic", "client_secret_post"),
             claimsSupported = claims,
             codeChallengeMethodsSupported = listOf("S256"),

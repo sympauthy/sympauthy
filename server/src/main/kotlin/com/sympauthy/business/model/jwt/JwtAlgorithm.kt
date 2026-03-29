@@ -1,37 +1,59 @@
 package com.sympauthy.business.model.jwt
 
-import com.auth0.jwt.algorithms.Algorithm
+import com.nimbusds.jose.JWSAlgorithm
+import com.nimbusds.jose.JWSSigner
+import com.nimbusds.jose.JWSVerifier
+import com.nimbusds.jose.crypto.ECDSASigner
+import com.nimbusds.jose.crypto.ECDSAVerifier
+import com.nimbusds.jose.crypto.RSASSASigner
+import com.nimbusds.jose.crypto.RSASSAVerifier
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.model.key.CryptoKeys
+import com.sympauthy.business.model.key.ECKeyImpl
 import com.sympauthy.business.model.key.KeyAlgorithm
+import com.sympauthy.business.model.key.KeyAlgorithm.EC
 import com.sympauthy.business.model.key.KeyAlgorithm.RSA
 import com.sympauthy.business.model.key.RSAKeyImpl
 import com.sympauthy.business.model.key.getImpl
 
 /**
- * Enumeration of all JWT signing algorithm supported by the project.
+ * Enumeration of all JWT signing algorithms supported by the project.
  *
- * This list is based on the algorithm supported by the (java-jwt)[https://github.com/auth0/java-jwt] library.
+ * Includes the algorithms required and recommended by the OAuth 2.1 specification:
+ * - RS256: RSA PKCS#1 v1.5 with SHA-256 (required by OpenID Connect Core)
+ * - ES256: ECDSA with P-256 and SHA-256 (recommended by OAuth 2.1)
+ * - PS256: RSASSA-PSS with SHA-256 (recommended replacement for RS256)
  */
 enum class JwtAlgorithm(
     /**
-     * Cryptographic algorithm used to sign.
+     * Cryptographic algorithm used to generate and store the signing keys.
      */
     val keyAlgorithm: KeyAlgorithm,
     val impl: JwtAlgorithmImpl
 ) {
-    RS256(RSA, RS256AlgorithmImpl())
+    RS256(RSA, RSAAlgorithmImpl(JWSAlgorithm.RS256)),
+    PS256(RSA, RSAAlgorithmImpl(JWSAlgorithm.PS256)),
+    ES256(EC, ES256AlgorithmImpl())
 }
+
+/**
+ * Configuration holder for JWT signing and verification.
+ */
+data class JwtSigningConfig(
+    val algorithm: JWSAlgorithm,
+    val signer: JWSSigner,
+    val verifier: JWSVerifier,
+    val keyId: String
+)
 
 sealed class JwtAlgorithmImpl {
 
     /**
-     * Initialize the [Algorithm] with the signing keys contained in [cryptoKeys].
+     * Initialize the [JwtSigningConfig] with the signing keys contained in [cryptoKeys].
      */
-    fun initializeWithKeys(cryptoKeys: CryptoKeys): Algorithm {
-
+    fun initializeWithKeys(cryptoKeys: CryptoKeys): JwtSigningConfig {
         return try {
-            unsafetoAlgorithm(cryptoKeys)
+            unsafeInitialize(cryptoKeys)
         } catch (e: BusinessException) {
             throw e
         } catch (t: Throwable) {
@@ -46,13 +68,44 @@ sealed class JwtAlgorithmImpl {
         }
     }
 
-    protected abstract fun unsafetoAlgorithm(cryptoKeys: CryptoKeys): Algorithm
+    protected abstract fun unsafeInitialize(cryptoKeys: CryptoKeys): JwtSigningConfig
 }
 
-class RS256AlgorithmImpl : JwtAlgorithmImpl() {
+/**
+ * Implementation for RSA-based JWT algorithms (RS256, PS256).
+ * Both use the same RSA key pair but differ in the padding scheme.
+ */
+class RSAAlgorithmImpl(
+    private val jwsAlgorithm: JWSAlgorithm
+) : JwtAlgorithmImpl() {
 
-    override fun unsafetoAlgorithm(cryptoKeys: CryptoKeys): Algorithm {
-        val keyProvider = RSA.getImpl<RSAKeyImpl>().toKeyProvider(cryptoKeys)
-        return Algorithm.RSA256(keyProvider)
+    override fun unsafeInitialize(cryptoKeys: CryptoKeys): JwtSigningConfig {
+        val rsaKeyImpl = RSA.getImpl<RSAKeyImpl>()
+        val privateKey = rsaKeyImpl.toPrivateKey(cryptoKeys)
+        val publicKey = rsaKeyImpl.toPublicKey(cryptoKeys)
+        return JwtSigningConfig(
+            algorithm = jwsAlgorithm,
+            signer = RSASSASigner(privateKey),
+            verifier = RSASSAVerifier(publicKey),
+            keyId = cryptoKeys.name
+        )
+    }
+}
+
+/**
+ * Implementation for ECDSA P-256 with SHA-256.
+ */
+class ES256AlgorithmImpl : JwtAlgorithmImpl() {
+
+    override fun unsafeInitialize(cryptoKeys: CryptoKeys): JwtSigningConfig {
+        val ecKeyImpl = EC.getImpl<ECKeyImpl>()
+        val privateKey = ecKeyImpl.toPrivateKey(cryptoKeys)
+        val publicKey = ecKeyImpl.toPublicKey(cryptoKeys)
+        return JwtSigningConfig(
+            algorithm = JWSAlgorithm.ES256,
+            signer = ECDSASigner(privateKey),
+            verifier = ECDSAVerifier(publicKey),
+            keyId = cryptoKeys.name
+        )
     }
 }

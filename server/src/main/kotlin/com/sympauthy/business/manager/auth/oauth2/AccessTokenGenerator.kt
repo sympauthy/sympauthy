@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.auth.oauth2
 
+import com.nimbusds.jwt.JWTClaimsSet
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
 import com.sympauthy.business.model.oauth2.AuthenticationToken
@@ -133,14 +134,14 @@ class AccessTokenGenerator(
             name = JwtManager.ACCESS_KEY,
             headers = mapOf("typ" to "at+jwt")
         ) {
-            entity.id?.toString()?.let(this::withJWTId)
-            withAudience(authConfig.audience)
-            withSubject(userId?.toString() ?: clientId)
-            withClaim("client_id", clientId)
-            withClaim("scope", allScopes.joinToString(" "))
-            dpopJkt?.let { withClaim("cnf", mapOf("jkt" to it)) }
-            withIssuedAt(issueDate.toInstant(ZoneOffset.UTC))
-            withExpiresAt(expirationDate.toInstant(ZoneOffset.UTC))
+            entity.id?.toString()?.let(this::jwtID)
+            audience(listOf(authConfig.audience))
+            subject(userId?.toString() ?: clientId)
+            claim("client_id", clientId)
+            claim("scope", allScopes.joinToString(" "))
+            dpopJkt?.let { claim("cnf", mapOf("jkt" to it)) }
+            issueTime(Date.from(issueDate.toInstant(ZoneOffset.UTC)))
+            expirationTime(Date.from(expirationDate.toInstant(ZoneOffset.UTC)))
         }
 
         return tokenMapper.toEncodedAuthenticationToken(entity, encodedToken)

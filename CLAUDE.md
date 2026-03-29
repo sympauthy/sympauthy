@@ -71,11 +71,19 @@ Multi-module Gradle project (root + `server`). All source code is in `server/src
 - **Nullable methods use `OrNull` suffix** — e.g., `findByCodeOrNull()` returns `T?`
 - **All async operations prefer `suspend` functions** — no callbacks or reactive streams. Wrap blocking third-party calls (e.g. Nimbus `JWKSourceBuilder`) in `withContext(Dispatchers.IO)`.
 - **Prefer DB storage over JWT embedding for transient flow state** — Store nonces, provider IDs, verifiers in the database (e.g. `authorize_attempts` table). Keep only the minimal identifying data (e.g. a UUID) and reconstruct the full value at runtime when needed.
-- **MapStruct mappers** — Compile-time generation. New `*Impl` classes must be registered in `META-INF/native-image/.../reflect-config.json` for native image support
+- **MapStruct mappers** — See [Libraries](#libraries). New `*Impl` classes must be registered in `META-INF/native-image/.../reflect-config.json` for native image support
 
 ### Scope Type Hierarchy
 
 Scopes use a sealed class hierarchy (`Scope` → `ConsentableUserScope`, `GrantableUserScope`, `ClientScope`). Consentable scopes come from user consent, grantable scopes from rules/auto-grant, client scopes are for `client_credentials` flows only.
+
+## Libraries
+
+- **JWT / JWK**: Nimbus JOSE JWT (`com.nimbusds:nimbus-jose-jwt`, transitive via `micronaut-security-jwt`). Use for all JWT signing, verification, JWKS serialization, and JWK operations. Do not introduce other JWT libraries (e.g. Auth0 java-jwt, jose4j, jjwt).
+- **Cryptographic primitives**: BouncyCastle (`org.bouncycastle:bcprov-jdk18on`) and standard JCA (`java.security`).
+- **Object mapping**: MapStruct (compile-time code generation). New `*Impl` classes must be registered in `reflect-config.json` for native image support.
+- **Database**: Micronaut Data R2DBC with Flyway migrations.
+- **Testing**: JUnit 5 + MockK.
 
 ## Database
 
