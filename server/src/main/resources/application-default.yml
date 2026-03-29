@@ -11,9 +11,9 @@ advanced:
     parallelization-parameter: 1
     salt-length: 256
   jwt:
-    public-alg: rs256
-    access-alg: rs256
-    private-alg: rs256
+    public-alg: es256
+    access-alg: es256
+    private-alg: es256
   keys-generation-strategy: autoincrement
   validation-code:
     length: 6
