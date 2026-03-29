@@ -122,14 +122,35 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
     suspend fun signInOrSignUpUsingProvider(
         authorizeAttempt: OnGoingAuthorizeAttempt,
         providerId: String?,
-        authorizeCode: String?
+        authorizeCode: String?,
+        providerError: String? = null,
+        providerErrorDescription: String? = null
     ): Pair<AuthorizeAttempt, WebAuthorizationFlowStatus> {
+        // Check if the provider returned an error instead of a code.
+        if (!providerError.isNullOrBlank()) {
+            throw businessExceptionOf(
+                "flow.web_oauth2_provider.provider_error",
+                "error" to providerError,
+                "errorDescription" to (providerErrorDescription ?: "")
+            )
+        }
+
         // Those errors are marked unrecoverable because a proper provider should never end up in this case.
         // Therefore, the user retrying the request should not change the result.
         // We redirect the user to the error page so it can continue back to the application to retry.
         if (authorizeCode.isNullOrBlank()) {
             throw businessExceptionOf("flow.web_oauth2_provider.missing_code")
         }
+
+        // Verify the provider ID in the callback matches the one stored during the authorization redirect.
+        if (authorizeAttempt.providerId != null && authorizeAttempt.providerId != providerId) {
+            throw businessExceptionOf(
+                "flow.web_oauth2_provider.provider_mismatch",
+                "expectedProviderId" to authorizeAttempt.providerId!!,
+                "actualProviderId" to (providerId ?: "")
+            )
+        }
+
         val provider = providerConfigManager.findByIdAndCheckEnabled(providerId)
 
         val tokens = fetchTokens(provider, provider.auth, authorizeCode)
@@ -146,7 +167,6 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
         } else {
             providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo)
             existingUserInfo.userId
-            TODO("FIXME")
         }
         val updatedAuthorizeAttempt = authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, user.id)
 
@@ -265,11 +285,21 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
             authorizeCode = authorizeCode,
             redirectUri = getRedirectUri(provider)
         )
-        val tokens = tokenEndpointClient.fetchTokens(request)
+        val response = tokenEndpointClient.fetchTokens(request)
+
+        // Verify token type is Bearer (RFC 6749 §7.1)
+        if (!response.tokenType.equals("Bearer", ignoreCase = true)) {
+            throw businessExceptionOf(
+                "flow.web_oauth2_provider.unsupported_token_type",
+                "tokenType" to response.tokenType,
+                "providerId" to provider.id
+            )
+        }
+
         return ProviderOAuth2Tokens(
-            accessToken = tokens.accessToken,
-            refreshToken = tokens.refreshToken,
-            idToken = tokens.idToken
+            accessToken = response.accessToken,
+            refreshToken = response.refreshToken,
+            idToken = response.idToken
         )
     }
 }

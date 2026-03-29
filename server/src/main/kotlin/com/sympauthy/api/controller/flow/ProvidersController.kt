@@ -78,14 +78,18 @@ Redirection to either:
     suspend fun callback(
         providerId: String,
         @QueryValue("code") code: String?,
-        @QueryValue("state") state: String?
+        @QueryValue("state") state: String?,
+        @QueryValue("error") error: String?,
+        @QueryValue("error_description") errorDescription: String?
     ) = webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenUpdateAndRedirect(
         state = state,
         update = { authorizeAttempt, _ ->
             val (updatedAuthorizeAttempt, _) = webAuthorizationFlowOAuth2ProviderManager.signInOrSignUpUsingProvider(
                 authorizeAttempt = authorizeAttempt,
                 providerId = providerId,
-                authorizeCode = code
+                authorizeCode = code,
+                providerError = error,
+                providerErrorDescription = errorDescription
             )
             updatedAuthorizeAttempt
         },

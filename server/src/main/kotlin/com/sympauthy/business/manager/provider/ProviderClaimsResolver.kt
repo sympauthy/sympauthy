@@ -55,6 +55,7 @@ class ProviderClaimsResolver(
             providerIdTokenManager.validateAndExtractClaims(
                 openIdConnectConfig = openIdConnectConfig,
                 idTokenRaw = idTokenRaw,
+                accessToken = tokens.accessToken,
                 expectedNonce = expectedNonce
             )
         } else {
