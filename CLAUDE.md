@@ -52,6 +52,8 @@ Multi-module Gradle project (root + `server`). All source code is in `server/src
 #### Config (com.sympauthy.config)
 
 - **Config sealed class pattern** — `EnabledXxxConfig` / `DisabledXxxConfig` with `orThrow()` extension for required configs, `as? EnabledXxxConfig` for optional feature checks
+- **Config factories must accumulate all errors** — Every field validation in a `*ConfigFactory` must be wrapped in its own try/catch, collecting `ConfigurationException` into an errors list. Never stop at the first error — the admin needs to see all issues at once.
+- **Config vs Manager separation** — Config factories validate YAML input only (no HTTP calls, no external interactions). Runtime operations (e.g. OpenID Connect discovery) belong in the manager layer. Error message keys must reflect where they occur (`config.*` for validation errors, `provider.*` for runtime errors).
 
 #### Business (com.sympauthy.business)
 
@@ -67,7 +69,8 @@ Multi-module Gradle project (root + `server`). All source code is in `server/src
 
 - **Naming conventions for protocols** — Use `OAuth2` (not `Oauth2`) and `OpenIdConnect` (not `Oidc` or `OpenId`) in class names, method names, and packages. Examples: `ProviderOAuth2Config`, `WebAuthorizationFlowOAuth2ProviderManager`, `OpenIdConnectDiscoveryClient`, `ProviderOpenIdConnectConfig`. The YAML config key `oidc` is kept as shorthand for user-facing configuration.
 - **Nullable methods use `OrNull` suffix** — e.g., `findByCodeOrNull()` returns `T?`
-- **All async operations prefer `suspend` functions** — no callbacks or reactive streams
+- **All async operations prefer `suspend` functions** — no callbacks or reactive streams. Wrap blocking third-party calls (e.g. Nimbus `JWKSourceBuilder`) in `withContext(Dispatchers.IO)`.
+- **Prefer DB storage over JWT embedding for transient flow state** — Store nonces, provider IDs, verifiers in the database (e.g. `authorize_attempts` table). Keep only the minimal identifying data (e.g. a UUID) and reconstruct the full value at runtime when needed.
 - **MapStruct mappers** — Compile-time generation. New `*Impl` classes must be registered in `META-INF/native-image/.../reflect-config.json` for native image support
 
 ### Scope Type Hierarchy
