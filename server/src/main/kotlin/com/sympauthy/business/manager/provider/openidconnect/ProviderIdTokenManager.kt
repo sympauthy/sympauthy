@@ -10,6 +10,8 @@ import com.nimbusds.jwt.proc.DefaultJWTProcessor
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.model.provider.config.ProviderOpenIdConnectConfig
 import jakarta.inject.Singleton
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Validates and extracts claims from ID tokens returned by OpenID Connect providers.
@@ -20,11 +22,11 @@ import jakarta.inject.Singleton
 @Singleton
 class ProviderIdTokenManager {
 
-    fun validateAndExtractClaims(
+    suspend fun validateAndExtractClaims(
         openIdConnectConfig: ProviderOpenIdConnectConfig,
         idTokenRaw: String,
         expectedNonce: String?
-    ): Map<String, Any> {
+    ): Map<String, Any> = withContext(Dispatchers.IO) {
         try {
             val jwkSource = JWKSourceBuilder.create<SecurityContext>(openIdConnectConfig.jwksUri.toURL()).build()
 
@@ -56,7 +58,7 @@ class ProviderIdTokenManager {
 
             val claimsSet = jwtProcessor.process(idTokenRaw, null)
 
-            return claimsSet.claims
+            claimsSet.claims
                 .filterValues { it != null }
                 .mapValues { it.value!! }
         } catch (e: Exception) {

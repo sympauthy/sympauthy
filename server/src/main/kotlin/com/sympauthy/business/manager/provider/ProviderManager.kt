@@ -56,7 +56,7 @@ open class ProviderManager(
                 } catch (e: Exception) {
                     logger.error("Failed to resolve provider ${config.id}: ${e.message}")
                     DisabledProvider(config.id, LocalizedException(
-                        detailsId = "config.provider.openid_connect.discovery_failed",
+                        detailsId = "provider.openid_connect.discovery_failed",
                         values = mapOf("issuer" to config.id),
                         throwable = e
                     ))

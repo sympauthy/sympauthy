@@ -1,5 +1,6 @@
-# Default configuration for Google as a third-party OIDC provider.
-# The missing client-id and client-secret can be obtained on: https://console.cloud.google.com/
+# Default configuration for Google as a third-party OpenID Connect provider.
+# The missing client-id and client-secret can be obtained by following the guide:
+# https://developers.google.com/identity/openid-connect/openid-connect
 #
 # Enable this preset by adding "google" to the MICRONAUT_ENVIRONMENTS variable.
 # Then provide the client credentials:

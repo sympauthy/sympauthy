@@ -28,7 +28,7 @@ class OpenIdConnectDiscoveryClient(
                 .awaitFirst()
         } catch (e: Exception) {
             throw LocalizedException(
-                detailsId = "config.provider.openid_connect.discovery_failed",
+                detailsId = "provider.openid_connect.discovery_failed",
                 values = mapOf("issuer" to issuerUri.toString()),
                 throwable = e
             )

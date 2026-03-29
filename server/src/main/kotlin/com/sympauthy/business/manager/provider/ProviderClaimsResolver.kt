@@ -43,7 +43,7 @@ class ProviderClaimsResolver(
             ?: resolveUserInfoClaims(provider, tokens)
     }
 
-    private fun resolveIdTokenClaimsOrNull(
+    private suspend fun resolveIdTokenClaimsOrNull(
         provider: EnabledProvider,
         tokens: ProviderOAuth2Tokens,
         expectedNonce: String?
