@@ -64,13 +64,23 @@ class ProviderClaimsManager(
         return userInfoMapper.toProviderUserInfo(entity)
     }
 
-    fun refreshUserInfo(
+    /**
+     * Update the stored provider claims with the latest data from the provider.
+     * Always updates the fetch date. Only updates the change date and claims if they differ.
+     */
+    suspend fun refreshUserInfo(
         existingUserInfo: ProviderUserInfo,
         newUserInfo: RawProviderClaims
     ) {
-        if (existingUserInfo.userInfo == newUserInfo) {
-            return
-        }
-        TODO()
+        val now = LocalDateTime.now()
+        val changed = existingUserInfo.userInfo != newUserInfo
+        val entity = userInfoMapper.toEntity(
+            providerId = existingUserInfo.providerId,
+            userId = existingUserInfo.userId,
+            userInfo = if (changed) newUserInfo else existingUserInfo.userInfo,
+            fetchDate = now,
+            changeDate = if (changed) now else existingUserInfo.changeDate
+        )
+        userInfoRepository.update(entity)
     }
 }

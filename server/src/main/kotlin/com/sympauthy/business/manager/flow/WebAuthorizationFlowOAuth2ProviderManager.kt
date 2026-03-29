@@ -162,13 +162,13 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
             subject = rawUserInfo.subject
         )
 
-        val user = if (existingUserInfo == null) {
-            createOrAssociateUserWithProviderUserInfo(provider, rawUserInfo).user
+        val userId = if (existingUserInfo == null) {
+            createOrAssociateUserWithProviderUserInfo(provider, rawUserInfo).user.id
         } else {
             providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo)
             existingUserInfo.userId
         }
-        val updatedAuthorizeAttempt = authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, user.id)
+        val updatedAuthorizeAttempt = authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, userId)
 
         return webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
             authorizeAttempt = updatedAuthorizeAttempt
