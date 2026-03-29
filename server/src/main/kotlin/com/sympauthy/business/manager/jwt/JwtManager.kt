@@ -1,20 +1,22 @@
 package com.sympauthy.business.manager.jwt
 
-import com.auth0.jwt.JWT
-import com.auth0.jwt.JWTCreator
-import com.auth0.jwt.algorithms.Algorithm
-import com.auth0.jwt.exceptions.JWTDecodeException
-import com.auth0.jwt.exceptions.JWTVerificationException
-import com.auth0.jwt.exceptions.TokenExpiredException
-import com.auth0.jwt.interfaces.DecodedJWT
+import com.nimbusds.jose.JOSEException
+import com.nimbusds.jose.JOSEObjectType
+import com.nimbusds.jose.JWSHeader
 import com.nimbusds.jose.jwk.JWKSet
+import com.nimbusds.jwt.JWTClaimsSet
+import com.nimbusds.jwt.SignedJWT
 import com.sympauthy.business.manager.key.CryptoKeysManager
+import com.sympauthy.business.model.jwt.DecodedJwt
+import com.sympauthy.business.model.jwt.JwtSigningConfig
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.exception.LocalizedException
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import java.text.ParseException
+import java.util.*
 
 /**
  * Manager in charge of all JSON web token issued by this server, it includes:
@@ -31,16 +33,25 @@ class JwtManager(
     suspend fun create(
         name: String,
         headers: Map<String, Any> = emptyMap(),
-        block: JWTCreator.Builder.() -> Unit
+        block: JWTClaimsSet.Builder.() -> Unit
     ): String {
-        val algorithm = getAlgorithm(name)
-        return JWT.create().apply {
-            if (headers.isNotEmpty()) {
-                withHeader(headers)
-            }
-            authConfig.orThrow().issuer.let(this::withIssuer)
+        val signingConfig = getSigningConfig(name)
+
+        val claimsSet = JWTClaimsSet.Builder().apply {
+            issuer(authConfig.orThrow().issuer)
             block(this)
-        }.sign(algorithm)
+        }.build()
+
+        val headerBuilder = JWSHeader.Builder(signingConfig.algorithm)
+            .keyID(signingConfig.keyId)
+        val typ = headers["typ"] as? String
+        if (typ != null) {
+            headerBuilder.type(JOSEObjectType(typ))
+        }
+
+        val signedJwt = SignedJWT(headerBuilder.build(), claimsSet)
+        signedJwt.sign(signingConfig.signer)
+        return signedJwt.serialize()
     }
 
     /**
@@ -53,33 +64,40 @@ class JwtManager(
     suspend fun decodeAndVerify(
         name: String,
         token: String
-    ): DecodedJWT {
-        val decodedJwt = try {
-            JWT.decode(token)
-        } catch (e: JWTDecodeException) {
+    ): DecodedJwt {
+        val signedJwt = try {
+            SignedJWT.parse(token)
+        } catch (e: ParseException) {
             throw LocalizedException(
                 detailsId = "jwt.malformed",
                 throwable = e
             )
         }
 
-        val algorithm = getAlgorithm(name)
-        return try {
-            JWT.require(algorithm)
-                .build()
-                .verify(decodedJwt)
-            decodedJwt
-        } catch (e: TokenExpiredException) {
-            throw LocalizedException(
-                detailsId = "jwt.expired",
-                throwable = e
-            )
-        } catch (e: JWTVerificationException) {
+        val signingConfig = getSigningConfig(name)
+        val verified = try {
+            signedJwt.verify(signingConfig.verifier)
+        } catch (e: JOSEException) {
             throw LocalizedException(
                 detailsId = "jwt.invalid_signature",
                 throwable = e
             )
         }
+
+        if (!verified) {
+            throw LocalizedException(detailsId = "jwt.invalid_signature")
+        }
+
+        val claimsSet = signedJwt.jwtClaimsSet
+        if (claimsSet.expirationTime != null && claimsSet.expirationTime.before(Date())) {
+            throw LocalizedException(detailsId = "jwt.expired")
+        }
+
+        return DecodedJwt(
+            id = claimsSet.jwtid,
+            subject = claimsSet.subject,
+            keyId = signedJwt.header.keyID
+        )
     }
 
     suspend fun decodeAndVerifyOrNull(name: String, token: String) = try {
@@ -97,8 +115,8 @@ class JwtManager(
      */
     fun getKeyIdOrNull(token: String): String? {
         return try {
-            JWT.decode(token).keyId
-        } catch (e: JWTDecodeException) {
+            SignedJWT.parse(token).header.keyID
+        } catch (e: ParseException) {
             null
         }
     }
@@ -123,12 +141,12 @@ class JwtManager(
     }
 
     /**
-     * Return the [Algorithm] initialized with the signing key named [name].
+     * Return the [JwtSigningConfig] initialized with the signing key named [name].
      *
      * If the key does not exist in the database or has not been configured in the application.yml,
      * then it will be generated according to the key generation strategy.
      */
-    suspend fun getAlgorithm(name: String): Algorithm {
+    suspend fun getSigningConfig(name: String): JwtSigningConfig {
         val config = advancedConfig.orThrow()
         val algorithm = when(name) {
             PUBLIC_KEY -> config.publicJwtAlgorithm

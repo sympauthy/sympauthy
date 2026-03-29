@@ -1,6 +1,5 @@
 package com.sympauthy.business.model.key
 
-import com.auth0.jwt.interfaces.RSAKeyProvider
 import com.nimbusds.jose.jwk.JWK
 import com.nimbusds.jose.jwk.KeyUse.SIGNATURE
 import com.nimbusds.jose.jwk.RSAKey
@@ -60,18 +59,6 @@ class RSAKeyImpl : KeyAlgorithmImpl() {
             privateKey = keyPair.private.encoded,
             privateKeyFormat = keyPair.private.format
         )
-    }
-
-    internal fun toKeyProvider(keys: CryptoKeys): RSAKeyProvider {
-        val publicKey = toPublicKey(keys)
-        val privateKey = toPrivateKey(keys)
-        return object : RSAKeyProvider {
-            override fun getPublicKeyById(keyId: String?): RSAPublicKey = publicKey
-            override fun getPrivateKey(): RSAPrivateKey = privateKey
-            // We want the name of the key to be exposed since client may need it to find the public key
-            // in the public JSON Web Key Sets.
-            override fun getPrivateKeyId(): String = keys.name
-        }
     }
 
     internal fun toPublicKey(keys: CryptoKeys): RSAPublicKey {

@@ -1,6 +1,5 @@
 package com.sympauthy.business.manager.auth.oauth2
 
-import com.auth0.jwt.interfaces.DecodedJWT
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.jwt.JwtManager
@@ -8,6 +7,7 @@ import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.REFRESH_KEY
 import com.sympauthy.business.mapper.AuthenticationTokenMapper
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
@@ -102,7 +102,7 @@ class TokenManagerTest {
     @Test
     fun `refreshToken - Throws throws if client id does not match`() = runTest {
         val client = mockk<Client>()
-        val decodedToken = mockk<DecodedJWT>()
+        val decodedToken = DecodedJwt(id = UUID.randomUUID().toString(), subject = "sub", keyId = null)
         val refreshToken = mockk<AuthenticationToken>()
 
         every { client.id } returns "test-client"
@@ -121,7 +121,7 @@ class TokenManagerTest {
         val clientId = "test-client"
         val encodedRefreshToken = "token"
         val client = mockk<Client>()
-        val decodedToken = mockk<DecodedJWT>()
+        val decodedToken = DecodedJwt(id = UUID.randomUUID().toString(), subject = "sub", keyId = null)
         val refreshToken = mockk<AuthenticationToken>()
         val accessToken = mockk<EncodedAuthenticationToken>()
         val refreshedRefreshToken = mockk<EncodedAuthenticationToken>()
@@ -150,7 +150,7 @@ class TokenManagerTest {
         val clientId = "test-client"
         val encodedRefreshToken = "token"
         val client = mockk<Client>()
-        val decodedToken = mockk<DecodedJWT>()
+        val decodedToken = DecodedJwt(id = UUID.randomUUID().toString(), subject = "sub", keyId = null)
         val refreshToken = mockk<AuthenticationToken>()
         val accessToken = mockk<EncodedAuthenticationToken>()
 
@@ -175,7 +175,7 @@ class TokenManagerTest {
         val userId = UUID.randomUUID()
         val clientId = "test-client"
         val client = mockk<Client>()
-        val decodedToken = mockk<DecodedJWT>()
+        val decodedToken = DecodedJwt(id = UUID.randomUUID().toString(), subject = "sub", keyId = null)
         val refreshToken = mockk<AuthenticationToken>()
 
         every { client.id } returns clientId
@@ -196,7 +196,7 @@ class TokenManagerTest {
     fun `refreshToken - Skips consent check for client_credentials tokens`() = runTest {
         val clientId = "test-client"
         val client = mockk<Client>()
-        val decodedToken = mockk<DecodedJWT>()
+        val decodedToken = DecodedJwt(id = UUID.randomUUID().toString(), subject = "sub", keyId = null)
         val refreshToken = mockk<AuthenticationToken>()
         val accessToken = mockk<EncodedAuthenticationToken>()
 
@@ -246,8 +246,7 @@ class TokenManagerTest {
 
     @Test
     fun `getAuthenticationToken - Throws if token id is not a valid UUID`() = runTest {
-        val decodedToken = mockk<DecodedJWT>()
-        every { decodedToken.id } returns "not-a-uuid"
+        val decodedToken = DecodedJwt(id = "not-a-uuid", subject = null, keyId = null)
         assertThrows<OAuth2Exception> {
             tokenManager.getAuthenticationToken(decodedToken)
         }
@@ -256,9 +255,8 @@ class TokenManagerTest {
     @Test
     fun `getAuthenticationToken - Throws if token is missing from database`() = runTest {
         val tokenId = UUID.randomUUID()
-        val decodedToken = mockk<DecodedJWT>()
+        val decodedToken = DecodedJwt(id = tokenId.toString(), subject = null, keyId = null)
 
-        every { decodedToken.id } returns tokenId.toString()
         coEvery { tokenManager.findById(tokenId) } returns null
 
         assertThrows<OAuth2Exception> {
@@ -270,9 +268,7 @@ class TokenManagerTest {
     fun `getAuthenticationToken - Throws if token is revoked`() = runTest {
         val tokenId = UUID.randomUUID()
         val userId = UUID.randomUUID()
-        val decodedToken = mockk<DecodedJWT> {
-            every { id } returns tokenId.toString()
-        }
+        val decodedToken = DecodedJwt(id = tokenId.toString(), subject = null, keyId = null)
         val token = mockk<AuthenticationToken> {
             every { this@mockk.userId } returns userId
         }
@@ -289,11 +285,9 @@ class TokenManagerTest {
     fun `getAuthenticationToken - Throws if token subject does not match user in database`() = runTest {
         val tokenId = UUID.randomUUID()
         val userId = UUID.randomUUID()
-        val decodedToken = mockk<DecodedJWT>()
+        val decodedToken = DecodedJwt(id = tokenId.toString(), subject = "not-the-same", keyId = null)
         val token = mockk<AuthenticationToken>()
 
-        every { decodedToken.id } returns tokenId.toString()
-        every { decodedToken.subject } returns "not-the-same"
         coEvery { tokenManager.findById(tokenId) } returns token
         every { token.userId } returns userId
         every { token.revoked } returns false
@@ -307,11 +301,9 @@ class TokenManagerTest {
     fun `getAuthenticationToken - Return token info from database if validated`() = runTest {
         val tokenId = UUID.randomUUID()
         val userId = UUID.randomUUID()
-        val decodedToken = mockk<DecodedJWT>()
+        val decodedToken = DecodedJwt(id = tokenId.toString(), subject = userId.toString(), keyId = null)
         val token = mockk<AuthenticationToken>()
 
-        every { decodedToken.id } returns tokenId.toString()
-        every { decodedToken.subject } returns userId.toString()
         coEvery { tokenManager.findById(tokenId) } returns token
         every { token.userId } returns userId
         every { token.revoked } returns false
@@ -331,13 +323,12 @@ class TokenManagerTest {
     fun `revokeTokenByEncodedToken - Does not revoke when token belongs to another client`() = runTest {
         val tokenId = UUID.randomUUID()
         val client = mockk<Client>()
-        val decodedToken = mockk<DecodedJWT>()
+        val decodedToken = DecodedJwt(id = tokenId.toString(), subject = null, keyId = null)
         val token = mockk<AuthenticationToken>()
 
         every { client.id } returns "client-a"
         every { jwtManager.getKeyIdOrNull("token") } returns ACCESS_KEY
         coEvery { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, "token") } returns decodedToken
-        every { decodedToken.id } returns tokenId.toString()
         coEvery { tokenManager.findById(tokenId) } returns token
         every { token.clientId } returns "client-b"
 
@@ -352,13 +343,12 @@ class TokenManagerTest {
         val clientId = "client-a"
         val tokenId = UUID.randomUUID()
         val client = mockk<Client>()
-        val decodedToken = mockk<DecodedJWT>()
+        val decodedToken = DecodedJwt(id = tokenId.toString(), subject = null, keyId = null)
         val token = mockk<AuthenticationToken>()
 
         every { client.id } returns clientId
         every { jwtManager.getKeyIdOrNull("token") } returns ACCESS_KEY
         coEvery { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, "token") } returns decodedToken
-        every { decodedToken.id } returns tokenId.toString()
         coEvery { tokenManager.findById(tokenId) } returns token
         every { token.clientId } returns clientId
         every { token.type } returns ACCESS
@@ -376,12 +366,11 @@ class TokenManagerTest {
         val tokenId = UUID.randomUUID()
         val attemptId = UUID.randomUUID()
         val client = mockk<Client>()
-        val decodedToken = mockk<DecodedJWT>()
+        val decodedToken = DecodedJwt(id = tokenId.toString(), subject = null, keyId = null)
         val token = mockk<AuthenticationToken>()
 
         every { client.id } returns clientId
         coEvery { jwtManager.decodeAndVerifyOrNull(REFRESH_KEY, "token") } returns decodedToken
-        every { decodedToken.id } returns tokenId.toString()
         coEvery { tokenManager.findById(tokenId) } returns token
         every { token.clientId } returns clientId
         every { token.type } returns REFRESH
@@ -400,12 +389,11 @@ class TokenManagerTest {
         val clientId = "client-a"
         val tokenId = UUID.randomUUID()
         val client = mockk<Client>()
-        val decodedToken = mockk<DecodedJWT>()
+        val decodedToken = DecodedJwt(id = tokenId.toString(), subject = null, keyId = null)
         val token = mockk<AuthenticationToken>()
 
         every { client.id } returns clientId
         coEvery { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, "token") } returns decodedToken
-        every { decodedToken.id } returns tokenId.toString()
         coEvery { tokenManager.findById(tokenId) } returns token
         every { token.clientId } returns clientId
         every { token.type } returns ACCESS
@@ -425,7 +413,7 @@ class TokenManagerTest {
         val clientId = "test-client"
         val tokenId = UUID.randomUUID()
         val client = mockk<Client> { every { id } returns clientId }
-        val decodedJwt = mockk<DecodedJWT> { every { id } returns tokenId.toString() }
+        val decodedJwt = DecodedJwt(id = tokenId.toString(), subject = null, keyId = null)
         val token = mockk<AuthenticationToken> {
             every { this@mockk.clientId } returns clientId
             every { revoked } returns false
@@ -444,7 +432,7 @@ class TokenManagerTest {
         val clientId = "test-client"
         val tokenId = UUID.randomUUID()
         val client = mockk<Client> { every { id } returns clientId }
-        val decodedJwt = mockk<DecodedJWT> { every { id } returns tokenId.toString() }
+        val decodedJwt = DecodedJwt(id = tokenId.toString(), subject = null, keyId = null)
         val token = mockk<AuthenticationToken> {
             every { this@mockk.clientId } returns clientId
             every { revoked } returns false
@@ -463,7 +451,7 @@ class TokenManagerTest {
         val clientId = "test-client"
         val tokenId = UUID.randomUUID()
         val client = mockk<Client> { every { id } returns clientId }
-        val decodedJwt = mockk<DecodedJWT> { every { id } returns tokenId.toString() }
+        val decodedJwt = DecodedJwt(id = tokenId.toString(), subject = null, keyId = null)
         val token = mockk<AuthenticationToken> {
             every { this@mockk.clientId } returns clientId
             every { revoked } returns false
@@ -502,7 +490,7 @@ class TokenManagerTest {
     fun `introspectToken - Returns null for revoked token`() = runTest {
         val tokenId = UUID.randomUUID()
         val client = mockk<Client>()
-        val decodedJwt = mockk<DecodedJWT> { every { id } returns tokenId.toString() }
+        val decodedJwt = DecodedJwt(id = tokenId.toString(), subject = null, keyId = null)
         val token = mockk<AuthenticationToken> {
             every { revoked } returns true
         }
@@ -519,7 +507,7 @@ class TokenManagerTest {
     fun `introspectToken - Returns null when client does not match`() = runTest {
         val tokenId = UUID.randomUUID()
         val client = mockk<Client> { every { id } returns "other-client" }
-        val decodedJwt = mockk<DecodedJWT> { every { id } returns tokenId.toString() }
+        val decodedJwt = DecodedJwt(id = tokenId.toString(), subject = null, keyId = null)
         val token = mockk<AuthenticationToken> {
             every { clientId } returns "test-client"
             every { revoked } returns false
@@ -537,7 +525,7 @@ class TokenManagerTest {
     fun `introspectToken - Returns null when token not found in database`() = runTest {
         val tokenId = UUID.randomUUID()
         val client = mockk<Client>()
-        val decodedJwt = mockk<DecodedJWT> { every { id } returns tokenId.toString() }
+        val decodedJwt = DecodedJwt(id = tokenId.toString(), subject = null, keyId = null)
 
         coEvery { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, "encoded-token") } returns decodedJwt
         coEvery { tokenManager.findById(tokenId) } returns null
@@ -550,7 +538,7 @@ class TokenManagerTest {
     @Test
     fun `introspectToken - Returns null when JWT id is not a valid UUID`() = runTest {
         val client = mockk<Client>()
-        val decodedJwt = mockk<DecodedJWT> { every { id } returns "not-a-uuid" }
+        val decodedJwt = DecodedJwt(id = "not-a-uuid", subject = null, keyId = null)
 
         coEvery { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, "encoded-token") } returns decodedJwt
 
@@ -565,13 +553,12 @@ class TokenManagerTest {
         val tokenId = UUID.randomUUID()
         val attemptId = UUID.randomUUID()
         val client = mockk<Client>()
-        val decodedToken = mockk<DecodedJWT>()
+        val decodedToken = DecodedJwt(id = tokenId.toString(), subject = null, keyId = null)
         val token = mockk<AuthenticationToken>()
 
         every { client.id } returns clientId
         every { jwtManager.getKeyIdOrNull("token") } returns REFRESH_KEY
         coEvery { jwtManager.decodeAndVerifyOrNull(REFRESH_KEY, "token") } returns decodedToken
-        every { decodedToken.id } returns tokenId.toString()
         coEvery { tokenManager.findById(tokenId) } returns token
         every { token.clientId } returns clientId
         every { token.type } returns REFRESH

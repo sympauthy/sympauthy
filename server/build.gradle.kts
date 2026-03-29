@@ -60,7 +60,6 @@ dependencies {
     implementation("io.micronaut.security:micronaut-security")
     implementation("io.micronaut.security:micronaut-security-oauth2")
     implementation("io.micronaut.security:micronaut-security-jwt")
-    implementation("com.auth0:java-jwt:${project.extra["javaJwtVersion"]}")
     implementation("org.bouncycastle:bcprov-jdk18on:${project.extra["bouncyCastleVersion"]}")
 
     // Reactive programming

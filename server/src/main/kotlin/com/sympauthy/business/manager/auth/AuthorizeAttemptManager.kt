@@ -105,8 +105,7 @@ class AuthorizeAttemptManager(
 
     suspend fun encodeState(authorizeAttempt: AuthorizeAttempt): String {
         return jwtManager.create(STATE_KEY_NAME) {
-            withKeyId(STATE_KEY_NAME)
-            withSubject(authorizeAttempt.id.toString())
+            subject(authorizeAttempt.id.toString())
         }
     }
 
@@ -145,9 +144,8 @@ class AuthorizeAttemptManager(
 
     private suspend fun buildProviderNonce(attemptId: UUID, jti: UUID): String {
         return jwtManager.create(PROVIDER_NONCE_KEY_NAME) {
-            withKeyId(PROVIDER_NONCE_KEY_NAME)
-            withSubject(attemptId.toString())
-            withJWTId(jti.toString())
+            subject(attemptId.toString())
+            jwtID(jti.toString())
         }
     }
 

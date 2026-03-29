@@ -1,6 +1,6 @@
 package com.sympauthy.business.manager.auth.oauth2
 
-import com.auth0.jwt.JWTCreator
+import com.nimbusds.jwt.JWTClaimsSet
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
@@ -106,14 +106,14 @@ class IdTokenGenerator(
         ).let { tokenRepository.save(it) }
 
         val encodedToken = jwtManager.create(JwtManager.PUBLIC_KEY) {
-            entity.id?.toString()?.let(this::withJWTId)
+            entity.id?.toString()?.let(this::jwtID)
             // Pretty weird but in OpenID spec, the audience is the client_id of the client which defer from OAuth2 spec.
             // https://openid.net/specs/openid-connect-basic-1_0.html#IDToken
-            withAudience(clientId)
-            withSubject(userId.toString())
-            withIssuedAt(issueDate.toInstant(ZoneOffset.UTC))
-            withExpiresAt(expirationDate.toInstant(ZoneOffset.UTC))
-            nonce?.let { withClaim("nonce", it) }
+            audience(listOf(clientId))
+            subject(userId.toString())
+            issueTime(Date.from(issueDate.toInstant(ZoneOffset.UTC)))
+            expirationTime(Date.from(expirationDate.toInstant(ZoneOffset.UTC)))
+            nonce?.let { claim("nonce", it) }
 
             claims.forEach { claim ->
                 withClaim(claim)
@@ -127,15 +127,15 @@ class IdTokenGenerator(
         return scopes.contains(BuiltInGrantableScopeId.OPENID)
     }
 
-    private fun JWTCreator.Builder.withClaim(claim: CollectedClaim) {
+    private fun JWTClaimsSet.Builder.withClaim(claim: CollectedClaim) {
         when (claim.value) { // FIXME add other types
-            is String -> withClaim(claim.claim.id, claim.value)
+            is String -> claim(claim.claim.id, claim.value)
             else -> {
                 logger.error("Unable to encode claim '${claim.claim.id}' into id token.")
             }
         }
         if (claim.claim.verifiedId != null) {
-            withClaim(claim.claim.verifiedId, claim.verified ?: false)
+            claim(claim.claim.verifiedId, claim.verified ?: false)
         }
     }
 }

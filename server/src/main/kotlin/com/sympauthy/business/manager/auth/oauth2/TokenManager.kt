@@ -1,6 +1,6 @@
 package com.sympauthy.business.manager.auth.oauth2
 
-import com.auth0.jwt.interfaces.DecodedJWT
+import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.jwt.JwtManager
@@ -269,7 +269,7 @@ open class TokenManager(
      * - the token cannot be found in the database despite being signed with our signature.
      * - the token has been revoked.
      */
-    suspend fun getAuthenticationToken(decodedToken: DecodedJWT): AuthenticationToken {
+    suspend fun getAuthenticationToken(decodedToken: DecodedJwt): AuthenticationToken {
         val id = try {
             UUID.fromString(decodedToken.id)
         } catch (e: IllegalArgumentException) {
