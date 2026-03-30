@@ -75,7 +75,7 @@ class WebAuthorizationFlowRedirectUriBuilder(
                     result = status,
                 )
 
-                else -> TODO()
+                else -> throw internalBusinessExceptionOf("flow.redirect.unhandled_status")
             }
         }
     }
