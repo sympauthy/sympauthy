@@ -1,0 +1,292 @@
+# Release workflow — triggered manually on `main` or `release/X.Y` branches.
+#
+# On main (e.g. version 0.5.0):
+#   1. Runs tests, builds native binaries (4 platforms) and Docker images
+#   2. Publishes Docker to ghcr.io/sympauthy/sympauthy:0.5.0 + :latest
+#   3. Creates GitHub release v0.5.0 with binaries
+#   4. Creates release/0.5 branch with version bumped to 0.5.1
+#   5. Bumps main to 0.6.0
+#
+# On release/X.Y (e.g. version 0.5.1):
+#   1. Runs tests, builds native binaries (4 platforms) and Docker images
+#   2. Publishes Docker to ghcr.io/sympauthy/sympauthy:0.5.1 (no :latest update)
+#   3. Creates GitHub release v0.5.1 with binaries
+#   4. Bumps release branch to 0.5.2
+
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      frontend_ref:
+        description: Git reference for sympauthy-flow and sympauthy-admin repos
+        type: string
+        default: main
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  validate_branch:
+    name: Validate branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch name
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          if [[ "$BRANCH" == "main" || "$BRANCH" =~ ^release/[0-9]+\.[0-9]+$ ]]; then
+            echo "Valid branch: $BRANCH"
+          else
+            echo "::error::Release workflow must be triggered on 'main' or 'release/X.Y' branch. Current branch: $BRANCH"
+            exit 1
+          fi
+
+  read_version:
+    name: Read version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.extract.outputs.version }}
+      major: ${{ steps.extract.outputs.major }}
+      minor: ${{ steps.extract.outputs.minor }}
+      patch: ${{ steps.extract.outputs.patch }}
+      tag: ${{ steps.extract.outputs.tag }}
+      branch_type: ${{ steps.extract.outputs.branch_type }}
+      release_branch: ${{ steps.extract.outputs.release_branch }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Extract version and compute release metadata
+        id: extract
+        run: |
+          VERSION=$(grep -oP 'version = "\K[0-9]+\.[0-9]+\.[0-9]+' build.gradle.kts)
+          if [[ -z "$VERSION" ]]; then
+            echo "::error::Could not extract version from build.gradle.kts"
+            exit 1
+          fi
+
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+
+          BRANCH="${{ github.ref_name }}"
+          if [[ "$BRANCH" == "main" ]]; then
+            BRANCH_TYPE="main"
+          else
+            BRANCH_TYPE="release"
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "major=$MAJOR" >> $GITHUB_OUTPUT
+          echo "minor=$MINOR" >> $GITHUB_OUTPUT
+          echo "patch=$PATCH" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          echo "branch_type=$BRANCH_TYPE" >> $GITHUB_OUTPUT
+          echo "release_branch=release/$MAJOR.$MINOR" >> $GITHUB_OUTPUT
+
+          echo "Version: $VERSION"
+          echo "Tag: v$VERSION"
+          echo "Branch type: $BRANCH_TYPE"
+          echo "Release branch: release/$MAJOR.$MINOR"
+
+  test:
+    name: Run tests
+    needs: [validate_branch, read_version]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Extract Java version from build script
+        id: java-version
+        run: |
+          VERSION=$(grep -E 'JavaVersion\.VERSION_[0-9]+' server/build.gradle.kts | grep -oE '[0-9]+$')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Setup JDK ${{ steps.java-version.outputs.version }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ steps.java-version.outputs.version }}
+          distribution: temurin
+
+      - name: Run tests
+        run: ./gradlew test --no-daemon
+
+  build_flow:
+    needs: [validate_branch, read_version]
+    uses: ./.github/workflows/build-flow.yml
+    with:
+      ref: ${{ inputs.frontend_ref || 'main' }}
+
+  build_admin:
+    needs: [validate_branch, read_version]
+    uses: ./.github/workflows/build-admin.yml
+    with:
+      ref: ${{ inputs.frontend_ref || 'main' }}
+
+  build_binary:
+    needs: [test, build_flow, build_admin]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x64
+            runner: ubuntu-latest
+          - platform: linux-arm64
+            runner: ubuntu-24.04-arm
+          - platform: macos-x64
+            runner: macos-15-intel
+          - platform: macos-arm64
+            runner: macos-latest
+    uses: ./.github/workflows/build-native-binary.yml
+    with:
+      runner: ${{ matrix.runner }}
+      platform: ${{ matrix.platform }}
+
+  publish_docker:
+    needs: [read_version, build_binary]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x64
+          - platform: linux-arm64
+    uses: ./.github/workflows/publish-docker.yml
+    with:
+      ref: ${{ github.ref_name }}
+      image: ghcr.io/sympauthy/sympauthy
+      tag: ${{ needs.read_version.outputs.version }}-${{ matrix.platform }}
+      platform: ${{ matrix.platform }}
+
+  publish_docker_manifest:
+    name: Create multi-arch Docker manifest
+    needs: [read_version, publish_docker]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push versioned manifest
+        run: |
+          VERSION="${{ needs.read_version.outputs.version }}"
+          docker buildx imagetools create -t ghcr.io/sympauthy/sympauthy:${VERSION} \
+            ghcr.io/sympauthy/sympauthy:${VERSION}-linux-x64 \
+            ghcr.io/sympauthy/sympauthy:${VERSION}-linux-arm64
+
+      - name: Create and push latest manifest
+        if: needs.read_version.outputs.branch_type == 'main'
+        run: |
+          VERSION="${{ needs.read_version.outputs.version }}"
+          docker buildx imagetools create -t ghcr.io/sympauthy/sympauthy:latest \
+            ghcr.io/sympauthy/sympauthy:${VERSION}-linux-x64 \
+            ghcr.io/sympauthy/sympauthy:${VERSION}-linux-arm64
+
+  publish_release:
+    name: Publish GitHub release
+    needs: [read_version, build_binary]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download all binary artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: binaries
+          pattern: sympauthy-*
+          merge-multiple: true
+
+      - name: Collect binary files
+        run: |
+          mkdir -p release-assets
+          find binaries -maxdepth 1 -type f -name 'sympauthy-*' -exec cp {} release-assets/ \;
+          ls -la release-assets/
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.read_version.outputs.version }}"
+          TAG="${{ needs.read_version.outputs.tag }}"
+
+          gh release create "$TAG" \
+            --title "SympAuthy ${VERSION}" \
+            --notes "$(cat <<EOF
+          ## Binaries
+
+          | File | Platform |
+          |------|----------|
+          | sympauthy-linux-x64 | Linux x86_64 |
+          | sympauthy-linux-arm64 | Linux ARM64 |
+          | sympauthy-macos-x64 | macOS Intel |
+          | sympauthy-macos-arm64 | macOS Apple Silicon |
+
+          ## Docker
+
+          \`\`\`bash
+          docker pull ghcr.io/sympauthy/sympauthy:${VERSION}
+          \`\`\`
+          EOF
+          )" \
+            --target "${{ github.ref_name }}" \
+            release-assets/*
+
+  version_bump:
+    name: Bump version
+    needs: [read_version, publish_docker_manifest, publish_release]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version on main
+        if: needs.read_version.outputs.branch_type == 'main'
+        env:
+          VERSION: ${{ needs.read_version.outputs.version }}
+          MAJOR: ${{ needs.read_version.outputs.major }}
+          MINOR: ${{ needs.read_version.outputs.minor }}
+          PATCH: ${{ needs.read_version.outputs.patch }}
+          RELEASE_BRANCH: ${{ needs.read_version.outputs.release_branch }}
+        run: |
+          # Create release branch from current commit
+          git checkout -b "$RELEASE_BRANCH"
+
+          # Bump to next patch on release branch
+          NEXT_PATCH=$((PATCH + 1))
+          RELEASE_NEXT_VERSION="${MAJOR}.${MINOR}.${NEXT_PATCH}"
+          sed -i "s/version = \"${VERSION}\"/version = \"${RELEASE_NEXT_VERSION}\"/" build.gradle.kts
+          git add build.gradle.kts
+          git commit -m "Bump version to ${RELEASE_NEXT_VERSION} [skip ci]"
+          git push -u origin "$RELEASE_BRANCH"
+
+          # Switch back to main and bump to next minor
+          git checkout "${{ github.ref_name }}"
+          NEXT_MINOR=$((MINOR + 1))
+          MAIN_NEXT_VERSION="${MAJOR}.${NEXT_MINOR}.0"
+          sed -i "s/version = \"${VERSION}\"/version = \"${MAIN_NEXT_VERSION}\"/" build.gradle.kts
+          git add build.gradle.kts
+          git commit -m "Bump version to ${MAIN_NEXT_VERSION} [skip ci]"
+          git push
+
+      - name: Bump version on release branch
+        if: needs.read_version.outputs.branch_type == 'release'
+        env:
+          VERSION: ${{ needs.read_version.outputs.version }}
+          MAJOR: ${{ needs.read_version.outputs.major }}
+          MINOR: ${{ needs.read_version.outputs.minor }}
+          PATCH: ${{ needs.read_version.outputs.patch }}
+        run: |
+          NEXT_PATCH=$((PATCH + 1))
+          NEXT_VERSION="${MAJOR}.${MINOR}.${NEXT_PATCH}"
+          sed -i "s/version = \"${VERSION}\"/version = \"${NEXT_VERSION}\"/" build.gradle.kts
+          git add build.gradle.kts
+          git commit -m "Bump version to ${NEXT_VERSION} [skip ci]"
+          git push
