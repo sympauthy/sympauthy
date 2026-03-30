@@ -1,27 +1,25 @@
 # Release workflow — triggered manually on `main` or `release/X.Y` branches.
+# Frontend ref is auto-detected: main→main, release/X.Y→release/X.Y.
 #
 # On main (e.g. version 0.5.0):
 #   1. Runs tests, builds native binaries (4 platforms) and Docker images
 #   2. Publishes Docker to ghcr.io/sympauthy/sympauthy:0.5.0 + :latest
 #   3. Creates GitHub release v0.5.0 with binaries
-#   4. Creates release/0.5 branch with version bumped to 0.5.1
-#   5. Bumps main to 0.6.0
+#   4. Triggers release on sympauthy-flow and sympauthy-admin (tag + release branch)
+#   5. Creates release/0.5 branch with version bumped to 0.5.1
+#   6. Bumps main to 0.6.0
 #
 # On release/X.Y (e.g. version 0.5.1):
 #   1. Runs tests, builds native binaries (4 platforms) and Docker images
 #   2. Publishes Docker to ghcr.io/sympauthy/sympauthy:0.5.1 (no :latest update)
 #   3. Creates GitHub release v0.5.1 with binaries
-#   4. Bumps release branch to 0.5.2
+#   4. Triggers release on sympauthy-flow and sympauthy-admin (tag only)
+#   5. Bumps release branch to 0.5.2
 
 name: Release
 
 on:
   workflow_dispatch:
-    inputs:
-      frontend_ref:
-        description: Git reference for sympauthy-flow and sympauthy-admin repos
-        type: string
-        default: main
 
 permissions:
   contents: write
@@ -53,6 +51,7 @@ jobs:
       tag: ${{ steps.extract.outputs.tag }}
       branch_type: ${{ steps.extract.outputs.branch_type }}
       release_branch: ${{ steps.extract.outputs.release_branch }}
+      frontend_ref: ${{ steps.extract.outputs.frontend_ref }}
     steps:
       - uses: actions/checkout@v6
 
@@ -82,6 +81,12 @@ jobs:
           echo "branch_type=$BRANCH_TYPE" >> $GITHUB_OUTPUT
           echo "release_branch=release/$MAJOR.$MINOR" >> $GITHUB_OUTPUT
 
+          if [[ "$BRANCH_TYPE" == "main" ]]; then
+            echo "frontend_ref=main" >> $GITHUB_OUTPUT
+          else
+            echo "frontend_ref=release/$MAJOR.$MINOR" >> $GITHUB_OUTPUT
+          fi
+
           echo "Version: $VERSION"
           echo "Tag: v$VERSION"
           echo "Branch type: $BRANCH_TYPE"
@@ -110,16 +115,16 @@ jobs:
         run: ./gradlew test --no-daemon
 
   build_flow:
-    needs: [validate_branch, read_version]
+    needs: [read_version, test]
     uses: ./.github/workflows/build-flow.yml
     with:
-      ref: ${{ inputs.frontend_ref || 'main' }}
+      ref: ${{ needs.read_version.outputs.frontend_ref }}
 
   build_admin:
-    needs: [validate_branch, read_version]
+    needs: [read_version, test]
     uses: ./.github/workflows/build-admin.yml
     with:
-      ref: ${{ inputs.frontend_ref || 'main' }}
+      ref: ${{ needs.read_version.outputs.frontend_ref }}
 
   build_binary:
     needs: [test, build_flow, build_admin]
@@ -233,9 +238,31 @@ jobs:
             --target "${{ github.ref_name }}" \
             release-assets/*
 
+  release_frontend_repos:
+    name: Trigger frontend releases
+    needs: [read_version, publish_release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger release on sympauthy-flow and sympauthy-admin
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.read_version.outputs.version }}
+          FRONTEND_REF: ${{ needs.read_version.outputs.frontend_ref }}
+          CREATE_RELEASE_BRANCH: ${{ needs.read_version.outputs.branch_type == 'main' }}
+        run: |
+          for REPO in sympauthy-flow sympauthy-admin; do
+            echo "Triggering release on sympauthy/${REPO}"
+            gh workflow run release.yml \
+              --repo "sympauthy/${REPO}" \
+              --ref "${FRONTEND_REF}" \
+              -f "version=${VERSION}" \
+              -f "ref=${FRONTEND_REF}" \
+              -f "create_release_branch=${CREATE_RELEASE_BRANCH}"
+          done
+
   version_bump:
     name: Bump version
-    needs: [read_version, publish_docker_manifest, publish_release]
+    needs: [read_version, publish_docker_manifest, publish_release, release_frontend_repos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
