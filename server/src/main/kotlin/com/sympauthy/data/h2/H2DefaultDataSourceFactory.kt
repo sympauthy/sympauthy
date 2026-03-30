@@ -5,10 +5,12 @@ import io.micronaut.context.annotation.Context
 import io.micronaut.context.annotation.Factory
 import io.micronaut.context.annotation.Requires
 import io.r2dbc.h2.H2ConnectionConfiguration
+import io.r2dbc.h2.H2ConnectionOption
 import io.r2dbc.h2.H2ConnectionFactoryProvider.*
 import io.r2dbc.spi.ConnectionFactory
 import io.r2dbc.spi.ConnectionFactoryOptions
 import io.r2dbc.spi.ConnectionFactoryOptions.*
+import io.r2dbc.spi.Option
 import jakarta.inject.Inject
 import jakarta.inject.Named
 import org.h2.jdbcx.JdbcDataSource
@@ -56,8 +58,40 @@ class H2DefaultDataSourceFactory(
             getUrl(options)?.let(this::append) ?: throw IllegalStateException(
                 "Unable to initiate H2 connection using R2DBC options ({$options})."
             )
-            // FIXME implements support for options
+            getOptions(options).forEach { append(";$it") }
         }
+    }
+
+    /**
+     * Collect H2-specific options from both the semicolon-delimited [OPTIONS] string
+     * and individually declared [H2ConnectionOption] keys.
+     */
+    private fun getOptions(options: ConnectionFactoryOptions): List<String> {
+        val result = mutableListOf<String>()
+
+        val optionsString = options.getValue(OPTIONS) as String?
+        if (optionsString != null) {
+            optionsString.split(";")
+                .map(String::trim)
+                .filter(String::isNotEmpty)
+                .forEach(result::add)
+        }
+
+        for (connectionOption in H2ConnectionOption.entries) {
+            val key = connectionOption.key
+            val ucOption = Option.valueOf<String>(key)
+            val lcOption = Option.valueOf<String>(key.lowercase())
+            val value = when {
+                options.hasOption(ucOption) -> options.getRequiredValue(ucOption) as String
+                options.hasOption(lcOption) -> options.getRequiredValue(lcOption) as String
+                else -> null
+            }
+            if (value != null) {
+                result.add("$key=$value")
+            }
+        }
+
+        return result
     }
 
     private fun getUrl(options: ConnectionFactoryOptions): String? {
