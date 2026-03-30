@@ -26,7 +26,7 @@ class PasswordManager(
      * Throws otherwise.
      */
     fun validatePassword(password: String) {
-        // TODO:
+        // To be implemented
     }
 
     /**

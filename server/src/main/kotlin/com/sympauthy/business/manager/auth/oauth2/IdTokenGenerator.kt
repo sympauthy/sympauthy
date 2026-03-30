@@ -83,8 +83,6 @@ class IdTokenGenerator(
 
         val authConfig = uncheckedAuthConfig.orThrow()
 
-        // FIXME compute at_hash with accessToken
-
         val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByScopes(
             userId = userId,
             consentedScopes = consentedScopes

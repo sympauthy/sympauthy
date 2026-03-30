@@ -57,7 +57,6 @@ class ValidationCode(
      */
     val validationDate: LocalDateTime? = null,
 
-    // FIXME val sentDate: LocalDateTime?, ???
     override val expirationDate: LocalDateTime
 ) : Expirable
 

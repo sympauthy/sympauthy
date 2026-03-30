@@ -20,6 +20,5 @@ fun mergeUri(base: URI, uri: URI): URI {
     }
     val builder = UriBuilder.of(base)
     uri.path?.let(builder::path)
-    // FIXME handle
     return builder.build()
 }

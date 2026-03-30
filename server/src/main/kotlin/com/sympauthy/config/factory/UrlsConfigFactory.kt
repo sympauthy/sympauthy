@@ -7,7 +7,6 @@ import com.sympauthy.config.model.EnabledUrlsConfig
 import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.config.properties.UrlsConfigurationProperties
 import com.sympauthy.config.properties.UrlsConfigurationProperties.Companion.URLS_KEY
-import com.sympauthy.config.properties.UrlsFlowConfigurationProperties
 import io.micronaut.context.annotation.Factory
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -19,13 +18,11 @@ class UrlsConfigFactory(
 
     @Singleton
     fun provideUrlsConfig(
-        properties: UrlsConfigurationProperties,
-        flowProperties: UrlsFlowConfigurationProperties
+        properties: UrlsConfigurationProperties
     ): UrlsConfig {
         val errors = mutableListOf<ConfigurationException>()
 
         val root = try {
-            // TODO: Add method to determine root url
             parser.getAbsoluteUriOrThrow(
                 properties, "$URLS_KEY.root",
                 UrlsConfigurationProperties::root

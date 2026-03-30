@@ -30,8 +30,6 @@ import java.util.*
  *
  * Note: For separation of concerns, this manager does not handle any logic of the authorization flow.
  * Managers handle those logics are in the flow package.
- *
- * FIXME Implements anti-replay protection on database operation (ex. operation counter in the entity incremented on update).
  */
 @Singleton
 class AuthorizeAttemptManager(

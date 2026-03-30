@@ -36,8 +36,6 @@ open class AuthorizeAttemptCleaner(
         val validationCodesCount = deferredValidationCodesCount.await()
         val authorizeAttemptsCount = authorizeAttemptRepository.deleteByIds(expiredAttemptsIds)
 
-        // FIXME Create temporary users and their dependencies
-
         CleanResult(
             authorizeAttemptCount = authorizeAttemptsCount,
             authorizationCodeCount = authorizationCodesCount,
