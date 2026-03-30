@@ -5,6 +5,7 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.UserScopeGrantingManager
 import com.sympauthy.business.manager.consent.ConsentManager
+import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ID
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
@@ -68,14 +69,23 @@ class AuthorizationFlowManager(
     }
 
     /**
-     * Either return if the [authorizeAttempt] can be used to issue an access token or throws one of the following
-     * exceptions:
-     * - TODO
+     * Either return if the [authorizeAttempt] can be used to issue an access token to the [client]
+     * or throws one of the following exceptions:
+     * - [BusinessException] with "token.expired" if the attempt is not completed or has expired.
+     * - [BusinessException] with "token.mismatching_client" if the attempt was initiated by a different client.
      */
-    suspend fun checkCanIssueToken(authorizeAttempt: AuthorizeAttempt?): CompletedAuthorizeAttempt {
-        // TODO: Implements validation
+    suspend fun checkCanIssueToken(
+        authorizeAttempt: AuthorizeAttempt?,
+        client: Client
+    ): CompletedAuthorizeAttempt {
         if (authorizeAttempt !is CompletedAuthorizeAttempt) {
             throw businessExceptionOf("token.expired")
+        }
+        if (authorizeAttempt.expired) {
+            throw businessExceptionOf("token.expired")
+        }
+        if (authorizeAttempt.clientId != client.id) {
+            throw businessExceptionOf("token.mismatching_client")
         }
         return authorizeAttempt
     }

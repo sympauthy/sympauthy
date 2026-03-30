@@ -6,6 +6,7 @@ import com.sympauthy.business.manager.auth.UserGrantScopesResult
 import com.sympauthy.business.manager.auth.UserScopeGrantingManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
+import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.FailedAuthorizeAttempt
@@ -27,6 +28,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import java.time.LocalDateTime
 import java.util.*
@@ -54,6 +56,83 @@ class AuthorizationFlowManagerTest {
 
     @InjectMockKs
     lateinit var manager: AuthorizationFlowManager
+
+    // --- checkCanIssueToken tests ---
+
+    @Test
+    fun `checkCanIssueToken - Throws when attempt is null`() = runTest {
+        val client = mockClient()
+
+        val exception = assertThrows<BusinessException> {
+            manager.checkCanIssueToken(null, client)
+        }
+        assertEquals("token.expired", exception.detailsId)
+    }
+
+    @Test
+    fun `checkCanIssueToken - Throws when attempt is ongoing`() = runTest {
+        val client = mockClient()
+        val onGoingAttempt = createOnGoingAuthorizeAttempt(userId = UUID.randomUUID())
+
+        val exception = assertThrows<BusinessException> {
+            manager.checkCanIssueToken(onGoingAttempt, client)
+        }
+        assertEquals("token.expired", exception.detailsId)
+    }
+
+    @Test
+    fun `checkCanIssueToken - Throws when attempt has failed`() = runTest {
+        val client = mockClient()
+        val failedAttempt = FailedAuthorizeAttempt(
+            id = UUID.randomUUID(),
+            authorizationFlowId = "flow-id",
+            expirationDate = LocalDateTime.now().plusHours(1),
+            errorDetailsId = "some.error",
+            errorDate = LocalDateTime.now()
+        )
+
+        val exception = assertThrows<BusinessException> {
+            manager.checkCanIssueToken(failedAttempt, client)
+        }
+        assertEquals("token.expired", exception.detailsId)
+    }
+
+    @Test
+    fun `checkCanIssueToken - Throws when attempt is expired`() = runTest {
+        val client = mockClient()
+        val completedAttempt = createCompletedAuthorizeAttempt(
+            clientId = "test-client",
+            expirationDate = LocalDateTime.now().minusMinutes(1)
+        )
+
+        val exception = assertThrows<BusinessException> {
+            manager.checkCanIssueToken(completedAttempt, client)
+        }
+        assertEquals("token.expired", exception.detailsId)
+    }
+
+    @Test
+    fun `checkCanIssueToken - Throws when client does not match`() = runTest {
+        val client = mockClient("other-client")
+        val completedAttempt = createCompletedAuthorizeAttempt(clientId = "test-client")
+
+        val exception = assertThrows<BusinessException> {
+            manager.checkCanIssueToken(completedAttempt, client)
+        }
+        assertEquals("token.mismatching_client", exception.detailsId)
+    }
+
+    @Test
+    fun `checkCanIssueToken - Returns completed attempt when valid`() = runTest {
+        val client = mockClient("test-client")
+        val completedAttempt = createCompletedAuthorizeAttempt(clientId = "test-client")
+
+        val result = manager.checkCanIssueToken(completedAttempt, client)
+
+        assertSame(completedAttempt, result)
+    }
+
+    // --- completeAuthorization tests ---
 
     @Test
     fun `completeAuthorization - Returns attempt unchanged when already completed`() = runTest {
@@ -248,6 +327,34 @@ class AuthorizationFlowManagerTest {
             consentedAt = consentedScopes?.let { LocalDateTime.now() },
             consentedBy = consentedScopes?.let { ConsentedBy.AUTO },
             grantedScopes = grantedScopes,
+        )
+    }
+
+    private fun mockClient(id: String = "test-client"): Client {
+        return mockk { every { this@mockk.id } returns id }
+    }
+
+    private fun createCompletedAuthorizeAttempt(
+        clientId: String = "test-client",
+        expirationDate: LocalDateTime = LocalDateTime.now().plusHours(1)
+    ): CompletedAuthorizeAttempt {
+        val now = LocalDateTime.now()
+        return CompletedAuthorizeAttempt(
+            id = UUID.randomUUID(),
+            authorizationFlowId = "flow-id",
+            expirationDate = expirationDate,
+            attemptDate = now,
+            clientId = clientId,
+            redirectUri = "https://example.com/callback",
+            requestedScopes = emptyList(),
+            userId = UUID.randomUUID(),
+            consentedScopes = emptyList(),
+            consentedAt = now,
+            consentedBy = ConsentedBy.AUTO,
+            grantedScopes = emptyList(),
+            grantedAt = now,
+            grantedBy = GrantedBy.AUTO,
+            completeDate = now
         )
     }
 

@@ -141,6 +141,7 @@ Client authentication is supported via:
                     request, clientId, clientSecret
                 )
                 getTokensUsingAuthorizationCode(
+                    client = client,
                     code = code,
                     redirectUri = redirectUri,
                     codeVerifier = codeVerifier,
@@ -174,6 +175,7 @@ Client authentication is supported via:
     }
 
     private suspend fun getTokensUsingAuthorizationCode(
+        client: Client,
         code: String?,
         redirectUri: String?,
         codeVerifier: String?,
@@ -183,9 +185,12 @@ Client authentication is supported via:
             throw oauth2ExceptionOf(INVALID_GRANT, "token.missing_param", "param" to CODE_PARAM)
         }
 
-        // TODO: Should we move the logic inside the WebAuthorizationFlowManager?
         val attempt = authorizeAttemptManager.findByCodeOrNull(code)
-        val completedAttempt = authorizeFlowManager.checkCanIssueToken(attempt)
+        val completedAttempt = try {
+            authorizeFlowManager.checkCanIssueToken(attempt, client)
+        } catch (e: BusinessException) {
+            throw e.toOAuth2Exception(INVALID_GRANT)
+        }
         if (completedAttempt.redirectUri != redirectUri) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token.non_matching_redirect_uri")
         }

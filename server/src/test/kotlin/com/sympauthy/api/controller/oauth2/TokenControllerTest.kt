@@ -249,7 +249,7 @@ class TokenControllerTest {
             clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
         } returns mockClient()
         coEvery { authorizeAttemptManager.findByCodeOrNull("the-code") } returns completedAttempt
-        coEvery { authorizeFlowManager.checkCanIssueToken(completedAttempt) } returns completedAttempt
+        coEvery { authorizeFlowManager.checkCanIssueToken(completedAttempt, any()) } returns completedAttempt
 
         val exception = assertThrows<OAuth2Exception> {
             controller.getTokens(
@@ -279,7 +279,7 @@ class TokenControllerTest {
             clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
         } returns mockClient()
         coEvery { authorizeAttemptManager.findByCodeOrNull("the-code") } returns completedAttempt
-        coEvery { authorizeFlowManager.checkCanIssueToken(completedAttempt) } returns completedAttempt
+        coEvery { authorizeFlowManager.checkCanIssueToken(completedAttempt, any()) } returns completedAttempt
         every {
             pkceManager.verifyCodeVerifier("wrong-verifier", "stored-challenge", CodeChallengeMethod.S256)
         } throws businessExceptionOf(detailsId = "token.pkce.invalid_code_verifier")
@@ -316,7 +316,7 @@ class TokenControllerTest {
             clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
         } returns mockClient()
         coEvery { authorizeAttemptManager.findByCodeOrNull("the-code") } returns completedAttempt
-        coEvery { authorizeFlowManager.checkCanIssueToken(completedAttempt) } returns completedAttempt
+        coEvery { authorizeFlowManager.checkCanIssueToken(completedAttempt, any()) } returns completedAttempt
         every { pkceManager.verifyCodeVerifier(null, null, null) } just runs
         coEvery { tokenManager.generateTokens(completedAttempt, dpopJkt = null) } returns GenerateTokenResult(
             accessToken = accessToken,
