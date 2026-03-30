@@ -9,6 +9,7 @@ import com.sympauthy.business.model.oauth2.AuthenticationTokenType
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.user.CollectedClaim
+import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.oauth2.BuiltInGrantableScopeId
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
@@ -113,9 +114,11 @@ class IdTokenGenerator(
             expirationTime(Date.from(expirationDate.toInstant(ZoneOffset.UTC)))
             nonce?.let { claim("nonce", it) }
 
-            claims.forEach { claim ->
+            val (addressClaims, otherClaims) = claims.partition { it.claim.group == ClaimGroup.ADDRESS }
+            otherClaims.forEach { claim ->
                 withClaim(claim)
             }
+            withAddressClaim(addressClaims)
         }
 
         return tokenMapper.toEncodedAuthenticationToken(entity, encodedToken)
@@ -134,6 +137,30 @@ class IdTokenGenerator(
         }
         if (claim.claim.verifiedId != null) {
             claim(claim.claim.verifiedId, claim.verified ?: false)
+        }
+    }
+
+    private fun JWTClaimsSet.Builder.withAddressClaim(addressClaims: List<CollectedClaim>) {
+        if (addressClaims.isEmpty()) return
+        val addressMap = mutableMapOf<String, Any>()
+        addressClaims.forEach { claim ->
+            val value = claim.value
+            if (value is String) {
+                addressMap[claim.claim.id] = value
+            }
+        }
+        if (addressMap.isNotEmpty()) {
+            val formatted = listOfNotNull(
+                addressMap["street_address"] as? String,
+                listOfNotNull(
+                    addressMap["locality"] as? String,
+                    addressMap["region"] as? String,
+                    addressMap["postal_code"] as? String
+                ).joinToString(", ").ifBlank { null },
+                addressMap["country"] as? String
+            ).joinToString("\n").ifBlank { null }
+            formatted?.let { addressMap["formatted"] = it }
+            claim("address", addressMap)
         }
     }
 }

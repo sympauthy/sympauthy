@@ -26,5 +26,11 @@ enum class ProviderUserInfoPathKey {
     PHONE_NUMBER,
     PHONE_NUMBER_VERIFIED,
 
+    STREET_ADDRESS,
+    LOCALITY,
+    REGION,
+    POSTAL_CODE,
+    COUNTRY,
+
     UPDATED_AT
 }

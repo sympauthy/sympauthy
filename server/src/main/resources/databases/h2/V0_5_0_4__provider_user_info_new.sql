@@ -30,6 +30,12 @@ CREATE TABLE provider_user_info
     phone_number          text,
     phone_number_verified boolean,
 
+    street_address        text,
+    locality              text,
+    region                text,
+    postal_code           text,
+    country               text,
+
     updated_at            timestamp,
 
     PRIMARY KEY (provider_id, user_id),

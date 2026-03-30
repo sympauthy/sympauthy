@@ -3,12 +3,11 @@ package com.sympauthy.business.model.user.claim
 import com.sympauthy.business.model.user.OpenIdConnectScope
 import com.sympauthy.business.model.user.claim.ClaimDataType.STRING
 import com.sympauthy.business.model.user.claim.ClaimDataType.TIMEZONE
+import com.sympauthy.business.model.user.claim.ClaimGroup.ADDRESS
 import com.sympauthy.business.model.user.claim.ClaimGroup.IDENTITY
 
 /**
  * Enumeration of claims, defined in the OpenID specification, that are supported by this application.
- *
- * TODO: Add standard address claims
  *
  * @see <a href="https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims">Standard claims</a>
  */
@@ -123,6 +122,36 @@ enum class OpenIdClaim(
         type = STRING,
         scope = OpenIdConnectScope.PROFILE,
         generated = true
+    ),
+    STREET_ADDRESS(
+        id = Id.STREET_ADDRESS,
+        type = STRING,
+        group = ADDRESS,
+        scope = OpenIdConnectScope.ADDRESS
+    ),
+    LOCALITY(
+        id = Id.LOCALITY,
+        type = STRING,
+        group = ADDRESS,
+        scope = OpenIdConnectScope.ADDRESS
+    ),
+    REGION(
+        id = Id.REGION,
+        type = STRING,
+        group = ADDRESS,
+        scope = OpenIdConnectScope.ADDRESS
+    ),
+    POSTAL_CODE(
+        id = Id.POSTAL_CODE,
+        type = STRING,
+        group = ADDRESS,
+        scope = OpenIdConnectScope.ADDRESS
+    ),
+    COUNTRY(
+        id = Id.COUNTRY,
+        type = STRING,
+        group = ADDRESS,
+        scope = OpenIdConnectScope.ADDRESS
     );
 
     object Id {
@@ -145,5 +174,10 @@ enum class OpenIdClaim(
         const val PHONE_NUMBER = "phone_number"
         const val PHONE_NUMBER_VERIFIED = "phone_number_verified"
         const val UPDATED_AT = "updated_at"
+        const val STREET_ADDRESS = "street_address"
+        const val LOCALITY = "locality"
+        const val REGION = "region"
+        const val POSTAL_CODE = "postal_code"
+        const val COUNTRY = "country"
     }
 }

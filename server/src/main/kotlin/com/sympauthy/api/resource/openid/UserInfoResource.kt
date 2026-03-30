@@ -116,7 +116,11 @@ data class UserInfoResource(
     )
     @get:JsonProperty(PHONE_NUMBER_VERIFIED)
     val phoneNumberVerified: Boolean?,
-    // TODO: address
+    @get:Schema(
+        description = "End-user's preferred postal address."
+    )
+    @get:JsonProperty("address")
+    val address: AddressResource?,
     @get:Schema(
         description = "Time the end-user's information was last updated. It is the number of seconds from epoch in UTC timezone."
     )

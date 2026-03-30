@@ -47,5 +47,11 @@ data class ProviderUserInfoEntity(
     val phoneNumber: String? = null,
     val phoneNumberVerified: Boolean? = null,
 
+    val streetAddress: String? = null,
+    val locality: String? = null,
+    val region: String? = null,
+    val postalCode: String? = null,
+    val country: String? = null,
+
     val updatedAt: LocalDateTime? = null
 )

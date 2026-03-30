@@ -17,6 +17,11 @@ import com.sympauthy.business.model.user.claim.OpenIdClaim.Id.PICTURE
 import com.sympauthy.business.model.user.claim.OpenIdClaim.Id.PREFERRED_USERNAME
 import com.sympauthy.business.model.user.claim.OpenIdClaim.Id.PROFILE
 import com.sympauthy.business.model.user.claim.OpenIdClaim.Id.WEBSITE
+import com.sympauthy.business.model.user.claim.OpenIdClaim.Id.COUNTRY
+import com.sympauthy.business.model.user.claim.OpenIdClaim.Id.LOCALITY
+import com.sympauthy.business.model.user.claim.OpenIdClaim.Id.POSTAL_CODE
+import com.sympauthy.business.model.user.claim.OpenIdClaim.Id.REGION
+import com.sympauthy.business.model.user.claim.OpenIdClaim.Id.STREET_ADDRESS
 import com.sympauthy.business.model.user.claim.OpenIdClaim.Id.ZONE_INFO
 import com.sympauthy.util.nullIfBlank
 import java.time.LocalDateTime
@@ -83,6 +88,13 @@ internal class ClaimsMerger(
         if (info.phoneNumber?.isNotBlank() == true) {
             builder.withPhoneNumber(info.phoneNumber, info.phoneNumberVerified)
         }
+
+        info.streetAddress.nullIfBlank()?.let(builder::withStreetAddress)
+        info.locality.nullIfBlank()?.let(builder::withLocality)
+        info.region.nullIfBlank()?.let(builder::withRegion)
+        info.postalCode.nullIfBlank()?.let(builder::withPostalCode)
+        info.country.nullIfBlank()?.let(builder::withCountry)
+
         getUpdatedAt(providerUserInfo).let(builder::withUpdateAt)
         return builder
     }
@@ -108,6 +120,11 @@ internal class ClaimsMerger(
                 info.claim.id == ZONE_INFO && info.value is String -> builder.withZoneInfo(info.value)
                 info.claim.id == LOCALE && info.value is String -> builder.withLocale(info.value)
                 info.claim.id == PHONE_NUMBER && info.value is String -> builder.withPhoneNumber(info.value, info.verified ?: false)
+                info.claim.id == STREET_ADDRESS && info.value is String -> builder.withStreetAddress(info.value)
+                info.claim.id == LOCALITY && info.value is String -> builder.withLocality(info.value)
+                info.claim.id == REGION && info.value is String -> builder.withRegion(info.value)
+                info.claim.id == POSTAL_CODE && info.value is String -> builder.withPostalCode(info.value)
+                info.claim.id == COUNTRY && info.value is String -> builder.withCountry(info.value)
             }
             if (updatedAt == null || updatedAt.isBefore(info.collectionDate)) {
                 updatedAt = info.collectionDate

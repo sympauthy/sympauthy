@@ -33,6 +33,11 @@ class RawProviderClaimsBuilder {
     var locale: String? = null
     var phoneNumber: String? = null
     var phoneNumberVerified: Boolean? = null
+    var streetAddress: String? = null
+    var locality: String? = null
+    var region: String? = null
+    var postalCode: String? = null
+    var country: String? = null
     var updatedAt: LocalDateTime? = null
 
     fun withUserInfo(
@@ -59,6 +64,11 @@ class RawProviderClaimsBuilder {
             LOCALE -> locale = readString(document, path)
             PHONE_NUMBER -> phoneNumber = readString(document, path)
             PHONE_NUMBER_VERIFIED -> phoneNumberVerified = readBoolean(document, path)
+            STREET_ADDRESS -> streetAddress = readString(document, path)
+            LOCALITY -> locality = readString(document, path)
+            REGION -> region = readString(document, path)
+            POSTAL_CODE -> postalCode = readString(document, path)
+            COUNTRY -> country = readString(document, path)
             UPDATED_AT -> updatedAt = readUpdatedAt(document, path)
         }
         return this
@@ -112,6 +122,11 @@ class RawProviderClaimsBuilder {
             locale = locale,
             phoneNumber = phoneNumber,
             phoneNumberVerified = phoneNumberVerified,
+            streetAddress = streetAddress,
+            locality = locality,
+            region = region,
+            postalCode = postalCode,
+            country = country,
             updatedAt = updatedAt
         )
     }

@@ -39,6 +39,12 @@ data class RawProviderClaims(
     val phoneNumber: String? = null,
     val phoneNumberVerified: Boolean? = null,
 
+    val streetAddress: String? = null,
+    val locality: String? = null,
+    val region: String? = null,
+    val postalCode: String? = null,
+    val country: String? = null,
+
     val updatedAt: LocalDateTime? = null
 ) {
     /**
@@ -61,6 +67,11 @@ data class RawProviderClaims(
         OpenIdClaim.ZONE_INFO -> zoneInfo
         OpenIdClaim.LOCALE -> locale
         OpenIdClaim.PHONE_NUMBER -> phoneNumber
+        OpenIdClaim.STREET_ADDRESS -> streetAddress
+        OpenIdClaim.LOCALITY -> locality
+        OpenIdClaim.REGION -> region
+        OpenIdClaim.POSTAL_CODE -> postalCode
+        OpenIdClaim.COUNTRY -> country
         OpenIdClaim.UPDATED_AT -> updatedAt?.toString()
     }
 }
@@ -85,6 +96,11 @@ class RawUserInfoBuilder(
     private var locale: String? = null
     private var phoneNumber: String? = null
     private var phoneNumberVerified: Boolean? = null
+    private var streetAddress: String? = null
+    private var locality: String? = null
+    private var region: String? = null
+    private var postalCode: String? = null
+    private var country: String? = null
     private var updatedAt: LocalDateTime? = null
 
     fun withName(name: String?) = this.apply {
@@ -149,6 +165,26 @@ class RawUserInfoBuilder(
         this.phoneNumberVerified = phoneNumberVerified
     }
 
+    fun withStreetAddress(streetAddress: String?) = this.apply {
+        this.streetAddress = streetAddress
+    }
+
+    fun withLocality(locality: String?) = this.apply {
+        this.locality = locality
+    }
+
+    fun withRegion(region: String?) = this.apply {
+        this.region = region
+    }
+
+    fun withPostalCode(postalCode: String?) = this.apply {
+        this.postalCode = postalCode
+    }
+
+    fun withCountry(country: String?) = this.apply {
+        this.country = country
+    }
+
     fun withUpdateAt(updatedAt: LocalDateTime?) = this.apply {
         this.updatedAt = updatedAt
     }
@@ -178,6 +214,12 @@ class RawUserInfoBuilder(
 
         phoneNumber = phoneNumber,
         phoneNumberVerified = phoneNumberVerified,
+
+        streetAddress = streetAddress,
+        locality = locality,
+        region = region,
+        postalCode = postalCode,
+        country = country,
 
         updatedAt = updatedAt
     )

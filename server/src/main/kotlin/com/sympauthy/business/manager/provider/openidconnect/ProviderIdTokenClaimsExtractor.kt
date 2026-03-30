@@ -25,12 +25,15 @@ class ProviderIdTokenClaimsExtractor {
             .mapValues { it.value!! }
     }
 
+    @Suppress("UNCHECKED_CAST")
     fun extractClaims(providerId: String, idTokenClaims: Map<String, Any>): RawProviderClaims {
         val subject = idTokenClaims["sub"]?.toString()
             ?: throw businessExceptionOf(
                 "provider.user_info.missing_subject",
                 "providerId" to providerId
             )
+
+        val addressClaims = idTokenClaims["address"] as? Map<String, Any>
 
         return RawProviderClaims(
             subject = subject,
@@ -51,6 +54,11 @@ class ProviderIdTokenClaimsExtractor {
             locale = idTokenClaims["locale"]?.toString(),
             phoneNumber = idTokenClaims["phone_number"]?.toString(),
             phoneNumberVerified = (idTokenClaims["phone_number_verified"] as? Boolean),
+            streetAddress = addressClaims?.get("street_address")?.toString(),
+            locality = addressClaims?.get("locality")?.toString(),
+            region = addressClaims?.get("region")?.toString(),
+            postalCode = addressClaims?.get("postal_code")?.toString(),
+            country = addressClaims?.get("country")?.toString(),
             updatedAt = (idTokenClaims["updated_at"] as? Number)?.toLong()?.let { epochSeconds ->
                 LocalDateTime.ofInstant(Instant.ofEpochSecond(epochSeconds), ZoneId.of("UTC"))
             }

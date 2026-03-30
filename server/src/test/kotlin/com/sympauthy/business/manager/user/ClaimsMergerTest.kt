@@ -91,6 +91,13 @@ class ClaimsMergerTest {
 
         phoneNumber = "phoneNumber",
         phoneNumberVerified = true,
+
+        streetAddress = "streetAddress",
+        locality = "locality",
+        region = "region",
+        postalCode = "postalCode",
+        country = "country",
+
         updatedAt = now()
     )
 }
