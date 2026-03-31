@@ -11,6 +11,7 @@ data class EnabledAuthConfig(
     val issuer: String,
     val audience: String,
     val token: TokenConfig,
+    val authorizationCode: AuthorizationCodeConfig,
     /**
      * List of [OpenIdClaim] that uniquely identify a user.
      * Used as login claims for password sign-in and as merging keys for provider-based authentication.

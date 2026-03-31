@@ -100,6 +100,7 @@ class AdminUserClaimControllerTest {
             issuer = "test",
             audience = "test",
             token = mockk(),
+            authorizationCode = mockk(),
             identifierClaims = identifierOpenIdClaims,
             userMergingEnabled = false,
             byPassword = mockk()
@@ -147,6 +148,7 @@ class AdminUserClaimControllerTest {
             issuer = "test",
             audience = "test",
             token = mockk(),
+            authorizationCode = mockk(),
             identifierClaims = identifierOpenIdClaims,
             userMergingEnabled = false,
             byPassword = mockk()
@@ -166,6 +168,7 @@ class AdminUserClaimControllerTest {
             issuer = "test",
             audience = "test",
             token = mockk(),
+            authorizationCode = mockk(),
             identifierClaims = identifierOpenIdClaims,
             userMergingEnabled = false,
             byPassword = mockk()

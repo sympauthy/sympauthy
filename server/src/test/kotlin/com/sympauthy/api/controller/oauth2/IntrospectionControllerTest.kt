@@ -10,6 +10,7 @@ import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.ByPasswordConfig
 import com.sympauthy.config.model.EnabledAuthConfig
+import com.sympauthy.config.model.AuthorizationCodeConfig
 import com.sympauthy.config.model.TokenConfig
 import io.micronaut.http.HttpHeaders
 import io.micronaut.http.HttpRequest
@@ -43,6 +44,9 @@ class IntrospectionControllerTest {
             refreshEnabled = true,
             refreshExpiration = java.time.Duration.ofDays(30),
             dpopRequired = false
+        ),
+        authorizationCode = AuthorizationCodeConfig(
+            expiration = java.time.Duration.ofMinutes(30)
         ),
         identifierClaims = emptyList(),
         userMergingEnabled = false,

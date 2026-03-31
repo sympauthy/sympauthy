@@ -5,6 +5,7 @@ import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.AuthorizeAttemptMapper
 import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
+import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.data.model.AuthorizeAttemptEntity
 import com.sympauthy.data.repository.AuthorizeAttemptRepository
 import io.mockk.coEvery
@@ -34,6 +35,9 @@ class AuthorizeAttemptManagerTest {
 
     @MockK
     lateinit var authorizeAttemptMapper: AuthorizeAttemptMapper
+
+    @MockK
+    lateinit var uncheckedAuthConfig: AuthConfig
 
     @SpyK
     @InjectMockKs

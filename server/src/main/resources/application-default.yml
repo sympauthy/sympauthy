@@ -2,8 +2,6 @@
 # additional configurations.
 
 advanced:
-  authorization-flow:
-    expiration: 30m
   hash:
     block-size: 8
     cost-parameter: 16_384
@@ -21,6 +19,8 @@ advanced:
     expiration: 10m
 
 auth:
+  authorization-code:
+    expiration: 30m
   user-merging-enabled: false
   token:
     access-expiration: 1h

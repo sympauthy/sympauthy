@@ -13,6 +13,8 @@ import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.user.User
+import com.sympauthy.config.model.AuthConfig
+import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.AuthorizeAttemptEntity
 import com.sympauthy.data.repository.AuthorizeAttemptRepository
 import jakarta.inject.Inject
@@ -36,7 +38,8 @@ class AuthorizeAttemptManager(
     @Inject private val userManager: UserManager,
     @Inject private val jwtManager: JwtManager,
     @Inject private val authorizeAttemptRepository: AuthorizeAttemptRepository,
-    @Inject private val authorizeAttemptMapper: AuthorizeAttemptMapper
+    @Inject private val authorizeAttemptMapper: AuthorizeAttemptMapper,
+    @Inject private val uncheckedAuthConfig: AuthConfig
 ) {
 
     /**
@@ -83,7 +86,7 @@ class AuthorizeAttemptManager(
             codeChallengeMethod = codeChallengeMethod?.value,
 
             attemptDate = now,
-            expirationDate = now.plusMinutes(15) // TODO: Add to advanced config
+            expirationDate = now.plus(uncheckedAuthConfig.orThrow().authorizationCode.expiration)
         )
         authorizeAttemptRepository.save(entity)
 

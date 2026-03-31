@@ -16,6 +16,7 @@ import com.sympauthy.business.manager.auth.oauth2.TokenManager
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.config.model.ByPasswordConfig
+import com.sympauthy.config.model.AuthorizationCodeConfig
 import com.sympauthy.config.model.TokenConfig
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.manager.flow.AuthorizationFlowManager
@@ -78,6 +79,9 @@ class TokenControllerTest {
             refreshEnabled = true,
             refreshExpiration = java.time.Duration.ofDays(30),
             dpopRequired = false
+        ),
+        authorizationCode = AuthorizationCodeConfig(
+            expiration = java.time.Duration.ofMinutes(30)
         ),
         identifierClaims = emptyList(),
         userMergingEnabled = false,
