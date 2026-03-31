@@ -86,7 +86,7 @@ but they chose not to provide a value.
             state = authentication.stateOrNull,
             update = { authorizeAttempt, _, user ->
                 val identifierClaims = passwordFlowManager.getIdentifierClaims()
-                consentAwareCollectedClaimManager.update(
+                consentAwareCollectedClaimManager.updateByUser(
                     user = user,
                     updates = collectedClaimUpdateMapper.toUpdates(inputResource.claims)
                         .filter { it.claim.userInputted }

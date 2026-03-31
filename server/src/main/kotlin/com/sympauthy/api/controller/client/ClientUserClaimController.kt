@@ -65,7 +65,7 @@ class ClientUserClaimController(
         val clientAuth = authentication.clientAuthentication
         clientUserManager.findUserForClientOrNull(clientAuth.clientId, userId).orNotFound()
         val consent = consentManager.findActiveConsentOrNull(userId, clientAuth.clientId).orNotFound()
-        val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByScopes(userId, consent.scopes)
+        val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consent.scopes)
         return claimMapper.toResource(userId, claims)
     }
 
@@ -119,10 +119,10 @@ class ClientUserClaimController(
         val clientUser = clientUserManager.findUserForClientOrNull(clientAuth.clientId, userId).orNotFound()
         val consent = consentManager.findActiveConsentOrNull(userId, clientAuth.clientId).orNotFound()
         val updates = collectedClaimUpdateMapper.toUpdates(body)
-        consentAwareCollectedClaimManager.update(clientUser.user, updates, consent.scopes)
+        consentAwareCollectedClaimManager.updateByClient(clientUser.user, updates, consent.scopes)
 
         // Return the full claim set after update
-        val allClaims = consentAwareCollectedClaimManager.findByUserIdAndReadableByScopes(userId, consent.scopes)
+        val allClaims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consent.scopes)
         return claimMapper.toResource(userId, allClaims)
     }
 }

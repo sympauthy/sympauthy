@@ -1,12 +1,12 @@
 package com.sympauthy.business.manager.user
 
+import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.FailedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.CustomClaim
 import com.sympauthy.business.model.user.claim.StandardClaim
 import io.mockk.coEvery
@@ -26,6 +26,9 @@ import java.util.*
 class ConsentAwareCollectedClaimManagerTest {
 
     @MockK
+    lateinit var claimManager: ClaimManager
+
+    @MockK
     lateinit var collectedClaimManager: CollectedClaimManager
 
     @SpyK
@@ -33,18 +36,16 @@ class ConsentAwareCollectedClaimManagerTest {
     lateinit var manager: ConsentAwareCollectedClaimManager
 
     @Test
-    fun `findByUserIdAndReadableByScopes - Return only claims readable by consented scopes`() = runTest {
+    fun `findByUserIdAndReadableByUser - Return only claims readable by consented scopes`() = runTest {
         val userId = UUID.randomUUID()
         val scope1 = "scope1"
         val scope2 = "scope2"
 
         val claim1 = mockk<StandardClaim> {
-            every { readScopes } returns setOf(scope1)
-            every { canBeRead(any()) } answers { callOriginal() }
+            every { canBeReadByUser(any()) } answers { (firstArg<List<String>>()).contains(scope1) }
         }
         val claim2 = mockk<StandardClaim> {
-            every { readScopes } returns setOf(scope2)
-            every { canBeRead(any()) } answers { callOriginal() }
+            every { canBeReadByUser(any()) } answers { (firstArg<List<String>>()).contains(scope2) }
         }
 
         val collectedClaim1 = mockk<CollectedClaim> {
@@ -56,24 +57,22 @@ class ConsentAwareCollectedClaimManagerTest {
 
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedClaim1, collectedClaim2)
 
-        val result = manager.findByUserIdAndReadableByScopes(userId, listOf(scope1))
+        val result = manager.findByUserIdAndReadableByUser(userId, listOf(scope1))
 
         assertEquals(1, result.count())
         assertSame(collectedClaim1, result[0])
     }
 
     @Test
-    fun `findByUserIdAndReadableByScopes - Always include custom claims`() = runTest {
+    fun `findByUserIdAndReadableByUser - Always include custom claims`() = runTest {
         val userId = UUID.randomUUID()
         val scope1 = "scope1"
 
         val standardClaim = mockk<StandardClaim> {
-            every { readScopes } returns setOf(scope1)
-            every { canBeRead(any()) } answers { callOriginal() }
+            every { canBeReadByUser(any()) } answers { (firstArg<List<String>>()).contains(scope1) }
         }
         val customClaim = mockk<CustomClaim> {
-            every { readScopes } returns emptySet()
-            every { canBeRead(any()) } answers { callOriginal() }
+            every { canBeReadByUser(any()) } returns true
         }
 
         val collectedStandard = mockk<CollectedClaim> {
@@ -85,11 +84,39 @@ class ConsentAwareCollectedClaimManagerTest {
 
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedStandard, collectedCustom)
 
-        val result = manager.findByUserIdAndReadableByScopes(userId, listOf(scope1))
+        val result = manager.findByUserIdAndReadableByUser(userId, listOf(scope1))
 
         assertEquals(2, result.count())
         assertTrue(result.contains(collectedStandard))
         assertTrue(result.contains(collectedCustom))
+    }
+
+    @Test
+    fun `findByUserIdAndReadableByClient - Return only claims readable by consented scopes`() = runTest {
+        val userId = UUID.randomUUID()
+        val scope1 = "scope1"
+        val scope2 = "scope2"
+
+        val claim1 = mockk<StandardClaim> {
+            every { canBeReadByClient(any()) } answers { (firstArg<List<String>>()).contains(scope1) }
+        }
+        val claim2 = mockk<StandardClaim> {
+            every { canBeReadByClient(any()) } answers { (firstArg<List<String>>()).contains(scope2) }
+        }
+
+        val collectedClaim1 = mockk<CollectedClaim> {
+            every { claim } returns claim1
+        }
+        val collectedClaim2 = mockk<CollectedClaim> {
+            every { claim } returns claim2
+        }
+
+        coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedClaim1, collectedClaim2)
+
+        val result = manager.findByUserIdAndReadableByClient(userId, listOf(scope1))
+
+        assertEquals(1, result.count())
+        assertSame(collectedClaim1, result[0])
     }
 
     @Test
@@ -125,7 +152,7 @@ class ConsentAwareCollectedClaimManagerTest {
             every { this@mockk.requestedScopes } returns requestedScopes
         }
 
-        coEvery { manager.findByUserIdAndReadableByScopes(userId, consentedScopes) } returns listOf(collectedClaim1)
+        coEvery { manager.findByUserIdAndReadableByUser(userId, consentedScopes) } returns listOf(collectedClaim1)
 
         val result = manager.findByAttempt(attempt)
 
@@ -156,7 +183,7 @@ class ConsentAwareCollectedClaimManagerTest {
             every { this@mockk.consentedScopes } returns consentedScopes
         }
 
-        coEvery { manager.findByUserIdAndReadableByScopes(userId, consentedScopes) } returns listOf(collectedClaim1)
+        coEvery { manager.findByUserIdAndReadableByUser(userId, consentedScopes) } returns listOf(collectedClaim1)
 
         val result = manager.findByAttempt(attempt)
 
@@ -165,13 +192,43 @@ class ConsentAwareCollectedClaimManagerTest {
     }
 
     @Test
-    fun `update - Filter updates that can be written with consented scope`() = runTest {
+    fun `updateByUser - Apply all updates writable by user`() = runTest {
+        val scope1 = "scope1"
+        val scope2 = "scope2"
+        val claim1 = mockk<StandardClaim> {
+            every { canBeWrittenByUser(any()) } answers { (firstArg<List<String>>()).contains(scope1) }
+        }
+        val claim2 = mockk<StandardClaim> {
+            every { canBeWrittenByUser(any()) } answers { (firstArg<List<String>>()).contains(scope2) }
+        }
+        val update1 = mockk<CollectedClaimUpdate> {
+            every { claim } returns claim1
+        }
+        val update2 = mockk<CollectedClaimUpdate> {
+            every { claim } returns claim2
+        }
+
+        val user = mockk<User>()
+        val consentedScopes = listOf(scope1)
+
+        val collectedClaim1 = mockk<CollectedClaim> {
+            every { claim } returns claim1
+        }
+
+        coEvery { collectedClaimManager.applyUpdates(user, listOf(update1)) } returns listOf(collectedClaim1)
+
+        val result = manager.updateByUser(user, listOf(update1, update2), consentedScopes)
+
+        assertEquals(1, result.count())
+        assertSame(collectedClaim1, result[0])
+    }
+
+    @Test
+    fun `updateByClient - Filter updates that can be written by client`() = runTest {
         val scope1 = "scope1"
         val claim1 = mockk<StandardClaim> {
-            every { writeScopes } returns setOf(scope1)
-            every { canBeWritten(any()) } answers { callOriginal() }
-            every { readScopes } returns setOf(scope1)
-            every { canBeRead(any()) } answers { callOriginal() }
+            every { canBeWrittenByClient(any()) } answers { (firstArg<List<String>>()).contains(scope1) }
+            every { canBeReadByClient(any()) } answers { (firstArg<List<String>>()).contains(scope1) }
         }
         val update1 = mockk<CollectedClaimUpdate> {
             every { claim } returns claim1
@@ -179,8 +236,7 @@ class ConsentAwareCollectedClaimManagerTest {
 
         val scope2 = "scope2"
         val claim2 = mockk<StandardClaim> {
-            every { writeScopes } returns setOf(scope2)
-            every { canBeWritten(any()) } answers { callOriginal() }
+            every { canBeWrittenByClient(any()) } answers { (firstArg<List<String>>()).contains(scope2) }
         }
         val update2 = mockk<CollectedClaimUpdate> {
             every { claim } returns claim2
@@ -196,7 +252,7 @@ class ConsentAwareCollectedClaimManagerTest {
         // Only update1 should pass the filter
         coEvery { collectedClaimManager.applyUpdates(user, listOf(update1)) } returns listOf(collectedClaim1)
 
-        val result = manager.update(user, listOf(update1, update2), consentedScopes)
+        val result = manager.updateByClient(user, listOf(update1, update2), consentedScopes)
 
         assertEquals(1, result.count())
         assertSame(collectedClaim1, result[0])

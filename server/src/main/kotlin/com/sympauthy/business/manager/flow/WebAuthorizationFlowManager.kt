@@ -5,7 +5,7 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
-import com.sympauthy.business.manager.user.CollectedClaimManager
+import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.code.ValidationCodeReason
 import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ID
@@ -35,7 +35,7 @@ import java.net.URISyntaxException
 class WebAuthorizationFlowManager(
     @Inject private val authorizationFlowManager: AuthorizationFlowManager,
     @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
-    @Inject private val collectedClaimManager: CollectedClaimManager,
+    @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
     @Inject private val claimValidationManager: WebAuthorizationFlowClaimValidationManager,
     @Inject private val clientManager: ClientManager,
     @Inject private val scopeManager: ScopeManager,
@@ -256,11 +256,16 @@ class WebAuthorizationFlowManager(
     internal suspend fun getStatusForOnGoingAuthorizeAttempt(
         authorizeAttempt: OnGoingAuthorizeAttempt
     ): WebAuthorizationFlowStatus {
-        val allCollectedClaims = authorizeAttempt.userId?.let { collectedClaimManager.findByUserId(it) } ?: emptyList()
+        val consentedScopes = authorizeAttempt.consentedScopes ?: emptyList()
+        val allCollectedClaims = authorizeAttempt.userId?.let {
+            consentAwareCollectedClaimManager.findByUserIdAndReadableByUser(it, consentedScopes)
+        } ?: emptyList()
 
         val missingUser = authorizeAttempt.userId == null
         val missingMfa = uncheckedMfaConfig.orThrow().enabled && !authorizeAttempt.mfaPassed
-        val missingRequiredClaims = !collectedClaimManager.areAllRequiredClaimCollected(allCollectedClaims)
+        val missingRequiredClaims = !consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(
+            allCollectedClaims, consentedScopes
+        )
         val missingMediaForClaimValidation = claimValidationManager.getReasonsToSendValidationCode(allCollectedClaims)
             .map(ValidationCodeReason::media)
             .distinct()

@@ -41,28 +41,29 @@ sealed class Claim(
 ) {
 
     /**
-     * List of scopes that can read the claim.
+     * Return true if this claim is covered by the given [scope].
      */
-    abstract val readScopes: Set<String>
+    abstract fun belongsToScope(scope: String): Boolean
 
     /**
-     * List of scopes that can edit the claim.
+     * Return true if the end-user can read this claim given the consented [scopes].
      */
-    abstract val writeScopes: Set<String>
+    abstract fun canBeReadByUser(scopes: List<String>): Boolean
 
     /**
-     * Return true if one of the [scopes] allows to read the claim.
+     * Return true if the end-user can write this claim given the consented [scopes].
      */
-    fun canBeRead(scopes: List<String>): Boolean {
-        return scopes.any { readScopes.contains(it) }
-    }
+    abstract fun canBeWrittenByUser(scopes: List<String>): Boolean
 
     /**
-     * Return true if one of the [scopes] allows to edit the claim.
+     * Return true if a client can read this claim given the consented [scopes].
      */
-    fun canBeWritten(scopes: List<String>): Boolean {
-        return scopes.any { writeScopes.contains(it) }
-    }
+    abstract fun canBeReadByClient(scopes: List<String>): Boolean
+
+    /**
+     * Return true if a client can write this claim given the consented [scopes].
+     */
+    abstract fun canBeWrittenByClient(scopes: List<String>): Boolean
 }
 
 enum class ClaimOrigin(val value: String) {

@@ -27,7 +27,7 @@ class AggregatedClaimsManager(
         consentedScopes: List<String>
     ): RawProviderClaims = coroutineScope {
         val deferredCollectedUserInfoList = async {
-            consentAwareCollectedClaimManager.findByUserIdAndReadableByScopes(userId, consentedScopes)
+            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes)
         }
         val deferredProviderUserInfoList = async {
             providerClaimsManager.findByUserId(userId)

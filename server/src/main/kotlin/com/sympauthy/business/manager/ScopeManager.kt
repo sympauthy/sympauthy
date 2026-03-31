@@ -155,7 +155,7 @@ class ScopeManager(
     fun listClaimsProtectedByScope(scope: Scope): List<Claim> {
         if (scope !is ConsentableUserScope) return emptyList()
         return claimManager.listAllClaims()
-            .filter { it.readScopes.contains(scope.scope) }
+            .filter { it.belongsToScope(scope.scope) }
     }
 
     /**

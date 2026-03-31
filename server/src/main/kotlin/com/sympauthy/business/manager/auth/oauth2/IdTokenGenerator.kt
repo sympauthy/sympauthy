@@ -35,6 +35,7 @@ class IdTokenGenerator(
 
     /**
      * Generate a new id token containing user info accessible according to the scopes granted in [authorizeAttempt].
+     * Only claims the end-user has consented to share with the client are included.
      */
     suspend fun generateIdToken(
         authorizeAttempt: CompletedAuthorizeAttempt,
@@ -53,6 +54,7 @@ class IdTokenGenerator(
 
     /**
      * Generate a new id token using the information stored in a [refreshToken].
+     * Only claims the end-user has consented to share with the client are included.
      */
     suspend fun generateIdToken(
         refreshToken: AuthenticationToken,
@@ -84,7 +86,7 @@ class IdTokenGenerator(
 
         val authConfig = uncheckedAuthConfig.orThrow()
 
-        val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByScopes(
+        val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
             userId = userId,
             consentedScopes = consentedScopes
         )
