@@ -48,16 +48,22 @@ class AccessTokenValidator<T>(
             throw e.toHttpException(UNAUTHORIZED)
         }
 
-        val scopes = authenticationToken.allScopes.mapNotNull {
-            scopeManager.find(it)
-        }
-
         val authentication = if (authenticationToken.userId != null) {
+            val consentedScopes = authenticationToken.consentedScopes.mapNotNull {
+                scopeManager.find(it)
+            }
+            val grantedScopes = authenticationToken.grantedScopes.mapNotNull {
+                scopeManager.find(it)
+            }
             UserAuthentication(
                 authenticationToken = authenticationToken,
-                scopes = scopes
+                consentedScopes = consentedScopes,
+                grantedScopes = grantedScopes
             )
         } else {
+            val scopes = authenticationToken.clientScopes.mapNotNull {
+                scopeManager.find(it)
+            }
             ClientAuthentication(
                 authenticationToken = authenticationToken,
                 scopes = scopes

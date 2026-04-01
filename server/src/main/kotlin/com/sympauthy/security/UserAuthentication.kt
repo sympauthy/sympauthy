@@ -19,9 +19,13 @@ class UserAuthentication(
      */
     val authenticationToken: AuthenticationToken,
     /**
-     * List of scopes granted to the user during the authorization.
+     * Scopes obtained through user consent (e.g., profile, email).
      */
-    val scopes: List<Scope>
+    val consentedScopes: List<Scope>,
+    /**
+     * Scopes granted through granting rules or auto-granted (e.g., openid, admin scopes).
+     */
+    val grantedScopes: List<Scope>
 ): Authentication {
 
     override fun getName(): String = authenticationToken.userId?.toString()
@@ -31,7 +35,7 @@ class UserAuthentication(
 
     override fun getRoles(): Collection<String> {
         val roles = mutableListOf(IS_USER)
-        val adminScopes = scopes.filter { it.isAdmin }
+        val adminScopes = grantedScopes.filter { it.isAdmin }
         if (adminScopes.isNotEmpty()) {
             roles.add(IS_ADMIN)
             adminScopes.forEach { roles.add("SCOPE_${it.scope}") }
@@ -50,8 +54,11 @@ val Authentication.userAuthentication: UserAuthentication
         else -> throw httpExceptionOf(FORBIDDEN, "authentication.wrong")
     }
 
-val Authentication.scopes: List<Scope>
-    get() = this.userAuthentication.scopes
+val Authentication.consentedScopes: List<Scope>
+    get() = this.userAuthentication.consentedScopes
+
+val Authentication.grantedScopes: List<Scope>
+    get() = this.userAuthentication.grantedScopes
 
 val Authentication.userId: UUID
     get() = this.userAuthentication.authenticationToken.userId

@@ -14,17 +14,24 @@ import java.util.*
 
 class UserAuthenticationTest {
 
-    private fun createAuthentication(scopes: List<com.sympauthy.business.model.oauth2.Scope>): UserAuthentication {
+    private fun createAuthentication(
+        consentedScopes: List<com.sympauthy.business.model.oauth2.Scope> = emptyList(),
+        grantedScopes: List<com.sympauthy.business.model.oauth2.Scope> = emptyList()
+    ): UserAuthentication {
         val token = mockk<AuthenticationToken> {
             every { userId } returns UUID.randomUUID()
         }
-        return UserAuthentication(authenticationToken = token, scopes = scopes)
+        return UserAuthentication(
+            authenticationToken = token,
+            consentedScopes = consentedScopes,
+            grantedScopes = grantedScopes
+        )
     }
 
     @Test
     fun `getRoles - Returns IS_USER when no admin scopes`() {
         val auth = createAuthentication(
-            listOf(GrantableUserScope(scope = "openid", discoverable = true))
+            grantedScopes = listOf(GrantableUserScope(scope = "openid", discoverable = true))
         )
         val roles = auth.roles
         assertEquals(listOf(IS_USER), roles.toList())
@@ -33,7 +40,8 @@ class UserAuthenticationTest {
     @Test
     fun `getRoles - Returns IS_ADMIN and per-scope roles when admin scopes present`() {
         val auth = createAuthentication(
-            listOf(
+            consentedScopes = listOf(ConsentableUserScope(scope = "profile")),
+            grantedScopes = listOf(
                 GrantableUserScope(scope = "openid", discoverable = true),
                 GrantableUserScope(scope = AdminScopeId.CONFIG_READ, discoverable = false),
                 GrantableUserScope(scope = AdminScopeId.USERS_READ, discoverable = false)
@@ -50,10 +58,8 @@ class UserAuthenticationTest {
     @Test
     fun `getRoles - Does not add IS_ADMIN when only non-admin scopes`() {
         val auth = createAuthentication(
-            listOf(
-                GrantableUserScope(scope = "openid", discoverable = true),
-                ConsentableUserScope(scope = "profile", discoverable = true)
-            )
+            consentedScopes = listOf(ConsentableUserScope(scope = "profile")),
+            grantedScopes = listOf(GrantableUserScope(scope = "openid", discoverable = true))
         )
         val roles = auth.roles.toList()
         assertFalse(roles.contains(IS_ADMIN))
