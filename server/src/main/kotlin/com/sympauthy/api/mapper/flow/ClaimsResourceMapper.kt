@@ -32,8 +32,8 @@ abstract class ClaimsResourceMapper {
 
     @Mappings(
         Mapping(target = "claim", source = "collectedClaim.claim.id"),
-        Mapping(target = "collected", expression = "java(true)"), // FIXME
-        Mapping(target = "suggestedValue", expression = "java(null)") // FIXME
+        Mapping(target = "collected", expression = "java(true)"),
+        Mapping(target = "suggestedValue", expression = "java(null)")
     )
     abstract fun toResource(collectedClaim: CollectedClaim): ClaimValueResource
 }
