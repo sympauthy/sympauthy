@@ -24,7 +24,9 @@ class OpenIdUserInfoController(
 ) {
 
     @Operation(
-        description = "Retrieves the consented OpenID claims about the logged-in subject.",
+        description = "Retrieves the consented OpenID claims about the logged-in subject. " +
+            "Only standard OpenID claims are returned; custom claims are excluded because this endpoint " +
+            "is not client-authenticated and custom claims are client-only.",
         tags = ["openid"],
         externalDocs = ExternalDocumentation(
             url = "https://openid.net/specs/openid-connect-core-1_0.html#UserInfo"
@@ -34,7 +36,9 @@ class OpenIdUserInfoController(
     suspend fun getUserInfo(
         authentication: Authentication
     ): UserInfoResource {
-        val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
+        // Use ReadableByUser (not ReadableByClient) because this endpoint is only protected
+        // by a bearer token without client authentication, so the caller may be the end-user directly.
+        val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByUser(
             userId = authentication.userId,
             consentedScopes = authentication.consentedScopes.map(Scope::scope)
         )

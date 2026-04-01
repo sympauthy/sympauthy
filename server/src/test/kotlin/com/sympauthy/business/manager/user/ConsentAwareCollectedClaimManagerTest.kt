@@ -64,16 +64,19 @@ class ConsentAwareCollectedClaimManagerTest {
     }
 
     @Test
-    fun `findByUserIdAndReadableByUser - Always include custom claims`() = runTest {
+    fun `findByUserIdAndReadableByUser - Exclude custom claims`() = runTest {
         val userId = UUID.randomUUID()
         val scope1 = "scope1"
 
         val standardClaim = mockk<StandardClaim> {
             every { canBeReadByUser(any()) } answers { (firstArg<List<String>>()).contains(scope1) }
         }
-        val customClaim = mockk<CustomClaim> {
-            every { canBeReadByUser(any()) } returns true
-        }
+        val customClaim = CustomClaim(
+            id = "custom_field",
+            dataType = com.sympauthy.business.model.user.claim.ClaimDataType.STRING,
+            required = false,
+            allowedValues = null
+        )
 
         val collectedStandard = mockk<CollectedClaim> {
             every { claim } returns standardClaim
@@ -86,9 +89,8 @@ class ConsentAwareCollectedClaimManagerTest {
 
         val result = manager.findByUserIdAndReadableByUser(userId, listOf(scope1))
 
-        assertEquals(2, result.count())
-        assertTrue(result.contains(collectedStandard))
-        assertTrue(result.contains(collectedCustom))
+        assertEquals(1, result.count())
+        assertSame(collectedStandard, result[0])
     }
 
     @Test
@@ -152,7 +154,7 @@ class ConsentAwareCollectedClaimManagerTest {
             every { this@mockk.requestedScopes } returns requestedScopes
         }
 
-        coEvery { manager.findByUserIdAndReadableByUser(userId, consentedScopes) } returns listOf(collectedClaim1)
+        coEvery { manager.findByUserIdAndReadableByClient(userId, consentedScopes) } returns listOf(collectedClaim1)
 
         val result = manager.findByAttempt(attempt)
 
@@ -183,7 +185,7 @@ class ConsentAwareCollectedClaimManagerTest {
             every { this@mockk.consentedScopes } returns consentedScopes
         }
 
-        coEvery { manager.findByUserIdAndReadableByUser(userId, consentedScopes) } returns listOf(collectedClaim1)
+        coEvery { manager.findByUserIdAndReadableByClient(userId, consentedScopes) } returns listOf(collectedClaim1)
 
         val result = manager.findByAttempt(attempt)
 

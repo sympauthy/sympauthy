@@ -258,7 +258,7 @@ class WebAuthorizationFlowManager(
     ): WebAuthorizationFlowStatus {
         val consentedScopes = authorizeAttempt.consentedScopes ?: emptyList()
         val allCollectedClaims = authorizeAttempt.userId?.let {
-            consentAwareCollectedClaimManager.findByUserIdAndReadableByUser(it, consentedScopes)
+            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(it, consentedScopes)
         } ?: emptyList()
 
         val missingUser = authorizeAttempt.userId == null

@@ -29,6 +29,9 @@ open class ConsentAwareCollectedClaimManager(
     /**
      * Return the list of [CollectedClaim] collected from the user identified by [userId] and readable
      * by the end-user according to the provided [consentedScopes].
+     *
+     * Use this method when the caller is the end-user themselves and there is no client authentication
+     * (e.g. the OpenID UserInfo endpoint, which is only protected by a bearer token).
      */
     suspend fun findByUserIdAndReadableByUser(
         userId: UUID,
@@ -42,6 +45,9 @@ open class ConsentAwareCollectedClaimManager(
     /**
      * Return the list of [CollectedClaim] collected from the user identified by [userId] and readable
      * by a client according to the provided [consentedScopes].
+     *
+     * Use this method when the caller is an authenticated client acting on behalf of the user
+     * (e.g. authorize attempts, client API endpoints, or token generation).
      */
     suspend fun findByUserIdAndReadableByClient(
         userId: UUID,
@@ -67,14 +73,14 @@ open class ConsentAwareCollectedClaimManager(
                 if (authorizeAttempt.userId == null || authorizeAttempt.consentedScopes == null) {
                     return emptyList()
                 }
-                findByUserIdAndReadableByUser(
+                findByUserIdAndReadableByClient(
                     userId = authorizeAttempt.userId,
                     consentedScopes = authorizeAttempt.consentedScopes
                 )
             }
 
             is CompletedAuthorizeAttempt -> {
-                findByUserIdAndReadableByUser(
+                findByUserIdAndReadableByClient(
                     userId = authorizeAttempt.userId,
                     consentedScopes = authorizeAttempt.consentedScopes
                 )

@@ -135,7 +135,7 @@ class WebAuthorizationFlowManagerTest {
             every { mock.mfaPassed } returns false
         }
         every { uncheckedMfaConfig.enabled } returns false
-        coEvery { consentAwareCollectedClaimManager.findByUserIdAndReadableByUser(userId, consentedScopes) } returns emptyList()
+        coEvery { consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes) } returns emptyList()
         every { consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(any(), consentedScopes) } returns false
         every { claimValidationManager.getReasonsToSendValidationCode(any()) } returns emptyList()
 
@@ -155,7 +155,7 @@ class WebAuthorizationFlowManagerTest {
             every { mock.mfaPassed } returns false
         }
         every { uncheckedMfaConfig.enabled } returns false
-        coEvery { consentAwareCollectedClaimManager.findByUserIdAndReadableByUser(userId, consentedScopes) } returns emptyList()
+        coEvery { consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes) } returns emptyList()
         every { consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(any(), consentedScopes) } returns true
         every { claimValidationManager.getReasonsToSendValidationCode(any()) } returns listOf(
             ValidationCodeReason.EMAIL_CLAIM,
@@ -177,7 +177,7 @@ class WebAuthorizationFlowManagerTest {
             every { mock.mfaPassed } returns false
         }
         every { uncheckedMfaConfig.enabled } returns true
-        coEvery { consentAwareCollectedClaimManager.findByUserIdAndReadableByUser(userId, consentedScopes) } returns emptyList()
+        coEvery { consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes) } returns emptyList()
         every { consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(any(), consentedScopes) } returns true
         every { claimValidationManager.getReasonsToSendValidationCode(any()) } returns emptyList()
 
@@ -197,7 +197,7 @@ class WebAuthorizationFlowManagerTest {
             every { mock.mfaPassed } returns true
         }
         every { uncheckedMfaConfig.enabled } returns true
-        coEvery { consentAwareCollectedClaimManager.findByUserIdAndReadableByUser(userId, consentedScopes) } returns emptyList()
+        coEvery { consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes) } returns emptyList()
         every { consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(any(), consentedScopes) } returns true
         every { claimValidationManager.getReasonsToSendValidationCode(any()) } returns emptyList()
 
