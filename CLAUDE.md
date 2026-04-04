@@ -60,6 +60,7 @@ Multi-module Gradle project (root + `server`). All source code is in `server/src
 - **Business manager guidelines**: https://sympauthy.github.io/contributing/backend/how-to-write-a-business-manager.html
 - **Managers never return entities** — only `business.model` types are exposed to controllers
 - **Exception factory methods** — `businessExceptionOf()`, `recoverableBusinessExceptionOf()` (user-retryable), `internalBusinessExceptionOf()` (server errors). Error messages in `error_messages.properties`
+- **Collected claim list naming** — Use `identifierClaims` for claims that identify the user (fetched via `findIdentifierByUserId`), `consentedClaims` for claims filtered by consented scopes, and `allClaims` only when all claims are present without consent filtering (e.g. admin code).
 
 #### Data (com.sympauthy.data)
 

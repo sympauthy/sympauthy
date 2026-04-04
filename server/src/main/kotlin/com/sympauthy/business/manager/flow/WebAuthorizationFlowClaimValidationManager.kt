@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.flow
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
+import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.manager.validationcode.ValidationCodeManager
 import com.sympauthy.business.model.code.ValidationCode
 import com.sympauthy.business.model.code.ValidationCodeMedia
@@ -25,6 +26,7 @@ import jakarta.transaction.Transactional
 open class WebAuthorizationFlowClaimValidationManager(
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
+    @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
     @Inject private val validationCodeManager: ValidationCodeManager,
 ) {
 
@@ -52,11 +54,16 @@ open class WebAuthorizationFlowClaimValidationManager(
      *
      * The list will only contain reason which this authorization server is able to send a validation code for.
      * ex. the authorization server cannot verify an email if there is no email sending solution configured.
+     *
+     * @param identifierClaims claims that identify the user, which the authorization server must always validate
+     * regardless of consent.
+     * @param consentedClaims claims the client has consent for during this authorization attempt.
      */
     fun getReasonsToSendValidationCode(
-        collectedClaims: List<CollectedClaim>
+        identifierClaims: List<CollectedClaim>,
+        consentedClaims: List<CollectedClaim>
     ): List<ValidationCodeReason> {
-        return getUnfilteredReasonsToSendValidationCode(collectedClaims)
+        return getUnfilteredReasonsToSendValidationCode(identifierClaims, consentedClaims)
             .filter { validationCodeManager.canSendValidationCodeForReason(it) }
     }
 
@@ -65,13 +72,19 @@ open class WebAuthorizationFlowClaimValidationManager(
      *
      * The list may contain [ValidationCodeReason] which this authorization server is not able to send a validation code
      * for.
+     *
+     * @param identifierClaims claims that identify the user, which the authorization server must always validate
+     * regardless of consent.
+     * @param consentedClaims claims the client has consent for during this authorization attempt.
      */
     internal fun getUnfilteredReasonsToSendValidationCode(
-        collectedClaims: List<CollectedClaim>
+        identifierClaims: List<CollectedClaim>,
+        consentedClaims: List<CollectedClaim>
     ): List<ValidationCodeReason> {
+        val allClaims = (identifierClaims + consentedClaims).distinctBy { it.claim.id }
         return validationCodeReasons.mapNotNull { reason ->
             getClaimValidatedBy(reason)?.let { claim ->
-                val collectedClaim = collectedClaims.firstOrNull { it.claim.id == claim.id }
+                val collectedClaim = allClaims.firstOrNull { it.claim.id == claim.id }
                 if (collectedClaim?.verified != true) reason else null
             }
         }
@@ -93,17 +106,20 @@ open class WebAuthorizationFlowClaimValidationManager(
         user: User,
         media: ValidationCodeMedia
     ): ValidationCode? {
-        // TODO: The collected claim must be replaced by the consent-aware one since
-        // we do not want to validate claims that have not been consented for this
-        // attempt. The only exception is for identity claims that we still need
-        // to validate, so we need a find that find consented + identity.
-        val collectedClaims = collectedClaimManager.findByUserId(user.id)
+        val consentedScopes = authorizeAttempt.consentedScopes ?: emptyList()
+        val identifierClaims = collectedClaimManager.findIdentifierByUserId(user.id)
+        val consentedClaims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
+            userId = user.id,
+            consentedScopes = consentedScopes
+        )
 
         val reasons = getReasonsToSendValidationCode(
-            collectedClaims = collectedClaims
+            identifierClaims = identifierClaims,
+            consentedClaims = consentedClaims
         ).filter { it.media == media }
         if (reasons.isEmpty()) return null
 
+        val allClaims = (identifierClaims + consentedClaims).distinctBy { it.claim.id }
         val existingCode = validationCodeManager.findLatestCodeSentByMediaDuringAttempt(
             authorizeAttempt = authorizeAttempt,
             media = media,
@@ -114,7 +130,7 @@ open class WebAuthorizationFlowClaimValidationManager(
                 user = user,
                 authorizeAttempt = authorizeAttempt,
                 reasons = reasons,
-                collectedClaims = collectedClaims
+                collectedClaims = allClaims
             ).firstOrNull()
         } else existingCode
     }

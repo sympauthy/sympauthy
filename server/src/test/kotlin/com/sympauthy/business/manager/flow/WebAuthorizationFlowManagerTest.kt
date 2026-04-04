@@ -5,6 +5,7 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
+import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.code.ValidationCodeReason
@@ -36,6 +37,9 @@ class WebAuthorizationFlowManagerTest {
 
     @MockK
     lateinit var authorizeAttemptManager: AuthorizeAttemptManager
+
+    @MockK
+    lateinit var collectedClaimManager: CollectedClaimManager
 
     @MockK
     lateinit var consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager
@@ -137,7 +141,8 @@ class WebAuthorizationFlowManagerTest {
         every { uncheckedMfaConfig.enabled } returns false
         coEvery { consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes) } returns emptyList()
         every { consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(any(), consentedScopes) } returns false
-        every { claimValidationManager.getReasonsToSendValidationCode(any()) } returns emptyList()
+        coEvery { collectedClaimManager.findIdentifierByUserId(any()) } returns emptyList()
+        every { claimValidationManager.getReasonsToSendValidationCode(any(), any()) } returns emptyList()
 
         val result = manager.getStatusForOnGoingAuthorizeAttempt(authorizeAttempt)
 
@@ -157,7 +162,8 @@ class WebAuthorizationFlowManagerTest {
         every { uncheckedMfaConfig.enabled } returns false
         coEvery { consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes) } returns emptyList()
         every { consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(any(), consentedScopes) } returns true
-        every { claimValidationManager.getReasonsToSendValidationCode(any()) } returns listOf(
+        coEvery { collectedClaimManager.findIdentifierByUserId(any()) } returns emptyList()
+        every { claimValidationManager.getReasonsToSendValidationCode(any(), any()) } returns listOf(
             ValidationCodeReason.EMAIL_CLAIM,
         )
 
@@ -179,7 +185,8 @@ class WebAuthorizationFlowManagerTest {
         every { uncheckedMfaConfig.enabled } returns true
         coEvery { consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes) } returns emptyList()
         every { consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(any(), consentedScopes) } returns true
-        every { claimValidationManager.getReasonsToSendValidationCode(any()) } returns emptyList()
+        coEvery { collectedClaimManager.findIdentifierByUserId(any()) } returns emptyList()
+        every { claimValidationManager.getReasonsToSendValidationCode(any(), any()) } returns emptyList()
 
         val result = manager.getStatusForOnGoingAuthorizeAttempt(authorizeAttempt)
 
@@ -199,7 +206,8 @@ class WebAuthorizationFlowManagerTest {
         every { uncheckedMfaConfig.enabled } returns true
         coEvery { consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes) } returns emptyList()
         every { consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(any(), consentedScopes) } returns true
-        every { claimValidationManager.getReasonsToSendValidationCode(any()) } returns emptyList()
+        coEvery { collectedClaimManager.findIdentifierByUserId(any()) } returns emptyList()
+        every { claimValidationManager.getReasonsToSendValidationCode(any(), any()) } returns emptyList()
 
         val result = manager.getStatusForOnGoingAuthorizeAttempt(authorizeAttempt)
 

@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
+import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.manager.util.coAssertThrowsBusinessException
 import com.sympauthy.business.manager.validationcode.ValidationCodeManager
 import com.sympauthy.business.model.code.ValidationCode
@@ -36,6 +37,9 @@ class WebAuthorizationFlowClaimValidationManagerTest {
     lateinit var collectedClaimManager: CollectedClaimManager
 
     @MockK
+    lateinit var consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager
+
+    @MockK
     lateinit var validationCodeManager: ValidationCodeManager
 
     @SpyK
@@ -43,7 +47,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
     lateinit var manager: WebAuthorizationFlowClaimValidationManager
 
     @Test
-    fun `getUnfilteredReasonsToSendValidationCode - Verify email`() {
+    fun `getUnfilteredReasonsToSendValidationCode - Verify email from identity claims`() {
         val emailClaim = mockk<Claim> {
             every { id } returns OpenIdClaim.EMAIL.id
         }
@@ -55,7 +59,31 @@ class WebAuthorizationFlowClaimValidationManagerTest {
         every { manager.validationCodeReasons } returns listOf(EMAIL_CLAIM)
         every { manager.getClaimValidatedBy(EMAIL_CLAIM) } returns emailClaim
 
-        val result = manager.getUnfilteredReasonsToSendValidationCode(listOf(collectedClaim))
+        val result = manager.getUnfilteredReasonsToSendValidationCode(
+            identifierClaims = listOf(collectedClaim),
+            consentedClaims = emptyList()
+        )
+
+        assertTrue(result.contains(EMAIL_CLAIM))
+    }
+
+    @Test
+    fun `getUnfilteredReasonsToSendValidationCode - Verify email from consented claims`() {
+        val emailClaim = mockk<Claim> {
+            every { id } returns OpenIdClaim.EMAIL.id
+        }
+        val collectedClaim = mockk<CollectedClaim> {
+            every { claim } returns emailClaim
+            every { verified } returns false
+        }
+
+        every { manager.validationCodeReasons } returns listOf(EMAIL_CLAIM)
+        every { manager.getClaimValidatedBy(EMAIL_CLAIM) } returns emailClaim
+
+        val result = manager.getUnfilteredReasonsToSendValidationCode(
+            identifierClaims = emptyList(),
+            consentedClaims = listOf(collectedClaim)
+        )
 
         assertTrue(result.contains(EMAIL_CLAIM))
     }
@@ -73,7 +101,10 @@ class WebAuthorizationFlowClaimValidationManagerTest {
         every { manager.validationCodeReasons } returns listOf(EMAIL_CLAIM)
         every { manager.getClaimValidatedBy(EMAIL_CLAIM) } returns emailClaim
 
-        val result = manager.getUnfilteredReasonsToSendValidationCode(listOf(collectedClaim))
+        val result = manager.getUnfilteredReasonsToSendValidationCode(
+            identifierClaims = listOf(collectedClaim),
+            consentedClaims = emptyList()
+        )
 
         assertFalse(result.contains(EMAIL_CLAIM))
     }
@@ -84,14 +115,30 @@ class WebAuthorizationFlowClaimValidationManagerTest {
         val user = mockk<User> {
             every { id } returns userId
         }
-        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
+        val consentedScopes = listOf("openid", "profile")
+        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
+            every { this@mockk.consentedScopes } returns consentedScopes
+        }
         val media = EMAIL
-        val collectedClaims = listOf(mockk<CollectedClaim>())
+        val identifierClaims = listOf(mockk<CollectedClaim> {
+            every { claim } returns mockk { every { id } returns "email" }
+        })
+        val consentedClaims = listOf(mockk<CollectedClaim> {
+            every { claim } returns mockk { every { id } returns "name" }
+        })
         val reasons = listOf(EMAIL_CLAIM)
         val validationCode = mockk<ValidationCode>()
 
-        coEvery { collectedClaimManager.findByUserId(userId) } returns collectedClaims
-        every { manager.getReasonsToSendValidationCode(collectedClaims) } returns reasons
+        coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns identifierClaims
+        coEvery {
+            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes)
+        } returns consentedClaims
+        every {
+            manager.getReasonsToSendValidationCode(
+                identifierClaims = identifierClaims,
+                consentedClaims = consentedClaims
+            )
+        } returns reasons
         coEvery {
             validationCodeManager.findLatestCodeSentByMediaDuringAttempt(
                 authorizeAttempt = authorizeAttempt,
@@ -103,7 +150,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
             validationCodeManager.queueRequiredValidationCodes(
                 user = user,
                 authorizeAttempt = authorizeAttempt,
-                collectedClaims = collectedClaims,
+                collectedClaims = any(),
                 reasons = reasons,
             )
         } returns listOf(validationCode)
@@ -123,15 +170,31 @@ class WebAuthorizationFlowClaimValidationManagerTest {
         val user = mockk<User> {
             every { id } returns userId
         }
-        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
+        val consentedScopes = listOf("openid", "profile")
+        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
+            every { this@mockk.consentedScopes } returns consentedScopes
+        }
         val media = EMAIL
-        val collectedClaims = listOf(mockk<CollectedClaim>())
+        val identifierClaims = listOf(mockk<CollectedClaim> {
+            every { claim } returns mockk { every { id } returns "email" }
+        })
+        val consentedClaims = listOf(mockk<CollectedClaim> {
+            every { claim } returns mockk { every { id } returns "name" }
+        })
         val existingValidationCode = mockk<ValidationCode> {
             every { reasons } returns listOf(EMAIL_CLAIM)
         }
 
-        coEvery { collectedClaimManager.findByUserId(userId) } returns collectedClaims
-        every { manager.getReasonsToSendValidationCode(collectedClaims) } returns listOf(EMAIL_CLAIM)
+        coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns identifierClaims
+        coEvery {
+            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes)
+        } returns consentedClaims
+        every {
+            manager.getReasonsToSendValidationCode(
+                identifierClaims = identifierClaims,
+                consentedClaims = consentedClaims
+            )
+        } returns listOf(EMAIL_CLAIM)
         coEvery {
             validationCodeManager.findLatestCodeSentByMediaDuringAttempt(
                 authorizeAttempt = authorizeAttempt,
@@ -155,13 +218,29 @@ class WebAuthorizationFlowClaimValidationManagerTest {
         val user = mockk<User> {
             every { id } returns userId
         }
-        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
+        val consentedScopes = listOf("openid", "profile")
+        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
+            every { this@mockk.consentedScopes } returns consentedScopes
+        }
         val media = EMAIL
-        val collectedClaims = listOf(mockk<CollectedClaim>())
+        val identifierClaims = listOf(mockk<CollectedClaim> {
+            every { claim } returns mockk { every { id } returns "email" }
+        })
+        val consentedClaims = listOf(mockk<CollectedClaim> {
+            every { claim } returns mockk { every { id } returns "name" }
+        })
         val reasons = listOf(PHONE_NUMBER_CLAIM)
 
-        coEvery { collectedClaimManager.findByUserId(userId) } returns collectedClaims
-        every { manager.getReasonsToSendValidationCode(collectedClaims) } returns reasons
+        coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns identifierClaims
+        coEvery {
+            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes)
+        } returns consentedClaims
+        every {
+            manager.getReasonsToSendValidationCode(
+                identifierClaims = identifierClaims,
+                consentedClaims = consentedClaims
+            )
+        } returns reasons
 
         val result = manager.getOrSendValidationCode(
             authorizeAttempt = authorizeAttempt,

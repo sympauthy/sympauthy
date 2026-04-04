@@ -5,6 +5,7 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
+import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.code.ValidationCodeReason
@@ -35,6 +36,7 @@ import java.net.URISyntaxException
 class WebAuthorizationFlowManager(
     @Inject private val authorizationFlowManager: AuthorizationFlowManager,
     @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
+    @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
     @Inject private val claimValidationManager: WebAuthorizationFlowClaimValidationManager,
     @Inject private val clientManager: ClientManager,
@@ -257,21 +259,28 @@ class WebAuthorizationFlowManager(
         authorizeAttempt: OnGoingAuthorizeAttempt
     ): WebAuthorizationFlowStatus {
         val consentedScopes = authorizeAttempt.consentedScopes ?: emptyList()
-        val allCollectedClaims = authorizeAttempt.userId?.let {
+        val identifierClaims = authorizeAttempt.userId?.let {
+            collectedClaimManager.findIdentifierByUserId(it)
+        } ?: emptyList()
+        val consentedClaims = authorizeAttempt.userId?.let {
             consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(it, consentedScopes)
         } ?: emptyList()
+        val collectedClaims = (identifierClaims + consentedClaims).distinctBy { it.claim.id }
 
         val missingUser = authorizeAttempt.userId == null
         val missingMfa = uncheckedMfaConfig.orThrow().enabled && !authorizeAttempt.mfaPassed
         val missingRequiredClaims = !consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(
-            allCollectedClaims, consentedScopes
+            collectedClaims, consentedScopes
         )
-        val missingMediaForClaimValidation = claimValidationManager.getReasonsToSendValidationCode(allCollectedClaims)
+        val missingMediaForClaimValidation = claimValidationManager.getReasonsToSendValidationCode(
+            identifierClaims = identifierClaims,
+            consentedClaims = consentedClaims
+        )
             .map(ValidationCodeReason::media)
             .distinct()
 
         return WebAuthorizationFlowStatus(
-            allCollectedClaims = allCollectedClaims,
+            allCollectedClaims = collectedClaims,
             missingUser = missingUser,
             missingMfa = missingMfa,
             missingRequiredClaims = missingRequiredClaims,
