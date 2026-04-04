@@ -25,6 +25,8 @@ import com.sympauthy.business.model.redirect.ProviderOAuth2AuthorizationRedirect
 import com.sympauthy.business.model.redirect.ProviderOpenIdConnectAuthorizationRedirect
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.RawProviderClaims
+import com.sympauthy.business.model.user.User
+import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.OpenIdClaim
 import com.sympauthy.client.oauth2.TokenEndpointClient
 import com.sympauthy.config.model.AuthConfig
@@ -188,10 +190,11 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
         providerUserInfo: RawProviderClaims
     ): CreateOrAssociateResult {
         val authConfig = uncheckedAuthConfig.orThrow()
+        val identifierClaims = resolveIdentifierClaims(authConfig, provider, providerUserInfo)
         return if (authConfig.userMergingEnabled) {
-            createOrAssociateUserByIdentifierClaimsWithProviderUserInfo(authConfig, provider, providerUserInfo)
+            createOrAssociateUserByIdentifierClaimsWithProviderUserInfo(identifierClaims, provider, providerUserInfo)
         } else {
-            createUserWithProviderUserInfo(provider, providerUserInfo)
+            createUserWithProviderUserInfo(identifierClaims, provider, providerUserInfo)
         }
     }
 
@@ -205,45 +208,15 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
      */
     @Transactional
     internal open suspend fun createOrAssociateUserByIdentifierClaimsWithProviderUserInfo(
-        authConfig: EnabledAuthConfig,
+        identifierClaims: Map<OpenIdClaim, Pair<Claim, String>>,
         provider: EnabledProvider,
         providerUserInfo: RawProviderClaims
     ): CreateOrAssociateResult {
-        val identifierClaims = authConfig.identifierClaims
-
-        // Extract identifier claim values from provider user info.
-        val claimValues = identifierClaims.associateWith { claim ->
-            providerUserInfo.getClaimValueOrNull(claim)
-                ?: throw businessExceptionOf(
-                    "user.create_with_provider.missing_identifier_claim",
-                    "providerId" to provider.id,
-                    "claim" to claim.id
-                )
-        }
-
-        // Resolve the Claim business objects for each identifier claim.
-        val claimObjects = identifierClaims.associateWith { claim ->
-            claimManager.findByIdOrNull(claim.id)
-                ?: throw businessExceptionOf(
-                    "user.create_with_provider.missing_identifier_claim_config",
-                    "claim" to claim.id
-                )
-        }
-
-        // Look up existing user matching ALL identifier claims.
-        val identifierMap = claimValues.map { (claim, value) -> claim.id to value }.toMap()
+        val identifierMap = identifierClaims.map { (openIdClaim, pair) -> openIdClaim.id to pair.second }.toMap()
         val existingUser = userManager.findByIdentifierClaims(identifierMap)
 
         val user = existingUser ?: userManager.createUser().also { newUser ->
-            collectedClaimManager.update(
-                user = newUser,
-                updates = claimValues.map { (claim, value) ->
-                    CollectedClaimUpdate(
-                        claim = claimObjects.getValue(claim),
-                        value = Optional.of(value)
-                    )
-                }
-            )
+            saveIdentifierClaims(newUser, identifierClaims)
         }
 
         providerClaimsManager.saveUserInfo(
@@ -257,12 +230,74 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
         )
     }
 
+    /**
+     * Create a new [com.sympauthy.business.model.user.User] with the provider user info.
+     * Without user merging, if a user already exists with the same identifier claims, throw an error
+     * as the user must sign in with their existing account.
+     */
     @Transactional
     internal open suspend fun createUserWithProviderUserInfo(
+        identifierClaims: Map<OpenIdClaim, Pair<Claim, String>>,
         provider: EnabledProvider,
         providerUserInfo: RawProviderClaims
     ): CreateOrAssociateResult {
-        TODO("FIXME")
+        val identifierMap = identifierClaims.map { (openIdClaim, pair) -> openIdClaim.id to pair.second }.toMap()
+        val existingUser = userManager.findByIdentifierClaims(identifierMap)
+        if (existingUser != null) {
+            throw businessExceptionOf("user.create_with_provider.existing_user")
+        }
+
+        val user = userManager.createUser()
+        saveIdentifierClaims(user, identifierClaims)
+        providerClaimsManager.saveUserInfo(
+            provider = provider,
+            userId = user.id,
+            rawProviderClaims = providerUserInfo
+        )
+        return CreateOrAssociateResult(
+            created = true,
+            user = user
+        )
+    }
+
+    /**
+     * Extract identifier claim values from [providerUserInfo] and resolve the corresponding
+     * [Claim] business objects.
+     */
+    private suspend fun resolveIdentifierClaims(
+        authConfig: EnabledAuthConfig,
+        provider: EnabledProvider,
+        providerUserInfo: RawProviderClaims
+    ): Map<OpenIdClaim, Pair<Claim, String>> {
+        return authConfig.identifierClaims.associateWith { openIdClaim ->
+            val value = providerUserInfo.getClaimValueOrNull(openIdClaim)
+                ?: throw businessExceptionOf(
+                    "user.create_with_provider.missing_identifier_claim",
+                    "providerId" to provider.id,
+                    "claim" to openIdClaim.id
+                )
+            val claim = claimManager.findByIdOrNull(openIdClaim.id)
+                ?: throw businessExceptionOf(
+                    "user.create_with_provider.missing_identifier_claim_config",
+                    "claim" to openIdClaim.id
+                )
+            claim to value
+        }
+    }
+
+    private suspend fun saveIdentifierClaims(
+        user: User,
+        identifierClaims: Map<OpenIdClaim, Pair<Claim, String>>
+    ) {
+        collectedClaimManager.update(
+            user = user,
+            updates = identifierClaims.map { (_, claimAndValue) ->
+                CollectedClaimUpdate(
+                    claim = claimAndValue.first,
+                    value = Optional.of(claimAndValue.second)
+                )
+            }
+        )
     }
 
     suspend fun fetchTokens(

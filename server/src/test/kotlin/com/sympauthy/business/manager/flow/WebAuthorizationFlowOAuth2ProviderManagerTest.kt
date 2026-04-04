@@ -263,21 +263,57 @@ class WebAuthorizationFlowOAuth2ProviderManagerTest {
     }
 
     @Test
-    fun `createOrAssociateUserWithProviderUserInfo - Delegate to createUserWithProviderUserInfo when merging disabled`() = runTest {
+    fun `createOrAssociateUserWithProviderUserInfo - Create new user when merging disabled and no existing user`() = runTest {
         val provider = createProvider()
         val providerUserInfo = RawProviderClaims(
             subject = "sub-123",
-            email = "user@example.com"
+            email = "new@example.com"
         )
+        val newUser = createUser()
+        val emailClaim = mockk<Claim>()
 
         every { uncheckedAuthConfig.userMergingEnabled } returns false
+        every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdClaim.EMAIL)
+        every { claimManager.findByIdOrNull(OpenIdClaim.Id.EMAIL) } returns emailClaim
+        coEvery { userManager.findByIdentifierClaims(mapOf("email" to "new@example.com")) } returns null
+        coEvery { userManager.createUser() } returns newUser
+        coJustRun { collectedClaimManager.update(newUser, any()) }
+        coJustRun { providerClaimsManager.saveUserInfo(provider, newUser.id, providerUserInfo) }
 
-        // createUserWithProviderUserInfo has a TODO("FIXME"), so it should throw NotImplementedError
-        assertThrows<NotImplementedError> {
+        val result = manager.createOrAssociateUserWithProviderUserInfo(provider, providerUserInfo)
+
+        assertTrue(result.created)
+        assertSame(newUser, result.user)
+        coVerify {
+            collectedClaimManager.update(newUser, withArg { updates ->
+                assertEquals(1, updates.size)
+                assertEquals(emailClaim, updates[0].claim)
+                assertEquals(Optional.of("new@example.com"), updates[0].value)
+            })
+        }
+        coVerify { providerClaimsManager.saveUserInfo(provider, newUser.id, providerUserInfo) }
+    }
+
+    @Test
+    fun `createOrAssociateUserWithProviderUserInfo - Throw when merging disabled and user already exists`() = runTest {
+        val provider = createProvider()
+        val providerUserInfo = RawProviderClaims(
+            subject = "sub-123",
+            email = "existing@example.com"
+        )
+        val existingUser = createUser()
+        val emailClaim = mockk<Claim>()
+
+        every { uncheckedAuthConfig.userMergingEnabled } returns false
+        every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdClaim.EMAIL)
+        every { claimManager.findByIdOrNull(OpenIdClaim.Id.EMAIL) } returns emailClaim
+        coEvery { userManager.findByIdentifierClaims(mapOf("email" to "existing@example.com")) } returns existingUser
+
+        val exception = assertThrows<BusinessException> {
             manager.createOrAssociateUserWithProviderUserInfo(provider, providerUserInfo)
         }
 
-        // Verify we never tried to merge
-        coVerify(exactly = 0) { userManager.findByIdentifierClaims(any()) }
+        assertEquals("user.create_with_provider.existing_user", exception.detailsId)
+        coVerify(exactly = 0) { userManager.createUser() }
     }
 }
