@@ -4,13 +4,9 @@ import com.nimbusds.jwt.JWTClaimsSet
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
-import com.sympauthy.business.model.oauth2.AuthenticationToken
-import com.sympauthy.business.model.oauth2.AuthenticationTokenType
-import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
-import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
+import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.ClaimGroup
-import com.sympauthy.business.model.oauth2.BuiltInGrantableScopeId
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.AuthenticationTokenEntity
@@ -131,7 +127,7 @@ class IdTokenGenerator(
     }
 
     private fun JWTClaimsSet.Builder.withClaim(claim: CollectedClaim) {
-        when (claim.value) { // FIXME add other types
+        when (claim.value) {
             is String -> claim(claim.claim.id, claim.value)
             else -> {
                 logger.error("Unable to encode claim '${claim.claim.id}' into id token.")
