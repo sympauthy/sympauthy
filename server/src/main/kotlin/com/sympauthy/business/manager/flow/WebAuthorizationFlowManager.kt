@@ -265,12 +265,11 @@ class WebAuthorizationFlowManager(
         val consentedClaims = authorizeAttempt.userId?.let {
             consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(it, consentedScopes)
         } ?: emptyList()
-        val collectedClaims = (identifierClaims + consentedClaims).distinctBy { it.claim.id }
-
         val missingUser = authorizeAttempt.userId == null
         val missingMfa = uncheckedMfaConfig.orThrow().enabled && !authorizeAttempt.mfaPassed
+        val allClaims = (identifierClaims + consentedClaims).distinctBy { it.claim.id }
         val missingRequiredClaims = !consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(
-            collectedClaims, consentedScopes
+            allClaims, consentedScopes
         )
         val missingMediaForClaimValidation = claimValidationManager.getReasonsToSendValidationCode(
             identifierClaims = identifierClaims,
@@ -280,7 +279,8 @@ class WebAuthorizationFlowManager(
             .distinct()
 
         return WebAuthorizationFlowStatus(
-            allCollectedClaims = collectedClaims,
+            identifierClaims = identifierClaims,
+            consentedClaims = consentedClaims,
             missingUser = missingUser,
             missingMfa = missingMfa,
             missingRequiredClaims = missingRequiredClaims,
@@ -305,8 +305,7 @@ class WebAuthorizationFlowManager(
     ): AuthorizeAttempt {
         return if (status.complete) {
             authorizationFlowManager.completeAuthorization(
-                authorizeAttempt = authorizeAttempt,
-                allCollectedClaims = status.allCollectedClaims
+                authorizeAttempt = authorizeAttempt
             )
         } else authorizeAttempt
     }

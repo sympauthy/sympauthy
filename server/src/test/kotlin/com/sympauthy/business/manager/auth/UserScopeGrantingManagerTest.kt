@@ -70,7 +70,7 @@ class UserScopeGrantingManagerTest {
 
         val result = scopeGrantingManager.grantScopes(
             authorizeAttempt = authorizeAttempt,
-            allCollectedClaims = emptyList()
+            allClaims = emptyList()
         )
 
         assertEquals(listOf(grantedScope1, declinedScope1, declinedScope2), result.requestedScopes)

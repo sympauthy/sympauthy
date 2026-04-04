@@ -219,16 +219,12 @@ class WebAuthorizationFlowManagerTest {
         val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
         val completeAuthorizeAttempt = mockk<CompletedAuthorizeAttempt>()
         val status = mockk<WebAuthorizationFlowStatus> {
-            every { allCollectedClaims } returns emptyList()
             every { complete } returns true
         }
 
         coEvery { manager.getStatus(authorizeAttempt) } returns status
         coEvery {
-            authorizationFlowManager.completeAuthorization(
-                authorizeAttempt,
-                any()
-            )
+            authorizationFlowManager.completeAuthorization(authorizeAttempt)
         } returns completeAuthorizeAttempt
 
         val result = manager.getStatusAndCompleteIfNecessary(authorizeAttempt)

@@ -8,9 +8,13 @@ import com.sympauthy.business.model.user.CollectedClaim
  */
 data class WebAuthorizationFlowStatus(
     /**
-     * List of all claims collected from the end-user by the authorization server.
+     * List of claims that identify the end-user (e.g. email, phone number).
      */
-    val allCollectedClaims: List<CollectedClaim> = emptyList(),
+    val identifierClaims: List<CollectedClaim> = emptyList(),
+    /**
+     * List of claims filtered by the scopes the end-user has consented to.
+     */
+    val consentedClaims: List<CollectedClaim> = emptyList(),
     /**
      * True if the authorization attempt failed.
      */

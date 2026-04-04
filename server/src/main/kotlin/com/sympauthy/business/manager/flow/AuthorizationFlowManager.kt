@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.UserScopeGrantingManager
 import com.sympauthy.business.manager.consent.ConsentManager
@@ -13,7 +14,7 @@ import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
-import com.sympauthy.business.model.user.CollectedClaim
+import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.config.model.AuthorizationFlowsConfig
 import com.sympauthy.config.model.FeaturesConfig
 import com.sympauthy.config.model.UrlsConfig
@@ -30,6 +31,7 @@ import jakarta.inject.Singleton
 @Singleton
 class AuthorizationFlowManager(
     @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
+    @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val scopeGrantingManager: UserScopeGrantingManager,
     @Inject private val consentManager: ConsentManager,
     @Inject private val authorizationFlowsConfig: AuthorizationFlowsConfig,
@@ -99,11 +101,9 @@ class AuthorizationFlowManager(
      * On success, a [Consent] is persisted recording which scopes the user authorized for the client.
      * If an active consent already exists for this user+client pair, it is revoked and replaced.
      *
-     * The list of [allCollectedClaims] may be provided to prevent loading them again.
      */
     suspend fun completeAuthorization(
         authorizeAttempt: AuthorizeAttempt,
-        allCollectedClaims: List<CollectedClaim>,
     ): AuthorizeAttempt {
         val featuresConfig = uncheckedFeaturesConfig.orThrow()
 
@@ -112,10 +112,15 @@ class AuthorizationFlowManager(
         }
         var modifiedAuthorizedAttempt = authorizeAttempt
 
+        // Fetch all collected claims regardless of consent so the granting manager can access them all.
+        val userId = authorizeAttempt.userId
+            ?: throw internalBusinessExceptionOf("flow.authorization_flow.complete.missing_user")
+        val allClaims = collectedClaimManager.findByUserId(userId)
+
         // Grant only grantable scopes through the granting pipeline
         val grantScopesResult = scopeGrantingManager.grantScopes(
             authorizeAttempt = authorizeAttempt,
-            allCollectedClaims = allCollectedClaims
+            allClaims = allClaims
         )
         modifiedAuthorizedAttempt = authorizeAttemptManager.setGrantedScopes(
             authorizeAttempt = modifiedAuthorizedAttempt,

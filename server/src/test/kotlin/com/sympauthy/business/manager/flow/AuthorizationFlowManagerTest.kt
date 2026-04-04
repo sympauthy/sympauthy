@@ -5,6 +5,7 @@ import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.UserGrantScopesResult
 import com.sympauthy.business.manager.auth.UserScopeGrantingManager
 import com.sympauthy.business.manager.consent.ConsentManager
+import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
@@ -38,6 +39,9 @@ class AuthorizationFlowManagerTest {
 
     @MockK
     lateinit var authorizeAttemptManager: AuthorizeAttemptManager
+
+    @MockK
+    lateinit var collectedClaimManager: CollectedClaimManager
 
     @MockK
     lateinit var scopeGrantingManager: UserScopeGrantingManager
@@ -137,9 +141,8 @@ class AuthorizationFlowManagerTest {
     @Test
     fun `completeAuthorization - Returns attempt unchanged when already completed`() = runTest {
         val completedAttempt = mockk<CompletedAuthorizeAttempt>()
-        val collectedClaims = emptyList<CollectedClaim>()
 
-        val result = manager.completeAuthorization(completedAttempt, collectedClaims)
+        val result = manager.completeAuthorization(completedAttempt)
 
         assertEquals(completedAttempt, result)
     }
@@ -147,9 +150,8 @@ class AuthorizationFlowManagerTest {
     @Test
     fun `completeAuthorization - Returns attempt unchanged when already failed`() = runTest {
         val failedAttempt = mockk<FailedAuthorizeAttempt>()
-        val collectedClaims = emptyList<CollectedClaim>()
 
-        val result = manager.completeAuthorization(failedAttempt, collectedClaims)
+        val result = manager.completeAuthorization(failedAttempt)
 
         assertSame(failedAttempt, result)
     }
@@ -171,6 +173,7 @@ class AuthorizationFlowManagerTest {
         val collectedClaims = emptyList<CollectedClaim>()
 
         every { uncheckedFeaturesConfig.allowAccessToClientWithoutScope } returns false
+        coEvery { collectedClaimManager.findByUserId(userId) } returns collectedClaims
 
         val grantScopesResult = UserGrantScopesResult(
             requestedScopes = grantedScopeObjects,
@@ -188,7 +191,7 @@ class AuthorizationFlowManagerTest {
         coEvery { authorizeAttemptManager.markAsComplete(afterGranted) } returns completedAttempt
         coEvery { consentManager.saveGrantedConsent(userId, clientId, consentedScopes) } returns mockk()
 
-        val result = manager.completeAuthorization(onGoingAttempt, collectedClaims)
+        val result = manager.completeAuthorization(onGoingAttempt)
 
         assertSame(completedAttempt, result)
         coVerify(exactly = 1) { consentManager.saveGrantedConsent(userId, clientId, consentedScopes) }
@@ -209,6 +212,7 @@ class AuthorizationFlowManagerTest {
             val collectedClaims = emptyList<CollectedClaim>()
 
             every { uncheckedFeaturesConfig.allowAccessToClientWithoutScope } returns true
+            coEvery { collectedClaimManager.findByUserId(userId) } returns collectedClaims
 
             val grantScopesResult = UserGrantScopesResult(
                 requestedScopes = emptyList(),
@@ -226,7 +230,7 @@ class AuthorizationFlowManagerTest {
             coEvery { authorizeAttemptManager.markAsComplete(afterGranted) } returns completedAttempt
             coEvery { consentManager.saveGrantedConsent(userId, clientId, emptyList()) } returns mockk()
 
-            val result = manager.completeAuthorization(onGoingAttempt, collectedClaims)
+            val result = manager.completeAuthorization(onGoingAttempt)
 
             assertSame(completedAttempt, result)
             coVerify(exactly = 1) { consentManager.saveGrantedConsent(userId, clientId, emptyList()) }
@@ -242,6 +246,7 @@ class AuthorizationFlowManagerTest {
             val collectedClaims = emptyList<CollectedClaim>()
 
             every { uncheckedFeaturesConfig.allowAccessToClientWithoutScope } returns false
+            coEvery { collectedClaimManager.findByUserId(userId) } returns collectedClaims
 
             val grantScopesResult = UserGrantScopesResult(
                 requestedScopes = emptyList(),
@@ -260,7 +265,7 @@ class AuthorizationFlowManagerTest {
                 authorizeAttemptManager.markAsFailedIfNotRecoverable(onGoingAttempt, any())
             } returns failedAttempt
 
-            val result = manager.completeAuthorization(onGoingAttempt, collectedClaims)
+            val result = manager.completeAuthorization(onGoingAttempt)
 
             assertEquals(failedAttempt, result)
             coVerify {
@@ -272,7 +277,7 @@ class AuthorizationFlowManagerTest {
         }
 
     @Test
-    fun `completeAuthorization - Passes collectedClaims to grantScopes`() = runTest {
+    fun `completeAuthorization - Fetches all claims and passes them to grantScopes`() = runTest {
         val userId = UUID.randomUUID()
         val clientId = "client-id"
         val grantedScopes = listOf("read")
@@ -285,6 +290,8 @@ class AuthorizationFlowManagerTest {
             every { this@mockk.consentedScopes } returns emptyList()
         }
         val collectedClaims = listOf(mockk<CollectedClaim>())
+
+        coEvery { collectedClaimManager.findByUserId(userId) } returns collectedClaims
 
         val grantScopesResult = UserGrantScopesResult(
             requestedScopes = emptyList(),
@@ -302,9 +309,10 @@ class AuthorizationFlowManagerTest {
         coEvery { authorizeAttemptManager.markAsComplete(afterGranted) } returns completedAttempt
         coEvery { consentManager.saveGrantedConsent(userId, clientId, emptyList()) } returns mockk()
 
-        val result = manager.completeAuthorization(onGoingAttempt, collectedClaims)
+        val result = manager.completeAuthorization(onGoingAttempt)
 
         assertSame(completedAttempt, result)
+        coVerify { collectedClaimManager.findByUserId(userId) }
     }
 
     private fun createOnGoingAuthorizeAttempt(
