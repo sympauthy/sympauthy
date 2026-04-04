@@ -18,9 +18,7 @@ class CleanExpiredAuthorizeAttemptCron(
     @OptIn(DelicateCoroutinesApi::class)
     @Scheduled(fixedDelay = "15m")
     fun clean() {
-        // FIXME retrieve job and do not launch if job is still running
         GlobalScope.launch {
-            // FIXME: Determine a leader that will execute the cleaning
             val result = authorizeAttemptCleaner.clean()
             if (result.authorizeAttemptCount > 0) {
                 logger.debug("Cleaned ${result.authorizeAttemptCount} expired authorize attempts (including ${result.authorizationCodeCount} authorization codes, ${result.validationCodesCount} validation codes).")
