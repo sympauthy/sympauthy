@@ -21,6 +21,5 @@ data class ProviderUserInfo(
      * Last time this application detected a change of the info returned by the provider.
      */
     val changeDate: LocalDateTime,
-    // FIXME: val idToken: String Store the id token we have used to extract those info.
     val userInfo: RawProviderClaims
 )

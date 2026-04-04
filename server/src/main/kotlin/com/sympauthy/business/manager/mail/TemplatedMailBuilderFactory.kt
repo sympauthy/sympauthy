@@ -22,7 +22,7 @@ class TemplatedMailBuilderFactory(
             messageSource = messageSource,
             locale = locale,
         )
-        defaultFrom?.let(builder::sender) // FIXME Parse from to get email and name.
+        defaultFrom?.let(builder::sender)
         return builder
     }
 }

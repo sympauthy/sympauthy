@@ -49,7 +49,7 @@ class ValidationCodeMailSender(
         val builder = mailBuilderFactory
             .builder(
                 template = "mails/validation_code",
-                locale = Locale.US // FIXME
+                locale = Locale.US
             ).apply {
                 receiver(email)
 
