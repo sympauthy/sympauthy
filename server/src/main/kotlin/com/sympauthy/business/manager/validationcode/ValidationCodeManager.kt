@@ -89,7 +89,7 @@ open class ValidationCodeManager(
      * False otherwise.
      */
     fun canSendValidationCodeForReason(reason: ValidationCodeReason): Boolean {
-        return senders.any { it.media == reason.media }
+        return senders.any { it.media == reason.media && it.enabled }
     }
 
     /**
@@ -209,7 +209,7 @@ open class ValidationCodeManager(
         collectedClaims: List<CollectedClaim>
     ): Map<ValidationCodeMedia, SenderClaimTuple> {
         return medias.associateWith { media ->
-            val sender = senders.firstOrNull { it.media == media }
+            val sender = senders.firstOrNull { it.media == media && it.enabled }
                 ?: throw businessExceptionOf(
                     detailsId = "validationcode.missing_sender",
                     values = arrayOf("media" to media.name)

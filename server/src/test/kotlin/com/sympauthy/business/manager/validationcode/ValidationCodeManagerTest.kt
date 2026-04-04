@@ -56,6 +56,7 @@ class ValidationCodeManagerTest {
     fun `canSendValidationCodeForReason - Can send if a sender is available for the reason`() {
         val sender = mockk<ValidationCodeMediaSender> {
             every { media } returns EMAIL
+            every { enabled } returns true
         }
         senders.add(sender)
 
@@ -71,6 +72,7 @@ class ValidationCodeManagerTest {
     fun `getSenderByMediaMap - Return corresponding sender for media`() {
         val sender = mockk<ValidationCodeMediaSender> {
             every { media } returns EMAIL
+            every { enabled } returns true
         }
         val emailClaim = mockk<Claim> {
             every { id } returns EMAIL.claim
@@ -109,6 +111,7 @@ class ValidationCodeManagerTest {
     fun `getSenderByMediaMap - Throws exception if collected claim is missing`() {
         val sender = mockk<ValidationCodeMediaSender> {
             every { media } returns EMAIL
+            every { enabled } returns true
         }
 
         senders.add(sender)

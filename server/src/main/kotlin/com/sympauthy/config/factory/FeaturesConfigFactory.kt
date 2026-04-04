@@ -1,6 +1,6 @@
 package com.sympauthy.config.factory
 
-import com.sympauthy.business.manager.mail.MailSender
+import com.sympauthy.business.manager.mail.MailQueue
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.exception.configExceptionOf
@@ -10,14 +10,13 @@ import com.sympauthy.config.model.FeaturesConfig
 import com.sympauthy.config.properties.FeaturesConfigurationProperties
 import com.sympauthy.config.properties.FeaturesConfigurationProperties.Companion.FEATURES_KEY
 import io.micronaut.context.annotation.Factory
-import jakarta.annotation.Nullable
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
 @Factory
 class FeaturesConfigFactory(
     @Inject private val parser: ConfigParser,
-    @Inject @param:Nullable private val mailSender: MailSender?
+    @Inject private val mailQueue: MailQueue
 ) {
 
     @Singleton
@@ -81,7 +80,7 @@ class FeaturesConfigFactory(
             properties, key,
             FeaturesConfigurationProperties::emailValidation
         )
-        if (emailValidation && mailSender == null) {
+        if (emailValidation && !mailQueue.enabled) {
             throw configExceptionOf(
                 key, "config.features.email_validation.no_sender"
             )

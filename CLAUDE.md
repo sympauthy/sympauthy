@@ -64,6 +64,7 @@ Multi-module Gradle project (root + `server`). All source code is in `server/src
 #### Data (com.sympauthy.data)
 
 - **Repository update methods** — `suspend fun updateXxx(@Id id: UUID, xxx: T)`. Never use `And` in update method names. `delete()` returns `Int` in Micronaut Data 4.x
+- **DB-specific repository implementations** — Each repository interface in `data/repository/` must have a PostgreSQL and H2 implementation in `data/postgresql/repository/` and `data/h2/repository/`. These are empty interfaces extending the base repository, annotated with `@R2dbcRepository(dialect = ...)` and `@Requires(condition = DefaultDataSourceIsPostgreSQL/H2::class)`.
 
 #### Others
 
@@ -107,6 +108,10 @@ Scopes use a sealed class hierarchy (`Scope` → `ConsentableUserScope`, `Granta
 - `@MockK` for dependencies, `@InjectMockKs` for auto-wiring the class under test
 - `runTest { }` for suspend function tests, `coEvery { }` / `coVerify { }` for suspend mocks
 - Tests mirror main package structure in `server/src/test/kotlin/`
+
+## Code Documentation
+
+- **KDoc standard** — Use KDoc for code documentation. Place property documentation above each property, not as `@property` tags in the class-level KDoc.
 
 ## Documentation
 

@@ -10,10 +10,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Manager in-charge of sending mails.
+ * Low-level manager in-charge of sending mails via SMTP.
  *
  * As the javamail API is not asynchronous, this manager will schedule the operation on an I/O thread to avoid
  * blocking a main thread. Also, the underlying [EmailSender] MUST never be used directly for this reason.
+ *
+ * This class should not be used directly by callers. Use [MailQueue] instead, which provides
+ * fire-and-forget sending with database-backed crash resilience.
  */
 @Singleton
 @Requires(beans = [JavaMailConfiguration::class])

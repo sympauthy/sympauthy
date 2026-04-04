@@ -93,6 +93,10 @@ open class WebAuthorizationFlowClaimValidationManager(
         user: User,
         media: ValidationCodeMedia
     ): ValidationCode? {
+        // TODO: The collected claim must be replaced by the consent-aware one since
+        // we do not want to validate claims that have not been consented for this
+        // attempt. The only exception is for identity claims that we still need
+        // to validate, so we need a find that find consented + identity.
         val collectedClaims = collectedClaimManager.findByUserId(user.id)
 
         val reasons = getReasonsToSendValidationCode(
