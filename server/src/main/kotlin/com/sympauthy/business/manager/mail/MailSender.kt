@@ -6,6 +6,8 @@ import io.micronaut.email.EmailSender
 import io.micronaut.email.javamail.sender.JavaMailConfiguration
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Manager in-charge of sending mails.
@@ -19,8 +21,9 @@ class MailSender(
     @Inject private val sender: EmailSender<Any, Any>
 ) {
 
-    fun send(builder: Email.Builder) {
-        // FIXME Launch in IO thread to avoid blocking
-        sender.send(builder)
+    suspend fun send(builder: Email.Builder) {
+        withContext(Dispatchers.IO) {
+            sender.send(builder)
+        }
     }
 }
