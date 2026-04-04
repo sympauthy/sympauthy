@@ -108,7 +108,7 @@ class ClaimValueValidator {
     }
 
     internal fun validatePhoneNumberForClaim(value: String): Optional<Any> {
-        return Optional.of(value) // FIXME
+        return Optional.of(value)
     }
 
     internal fun validateTimeZoneForClaim(value: String): Optional<Any> {
