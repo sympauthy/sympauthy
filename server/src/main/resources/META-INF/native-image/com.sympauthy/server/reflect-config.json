@@ -80,15 +80,6 @@
     ]
   },
   {
-    "name": "com.sympauthy.api.mapper.flow.ClaimsResourceMapperImpl",
-    "methods": [
-      {
-        "name": "<init>",
-        "parameterTypes": []
-      }
-    ]
-  },
-  {
     "name": "com.sympauthy.api.mapper.flow.TimeZoneResourceMapperImpl",
     "methods": [
       {

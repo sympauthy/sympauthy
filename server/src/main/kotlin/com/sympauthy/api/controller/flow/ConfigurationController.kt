@@ -93,7 +93,7 @@ they can be cached across the different end-users trying to authenticate.
 
     private fun getPassword(): PasswordConfigurationResource {
         return PasswordConfigurationResource(
-            identifierClaims = passwordFlowManager.getIdentifierClaims().map { it.id }
+            identifierClaims = claimManager.listIdentifierClaims().map { it.id }
         )
     }
 

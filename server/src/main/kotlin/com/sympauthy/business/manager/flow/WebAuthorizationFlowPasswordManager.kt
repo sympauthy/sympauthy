@@ -127,16 +127,6 @@ open class WebAuthorizationFlowPasswordManager(
     }
 
     /**
-     * Return the list of [Claim] configured as identifier claims.
-     * Used as login for sign-in and as required claims for sign-up.
-     */
-    fun getIdentifierClaims(): List<Claim> {
-        return uncheckedAuthConfig.orThrow()
-            .identifierClaims
-            .mapNotNull { claimManager.findByIdOrNull(it.id) }
-    }
-
-    /**
      * Create a new user with the provided claims([unfilteredUpdates]) and [password].
      */
     @Transactional
@@ -145,7 +135,7 @@ open class WebAuthorizationFlowPasswordManager(
         unfilteredUpdates: List<CollectedClaimUpdate>,
         password: String
     ): AuthorizeAttempt {
-        val claimUpdateMap = getIdentifierClaims().associateWith { claim ->
+        val claimUpdateMap = claimManager.listIdentifierClaims().associateWith { claim ->
             unfilteredUpdates.firstOrNull { it.claim == claim }
         }
         val claimUpdates = claimUpdateMap.values.filterNotNull()
