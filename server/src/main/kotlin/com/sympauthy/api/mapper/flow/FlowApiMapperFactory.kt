@@ -8,9 +8,6 @@ import org.mapstruct.factory.Mappers
 class FlowApiMapperFactory {
 
     @Singleton
-    fun claimsResourceMapper(): ClaimsResourceMapper = Mappers.getMapper(ClaimsResourceMapper::class.java)
-
-    @Singleton
     fun timeZoneResourceMapper(): TimeZoneResourceMapper = Mappers.getMapper(TimeZoneResourceMapper::class.java)
 
     @Singleton
