@@ -47,7 +47,7 @@ class ClaimsResourceMapper(
         val suggestedValue = sortedProviderUserInfoList
             .firstNotNullOfOrNull { it.userInfo.getClaimValueOrNull(claim) }
         return ClaimValueResource(
-            claim = claim.id,
+            id = claim.id,
             required = claim.required,
             name = displayMessageSource.getMessage("claims.${claim.id}.name", claim.id, locale),
             type = claim.dataType.name.lowercase(),

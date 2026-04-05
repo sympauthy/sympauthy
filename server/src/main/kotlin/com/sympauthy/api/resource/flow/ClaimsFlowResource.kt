@@ -40,7 +40,7 @@ data class ClaimValueResource(
     @get:Schema(
         description = "Identifier of the claim."
     )
-    val claim: String,
+    val id: String,
     @get:Schema(
         description = "Whether this claim is required."
     )
