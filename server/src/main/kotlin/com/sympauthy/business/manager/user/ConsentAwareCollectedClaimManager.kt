@@ -23,6 +23,7 @@ import java.util.*
 @Singleton
 open class ConsentAwareCollectedClaimManager(
     @Inject private val claimManager: ClaimManager,
+    @Inject private val consentAwareClaimManager: ConsentAwareClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager
 ) {
 
@@ -111,8 +112,8 @@ open class ConsentAwareCollectedClaimManager(
     /**
      * Update the claims collected for the [user] during the authorization flow.
      *
-     * The end-user is providing their own data. Only claims writable by the user according to
-     * the [consentedScopes] are applied.
+     * Only updates targeting collectable claims (user-inputted, non-identifier, within the
+     * [consentedScopes]) are applied. Other updates are silently ignored.
      */
     @Transactional
     open suspend fun updateByUser(
@@ -120,7 +121,8 @@ open class ConsentAwareCollectedClaimManager(
         updates: List<CollectedClaimUpdate>,
         consentedScopes: List<String>
     ): List<CollectedClaim> {
-        val applicableUpdates = updates.filter { it.claim.canBeWrittenByUser(consentedScopes) }
+        val collectableClaims = consentAwareClaimManager.listCollectableClaimsWithScopes(consentedScopes)
+        val applicableUpdates = updates.filter { it.claim in collectableClaims }
         return collectedClaimManager.applyUpdates(user, applicableUpdates)
     }
 

@@ -33,32 +33,53 @@ The end-user will either:
 )
 
 @Schema(
-    description = "A claim and the value the authorization server has collected for it."
+    description = "A collectable claim with its metadata and collected/suggested values."
 )
 @Serdeable
 data class ClaimValueResource(
     @get:Schema(
-        description = "The claim."
+        description = "Identifier of the claim."
     )
     val claim: String,
     @get:Schema(
+        description = "Whether this claim is required."
+    )
+    val required: Boolean,
+    @get:Schema(
+        description = "Localized display name for this claim."
+    )
+    val name: String,
+    @get:Schema(
+        description = "Data type of the claim (e.g. string, email, date, phone_number, timezone)."
+    )
+    val type: String,
+    @get:Schema(
+        description = "Group this claim belongs to (e.g. identity, address), or null if ungrouped."
+    )
+    val group: String?,
+    @get:Schema(
         description = """
-True if a value for this claim has been collected by the authorization server as a first-party.
+Whether the end-user has already been presented with this claim during a previous step of the authorization flow.
+
+False if the end-user has never been asked about this claim.
+True if the end-user has been presented with this claim, regardless of whether they provided a value or not.
         """
     )
     val collected: Boolean,
     @get:Schema(
         description = """
-A value for the claim that the authorization server has collected as a first-party (through API or authorization flow).
+The value provided by the end-user for this claim, or null if no value was provided.
 
-If this value is missing and collected is true, it means the authorization server has already asked the end-user 
-about this claims but the end-user declined to fill the claim (ex. by leaving it empty during the authentication flow).
+When collected is false, this is always null (the end-user has not been asked yet).
+When collected is true and this is null, it means the end-user was presented with this claim
+but chose not to provide a value (e.g. by leaving it empty during the authorization flow).
         """
     )
     val value: Any?,
     @get:Schema(
         description = """
-A value for the claim that the authorization server has collected from an external provider.  
+A value for this claim collected from an external provider, suggested to the end-user as a default.
+The end-user is free to accept or override this value.
         """
     )
     @get:JsonProperty("suggested_value")

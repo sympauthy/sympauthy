@@ -1,5 +1,6 @@
 package com.sympauthy.business.model.user
 
+import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.OpenIdClaim
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -47,6 +48,15 @@ data class RawProviderClaims(
 
     val updatedAt: LocalDateTime? = null
 ) {
+    /**
+     * Return the value of the given [claim] as a string, or null if not available.
+     * Returns null for custom claims that have no OpenID Connect equivalent.
+     */
+    fun getClaimValueOrNull(claim: Claim): String? {
+        val openIdClaim = OpenIdClaim.entries.firstOrNull { it.id == claim.id } ?: return null
+        return getClaimValueOrNull(openIdClaim)
+    }
+
     /**
      * Return the value of the given [claim] as a string, or null if not available.
      */

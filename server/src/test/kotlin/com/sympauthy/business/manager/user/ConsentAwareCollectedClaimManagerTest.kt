@@ -29,6 +29,9 @@ class ConsentAwareCollectedClaimManagerTest {
     lateinit var claimManager: ClaimManager
 
     @MockK
+    lateinit var consentAwareClaimManager: ConsentAwareClaimManager
+
+    @MockK
     lateinit var collectedClaimManager: CollectedClaimManager
 
     @SpyK
@@ -194,15 +197,10 @@ class ConsentAwareCollectedClaimManagerTest {
     }
 
     @Test
-    fun `updateByUser - Apply all updates writable by user`() = runTest {
+    fun `updateByUser - Apply only updates for collectable claims`() = runTest {
         val scope1 = "scope1"
-        val scope2 = "scope2"
-        val claim1 = mockk<StandardClaim> {
-            every { canBeWrittenByUser(any()) } answers { (firstArg<List<String>>()).contains(scope1) }
-        }
-        val claim2 = mockk<StandardClaim> {
-            every { canBeWrittenByUser(any()) } answers { (firstArg<List<String>>()).contains(scope2) }
-        }
+        val claim1 = mockk<StandardClaim>()
+        val claim2 = mockk<StandardClaim>()
         val update1 = mockk<CollectedClaimUpdate> {
             every { claim } returns claim1
         }
@@ -217,6 +215,7 @@ class ConsentAwareCollectedClaimManagerTest {
             every { claim } returns claim1
         }
 
+        every { consentAwareClaimManager.listCollectableClaimsWithScopes(consentedScopes) } returns listOf(claim1)
         coEvery { collectedClaimManager.applyUpdates(user, listOf(update1)) } returns listOf(collectedClaim1)
 
         val result = manager.updateByUser(user, listOf(update1, update2), consentedScopes)

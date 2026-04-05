@@ -6,10 +6,13 @@ import com.sympauthy.api.mapper.flow.ClaimsResourceMapper
 import com.sympauthy.api.resource.flow.ClaimInputResource
 import com.sympauthy.api.resource.flow.ClaimsFlowResource
 import com.sympauthy.api.resource.flow.SimpleFlowResource
-import com.sympauthy.business.manager.flow.WebAuthorizationFlowPasswordManager
+import com.sympauthy.business.manager.provider.ProviderClaimsManager
+import com.sympauthy.business.manager.user.ConsentAwareClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
+import com.sympauthy.util.orDefault
+import io.micronaut.http.HttpRequest
 import io.micronaut.http.annotation.Body
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
@@ -23,50 +26,65 @@ import jakarta.inject.Inject
 @Secured(HAS_STATE)
 @Controller("/api/v1/flow/claims")
 class ClaimsController(
+    @Inject private val consentAwareClaimManager: ConsentAwareClaimManager,
     @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
-    @Inject private val passwordFlowManager: WebAuthorizationFlowPasswordManager,
+    @Inject private val providerClaimsManager: ProviderClaimsManager,
     @Inject private val claimsMapper: ClaimsResourceMapper,
     @Inject private val collectedClaimUpdateMapper: CollectedClaimUpdateMapper,
-    @Inject private val webAuthorizationFlowControllerUtil: WebAuthorizationFlowControllerUtil
+    @Inject private val webAuthorizationFlowControllerUtil: WebAuthorizationFlowControllerUtil,
 ) {
 
     @Operation(
         description = """
-List all claims already collected by this authorization server for the end-user signing-in/up through the authorization flow.
+List all collectable claims for the end-user signing-in/up through the authorization flow,
+along with their metadata (name, type, required, group), any already-collected values,
+and suggested values from external providers.
 
-It includes claims:
-- collected as a first-party. ex. a new required claim has been added forcing the end-user to go through the claim 
-collection step of the authorization flow again.
-- collected from a provider used by the end-user. In this case, the value may be suggested to the user 
-(by auto-filling the input) and the user is free to enter another value before confirming.
+Identifier claims are excluded as they require separate validation.
+Only claims within the end-user's consented scopes are returned.
 
-If there is no claim to collect from the end-user,  the response will contain the redirect URL where the user 
+If there are no collectable claims, the response will contain the redirect URL where the user
 must be redirected to continue the authorization flow.
         """,
         tags = ["flow"]
     )
     @Get
-    suspend fun getCollectedClaims(
+    suspend fun getCollectableClaims(
         authentication: Authentication,
-    ): ClaimsFlowResource = webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenRunAndRedirect(
-        state = authentication.stateOrNull,
-        run = { authorizeAttempt, _ ->
-            consentAwareCollectedClaimManager.findByAttempt(authorizeAttempt).ifEmpty { null }
-        },
-        mapResultToResource = { claimsMapper.toResource(it) },
-        mapRedirectUriToResource = { claimsMapper.toResource(it) },
-    )
+        httpRequest: HttpRequest<*>
+    ): ClaimsFlowResource {
+        val locale = httpRequest.locale.orDefault()
+        return webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenRunAndRedirect(
+            state = authentication.stateOrNull,
+            run = { authorizeAttempt, _ ->
+                val collectableClaims = consentAwareClaimManager.listCollectableClaimsByAttempt(authorizeAttempt)
+                if (collectableClaims.isEmpty()) {
+                    null
+                } else {
+                    val collectedClaims = consentAwareCollectedClaimManager.findByAttempt(authorizeAttempt)
+                    val providerUserInfoList = authorizeAttempt.userId?.let {
+                        providerClaimsManager.findByUserId(it)
+                    } ?: emptyList()
+                    Triple(collectableClaims, collectedClaims, providerUserInfoList)
+                }
+            },
+            mapResultToResource = { (collectableClaims, collectedClaims, providerUserInfoList) ->
+                claimsMapper.toResource(collectableClaims, collectedClaims, providerUserInfoList, locale)
+            },
+            mapRedirectUriToResource = { claimsMapper.toResource(it) },
+        )
+    }
 
     @Operation(
         description = """
-Save claims collected from the end-user signing-in/up through the authorization flow then redirect the end-user to the 
+Save claims collected from the end-user signing-in/up through the authorization flow then redirect the end-user to the
 next step of the flow.
- 
+
 A claim will be saved if:
 - it is collectable.
 - it is not part of the sign-up claims.
 
-A null or empty value can be assigned to a claim to indicate that the claim was presented to the end-user, 
+A null or empty value can be assigned to a claim to indicate that the claim was presented to the end-user,
 but they chose not to provide a value.
         """,
         responses = [
@@ -85,12 +103,9 @@ but they chose not to provide a value.
         webAuthorizationFlowControllerUtil.fetchOnGoingAttemptWithUserThenUpdateAndRedirect(
             state = authentication.stateOrNull,
             update = { authorizeAttempt, _, user ->
-                val identifierClaims = passwordFlowManager.getIdentifierClaims()
                 consentAwareCollectedClaimManager.updateByUser(
                     user = user,
-                    updates = collectedClaimUpdateMapper.toUpdates(inputResource.claims)
-                        .filter { it.claim.userInputted }
-                        .filter { !identifierClaims.contains(it.claim) },
+                    updates = collectedClaimUpdateMapper.toUpdates(inputResource.claims),
                     consentedScopes = authorizeAttempt.consentedScopes ?: emptyList()
                 )
                 authorizeAttempt
