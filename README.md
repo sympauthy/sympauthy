@@ -47,6 +47,8 @@ clients:
   dev:
     public: false
     secret: dev
+    allowed-redirect-uris:
+      - https://example.com
     allowed-scopes:
       - openid
       - profile
