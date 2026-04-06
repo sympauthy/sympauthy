@@ -1,6 +1,7 @@
 package com.sympauthy.business.model.user.claim
 
 import com.sympauthy.business.model.user.OpenIdConnectScope
+import com.sympauthy.business.model.user.claim.ClaimDataType.DATE
 import com.sympauthy.business.model.user.claim.ClaimDataType.STRING
 import com.sympauthy.business.model.user.claim.ClaimDataType.TIMEZONE
 import com.sympauthy.business.model.user.claim.ClaimGroup.ADDRESS
@@ -98,7 +99,7 @@ enum class OpenIdClaim(
     ),
     BIRTH_DATE(
         id = Id.BIRTH_DATE,
-        type = STRING,
+        type = DATE,
         scope = OpenIdConnectScope.PROFILE
     ),
     ZONE_INFO(
