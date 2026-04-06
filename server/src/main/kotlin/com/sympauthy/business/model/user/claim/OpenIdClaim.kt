@@ -115,7 +115,7 @@ enum class OpenIdClaim(
     PHONE_NUMBER(
         id = Id.PHONE_NUMBER,
         verifiedId = Id.PHONE_NUMBER_VERIFIED,
-        type = STRING,
+        type = ClaimDataType.PHONE_NUMBER,
         scope = OpenIdConnectScope.PHONE
     ),
     UPDATED_AT(

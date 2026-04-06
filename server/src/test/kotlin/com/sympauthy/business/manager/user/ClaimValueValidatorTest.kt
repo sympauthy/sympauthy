@@ -114,6 +114,57 @@ class ClaimValueValidatorTest {
         }
     }
 
+    // --- validatePhoneNumberForClaim ---
+
+    @Test
+    fun `validatePhoneNumberForClaim - Accepts valid phone number`() {
+        val result = validator.validatePhoneNumberForClaim("+15551234567")
+        assertTrue(result.isPresent)
+        assertEquals("+15551234567", result.get())
+    }
+
+    @Test
+    fun `validatePhoneNumberForClaim - Accepts minimal phone number`() {
+        val result = validator.validatePhoneNumberForClaim("+1")
+        assertTrue(result.isPresent)
+        assertEquals("+1", result.get())
+    }
+
+    @Test
+    fun `validatePhoneNumberForClaim - Accepts max-length phone number`() {
+        val result = validator.validatePhoneNumberForClaim("+123456789012345")
+        assertTrue(result.isPresent)
+        assertEquals("+123456789012345", result.get())
+    }
+
+    @Test
+    fun `validatePhoneNumberForClaim - Throws on missing plus prefix`() {
+        assertThrowsLocalizedException("user.claim_value_validator.invalid_phone_number") {
+            validator.validatePhoneNumberForClaim("15551234567")
+        }
+    }
+
+    @Test
+    fun `validatePhoneNumberForClaim - Throws on letters in number`() {
+        assertThrowsLocalizedException("user.claim_value_validator.invalid_phone_number") {
+            validator.validatePhoneNumberForClaim("+1555abc4567")
+        }
+    }
+
+    @Test
+    fun `validatePhoneNumberForClaim - Throws on too many digits`() {
+        assertThrowsLocalizedException("user.claim_value_validator.invalid_phone_number") {
+            validator.validatePhoneNumberForClaim("+1234567890123456")
+        }
+    }
+
+    @Test
+    fun `validatePhoneNumberForClaim - Throws on plus only`() {
+        assertThrowsLocalizedException("user.claim_value_validator.invalid_phone_number") {
+            validator.validatePhoneNumberForClaim("+")
+        }
+    }
+
     // --- validateDateForClaim ---
 
     @Test
