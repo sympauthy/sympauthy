@@ -20,6 +20,10 @@ class ClaimValueValidator {
 
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd")
 
+    companion object {
+        private val E164_PATTERN = Regex("^\\+[0-9]{1,15}$")
+    }
+
     /**
      * Validate the [value] provided can be assigned to the [claim] and return a cleaned [value].
      *
@@ -107,7 +111,21 @@ class ClaimValueValidator {
         return Optional.of(value)
     }
 
+    /**
+     * Validate the [value] is a phone number.
+     *
+     * According to the [OpenID Connect Core specification](https://openid.net/specs/openid-connect-core-1_0.html#Claims),
+     * the phone_number claim MUST conform to [E.164](https://www.itu.int/rec/T-REC-E.164-201011-I/en) format.
+     *
+     * E.164 numbers start with a '+' prefix followed by up to 15 digits.
+     */
     internal fun validatePhoneNumberForClaim(value: String): Optional<Any> {
+        if (!E164_PATTERN.matches(value)) {
+            throw recoverableBusinessExceptionOf(
+                "user.claim_value_validator.invalid_phone_number",
+                "description.user.claim_value_validator.invalid_phone_number"
+            )
+        }
         return Optional.of(value)
     }
 
