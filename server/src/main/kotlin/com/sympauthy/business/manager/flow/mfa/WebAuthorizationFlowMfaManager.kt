@@ -21,7 +21,7 @@ data class MfaAutoRedirect(val uri: URI) : MfaRoutingResult()
 
 data class MfaMethodSelection(
     val methods: List<AvailableMfaMethod>,
-    val skipUri: URI
+    val skipUri: URI?
 ) : MfaRoutingResult()
 
 data class AvailableMfaMethod(val name: String, val uri: URI)
@@ -38,12 +38,12 @@ class WebAuthorizationFlowMfaManager(
      * Returns the [MfaRoutingResult] describing what the end-user must do for the MFA step.
      *
      * Routing table:
-     * | required | enrolled | Result                                                  |
-     * |----------|----------|---------------------------------------------------------|
-     * | true     | false    | Auto-redirect to TOTP enrollment                        |
-     * | true     | true     | Auto-redirect to TOTP challenge                         |
-     * | false    | false    | Method selection screen: TOTP enrollment offer + skip   |
-     * | false    | true     | Method selection screen: TOTP challenge + skip          |
+     * | required | enrolled methods | Result                                                  |
+     * |----------|------------------|---------------------------------------------------------|
+     * | true     | 0                | Auto-redirect to TOTP enrollment                        |
+     * | any      | 1                | Auto-redirect to enrolled method challenge               |
+     * | any      | 2+ (future)      | Method selection: enrolled methods only, no skip         |
+     * | false    | 0                | Method selection: all methods as enrollment offers + skip |
      */
     suspend fun getMfaResult(
         authorizeAttempt: AuthorizeAttempt,
@@ -52,38 +52,48 @@ class WebAuthorizationFlowMfaManager(
         skipEndpointPath: String
     ): MfaRoutingResult {
         val mfaConfig = uncheckedMfaConfig.orThrow()
-        val hasEnrollment = totpManager.findConfirmedEnrollments(user.id).isNotEmpty()
+        val enrollments = totpManager.findConfirmedEnrollments(user.id)
 
         return when {
-            mfaConfig.required && !hasEnrollment ->
-                MfaAutoRedirect(redirectUriBuilder.getMfaTotpEnrollUri(authorizeAttempt, flow))
-
-            mfaConfig.required ->
+            // User is enrolled in exactly one method — go straight to its challenge.
+            enrollments.size == 1 ->
                 MfaAutoRedirect(redirectUriBuilder.getMfaTotpChallengeUri(authorizeAttempt, flow))
 
-            else -> {
-                val methodUri = if (hasEnrollment) {
-                    redirectUriBuilder.getMfaTotpChallengeUri(authorizeAttempt, flow)
-                } else {
-                    redirectUriBuilder.getMfaTotpEnrollUri(authorizeAttempt, flow)
-                }
+            // User is enrolled in multiple methods (future) — let them pick, but no skip.
+            enrollments.size > 1 ->
                 MfaMethodSelection(
-                    methods = listOf(AvailableMfaMethod(name = "TOTP", uri = methodUri)),
+                    methods = listOf(AvailableMfaMethod(name = "TOTP", uri = redirectUriBuilder.getMfaTotpChallengeUri(authorizeAttempt, flow))),
+                    skipUri = null
+                )
+
+            // Not enrolled + required — force enrollment in the only available method.
+            mfaConfig.required ->
+                MfaAutoRedirect(redirectUriBuilder.getMfaTotpEnrollUri(authorizeAttempt, flow))
+
+            // Not enrolled + optional — offer enrollment with the option to skip.
+            else ->
+                MfaMethodSelection(
+                    methods = listOf(AvailableMfaMethod(name = "TOTP", uri = redirectUriBuilder.getMfaTotpEnrollUri(authorizeAttempt, flow))),
                     skipUri = redirectUriBuilder.getMfaSkipUri(authorizeAttempt, skipEndpointPath)
                 )
-            }
         }
     }
 
     /**
      * Marks the MFA step as passed without the end-user completing a challenge.
      *
-     * Throws an unrecoverable [com.sympauthy.business.exception.BusinessException] if MFA is required
-     * (`mfa.required=true`), since skipping is not permitted in that case.
+     * Throws an unrecoverable [com.sympauthy.business.exception.BusinessException] if:
+     * - MFA is required (`mfa.required=true`), or
+     * - the end-user has already enrolled in at least one MFA method.
      */
     suspend fun skipMfa(authorizeAttempt: OnGoingAuthorizeAttempt): OnGoingAuthorizeAttempt {
         if (uncheckedMfaConfig.orThrow().required) {
             throw internalBusinessExceptionOf("flow.mfa.skip.not_allowed")
+        }
+        val userId = authorizeAttempt.userId
+            ?: throw internalBusinessExceptionOf("flow.mfa.skip.not_allowed")
+        if (totpManager.findConfirmedEnrollments(userId).isNotEmpty()) {
+            throw internalBusinessExceptionOf("flow.mfa.skip.not_allowed_when_enrolled")
         }
         return authorizeAttemptManager.setMfaPassed(authorizeAttempt)
     }
