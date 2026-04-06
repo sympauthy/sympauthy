@@ -41,6 +41,9 @@ auth:
 clients:
   default:
     authorization-flow: local
+  admin:
+    allowed-redirect-uris:
+      - http://localhost:5174/callback # Allow local instance of sympauthy-admin
   dev:
     public: false
     secret: dev
