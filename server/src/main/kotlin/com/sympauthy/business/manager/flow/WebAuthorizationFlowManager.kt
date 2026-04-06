@@ -222,9 +222,7 @@ class WebAuthorizationFlowManager(
             )
         }
 
-        if (client.allowedRedirectUris?.isNotEmpty() == true &&
-            !matchesAllowedRedirectUri(uncheckedRedirectUri, client.allowedRedirectUris)
-        ) {
+        if (!matchesAllowedRedirectUri(uncheckedRedirectUri, client.allowedRedirectUris)) {
             throw BusinessException(
                 recoverable = false,
                 detailsId = "flow.web.parse_requested_redirect_uri.not_allowed",

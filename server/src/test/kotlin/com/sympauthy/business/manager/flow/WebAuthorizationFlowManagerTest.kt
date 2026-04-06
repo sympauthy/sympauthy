@@ -742,24 +742,6 @@ class WebAuthorizationFlowManagerTest {
     }
 
     @Test
-    fun `parseRequestedRedirectUri - Accepts redirect_uri when allowedRedirectUris is null`() {
-        val client = mockk<Client> {
-            every { allowedRedirectUris } returns null
-        }
-        val result = manager.parseRequestedRedirectUri(client, "https://any.com/callback")
-        assertEquals(URI("https://any.com/callback"), result)
-    }
-
-    @Test
-    fun `parseRequestedRedirectUri - Accepts redirect_uri when allowedRedirectUris is empty`() {
-        val client = mockk<Client> {
-            every { allowedRedirectUris } returns emptyList()
-        }
-        val result = manager.parseRequestedRedirectUri(client, "https://any.com/callback")
-        assertEquals(URI("https://any.com/callback"), result)
-    }
-
-    @Test
     fun `parseRequestedRedirectUri - Accepts redirect_uri matching an allowed URI exactly`() {
         val client = mockk<Client> {
             every { allowedRedirectUris } returns listOf("https://example.com/callback")

@@ -106,7 +106,7 @@ class ClientsConfigFactory(
             getAllowedRedirectUris(
                 properties = properties,
                 allowedRedirectUris = properties.allowedRedirectUris ?: defaultProperties?.allowedRedirectUris,
-                errors = errors
+                errors = clientErrors
             )
         } catch (e: ConfigurationException) {
             clientErrors.add(e)
@@ -141,7 +141,7 @@ class ClientsConfigFactory(
                 secret = secret,
                 public = isPublic,
                 authorizationFlow = authorizationFlow,
-                allowedRedirectUris = allowedRedirectUris,
+                allowedRedirectUris = allowedRedirectUris!!,
                 allowedScopes = allowedScopes,
                 defaultScopes = defaultScopes
             )
@@ -170,16 +170,22 @@ class ClientsConfigFactory(
         allowedRedirectUris: List<String>?,
         errors: MutableList<ConfigurationException>
     ): List<String>? {
+        val configKey = "$CLIENTS_KEY.${properties.id}.allowed-redirect-uris"
+        if (allowedRedirectUris.isNullOrEmpty()) {
+            errors.add(configExceptionOf(configKey, "config.client.allowed_redirect_uris.missing"))
+            return null
+        }
+
         val listErrors = mutableListOf<ConfigurationException>()
         val templateContext = buildTemplateContext(properties)
 
-        val resolvedUris = allowedRedirectUris?.mapIndexedNotNull { index, uri ->
-            val configKey = "$CLIENTS_KEY.${properties.id}.allowed-redirect-uris[$index]"
+        val resolvedUris = allowedRedirectUris.mapIndexedNotNull { index, uri ->
+            val itemKey = "$configKey[$index]"
             try {
-                val resolved = templateResolver.resolve(uri, templateContext, configKey)
+                val resolved = templateResolver.resolve(uri, templateContext, itemKey)
                 val parsedUri = UriBuilder.of(resolved).build()
                 if (parsedUri.scheme.isNullOrBlank()) {
-                    throw configExceptionOf(configKey, "config.invalid_url")
+                    throw configExceptionOf(itemKey, "config.invalid_url")
                 }
                 resolved
             } catch (e: ConfigurationException) {
