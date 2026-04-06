@@ -2,7 +2,6 @@ package com.sympauthy.business.model.client
 
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.oauth2.Scope
-import java.net.URI
 
 data class Client(
     val id: String,
@@ -22,13 +21,14 @@ data class Client(
     val authorizationFlow: AuthorizationFlow?,
 
     /**
-     * List of [URI] that are authorized to be used as an authorize_uri for the OAuth2 authorize endpoint.
+     * List of redirect URIs that are authorized to be used as a redirect_uri for the OAuth2 authorize endpoint.
+     * Compared using exact string matching per OAuth 2.1 (section 7.5.3).
      *
      * If the list is null or empty, then all redirect_uri are allowed.
      *
      * > [OAuth 2.0 Security Best Current Practice](https://www.ietf.org/archive/id/draft-ietf-oauth-security-topics-25.html#name-redirect-uri-validation-att)
      */
-    val allowedRedirectUris: List<URI>? = null,
+    val allowedRedirectUris: List<String>? = null,
 
     /**
      * List of [Scope] that can be issued to a token request by this [Client].

@@ -6,26 +6,31 @@ import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.config.ConfigParser
+import com.sympauthy.config.ConfigTemplateResolver
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.ClientsConfig
 import com.sympauthy.config.model.DisabledClientsConfig
 import com.sympauthy.config.model.EnabledClientsConfig
+import com.sympauthy.config.model.EnabledUrlsConfig
+import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.config.properties.ClientConfigurationProperties
 import com.sympauthy.config.properties.ClientConfigurationProperties.Companion.CLIENTS_KEY
 import com.sympauthy.config.properties.ClientConfigurationProperties.Companion.DEFAULT
 import io.micronaut.context.annotation.Factory
+import io.micronaut.http.uri.UriBuilder
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import java.net.URI
 
 @Factory
 class ClientsConfigFactory(
     @Inject private val parser: ConfigParser,
     @Inject private val scopeManager: ScopeManager,
-    @Inject private val authorizationFlowManager: AuthorizationFlowManager
+    @Inject private val authorizationFlowManager: AuthorizationFlowManager,
+    @Inject private val urlsConfig: UrlsConfig,
+    @Inject private val templateResolver: ConfigTemplateResolver
 ) {
 
     @Singleton
@@ -146,18 +151,37 @@ class ClientsConfigFactory(
         }
     }
 
+    private fun buildTemplateContext(
+        properties: ClientConfigurationProperties
+    ): Map<String, String> {
+        val context = mutableMapOf<String, String>()
+        val enabledUrlsConfig = urlsConfig as? EnabledUrlsConfig
+        if (enabledUrlsConfig != null) {
+            context["urls.root"] = enabledUrlsConfig.root.toString()
+        }
+        properties.uris?.forEach { (key, value) ->
+            context["client.uris.$key"] = value
+        }
+        return context
+    }
+
     private fun getAllowedRedirectUris(
         properties: ClientConfigurationProperties,
         allowedRedirectUris: List<String>?,
         errors: MutableList<ConfigurationException>
-    ): List<URI>? {
+    ): List<String>? {
         val listErrors = mutableListOf<ConfigurationException>()
+        val templateContext = buildTemplateContext(properties)
 
-        val allowedRedirectUris = allowedRedirectUris?.mapIndexedNotNull { index, uri ->
+        val resolvedUris = allowedRedirectUris?.mapIndexedNotNull { index, uri ->
+            val configKey = "$CLIENTS_KEY.${properties.id}.allowed-redirect-uris[$index]"
             try {
-                parser.getAbsoluteUriOrThrow(
-                    uri, "$CLIENTS_KEY.${properties.id}.allowed-redirect-uris[$index]"
-                ) { it }
+                val resolved = templateResolver.resolve(uri, templateContext, configKey)
+                val parsedUri = UriBuilder.of(resolved).build()
+                if (parsedUri.scheme.isNullOrBlank()) {
+                    throw configExceptionOf(configKey, "config.invalid_url")
+                }
+                resolved
             } catch (e: ConfigurationException) {
                 listErrors.add(e)
                 null
@@ -165,7 +189,7 @@ class ClientsConfigFactory(
         }
 
         return if (listErrors.isEmpty()) {
-            allowedRedirectUris
+            resolvedUris
         } else {
             errors.addAll(listErrors)
             null

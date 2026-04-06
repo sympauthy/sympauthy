@@ -218,18 +218,57 @@ class WebAuthorizationFlowManager(
                 recoverable = false,
                 detailsId = "flow.web.parse_requested_redirect_uri.invalid",
                 descriptionId = "description.flow.web.parse_requested_redirect_uri.invalid",
-                values = mapOf("message" to (e.message ?: ""))
+                values = mapOf("redirect_uri" to uncheckedRedirectUri, "message" to (e.message ?: ""))
             )
         }
 
-        if (client.allowedRedirectUris?.isNotEmpty() == true && !client.allowedRedirectUris.contains(redirectURI)) {
+        if (client.allowedRedirectUris?.isNotEmpty() == true &&
+            !matchesAllowedRedirectUri(uncheckedRedirectUri, client.allowedRedirectUris)
+        ) {
             throw BusinessException(
                 recoverable = false,
                 detailsId = "flow.web.parse_requested_redirect_uri.not_allowed",
-                descriptionId = "description.flow.web.parse_requested_redirect_uri.not_allowed"
+                descriptionId = "description.flow.web.parse_requested_redirect_uri.not_allowed",
+                values = mapOf("redirect_uri" to uncheckedRedirectUri)
             )
         }
         return redirectURI
+    }
+
+    /**
+     * Check if [requestedUri] matches any of the [allowedUris] using exact string matching
+     * per OAuth 2.1 (section 7.5.3), with loopback port flexibility per RFC 8252.
+     *
+     * Loopback flexibility: for redirect URIs using `127.0.0.1` or `::1` with `http`/`https`,
+     * the port is ignored during matching. This does NOT apply to `localhost`.
+     */
+    internal fun matchesAllowedRedirectUri(requestedUri: String, allowedUris: List<String>): Boolean {
+        // 1. Exact string match (OAuth 2.1 compliance)
+        if (allowedUris.contains(requestedUri)) return true
+
+        // 2. Loopback port flexibility (RFC 8252)
+        val parsedRequested = try {
+            URI(requestedUri)
+        } catch (_: URISyntaxException) {
+            return false
+        }
+        val requestedScheme = parsedRequested.scheme ?: return false
+        if (requestedScheme != "http" && requestedScheme != "https") return false
+        val requestedHost = parsedRequested.host ?: return false
+        if (requestedHost != "127.0.0.1" && requestedHost != "[::1]") return false
+
+        return allowedUris.any { allowedUri ->
+            val parsedAllowed = try {
+                URI(allowedUri)
+            } catch (_: URISyntaxException) {
+                return@any false
+            }
+            parsedAllowed.scheme == requestedScheme &&
+                parsedAllowed.host == requestedHost &&
+                parsedAllowed.path == parsedRequested.path &&
+                parsedAllowed.query == parsedRequested.query &&
+                parsedAllowed.fragment == parsedRequested.fragment
+        }
     }
 
     /**
