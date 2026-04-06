@@ -59,7 +59,7 @@ Returns one of two response shapes depending on the situation:
                         methods = result.methods.map {
                             MfaMethodResource(method = it.name, redirectUrl = it.uri.toString())
                         },
-                        skipRedirectUrl = result.skipUri.toString()
+                        skipRedirectUrl = result.skipUri?.toString()
                     )
                 }
             }

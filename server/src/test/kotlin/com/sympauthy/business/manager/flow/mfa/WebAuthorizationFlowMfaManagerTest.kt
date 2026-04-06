@@ -101,34 +101,28 @@ class WebAuthorizationFlowMfaManagerTest {
     }
 
     @Test
-    fun `getMfaResult - optional and enrolled - returns method selection with TOTP challenge and skip`() = runTest {
+    fun `getMfaResult - optional and enrolled - auto-redirects to TOTP challenge`() = runTest {
         val challengeUri = URI("https://example.com/mfa/totp/challenge?state=abc")
-        val skipUri = URI("https://example.com/mfa/skip?state=abc")
         val enrollment = mockk<TotpEnrollment>()
         val manager = managerWith(EnabledMfaConfig(totp = true, required = false))
 
         coEvery { totpManager.findConfirmedEnrollments(userId) } returns listOf(enrollment)
         coEvery { redirectUriBuilder.getMfaTotpChallengeUri(authorizeAttempt, flow) } returns challengeUri
-        coEvery { redirectUriBuilder.getMfaSkipUri(authorizeAttempt, skipEndpointPath) } returns skipUri
 
         val result = manager.getMfaResult(authorizeAttempt, user, flow, skipEndpointPath)
 
-        assertEquals(
-            MfaMethodSelection(
-                methods = listOf(AvailableMfaMethod(name = "TOTP", uri = challengeUri)),
-                skipUri = skipUri
-            ),
-            result
-        )
+        assertEquals(MfaAutoRedirect(challengeUri), result)
     }
 
     // --- skipMfa ---
 
     @Test
-    fun `skipMfa - Sets mfaPassed and returns updated attempt when MFA is optional`() = runTest {
+    fun `skipMfa - Sets mfaPassed and returns updated attempt when MFA is optional and not enrolled`() = runTest {
         val updatedAttempt = mockk<OnGoingAuthorizeAttempt>()
         val manager = managerWith(EnabledMfaConfig(totp = true, required = false))
 
+        every { authorizeAttempt.userId } returns userId
+        coEvery { totpManager.findConfirmedEnrollments(userId) } returns emptyList()
         coEvery { authorizeAttemptManager.setMfaPassed(authorizeAttempt) } returns updatedAttempt
 
         val result = manager.skipMfa(authorizeAttempt)
@@ -146,6 +140,23 @@ class WebAuthorizationFlowMfaManagerTest {
         }
 
         assertEquals("flow.mfa.skip.not_allowed", exception.detailsId)
+        assertFalse(exception.recoverable)
+        coVerify(exactly = 0) { authorizeAttemptManager.setMfaPassed(any()) }
+    }
+
+    @Test
+    fun `skipMfa - Throws unrecoverable exception when MFA is optional but user is enrolled`() = runTest {
+        val enrollment = mockk<TotpEnrollment>()
+        val manager = managerWith(EnabledMfaConfig(totp = true, required = false))
+
+        every { authorizeAttempt.userId } returns userId
+        coEvery { totpManager.findConfirmedEnrollments(userId) } returns listOf(enrollment)
+
+        val exception = assertThrows<BusinessException> {
+            manager.skipMfa(authorizeAttempt)
+        }
+
+        assertEquals("flow.mfa.skip.not_allowed_when_enrolled", exception.detailsId)
         assertFalse(exception.recoverable)
         coVerify(exactly = 0) { authorizeAttemptManager.setMfaPassed(any()) }
     }
