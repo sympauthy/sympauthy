@@ -733,7 +733,7 @@ class WebAuthorizationFlowManagerTest {
     @Test
     fun `parseRequestedRedirectUri - Throws when redirect_uri is not in allowedRedirectUris`() {
         val client = mockk<Client> {
-            every { allowedRedirectUris } returns listOf(URI("https://allowed.com/callback"))
+            every { allowedRedirectUris } returns listOf("https://allowed.com/callback")
         }
         val exception = assertThrows<BusinessException> {
             manager.parseRequestedRedirectUri(client, "https://other.com/callback")
@@ -762,7 +762,7 @@ class WebAuthorizationFlowManagerTest {
     @Test
     fun `parseRequestedRedirectUri - Accepts redirect_uri matching an allowed URI exactly`() {
         val client = mockk<Client> {
-            every { allowedRedirectUris } returns listOf(URI("https://example.com/callback"))
+            every { allowedRedirectUris } returns listOf("https://example.com/callback")
         }
         val result = manager.parseRequestedRedirectUri(client, "https://example.com/callback")
         assertEquals(URI("https://example.com/callback"), result)
@@ -771,7 +771,7 @@ class WebAuthorizationFlowManagerTest {
     @Test
     fun `parseRequestedRedirectUri - Rejects redirect_uri with different path`() {
         val client = mockk<Client> {
-            every { allowedRedirectUris } returns listOf(URI("https://example.com/callback"))
+            every { allowedRedirectUris } returns listOf("https://example.com/callback")
         }
         val exception = assertThrows<BusinessException> {
             manager.parseRequestedRedirectUri(client, "https://example.com/other-path")
@@ -782,11 +782,89 @@ class WebAuthorizationFlowManagerTest {
     @Test
     fun `parseRequestedRedirectUri - Rejects redirect_uri with extra query params`() {
         val client = mockk<Client> {
-            every { allowedRedirectUris } returns listOf(URI("https://example.com/callback"))
+            every { allowedRedirectUris } returns listOf("https://example.com/callback")
         }
         val exception = assertThrows<BusinessException> {
             manager.parseRequestedRedirectUri(client, "https://example.com/callback?extra=param")
         }
         assertEquals("flow.web.parse_requested_redirect_uri.not_allowed", exception.detailsId)
+    }
+
+    @Test
+    fun `parseRequestedRedirectUri - Rejects redirect_uri with different case in scheme`() {
+        val client = mockk<Client> {
+            every { allowedRedirectUris } returns listOf("https://example.com/callback")
+        }
+        val exception = assertThrows<BusinessException> {
+            manager.parseRequestedRedirectUri(client, "HTTPS://example.com/callback")
+        }
+        assertEquals("flow.web.parse_requested_redirect_uri.not_allowed", exception.detailsId)
+    }
+
+    @Test
+    fun `parseRequestedRedirectUri - Rejects redirect_uri with different case in host`() {
+        val client = mockk<Client> {
+            every { allowedRedirectUris } returns listOf("https://example.com/callback")
+        }
+        val exception = assertThrows<BusinessException> {
+            manager.parseRequestedRedirectUri(client, "https://Example.com/callback")
+        }
+        assertEquals("flow.web.parse_requested_redirect_uri.not_allowed", exception.detailsId)
+    }
+
+    // --- matchesAllowedRedirectUri loopback tests ---
+
+    @Test
+    fun `matchesAllowedRedirectUri - Allows different port on 127_0_0_1 loopback`() {
+        val result = manager.matchesAllowedRedirectUri(
+            "http://127.0.0.1:12345/callback",
+            listOf("http://127.0.0.1:8080/callback")
+        )
+        assertTrue(result)
+    }
+
+    @Test
+    fun `matchesAllowedRedirectUri - Allows different port on IPv6 loopback`() {
+        val result = manager.matchesAllowedRedirectUri(
+            "http://[::1]:12345/callback",
+            listOf("http://[::1]:8080/callback")
+        )
+        assertTrue(result)
+    }
+
+    @Test
+    fun `matchesAllowedRedirectUri - Rejects different port on localhost`() {
+        val result = manager.matchesAllowedRedirectUri(
+            "http://localhost:12345/callback",
+            listOf("http://localhost:8080/callback")
+        )
+        assertFalse(result)
+    }
+
+    @Test
+    fun `matchesAllowedRedirectUri - Rejects loopback with different path`() {
+        val result = manager.matchesAllowedRedirectUri(
+            "http://127.0.0.1:12345/other",
+            listOf("http://127.0.0.1:8080/callback")
+        )
+        assertFalse(result)
+    }
+
+    @Test
+    fun `matchesAllowedRedirectUri - Rejects cross-family loopback mismatch`() {
+        val result = manager.matchesAllowedRedirectUri(
+            "http://127.0.0.1:12345/callback",
+            listOf("http://[::1]:8080/callback")
+        )
+        assertFalse(result)
+    }
+
+    @Test
+    fun `matchesAllowedRedirectUri - Rejects loopback flexibility for custom scheme`() {
+        val result = manager.matchesAllowedRedirectUri(
+            "myapp://127.0.0.1:12345/callback",
+            listOf("myapp://127.0.0.1:8080/callback")
+        )
+        assertFalse(result)
     }
 }

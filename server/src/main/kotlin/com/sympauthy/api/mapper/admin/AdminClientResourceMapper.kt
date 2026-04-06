@@ -7,7 +7,6 @@ import com.sympauthy.business.model.oauth2.Scope
 import org.mapstruct.Mapper
 import org.mapstruct.Mapping
 import org.mapstruct.NullValueMappingStrategy
-import java.net.URI
 
 @Mapper(
     config = OutputResourceMapperConfig::class,
@@ -23,6 +22,4 @@ abstract class AdminClientResourceMapper {
     fun toClientType(public: Boolean): String = if (public) "public" else "confidential"
 
     fun toScope(scope: Scope): String = scope.scope
-
-    fun toUri(uri: URI): String = uri.toString()
 }

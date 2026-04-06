@@ -10,6 +10,8 @@ admin:
 clients:
   admin:
     public: true
+    allowed-redirect-uris:
+      - "${urls.root}/callback"
     allowed-scopes:
       - openid
       - profile
