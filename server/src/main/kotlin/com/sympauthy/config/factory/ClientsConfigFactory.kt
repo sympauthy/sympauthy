@@ -3,6 +3,7 @@ package com.sympauthy.config.factory
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.flow.AuthorizationFlowManager
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.config.ConfigParser
@@ -92,6 +93,17 @@ class ClientsConfigFactory(
             null
         }
 
+        val allowedGrantTypes = try {
+            getAllowedGrantTypes(
+                properties = properties,
+                allowedGrantTypes = properties.allowedGrantTypes ?: defaultProperties?.allowedGrantTypes,
+                errors = clientErrors
+            )
+        } catch (e: ConfigurationException) {
+            clientErrors.add(e)
+            null
+        }
+
         val authorizationFlow = try {
             getAuthorizationFlow(
                 key = "$CLIENTS_KEY.${properties.id}.authorization-flow",
@@ -102,15 +114,28 @@ class ClientsConfigFactory(
             null
         }
 
-        val allowedRedirectUris = try {
-            getAllowedRedirectUris(
-                properties = properties,
-                allowedRedirectUris = properties.allowedRedirectUris ?: defaultProperties?.allowedRedirectUris,
-                errors = clientErrors
-            )
-        } catch (e: ConfigurationException) {
-            clientErrors.add(e)
-            null
+        val allowedRedirectUris = if (allowedGrantTypes?.contains(GrantType.AUTHORIZATION_CODE) != false) {
+            try {
+                getAllowedRedirectUris(
+                    properties = properties,
+                    allowedRedirectUris = properties.allowedRedirectUris ?: defaultProperties?.allowedRedirectUris,
+                    errors = clientErrors
+                )
+            } catch (e: ConfigurationException) {
+                clientErrors.add(e)
+                null
+            }
+        } else {
+            val rawRedirectUris = properties.allowedRedirectUris ?: defaultProperties?.allowedRedirectUris
+            if (!rawRedirectUris.isNullOrEmpty()) {
+                clientErrors.add(
+                    configExceptionOf(
+                        "$CLIENTS_KEY.${properties.id}.allowed-redirect-uris",
+                        "config.client.allowed_redirect_uris.unnecessary"
+                    )
+                )
+            }
+            emptyList()
         }
 
         val allowedScopes = try {
@@ -140,6 +165,7 @@ class ClientsConfigFactory(
                 id = properties.id,
                 secret = secret,
                 public = isPublic,
+                allowedGrantTypes = allowedGrantTypes!!,
                 authorizationFlow = authorizationFlow,
                 allowedRedirectUris = allowedRedirectUris!!,
                 allowedScopes = allowedScopes,
@@ -200,6 +226,55 @@ class ClientsConfigFactory(
             errors.addAll(listErrors)
             null
         }
+    }
+
+    private fun getAllowedGrantTypes(
+        properties: ClientConfigurationProperties,
+        allowedGrantTypes: List<String>?,
+        errors: MutableList<ConfigurationException>
+    ): Set<GrantType>? {
+        val configKey = "$CLIENTS_KEY.${properties.id}.allowed-grant-types"
+        if (allowedGrantTypes.isNullOrEmpty()) {
+            errors.add(
+                configExceptionOf(
+                    configKey, "config.client.allowed_grant_types.missing",
+                    "supportedValues" to GrantType.entries.joinToString(", ") { it.value }
+                )
+            )
+            return null
+        }
+
+        val grantTypeErrors = mutableListOf<ConfigurationException>()
+        val parsed = allowedGrantTypes.mapIndexedNotNull { index, value ->
+            val itemKey = "$configKey[$index]"
+            val grantType = GrantType.fromValueOrNull(value)
+            if (grantType == null) {
+                grantTypeErrors.add(
+                    configExceptionOf(
+                        itemKey, "config.client.allowed_grant_types.invalid",
+                        "grantType" to value,
+                        "supportedValues" to GrantType.entries.joinToString(", ") { it.value }
+                    )
+                )
+            }
+            grantType
+        }.toSet()
+
+        if (grantTypeErrors.isNotEmpty()) {
+            errors.addAll(grantTypeErrors)
+            return null
+        }
+
+        if (GrantType.REFRESH_TOKEN in parsed && GrantType.AUTHORIZATION_CODE !in parsed) {
+            errors.add(
+                configExceptionOf(
+                    configKey, "config.client.allowed_grant_types.refresh_token_requires_authorization_code"
+                )
+            )
+            return null
+        }
+
+        return parsed
     }
 
     private fun getAuthorizationFlow(

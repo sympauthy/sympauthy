@@ -7,6 +7,7 @@ import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.REFRESH_KEY
 import com.sympauthy.business.mapper.AuthenticationTokenMapper
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
@@ -61,12 +62,19 @@ class TokenManagerTest {
     @InjectMockKs
     lateinit var tokenManager: TokenManager
 
+    private fun mockClientWithGrantTypes(vararg grantTypes: GrantType): Client {
+        return mockk {
+            every { supportsGrantType(any()) } answers { grantTypes.contains(firstArg()) }
+        }
+    }
+
     @Test
     fun `generateTokens - Throws if session is expired`() = runTest {
         val attempt = mockk<CompletedAuthorizeAttempt>()
+        val client = mockk<Client>()
         every { attempt.expired } returns true
         assertThrows<OAuth2Exception> {
-            tokenManager.generateTokens(attempt)
+            tokenManager.generateTokens(attempt, client)
         }
     }
 
@@ -74,6 +82,7 @@ class TokenManagerTest {
     fun `generateTokens - Generate all tokens`() = runTest {
         val userId = UUID.randomUUID()
         val authorizedAttempt = mockk<CompletedAuthorizeAttempt>()
+        val client = mockClientWithGrantTypes(*GrantType.entries.toTypedArray())
         val accessToken = mockk<EncodedAuthenticationToken>()
         val refreshToken = mockk<EncodedAuthenticationToken>()
         val idToken = mockk<EncodedAuthenticationToken>()
@@ -84,7 +93,7 @@ class TokenManagerTest {
         coEvery { refreshTokenGenerator.generateRefreshToken(authorizedAttempt, userId, dpopJkt = null) } returns refreshToken
         coEvery { idTokenGenerator.generateIdToken(authorizedAttempt, userId, accessToken) } returns idToken
 
-        val result = tokenManager.generateTokens(authorizedAttempt)
+        val result = tokenManager.generateTokens(authorizedAttempt, client)
 
         assertSame(accessToken, result.accessToken)
         assertSame(refreshToken, result.refreshToken)

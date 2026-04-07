@@ -9,6 +9,7 @@ import com.sympauthy.business.manager.jwt.JwtManager.Companion.REFRESH_KEY
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
 import com.sympauthy.business.mapper.AuthenticationTokenMapper
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
@@ -78,9 +79,18 @@ open class TokenManager(
         )
     }
 
+    /**
+     * Generate tokens for a completed authorization code flow.
+     *
+     * Always generates an access token and an ID token. A refresh token is only generated if the [client] supports
+     * the [GrantType.REFRESH_TOKEN] grant type.
+     *
+     * @throws OAuth2Exception if the [authorizeAttempt] has expired.
+     */
     @Transactional
     open suspend fun generateTokens(
         authorizeAttempt: CompletedAuthorizeAttempt,
+        client: Client,
         dpopJkt: String? = null
     ): GenerateTokenResult = coroutineScope {
         if (authorizeAttempt.expired) {
@@ -90,9 +100,11 @@ open class TokenManager(
         val deferredAccessToken = async {
             accessTokenGenerator.generateAccessToken(authorizeAttempt, authorizeAttempt.userId, dpopJkt = dpopJkt)
         }
-        val deferredRefreshToken = async {
-            refreshTokenGenerator.generateRefreshToken(authorizeAttempt, authorizeAttempt.userId, dpopJkt = dpopJkt)
-        }
+        val deferredRefreshToken = if (client.supportsGrantType(GrantType.REFRESH_TOKEN)) {
+            async {
+                refreshTokenGenerator.generateRefreshToken(authorizeAttempt, authorizeAttempt.userId, dpopJkt = dpopJkt)
+            }
+        } else null
 
         val accessToken = deferredAccessToken.await()
         val deferredIdToken = async {
@@ -105,7 +117,7 @@ open class TokenManager(
 
         GenerateTokenResult(
             accessToken = accessToken,
-            refreshToken = deferredRefreshToken.await(),
+            refreshToken = deferredRefreshToken?.await(),
             idToken = deferredIdToken.await()
         )
     }

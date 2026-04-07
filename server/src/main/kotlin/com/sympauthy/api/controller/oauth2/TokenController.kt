@@ -15,6 +15,7 @@ import com.sympauthy.business.manager.auth.oauth2.PkceManager
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
 import com.sympauthy.business.manager.flow.AuthorizationFlowManager
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
 import com.sympauthy.business.model.oauth2.DpopProof
@@ -140,6 +141,7 @@ Client authentication is supported via:
                 val client = clientAuthenticationUtil.resolveClientAllowingPublic(
                     request, clientId, clientSecret
                 )
+                checkClientSupportsGrantType(client, GrantType.AUTHORIZATION_CODE)
                 getTokensUsingAuthorizationCode(
                     client = client,
                     code = code,
@@ -151,6 +153,7 @@ Client authentication is supported via:
 
             "refresh_token" -> {
                 val client = clientAuthenticationUtil.resolveClientAllowingPublic(request, clientId, clientSecret)
+                checkClientSupportsGrantType(client, GrantType.REFRESH_TOKEN)
                 getTokensUsingRefreshToken(
                     client = client,
                     encodedRefreshToken = refreshToken,
@@ -160,6 +163,7 @@ Client authentication is supported via:
 
             "client_credentials" -> {
                 val client = clientAuthenticationUtil.resolveClient(request, clientId, clientSecret)
+                checkClientSupportsGrantType(client, GrantType.CLIENT_CREDENTIALS)
                 getTokensUsingClientCredentials(
                     client = client,
                     scope = scope,
@@ -206,7 +210,7 @@ Client authentication is supported via:
             throw e.toOAuth2Exception(INVALID_GRANT)
         }
 
-        val tokens = tokenManager.generateTokens(completedAttempt, dpopJkt = dpopProof?.jkt)
+        val tokens = tokenManager.generateTokens(completedAttempt, client, dpopJkt = dpopProof?.jkt)
         val tokenType = if (dpopProof != null) TOKEN_TYPE_DPOP else TOKEN_TYPE_BEARER
 
         return TokenResource(
@@ -264,6 +268,16 @@ Client authentication is supported via:
             refreshToken = null,
             idToken = null
         )
+    }
+
+    private fun checkClientSupportsGrantType(client: Client, grantType: GrantType) {
+        if (!client.supportsGrantType(grantType)) {
+            throw oauth2ExceptionOf(
+                OAuth2ErrorCode.UNAUTHORIZED_CLIENT,
+                "token.unauthorized_grant_type",
+                "grantType" to grantType.value
+            )
+        }
     }
 
     private fun getScope(accessToken: EncodedAuthenticationToken): String? {
