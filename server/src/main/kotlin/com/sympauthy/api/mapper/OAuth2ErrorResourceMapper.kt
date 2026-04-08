@@ -2,6 +2,8 @@ package com.sympauthy.api.mapper
 
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.resource.error.OAuth2ErrorResource
+import com.sympauthy.config.model.FeaturesConfig
+import com.sympauthy.config.model.orNull
 import com.sympauthy.server.ErrorMessages
 import io.micronaut.context.MessageSource
 import jakarta.inject.Inject
@@ -10,17 +12,21 @@ import java.util.*
 
 @Singleton
 class OAuth2ErrorResourceMapper(
-    @Inject @param:ErrorMessages private val messageSource: MessageSource
+    @Inject @param:ErrorMessages private val messageSource: MessageSource,
+    @Inject private val featuresConfig: FeaturesConfig
 ) {
 
     fun toResource(
         error: OAuth2Exception,
         locale: Locale
     ): OAuth2ErrorResource {
+        val descriptionId = error.descriptionId ?: error.errorCode.defaultDescriptionId
         return OAuth2ErrorResource(
             errorCode = error.errorCode.errorCode,
-            details = error.detailsId.translate(error, locale),
-            description = error.descriptionId.translate(error, locale)
+            details = if (featuresConfig.orNull()?.printDetailsInError == true) {
+                error.detailsId.translate(error, locale)
+            } else null,
+            description = descriptionId.translate(error, locale)
         )
     }
 

@@ -275,6 +275,7 @@ Client authentication is supported via:
             throw oauth2ExceptionOf(
                 OAuth2ErrorCode.UNAUTHORIZED_CLIENT,
                 "token.unauthorized_grant_type",
+                "description.token.unauthorized_grant_type",
                 "grantType" to grantType.value
             )
         }
