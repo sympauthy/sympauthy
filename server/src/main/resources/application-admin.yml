@@ -14,7 +14,7 @@ clients:
       - authorization_code
       - refresh_token
     allowed-redirect-uris:
-      - "${urls.root}/callback"
+      - "${urls.root}/admin/callback"
     allowed-scopes:
       - openid
       - profile
