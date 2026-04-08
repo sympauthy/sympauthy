@@ -71,6 +71,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           push: true
+          provenance: false
           context: .github/docker
           file: .github/docker/Dockerfile
           platforms: ${{ steps.arch.outputs.docker_platform }}
