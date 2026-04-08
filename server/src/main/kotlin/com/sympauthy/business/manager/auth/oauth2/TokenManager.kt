@@ -146,7 +146,7 @@ open class TokenManager(
 
         val refreshToken = getAuthenticationToken(decodedToken)
         if (refreshToken.clientId != client.id) {
-            throw oauth2ExceptionOf(INVALID_GRANT, "token.mismatching_client")
+            throw oauth2ExceptionOf(INVALID_GRANT, "token.mismatching_client", "description.token.mismatching_client")
         }
 
         // If the refresh token was DPoP-bound, the new proof must use the same key
@@ -162,7 +162,7 @@ open class TokenManager(
         // For user tokens, verify the consent has not been revoked
         if (refreshToken.userId != null) {
             consentManager.findActiveConsentOrNull(refreshToken.userId, refreshToken.clientId)
-                ?: throw oauth2ExceptionOf(INVALID_GRANT, "token.consent_revoked")
+                ?: throw oauth2ExceptionOf(INVALID_GRANT, "token.consent_revoked", "description.token.consent_revoked")
         }
 
         // Use the DPoP jkt from the proof, or carry forward the existing binding

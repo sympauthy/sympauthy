@@ -1,7 +1,6 @@
 package com.sympauthy.api.errorhandler
 
 import com.sympauthy.api.exception.LocalizedHttpException
-import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.exception.httpExceptionOf
 import com.sympauthy.api.exception.toHttpException
 import com.sympauthy.business.exception.BusinessException
@@ -26,7 +25,6 @@ class ExceptionNormalizer {
             is LocalizedHttpException -> throwable
             is BusinessException -> throwable.toHttpException(throwable.recommendedStatus ?: INTERNAL_SERVER_ERROR)
             is LocalizedException -> throwable.toHttpException(INTERNAL_SERVER_ERROR)
-            is OAuth2Exception -> throwable.toHttpException()
             else -> httpExceptionOf(
                 status = INTERNAL_SERVER_ERROR,
                 detailsId = "internal_server_error",
