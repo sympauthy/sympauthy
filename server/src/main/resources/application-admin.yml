@@ -10,6 +10,9 @@ admin:
 clients:
   admin:
     public: true
+    allowed-grant-types:
+      - authorization_code
+      - refresh_token
     allowed-redirect-uris:
       - "${urls.root}/callback"
     allowed-scopes:

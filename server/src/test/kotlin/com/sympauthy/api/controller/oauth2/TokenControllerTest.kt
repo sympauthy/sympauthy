@@ -103,7 +103,10 @@ class TokenControllerTest {
     }
 
     private fun mockClient(id: String = "test-client"): Client {
-        return mockk { every { this@mockk.id } returns id }
+        return mockk {
+            every { this@mockk.id } returns id
+            every { supportsGrantType(any()) } returns true
+        }
     }
 
     private fun mockEncodedToken(
@@ -322,7 +325,7 @@ class TokenControllerTest {
         coEvery { authorizeAttemptManager.findByCodeOrNull("the-code") } returns completedAttempt
         coEvery { authorizeFlowManager.checkCanIssueToken(completedAttempt, any()) } returns completedAttempt
         every { pkceManager.verifyCodeVerifier(null, null, null) } just runs
-        coEvery { tokenManager.generateTokens(completedAttempt, dpopJkt = null) } returns GenerateTokenResult(
+        coEvery { tokenManager.generateTokens(completedAttempt, any(), dpopJkt = null) } returns GenerateTokenResult(
             accessToken = accessToken,
             refreshToken = refreshToken,
             idToken = idToken

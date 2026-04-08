@@ -4,6 +4,7 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
+import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
@@ -93,7 +94,15 @@ class WebAuthorizationFlowManager(
         uncheckedCodeChallengeMethod: String? = null
     ): Pair<AuthorizeAttempt, WebAuthorizationFlow> {
         val (client, clientException) = try {
-            clientManager.parseRequestedClient(uncheckedClientId) to null
+            val client = clientManager.parseRequestedClient(uncheckedClientId)
+            if (!client.supportsGrantType(GrantType.AUTHORIZATION_CODE)) {
+                throw BusinessException(
+                    recoverable = false,
+                    detailsId = "authorize.unauthorized_grant_type",
+                    descriptionId = "description.authorize.unauthorized_grant_type"
+                )
+            }
+            client to null
         } catch (e: BusinessException) {
             null to e
         }

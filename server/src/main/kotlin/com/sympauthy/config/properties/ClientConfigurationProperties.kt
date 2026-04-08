@@ -15,6 +15,7 @@ class ClientConfigurationProperties(
     var secret: String? = null
     var authorizationFlow: String? = null
     var uris: Map<String, String>? = null
+    var allowedGrantTypes: List<String>? = null
     var allowedRedirectUris: List<String>? = null
     var allowedScopes: List<String>? = null
     var defaultScopes: List<String>? = null

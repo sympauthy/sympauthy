@@ -371,6 +371,7 @@ class WebAuthorizationFlowManagerTest {
         val client = mockk<Client> {
             every { authorizationFlow } returns null
             every { `public` } returns false
+            every { supportsGrantType(any()) } returns true
         }
         setupDefaultFlow()
         setupValidClient(client)
@@ -404,6 +405,7 @@ class WebAuthorizationFlowManagerTest {
         val client = mockk<Client> {
             every { authorizationFlow } returns null
             every { `public` } returns false
+            every { supportsGrantType(any()) } returns true
         }
         setupDefaultFlow()
         coEvery { clientManager.parseRequestedClient(any()) } returns client
@@ -467,6 +469,7 @@ class WebAuthorizationFlowManagerTest {
         val client = mockk<Client> {
             every { authorizationFlow } returns null
             every { `public` } returns false
+            every { supportsGrantType(any()) } returns true
         }
         setupDefaultFlow()
         coEvery { clientManager.parseRequestedClient(any()) } returns client
@@ -532,6 +535,7 @@ class WebAuthorizationFlowManagerTest {
         val client = mockk<Client> {
             every { authorizationFlow } returns null
             every { `public` } returns true
+            every { supportsGrantType(any()) } returns true
         }
         setupDefaultFlow()
         coEvery { clientManager.parseRequestedClient(any()) } returns client
@@ -569,6 +573,7 @@ class WebAuthorizationFlowManagerTest {
         val client = mockk<Client> {
             every { authorizationFlow } returns null
             every { `public` } returns false
+            every { supportsGrantType(any()) } returns true
         }
         setupDefaultFlow()
         setupValidClient(client)
@@ -635,6 +640,7 @@ class WebAuthorizationFlowManagerTest {
         val client = mockk<Client> {
             every { authorizationFlow } returns null
             every { `public` } returns true
+            every { supportsGrantType(any()) } returns true
         }
         setupDefaultFlow()
         coEvery { clientManager.parseRequestedClient(any()) } returns client
@@ -673,6 +679,7 @@ class WebAuthorizationFlowManagerTest {
         val client = mockk<Client> {
             every { authorizationFlow } returns null
             every { `public` } returns false
+            every { supportsGrantType(any()) } returns true
         }
         setupDefaultFlow()
         setupValidClient(client)
