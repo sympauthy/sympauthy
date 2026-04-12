@@ -122,11 +122,13 @@ class UserScopeGrantingManager(
         val grantUnhandledScopes = featuresConfig.orThrow().grantUnhandledScopes
         return if (grantUnhandledScopes) {
             ScopeGrantingMethodResult(
+                source = GrantedBy.RULE,
                 grantedScopes = requestedScopes,
                 declinedScopes = emptyList()
             )
         } else {
             ScopeGrantingMethodResult(
+                source = GrantedBy.RULE,
                 grantedScopes = emptyList(),
                 declinedScopes = requestedScopes
             )
@@ -151,24 +153,24 @@ data class UserGrantScopesResult(
 
     /**
      * True if all granted scopes were auto-granted (built-in scopes with autoGranted flag),
-     * meaning no granting rules or default behavior contributed any scopes.
-     * The first element in [results] is always the auto-granted partition.
+     * meaning no granting method (webhook, rules, default behavior) contributed any scopes.
      */
     val allAutoGranted: Boolean
-        get() = results.drop(1).all { it.grantedScopes.isEmpty() }
+        get() = results
+            .filter { it.source != null }
+            .all { it.grantedScopes.isEmpty() }
 
     /**
-     * Determines how the grantable scopes were granted.
+     * Determines how the grantable scopes were granted based on the [ScopeGrantingMethodResult.source]
+     * of each result that contributed granted scopes.
      * - [GrantedBy.AUTO] if only auto-granted scopes were granted.
      * - [GrantedBy.WEBHOOK] if the authorization webhook contributed granted scopes.
      * - [GrantedBy.RULE] otherwise (rules or default behavior contributed).
-     *
-     * Results order: [auto-granted, webhook, rules, default].
      */
     val grantedBy: GrantedBy
         get() = when {
             allAutoGranted -> GrantedBy.AUTO
-            results.getOrNull(1)?.grantedScopes?.isNotEmpty() == true -> GrantedBy.WEBHOOK
+            results.any { it.source == GrantedBy.WEBHOOK && it.grantedScopes.isNotEmpty() } -> GrantedBy.WEBHOOK
             else -> GrantedBy.RULE
         }
 }

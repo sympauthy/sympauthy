@@ -6,6 +6,7 @@ import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.client.AuthorizationWebhookOnFailure
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.oauth2.GrantableUserScope
+import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.user.CollectedClaim
@@ -93,7 +94,7 @@ class AuthorizationWebhookUserScopeGrantingManager(
                 client.id, granted.size, declined.size
             )
 
-            ScopeGrantingMethodResult(grantedScopes = granted, declinedScopes = declined)
+            ScopeGrantingMethodResult(source = GrantedBy.WEBHOOK, grantedScopes = granted, declinedScopes = declined)
         } catch (e: Exception) {
             logger.warn(
                 "Authorization webhook call to {} for client {} failed: {}",
@@ -101,10 +102,13 @@ class AuthorizationWebhookUserScopeGrantingManager(
             )
             when (authorizationWebhook.onFailure) {
                 AuthorizationWebhookOnFailure.DENY_ALL -> ScopeGrantingMethodResult(
+                    source = GrantedBy.WEBHOOK,
                     grantedScopes = emptyList(),
                     declinedScopes = requestedScopes
                 )
-                AuthorizationWebhookOnFailure.FALLBACK_TO_RULES -> ScopeGrantingMethodResult()
+                AuthorizationWebhookOnFailure.FALLBACK_TO_RULES -> ScopeGrantingMethodResult(
+                    source = GrantedBy.WEBHOOK
+                )
             }
         }
     }
