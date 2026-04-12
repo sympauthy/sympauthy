@@ -17,6 +17,16 @@ import kotlinx.coroutines.time.withTimeout
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
+/**
+ * HTTP client responsible for calling the external authorization webhook endpoint.
+ *
+ * Serializes the [AuthorizationWebhookRequest] as JSON, signs the request body using HMAC-SHA256,
+ * and sends it as a POST request with the signature in the `X-SympAuthy-Signature` header.
+ *
+ * The call is subject to a configurable timeout (`advanced.authorization-webhook.timeout`).
+ * All failures (network errors, timeouts, non-2xx responses, invalid payloads) are returned
+ * as [AuthorizationWebhookResult.Failure] rather than thrown as exceptions.
+ */
 @Singleton
 class AuthorizationWebhookClient(
     @Inject private val httpClient: HttpClient,
@@ -24,6 +34,14 @@ class AuthorizationWebhookClient(
     @Inject private val advancedConfig: AdvancedConfig
 ) {
 
+    /**
+     * Call the authorization webhook endpoint and return the result.
+     *
+     * @param authorizationWebhook the webhook configuration containing the URL and signing secret.
+     * @param request the request payload with user context and requested scopes.
+     * @return [AuthorizationWebhookResult.Success] with the parsed response on success,
+     *         or [AuthorizationWebhookResult.Failure] on any error.
+     */
     suspend fun callWebhook(
         authorizationWebhook: AuthorizationWebhook,
         request: AuthorizationWebhookRequest
