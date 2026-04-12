@@ -34,6 +34,7 @@ allprojects {
         // Test dependencies
         set("junitJupiterVersion", "6.0.3")
         set("mockkVersion", "1.14.9")
+        set("mockWebServerVersion", "4.12.0")
     }
 
     repositories {

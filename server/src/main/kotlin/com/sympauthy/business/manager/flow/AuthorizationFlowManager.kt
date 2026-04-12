@@ -12,7 +12,6 @@ import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
-import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.config.model.AuthorizationFlowsConfig
@@ -125,7 +124,7 @@ class AuthorizationFlowManager(
         modifiedAuthorizedAttempt = authorizeAttemptManager.setGrantedScopes(
             authorizeAttempt = modifiedAuthorizedAttempt,
             grantedScopes = grantScopesResult.grantedScopes,
-            grantedBy = if (grantScopesResult.allAutoGranted) GrantedBy.AUTO else GrantedBy.RULE
+            grantedBy = grantScopesResult.grantedBy
         )
 
         val hasAnyScope = !modifiedAuthorizedAttempt.grantedScopes.isNullOrEmpty() ||

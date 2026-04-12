@@ -12,6 +12,8 @@ import com.sympauthy.config.properties.HashConfigurationProperties
 import com.sympauthy.config.properties.HashConfigurationProperties.Companion.HASH_KEY
 import com.sympauthy.config.properties.JwtConfigurationProperties
 import com.sympauthy.config.properties.JwtConfigurationProperties.Companion.JWT_KEY
+import com.sympauthy.config.properties.AuthorizationWebhookConfigurationProperties
+import com.sympauthy.config.properties.AuthorizationWebhookConfigurationProperties.Companion.AUTHORIZATION_WEBHOOK_KEY
 import com.sympauthy.config.properties.ValidationCodeConfigurationProperties
 import com.sympauthy.config.properties.ValidationCodeConfigurationProperties.Companion.VALIDATION_CODE_KEY
 import io.micronaut.context.annotation.Factory
@@ -29,6 +31,7 @@ class AdvancedConfigFactory(
         jwtProperties: JwtConfigurationProperties,
         hashProperties: HashConfigurationProperties,
         validationCodeProperties: ValidationCodeConfigurationProperties,
+        authorizationWebhookProperties: AuthorizationWebhookConfigurationProperties,
         keyGenerationStrategies: Map<String, CryptoKeysGenerationStrategy>,
     ): AdvancedConfig {
         val errors = mutableListOf<ConfigurationException>()
@@ -70,6 +73,13 @@ class AdvancedConfigFactory(
         val (validationCodeConfig, validationCodeErrors) = getValidationCodeConfig(validationCodeProperties)
         errors.addAll(validationCodeErrors)
 
+        val authorizationWebhookConfig = try {
+            getAuthorizationWebhookConfig(authorizationWebhookProperties)
+        } catch (e: ConfigurationException) {
+            errors.add(e)
+            null
+        }
+
         return if (errors.isEmpty()) {
             return EnabledAdvancedConfig(
                 keysGenerationStrategy = keysGenerationStrategy!!,
@@ -78,6 +88,7 @@ class AdvancedConfigFactory(
                 privateJwtAlgorithm = privateJwtAlgorithm!!,
                 hashConfig = hashConfig!!,
                 validationCode = validationCodeConfig!!,
+                authorizationWebhook = authorizationWebhookConfig!!,
             )
         } else {
             DisabledAdvancedConfig(errors)
@@ -264,6 +275,20 @@ class AdvancedConfigFactory(
     }
 
     private fun isPowerOf2(var0: Int): Boolean = (var0 and var0 - 1) == 0
+
+    private fun getAuthorizationWebhookConfig(
+        properties: AuthorizationWebhookConfigurationProperties
+    ): AuthorizationWebhookAdvancedConfig {
+        val timeout = parser.getDuration(
+            properties, "$AUTHORIZATION_WEBHOOK_KEY.timeout",
+            AuthorizationWebhookConfigurationProperties::timeout
+        ) ?: DEFAULT_WEBHOOK_TIMEOUT
+        return AuthorizationWebhookAdvancedConfig(timeout = timeout)
+    }
+
+    companion object {
+        private val DEFAULT_WEBHOOK_TIMEOUT = java.time.Duration.ofSeconds(5)
+    }
 
     private fun getValidationCodeConfig(
         properties: ValidationCodeConfigurationProperties

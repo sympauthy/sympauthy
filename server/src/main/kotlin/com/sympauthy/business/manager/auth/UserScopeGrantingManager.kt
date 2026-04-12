@@ -9,6 +9,7 @@ import com.sympauthy.business.model.oauth2.GrantableUserScope
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.user.CollectedClaim
+import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.config.model.FeaturesConfig
 import com.sympauthy.config.model.orThrow
 import jakarta.inject.Inject
@@ -31,6 +32,7 @@ import jakarta.inject.Singleton
 @Singleton
 class UserScopeGrantingManager(
     @Inject private val scopeManager: ScopeManager,
+    @Inject private val authorizationWebhookScopeGrantingManager: AuthorizationWebhookUserScopeGrantingManager,
     @Inject private val scopeGrantingRuleManager: ScopeGrantingRuleManager,
     @Inject private val featuresConfig: FeaturesConfig
 ) {
@@ -94,6 +96,7 @@ class UserScopeGrantingManager(
      */
     internal fun getScopeGrantingMethods(): List<suspend (authorizeAttempt: AuthorizeAttempt, requestedScopes: List<Scope>, collectedClaims: List<CollectedClaim>) -> ScopeGrantingMethodResult> {
         return listOf(
+            authorizationWebhookScopeGrantingManager::applyAuthorizationWebhookScopeGranting,
             scopeGrantingRuleManager::applyUserScopeGrantingRules,
             this::applyDefaultBehavior
         )
@@ -119,11 +122,13 @@ class UserScopeGrantingManager(
         val grantUnhandledScopes = featuresConfig.orThrow().grantUnhandledScopes
         return if (grantUnhandledScopes) {
             ScopeGrantingMethodResult(
+                source = GrantedBy.RULE,
                 grantedScopes = requestedScopes,
                 declinedScopes = emptyList()
             )
         } else {
             ScopeGrantingMethodResult(
+                source = GrantedBy.RULE,
                 grantedScopes = emptyList(),
                 declinedScopes = requestedScopes
             )
@@ -148,9 +153,24 @@ data class UserGrantScopesResult(
 
     /**
      * True if all granted scopes were auto-granted (built-in scopes with autoGranted flag),
-     * meaning no granting rules or default behavior contributed any scopes.
-     * The first element in [results] is always the auto-granted partition.
+     * meaning no granting method (webhook, rules, default behavior) contributed any scopes.
      */
     val allAutoGranted: Boolean
-        get() = results.drop(1).all { it.grantedScopes.isEmpty() }
+        get() = results
+            .filter { it.source != null }
+            .all { it.grantedScopes.isEmpty() }
+
+    /**
+     * Determines how the grantable scopes were granted based on the [ScopeGrantingMethodResult.source]
+     * of each result that contributed granted scopes.
+     * - [GrantedBy.AUTO] if only auto-granted scopes were granted.
+     * - [GrantedBy.WEBHOOK] if the authorization webhook contributed granted scopes.
+     * - [GrantedBy.RULE] otherwise (rules or default behavior contributed).
+     */
+    val grantedBy: GrantedBy
+        get() = when {
+            allAutoGranted -> GrantedBy.AUTO
+            results.any { it.source == GrantedBy.WEBHOOK && it.grantedScopes.isNotEmpty() } -> GrantedBy.WEBHOOK
+            else -> GrantedBy.RULE
+        }
 }

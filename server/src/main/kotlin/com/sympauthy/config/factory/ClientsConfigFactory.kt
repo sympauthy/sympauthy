@@ -2,6 +2,8 @@ package com.sympauthy.config.factory
 
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.flow.AuthorizationFlowManager
+import com.sympauthy.business.model.client.AuthorizationWebhook
+import com.sympauthy.business.model.client.AuthorizationWebhookOnFailure
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.flow.AuthorizationFlow
@@ -16,6 +18,7 @@ import com.sympauthy.config.model.EnabledClientsConfig
 import com.sympauthy.config.model.EnabledUrlsConfig
 import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.config.properties.ClientConfigurationProperties
+import com.sympauthy.config.properties.ClientConfigurationProperties.AuthorizationWebhookConfig
 import com.sympauthy.config.properties.ClientConfigurationProperties.Companion.CLIENTS_KEY
 import com.sympauthy.config.properties.ClientConfigurationProperties.Companion.DEFAULT
 import io.micronaut.context.annotation.Factory
@@ -160,6 +163,17 @@ class ClientsConfigFactory(
             null
         }
 
+        val authorizationWebhook = try {
+            getAuthorizationWebhook(
+                properties = properties,
+                webhookConfig = properties.authorizationWebhook ?: defaultProperties?.authorizationWebhook,
+                errors = clientErrors
+            )
+        } catch (e: ConfigurationException) {
+            clientErrors.add(e)
+            null
+        }
+
         return if (clientErrors.isEmpty()) {
             Client(
                 id = properties.id,
@@ -169,7 +183,8 @@ class ClientsConfigFactory(
                 authorizationFlow = authorizationFlow,
                 allowedRedirectUris = allowedRedirectUris!!,
                 allowedScopes = allowedScopes,
-                defaultScopes = defaultScopes
+                defaultScopes = defaultScopes,
+                authorizationWebhook = authorizationWebhook
             )
         } else {
             errors.addAll(clientErrors)
@@ -289,6 +304,61 @@ class ClientsConfigFactory(
         }
     }
 
+    private fun getAuthorizationWebhook(
+        properties: ClientConfigurationProperties,
+        webhookConfig: AuthorizationWebhookConfig?,
+        errors: MutableList<ConfigurationException>
+    ): AuthorizationWebhook? {
+        if (webhookConfig == null) {
+            return null
+        }
+
+        val configKey = "$CLIENTS_KEY.${properties.id}.authorization-webhook"
+        val webhookErrors = mutableListOf<ConfigurationException>()
+
+        val url = try {
+            parser.getAbsoluteUriOrThrow(
+                webhookConfig, "$configKey.url",
+                AuthorizationWebhookConfig::url
+            )
+        } catch (e: ConfigurationException) {
+            webhookErrors.add(e)
+            null
+        }
+
+        val secret = try {
+            parser.getStringOrThrow(
+                webhookConfig, "$configKey.secret",
+                AuthorizationWebhookConfig::secret
+            )
+        } catch (e: ConfigurationException) {
+            webhookErrors.add(e)
+            null
+        }
+
+        val onFailure = try {
+            parser.getEnum(
+                webhookConfig, "$configKey.on-failure",
+                AuthorizationWebhookOnFailure.DENY_ALL,
+                AuthorizationWebhookConfig::onFailure
+            )
+        } catch (e: ConfigurationException) {
+            webhookErrors.add(e)
+            null
+        }
+
+        return if (webhookErrors.isEmpty()) {
+            AuthorizationWebhook(
+                url = url!!,
+                secret = secret!!,
+                onFailure = onFailure!!,
+            )
+        } else {
+            errors.addAll(webhookErrors)
+            null
+        }
+    }
+
     private suspend fun getScopes(
         key: String,
         scopes: List<String>?,
@@ -320,4 +390,5 @@ class ClientsConfigFactory(
             null
         }
     }
+
 }

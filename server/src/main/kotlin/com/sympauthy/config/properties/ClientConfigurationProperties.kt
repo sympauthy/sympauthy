@@ -1,6 +1,7 @@
 package com.sympauthy.config.properties
 
 import com.sympauthy.config.properties.ClientConfigurationProperties.Companion.CLIENTS_KEY
+import io.micronaut.context.annotation.ConfigurationProperties
 import io.micronaut.context.annotation.EachProperty
 import io.micronaut.context.annotation.Parameter
 
@@ -19,6 +20,14 @@ class ClientConfigurationProperties(
     var allowedRedirectUris: List<String>? = null
     var allowedScopes: List<String>? = null
     var defaultScopes: List<String>? = null
+    var authorizationWebhook: AuthorizationWebhookConfig? = null
+
+    @ConfigurationProperties("authorization-webhook")
+    interface AuthorizationWebhookConfig {
+        val url: String?
+        val secret: String?
+        val onFailure: String?
+    }
 
     companion object {
         const val CLIENTS_KEY = "clients"

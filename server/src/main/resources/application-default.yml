@@ -2,6 +2,8 @@
 # additional configurations.
 
 advanced:
+  authorization-webhook:
+    timeout: 5s
   hash:
     block-size: 8
     cost-parameter: 16_384
