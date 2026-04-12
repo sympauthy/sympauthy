@@ -29,6 +29,9 @@ class UserScopeGrantingManagerTest {
     lateinit var scopeManager: ScopeManager
 
     @MockK
+    lateinit var authorizationWebhookScopeGrantingManager: AuthorizationWebhookUserScopeGrantingManager
+
+    @MockK
     lateinit var scopeGrantingRuleManager: ScopeGrantingRuleManager
 
     @MockK

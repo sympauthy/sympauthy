@@ -12,5 +12,10 @@ enum class GrantedBy {
     /**
      * At least one scope was granted through granting rules or default behavior.
      */
-    RULE
+    RULE,
+
+    /**
+     * At least one scope was granted through an authorization webhook delegation.
+     */
+    WEBHOOK
 }

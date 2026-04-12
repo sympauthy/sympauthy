@@ -9,6 +9,7 @@ import com.sympauthy.business.model.oauth2.GrantableUserScope
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.user.CollectedClaim
+import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.config.model.FeaturesConfig
 import com.sympauthy.config.model.orThrow
 import jakarta.inject.Inject
@@ -31,6 +32,7 @@ import jakarta.inject.Singleton
 @Singleton
 class UserScopeGrantingManager(
     @Inject private val scopeManager: ScopeManager,
+    @Inject private val authorizationWebhookScopeGrantingManager: AuthorizationWebhookUserScopeGrantingManager,
     @Inject private val scopeGrantingRuleManager: ScopeGrantingRuleManager,
     @Inject private val featuresConfig: FeaturesConfig
 ) {
@@ -94,6 +96,7 @@ class UserScopeGrantingManager(
      */
     internal fun getScopeGrantingMethods(): List<suspend (authorizeAttempt: AuthorizeAttempt, requestedScopes: List<Scope>, collectedClaims: List<CollectedClaim>) -> ScopeGrantingMethodResult> {
         return listOf(
+            authorizationWebhookScopeGrantingManager::applyAuthorizationWebhookScopeGranting,
             scopeGrantingRuleManager::applyUserScopeGrantingRules,
             this::applyDefaultBehavior
         )
@@ -153,4 +156,19 @@ data class UserGrantScopesResult(
      */
     val allAutoGranted: Boolean
         get() = results.drop(1).all { it.grantedScopes.isEmpty() }
+
+    /**
+     * Determines how the grantable scopes were granted.
+     * - [GrantedBy.AUTO] if only auto-granted scopes were granted.
+     * - [GrantedBy.WEBHOOK] if the authorization webhook contributed granted scopes.
+     * - [GrantedBy.RULE] otherwise (rules or default behavior contributed).
+     *
+     * Results order: [auto-granted, webhook, rules, default].
+     */
+    val grantedBy: GrantedBy
+        get() = when {
+            allAutoGranted -> GrantedBy.AUTO
+            results.getOrNull(1)?.grantedScopes?.isNotEmpty() == true -> GrantedBy.WEBHOOK
+            else -> GrantedBy.RULE
+        }
 }

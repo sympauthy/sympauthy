@@ -16,6 +16,7 @@ data class EnabledAdvancedConfig(
     val privateJwtAlgorithm: JwtAlgorithm,
     val hashConfig: HashConfig,
     val validationCode: ValidationCodeConfig,
+    val authorizationWebhook: AuthorizationWebhookAdvancedConfig,
 ) : AdvancedConfig()
 
 class DisabledAdvancedConfig(
@@ -40,6 +41,10 @@ data class ValidationCodeConfig(
     val length: Int,
     val resendDelay: Duration?,
     val expiration: Duration,
+)
+
+data class AuthorizationWebhookAdvancedConfig(
+    val timeout: Duration,
 )
 
 fun AdvancedConfig.orThrow(): EnabledAdvancedConfig {

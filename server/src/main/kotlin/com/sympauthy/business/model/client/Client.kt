@@ -43,7 +43,13 @@ data class Client(
      * List of [Scope] that are issued by default to a token request by this [Client] if the [Client] did not provide
      * them explicitly to the authorization endpoint.
      */
-    val defaultScopes: List<Scope>? = null
+    val defaultScopes: List<Scope>? = null,
+
+    /**
+     * Optional webhook configuration for delegating authorization decisions to an external server.
+     * When set, the webhook is called before applying scope granting rules.
+     */
+    val authorizationWebhook: AuthorizationWebhook? = null
 ) {
     fun supportsGrantType(grantType: GrantType): Boolean = grantType in allowedGrantTypes
 }
