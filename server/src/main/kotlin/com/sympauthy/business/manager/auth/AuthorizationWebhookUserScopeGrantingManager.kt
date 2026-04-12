@@ -15,6 +15,7 @@ import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookRequ
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookResult
 import com.sympauthy.util.loggerForClass
 import jakarta.inject.Inject
+import jakarta.inject.Provider
 import jakarta.inject.Singleton
 
 /**
@@ -32,7 +33,7 @@ import jakarta.inject.Singleton
  */
 @Singleton
 class AuthorizationWebhookUserScopeGrantingManager(
-    @Inject private val clientManager: ClientManager,
+    @Inject private val clientManagerProvider: Provider<ClientManager>,
     @Inject private val scopeManager: ScopeManager,
     @Inject private val authorizationWebhookClient: AuthorizationWebhookClient
 ) {
@@ -53,7 +54,7 @@ class AuthorizationWebhookUserScopeGrantingManager(
         collectedClaims: List<CollectedClaim>
     ): ScopeGrantingMethodResult {
         val onGoingAttempt = authorizeAttempt as OnGoingAuthorizeAttempt
-        val client = clientManager.findClientById(onGoingAttempt.clientId)
+        val client = clientManagerProvider.get().findClientById(onGoingAttempt.clientId)
         val authorizationWebhook = client.authorizationWebhook
             ?: return ScopeGrantingMethodResult()
 

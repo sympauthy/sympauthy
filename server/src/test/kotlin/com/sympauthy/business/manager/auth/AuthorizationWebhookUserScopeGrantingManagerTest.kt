@@ -15,11 +15,11 @@ import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookResp
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookResult
 import io.mockk.coEvery
 import io.mockk.every
-import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import java.net.URI
@@ -39,8 +39,16 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
     @MockK
     lateinit var authorizationWebhookClient: AuthorizationWebhookClient
 
-    @InjectMockKs
     lateinit var manager: AuthorizationWebhookUserScopeGrantingManager
+
+    @BeforeEach
+    fun setUp() {
+        manager = AuthorizationWebhookUserScopeGrantingManager(
+            clientManagerProvider = { clientManager },
+            scopeManager = scopeManager,
+            authorizationWebhookClient = authorizationWebhookClient
+        )
+    }
 
     private val scope1 = GrantableUserScope("scope1", discoverable = false)
     private val scope2 = GrantableUserScope("scope2", discoverable = false)
