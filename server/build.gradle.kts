@@ -113,6 +113,7 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter:${project.extra["junitJupiterVersion"]}")
     testImplementation("io.mockk:mockk:${project.extra["mockkVersion"]}")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:${project.extra["kotlinCoroutinesVersion"]}")
+    testImplementation("com.squareup.okhttp3:mockwebserver:${project.extra["mockWebServerVersion"]}")
     testImplementation(kotlin("test"))
 }
 

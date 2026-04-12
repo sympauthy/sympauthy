@@ -1,33 +1,162 @@
 package com.sympauthy.client.authorization.webhook
 
-import com.sympauthy.config.model.AdvancedConfig
-import io.mockk.impl.annotations.InjectMockKs
-import io.mockk.impl.annotations.MockK
-import io.mockk.junit5.MockKExtension
+import com.sympauthy.business.model.client.AuthorizationWebhook
+import com.sympauthy.business.model.client.AuthorizationWebhookOnFailure
+import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookRequest
+import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookResult
+import com.sympauthy.config.model.AuthorizationWebhookAdvancedConfig
+import com.sympauthy.config.model.EnabledAdvancedConfig
 import io.micronaut.http.client.HttpClient
 import io.micronaut.serde.ObjectMapper
+import io.mockk.every
+import io.mockk.impl.annotations.MockK
+import io.mockk.junit5.MockKExtension
+import io.mockk.mockk
+import kotlinx.coroutines.runBlocking
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import java.net.URI
+import java.time.Duration
+import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 @ExtendWith(MockKExtension::class)
 class AuthorizationWebhookClientTest {
 
     @MockK
-    lateinit var httpClient: HttpClient
-
-    @MockK
     lateinit var objectMapper: ObjectMapper
 
-    @MockK
-    lateinit var advancedConfig: AdvancedConfig
+    private lateinit var advancedConfig: EnabledAdvancedConfig
+    private lateinit var mockWebServer: MockWebServer
+    private lateinit var client: AuthorizationWebhookClient
 
-    @InjectMockKs
-    lateinit var client: AuthorizationWebhookClient
+    @BeforeEach
+    fun setUp() {
+        mockWebServer = MockWebServer()
+        mockWebServer.start()
+
+        advancedConfig = mockAdvancedConfig()
+        val httpClient = HttpClient.create(mockWebServer.url("/").toUrl())
+        client = AuthorizationWebhookClient(httpClient, objectMapper, advancedConfig)
+    }
+
+    @AfterEach
+    fun tearDown() {
+        mockWebServer.shutdown()
+    }
+
+    private val requestBody =
+        """{"user_id":"user-1","client_id":"client-1","requested_scopes":["scope1"],"claims":{}}"""
+
+    private val request = AuthorizationWebhookRequest(
+        userId = "user-1",
+        clientId = "client-1",
+        requestedScopes = listOf("scope1"),
+        claims = emptyMap()
+    )
+
+    private fun mockAuthorizationWebhook(): AuthorizationWebhook {
+        return AuthorizationWebhook(
+            url = URI.create(mockWebServer.url("/webhook").toString()),
+            secret = "test-secret",
+            onFailure = AuthorizationWebhookOnFailure.DENY_ALL,
+        )
+    }
+
+    private fun mockAdvancedConfig(
+        timeout: Duration = Duration.ofSeconds(5)
+    ): EnabledAdvancedConfig {
+        val enabledConfig = mockk<EnabledAdvancedConfig>()
+        every { enabledConfig.authorizationWebhook } returns AuthorizationWebhookAdvancedConfig(timeout = timeout)
+        return enabledConfig
+    }
+
+    @Test
+    fun `callWebhook - returns Success with granted scopes on valid response`() = runBlocking<Unit> {
+        every { objectMapper.writeValueAsString(request) } returns requestBody
+
+        mockWebServer.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"scopes":{"scope1":"grant"}}""")
+        )
+
+        val result = client.callWebhook(mockAuthorizationWebhook(), request)
+
+        assertIs<AuthorizationWebhookResult.Success>(result)
+        assertEquals(mapOf("scope1" to "grant"), result.response.scopes)
+
+        val recordedRequest = mockWebServer.takeRequest()
+        assertEquals("POST", recordedRequest.method)
+        assertTrue(
+            recordedRequest.getHeader(AuthorizationWebhookClient.SIGNATURE_HEADER)!!
+                .startsWith(AuthorizationWebhookClient.SIGNATURE_PREFIX)
+        )
+        assertEquals("application/json", recordedRequest.getHeader("Content-Type"))
+        assertEquals(requestBody, recordedRequest.body.readUtf8())
+    }
+
+    @Test
+    fun `callWebhook - returns Failure on timeout`() = runBlocking<Unit> {
+        val shortTimeoutConfig = mockAdvancedConfig(timeout = Duration.ofMillis(100))
+        val httpClient = HttpClient.create(mockWebServer.url("/").toUrl())
+        val timeoutClient = AuthorizationWebhookClient(httpClient, objectMapper, shortTimeoutConfig)
+        every { objectMapper.writeValueAsString(request) } returns requestBody
+
+        mockWebServer.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"scopes":{"scope1":"grant"}}""")
+                .setBodyDelay(5, TimeUnit.SECONDS)
+        )
+
+        val result = timeoutClient.callWebhook(mockAuthorizationWebhook(), request)
+
+        assertIs<AuthorizationWebhookResult.Failure>(result)
+    }
+
+    @Test
+    fun `callWebhook - returns Failure on client error response`() = runBlocking<Unit> {
+        every { objectMapper.writeValueAsString(request) } returns requestBody
+
+        mockWebServer.enqueue(
+            MockResponse()
+                .setResponseCode(400)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"error":"bad request"}""")
+        )
+
+        val result = client.callWebhook(mockAuthorizationWebhook(), request)
+
+        assertIs<AuthorizationWebhookResult.Failure>(result)
+    }
+
+    @Test
+    fun `callWebhook - returns Failure on invalid response payload`() = runBlocking<Unit> {
+        every { objectMapper.writeValueAsString(request) } returns requestBody
+
+        mockWebServer.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""not valid json""")
+        )
+
+        val result = client.callWebhook(mockAuthorizationWebhook(), request)
+
+        assertIs<AuthorizationWebhookResult.Failure>(result)
+    }
 
     @Test
     fun `computeHmacSha256 - produces correct signature for known input`() {
-        // Known test vector: HMAC-SHA256("secret", "message")
         val signature = client.computeHmacSha256("secret", "message")
 
         assertEquals(

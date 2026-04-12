@@ -3,6 +3,7 @@ package com.sympauthy.client.authorization.webhook
 import com.sympauthy.business.model.client.AuthorizationWebhook
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookRequest
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookResponse
+import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookResult
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.orThrow
 import io.micronaut.http.HttpRequest
@@ -13,7 +14,6 @@ import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.reactive.awaitFirst
 import kotlinx.coroutines.time.withTimeout
-import kotlinx.coroutines.withTimeout
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
@@ -27,7 +27,7 @@ class AuthorizationWebhookClient(
     suspend fun callWebhook(
         authorizationWebhook: AuthorizationWebhook,
         request: AuthorizationWebhookRequest
-    ): AuthorizationWebhookResponse {
+    ): AuthorizationWebhookResult {
         val body = objectMapper.writeValueAsString(request)
         val signature = computeHmacSha256(authorizationWebhook.secret, body)
         val timeout = advancedConfig.orThrow().authorizationWebhook.timeout
@@ -38,9 +38,17 @@ class AuthorizationWebhookClient(
             .accept(APPLICATION_JSON)
             .header(SIGNATURE_HEADER, "$SIGNATURE_PREFIX$signature")
 
-        return withTimeout(timeout) {
-            httpClient.retrieve(httpRequest, AuthorizationWebhookResponse::class.java)
-                .awaitFirst()
+        return try {
+            val response = withTimeout(timeout) {
+                httpClient.retrieve(httpRequest, AuthorizationWebhookResponse::class.java)
+                    .awaitFirst()
+            }
+            AuthorizationWebhookResult.Success(response)
+        } catch (e: Exception) {
+            AuthorizationWebhookResult.Failure(
+                message = e.message ?: e::class.simpleName ?: "Unknown error",
+                cause = e
+            )
         }
     }
 
@@ -53,7 +61,7 @@ class AuthorizationWebhookClient(
 
     companion object {
         private const val HMAC_ALGORITHM = "HmacSHA256"
-        private const val SIGNATURE_HEADER = "X-SympAuthy-Signature"
-        private const val SIGNATURE_PREFIX = "sha256="
+        internal const val SIGNATURE_HEADER = "X-SympAuthy-Signature"
+        internal const val SIGNATURE_PREFIX = "sha256="
     }
 }

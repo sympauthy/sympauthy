@@ -12,6 +12,7 @@ import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.client.authorization.webhook.AuthorizationWebhookClient
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookRequest
+import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookResult
 import com.sympauthy.util.loggerForClass
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -63,52 +64,60 @@ class AuthorizationWebhookUserScopeGrantingManager(
             claims = collectedClaims.associate { it.claim.id to it.value }
         )
 
-        return try {
-            val response = authorizationWebhookClient.callWebhook(authorizationWebhook, request)
+        return when (val result = authorizationWebhookClient.callWebhook(authorizationWebhook, request)) {
+            is AuthorizationWebhookResult.Success -> {
+                val response = result.response
+                val granted = mutableListOf<Scope>()
+                val declined = mutableListOf<Scope>()
 
-            val granted = mutableListOf<Scope>()
-            val declined = mutableListOf<Scope>()
-
-            // Process requested scopes
-            requestedScopes.forEach { scope ->
-                when (response.scopes[scope.scope]) {
-                    GRANT -> granted.add(scope)
-                    else -> declined.add(scope)
-                }
-            }
-
-            // Process additional scopes granted by the webhook beyond the requested ones
-            val requestedScopeIds = requestedScopes.map { it.scope }.toSet()
-            val allowedScopeIds = client.allowedScopes?.map { it.scope }?.toSet()
-            response.scopes
-                .filter { (scopeId, decision) -> decision == GRANT && scopeId !in requestedScopeIds }
-                .forEach { (scopeId, _) ->
-                    val scope = scopeManager.find(scopeId)
-                    if (scope is GrantableUserScope && (allowedScopeIds == null || scopeId in allowedScopeIds)) {
-                        granted.add(scope)
+                // Process requested scopes
+                requestedScopes.forEach { scope ->
+                    when (response.scopes[scope.scope]) {
+                        GRANT -> granted.add(scope)
+                        else -> declined.add(scope)
                     }
                 }
 
-            logger.debug(
-                "Authorization webhook for client {} granted {} scope(s) and declined {} scope(s).",
-                client.id, granted.size, declined.size
-            )
+                // Process additional scopes granted by the webhook beyond the requested ones
+                val requestedScopeIds = requestedScopes.map { it.scope }.toSet()
+                val allowedScopeIds = client.allowedScopes?.map { it.scope }?.toSet()
+                response.scopes
+                    .filter { (scopeId, decision) -> decision == GRANT && scopeId !in requestedScopeIds }
+                    .forEach { (scopeId, _) ->
+                        val scope = scopeManager.find(scopeId)
+                        if (scope is GrantableUserScope && (allowedScopeIds == null || scopeId in allowedScopeIds)) {
+                            granted.add(scope)
+                        }
+                    }
 
-            ScopeGrantingMethodResult(source = GrantedBy.WEBHOOK, grantedScopes = granted, declinedScopes = declined)
-        } catch (e: Exception) {
-            logger.warn(
-                "Authorization webhook call to {} for client {} failed: {}",
-                authorizationWebhook.url, client.id, e.message
-            )
-            when (authorizationWebhook.onFailure) {
-                AuthorizationWebhookOnFailure.DENY_ALL -> ScopeGrantingMethodResult(
+                logger.debug(
+                    "Authorization webhook for client {} granted {} scope(s) and declined {} scope(s).",
+                    client.id, granted.size, declined.size
+                )
+
+                ScopeGrantingMethodResult(
                     source = GrantedBy.WEBHOOK,
-                    grantedScopes = emptyList(),
-                    declinedScopes = requestedScopes
+                    grantedScopes = granted,
+                    declinedScopes = declined
                 )
-                AuthorizationWebhookOnFailure.FALLBACK_TO_RULES -> ScopeGrantingMethodResult(
-                    source = GrantedBy.WEBHOOK
+            }
+
+            is AuthorizationWebhookResult.Failure -> {
+                logger.warn(
+                    "Authorization webhook call to {} for client {} failed: {}",
+                    authorizationWebhook.url, client.id, result.message
                 )
+                when (authorizationWebhook.onFailure) {
+                    AuthorizationWebhookOnFailure.DENY_ALL -> ScopeGrantingMethodResult(
+                        source = GrantedBy.WEBHOOK,
+                        grantedScopes = emptyList(),
+                        declinedScopes = requestedScopes
+                    )
+
+                    AuthorizationWebhookOnFailure.FALLBACK_TO_RULES -> ScopeGrantingMethodResult(
+                        source = GrantedBy.WEBHOOK
+                    )
+                }
             }
         }
     }
