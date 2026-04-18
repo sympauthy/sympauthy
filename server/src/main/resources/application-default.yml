@@ -30,16 +30,17 @@ auth:
     refresh-expiration: 30d
     dpop-required: false
 
-clients:
-  default:
-    default-scopes:
-      - openid
-      - profile
-    flow: default
-    allowed-grant-types:
-      - authorization_code
-      - refresh_token
-      - client_credentials
+templates:
+  clients:
+    default:
+      default-scopes:
+        - openid
+        - profile
+      flow: default
+      allowed-grant-types:
+        - authorization_code
+        - refresh_token
+        - client_credentials
 
 mfa:
   required: false

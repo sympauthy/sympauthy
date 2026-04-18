@@ -7,12 +7,13 @@ claims:
   email:
     enabled: true
 
-clients:
-  default:
-    default-scopes:
-      - openid
-      - profile
-      - email
+templates:
+  clients:
+    default:
+      default-scopes:
+        - openid
+        - profile
+        - email
 
 features:
   email-validation: true

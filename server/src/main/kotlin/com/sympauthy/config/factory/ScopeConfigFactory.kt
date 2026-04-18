@@ -10,13 +10,17 @@ import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.*
 import com.sympauthy.config.properties.ScopeConfigurationProperties
 import com.sympauthy.config.properties.ScopeConfigurationProperties.Companion.SCOPES_KEY
+import com.sympauthy.config.properties.ScopeTemplateConfigurationProperties.Companion.DEFAULT_CUSTOM
+import com.sympauthy.config.properties.ScopeTemplateConfigurationProperties.Companion.DEFAULT_OPENID
+import com.sympauthy.config.properties.ScopeTemplateConfigurationProperties.Companion.DEFAULT_TEMPLATE_NAMES
 import io.micronaut.context.annotation.Factory
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
 @Factory
 class ScopeConfigFactory(
-    @Inject private val parser: ConfigParser
+    @Inject private val parser: ConfigParser,
+    @Inject private val scopeTemplatesConfig: ScopeTemplatesConfig
 ) {
 
     @Singleton
@@ -24,6 +28,9 @@ class ScopeConfigFactory(
         propertiesList: List<ScopeConfigurationProperties>
     ): ScopesConfig {
         val errors = mutableListOf<ConfigurationException>()
+
+        val templates = (scopeTemplatesConfig as? EnabledScopeTemplatesConfig)?.templates ?: emptyMap()
+
         val scopes = propertiesList.mapNotNull { properties ->
             when {
                 properties.id.isAdminScope() -> {
@@ -50,8 +57,14 @@ class ScopeConfigFactory(
                     ))
                     null
                 }
-                properties.id.isOpenIdConnectScope() -> getOpenIdConnectScope(properties = properties, errors = errors)
-                else -> getCustomScope(properties = properties, errors = errors)
+                properties.id.isOpenIdConnectScope() -> {
+                    val template = resolveTemplate(properties, templates, DEFAULT_OPENID, errors)
+                    getOpenIdConnectScope(properties = properties, template = template, errors = errors)
+                }
+                else -> {
+                    val template = resolveTemplate(properties, templates, DEFAULT_CUSTOM, errors)
+                    getCustomScope(properties = properties, template = template, errors = errors)
+                }
             }
         }
 
@@ -62,8 +75,45 @@ class ScopeConfigFactory(
         }
     }
 
+    private fun resolveTemplate(
+        properties: ScopeConfigurationProperties,
+        templates: Map<String, ScopeTemplate>,
+        defaultTemplateName: String,
+        errors: MutableList<ConfigurationException>
+    ): ScopeTemplate? {
+        val templateName = properties.template
+        if (templateName != null) {
+            if (templateName in DEFAULT_TEMPLATE_NAMES) {
+                errors.add(
+                    configExceptionOf(
+                        "$SCOPES_KEY.${properties.id}.template",
+                        "config.scope.template.cannot_reference_default",
+                        "defaultTemplates" to DEFAULT_TEMPLATE_NAMES.joinToString(", ")
+                    )
+                )
+                return null
+            }
+            val template = templates[templateName]
+            if (template == null) {
+                errors.add(
+                    configExceptionOf(
+                        "$SCOPES_KEY.${properties.id}.template",
+                        "config.scope.template.not_found",
+                        "template" to templateName,
+                        "scope" to properties.id,
+                        "availableTemplates" to templates.keys.filter { it !in DEFAULT_TEMPLATE_NAMES }.joinToString(", ")
+                    )
+                )
+                return null
+            }
+            return template
+        }
+        return templates[defaultTemplateName]
+    }
+
     private fun getOpenIdConnectScope(
         properties: ScopeConfigurationProperties,
+        template: ScopeTemplate?,
         errors: MutableList<ConfigurationException>
     ): ScopeConfig? {
         val scopeErrors = mutableListOf<ConfigurationException>()
@@ -72,7 +122,7 @@ class ScopeConfigFactory(
             parser.getBoolean(
                 properties, "$SCOPES_KEY.${properties.id}.enabled",
                 ScopeConfigurationProperties::enabled
-            ) ?: true
+            ) ?: template?.enabled ?: true
         } catch (e: ConfigurationException) {
             scopeErrors.add(e)
             null
@@ -91,11 +141,12 @@ class ScopeConfigFactory(
 
     private fun getCustomScope(
         properties: ScopeConfigurationProperties,
+        template: ScopeTemplate?,
         errors: MutableList<ConfigurationException>
     ): ScopeConfig? {
         val scopeErrors = mutableListOf<ConfigurationException>()
 
-        val type = properties.type?.lowercase()
+        val type = (properties.type ?: template?.type)?.lowercase()
         val consentable = when (type) {
             null, "grantable" -> false
             "consentable" -> true

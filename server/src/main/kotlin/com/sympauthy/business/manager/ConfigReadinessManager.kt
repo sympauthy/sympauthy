@@ -16,10 +16,12 @@ class ConfigReadinessManager(
     @Inject private val authConfig: AuthConfig,
     @Inject private val authorizationFlowsConfig: AuthorizationFlowsConfig,
     @Inject private val claimsConfig: ClaimsConfig,
+    @Inject private val clientTemplatesConfig: Flow<ClientTemplatesConfig>,
     @Inject private val clientsConfig: Flow<ClientsConfig>,
     @Inject private val featuresConfig: FeaturesConfig,
     @Inject private val mfaConfig: MfaConfig,
     @Inject private val rulesConfig: Flow<ScopeGrantingRulesConfig>,
+    @Inject private val scopeTemplatesConfig: ScopeTemplatesConfig,
     @Inject private val scopesConfig: ScopesConfig,
     @Inject private val uiConfig: UIConfig,
     @Inject private val urlsConfig: UrlsConfig,
@@ -35,6 +37,7 @@ class ConfigReadinessManager(
         claimsConfig,
         featuresConfig,
         mfaConfig,
+        scopeTemplatesConfig,
         scopesConfig,
         uiConfig,
         urlsConfig,
@@ -45,6 +48,7 @@ class ConfigReadinessManager(
      * List of asynchronous configuration objects.
      */
     private val flowConfigs = listOf(
+        clientTemplatesConfig,
         clientsConfig,
         rulesConfig
     )
