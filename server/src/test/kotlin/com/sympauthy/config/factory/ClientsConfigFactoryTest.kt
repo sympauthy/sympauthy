@@ -26,7 +26,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 class ClientsConfigFactoryTest {
 
     @MockK(relaxed = true)
-    lateinit var validator: ClientConfigValidator
+    lateinit var validator: ClientConfigFieldParser
 
     private val parser = ConfigParser()
 

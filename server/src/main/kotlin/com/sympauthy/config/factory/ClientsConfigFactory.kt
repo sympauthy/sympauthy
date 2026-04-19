@@ -24,7 +24,7 @@ import kotlinx.coroutines.flow.flow
 @Factory
 class ClientsConfigFactory(
     @Inject private val parser: ConfigParser,
-    @Inject private val validator: ClientConfigValidator,
+    @Inject private val validator: ClientConfigFieldParser,
     @Inject private val clientTemplatesConfig: Flow<ClientTemplatesConfig>
 ) {
 

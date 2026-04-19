@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.flow
 @Factory
 class ClientTemplatesConfigFactory(
     @Inject private val parser: ConfigParser,
-    @Inject private val validator: ClientConfigValidator
+    @Inject private val validator: ClientConfigFieldParser
 ) {
 
     @Singleton

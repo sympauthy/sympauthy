@@ -25,7 +25,7 @@ import jakarta.inject.Singleton
  * validation logic between client and template configurations.
  */
 @Singleton
-class ClientConfigValidator(
+class ClientConfigFieldParser(
     @Inject private val parser: ConfigParser,
     @Inject private val scopeManager: ScopeManager,
     @Inject private val authorizationFlowManager: AuthorizationFlowManager,
