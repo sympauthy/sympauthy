@@ -297,6 +297,102 @@ class WebAuthorizationFlowManagerTest {
         assertEquals("authorize.pkce.missing_code_challenge", error!!.detailsId)
     }
 
+    // --- getDefaultWebAuthorizationFlow tests ---
+
+    @Test
+    fun `getDefaultWebAuthorizationFlow - Returns template flow when default template has a WebAuthorizationFlow`() = runTest {
+        val templateFlow = mockk<WebAuthorizationFlow>()
+        val template = ClientTemplate(
+            id = "default",
+            public = null,
+            allowedGrantTypes = null,
+            authorizationFlow = templateFlow,
+            allowedRedirectUris = null,
+            allowedScopes = null,
+            defaultScopes = null,
+            authorizationWebhook = null
+        )
+        val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
+        val realManager = WebAuthorizationFlowManager(
+            authorizationFlowManager, authorizeAttemptManager, collectedClaimManager,
+            consentAwareCollectedClaimManager, claimValidationManager, clientManager,
+            scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
+        )
+
+        val result = realManager.getDefaultWebAuthorizationFlow()
+
+        assertSame(templateFlow, result)
+    }
+
+    @Test
+    fun `getDefaultWebAuthorizationFlow - Falls back to hardcoded flow when no default template`() = runTest {
+        val hardcodedFlow = mockk<WebAuthorizationFlow>()
+        every { authorizationFlowManager.defaultWebAuthorizationFlow } returns hardcodedFlow
+        val templatesConfig = EnabledClientTemplatesConfig(emptyMap())
+        val realManager = WebAuthorizationFlowManager(
+            authorizationFlowManager, authorizeAttemptManager, collectedClaimManager,
+            consentAwareCollectedClaimManager, claimValidationManager, clientManager,
+            scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
+        )
+
+        val result = realManager.getDefaultWebAuthorizationFlow()
+
+        assertSame(hardcodedFlow, result)
+    }
+
+    @Test
+    fun `getDefaultWebAuthorizationFlow - Falls back to hardcoded flow when template flow is not WebAuthorizationFlow`() = runTest {
+        val nonInteractiveFlow = mockk<NonInteractiveAuthorizationFlow>()
+        val hardcodedFlow = mockk<WebAuthorizationFlow>()
+        every { authorizationFlowManager.defaultWebAuthorizationFlow } returns hardcodedFlow
+        val template = ClientTemplate(
+            id = "default",
+            public = null,
+            allowedGrantTypes = null,
+            authorizationFlow = nonInteractiveFlow,
+            allowedRedirectUris = null,
+            allowedScopes = null,
+            defaultScopes = null,
+            authorizationWebhook = null
+        )
+        val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
+        val realManager = WebAuthorizationFlowManager(
+            authorizationFlowManager, authorizeAttemptManager, collectedClaimManager,
+            consentAwareCollectedClaimManager, claimValidationManager, clientManager,
+            scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
+        )
+
+        val result = realManager.getDefaultWebAuthorizationFlow()
+
+        assertSame(hardcodedFlow, result)
+    }
+
+    @Test
+    fun `getDefaultWebAuthorizationFlow - Falls back to hardcoded flow when template has no authorizationFlow`() = runTest {
+        val hardcodedFlow = mockk<WebAuthorizationFlow>()
+        every { authorizationFlowManager.defaultWebAuthorizationFlow } returns hardcodedFlow
+        val template = ClientTemplate(
+            id = "default",
+            public = null,
+            allowedGrantTypes = null,
+            authorizationFlow = null,
+            allowedRedirectUris = null,
+            allowedScopes = null,
+            defaultScopes = null,
+            authorizationWebhook = null
+        )
+        val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
+        val realManager = WebAuthorizationFlowManager(
+            authorizationFlowManager, authorizeAttemptManager, collectedClaimManager,
+            consentAwareCollectedClaimManager, claimValidationManager, clientManager,
+            scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
+        )
+
+        val result = realManager.getDefaultWebAuthorizationFlow()
+
+        assertSame(hardcodedFlow, result)
+    }
+
     // --- startAuthorizationWith tests ---
 
     private val defaultFlow = mockk<WebAuthorizationFlow>()
