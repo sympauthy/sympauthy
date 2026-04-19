@@ -29,7 +29,7 @@ allprojects {
         set("jsonPathVersion", "3.0.0")
         set("bouncyCastleVersion", "1.84")
         set("freemarkerVersion", "2.3.34")
-        set("evalExVersion", "3.6.0")
+        set("evalExVersion", "3.6.1")
 
         // Test dependencies
         set("junitJupiterVersion", "6.0.3")
