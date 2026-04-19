@@ -33,6 +33,10 @@ suspend fun Flow<ClientTemplatesConfig>.orThrow(): EnabledClientTemplatesConfig 
     return config.orThrow()
 }
 
+suspend fun Flow<ClientTemplatesConfig>.orNull(): EnabledClientTemplatesConfig? {
+    return (firstOrNull() as? EnabledClientTemplatesConfig)
+}
+
 /**
  * A validated client template holding default values for client configurations.
  *

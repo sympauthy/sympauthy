@@ -10,7 +10,7 @@ import com.sympauthy.config.model.ClientTemplatesConfig
 import com.sympauthy.config.model.ClientsConfig
 import com.sympauthy.config.model.DisabledClientsConfig
 import com.sympauthy.config.model.EnabledClientsConfig
-import com.sympauthy.config.model.orThrow
+import com.sympauthy.config.model.orNull
 import com.sympauthy.config.properties.ClientConfigurationProperties
 import com.sympauthy.config.properties.ClientConfigurationProperties.Companion.CLIENTS_KEY
 import com.sympauthy.config.properties.ClientTemplateConfigurationProperties.Companion.DEFAULT
@@ -32,11 +32,14 @@ class ClientsConfigFactory(
         propertiesList: List<ClientConfigurationProperties>
     ): Flow<ClientsConfig> {
         return flow {
-            val errors = mutableListOf<ConfigurationException>()
-
-            val templatesConfig = clientTemplatesConfig.orThrow()
+            val templatesConfig = clientTemplatesConfig.orNull()
+            if (templatesConfig == null) {
+                emit(DisabledClientsConfig(emptyList()))
+                return@flow
+            }
             val templates = templatesConfig.templates
 
+            val errors = mutableListOf<ConfigurationException>()
             val clients = propertiesList.mapNotNull { config ->
                 val template = resolveTemplate(config, templates, errors)
                 getClient(
