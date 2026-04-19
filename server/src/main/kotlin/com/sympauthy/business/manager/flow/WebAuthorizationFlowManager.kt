@@ -10,16 +10,19 @@ import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.code.ValidationCodeReason
-import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ID
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
+import com.sympauthy.config.model.ClientTemplatesConfig
 import com.sympauthy.config.model.EnabledMfaConfig
 import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.config.model.orThrow
+import com.sympauthy.config.properties.ClientTemplateConfigurationProperties.Companion.DEFAULT
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import java.net.URI
 import java.net.URISyntaxException
 
@@ -42,14 +45,24 @@ class WebAuthorizationFlowManager(
     @Inject private val claimValidationManager: WebAuthorizationFlowClaimValidationManager,
     @Inject private val clientManager: ClientManager,
     @Inject private val scopeManager: ScopeManager,
-    @Inject private val uncheckedMfaConfig: MfaConfig
+    @Inject private val uncheckedMfaConfig: MfaConfig,
+    @Inject private val uncheckedClientTemplatesConfig: Flow<ClientTemplatesConfig>
 ) {
 
     /**
      * Return the default [WebAuthorizationFlow].
+     *
+     * First checks the default client template for an authorization flow, then falls back
+     * to the hardcoded default web authorization flow.
      */
-    val defaultWebAuthorizationFlow: WebAuthorizationFlow
-        get() = authorizationFlowManager.defaultWebAuthorizationFlow
+    suspend fun getDefaultWebAuthorizationFlow(): WebAuthorizationFlow {
+        val templateFlow = uncheckedClientTemplatesConfig.first().orThrow()
+            .templates[DEFAULT]?.authorizationFlow
+        if (templateFlow is WebAuthorizationFlow) {
+            return templateFlow
+        }
+        return authorizationFlowManager.defaultWebAuthorizationFlow
+    }
 
     /**
      * Return the [WebAuthorizationFlow] identified by [id].
@@ -108,15 +121,15 @@ class WebAuthorizationFlowManager(
         }
 
         val authorizationFlowId = client?.authorizationFlow?.id
-        val defaultWebAuthorizationFlow = findById(DEFAULT_WEB_AUTHORIZATION_FLOW_ID)
+        val defaultFlow = getDefaultWebAuthorizationFlow()
         val (flow, flowException) = if (authorizationFlowId != null) {
             try {
-                findById(authorizationFlowId) to null
+            findById(authorizationFlowId) to null
             } catch (e: BusinessException) {
-                defaultWebAuthorizationFlow to e
+                defaultFlow to e
             }
         } else {
-            defaultWebAuthorizationFlow to null
+            defaultFlow to null
         }
 
         val (scopes, scopeException) = if (client != null) {

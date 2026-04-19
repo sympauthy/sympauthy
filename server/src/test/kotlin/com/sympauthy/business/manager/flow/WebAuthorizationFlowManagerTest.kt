@@ -14,6 +14,9 @@ import com.sympauthy.business.model.flow.NonInteractiveAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
 import com.sympauthy.business.model.oauth2.*
+import com.sympauthy.config.model.ClientTemplate
+import com.sympauthy.config.model.ClientTemplatesConfig
+import com.sympauthy.config.model.EnabledClientTemplatesConfig
 import com.sympauthy.config.model.EnabledMfaConfig
 import io.mockk.*
 import io.mockk.impl.annotations.InjectMockKs
@@ -21,6 +24,8 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -55,6 +60,10 @@ class WebAuthorizationFlowManagerTest {
 
     @MockK
     lateinit var uncheckedMfaConfig: EnabledMfaConfig
+
+    var uncheckedClientTemplatesConfig: Flow<ClientTemplatesConfig> = flowOf(
+        EnabledClientTemplatesConfig(emptyMap())
+    )
 
     @SpyK
     @InjectMockKs
@@ -293,7 +302,7 @@ class WebAuthorizationFlowManagerTest {
     private val defaultFlow = mockk<WebAuthorizationFlow>()
 
     private fun setupDefaultFlow() {
-        every { manager.findById(AuthorizationFlow.DEFAULT_WEB_AUTHORIZATION_FLOW_ID) } returns defaultFlow
+        coEvery { manager.getDefaultWebAuthorizationFlow() } returns defaultFlow
     }
 
     private fun setupValidClient(

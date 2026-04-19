@@ -95,7 +95,7 @@ class WebAuthorizationFlowControllerUtil(
             // Redirect to the error page of the default flow since the information on the exact flow is missing.
             val redirectUri = redirectUriBuilder.getErrorUri(
                 authorizeAttempt = authorizeAttempt,
-                flow = webAuthorizationFlowManager.defaultWebAuthorizationFlow,
+                flow = webAuthorizationFlowManager.getDefaultWebAuthorizationFlow(),
             )
             return mapRedirectUriToResource(redirectUri)
         }
@@ -158,7 +158,7 @@ class WebAuthorizationFlowControllerUtil(
             // Redirect to the error page of the default flow since the information on the exact flow is missing.
             val redirectUri = redirectUriBuilder.getErrorUri(
                 authorizeAttempt = authorizeAttempt,
-                flow = webAuthorizationFlowManager.defaultWebAuthorizationFlow,
+                flow = webAuthorizationFlowManager.getDefaultWebAuthorizationFlow(),
             )
             return mapRedirectUriToResource(redirectUri)
         }
@@ -228,7 +228,7 @@ class WebAuthorizationFlowControllerUtil(
             // Redirect to the error page of the default flow since the information on the exact flow is missing.
             val redirectUri = redirectUriBuilder.getErrorUri(
                 authorizeAttempt = authorizeAttempt,
-                flow = webAuthorizationFlowManager.defaultWebAuthorizationFlow,
+                flow = webAuthorizationFlowManager.getDefaultWebAuthorizationFlow(),
             )
             return mapRedirectUriToResource(redirectUri)
         }
@@ -286,7 +286,7 @@ class WebAuthorizationFlowControllerUtil(
             // Redirect to the error page of the default flow since the information on the exact flow is missing.
             val redirectUri = redirectUriBuilder.getErrorUri(
                 authorizeAttempt = authorizeAttempt,
-                flow = webAuthorizationFlowManager.defaultWebAuthorizationFlow,
+                flow = webAuthorizationFlowManager.getDefaultWebAuthorizationFlow(),
             )
             return mapRedirectUriToResource(redirectUri)
         }
