@@ -120,20 +120,20 @@ class ClientsConfigFactory(
         }
 
         val allowedGrantTypes = try {
-            val rawGrantTypes = properties.allowedGrantTypes
-            if (rawGrantTypes != null) {
-                fieldParser.getAllowedGrantTypes(
+            when {
+                properties.allowedGrantTypes != null -> fieldParser.getAllowedGrantTypesOrNull(
                     configKey = "$configKeyPrefix.allowed-grant-types",
-                    allowedGrantTypes = rawGrantTypes,
+                    allowedGrantTypes = properties.allowedGrantTypes,
                     errors = clientErrors
                 )
-            } else {
-                template?.allowedGrantTypes ?: run {
-                    fieldParser.getAllowedGrantTypes(
-                        configKey = "$configKeyPrefix.allowed-grant-types",
-                        allowedGrantTypes = null,
-                        errors = clientErrors
-                    )
+                template?.allowedGrantTypes != null -> template.allowedGrantTypes
+                else -> {
+                    clientErrors.add(configExceptionOf(
+                        "$configKeyPrefix.allowed-grant-types",
+                        "config.client.allowed_grant_types.missing",
+                        "supportedValues" to GrantType.entries.joinToString(", ") { it.value }
+                    ))
+                    null
                 }
             }
         } catch (e: ConfigurationException) {
@@ -142,14 +142,12 @@ class ClientsConfigFactory(
         }
 
         val authorizationFlow = try {
-            val flowId = properties.authorizationFlow
-            if (flowId != null) {
-                fieldParser.getAuthorizationFlow(
+            when {
+                properties.authorizationFlow != null -> fieldParser.getAuthorizationFlow(
                     key = "$configKeyPrefix.authorization-flow",
-                    flowId = flowId
+                    flowId = properties.authorizationFlow
                 )
-            } else {
-                template?.authorizationFlow
+                else -> template?.authorizationFlow
             }
         } catch (e: ConfigurationException) {
             clientErrors.add(e)
@@ -158,22 +156,20 @@ class ClientsConfigFactory(
 
         val allowedRedirectUris = if (allowedGrantTypes?.contains(GrantType.AUTHORIZATION_CODE) != false) {
             try {
-                val rawRedirectUris = properties.allowedRedirectUris
-                if (rawRedirectUris != null) {
-                    fieldParser.getAllowedRedirectUris(
+                when {
+                    properties.allowedRedirectUris != null -> fieldParser.getAllowedRedirectUrisOrNull(
                         configKey = "$configKeyPrefix.allowed-redirect-uris",
                         uris = properties.uris,
-                        allowedRedirectUris = rawRedirectUris,
+                        allowedRedirectUris = properties.allowedRedirectUris,
                         errors = clientErrors
                     )
-                } else {
-                    template?.allowedRedirectUris ?: run {
-                        fieldParser.getAllowedRedirectUris(
-                            configKey = "$configKeyPrefix.allowed-redirect-uris",
-                            uris = properties.uris,
-                            allowedRedirectUris = null,
-                            errors = clientErrors
-                        )
+                    template?.allowedRedirectUris != null -> template.allowedRedirectUris
+                    else -> {
+                        clientErrors.add(configExceptionOf(
+                            "$configKeyPrefix.allowed-redirect-uris",
+                            "config.client.allowed_redirect_uris.missing"
+                        ))
+                        null
                     }
                 }
             } catch (e: ConfigurationException) {
@@ -181,8 +177,7 @@ class ClientsConfigFactory(
                 null
             }
         } else {
-            val rawRedirectUris = properties.allowedRedirectUris
-            if (!rawRedirectUris.isNullOrEmpty()) {
+            if (!properties.allowedRedirectUris.isNullOrEmpty()) {
                 clientErrors.add(
                     configExceptionOf(
                         "$configKeyPrefix.allowed-redirect-uris",
@@ -194,15 +189,13 @@ class ClientsConfigFactory(
         }
 
         val allowedScopes = try {
-            val rawScopes = properties.allowedScopes
-            if (rawScopes != null) {
-                fieldParser.getScopes(
+            when {
+                properties.allowedScopes != null -> fieldParser.getScopes(
                     key = "$configKeyPrefix.allowed-scopes",
-                    scopes = rawScopes,
+                    scopes = properties.allowedScopes,
                     errors = clientErrors
                 )?.toSet()
-            } else {
-                template?.allowedScopes
+                else -> template?.allowedScopes
             }
         } catch (e: ConfigurationException) {
             clientErrors.add(e)
@@ -210,15 +203,13 @@ class ClientsConfigFactory(
         }
 
         val defaultScopes = try {
-            val rawScopes = properties.defaultScopes
-            if (rawScopes != null) {
-                fieldParser.getScopes(
+            when {
+                properties.defaultScopes != null -> fieldParser.getScopes(
                     key = "$configKeyPrefix.default-scopes",
-                    scopes = rawScopes,
+                    scopes = properties.defaultScopes,
                     errors = clientErrors
                 )
-            } else {
-                template?.defaultScopes
+                else -> template?.defaultScopes
             }
         } catch (e: ConfigurationException) {
             clientErrors.add(e)
@@ -226,15 +217,13 @@ class ClientsConfigFactory(
         }
 
         val authorizationWebhook = try {
-            val webhookConfig = properties.authorizationWebhook
-            if (webhookConfig != null) {
-                fieldParser.getAuthorizationWebhook(
+            when {
+                properties.authorizationWebhook != null -> fieldParser.getAuthorizationWebhook(
                     configKey = "$configKeyPrefix.authorization-webhook",
-                    webhookConfig = webhookConfig,
+                    webhookConfig = properties.authorizationWebhook,
                     errors = clientErrors
                 )
-            } else {
-                template?.authorizationWebhook
+                else -> template?.authorizationWebhook
             }
         } catch (e: ConfigurationException) {
             clientErrors.add(e)

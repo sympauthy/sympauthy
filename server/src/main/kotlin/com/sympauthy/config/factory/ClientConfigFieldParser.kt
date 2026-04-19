@@ -33,27 +33,8 @@ class ClientConfigFieldParser(
     @Inject private val templateResolver: ConfigTemplateResolver
 ) {
 
-    fun getAllowedGrantTypes(
-        configKey: String,
-        allowedGrantTypes: List<String>?,
-        errors: MutableList<ConfigurationException>
-    ): Set<GrantType>? {
-        if (allowedGrantTypes.isNullOrEmpty()) {
-            errors.add(
-                configExceptionOf(
-                    configKey, "config.client.allowed_grant_types.missing",
-                    "supportedValues" to GrantType.entries.joinToString(", ") { it.value }
-                )
-            )
-            return null
-        }
-
-        return getAllowedGrantTypesOrNull(configKey, allowedGrantTypes, errors)
-    }
-
     /**
      * Parses and validates grant types, returning null when the list is empty or null.
-     * Used by templates where the grant types are optional.
      */
     fun getAllowedGrantTypesOrNull(
         configKey: String,
@@ -123,23 +104,8 @@ class ClientConfigFieldParser(
         return context
     }
 
-    fun getAllowedRedirectUris(
-        configKey: String,
-        uris: Map<String, String>?,
-        allowedRedirectUris: List<String>?,
-        errors: MutableList<ConfigurationException>
-    ): List<String>? {
-        if (allowedRedirectUris.isNullOrEmpty()) {
-            errors.add(configExceptionOf(configKey, "config.client.allowed_redirect_uris.missing"))
-            return null
-        }
-
-        return getAllowedRedirectUrisOrNull(configKey, uris, allowedRedirectUris, errors)
-    }
-
     /**
      * Parses and validates redirect URIs, returning null when the list is empty or null.
-     * Used by templates where the redirect URIs are optional.
      */
     fun getAllowedRedirectUrisOrNull(
         configKey: String,

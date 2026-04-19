@@ -79,7 +79,7 @@ class ClientsConfigFactoryTest {
         val grantTypes = setOf(GrantType.AUTHORIZATION_CODE)
         val redirectUris = listOf("https://example.com/callback")
 
-        coEvery { fieldParser.getAllowedRedirectUris(any(), any(), any(), any()) } returns redirectUris
+        coEvery { fieldParser.getAllowedRedirectUrisOrNull(any(), any(), any(), any()) } returns redirectUris
 
         val factory = factory(
             clientTemplate(
@@ -106,7 +106,7 @@ class ClientsConfigFactoryTest {
         val clientGrantTypes = setOf(GrantType.CLIENT_CREDENTIALS)
         val redirectUris = listOf("https://example.com/callback")
 
-        coEvery { fieldParser.getAllowedGrantTypes(any(), any(), any()) } returns clientGrantTypes
+        coEvery { fieldParser.getAllowedGrantTypesOrNull(any(), any(), any()) } returns clientGrantTypes
 
         val factory = factory(
             clientTemplate(
@@ -193,12 +193,12 @@ class ClientsConfigFactoryTest {
 
     @Test
     fun `Client without template and no default requires all fields`() = runTest {
-        coEvery { fieldParser.getAllowedGrantTypes(any(), isNull(), any()) } answers {
+        coEvery { fieldParser.getAllowedGrantTypesOrNull(any(), isNull(), any()) } answers {
             val errors = thirdArg<MutableList<ConfigurationException>>()
             errors.add(ConfigurationException("key", "config.client.allowed_grant_types.missing"))
             null
         }
-        coEvery { fieldParser.getAllowedRedirectUris(any(), any(), isNull(), any()) } answers {
+        coEvery { fieldParser.getAllowedRedirectUrisOrNull(any(), any(), isNull(), any()) } answers {
             val errors = arg<MutableList<ConfigurationException>>(3)
             errors.add(ConfigurationException("key", "config.client.allowed_redirect_uris.missing"))
             null
