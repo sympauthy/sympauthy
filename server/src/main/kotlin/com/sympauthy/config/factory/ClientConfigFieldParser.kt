@@ -48,44 +48,14 @@ class ClientConfigFieldParser(
             return null
         }
 
-        val grantTypeErrors = mutableListOf<ConfigurationException>()
-        val parsed = allowedGrantTypes.mapIndexedNotNull { index, value ->
-            val itemKey = "$configKey[$index]"
-            val grantType = GrantType.fromValueOrNull(value)
-            if (grantType == null) {
-                grantTypeErrors.add(
-                    configExceptionOf(
-                        itemKey, "config.client.allowed_grant_types.invalid",
-                        "grantType" to value,
-                        "supportedValues" to GrantType.entries.joinToString(", ") { it.value }
-                    )
-                )
-            }
-            grantType
-        }.toSet()
-
-        if (grantTypeErrors.isNotEmpty()) {
-            errors.addAll(grantTypeErrors)
-            return null
-        }
-
-        if (GrantType.REFRESH_TOKEN in parsed && GrantType.AUTHORIZATION_CODE !in parsed) {
-            errors.add(
-                configExceptionOf(
-                    configKey, "config.client.allowed_grant_types.refresh_token_requires_authorization_code"
-                )
-            )
-            return null
-        }
-
-        return parsed
+        return getAllowedGrantTypesOrNull(configKey, allowedGrantTypes, errors)
     }
 
     /**
-     * Validates grant types leniently for templates: does not require the list to be non-empty.
-     * Only validates individual values and grant type constraints if present.
+     * Parses and validates grant types, returning null when the list is empty or null.
+     * Used by templates where the grant types are optional.
      */
-    fun validateGrantTypes(
+    fun getAllowedGrantTypesOrNull(
         configKey: String,
         allowedGrantTypes: List<String>?,
         errors: MutableList<ConfigurationException>
@@ -164,14 +134,14 @@ class ClientConfigFieldParser(
             return null
         }
 
-        return validateRedirectUris(configKey, uris, allowedRedirectUris, errors)
+        return getAllowedRedirectUrisOrNull(configKey, uris, allowedRedirectUris, errors)
     }
 
     /**
-     * Validates redirect URIs leniently for templates: does not require the list to be non-empty.
-     * Only validates individual URI values if present.
+     * Parses and validates redirect URIs, returning null when the list is empty or null.
+     * Used by templates where the redirect URIs are optional.
      */
-    fun validateRedirectUris(
+    fun getAllowedRedirectUrisOrNull(
         configKey: String,
         uris: Map<String, String>?,
         allowedRedirectUris: List<String>?,

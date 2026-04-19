@@ -53,7 +53,7 @@ class ClientTemplatesConfigFactory(
         )
 
         val allowedGrantTypes = try {
-            fieldParser.validateGrantTypes(
+            fieldParser.getAllowedGrantTypesOrNull(
                 configKey = "$configKeyPrefix.allowed-grant-types",
                 allowedGrantTypes = properties.allowedGrantTypes,
                 errors = templateErrors
@@ -74,7 +74,7 @@ class ClientTemplatesConfigFactory(
         }
 
         val allowedRedirectUris = try {
-            fieldParser.validateRedirectUris(
+            fieldParser.getAllowedRedirectUrisOrNull(
                 configKey = "$configKeyPrefix.allowed-redirect-uris",
                 uris = properties.uris,
                 allowedRedirectUris = properties.allowedRedirectUris,
