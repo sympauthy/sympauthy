@@ -22,7 +22,6 @@ import com.sympauthy.config.properties.ClientTemplateConfigurationProperties.Com
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import java.net.URI
 import java.net.URISyntaxException
 
@@ -56,7 +55,7 @@ class WebAuthorizationFlowManager(
      * to the hardcoded default web authorization flow.
      */
     suspend fun getDefaultWebAuthorizationFlow(): WebAuthorizationFlow {
-        val templateFlow = uncheckedClientTemplatesConfig.first().orThrow()
+        val templateFlow = uncheckedClientTemplatesConfig.orThrow()
             .templates[DEFAULT]?.authorizationFlow
         if (templateFlow is WebAuthorizationFlow) {
             return templateFlow

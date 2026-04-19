@@ -5,6 +5,9 @@ import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.config.exception.ConfigurationException
+import com.sympauthy.exception.localizedExceptionOf
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
 
 sealed class ClientTemplatesConfig(
     configurationErrors: List<ConfigurationException>? = null
@@ -23,6 +26,11 @@ fun ClientTemplatesConfig.orThrow(): EnabledClientTemplatesConfig {
         is EnabledClientTemplatesConfig -> this
         is DisabledClientTemplatesConfig -> throw this.invalidConfig
     }
+}
+
+suspend fun Flow<ClientTemplatesConfig>.orThrow(): EnabledClientTemplatesConfig {
+    val config = firstOrNull() ?: throw localizedExceptionOf("config.invalid")
+    return config.orThrow()
 }
 
 /**

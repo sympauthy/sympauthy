@@ -18,7 +18,6 @@ import io.micronaut.context.annotation.Factory
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 
 @Factory
@@ -35,7 +34,7 @@ class ClientsConfigFactory(
         return flow {
             val errors = mutableListOf<ConfigurationException>()
 
-            val templatesConfig = clientTemplatesConfig.first().orThrow()
+            val templatesConfig = clientTemplatesConfig.orThrow()
             val templates = templatesConfig.templates
 
             val clients = propertiesList.mapNotNull { config ->
