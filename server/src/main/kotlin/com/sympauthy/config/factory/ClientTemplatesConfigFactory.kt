@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.flow
 @Factory
 class ClientTemplatesConfigFactory(
     @Inject private val parser: ConfigParser,
-    @Inject private val validator: ClientConfigFieldParser
+    @Inject private val fieldParser: ClientConfigFieldParser
 ) {
 
     @Singleton
@@ -53,7 +53,7 @@ class ClientTemplatesConfigFactory(
         )
 
         val allowedGrantTypes = try {
-            validator.validateGrantTypes(
+            fieldParser.validateGrantTypes(
                 configKey = "$configKeyPrefix.allowed-grant-types",
                 allowedGrantTypes = properties.allowedGrantTypes,
                 errors = templateErrors
@@ -64,7 +64,7 @@ class ClientTemplatesConfigFactory(
         }
 
         val authorizationFlow = try {
-            validator.getAuthorizationFlow(
+            fieldParser.getAuthorizationFlow(
                 key = "$configKeyPrefix.authorization-flow",
                 flowId = properties.authorizationFlow
             )
@@ -74,7 +74,7 @@ class ClientTemplatesConfigFactory(
         }
 
         val allowedRedirectUris = try {
-            validator.validateRedirectUris(
+            fieldParser.validateRedirectUris(
                 configKey = "$configKeyPrefix.allowed-redirect-uris",
                 uris = properties.uris,
                 allowedRedirectUris = properties.allowedRedirectUris,
@@ -86,7 +86,7 @@ class ClientTemplatesConfigFactory(
         }
 
         val allowedScopes = try {
-            validator.getScopes(
+            fieldParser.getScopes(
                 key = "$configKeyPrefix.allowed-scopes",
                 scopes = properties.allowedScopes,
                 errors = templateErrors
@@ -97,7 +97,7 @@ class ClientTemplatesConfigFactory(
         }
 
         val defaultScopes = try {
-            validator.getScopes(
+            fieldParser.getScopes(
                 key = "$configKeyPrefix.default-scopes",
                 scopes = properties.defaultScopes,
                 errors = templateErrors
@@ -108,7 +108,7 @@ class ClientTemplatesConfigFactory(
         }
 
         val authorizationWebhook = try {
-            validator.getAuthorizationWebhook(
+            fieldParser.getAuthorizationWebhook(
                 configKey = "$configKeyPrefix.authorization-webhook",
                 webhookConfig = properties.authorizationWebhook,
                 errors = templateErrors

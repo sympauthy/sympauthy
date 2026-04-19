@@ -26,7 +26,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 class ClientsConfigFactoryTest {
 
     @MockK(relaxed = true)
-    lateinit var validator: ClientConfigFieldParser
+    lateinit var fieldParser: ClientConfigFieldParser
 
     private val parser = ConfigParser()
 
@@ -69,7 +69,7 @@ class ClientsConfigFactoryTest {
     private fun factory(vararg templates: ClientTemplate): ClientsConfigFactory {
         val templatesConfig = EnabledClientTemplatesConfig(templates.associateBy { it.id })
         val templatesFlow = flowOf<ClientTemplatesConfig>(templatesConfig)
-        return ClientsConfigFactory(parser, validator, templatesFlow)
+        return ClientsConfigFactory(parser, fieldParser, templatesFlow)
     }
 
     // --- Default template resolution ---
@@ -79,7 +79,7 @@ class ClientsConfigFactoryTest {
         val grantTypes = setOf(GrantType.AUTHORIZATION_CODE)
         val redirectUris = listOf("https://example.com/callback")
 
-        coEvery { validator.getAllowedRedirectUris(any(), any(), any(), any()) } returns redirectUris
+        coEvery { fieldParser.getAllowedRedirectUris(any(), any(), any(), any()) } returns redirectUris
 
         val factory = factory(
             clientTemplate(
@@ -106,7 +106,7 @@ class ClientsConfigFactoryTest {
         val clientGrantTypes = setOf(GrantType.CLIENT_CREDENTIALS)
         val redirectUris = listOf("https://example.com/callback")
 
-        coEvery { validator.getAllowedGrantTypes(any(), any(), any()) } returns clientGrantTypes
+        coEvery { fieldParser.getAllowedGrantTypes(any(), any(), any()) } returns clientGrantTypes
 
         val factory = factory(
             clientTemplate(
@@ -193,12 +193,12 @@ class ClientsConfigFactoryTest {
 
     @Test
     fun `Client without template and no default requires all fields`() = runTest {
-        coEvery { validator.getAllowedGrantTypes(any(), isNull(), any()) } answers {
+        coEvery { fieldParser.getAllowedGrantTypes(any(), isNull(), any()) } answers {
             val errors = thirdArg<MutableList<ConfigurationException>>()
             errors.add(ConfigurationException("key", "config.client.allowed_grant_types.missing"))
             null
         }
-        coEvery { validator.getAllowedRedirectUris(any(), any(), isNull(), any()) } answers {
+        coEvery { fieldParser.getAllowedRedirectUris(any(), any(), isNull(), any()) } answers {
             val errors = arg<MutableList<ConfigurationException>>(3)
             errors.add(ConfigurationException("key", "config.client.allowed_redirect_uris.missing"))
             null

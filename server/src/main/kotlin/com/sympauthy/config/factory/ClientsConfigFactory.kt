@@ -24,7 +24,7 @@ import kotlinx.coroutines.flow.flow
 @Factory
 class ClientsConfigFactory(
     @Inject private val parser: ConfigParser,
-    @Inject private val validator: ClientConfigFieldParser,
+    @Inject private val fieldParser: ClientConfigFieldParser,
     @Inject private val clientTemplatesConfig: Flow<ClientTemplatesConfig>
 ) {
 
@@ -120,14 +120,14 @@ class ClientsConfigFactory(
         val allowedGrantTypes = try {
             val rawGrantTypes = properties.allowedGrantTypes
             if (rawGrantTypes != null) {
-                validator.getAllowedGrantTypes(
+                fieldParser.getAllowedGrantTypes(
                     configKey = "$configKeyPrefix.allowed-grant-types",
                     allowedGrantTypes = rawGrantTypes,
                     errors = clientErrors
                 )
             } else {
                 template?.allowedGrantTypes ?: run {
-                    validator.getAllowedGrantTypes(
+                    fieldParser.getAllowedGrantTypes(
                         configKey = "$configKeyPrefix.allowed-grant-types",
                         allowedGrantTypes = null,
                         errors = clientErrors
@@ -142,7 +142,7 @@ class ClientsConfigFactory(
         val authorizationFlow = try {
             val flowId = properties.authorizationFlow
             if (flowId != null) {
-                validator.getAuthorizationFlow(
+                fieldParser.getAuthorizationFlow(
                     key = "$configKeyPrefix.authorization-flow",
                     flowId = flowId
                 )
@@ -158,7 +158,7 @@ class ClientsConfigFactory(
             try {
                 val rawRedirectUris = properties.allowedRedirectUris
                 if (rawRedirectUris != null) {
-                    validator.getAllowedRedirectUris(
+                    fieldParser.getAllowedRedirectUris(
                         configKey = "$configKeyPrefix.allowed-redirect-uris",
                         uris = properties.uris,
                         allowedRedirectUris = rawRedirectUris,
@@ -166,7 +166,7 @@ class ClientsConfigFactory(
                     )
                 } else {
                     template?.allowedRedirectUris ?: run {
-                        validator.getAllowedRedirectUris(
+                        fieldParser.getAllowedRedirectUris(
                             configKey = "$configKeyPrefix.allowed-redirect-uris",
                             uris = properties.uris,
                             allowedRedirectUris = null,
@@ -194,7 +194,7 @@ class ClientsConfigFactory(
         val allowedScopes = try {
             val rawScopes = properties.allowedScopes
             if (rawScopes != null) {
-                validator.getScopes(
+                fieldParser.getScopes(
                     key = "$configKeyPrefix.allowed-scopes",
                     scopes = rawScopes,
                     errors = clientErrors
@@ -210,7 +210,7 @@ class ClientsConfigFactory(
         val defaultScopes = try {
             val rawScopes = properties.defaultScopes
             if (rawScopes != null) {
-                validator.getScopes(
+                fieldParser.getScopes(
                     key = "$configKeyPrefix.default-scopes",
                     scopes = rawScopes,
                     errors = clientErrors
@@ -226,7 +226,7 @@ class ClientsConfigFactory(
         val authorizationWebhook = try {
             val webhookConfig = properties.authorizationWebhook
             if (webhookConfig != null) {
-                validator.getAuthorizationWebhook(
+                fieldParser.getAuthorizationWebhook(
                     configKey = "$configKeyPrefix.authorization-webhook",
                     webhookConfig = webhookConfig,
                     errors = clientErrors
