@@ -27,9 +27,11 @@ class ScopeConfigFactory(
     fun provideScopes(
         propertiesList: List<ScopeConfigurationProperties>
     ): ScopesConfig {
-        val errors = mutableListOf<ConfigurationException>()
+        val enabledTemplatesConfig = scopeTemplatesConfig.orNull()
+            ?: return DisabledScopesConfig(emptyList())
+        val templates = enabledTemplatesConfig.templates
 
-        val templates = (scopeTemplatesConfig as? EnabledScopeTemplatesConfig)?.templates ?: emptyMap()
+        val errors = mutableListOf<ConfigurationException>()
 
         val scopes = propertiesList.mapNotNull { properties ->
             when {

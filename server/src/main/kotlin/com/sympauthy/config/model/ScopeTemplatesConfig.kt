@@ -21,6 +21,10 @@ fun ScopeTemplatesConfig.orThrow(): EnabledScopeTemplatesConfig {
     }
 }
 
+fun ScopeTemplatesConfig.orNull(): EnabledScopeTemplatesConfig? {
+    return this as? EnabledScopeTemplatesConfig
+}
+
 /**
  * A validated scope template holding default values for scope configurations.
  *
