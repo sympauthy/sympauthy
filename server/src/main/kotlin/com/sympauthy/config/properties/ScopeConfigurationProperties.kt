@@ -7,6 +7,7 @@ import io.micronaut.context.annotation.Parameter
 class ScopeConfigurationProperties(
     @param:Parameter val id: String
 ) {
+    var template: String? = null
     val enabled: String? = null
     var discoverable: String? = null
     var type: String? = null
