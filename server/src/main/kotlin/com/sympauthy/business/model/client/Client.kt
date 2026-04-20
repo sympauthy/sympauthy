@@ -35,7 +35,8 @@ data class Client(
     val allowedRedirectUris: List<String> = emptyList(),
 
     /**
-     * List of [Scope] that can be issued to a token request by this [Client].
+     * Set of [Scope] that can be issued to a token request by this [Client].
+     * When null, all scopes are allowed.
      */
     val allowedScopes: Set<Scope>? = null,
 
