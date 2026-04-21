@@ -1,19 +1,23 @@
 package com.sympauthy.config.properties
 
-import com.sympauthy.config.properties.ClaimConfigurationProperties.Companion.CLAIMS_KEY
+import com.sympauthy.config.properties.ClaimTemplateConfigurationProperties.Companion.TEMPLATES_CLAIMS_KEY
 import io.micronaut.context.annotation.ConfigurationProperties
 import io.micronaut.context.annotation.EachProperty
 import io.micronaut.context.annotation.Parameter
 
-@EachProperty(CLAIMS_KEY)
-class ClaimConfigurationProperties(
+/**
+ * Configuration of a claim template that defines default values for claims.
+ *
+ * The template named `default` is automatically applied when no explicit template is specified
+ * on a claim. Custom templates can be referenced by name via the `template` property on a claim.
+ */
+@EachProperty(TEMPLATES_CLAIMS_KEY)
+class ClaimTemplateConfigurationProperties(
     @param:Parameter val id: String
 ) {
-    var template: String? = null
     var enabled: String? = null
     var required: String? = null
     var allowedValues: List<Any>? = null
-    var type: String? = null
     var acl: AclConfig? = null
 
     @ConfigurationProperties("acl")
@@ -28,6 +32,8 @@ class ClaimConfigurationProperties(
     }
 
     companion object {
-        const val CLAIMS_KEY = "claims"
+        const val TEMPLATES_CLAIMS_KEY = "templates.claims"
+
+        const val DEFAULT = "default"
     }
 }

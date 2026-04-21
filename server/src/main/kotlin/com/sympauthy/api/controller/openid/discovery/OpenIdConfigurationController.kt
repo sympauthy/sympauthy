@@ -45,7 +45,7 @@ class OpenIdConfigurationController(
         val scopes = scopeManager.listScopes()
             .filter { it.discoverable }
             .map { it.scope }
-        val claims = claimManager.listStandardClaims()
+        val claims = claimManager.listOpenIdClaims()
             .flatMap { listOfNotNull(it.id, it.verifiedId) }
 
         return OpenIdConfigurationResource(

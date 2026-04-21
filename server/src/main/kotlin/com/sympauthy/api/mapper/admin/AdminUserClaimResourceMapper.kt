@@ -6,7 +6,7 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimGroup
-import com.sympauthy.business.model.user.claim.origin
+
 import org.mapstruct.Mapper
 import org.mapstruct.Mapping
 import org.mapstruct.Named

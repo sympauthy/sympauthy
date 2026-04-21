@@ -2,8 +2,7 @@ package com.sympauthy
 
 import com.sympauthy.api.controller.openapi.OpenApiController.Companion.OPENAPI_ENDPOINT
 import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.model.user.claim.CustomClaim
-import com.sympauthy.business.model.user.claim.StandardClaim
+import com.sympauthy.business.model.user.claim.ClaimOrigin
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ConfigReadinessManager
 import com.sympauthy.business.manager.ScopeManager
@@ -112,8 +111,8 @@ class ApplicationReadinessStatusPrinter(
         } catch (_: Throwable) {
             emptyList()
         }
-        val standardClaimsCount = enabledClaims.count { it is StandardClaim }
-        val customClaimsCount = enabledClaims.count { it is CustomClaim }
+        val standardClaimsCount = enabledClaims.count { it.origin == ClaimOrigin.OPENID }
+        val customClaimsCount = enabledClaims.count { it.origin == ClaimOrigin.CUSTOM }
         logger.info("- ${pluralize(enabledClaims.size, "claim")} (${pluralize(standardClaimsCount, "standard")}, ${pluralize(customClaimsCount, "custom")}).")
 
         val scopes = try {

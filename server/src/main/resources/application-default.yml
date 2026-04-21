@@ -31,6 +31,20 @@ auth:
     dpop-required: false
 
 templates:
+  claims:
+    default:
+      acl:
+        readable-with-client-scopes-unconditionally:
+          - "users:claims:read"
+        writable-with-client-scopes-unconditionally:
+          - "users:claims:write"
+    openid:
+      enabled: "false"
+      acl:
+        readable-by-user-when-consented: "true"
+        writable-by-user-when-consented: "true"
+        readable-by-client-when-consented: "true"
+        writable-by-client-when-consented: "false"
   clients:
     default:
       default-scopes:
@@ -41,6 +55,74 @@ templates:
         - authorization_code
         - refresh_token
         - client_credentials
+
+claims:
+  sub:
+    template: openid
+    type: string
+  name:
+    template: openid
+    type: string
+  given_name:
+    template: openid
+    type: string
+  family_name:
+    template: openid
+    type: string
+  middle_name:
+    template: openid
+    type: string
+  nickname:
+    template: openid
+    type: string
+  preferred_username:
+    template: openid
+    type: string
+  profile:
+    template: openid
+    type: string
+  picture:
+    template: openid
+    type: string
+  website:
+    template: openid
+    type: string
+  email:
+    template: openid
+    type: email
+  gender:
+    template: openid
+    type: string
+  birth_date:
+    template: openid
+    type: date
+  zoneinfo:
+    template: openid
+    type: timezone
+  locale:
+    template: openid
+    type: string
+  phone_number:
+    template: openid
+    type: phone_number
+  updated_at:
+    template: openid
+    type: string
+  street_address:
+    template: openid
+    type: string
+  locality:
+    template: openid
+    type: string
+  region:
+    template: openid
+    type: string
+  postal_code:
+    template: openid
+    type: string
+  country:
+    template: openid
+    type: string
 
 mfa:
   required: false

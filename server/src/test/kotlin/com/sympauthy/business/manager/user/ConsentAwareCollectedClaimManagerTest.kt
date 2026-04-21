@@ -7,8 +7,12 @@ import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.claim.CustomClaim
-import com.sympauthy.business.model.user.claim.StandardClaim
+import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.ClaimAcl
+import com.sympauthy.business.model.user.claim.ClaimDataType
+import com.sympauthy.business.model.user.claim.ClaimOrigin
+import com.sympauthy.business.model.user.claim.ConsentAcl
+import com.sympauthy.business.model.user.claim.UnconditionalAcl
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -38,18 +42,63 @@ class ConsentAwareCollectedClaimManagerTest {
     @InjectMockKs
     lateinit var manager: ConsentAwareCollectedClaimManager
 
+    private fun claimWithConsentScope(scope: String) = Claim(
+        id = "claim_$scope",
+        origin = ClaimOrigin.OPENID,
+        enabled = true,
+        verifiedId = null,
+        dataType = ClaimDataType.STRING,
+        group = null,
+        required = false,
+        generated = false,
+        userInputted = true,
+        allowedValues = null,
+        acl = ClaimAcl(
+            consent = ConsentAcl(
+                scope = scope,
+                readableByUser = true,
+                writableByUser = true,
+                readableByClient = true,
+                writableByClient = true
+            ),
+            unconditional = UnconditionalAcl(emptyList(), emptyList())
+        )
+    )
+
+    private fun customClaimNotReadableByUser() = Claim(
+        id = "custom_field",
+        origin = ClaimOrigin.CUSTOM,
+        enabled = true,
+        verifiedId = null,
+        dataType = ClaimDataType.STRING,
+        group = null,
+        required = false,
+        generated = false,
+        userInputted = false,
+        allowedValues = null,
+        acl = ClaimAcl(
+            consent = ConsentAcl(
+                scope = null,
+                readableByUser = false,
+                writableByUser = false,
+                readableByClient = false,
+                writableByClient = false
+            ),
+            unconditional = UnconditionalAcl(
+                readableWithClientScopes = listOf("users:claims:read"),
+                writableWithClientScopes = listOf("users:claims:write")
+            )
+        )
+    )
+
     @Test
     fun `findByUserIdAndReadableByUser - Return only claims readable by consented scopes`() = runTest {
         val userId = UUID.randomUUID()
         val scope1 = "scope1"
         val scope2 = "scope2"
 
-        val claim1 = mockk<StandardClaim> {
-            every { canBeReadByUser(any()) } answers { (firstArg<List<String>>()).contains(scope1) }
-        }
-        val claim2 = mockk<StandardClaim> {
-            every { canBeReadByUser(any()) } answers { (firstArg<List<String>>()).contains(scope2) }
-        }
+        val claim1 = claimWithConsentScope(scope1)
+        val claim2 = claimWithConsentScope(scope2)
 
         val collectedClaim1 = mockk<CollectedClaim> {
             every { claim } returns claim1
@@ -67,19 +116,12 @@ class ConsentAwareCollectedClaimManagerTest {
     }
 
     @Test
-    fun `findByUserIdAndReadableByUser - Exclude custom claims`() = runTest {
+    fun `findByUserIdAndReadableByUser - Exclude claims not readable by user`() = runTest {
         val userId = UUID.randomUUID()
         val scope1 = "scope1"
 
-        val standardClaim = mockk<StandardClaim> {
-            every { canBeReadByUser(any()) } answers { (firstArg<List<String>>()).contains(scope1) }
-        }
-        val customClaim = CustomClaim(
-            id = "custom_field",
-            dataType = com.sympauthy.business.model.user.claim.ClaimDataType.STRING,
-            required = false,
-            allowedValues = null
-        )
+        val standardClaim = claimWithConsentScope(scope1)
+        val customClaim = customClaimNotReadableByUser()
 
         val collectedStandard = mockk<CollectedClaim> {
             every { claim } returns standardClaim
@@ -102,12 +144,8 @@ class ConsentAwareCollectedClaimManagerTest {
         val scope1 = "scope1"
         val scope2 = "scope2"
 
-        val claim1 = mockk<StandardClaim> {
-            every { canBeReadByClient(any()) } answers { (firstArg<List<String>>()).contains(scope1) }
-        }
-        val claim2 = mockk<StandardClaim> {
-            every { canBeReadByClient(any()) } answers { (firstArg<List<String>>()).contains(scope2) }
-        }
+        val claim1 = claimWithConsentScope(scope1)
+        val claim2 = claimWithConsentScope(scope2)
 
         val collectedClaim1 = mockk<CollectedClaim> {
             every { claim } returns claim1
@@ -199,8 +237,8 @@ class ConsentAwareCollectedClaimManagerTest {
     @Test
     fun `updateByUser - Apply only updates for collectable claims`() = runTest {
         val scope1 = "scope1"
-        val claim1 = mockk<StandardClaim>()
-        val claim2 = mockk<StandardClaim>()
+        val claim1 = claimWithConsentScope(scope1)
+        val claim2 = claimWithConsentScope("scope2")
         val update1 = mockk<CollectedClaimUpdate> {
             every { claim } returns claim1
         }
@@ -227,18 +265,13 @@ class ConsentAwareCollectedClaimManagerTest {
     @Test
     fun `updateByClient - Filter updates that can be written by client`() = runTest {
         val scope1 = "scope1"
-        val claim1 = mockk<StandardClaim> {
-            every { canBeWrittenByClient(any()) } answers { (firstArg<List<String>>()).contains(scope1) }
-            every { canBeReadByClient(any()) } answers { (firstArg<List<String>>()).contains(scope1) }
-        }
+        val claim1 = claimWithConsentScope(scope1)
         val update1 = mockk<CollectedClaimUpdate> {
             every { claim } returns claim1
         }
 
         val scope2 = "scope2"
-        val claim2 = mockk<StandardClaim> {
-            every { canBeWrittenByClient(any()) } answers { (firstArg<List<String>>()).contains(scope2) }
-        }
+        val claim2 = claimWithConsentScope(scope2)
         val update2 = mockk<CollectedClaimUpdate> {
             every { claim } returns claim2
         }
