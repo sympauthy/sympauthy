@@ -1,4 +1,4 @@
-FROM debian:bookworm
+FROM debian:bookworm-20260421
 
 COPY --chmod=755 sympauthy /sympauthy
 
