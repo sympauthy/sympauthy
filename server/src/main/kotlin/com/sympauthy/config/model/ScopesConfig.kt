@@ -34,3 +34,7 @@ fun ScopesConfig.orThrow(): EnabledScopesConfig {
         is DisabledScopesConfig -> throw this.invalidConfig
     }
 }
+
+fun ScopesConfig.orNull(): EnabledScopesConfig? {
+    return this as? EnabledScopesConfig
+}

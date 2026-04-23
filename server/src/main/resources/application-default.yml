@@ -57,9 +57,6 @@ templates:
         - client_credentials
 
 claims:
-  sub:
-    template: openid
-    type: string
   name:
     template: openid
     type: string
@@ -105,9 +102,6 @@ claims:
   phone_number:
     template: openid
     type: phone_number
-  updated_at:
-    template: openid
-    type: string
   street_address:
     template: openid
     type: string
