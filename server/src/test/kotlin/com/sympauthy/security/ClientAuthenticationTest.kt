@@ -7,8 +7,7 @@ import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.security.SecurityRule.IS_CLIENT
 import io.mockk.every
 import io.mockk.mockk
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class ClientAuthenticationTest {

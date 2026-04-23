@@ -347,6 +347,7 @@ class WebAuthorizationFlowManagerTest {
             val templateFlow = mockk<WebAuthorizationFlow>()
             val template = ClientTemplate(
                 id = "default",
+                audience = null,
                 public = null,
                 allowedGrantTypes = null,
                 authorizationFlow = templateFlow,
@@ -391,6 +392,7 @@ class WebAuthorizationFlowManagerTest {
             every { authorizationFlowManager.defaultWebAuthorizationFlow } returns hardcodedFlow
             val template = ClientTemplate(
                 id = "default",
+                audience = null,
                 public = null,
                 allowedGrantTypes = null,
                 authorizationFlow = nonInteractiveFlow,
@@ -418,6 +420,7 @@ class WebAuthorizationFlowManagerTest {
             every { authorizationFlowManager.defaultWebAuthorizationFlow } returns hardcodedFlow
             val template = ClientTemplate(
                 id = "default",
+                audience = null,
                 public = null,
                 allowedGrantTypes = null,
                 authorizationFlow = null,

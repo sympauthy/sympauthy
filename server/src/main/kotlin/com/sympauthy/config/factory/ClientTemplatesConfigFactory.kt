@@ -47,6 +47,11 @@ class ClientTemplatesConfigFactory(
         val templateErrors = mutableListOf<ConfigurationException>()
         val configKeyPrefix = "$TEMPLATES_CLIENTS_KEY.${properties.id}"
 
+        val audience = parser.getString(
+            properties, "$configKeyPrefix.audience",
+            ClientTemplateConfigurationProperties::audience
+        )
+
         val isPublic = parser.getBoolean(
             properties, "$configKeyPrefix.public",
             ClientTemplateConfigurationProperties::`public`
@@ -121,6 +126,7 @@ class ClientTemplatesConfigFactory(
         return if (templateErrors.isEmpty()) {
             ClientTemplate(
                 id = properties.id,
+                audience = audience,
                 public = isPublic,
                 allowedGrantTypes = allowedGrantTypes,
                 authorizationFlow = authorizationFlow,

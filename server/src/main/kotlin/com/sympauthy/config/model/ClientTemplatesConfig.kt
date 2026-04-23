@@ -44,6 +44,7 @@ suspend fun Flow<ClientTemplatesConfig>.orNull(): EnabledClientTemplatesConfig? 
  */
 data class ClientTemplate(
     val id: String,
+    val audience: String?,
     val public: Boolean?,
     val allowedGrantTypes: Set<GrantType>?,
     val authorizationFlow: AuthorizationFlow?,
