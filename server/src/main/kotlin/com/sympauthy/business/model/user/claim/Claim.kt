@@ -67,30 +67,48 @@ data class Claim(
     fun belongsToScope(scope: String): Boolean = acl.consent.scope == scope
 
     /**
-     * Return true if the end-user can read this claim given the consented [scopes].
+     * Return true if the end-user can read this claim given the [consentedScopes].
+     *
+     * Access is granted when [ConsentAcl.readableByUser] is true AND either no consent scope
+     * is configured on this claim, or the end-user has consented to it.
      */
-    fun canBeReadByUser(scopes: List<String>): Boolean =
-        acl.consent.readableByUser && (acl.consent.scope == null || acl.consent.scope in scopes)
+    fun canBeReadByUser(consentedScopes: List<String>): Boolean =
+        acl.consent.readableByUser && (acl.consent.scope == null || acl.consent.scope in consentedScopes)
 
     /**
-     * Return true if the end-user can write this claim given the consented [scopes].
+     * Return true if the end-user can write this claim given the [consentedScopes].
+     *
+     * Access is granted when [ConsentAcl.writableByUser] is true AND either no consent scope
+     * is configured on this claim, or the end-user has consented to it.
      */
-    fun canBeWrittenByUser(scopes: List<String>): Boolean =
-        acl.consent.writableByUser && (acl.consent.scope == null || acl.consent.scope in scopes)
+    fun canBeWrittenByUser(consentedScopes: List<String>): Boolean =
+        acl.consent.writableByUser && (acl.consent.scope == null || acl.consent.scope in consentedScopes)
 
     /**
-     * Return true if a client can read this claim given the consented [scopes].
+     * Return true if a client can read this claim given the [consentedScopes].
+     *
+     * Access is granted through either path:
+     * - **Consent path**: [ConsentAcl.readableByClient] is true AND either no consent scope
+     *   is configured on this claim, or the end-user has consented to it.
+     * - **Unconditional path**: the client holds any scope listed in
+     *   [UnconditionalAcl.readableWithClientScopes], regardless of end-user consent.
      */
-    fun canBeReadByClient(scopes: List<String>): Boolean =
-        (acl.consent.readableByClient && (acl.consent.scope == null || acl.consent.scope in scopes)) ||
-            scopes.any { it in acl.unconditional.readableWithClientScopes }
+    fun canBeReadByClient(consentedScopes: List<String>): Boolean =
+        (acl.consent.readableByClient && (acl.consent.scope == null || acl.consent.scope in consentedScopes)) ||
+            consentedScopes.any { it in acl.unconditional.readableWithClientScopes }
 
     /**
-     * Return true if a client can write this claim given the consented [scopes].
+     * Return true if a client can write this claim given the [consentedScopes].
+     *
+     * Access is granted through either path:
+     * - **Consent path**: [ConsentAcl.writableByClient] is true AND either no consent scope
+     *   is configured on this claim, or the end-user has consented to it.
+     * - **Unconditional path**: the client holds any scope listed in
+     *   [UnconditionalAcl.writableWithClientScopes], regardless of end-user consent.
      */
-    fun canBeWrittenByClient(scopes: List<String>): Boolean =
-        (acl.consent.writableByClient && (acl.consent.scope == null || acl.consent.scope in scopes)) ||
-            scopes.any { it in acl.unconditional.writableWithClientScopes }
+    fun canBeWrittenByClient(consentedScopes: List<String>): Boolean =
+        (acl.consent.writableByClient && (acl.consent.scope == null || acl.consent.scope in consentedScopes)) ||
+            consentedScopes.any { it in acl.unconditional.writableWithClientScopes }
 }
 
 enum class ClaimOrigin(val value: String) {
