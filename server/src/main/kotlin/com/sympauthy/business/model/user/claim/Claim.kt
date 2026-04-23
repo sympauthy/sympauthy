@@ -87,30 +87,30 @@ data class Claim(
         acl.consent.writableByUser && (acl.consent.scope == null || acl.consent.scope in consentedScopes)
 
     /**
-     * Return true if a client can read this claim given the [consentedScopes].
+     * Return true if a client can read this claim given the [consentedScopes] and [clientScopes].
      *
      * Access is granted through either path:
      * - **Consent path**: [ConsentAcl.readableByClient] is true AND either no consent scope
      *   is configured on this claim, or the end-user has consented to it.
-     * - **Unconditional path**: the client holds any scope listed in
+     * - **Unconditional path**: the client holds any scope in [clientScopes] listed in
      *   [UnconditionalAcl.readableWithClientScopes], regardless of end-user consent.
      */
-    fun canBeReadByClient(consentedScopes: List<String>): Boolean =
+    fun canBeReadByClient(consentedScopes: List<String>, clientScopes: List<String>): Boolean =
         (acl.consent.readableByClient && (acl.consent.scope == null || acl.consent.scope in consentedScopes)) ||
-            consentedScopes.any { it in acl.unconditional.readableWithClientScopes }
+            clientScopes.any { it in acl.unconditional.readableWithClientScopes }
 
     /**
-     * Return true if a client can write this claim given the [consentedScopes].
+     * Return true if a client can write this claim given the [consentedScopes] and [clientScopes].
      *
      * Access is granted through either path:
      * - **Consent path**: [ConsentAcl.writableByClient] is true AND either no consent scope
      *   is configured on this claim, or the end-user has consented to it.
-     * - **Unconditional path**: the client holds any scope listed in
+     * - **Unconditional path**: the client holds any scope in [clientScopes] listed in
      *   [UnconditionalAcl.writableWithClientScopes], regardless of end-user consent.
      */
-    fun canBeWrittenByClient(consentedScopes: List<String>): Boolean =
+    fun canBeWrittenByClient(consentedScopes: List<String>, clientScopes: List<String>): Boolean =
         (acl.consent.writableByClient && (acl.consent.scope == null || acl.consent.scope in consentedScopes)) ||
-            consentedScopes.any { it in acl.unconditional.writableWithClientScopes }
+            clientScopes.any { it in acl.unconditional.writableWithClientScopes }
 }
 
 enum class ClaimOrigin(val value: String) {

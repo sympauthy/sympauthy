@@ -62,9 +62,12 @@ class ClientUserClaimController(
         @PathVariable userId: UUID
     ): ClientUserClaimResource {
         val clientAuth = authentication.clientAuthentication
+        val clientScopeIds = clientAuth.scopes.map { it.scope }
         clientUserManager.findUserForClientOrNull(clientAuth.clientId, userId).orNotFound()
         val consent = consentManager.findActiveConsentOrNull(userId, clientAuth.clientId).orNotFound()
-        val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consent.scopes)
+        val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
+            userId, consent.scopes, clientScopeIds
+        )
         return claimMapper.toResource(userId, claims)
     }
 
@@ -101,6 +104,7 @@ class ClientUserClaimController(
         @Body body: Map<String, Any?>
     ): ClientUserClaimResource {
         val clientAuth = authentication.clientAuthentication
+        val clientScopeIds = clientAuth.scopes.map { it.scope }
 
         val clientUser = clientUserManager.findUserForClientOrNull(clientAuth.clientId, userId).orNotFound()
         val consent = consentManager.findActiveConsentOrNull(userId, clientAuth.clientId).orNotFound()
@@ -108,7 +112,7 @@ class ClientUserClaimController(
         // Validate all keys are claims writable by the client
         val invalidClaim = body.keys.firstOrNull { claimId ->
             val claim = claimManager.findByIdOrNull(claimId)
-            claim == null || !claim.canBeWrittenByClient(consent.scopes)
+            claim == null || !claim.canBeWrittenByClient(consent.scopes, clientScopeIds)
         }
         if (invalidClaim != null) {
             throw recoverableBusinessExceptionOf(
@@ -119,10 +123,12 @@ class ClientUserClaimController(
         }
 
         val updates = collectedClaimUpdateMapper.toUpdates(body)
-        consentAwareCollectedClaimManager.updateByClient(clientUser.user, updates, consent.scopes)
+        consentAwareCollectedClaimManager.updateByClient(clientUser.user, updates, consent.scopes, clientScopeIds)
 
         // Return the full claim set after update
-        val allClaims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consent.scopes)
+        val allClaims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
+            userId, consent.scopes, clientScopeIds
+        )
         return claimMapper.toResource(userId, allClaims)
     }
 }
