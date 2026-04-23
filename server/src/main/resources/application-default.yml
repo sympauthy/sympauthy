@@ -134,7 +134,7 @@ claims:
       consent-scope: profile
   phone_number:
     template: openid
-    type: phone_number
+    type: phone-number
     verified-id: phone_number_verified
     acl:
       consent-scope: phone
