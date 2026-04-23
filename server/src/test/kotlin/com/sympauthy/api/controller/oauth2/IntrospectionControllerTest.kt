@@ -36,7 +36,6 @@ class IntrospectionControllerTest {
 
     private val uncheckedAuthConfig: AuthConfig = EnabledAuthConfig(
         issuer = "https://issuer.example.com",
-        audience = "https://audience.example.com",
         token = TokenConfig(
             accessExpiration = java.time.Duration.ofHours(1),
             idExpiration = java.time.Duration.ofHours(1),
@@ -65,7 +64,12 @@ class IntrospectionControllerTest {
     }
 
     private fun mockClient(id: String = "test-client"): Client {
-        return mockk { every { this@mockk.id } returns id }
+        return mockk {
+            every { this@mockk.id } returns id
+            every { audience } returns mockk {
+                every { tokenAudience } returns "https://test-audience"
+            }
+        }
     }
 
     @Test
@@ -103,7 +107,7 @@ class IntrospectionControllerTest {
         assertEquals("test-client", result.clientId)
         assertEquals("Bearer", result.tokenType)
         assertEquals(userId.toString(), result.sub)
-        assertEquals("https://audience.example.com", result.aud)
+        assertEquals("https://test-audience", result.aud)
         assertEquals("https://issuer.example.com", result.iss)
         assertEquals(tokenId.toString(), result.jti)
         assertNotNull(result.exp)

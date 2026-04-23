@@ -68,7 +68,6 @@ class TokenControllerTest {
 
     private val uncheckedAuthConfig: AuthConfig = EnabledAuthConfig(
         issuer = "https://issuer.example.com",
-        audience = "https://audience.example.com",
         token = TokenConfig(
             accessExpiration = java.time.Duration.ofHours(1),
             idExpiration = java.time.Duration.ofHours(1),
@@ -102,6 +101,7 @@ class TokenControllerTest {
         return mockk {
             every { this@mockk.id } returns id
             every { supportsGrantType(any()) } returns true
+            every { audience } returns mockk { every { tokenAudience } returns "https://test-audience" }
         }
     }
 
@@ -442,6 +442,7 @@ class TokenControllerTest {
         coEvery {
             accessTokenGenerator.generateAccessTokenForClient(
                 clientId = "my-client",
+                tokenAudience = any(),
                 clientScopes = listOf("read"),
                 dpopJkt = null
             )

@@ -65,6 +65,7 @@ class TokenManagerTest {
     private fun mockClientWithGrantTypes(vararg grantTypes: GrantType): Client {
         return mockk {
             every { supportsGrantType(any()) } answers { grantTypes.contains(firstArg()) }
+            every { audience } returns mockk { every { tokenAudience } returns "https://test-audience" }
         }
     }
 
@@ -93,6 +94,7 @@ class TokenManagerTest {
             accessTokenGenerator.generateAccessToken(
                 authorizedAttempt,
                 userId,
+                tokenAudience = any(),
                 dpopJkt = null
             )
         } returns accessToken
@@ -100,6 +102,7 @@ class TokenManagerTest {
             refreshTokenGenerator.generateRefreshToken(
                 authorizedAttempt,
                 userId,
+                tokenAudience = any(),
                 dpopJkt = null
             )
         } returns refreshToken
@@ -148,17 +151,19 @@ class TokenManagerTest {
         val refreshedRefreshToken = mockk<EncodedAuthenticationToken>()
 
         every { client.id } returns clientId
+        every { client.audience } returns mockk { every { tokenAudience } returns "https://test-audience" }
         coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, encodedRefreshToken) } returns decodedToken
         coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
         every { refreshToken.clientId } returns clientId
         every { refreshToken.dpopJkt } returns null
         every { refreshToken.userId } returns userId
         coEvery { consentManager.findActiveConsentOrNull(userId, clientId) } returns mockk()
-        coEvery { accessTokenGenerator.generateAccessToken(refreshToken, dpopJkt = null) } returns accessToken
+        coEvery { accessTokenGenerator.generateAccessToken(refreshToken, tokenAudience = any(), dpopJkt = null) } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns true
         coEvery {
             refreshTokenGenerator.generateRefreshToken(
                 refreshToken,
+                tokenAudience = any(),
                 dpopJkt = null
             )
         } returns refreshedRefreshToken
@@ -181,13 +186,14 @@ class TokenManagerTest {
         val accessToken = mockk<EncodedAuthenticationToken>()
 
         every { client.id } returns clientId
+        every { client.audience } returns mockk { every { tokenAudience } returns "https://test-audience" }
         coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, encodedRefreshToken) } returns decodedToken
         coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
         every { refreshToken.clientId } returns clientId
         every { refreshToken.dpopJkt } returns null
         every { refreshToken.userId } returns userId
         coEvery { consentManager.findActiveConsentOrNull(userId, clientId) } returns mockk()
-        coEvery { accessTokenGenerator.generateAccessToken(refreshToken, dpopJkt = null) } returns accessToken
+        coEvery { accessTokenGenerator.generateAccessToken(refreshToken, tokenAudience = any(), dpopJkt = null) } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
 
         val tokens = tokenManager.refreshToken(client, encodedRefreshToken)
@@ -227,12 +233,13 @@ class TokenManagerTest {
         val accessToken = mockk<EncodedAuthenticationToken>()
 
         every { client.id } returns clientId
+        every { client.audience } returns mockk { every { tokenAudience } returns "https://test-audience" }
         coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, "token") } returns decodedToken
         coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
         every { refreshToken.clientId } returns clientId
         every { refreshToken.dpopJkt } returns null
         every { refreshToken.userId } returns null
-        coEvery { accessTokenGenerator.generateAccessToken(refreshToken, dpopJkt = null) } returns accessToken
+        coEvery { accessTokenGenerator.generateAccessToken(refreshToken, tokenAudience = any(), dpopJkt = null) } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
 
         val tokens = tokenManager.refreshToken(client, "token")

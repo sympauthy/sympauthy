@@ -69,7 +69,7 @@ class ApplicationReadinessStatusPrinter(
     private suspend fun printReadyBanner() {
         logger.info("SympAuthy v$version is ready and has found the following elements in its configuration:")
         val authConfig = uncheckedAuthConfig.orThrow()
-        logger.info("- Issuer: ${authConfig.issuer} / Audience: ${authConfig.audience}")
+        logger.info("- Issuer: ${authConfig.issuer}")
 
         val byPasswordLabel = if (authConfig.byPassword.enabled) "enabled" else "disabled"
         logger.info("- Authentication by password: $byPasswordLabel.")

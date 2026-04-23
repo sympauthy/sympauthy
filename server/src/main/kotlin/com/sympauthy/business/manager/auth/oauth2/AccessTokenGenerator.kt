@@ -30,10 +30,12 @@ class AccessTokenGenerator(
     suspend fun generateAccessToken(
         authorizeAttempt: CompletedAuthorizeAttempt,
         userId: UUID,
+        tokenAudience: String,
         dpopJkt: String? = null
     ) = generateAccessToken(
         userId = userId,
         clientId = authorizeAttempt.clientId,
+        tokenAudience = tokenAudience,
         grantedScopes = authorizeAttempt.grantedScopes,
         grantedAt = authorizeAttempt.grantedAt,
         grantedBy = authorizeAttempt.grantedBy.name,
@@ -51,10 +53,12 @@ class AccessTokenGenerator(
      */
     suspend fun generateAccessToken(
         refreshToken: AuthenticationToken,
+        tokenAudience: String,
         dpopJkt: String? = null
     ) = generateAccessToken(
         userId = refreshToken.userId,
         clientId = refreshToken.clientId,
+        tokenAudience = tokenAudience,
         grantedScopes = refreshToken.grantedScopes,
         grantedAt = refreshToken.grantedAt,
         grantedBy = refreshToken.grantedBy?.name,
@@ -73,12 +77,14 @@ class AccessTokenGenerator(
      */
     suspend fun generateAccessTokenForClient(
         clientId: String,
+        tokenAudience: String,
         clientScopes: List<String>,
         dpopJkt: String? = null
     ): EncodedAuthenticationToken {
         return generateAccessToken(
             userId = null,
             clientId = clientId,
+            tokenAudience = tokenAudience,
             grantedScopes = emptyList(),
             grantedAt = null,
             grantedBy = null,
@@ -95,6 +101,7 @@ class AccessTokenGenerator(
     internal suspend fun generateAccessToken(
         userId: UUID?,
         clientId: String,
+        tokenAudience: String,
         grantedScopes: List<String>,
         grantedAt: java.time.LocalDateTime?,
         grantedBy: String?,
@@ -134,7 +141,7 @@ class AccessTokenGenerator(
             headers = mapOf("typ" to "at+jwt")
         ) {
             entity.id?.toString()?.let(this::jwtID)
-            audience(listOf(authConfig.audience))
+            audience(listOf(tokenAudience))
             subject(userId?.toString() ?: clientId)
             claim("client_id", clientId)
             claim("scope", allScopes.joinToString(" "))
