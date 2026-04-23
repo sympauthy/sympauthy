@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager.mfa
 
 import com.sympauthy.business.manager.RandomGenerator
+import com.sympauthy.business.manager.mfa.TotpManager.Companion.CLOCK_SKEW_STEPS
 import com.sympauthy.business.mapper.TotpEnrollmentMapper
 import com.sympauthy.business.model.mfa.TotpEnrollment
 import com.sympauthy.business.model.user.User
@@ -12,7 +13,7 @@ import java.net.URLEncoder
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets.UTF_8
 import java.time.LocalDateTime
-import java.util.UUID
+import java.util.*
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
@@ -177,9 +178,9 @@ class TotpManager(
         // Dynamic truncation (RFC 4226 §5.4)
         val offset = hash[hash.size - 1].toInt() and 0x0f
         val binary = ((hash[offset].toInt() and 0x7f) shl 24) or
-            ((hash[offset + 1].toInt() and 0xff) shl 16) or
-            ((hash[offset + 2].toInt() and 0xff) shl 8) or
-            (hash[offset + 3].toInt() and 0xff)
+                ((hash[offset + 1].toInt() and 0xff) shl 16) or
+                ((hash[offset + 2].toInt() and 0xff) shl 8) or
+                (hash[offset + 3].toInt() and 0xff)
 
         return (binary % CODE_MODULO).toString().padStart(CODE_DIGITS, '0')
     }

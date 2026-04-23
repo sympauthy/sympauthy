@@ -9,6 +9,7 @@ import java.util.*
 enum class ConsentRevokedBy {
     /** The consent was revoked by the user themselves. */
     USER,
+
     /** The consent was revoked by an administrator. */
     ADMIN
 }

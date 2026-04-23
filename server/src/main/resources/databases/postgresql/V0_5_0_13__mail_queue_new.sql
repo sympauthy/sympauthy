@@ -1,4 +1,5 @@
-CREATE TABLE mail_queue (
+CREATE TABLE mail_queue
+(
     id              uuid      NOT NULL DEFAULT gen_random_uuid(),
     template        text      NOT NULL,
     locale          text      NOT NULL,

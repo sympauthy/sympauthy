@@ -36,33 +36,43 @@ class ScopeConfigFactory(
         val scopes = propertiesList.mapNotNull { properties ->
             when {
                 properties.id.isAdminScope() -> {
-                    errors.add(configExceptionOf(
-                        "$SCOPES_KEY.${properties.id}",
-                        "config.scope.admin_not_configurable",
-                        "scope" to properties.id
-                    ))
+                    errors.add(
+                        configExceptionOf(
+                            "$SCOPES_KEY.${properties.id}",
+                            "config.scope.admin_not_configurable",
+                            "scope" to properties.id
+                        )
+                    )
                     null
                 }
+
                 properties.id.isBuiltInGrantableScope() -> {
-                    errors.add(configExceptionOf(
-                        "$SCOPES_KEY.${properties.id}",
-                        "config.scope.builtin_not_configurable",
-                        "scope" to properties.id
-                    ))
+                    errors.add(
+                        configExceptionOf(
+                            "$SCOPES_KEY.${properties.id}",
+                            "config.scope.builtin_not_configurable",
+                            "scope" to properties.id
+                        )
+                    )
                     null
                 }
+
                 properties.id.isBuiltInClientScope() -> {
-                    errors.add(configExceptionOf(
-                        "$SCOPES_KEY.${properties.id}",
-                        "config.scope.builtin_not_configurable",
-                        "scope" to properties.id
-                    ))
+                    errors.add(
+                        configExceptionOf(
+                            "$SCOPES_KEY.${properties.id}",
+                            "config.scope.builtin_not_configurable",
+                            "scope" to properties.id
+                        )
+                    )
                     null
                 }
+
                 properties.id.isOpenIdConnectScope() -> {
                     val template = resolveTemplate(properties, templates, DEFAULT_OPENID, errors)
                     getOpenIdConnectScope(properties = properties, template = template, errors = errors)
                 }
+
                 else -> {
                     val template = resolveTemplate(properties, templates, DEFAULT_CUSTOM, errors)
                     getCustomScope(properties = properties, template = template, errors = errors)
@@ -103,7 +113,8 @@ class ScopeConfigFactory(
                         "config.scope.template.not_found",
                         "template" to templateName,
                         "scope" to properties.id,
-                        "availableTemplates" to templates.keys.filter { it !in DEFAULT_TEMPLATE_NAMES }.joinToString(", ")
+                        "availableTemplates" to templates.keys.filter { it !in DEFAULT_TEMPLATE_NAMES }
+                            .joinToString(", ")
                     )
                 )
                 return null
@@ -153,20 +164,25 @@ class ScopeConfigFactory(
             null, "grantable" -> false
             "consentable" -> true
             "client" -> {
-                scopeErrors.add(configExceptionOf(
-                    "$SCOPES_KEY.${properties.id}.type",
-                    "config.scope.custom_client_type_not_allowed",
-                    "scope" to properties.id
-                ))
+                scopeErrors.add(
+                    configExceptionOf(
+                        "$SCOPES_KEY.${properties.id}.type",
+                        "config.scope.custom_client_type_not_allowed",
+                        "scope" to properties.id
+                    )
+                )
                 null
             }
+
             else -> {
-                scopeErrors.add(configExceptionOf(
-                    "$SCOPES_KEY.${properties.id}.type",
-                    "config.scope.invalid_type",
-                    "scope" to properties.id,
-                    "type" to type
-                ))
+                scopeErrors.add(
+                    configExceptionOf(
+                        "$SCOPES_KEY.${properties.id}.type",
+                        "config.scope.invalid_type",
+                        "scope" to properties.id,
+                        "type" to type
+                    )
+                )
                 null
             }
         }

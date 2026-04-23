@@ -5,9 +5,7 @@ import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.model.ClaimTemplateAcl
 import com.sympauthy.config.model.DisabledClaimTemplatesConfig
 import com.sympauthy.config.model.EnabledClaimTemplatesConfig
-import com.sympauthy.config.properties.ClaimAclProperties
 import com.sympauthy.config.properties.ClaimTemplateConfigurationProperties
-import com.sympauthy.config.properties.ClaimTemplateConfigurationProperties.Companion.TEMPLATES_CLAIMS_KEY
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.SpyK

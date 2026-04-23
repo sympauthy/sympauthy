@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import java.net.URI
-import java.util.UUID
+import java.util.*
 
 @Suppress("unused")
 @ExtendWith(MockKExtension::class)
@@ -80,25 +80,26 @@ class WebAuthorizationFlowMfaManagerTest {
     }
 
     @Test
-    fun `getMfaResult - optional and not enrolled - returns method selection with TOTP enrollment and skip`() = runTest {
-        val enrollUri = URI("https://example.com/mfa/totp/enroll?state=abc")
-        val skipUri = URI("https://example.com/mfa/skip?state=abc")
-        val manager = managerWith(EnabledMfaConfig(totp = true, required = false))
+    fun `getMfaResult - optional and not enrolled - returns method selection with TOTP enrollment and skip`() =
+        runTest {
+            val enrollUri = URI("https://example.com/mfa/totp/enroll?state=abc")
+            val skipUri = URI("https://example.com/mfa/skip?state=abc")
+            val manager = managerWith(EnabledMfaConfig(totp = true, required = false))
 
-        coEvery { totpManager.findConfirmedEnrollments(userId) } returns emptyList()
-        coEvery { redirectUriBuilder.getMfaTotpEnrollUri(authorizeAttempt, flow) } returns enrollUri
-        coEvery { redirectUriBuilder.getMfaSkipUri(authorizeAttempt, skipEndpointPath) } returns skipUri
+            coEvery { totpManager.findConfirmedEnrollments(userId) } returns emptyList()
+            coEvery { redirectUriBuilder.getMfaTotpEnrollUri(authorizeAttempt, flow) } returns enrollUri
+            coEvery { redirectUriBuilder.getMfaSkipUri(authorizeAttempt, skipEndpointPath) } returns skipUri
 
-        val result = manager.getMfaResult(authorizeAttempt, user, flow, skipEndpointPath)
+            val result = manager.getMfaResult(authorizeAttempt, user, flow, skipEndpointPath)
 
-        assertEquals(
-            MfaMethodSelection(
-                methods = listOf(AvailableMfaMethod(name = "TOTP", uri = enrollUri)),
-                skipUri = skipUri
-            ),
-            result
-        )
-    }
+            assertEquals(
+                MfaMethodSelection(
+                    methods = listOf(AvailableMfaMethod(name = "TOTP", uri = enrollUri)),
+                    skipUri = skipUri
+                ),
+                result
+            )
+        }
 
     @Test
     fun `getMfaResult - optional and enrolled - auto-redirects to TOTP challenge`() = runTest {

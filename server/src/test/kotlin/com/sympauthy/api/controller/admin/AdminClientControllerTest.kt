@@ -3,9 +3,9 @@ package com.sympauthy.api.controller.admin
 import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.mapper.admin.AdminClientResourceMapper
 import com.sympauthy.api.resource.admin.AdminClientResource
-import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.api.util.DEFAULT_PAGE
 import com.sympauthy.api.util.DEFAULT_PAGE_SIZE
+import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.model.client.Client
 import io.micronaut.http.HttpStatus
 import io.mockk.coEvery

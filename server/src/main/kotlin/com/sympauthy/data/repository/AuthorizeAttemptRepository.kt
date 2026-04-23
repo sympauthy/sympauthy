@@ -28,7 +28,11 @@ interface AuthorizeAttemptRepository : CoroutineCrudRepository<AuthorizeAttemptE
     )
     suspend fun findExpired(): List<AuthorizeAttemptEntity>
 
-    suspend fun updateProviderIdProviderNonceJsonWebTokenId(@Id id: UUID, providerId: String, providerNonceJsonWebTokenId: UUID?)
+    suspend fun updateProviderIdProviderNonceJsonWebTokenId(
+        @Id id: UUID,
+        providerId: String,
+        providerNonceJsonWebTokenId: UUID?
+    )
 
     suspend fun updateUserId(@Id id: UUID, userId: UUID)
 

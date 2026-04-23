@@ -25,7 +25,10 @@ data class AdminUserClaimResource(
     val required: Boolean,
     @get:Schema(description = "Whether this claim is used as an identifier.")
     val identifier: Boolean,
-    @get:Schema(description = "Grouping identifier (e.g. \"profile\", \"address\"), or null if the claim belongs to no group.", nullable = true)
+    @get:Schema(
+        description = "Grouping identifier (e.g. \"profile\", \"address\"), or null if the claim belongs to no group.",
+        nullable = true
+    )
     @get:JsonInclude(JsonInclude.Include.ALWAYS)
     val group: String?,
     @get:Schema(description = "Date and time (UTC) at which the claim value was collected, or null.", nullable = true)

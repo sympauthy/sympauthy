@@ -21,6 +21,7 @@ class ValidationCodeEntity(
     val validationDate: LocalDateTime? = null,
     val expirationDate: LocalDateTime
 ) {
-    @Id @GeneratedValue
+    @Id
+    @GeneratedValue
     var id: UUID? = null
 }

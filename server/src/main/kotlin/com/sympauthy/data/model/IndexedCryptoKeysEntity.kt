@@ -20,6 +20,7 @@ data class IndexedCryptoKeysEntity(
 
     val creationDate: LocalDateTime = LocalDateTime.now(),
 ) {
-    @Id @GeneratedValue
+    @Id
+    @GeneratedValue
     var index: Int? = null
 }

@@ -73,7 +73,7 @@ data class AuthenticationToken(
     val revokedById: UUID?,
     val issueDate: LocalDateTime,
     override val expirationDate: LocalDateTime?
-): MaybeExpirable {
+) : MaybeExpirable {
     /** Whether this token has been revoked. */
     val revoked: Boolean get() = revokedAt != null
 

@@ -7,8 +7,8 @@ import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.user.OpenIdConnectScope
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.config.model.CustomScopeConfig
-import com.sympauthy.config.model.ScopesConfig
 import com.sympauthy.config.model.OpenIdConnectScopeConfig
+import com.sympauthy.config.model.ScopesConfig
 import com.sympauthy.config.model.orThrow
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -103,7 +103,7 @@ class ScopeManager(
      */
     suspend fun listScopes(): List<Scope> {
         return builtInGrantableScopes + adminScopes + clientScopes +
-            enabledOpenIdConnectScopes.toList() + customScopes.toList()
+                enabledOpenIdConnectScopes.toList() + customScopes.toList()
     }
 
     /**

@@ -4,14 +4,9 @@ import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
-import com.sympauthy.config.model.ClientTemplate
-import com.sympauthy.config.model.ClientTemplatesConfig
-import com.sympauthy.config.model.DisabledClientsConfig
-import com.sympauthy.config.model.EnabledClientTemplatesConfig
-import com.sympauthy.config.model.EnabledClientsConfig
+import com.sympauthy.config.model.*
 import com.sympauthy.config.properties.ClientConfigurationProperties
 import io.mockk.coEvery
-import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk

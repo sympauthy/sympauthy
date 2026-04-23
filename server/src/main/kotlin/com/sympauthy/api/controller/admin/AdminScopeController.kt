@@ -5,7 +5,6 @@ import com.sympauthy.api.resource.admin.AdminScopeListResource
 import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.model.oauth2.*
-import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.security.SecurityRule.ADMIN_CONFIG_READ
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get

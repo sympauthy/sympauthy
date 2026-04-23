@@ -25,7 +25,7 @@ class ConsentAwareClaimManagerTest {
     @InjectMockKs
     lateinit var manager: ConsentAwareClaimManager
 
-@Test
+    @Test
     fun `listCollectableClaimsWithScopes - Return claims writable by user within consented scopes`() {
         val scope1 = "scope1"
         val scope2 = "scope2"
@@ -80,7 +80,7 @@ class ConsentAwareClaimManagerTest {
         assertTrue(result.isEmpty())
     }
 
-@Test
+    @Test
     fun `listCollectableClaimsByAttempt - Return empty list for FailedAuthorizeAttempt`() {
         val attempt = mockk<FailedAuthorizeAttempt>()
 

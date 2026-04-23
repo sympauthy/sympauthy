@@ -13,7 +13,7 @@ data class AddressResource(
     val formatted: String?,
     @get:Schema(
         description = "Full street address component, which MAY include house number, street name, Post Office Box, " +
-            "and multi-line extended street address information."
+                "and multi-line extended street address information."
     )
     @get:JsonProperty("street_address")
     val streetAddress: String?,

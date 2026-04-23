@@ -51,9 +51,11 @@ data class PropertyErrorResource(
     @get:Schema(description = "Path to one of the property of the payload causing the error.")
     val path: String,
 
-    @get:Schema(description = """
+    @get:Schema(
+        description = """
 A human-readable message explaining the error to the end-user.
 It is intended to be displayed to the end-user, in order for him to correct its input and retry the operation.
-""")
+"""
+    )
     val description: String?
 )

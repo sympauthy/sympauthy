@@ -11,4 +11,4 @@ data class EncodedAuthenticationToken(
     val scopes: List<String>,
     val issueDate: LocalDateTime,
     override val expirationDate: LocalDateTime?
-): MaybeExpirable
+) : MaybeExpirable

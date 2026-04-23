@@ -1,10 +1,8 @@
 package com.sympauthy.config.factory
 
-import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.ClaimOrigin
 import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
-import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.model.*
 import com.sympauthy.config.properties.AuthConfigurationProperties

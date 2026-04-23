@@ -17,12 +17,12 @@ sealed class ScopeConfig(
 class OpenIdConnectScopeConfig(
     scope: String,
     val enabled: Boolean
-): ScopeConfig(scope)
+) : ScopeConfig(scope)
 
 class CustomScopeConfig(
     scope: String,
     val consentable: Boolean
-): ScopeConfig(scope)
+) : ScopeConfig(scope)
 
 class DisabledScopesConfig(
     configurationErrors: List<ConfigurationException>

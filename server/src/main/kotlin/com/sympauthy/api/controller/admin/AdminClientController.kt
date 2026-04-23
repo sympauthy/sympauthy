@@ -46,7 +46,10 @@ class AdminClientController(
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of clients."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
-            ApiResponse(responseCode = "403", description = "The access token does not include the required scope: admin:config:read.")
+            ApiResponse(
+                responseCode = "403",
+                description = "The access token does not include the required scope: admin:config:read."
+            )
         ]
     )
     @Get
@@ -81,7 +84,10 @@ class AdminClientController(
         responses = [
             ApiResponse(responseCode = "200", description = "Client details."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
-            ApiResponse(responseCode = "403", description = "The access token does not include the required scope: admin:config:read."),
+            ApiResponse(
+                responseCode = "403",
+                description = "The access token does not include the required scope: admin:config:read."
+            ),
             ApiResponse(responseCode = "404", description = "No client found with the given identifier.")
         ]
     )

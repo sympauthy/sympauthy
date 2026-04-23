@@ -4,9 +4,8 @@ import com.sympauthy.api.mapper.admin.AdminClaimResourceMapper
 import com.sympauthy.api.resource.admin.AdminClaimListResource
 import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.model.user.claim.Claim
-
 import com.sympauthy.business.model.oauth2.AdminScopeId
+import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.security.SecurityRule.ADMIN_CONFIG_READ
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get

@@ -5,13 +5,13 @@ import java.util.*
 
 object Application {
 
-	@JvmStatic
-	fun main(args: Array<String>) {
-		TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
+    @JvmStatic
+    fun main(args: Array<String>) {
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
 
-		build()
-			.args(*args)
-			.packages("com.sympauthy")
-			.start()
-	}
+        build()
+            .args(*args)
+            .packages("com.sympauthy")
+            .start()
+    }
 }

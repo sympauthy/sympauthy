@@ -148,7 +148,7 @@ class JwtManager(
      */
     suspend fun getSigningConfig(name: String): JwtSigningConfig {
         val config = advancedConfig.orThrow()
-        val algorithm = when(name) {
+        val algorithm = when (name) {
             PUBLIC_KEY -> config.publicJwtAlgorithm
             ACCESS_KEY -> config.accessJwtAlgorithm
             else -> config.privateJwtAlgorithm

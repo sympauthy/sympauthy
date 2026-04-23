@@ -2,13 +2,13 @@ package com.sympauthy
 
 import com.sympauthy.api.controller.openapi.OpenApiController.Companion.OPENAPI_ENDPOINT
 import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.model.user.claim.ClaimOrigin
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ConfigReadinessManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.provider.ProviderManager
 import com.sympauthy.business.manager.rule.ScopeGrantingRuleManager
 import com.sympauthy.business.model.oauth2.isAdmin
+import com.sympauthy.business.model.user.claim.ClaimOrigin
 import com.sympauthy.config.model.*
 import com.sympauthy.server.ErrorMessages
 import com.sympauthy.util.DEFAULT_ENVIRONMENT
@@ -107,7 +107,14 @@ class ApplicationReadinessStatusPrinter(
         }
         val standardClaimsCount = enabledClaims.count { it.origin == ClaimOrigin.OPENID_CONNECT }
         val customClaimsCount = enabledClaims.count { it.origin == ClaimOrigin.CUSTOM }
-        logger.info("- ${pluralize(enabledClaims.size, "claim")} (${pluralize(standardClaimsCount, "standard")}, ${pluralize(customClaimsCount, "custom")}).")
+        logger.info(
+            "- ${pluralize(enabledClaims.size, "claim")} (${
+                pluralize(
+                    standardClaimsCount,
+                    "standard"
+                )
+            }, ${pluralize(customClaimsCount, "custom")})."
+        )
 
         val scopes = try {
             scopeManager.listScopes()
@@ -115,10 +122,24 @@ class ApplicationReadinessStatusPrinter(
             emptyList()
         }
         val consentableScopesCount = scopes.count { it is com.sympauthy.business.model.oauth2.ConsentableUserScope }
-        val adminScopesCount = scopes.count { it is com.sympauthy.business.model.oauth2.GrantableUserScope && it.isAdmin }
-        val grantableScopesCount = scopes.count { it is com.sympauthy.business.model.oauth2.GrantableUserScope && !it.isAdmin }
+        val adminScopesCount =
+            scopes.count { it is com.sympauthy.business.model.oauth2.GrantableUserScope && it.isAdmin }
+        val grantableScopesCount =
+            scopes.count { it is com.sympauthy.business.model.oauth2.GrantableUserScope && !it.isAdmin }
         val clientScopesCount = scopes.count { it is com.sympauthy.business.model.oauth2.ClientScope }
-        logger.info("- ${pluralize(scopes.size, "scope")} (${pluralize(consentableScopesCount, "consentable")}, ${pluralize(grantableScopesCount, "grantable")}, ${pluralize(adminScopesCount, "admin")}, ${pluralize(clientScopesCount, "client")}).")
+        logger.info(
+            "- ${pluralize(scopes.size, "scope")} (${
+                pluralize(
+                    consentableScopesCount,
+                    "consentable"
+                )
+            }, ${pluralize(grantableScopesCount, "grantable")}, ${pluralize(adminScopesCount, "admin")}, ${
+                pluralize(
+                    clientScopesCount,
+                    "client"
+                )
+            })."
+        )
 
         val clientsCount = try {
             clientManager.listClients().size
@@ -138,19 +159,39 @@ class ApplicationReadinessStatusPrinter(
             0
         }
         val totalRulesCount = userRulesCount + clientRulesCount
-        logger.info("- ${pluralize(totalRulesCount, "rule")} (${pluralize(userRulesCount, "user")}, ${pluralize(clientRulesCount, "client")}).")
+        logger.info(
+            "- ${pluralize(totalRulesCount, "rule")} (${pluralize(userRulesCount, "user")}, ${
+                pluralize(
+                    clientRulesCount,
+                    "client"
+                )
+            })."
+        )
 
         val clientTemplateCount = try {
             clientTemplatesConfig.orNull()?.templates?.size ?: 0
-        } catch (_: Throwable) { 0 }
+        } catch (_: Throwable) {
+            0
+        }
         val scopeTemplateCount = try {
             scopeTemplatesConfig.orNull()?.templates?.size ?: 0
-        } catch (_: Throwable) { 0 }
+        } catch (_: Throwable) {
+            0
+        }
         val claimTemplateCount = try {
             claimTemplatesConfig.orNull()?.templates?.size ?: 0
-        } catch (_: Throwable) { 0 }
+        } catch (_: Throwable) {
+            0
+        }
         val totalTemplateCount = clientTemplateCount + scopeTemplateCount + claimTemplateCount
-        logger.info("- ${pluralize(totalTemplateCount, "template")} (${pluralize(clientTemplateCount, "client")}, ${pluralize(scopeTemplateCount, "scope")}, ${pluralize(claimTemplateCount, "claim")}).")
+        logger.info(
+            "- ${pluralize(totalTemplateCount, "template")} (${
+                pluralize(
+                    clientTemplateCount,
+                    "client"
+                )
+            }, ${pluralize(scopeTemplateCount, "scope")}, ${pluralize(claimTemplateCount, "claim")})."
+        )
     }
 
     private fun pluralize(count: Int, singular: String) = if (count <= 1) "$count $singular" else "$count ${singular}s"

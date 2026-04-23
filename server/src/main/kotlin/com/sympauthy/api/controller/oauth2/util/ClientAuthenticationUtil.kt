@@ -50,7 +50,11 @@ class ClientAuthenticationUtil(
             return clientManager.authenticateClientOrNull(clientId, clientSecret ?: "")
                 ?: throw oauth2ExceptionOf(INVALID_GRANT, "authentication.wrong", "description.authentication.wrong")
         }
-        throw oauth2ExceptionOf(INVALID_GRANT, "authentication.missing_credentials", "description.authentication.missing_credentials")
+        throw oauth2ExceptionOf(
+            INVALID_GRANT,
+            "authentication.missing_credentials",
+            "description.authentication.missing_credentials"
+        )
     }
 
     /**
@@ -75,12 +79,20 @@ class ClientAuthenticationUtil(
             // If a secret is provided, authenticate normally
             if (!clientSecret.isNullOrBlank()) {
                 return clientManager.authenticateClientOrNull(clientId, clientSecret)
-                    ?: throw oauth2ExceptionOf(INVALID_GRANT, "authentication.wrong", "description.authentication.wrong")
+                    ?: throw oauth2ExceptionOf(
+                        INVALID_GRANT,
+                        "authentication.wrong",
+                        "description.authentication.wrong"
+                    )
             }
             // No secret: only allow if the client is public
             return clientManager.findPublicClientByIdOrNull(clientId)
                 ?: throw oauth2ExceptionOf(INVALID_GRANT, "authentication.wrong", "description.authentication.wrong")
         }
-        throw oauth2ExceptionOf(INVALID_GRANT, "authentication.missing_credentials", "description.authentication.missing_credentials")
+        throw oauth2ExceptionOf(
+            INVALID_GRANT,
+            "authentication.missing_credentials",
+            "description.authentication.missing_credentials"
+        )
     }
 }

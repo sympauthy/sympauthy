@@ -4,18 +4,16 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
-import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.code.ValidationCodeReason
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
 import com.sympauthy.business.model.oauth2.*
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.config.model.ClientTemplatesConfig
-import com.sympauthy.config.model.EnabledMfaConfig
 import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.config.properties.ClientTemplateConfigurationProperties.Companion.DEFAULT
@@ -123,7 +121,7 @@ class WebAuthorizationFlowManager(
         val defaultFlow = getDefaultWebAuthorizationFlow()
         val (flow, flowException) = if (authorizationFlowId != null) {
             try {
-            findById(authorizationFlowId) to null
+                findById(authorizationFlowId) to null
             } catch (e: BusinessException) {
                 defaultFlow to e
             }
@@ -171,7 +169,13 @@ class WebAuthorizationFlowManager(
             redirectUri = redirectUri,
             codeChallenge = codeChallenge,
             codeChallengeMethod = codeChallengeMethod,
-            error = listOfNotNull(clientException, flowException, scopeException, redirectUriException, pkceException).firstOrNull()
+            error = listOfNotNull(
+                clientException,
+                flowException,
+                scopeException,
+                redirectUriException,
+                pkceException
+            ).firstOrNull()
         )
         return authorizeAttempt to flow
     }
@@ -283,10 +287,10 @@ class WebAuthorizationFlowManager(
                 return@any false
             }
             parsedAllowed.scheme == requestedScheme &&
-                parsedAllowed.host == requestedHost &&
-                parsedAllowed.path == parsedRequested.path &&
-                parsedAllowed.query == parsedRequested.query &&
-                parsedAllowed.fragment == parsedRequested.fragment
+                    parsedAllowed.host == requestedHost &&
+                    parsedAllowed.path == parsedRequested.path &&
+                    parsedAllowed.query == parsedRequested.query &&
+                    parsedAllowed.fragment == parsedRequested.fragment
         }
     }
 

@@ -8,7 +8,7 @@ import io.r2dbc.spi.ConnectionFactory
 /**
  * Condition checking if the default datasource is a PostgreSQL database.
  */
-class DefaultDataSourceIsPostgreSQL: Condition {
+class DefaultDataSourceIsPostgreSQL : Condition {
 
     override fun matches(context: ConditionContext<*>): Boolean {
         val connectionFactory = context.getBean(ConnectionFactory::class.java)

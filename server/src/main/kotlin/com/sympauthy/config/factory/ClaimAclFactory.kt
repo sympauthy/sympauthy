@@ -8,11 +8,7 @@ import com.sympauthy.business.model.user.claim.UnconditionalAcl
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.exception.configExceptionOf
-import com.sympauthy.config.model.ClaimTemplate
-import com.sympauthy.config.model.ClaimTemplateAcl
-import com.sympauthy.config.model.CustomScopeConfig
-import com.sympauthy.config.model.ScopesConfig
-import com.sympauthy.config.model.orNull
+import com.sympauthy.config.model.*
 import com.sympauthy.config.properties.ClaimAclProperties
 import jakarta.inject.Inject
 import jakarta.inject.Singleton

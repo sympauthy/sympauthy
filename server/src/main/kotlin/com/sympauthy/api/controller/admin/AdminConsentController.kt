@@ -6,8 +6,8 @@ import com.sympauthy.api.util.orNotFound
 import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.user.UserManager
-import com.sympauthy.business.model.oauth2.ConsentRevokedBy
 import com.sympauthy.business.model.oauth2.AdminScopeId
+import com.sympauthy.business.model.oauth2.ConsentRevokedBy
 import com.sympauthy.security.SecurityRule.ADMIN_CONSENT_READ
 import com.sympauthy.security.SecurityRule.ADMIN_CONSENT_WRITE
 import com.sympauthy.security.userId
@@ -85,7 +85,7 @@ class AdminConsentController(
 
     @Operation(
         description = "Revoke the active consent for a given user and client. " +
-            "This also revokes all refresh tokens issued for this user+client pair.",
+                "This also revokes all refresh tokens issued for this user+client pair.",
         tags = ["admin"],
         parameters = [
             Parameter(

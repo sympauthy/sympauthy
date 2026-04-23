@@ -4,7 +4,7 @@ import io.micronaut.serde.annotation.Serdeable
 import io.swagger.v3.oas.annotations.media.Schema
 
 @Serdeable
-class TimeZoneResource (
+class TimeZoneResource(
     @get:Schema(
         description = "Identifier of the timezone.",
         example = "Europe/France"

@@ -13,7 +13,8 @@ data class UserEntity(
     val status: String,
     val creationDate: LocalDateTime
 ) {
-    @Id @GeneratedValue
+    @Id
+    @GeneratedValue
     var id: UUID? = null
 }
 

@@ -9,4 +9,4 @@ data class AuthorizationCode(
     val code: String,
     val creationDate: LocalDateTime,
     override val expirationDate: LocalDateTime
-): Expirable
+) : Expirable

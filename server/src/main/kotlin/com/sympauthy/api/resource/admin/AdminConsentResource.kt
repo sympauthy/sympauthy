@@ -26,7 +26,10 @@ data class AdminConsentResource(
     @get:Schema(description = "Date and time at which the user consented.")
     @get:JsonProperty("consented_at")
     val consentedAt: LocalDateTime,
-    @get:Schema(description = "Date and time at which the consent was revoked, or null if still active.", nullable = true)
+    @get:Schema(
+        description = "Date and time at which the consent was revoked, or null if still active.",
+        nullable = true
+    )
     @get:JsonProperty("revoked_at")
     @get:JsonInclude(JsonInclude.Include.ALWAYS)
     val revokedAt: LocalDateTime?,
@@ -38,7 +41,10 @@ data class AdminConsentResource(
     @get:JsonProperty("revoked_by")
     @get:JsonInclude(JsonInclude.Include.ALWAYS)
     val revokedBy: String?,
-    @get:Schema(description = "Identifier of the user or admin who revoked the consent, or null if still active.", nullable = true)
+    @get:Schema(
+        description = "Identifier of the user or admin who revoked the consent, or null if still active.",
+        nullable = true
+    )
     @get:JsonProperty("revoked_by_id")
     @get:JsonInclude(JsonInclude.Include.ALWAYS)
     val revokedById: UUID?

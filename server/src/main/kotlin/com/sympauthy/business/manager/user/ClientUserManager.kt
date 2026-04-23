@@ -49,7 +49,7 @@ class ClientUserManager(
                 .filter { (_, providers) ->
                     providers.any { provider ->
                         provider.id.providerId == providerId &&
-                            (subject == null || provider.subject == subject)
+                                (subject == null || provider.subject == subject)
                     }
                 }
                 .map { it.key }

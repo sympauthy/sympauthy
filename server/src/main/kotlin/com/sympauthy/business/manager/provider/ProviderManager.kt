@@ -55,11 +55,13 @@ open class ProviderManager(
                     DisabledProvider(config.id, e)
                 } catch (e: Exception) {
                     logger.error("Failed to resolve provider ${config.id}: ${e.message}")
-                    DisabledProvider(config.id, LocalizedException(
-                        detailsId = "provider.openid_connect.discovery_failed",
-                        values = mapOf("issuer" to config.id),
-                        throwable = e
-                    ))
+                    DisabledProvider(
+                        config.id, LocalizedException(
+                            detailsId = "provider.openid_connect.discovery_failed",
+                            values = mapOf("issuer" to config.id),
+                            throwable = e
+                        )
+                    )
                 }
             }
         }
@@ -102,6 +104,7 @@ open class ProviderManager(
                 authorizationUri = input.authorizationUri,
                 tokenUri = input.tokenUri
             )
+
             is ProviderOpenIdConnectInputConfig -> {
                 val discovery = openIdConnectDiscoveryClient.fetchDiscovery(input.issuer)
                 ProviderOpenIdConnectConfig(

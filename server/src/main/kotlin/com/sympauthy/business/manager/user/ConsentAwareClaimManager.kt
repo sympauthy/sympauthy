@@ -41,6 +41,7 @@ class ConsentAwareClaimManager(
                 val consentedScopes = authorizeAttempt.consentedScopes ?: return emptyList()
                 listCollectableClaimsWithScopes(consentedScopes)
             }
+
             is CompletedAuthorizeAttempt -> {
                 listCollectableClaimsWithScopes(authorizeAttempt.consentedScopes)
             }

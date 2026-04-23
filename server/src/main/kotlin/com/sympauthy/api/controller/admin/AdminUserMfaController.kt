@@ -84,7 +84,7 @@ class AdminUserMfaController(
 
     @Operation(
         description = "Revoke a specific MFA method registered by a user. " +
-            "The user will need to re-enroll on their next sign-in if MFA is required.",
+                "The user will need to re-enroll on their next sign-in if MFA is required.",
         tags = ["admin"],
         parameters = [
             Parameter(

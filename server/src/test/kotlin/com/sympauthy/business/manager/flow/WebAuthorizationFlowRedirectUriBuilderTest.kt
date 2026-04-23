@@ -2,7 +2,6 @@ package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
-import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
@@ -10,6 +9,7 @@ import com.sympauthy.business.model.oauth2.AuthorizationCode
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
+import com.sympauthy.config.model.UrlsConfig
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -64,32 +64,33 @@ class WebAuthorizationFlowRedirectUriBuilderTest {
     }
 
     @Test
-    fun `getRedirectUri - Redirect to code validation step of the authorization flow if a validation is required`() = runTest {
-        val rawValidateCodeUri = URI.create("https://www.example.com/code")
-        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
-        val flow = mockk<WebAuthorizationFlow> {
-            every { validateClaimsUri } returns rawValidateCodeUri
+    fun `getRedirectUri - Redirect to code validation step of the authorization flow if a validation is required`() =
+        runTest {
+            val rawValidateCodeUri = URI.create("https://www.example.com/code")
+            val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
+            val flow = mockk<WebAuthorizationFlow> {
+                every { validateClaimsUri } returns rawValidateCodeUri
+            }
+            val missingMedia = ValidationCodeMedia.EMAIL
+            val flowResult = WebAuthorizationFlowStatus(
+                missingUser = false,
+                missingRequiredClaims = false,
+                missingMediaForClaimValidation = listOf(missingMedia)
+            )
+
+            coEvery { uriBuilder.appendStateToUri(authorizeAttempt, any()) } returnsArgument 1
+
+            val result = uriBuilder.getRedirectUri(
+                authorizeAttempt = authorizeAttempt,
+                flow = flow,
+                status = flowResult
+            )
+
+            assertEquals(rawValidateCodeUri.scheme, result.scheme)
+            assertEquals(rawValidateCodeUri.host, result.host)
+            assertEquals(rawValidateCodeUri.path, result.path)
+            assertEquals("media=${missingMedia.name}", result.query)
         }
-        val missingMedia = ValidationCodeMedia.EMAIL
-        val flowResult = WebAuthorizationFlowStatus(
-            missingUser = false,
-            missingRequiredClaims = false,
-            missingMediaForClaimValidation = listOf(missingMedia)
-        )
-
-        coEvery { uriBuilder.appendStateToUri(authorizeAttempt, any()) } returnsArgument 1
-
-        val result = uriBuilder.getRedirectUri(
-            authorizeAttempt = authorizeAttempt,
-            flow = flow,
-            status = flowResult
-        )
-
-        assertEquals(rawValidateCodeUri.scheme, result.scheme)
-        assertEquals(rawValidateCodeUri.host, result.host)
-        assertEquals(rawValidateCodeUri.path, result.path)
-        assertEquals("media=${missingMedia.name}", result.query)
-    }
 
     @Test
     fun `getRedirectUri - Redirect to client if flow is complete`() = runTest {

@@ -8,7 +8,6 @@ import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.user.User
-import com.sympauthy.config.model.EnabledMfaConfig
 import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.config.model.orThrow
 import jakarta.inject.Inject
@@ -62,7 +61,12 @@ class WebAuthorizationFlowMfaManager(
             // User is enrolled in multiple methods (future) — let them pick, but no skip.
             enrollments.size > 1 ->
                 MfaMethodSelection(
-                    methods = listOf(AvailableMfaMethod(name = "TOTP", uri = redirectUriBuilder.getMfaTotpChallengeUri(authorizeAttempt, flow))),
+                    methods = listOf(
+                        AvailableMfaMethod(
+                            name = "TOTP",
+                            uri = redirectUriBuilder.getMfaTotpChallengeUri(authorizeAttempt, flow)
+                        )
+                    ),
                     skipUri = null
                 )
 
@@ -73,7 +77,12 @@ class WebAuthorizationFlowMfaManager(
             // Not enrolled + optional — offer enrollment with the option to skip.
             else ->
                 MfaMethodSelection(
-                    methods = listOf(AvailableMfaMethod(name = "TOTP", uri = redirectUriBuilder.getMfaTotpEnrollUri(authorizeAttempt, flow))),
+                    methods = listOf(
+                        AvailableMfaMethod(
+                            name = "TOTP",
+                            uri = redirectUriBuilder.getMfaTotpEnrollUri(authorizeAttempt, flow)
+                        )
+                    ),
                     skipUri = redirectUriBuilder.getMfaSkipUri(authorizeAttempt, skipEndpointPath)
                 )
         }

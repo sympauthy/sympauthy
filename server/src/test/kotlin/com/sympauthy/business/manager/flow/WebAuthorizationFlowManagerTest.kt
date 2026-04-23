@@ -9,11 +9,13 @@ import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.code.ValidationCodeReason
-import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.flow.NonInteractiveAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
-import com.sympauthy.business.model.oauth2.*
+import com.sympauthy.business.model.oauth2.CodeChallengeMethod
+import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
+import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
+import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.config.model.ClientTemplate
 import com.sympauthy.config.model.ClientTemplatesConfig
 import com.sympauthy.config.model.EnabledClientTemplatesConfig
@@ -23,7 +25,6 @@ import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
-import io.mockk.mockk
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
@@ -148,8 +149,18 @@ class WebAuthorizationFlowManagerTest {
             every { mock.mfaPassed } returns false
         }
         every { uncheckedMfaConfig.enabled } returns false
-        coEvery { consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes) } returns emptyList()
-        every { consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(any(), consentedScopes) } returns false
+        coEvery {
+            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
+                userId,
+                consentedScopes
+            )
+        } returns emptyList()
+        every {
+            consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(
+                any(),
+                consentedScopes
+            )
+        } returns false
         coEvery { collectedClaimManager.findIdentifierByUserId(any()) } returns emptyList()
         every { claimValidationManager.getReasonsToSendValidationCode(any(), any()) } returns emptyList()
 
@@ -169,8 +180,18 @@ class WebAuthorizationFlowManagerTest {
             every { mock.mfaPassed } returns false
         }
         every { uncheckedMfaConfig.enabled } returns false
-        coEvery { consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes) } returns emptyList()
-        every { consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(any(), consentedScopes) } returns true
+        coEvery {
+            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
+                userId,
+                consentedScopes
+            )
+        } returns emptyList()
+        every {
+            consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(
+                any(),
+                consentedScopes
+            )
+        } returns true
         coEvery { collectedClaimManager.findIdentifierByUserId(any()) } returns emptyList()
         every { claimValidationManager.getReasonsToSendValidationCode(any(), any()) } returns listOf(
             ValidationCodeReason.EMAIL_CLAIM,
@@ -182,25 +203,36 @@ class WebAuthorizationFlowManagerTest {
     }
 
     @Test
-    fun `getStatusForOnGoingAuthorizeAttempt - Missing MFA when user has not passed MFA and MFA is enabled`() = runTest {
-        val userId = UUID.randomUUID()
-        val consentedScopes = listOf("openid", "profile")
-        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
-            val mock = this
-            every { mock.userId } returns userId
-            every { mock.consentedScopes } returns consentedScopes
-            every { mock.mfaPassed } returns false
+    fun `getStatusForOnGoingAuthorizeAttempt - Missing MFA when user has not passed MFA and MFA is enabled`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val consentedScopes = listOf("openid", "profile")
+            val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
+                val mock = this
+                every { mock.userId } returns userId
+                every { mock.consentedScopes } returns consentedScopes
+                every { mock.mfaPassed } returns false
+            }
+            every { uncheckedMfaConfig.enabled } returns true
+            coEvery {
+                consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
+                    userId,
+                    consentedScopes
+                )
+            } returns emptyList()
+            every {
+                consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(
+                    any(),
+                    consentedScopes
+                )
+            } returns true
+            coEvery { collectedClaimManager.findIdentifierByUserId(any()) } returns emptyList()
+            every { claimValidationManager.getReasonsToSendValidationCode(any(), any()) } returns emptyList()
+
+            val result = manager.getStatusForOnGoingAuthorizeAttempt(authorizeAttempt)
+
+            assertTrue(result.missingMfa)
         }
-        every { uncheckedMfaConfig.enabled } returns true
-        coEvery { consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes) } returns emptyList()
-        every { consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(any(), consentedScopes) } returns true
-        coEvery { collectedClaimManager.findIdentifierByUserId(any()) } returns emptyList()
-        every { claimValidationManager.getReasonsToSendValidationCode(any(), any()) } returns emptyList()
-
-        val result = manager.getStatusForOnGoingAuthorizeAttempt(authorizeAttempt)
-
-        assertTrue(result.missingMfa)
-    }
 
     @Test
     fun `getStatusForOnGoingAuthorizeAttempt - Not missing MFA when user has already passed MFA`() = runTest {
@@ -213,8 +245,18 @@ class WebAuthorizationFlowManagerTest {
             every { mock.mfaPassed } returns true
         }
         every { uncheckedMfaConfig.enabled } returns true
-        coEvery { consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes) } returns emptyList()
-        every { consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(any(), consentedScopes) } returns true
+        coEvery {
+            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
+                userId,
+                consentedScopes
+            )
+        } returns emptyList()
+        every {
+            consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(
+                any(),
+                consentedScopes
+            )
+        } returns true
         coEvery { collectedClaimManager.findIdentifierByUserId(any()) } returns emptyList()
         every { claimValidationManager.getReasonsToSendValidationCode(any(), any()) } returns emptyList()
 
@@ -300,29 +342,30 @@ class WebAuthorizationFlowManagerTest {
     // --- getDefaultWebAuthorizationFlow tests ---
 
     @Test
-    fun `getDefaultWebAuthorizationFlow - Returns template flow when default template has a WebAuthorizationFlow`() = runTest {
-        val templateFlow = mockk<WebAuthorizationFlow>()
-        val template = ClientTemplate(
-            id = "default",
-            public = null,
-            allowedGrantTypes = null,
-            authorizationFlow = templateFlow,
-            allowedRedirectUris = null,
-            allowedScopes = null,
-            defaultScopes = null,
-            authorizationWebhook = null
-        )
-        val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
-        val realManager = WebAuthorizationFlowManager(
-            authorizationFlowManager, authorizeAttemptManager, collectedClaimManager,
-            consentAwareCollectedClaimManager, claimValidationManager, clientManager,
-            scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
-        )
+    fun `getDefaultWebAuthorizationFlow - Returns template flow when default template has a WebAuthorizationFlow`() =
+        runTest {
+            val templateFlow = mockk<WebAuthorizationFlow>()
+            val template = ClientTemplate(
+                id = "default",
+                public = null,
+                allowedGrantTypes = null,
+                authorizationFlow = templateFlow,
+                allowedRedirectUris = null,
+                allowedScopes = null,
+                defaultScopes = null,
+                authorizationWebhook = null
+            )
+            val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
+            val realManager = WebAuthorizationFlowManager(
+                authorizationFlowManager, authorizeAttemptManager, collectedClaimManager,
+                consentAwareCollectedClaimManager, claimValidationManager, clientManager,
+                scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
+            )
 
-        val result = realManager.getDefaultWebAuthorizationFlow()
+            val result = realManager.getDefaultWebAuthorizationFlow()
 
-        assertSame(templateFlow, result)
-    }
+            assertSame(templateFlow, result)
+        }
 
     @Test
     fun `getDefaultWebAuthorizationFlow - Falls back to hardcoded flow when no default template`() = runTest {
@@ -341,57 +384,59 @@ class WebAuthorizationFlowManagerTest {
     }
 
     @Test
-    fun `getDefaultWebAuthorizationFlow - Falls back to hardcoded flow when template flow is not WebAuthorizationFlow`() = runTest {
-        val nonInteractiveFlow = mockk<NonInteractiveAuthorizationFlow>()
-        val hardcodedFlow = mockk<WebAuthorizationFlow>()
-        every { authorizationFlowManager.defaultWebAuthorizationFlow } returns hardcodedFlow
-        val template = ClientTemplate(
-            id = "default",
-            public = null,
-            allowedGrantTypes = null,
-            authorizationFlow = nonInteractiveFlow,
-            allowedRedirectUris = null,
-            allowedScopes = null,
-            defaultScopes = null,
-            authorizationWebhook = null
-        )
-        val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
-        val realManager = WebAuthorizationFlowManager(
-            authorizationFlowManager, authorizeAttemptManager, collectedClaimManager,
-            consentAwareCollectedClaimManager, claimValidationManager, clientManager,
-            scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
-        )
+    fun `getDefaultWebAuthorizationFlow - Falls back to hardcoded flow when template flow is not WebAuthorizationFlow`() =
+        runTest {
+            val nonInteractiveFlow = mockk<NonInteractiveAuthorizationFlow>()
+            val hardcodedFlow = mockk<WebAuthorizationFlow>()
+            every { authorizationFlowManager.defaultWebAuthorizationFlow } returns hardcodedFlow
+            val template = ClientTemplate(
+                id = "default",
+                public = null,
+                allowedGrantTypes = null,
+                authorizationFlow = nonInteractiveFlow,
+                allowedRedirectUris = null,
+                allowedScopes = null,
+                defaultScopes = null,
+                authorizationWebhook = null
+            )
+            val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
+            val realManager = WebAuthorizationFlowManager(
+                authorizationFlowManager, authorizeAttemptManager, collectedClaimManager,
+                consentAwareCollectedClaimManager, claimValidationManager, clientManager,
+                scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
+            )
 
-        val result = realManager.getDefaultWebAuthorizationFlow()
+            val result = realManager.getDefaultWebAuthorizationFlow()
 
-        assertSame(hardcodedFlow, result)
-    }
+            assertSame(hardcodedFlow, result)
+        }
 
     @Test
-    fun `getDefaultWebAuthorizationFlow - Falls back to hardcoded flow when template has no authorizationFlow`() = runTest {
-        val hardcodedFlow = mockk<WebAuthorizationFlow>()
-        every { authorizationFlowManager.defaultWebAuthorizationFlow } returns hardcodedFlow
-        val template = ClientTemplate(
-            id = "default",
-            public = null,
-            allowedGrantTypes = null,
-            authorizationFlow = null,
-            allowedRedirectUris = null,
-            allowedScopes = null,
-            defaultScopes = null,
-            authorizationWebhook = null
-        )
-        val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
-        val realManager = WebAuthorizationFlowManager(
-            authorizationFlowManager, authorizeAttemptManager, collectedClaimManager,
-            consentAwareCollectedClaimManager, claimValidationManager, clientManager,
-            scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
-        )
+    fun `getDefaultWebAuthorizationFlow - Falls back to hardcoded flow when template has no authorizationFlow`() =
+        runTest {
+            val hardcodedFlow = mockk<WebAuthorizationFlow>()
+            every { authorizationFlowManager.defaultWebAuthorizationFlow } returns hardcodedFlow
+            val template = ClientTemplate(
+                id = "default",
+                public = null,
+                allowedGrantTypes = null,
+                authorizationFlow = null,
+                allowedRedirectUris = null,
+                allowedScopes = null,
+                defaultScopes = null,
+                authorizationWebhook = null
+            )
+            val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
+            val realManager = WebAuthorizationFlowManager(
+                authorizationFlowManager, authorizeAttemptManager, collectedClaimManager,
+                consentAwareCollectedClaimManager, claimValidationManager, clientManager,
+                scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
+            )
 
-        val result = realManager.getDefaultWebAuthorizationFlow()
+            val result = realManager.getDefaultWebAuthorizationFlow()
 
-        assertSame(hardcodedFlow, result)
-    }
+            assertSame(hardcodedFlow, result)
+        }
 
     // --- startAuthorizationWith tests ---
 
@@ -514,7 +559,12 @@ class WebAuthorizationFlowManagerTest {
         }
         setupDefaultFlow()
         coEvery { clientManager.parseRequestedClient(any()) } returns client
-        coEvery { scopeManager.parseRequestedScopes(client, any()) } throws businessExceptionOf(detailsId = "scope.unsupported")
+        coEvery {
+            scopeManager.parseRequestedScopes(
+                client,
+                any()
+            )
+        } throws businessExceptionOf(detailsId = "scope.unsupported")
         every { manager.parseRequestedRedirectUri(client, any()) } returns URI("https://example.com/callback")
         val attemptSlot = slot<BusinessException?>()
         coEvery {
@@ -749,7 +799,12 @@ class WebAuthorizationFlowManagerTest {
         }
         setupDefaultFlow()
         coEvery { clientManager.parseRequestedClient(any()) } returns client
-        coEvery { scopeManager.parseRequestedScopes(client, any()) } throws businessExceptionOf(detailsId = "scope.unsupported")
+        coEvery {
+            scopeManager.parseRequestedScopes(
+                client,
+                any()
+            )
+        } throws businessExceptionOf(detailsId = "scope.unsupported")
         every { manager.parseRequestedRedirectUri(client, any()) } throws businessExceptionOf(
             detailsId = "flow.web.parse_requested_redirect_uri.missing"
         )

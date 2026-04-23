@@ -4,10 +4,10 @@ import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.model.UserEntity
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
-import io.mockk.called
 import jakarta.inject.Inject
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.time.LocalDateTime

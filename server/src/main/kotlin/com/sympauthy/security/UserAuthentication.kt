@@ -26,7 +26,7 @@ class UserAuthentication(
      * Scopes granted through granting rules or auto-granted (e.g., openid, admin scopes).
      */
     val grantedScopes: List<Scope>
-): Authentication {
+) : Authentication {
 
     override fun getName(): String = authenticationToken.userId?.toString()
         ?: throw httpExceptionOf(FORBIDDEN, "authentication.no_user", "description.authentication.no_user")
@@ -49,7 +49,7 @@ class UserAuthentication(
  * Throws a [FORBIDDEN] if the downcast is not possible meaning the authentication does not contains a user.
  */
 val Authentication.userAuthentication: UserAuthentication
-    get() = when(this) {
+    get() = when (this) {
         is UserAuthentication -> this
         else -> throw httpExceptionOf(FORBIDDEN, "authentication.wrong")
     }

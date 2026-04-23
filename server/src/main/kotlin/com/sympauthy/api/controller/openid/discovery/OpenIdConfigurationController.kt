@@ -10,11 +10,7 @@ import com.sympauthy.api.resource.openid.OpenIdConfigurationResource
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.oauth2.DpopManager
-import com.sympauthy.config.model.AdvancedConfig
-import com.sympauthy.config.model.AuthConfig
-import com.sympauthy.config.model.UrlsConfig
-import com.sympauthy.config.model.getUri
-import com.sympauthy.config.model.orThrow
+import com.sympauthy.config.model.*
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
 import io.micronaut.security.annotation.Secured

@@ -8,13 +8,9 @@ import com.nimbusds.jose.crypto.ECDSAVerifier
 import com.nimbusds.jose.crypto.RSASSASigner
 import com.nimbusds.jose.crypto.RSASSAVerifier
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.model.key.CryptoKeys
-import com.sympauthy.business.model.key.ECKeyImpl
-import com.sympauthy.business.model.key.KeyAlgorithm
+import com.sympauthy.business.model.key.*
 import com.sympauthy.business.model.key.KeyAlgorithm.EC
 import com.sympauthy.business.model.key.KeyAlgorithm.RSA
-import com.sympauthy.business.model.key.RSAKeyImpl
-import com.sympauthy.business.model.key.getImpl
 
 /**
  * Enumeration of all JWT signing algorithms supported by the project.

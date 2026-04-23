@@ -28,11 +28,7 @@ import com.sympauthy.business.model.user.RawProviderClaims
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.client.oauth2.TokenEndpointClient
-import com.sympauthy.config.model.AuthConfig
-import com.sympauthy.config.model.EnabledAuthConfig
-import com.sympauthy.config.model.UrlsConfig
-import com.sympauthy.config.model.getUri
-import com.sympauthy.config.model.orThrow
+import com.sympauthy.config.model.*
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -99,6 +95,7 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
                     nonce = nonce
                 ).build()
             }
+
             is ProviderOAuth2Config -> {
                 authorizeAttemptManager.setProvider(authorizeAttempt, providerId)
                 ProviderOAuth2AuthorizationRedirect(

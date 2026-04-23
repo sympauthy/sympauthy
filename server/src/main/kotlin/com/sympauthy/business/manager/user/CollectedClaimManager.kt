@@ -98,7 +98,7 @@ open class CollectedClaimManager(
     open suspend fun applyUpdates(
         user: User,
         applicableUpdates: List<CollectedClaimUpdate>
-    ) : List<CollectedClaim> = coroutineScope {
+    ): List<CollectedClaim> = coroutineScope {
         val existingEntityByClaimMap = collectedClaimRepository.findByUserId(user.id)
             .associateBy { it.claim }
             .toMutableMap()

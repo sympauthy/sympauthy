@@ -102,7 +102,8 @@ open class DriverFlywayConfigurationCustomizer(
                 prefix: String?,
                 suffixes: Array<out String?>?
             ): Collection<LoadableResource>? {
-                return resourceProvider.getResources(prefix, suffixes)?.filter(this@DriverFlywayConfigurationCustomizer::isResourceForDriver)
+                return resourceProvider.getResources(prefix, suffixes)
+                    ?.filter(this@DriverFlywayConfigurationCustomizer::isResourceForDriver)
             }
         }
     }

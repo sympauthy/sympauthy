@@ -4,7 +4,6 @@ import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.mapper.CollectedClaimMapper
 import com.sympauthy.business.mapper.UserMapper
-import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.business.model.user.UserWithClaims
 import com.sympauthy.business.model.user.claim.Claim
@@ -145,10 +144,12 @@ class UserSearchManager(
                 if (ascending) result.sortedBy { it.user.creationDate }
                 else result.sortedByDescending { it.user.creationDate }
             }
+
             "status" -> {
                 if (ascending) result.sortedBy { it.user.status.name }
                 else result.sortedByDescending { it.user.status.name }
             }
+
             else -> {
                 // Sort by claim value
                 val comparator = compareBy<UserWithClaims, String?>(nullsLast()) { uwc ->

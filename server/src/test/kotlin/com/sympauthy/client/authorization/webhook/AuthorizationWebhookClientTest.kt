@@ -6,7 +6,6 @@ import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookRequ
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookResult
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.AuthorizationWebhookAdvancedConfig
-import com.sympauthy.config.model.orThrow
 import io.micronaut.http.client.HttpClient
 import io.micronaut.serde.ObjectMapper
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest

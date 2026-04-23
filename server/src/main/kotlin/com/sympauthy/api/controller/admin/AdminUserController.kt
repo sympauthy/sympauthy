@@ -4,7 +4,6 @@ import com.sympauthy.api.mapper.admin.AdminUserDetailResourceMapper
 import com.sympauthy.api.mapper.admin.AdminUserResourceMapper
 import com.sympauthy.api.resource.admin.AdminUserDetailResource
 import com.sympauthy.api.resource.admin.AdminUserListResource
-import com.sympauthy.api.resource.admin.AdminUserResource
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.ClaimManager
@@ -45,8 +44,8 @@ class AdminUserController(
 
     @Operation(
         description = "Retrieve a paginated list of users with optional filtering, search, and sorting. " +
-            "Claim values can be included in the response by specifying the 'claims' parameter. " +
-            "Dynamic query parameters matching claim identifiers are treated as exact-match filters.",
+                "Claim values can be included in the response by specifying the 'claims' parameter. " +
+                "Dynamic query parameters matching claim identifiers are treated as exact-match filters.",
         tags = ["admin"],
         parameters = [
             Parameter(
@@ -67,7 +66,7 @@ class AdminUserController(
             Parameter(
                 name = "claims",
                 description = "Comma-separated list of claim IDs to include in the response. " +
-                    "Absent: all enabled claims. Empty string: no claims. Example: email,name.",
+                        "Absent: all enabled claims. Empty string: no claims. Example: email,name.",
                 schema = Schema(type = "string")
             ),
             Parameter(

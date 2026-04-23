@@ -8,24 +8,19 @@ import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.ClientGrantScopesResult
 import com.sympauthy.business.manager.auth.ClientScopeGrantingManager
-import com.sympauthy.business.manager.auth.oauth2.AccessTokenGenerator
-import com.sympauthy.business.manager.auth.oauth2.DpopManager
-import com.sympauthy.business.manager.auth.oauth2.GenerateTokenResult
-import com.sympauthy.business.manager.auth.oauth2.PkceManager
-import com.sympauthy.business.manager.auth.oauth2.TokenManager
-import com.sympauthy.config.model.AuthConfig
-import com.sympauthy.config.model.EnabledAuthConfig
-import com.sympauthy.config.model.ByPasswordConfig
-import com.sympauthy.config.model.AuthorizationCodeConfig
-import com.sympauthy.config.model.TokenConfig
-import com.sympauthy.business.model.ScopeGrantingMethodResult
+import com.sympauthy.business.manager.auth.oauth2.*
 import com.sympauthy.business.manager.flow.AuthorizationFlowManager
+import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.oauth2.*
+import com.sympauthy.business.model.oauth2.AuthenticationTokenType
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
+import com.sympauthy.business.model.oauth2.CodeChallengeMethod
+import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
+import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.UNSUPPORTED_GRANT_TYPE
+import com.sympauthy.config.model.*
 import io.micronaut.http.HttpHeaders
 import io.micronaut.http.HttpRequest
 import io.mockk.*
@@ -33,7 +28,8 @@ import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
@@ -382,7 +378,10 @@ class TokenControllerTest {
         val newRefreshToken = mockEncodedToken("new-refresh", type = REFRESH)
 
         coEvery { clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any()) } returns client
-        coEvery { tokenManager.refreshToken(client, "old-refresh", dpopJkt = null) } returns listOf(accessToken, newRefreshToken)
+        coEvery { tokenManager.refreshToken(client, "old-refresh", dpopJkt = null) } returns listOf(
+            accessToken,
+            newRefreshToken
+        )
 
         val result = controller.getTokens(
             request = request,
@@ -441,7 +440,11 @@ class TokenControllerTest {
             results = listOf(ScopeGrantingMethodResult(grantedScopes = listOf(scope), declinedScopes = emptyList()))
         )
         coEvery {
-            accessTokenGenerator.generateAccessTokenForClient(clientId = "my-client", clientScopes = listOf("read"), dpopJkt = null)
+            accessTokenGenerator.generateAccessTokenForClient(
+                clientId = "my-client",
+                clientScopes = listOf("read"),
+                dpopJkt = null
+            )
         } returns accessToken
 
         val result = controller.getTokens(

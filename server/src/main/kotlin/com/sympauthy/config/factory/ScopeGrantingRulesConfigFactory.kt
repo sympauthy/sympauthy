@@ -153,14 +153,20 @@ class ScopeGrantingRulesConfigFactory(
     ) {
         val scopeString = scope.scope
         when (scope) {
-            is ConsentableUserScope -> errors.add(configExceptionOf(
-                "$key[$index]", "config.rule.scope.consentable_not_allowed",
-                "scope" to scopeString
-            ))
-            is ClientScope -> errors.add(configExceptionOf(
-                "$key[$index]", "config.rule.scope.client_scope_not_allowed",
-                "scope" to scopeString
-            ))
+            is ConsentableUserScope -> errors.add(
+                configExceptionOf(
+                    "$key[$index]", "config.rule.scope.consentable_not_allowed",
+                    "scope" to scopeString
+                )
+            )
+
+            is ClientScope -> errors.add(
+                configExceptionOf(
+                    "$key[$index]", "config.rule.scope.client_scope_not_allowed",
+                    "scope" to scopeString
+                )
+            )
+
             is GrantableUserScope -> {} // Valid
         }
     }
@@ -172,10 +178,12 @@ class ScopeGrantingRulesConfigFactory(
         errors: MutableList<ConfigurationException>
     ) {
         if (scope !is ClientScope) {
-            errors.add(configExceptionOf(
-                "$key[$index]", "config.rule.scope.user_scope_not_allowed",
-                "scope" to scope.scope
-            ))
+            errors.add(
+                configExceptionOf(
+                    "$key[$index]", "config.rule.scope.user_scope_not_allowed",
+                    "scope" to scope.scope
+                )
+            )
         }
     }
 
@@ -196,10 +204,12 @@ class ScopeGrantingRulesConfigFactory(
             try {
                 val verifiedScope = scopeManager.find(scope)
                 if (verifiedScope == null) {
-                    scopeErrors.add(configExceptionOf(
-                        "$key[${index}]", "config.rule.scope.invalid",
-                        "scope" to scope
-                    ))
+                    scopeErrors.add(
+                        configExceptionOf(
+                            "$key[${index}]", "config.rule.scope.invalid",
+                            "scope" to scope
+                        )
+                    )
                 } else {
                     scopeValidator(verifiedScope, key, index, scopeErrors)
                 }

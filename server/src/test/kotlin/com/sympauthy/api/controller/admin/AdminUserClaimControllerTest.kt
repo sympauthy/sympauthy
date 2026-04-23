@@ -10,13 +10,7 @@ import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.business.model.user.claim.ClaimAcl
-import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.ConsentAcl
-import com.sympauthy.business.model.user.claim.ClaimGroup
-import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
-import com.sympauthy.business.model.user.claim.UnconditionalAcl
+import com.sympauthy.business.model.user.claim.*
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.EnabledAuthConfig
 import io.micronaut.http.HttpStatus
@@ -389,7 +383,7 @@ class AdminUserClaimControllerTest {
         val claims = (1..5).map {
             Claim(
                 id = "claim_$it",
-        
+
                 enabled = true,
                 verifiedId = null,
                 dataType = ClaimDataType.STRING,

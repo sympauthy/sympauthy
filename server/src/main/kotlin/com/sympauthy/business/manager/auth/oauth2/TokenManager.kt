@@ -1,16 +1,16 @@
 package com.sympauthy.business.manager.auth.oauth2
 
-import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.REFRESH_KEY
-import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
 import com.sympauthy.business.mapper.AuthenticationTokenMapper
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
+import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.business.model.oauth2.AuthenticationToken
+import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
@@ -203,7 +203,7 @@ open class TokenManager(
         tokenTypeHint: String?
     ) {
         val decodedToken = when (tokenTypeHint) {
-            "access_token" -> jwtManager.decodeAndVerifyOrNull(ACCESS_KEY,  encodedToken)
+            "access_token" -> jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, encodedToken)
             "refresh_token" -> jwtManager.decodeAndVerifyOrNull(REFRESH_KEY, encodedToken)
             else -> when (jwtManager.getKeyIdOrNull(encodedToken)) {
                 ACCESS_KEY -> jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, encodedToken)

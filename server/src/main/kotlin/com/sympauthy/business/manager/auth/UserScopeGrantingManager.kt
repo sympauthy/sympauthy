@@ -3,13 +3,8 @@ package com.sympauthy.business.manager.auth
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.rule.ScopeGrantingRuleManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
-import com.sympauthy.business.model.oauth2.BuiltInGrantableScope
-import com.sympauthy.business.model.oauth2.GrantableUserScope
-import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.config.model.FeaturesConfig
 import com.sympauthy.config.model.orThrow
 import jakarta.inject.Inject
@@ -66,10 +61,12 @@ class UserScopeGrantingManager(
 
         val results = mutableListOf<ScopeGrantingMethodResult>()
         if (autoGranted.isNotEmpty()) {
-            results.add(ScopeGrantingMethodResult(
-                grantedScopes = autoGranted,
-                declinedScopes = emptyList()
-            ))
+            results.add(
+                ScopeGrantingMethodResult(
+                    grantedScopes = autoGranted,
+                    declinedScopes = emptyList()
+                )
+            )
         }
 
         getScopeGrantingMethods().forEach { method ->

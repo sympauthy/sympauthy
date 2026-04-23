@@ -46,8 +46,10 @@ class AdminCorsFilter(
     private sealed class CorsMode {
         /** Admin disabled or config invalid — no CORS headers. */
         data object Inactive : CorsMode()
+
         /** Integrated UI — only the origin derived from `urls.root` is allowed. */
         data class Restricted(val allowedOrigin: String) : CorsMode()
+
         /** External UI — all origins allowed (`*`). */
         data object Wildcard : CorsMode()
     }

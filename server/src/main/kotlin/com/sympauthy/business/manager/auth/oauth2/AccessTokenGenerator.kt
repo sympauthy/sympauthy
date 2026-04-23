@@ -1,6 +1,5 @@
 package com.sympauthy.business.manager.auth.oauth2
 
-import com.nimbusds.jwt.JWTClaimsSet
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
 import com.sympauthy.business.model.oauth2.AuthenticationToken

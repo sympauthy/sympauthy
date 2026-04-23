@@ -6,10 +6,10 @@ import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.*
 import com.sympauthy.config.properties.AuthConfigurationProperties
 import com.sympauthy.config.properties.AuthConfigurationProperties.Companion.AUTH_KEY
-import com.sympauthy.config.properties.ByPasswordConfigurationProperties
-import com.sympauthy.config.properties.ByPasswordConfigurationProperties.Companion.BY_PASSWORD_KEY
 import com.sympauthy.config.properties.AuthorizationCodeConfigurationProperties
 import com.sympauthy.config.properties.AuthorizationCodeConfigurationProperties.Companion.AUTHORIZATION_CODE_KEY
+import com.sympauthy.config.properties.ByPasswordConfigurationProperties
+import com.sympauthy.config.properties.ByPasswordConfigurationProperties.Companion.BY_PASSWORD_KEY
 import com.sympauthy.config.properties.TokenConfigurationProperties
 import com.sympauthy.config.properties.TokenConfigurationProperties.Companion.TOKEN_KEY
 import io.micronaut.context.annotation.Factory
@@ -53,7 +53,11 @@ class AuthConfigFactory(
 
         val accessExpiration = try {
             tokenProperties?.let {
-                parser.getDurationOrThrow(it, "$TOKEN_KEY.access-expiration", TokenConfigurationProperties::accessExpiration)
+                parser.getDurationOrThrow(
+                    it,
+                    "$TOKEN_KEY.access-expiration",
+                    TokenConfigurationProperties::accessExpiration
+                )
             }
         } catch (e: ConfigurationException) {
             errors.add(e)

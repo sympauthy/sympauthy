@@ -3,14 +3,14 @@ package com.sympauthy.api.controller.oauth2.util
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.model.client.Client
+import io.micronaut.http.HttpHeaders
+import io.micronaut.http.HttpRequest
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
-import io.micronaut.http.HttpHeaders
-import io.micronaut.http.HttpRequest
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

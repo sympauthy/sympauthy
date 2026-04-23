@@ -14,7 +14,6 @@ import com.sympauthy.config.properties.ProviderConfigurationProperties.Companion
 import io.micronaut.context.annotation.Factory
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import java.net.URI
 
 @Factory
 class ProvidersConfigFactory(
@@ -100,19 +99,39 @@ class ProvidersConfigFactory(
 
         val clientId = try {
             parser.getStringOrThrow(oauth2, "$prefix.client-id", ProviderConfigurationProperties.OAuth2Config::clientId)
-        } catch (e: ConfigurationException) { errors.add(e); null }
+        } catch (e: ConfigurationException) {
+            errors.add(e); null
+        }
 
         val clientSecret = try {
-            parser.getStringOrThrow(oauth2, "$prefix.client-secret", ProviderConfigurationProperties.OAuth2Config::clientSecret)
-        } catch (e: ConfigurationException) { errors.add(e); null }
+            parser.getStringOrThrow(
+                oauth2,
+                "$prefix.client-secret",
+                ProviderConfigurationProperties.OAuth2Config::clientSecret
+            )
+        } catch (e: ConfigurationException) {
+            errors.add(e); null
+        }
 
         val authorizationUri = try {
-            parser.getAbsoluteUriOrThrow(oauth2, "$prefix.authorization-url", ProviderConfigurationProperties.OAuth2Config::authorizationUrl)
-        } catch (e: ConfigurationException) { errors.add(e); null }
+            parser.getAbsoluteUriOrThrow(
+                oauth2,
+                "$prefix.authorization-url",
+                ProviderConfigurationProperties.OAuth2Config::authorizationUrl
+            )
+        } catch (e: ConfigurationException) {
+            errors.add(e); null
+        }
 
         val tokenUri = try {
-            parser.getAbsoluteUriOrThrow(oauth2, "$prefix.token-url", ProviderConfigurationProperties.OAuth2Config::tokenUrl)
-        } catch (e: ConfigurationException) { errors.add(e); null }
+            parser.getAbsoluteUriOrThrow(
+                oauth2,
+                "$prefix.token-url",
+                ProviderConfigurationProperties.OAuth2Config::tokenUrl
+            )
+        } catch (e: ConfigurationException) {
+            errors.add(e); null
+        }
 
         return if (errors.isEmpty()) {
             ProviderOAuth2InputConfig(
@@ -133,16 +152,34 @@ class ProvidersConfigFactory(
         val prefix = "$keyPrefix.oidc"
 
         val clientId = try {
-            parser.getStringOrThrow(oidc, "$prefix.client-id", ProviderConfigurationProperties.OpenIdConnectConfig::clientId)
-        } catch (e: ConfigurationException) { errors.add(e); null }
+            parser.getStringOrThrow(
+                oidc,
+                "$prefix.client-id",
+                ProviderConfigurationProperties.OpenIdConnectConfig::clientId
+            )
+        } catch (e: ConfigurationException) {
+            errors.add(e); null
+        }
 
         val clientSecret = try {
-            parser.getStringOrThrow(oidc, "$prefix.client-secret", ProviderConfigurationProperties.OpenIdConnectConfig::clientSecret)
-        } catch (e: ConfigurationException) { errors.add(e); null }
+            parser.getStringOrThrow(
+                oidc,
+                "$prefix.client-secret",
+                ProviderConfigurationProperties.OpenIdConnectConfig::clientSecret
+            )
+        } catch (e: ConfigurationException) {
+            errors.add(e); null
+        }
 
         val issuer = try {
-            parser.getAbsoluteUriOrThrow(oidc, "$prefix.issuer", ProviderConfigurationProperties.OpenIdConnectConfig::issuer)
-        } catch (e: ConfigurationException) { errors.add(e); null }
+            parser.getAbsoluteUriOrThrow(
+                oidc,
+                "$prefix.issuer",
+                ProviderConfigurationProperties.OpenIdConnectConfig::issuer
+            )
+        } catch (e: ConfigurationException) {
+            errors.add(e); null
+        }
 
         val scopes = (oidc.scopes ?: listOf("openid")).let { scopes ->
             if ("openid" !in scopes) listOf("openid") + scopes else scopes
@@ -175,7 +212,9 @@ class ProvidersConfigFactory(
                 "$keyPrefix.user-info.url",
                 ProviderConfigurationProperties.UserInfoConfig::url
             )
-        } catch (e: ConfigurationException) { errors.add(e); null }
+        } catch (e: ConfigurationException) {
+            errors.add(e); null
+        }
 
         val paths = parseUserInfoPaths(userInfo, keyPrefix, errors)
 
@@ -226,18 +265,22 @@ class ProvidersConfigFactory(
         }
 
         if (paths[SUB] == null) {
-            errors.add(configExceptionOf(
-                "$keyPrefix.user-info.paths",
-                "config.provider.user_info.missing_subject_key"
-            ))
+            errors.add(
+                configExceptionOf(
+                    "$keyPrefix.user-info.paths",
+                    "config.provider.user_info.missing_subject_key"
+                )
+            )
         }
 
         val authConfig = uncheckedAuthConfig as? EnabledAuthConfig
         if (authConfig?.userMergingEnabled == true && paths[EMAIL] == null) {
-            errors.add(configExceptionOf(
-                "$keyPrefix.user-info.paths",
-                "config.provider.user_info.missing_email_key"
-            ))
+            errors.add(
+                configExceptionOf(
+                    "$keyPrefix.user-info.paths",
+                    "config.provider.user_info.missing_email_key"
+                )
+            )
         }
 
         return if (errors.isEmpty()) paths else null

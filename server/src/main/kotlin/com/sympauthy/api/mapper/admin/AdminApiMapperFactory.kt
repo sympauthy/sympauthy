@@ -14,11 +14,14 @@ class AdminApiMapperFactory {
     fun consentResourceMapper(): AdminConsentResourceMapper = Mappers.getMapper(AdminConsentResourceMapper::class.java)
 
     @Singleton
-    fun userDetailResourceMapper(): AdminUserDetailResourceMapper = Mappers.getMapper(AdminUserDetailResourceMapper::class.java)
+    fun userDetailResourceMapper(): AdminUserDetailResourceMapper =
+        Mappers.getMapper(AdminUserDetailResourceMapper::class.java)
 
     @Singleton
-    fun userClaimResourceMapper(): AdminUserClaimResourceMapper = Mappers.getMapper(AdminUserClaimResourceMapper::class.java)
+    fun userClaimResourceMapper(): AdminUserClaimResourceMapper =
+        Mappers.getMapper(AdminUserClaimResourceMapper::class.java)
 
     @Singleton
-    fun mfaMethodResourceMapper(): AdminUserMfaMethodResourceMapper = Mappers.getMapper(AdminUserMfaMethodResourceMapper::class.java)
+    fun mfaMethodResourceMapper(): AdminUserMfaMethodResourceMapper =
+        Mappers.getMapper(AdminUserMfaMethodResourceMapper::class.java)
 }

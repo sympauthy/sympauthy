@@ -6,6 +6,7 @@ import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.UserScopeGrantingManager
 import com.sympauthy.business.manager.consent.ConsentManager
+import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ID
@@ -13,7 +14,6 @@ import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
-import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.config.model.AuthorizationFlowsConfig
 import com.sympauthy.config.model.FeaturesConfig
 import com.sympauthy.config.model.UrlsConfig
@@ -128,7 +128,7 @@ class AuthorizationFlowManager(
         )
 
         val hasAnyScope = !modifiedAuthorizedAttempt.grantedScopes.isNullOrEmpty() ||
-            !modifiedAuthorizedAttempt.consentedScopes.isNullOrEmpty()
+                !modifiedAuthorizedAttempt.consentedScopes.isNullOrEmpty()
         return if (!hasAnyScope && !featuresConfig.allowAccessToClientWithoutScope) {
             // Mark attempt as failed since no scope have been granted and the end-user is not allowed to continue
             // to the client in this state.

@@ -22,11 +22,17 @@ data class AdminClaimResource(
     val required: Boolean,
     @get:Schema(description = "Whether this claim is configured as an identifier claim, used for password login and cross-provider account merging.")
     val identifier: Boolean,
-    @get:Schema(description = "Array of accepted values, or null if any value is accepted (no restriction).", nullable = true)
+    @get:Schema(
+        description = "Array of accepted values, or null if any value is accepted (no restriction).",
+        nullable = true
+    )
     @get:JsonProperty("allowed_values")
     @get:JsonInclude(JsonInclude.Include.ALWAYS)
     val allowedValues: List<Any>?,
-    @get:Schema(description = "Grouping identifier (e.g. \"profile\", \"address\"), or null if the claim belongs to no group.", nullable = true)
+    @get:Schema(
+        description = "Grouping identifier (e.g. \"profile\", \"address\"), or null if the claim belongs to no group.",
+        nullable = true
+    )
     @get:JsonInclude(JsonInclude.Include.ALWAYS)
     val group: String?
 )

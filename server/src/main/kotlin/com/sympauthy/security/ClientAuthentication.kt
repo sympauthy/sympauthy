@@ -21,7 +21,7 @@ class ClientAuthentication(
      * List of client scopes granted to the client.
      */
     val scopes: List<Scope>
-): Authentication {
+) : Authentication {
 
     val clientId: String get() = authenticationToken.clientId
 
@@ -43,7 +43,7 @@ class ClientAuthentication(
  * Throws a [FORBIDDEN] if the downcast is not possible meaning the authentication does not represent a client.
  */
 val Authentication.clientAuthentication: ClientAuthentication
-    get() = when(this) {
+    get() = when (this) {
         is ClientAuthentication -> this
         else -> throw httpExceptionOf(FORBIDDEN, "authentication.no_client", "description.authentication.no_client")
     }

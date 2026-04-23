@@ -1,17 +1,17 @@
 CREATE TABLE validation_codes
 (
-    id              uuid       NOT NULL DEFAULT random_uuid(),
-    code            text       NOT NULL,
+    id              uuid      NOT NULL DEFAULT random_uuid(),
+    code            text      NOT NULL,
 
-    user_id         uuid       NOT NULL,
-    attempt_id      uuid       NOT NULL,
-    media           text       NOT NULL,
+    user_id         uuid      NOT NULL,
+    attempt_id      uuid      NOT NULL,
+    media           text      NOT NULL,
     reasons         text array NOT NULL,
 
-    creation_date   timestamp  NOT NULL,
+    creation_date   timestamp NOT NULL,
     resend_date     timestamp,
     validation_date timestamp,
-    expiration_date timestamp  NOT NULL,
+    expiration_date timestamp NOT NULL,
 
     PRIMARY KEY (id),
     UNIQUE (attempt_id, code),

@@ -4,7 +4,7 @@ open class ConfigurationException(
     val key: String,
     val messageId: String,
     val values: Map<String, Any?> = emptyMap()
-): Exception("Config - $key - $messageId")
+) : Exception("Config - $key - $messageId")
 
 fun configExceptionOf(
     key: String,

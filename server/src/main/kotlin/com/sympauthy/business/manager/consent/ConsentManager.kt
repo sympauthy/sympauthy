@@ -3,8 +3,8 @@ package com.sympauthy.business.manager.consent
 import com.sympauthy.business.mapper.ConsentMapper
 import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.oauth2.ConsentRevokedBy
-import com.sympauthy.data.model.ConsentEntity
 import com.sympauthy.business.model.oauth2.TokenRevokedBy
+import com.sympauthy.data.model.ConsentEntity
 import com.sympauthy.data.repository.AuthenticationTokenRepository
 import com.sympauthy.data.repository.ConsentRepository
 import io.micronaut.transaction.annotation.Transactional

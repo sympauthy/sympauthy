@@ -9,4 +9,4 @@ import io.micronaut.data.r2dbc.annotation.R2dbcRepository
 @Suppress("unused")
 @Requires(condition = DefaultDataSourceIsPostgreSQL::class)
 @R2dbcRepository(dialect = POSTGRES)
-interface PostgreSQLValidationCodeRepository: ValidationCodeRepository
+interface PostgreSQLValidationCodeRepository : ValidationCodeRepository

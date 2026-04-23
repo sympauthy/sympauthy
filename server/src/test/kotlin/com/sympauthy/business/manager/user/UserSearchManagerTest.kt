@@ -13,13 +13,17 @@ import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.UserRepository
-import io.mockk.*
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
+import io.mockk.mockk
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
@@ -58,7 +62,10 @@ class UserSearchManagerTest {
         }
     }
 
-    private fun mockUser(status: UserStatus = UserStatus.ENABLED, creationDate: LocalDateTime = LocalDateTime.now()): User {
+    private fun mockUser(
+        status: UserStatus = UserStatus.ENABLED,
+        creationDate: LocalDateTime = LocalDateTime.now()
+    ): User {
         return User(
             id = UUID.randomUUID(),
             status = status,
@@ -176,7 +183,9 @@ class UserSearchManagerTest {
         val cc2 = mockCollectedClaim(user2.id, emailClaim, "john@example.com")
 
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim)
-        every { claimValueValidator.validateAndCleanValueForClaim(emailClaim, "jane@example.com") } returns Optional.of("jane@example.com")
+        every { claimValueValidator.validateAndCleanValueForClaim(emailClaim, "jane@example.com") } returns Optional.of(
+            "jane@example.com"
+        )
         coEvery { userRepository.findAll() } returns flowOf(entity1, entity2)
         every { userMapper.toUser(entity1) } returns user1
         every { userMapper.toUser(entity2) } returns user2

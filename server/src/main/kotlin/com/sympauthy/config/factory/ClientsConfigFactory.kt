@@ -5,12 +5,7 @@ import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.exception.configExceptionOf
-import com.sympauthy.config.model.ClientTemplate
-import com.sympauthy.config.model.ClientTemplatesConfig
-import com.sympauthy.config.model.ClientsConfig
-import com.sympauthy.config.model.DisabledClientsConfig
-import com.sympauthy.config.model.EnabledClientsConfig
-import com.sympauthy.config.model.orNull
+import com.sympauthy.config.model.*
 import com.sympauthy.config.properties.ClientConfigurationProperties
 import com.sympauthy.config.properties.ClientConfigurationProperties.Companion.CLIENTS_KEY
 import com.sympauthy.config.properties.ClientTemplateConfigurationProperties.Companion.DEFAULT
@@ -126,9 +121,11 @@ class ClientsConfigFactory(
                     allowedGrantTypes = properties.allowedGrantTypes,
                     errors = clientErrors
                 )
+
                 template?.allowedGrantTypes != null -> template.allowedGrantTypes
                 else -> {
-                    clientErrors.add(configExceptionOf(
+                    clientErrors.add(
+                        configExceptionOf(
                         "$configKeyPrefix.allowed-grant-types",
                         "config.client.allowed_grant_types.missing",
                         "supportedValues" to GrantType.entries.joinToString(", ") { it.value }
@@ -147,6 +144,7 @@ class ClientsConfigFactory(
                     key = "$configKeyPrefix.authorization-flow",
                     flowId = properties.authorizationFlow
                 )
+
                 else -> template?.authorizationFlow
             }
         } catch (e: ConfigurationException) {
@@ -163,12 +161,15 @@ class ClientsConfigFactory(
                         allowedRedirectUris = properties.allowedRedirectUris,
                         errors = clientErrors
                     )
+
                     template?.allowedRedirectUris != null -> template.allowedRedirectUris
                     else -> {
-                        clientErrors.add(configExceptionOf(
-                            "$configKeyPrefix.allowed-redirect-uris",
-                            "config.client.allowed_redirect_uris.missing"
-                        ))
+                        clientErrors.add(
+                            configExceptionOf(
+                                "$configKeyPrefix.allowed-redirect-uris",
+                                "config.client.allowed_redirect_uris.missing"
+                            )
+                        )
                         null
                     }
                 }
@@ -195,6 +196,7 @@ class ClientsConfigFactory(
                     scopes = properties.allowedScopes,
                     errors = clientErrors
                 )?.toSet()
+
                 else -> template?.allowedScopes
             }
         } catch (e: ConfigurationException) {
@@ -209,6 +211,7 @@ class ClientsConfigFactory(
                     scopes = properties.defaultScopes,
                     errors = clientErrors
                 )
+
                 else -> template?.defaultScopes
             }
         } catch (e: ConfigurationException) {
@@ -223,6 +226,7 @@ class ClientsConfigFactory(
                     webhookConfig = properties.authorizationWebhook,
                     errors = clientErrors
                 )
+
                 else -> template?.authorizationWebhook
             }
         } catch (e: ConfigurationException) {

@@ -2,18 +2,15 @@ package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.model.oauth2.Consent
-import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.data.model.ProviderUserInfoEntity
 import com.sympauthy.data.model.ProviderUserInfoEntityId
 import com.sympauthy.data.repository.ProviderUserInfoRepository
 import io.mockk.coEvery
-import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
-import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -126,7 +123,10 @@ class ClientUserManagerTest {
         val provider2 = mockProviderEntity(userId2, "discord", "456")
 
         coEvery { consentManager.findActiveConsentsByClient(clientId) } returns listOf(consent1, consent2)
-        coEvery { providerUserInfoRepository.findByUserIdInList(listOf(userId1, userId2)) } returns listOf(provider1, provider2)
+        coEvery { providerUserInfoRepository.findByUserIdInList(listOf(userId1, userId2)) } returns listOf(
+            provider1,
+            provider2
+        )
         coEvery { userManager.findByIdOrNull(userId1) } returns mockUser(userId1)
         coEvery { collectedClaimManager.findIdentifierByUserId(userId1) } returns emptyList()
 

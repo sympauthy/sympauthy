@@ -1,10 +1,10 @@
 CREATE TABLE consents
 (
-    id            uuid       NOT NULL DEFAULT random_uuid(),
-    user_id       uuid       NOT NULL,
-    client_id     text       NOT NULL,
+    id            uuid      NOT NULL DEFAULT random_uuid(),
+    user_id       uuid      NOT NULL,
+    client_id     text      NOT NULL,
     scopes        text ARRAY NOT NULL,
-    consented_at  timestamp  NOT NULL,
+    consented_at  timestamp NOT NULL,
     revoked_at    timestamp,
     revoked_by    text,
     revoked_by_id uuid,

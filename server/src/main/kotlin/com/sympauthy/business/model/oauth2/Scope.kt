@@ -70,8 +70,10 @@ val Scope.isClientScope: Boolean get() = this is ClientScope
 enum class ScopeOrigin(val value: String) {
     /** Scope defined by the OpenID Connect specification. */
     OPENID("openid"),
+
     /** Scope defined by SympAuthy for administration or client APIs. */
     SYSTEM("system"),
+
     /** Scope defined by the operator in configuration. */
     CUSTOM("custom")
 }

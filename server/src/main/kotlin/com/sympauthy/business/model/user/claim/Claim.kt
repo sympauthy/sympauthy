@@ -97,7 +97,7 @@ data class Claim(
      */
     fun canBeReadByClient(consentedScopes: List<String>, clientScopes: List<String>): Boolean =
         (acl.consent.readableByClient && (acl.consent.scope == null || acl.consent.scope in consentedScopes)) ||
-            clientScopes.any { it in acl.unconditional.readableWithClientScopes }
+                clientScopes.any { it in acl.unconditional.readableWithClientScopes }
 
     /**
      * Return true if a client can write this claim given the [consentedScopes] and [clientScopes].
@@ -110,7 +110,7 @@ data class Claim(
      */
     fun canBeWrittenByClient(consentedScopes: List<String>, clientScopes: List<String>): Boolean =
         (acl.consent.writableByClient && (acl.consent.scope == null || acl.consent.scope in consentedScopes)) ||
-            clientScopes.any { it in acl.unconditional.writableWithClientScopes }
+                clientScopes.any { it in acl.unconditional.writableWithClientScopes }
 }
 
 enum class ClaimOrigin(val value: String) {

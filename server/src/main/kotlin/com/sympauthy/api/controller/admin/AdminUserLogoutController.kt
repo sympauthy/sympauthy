@@ -5,8 +5,8 @@ import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
 import com.sympauthy.business.manager.user.UserManager
-import com.sympauthy.business.model.oauth2.TokenRevokedBy
 import com.sympauthy.business.model.oauth2.AdminScopeId
+import com.sympauthy.business.model.oauth2.TokenRevokedBy
 import com.sympauthy.security.SecurityRule.ADMIN_CONSENT_WRITE
 import com.sympauthy.security.userId
 import io.micronaut.http.annotation.Controller

@@ -5,8 +5,8 @@ import com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
-import io.micronaut.http.HttpResponse
 import io.micronaut.http.HttpRequest
+import io.micronaut.http.HttpResponse
 import io.micronaut.http.MediaType.APPLICATION_FORM_URLENCODED
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Part
