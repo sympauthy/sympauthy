@@ -14,7 +14,8 @@ import jakarta.inject.Singleton
 
 @Factory
 class ClaimTemplatesConfigFactory(
-    @Inject private val parser: ConfigParser
+    @Inject private val parser: ConfigParser,
+    @Inject private val claimAclFactory: ClaimAclFactory
 ) {
 
     @Singleton
@@ -61,51 +62,11 @@ class ClaimTemplatesConfigFactory(
             null
         }
 
-        val acl = properties.acl
-
-        val readableByUserWhenConsented = try {
-            acl?.readableByUserWhenConsented?.let {
-                parser.getBoolean(
-                    properties, "$configKeyPrefix.acl.readable-by-user-when-consented"
-                ) { it }
-            }
-        } catch (e: ConfigurationException) {
-            templateErrors.add(e)
-            null
-        }
-
-        val writableByUserWhenConsented = try {
-            acl?.writableByUserWhenConsented?.let {
-                parser.getBoolean(
-                    properties, "$configKeyPrefix.acl.writable-by-user-when-consented"
-                ) { it }
-            }
-        } catch (e: ConfigurationException) {
-            templateErrors.add(e)
-            null
-        }
-
-        val readableByClientWhenConsented = try {
-            acl?.readableByClientWhenConsented?.let {
-                parser.getBoolean(
-                    properties, "$configKeyPrefix.acl.readable-by-client-when-consented"
-                ) { it }
-            }
-        } catch (e: ConfigurationException) {
-            templateErrors.add(e)
-            null
-        }
-
-        val writableByClientWhenConsented = try {
-            acl?.writableByClientWhenConsented?.let {
-                parser.getBoolean(
-                    properties, "$configKeyPrefix.acl.writable-by-client-when-consented"
-                ) { it }
-            }
-        } catch (e: ConfigurationException) {
-            templateErrors.add(e)
-            null
-        }
+        val acl = claimAclFactory.buildTemplateAcl(
+            acl = properties.acl,
+            configKeyPrefix = configKeyPrefix,
+            errors = templateErrors
+        )
 
         return if (templateErrors.isEmpty()) {
             ClaimTemplate(
@@ -113,13 +74,7 @@ class ClaimTemplatesConfigFactory(
                 enabled = enabled,
                 required = required,
                 allowedValues = properties.allowedValues,
-                consentScope = acl?.scopeWhenConsented,
-                readableByUserWhenConsented = readableByUserWhenConsented,
-                writableByUserWhenConsented = writableByUserWhenConsented,
-                readableByClientWhenConsented = readableByClientWhenConsented,
-                writableByClientWhenConsented = writableByClientWhenConsented,
-                readableWithClientScopesUnconditionally = acl?.readableWithClientScopesUnconditionally,
-                writableWithClientScopesUnconditionally = acl?.writableWithClientScopesUnconditionally
+                acl = acl
             )
         } else {
             errors.addAll(templateErrors)

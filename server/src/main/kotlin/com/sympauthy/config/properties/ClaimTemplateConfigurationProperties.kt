@@ -21,15 +21,7 @@ class ClaimTemplateConfigurationProperties(
     var acl: AclConfig? = null
 
     @ConfigurationProperties("acl")
-    interface AclConfig {
-        val scopeWhenConsented: String?
-        val readableByUserWhenConsented: String?
-        val writableByUserWhenConsented: String?
-        val readableByClientWhenConsented: String?
-        val writableByClientWhenConsented: String?
-        val readableWithClientScopesUnconditionally: List<String>?
-        val writableWithClientScopesUnconditionally: List<String>?
-    }
+    interface AclConfig : ClaimAclProperties
 
     companion object {
         const val TEMPLATES_CLAIMS_KEY = "templates.claims"

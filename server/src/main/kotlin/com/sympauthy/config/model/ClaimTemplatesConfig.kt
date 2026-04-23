@@ -35,6 +35,15 @@ data class ClaimTemplate(
     val enabled: Boolean?,
     val required: Boolean?,
     val allowedValues: List<Any>?,
+    val acl: ClaimTemplateAcl
+)
+
+/**
+ * Parsed ACL defaults from a claim template.
+ *
+ * All fields are nullable since a template only needs to define the defaults it wants to provide.
+ */
+data class ClaimTemplateAcl(
     val consentScope: String?,
     val readableByUserWhenConsented: Boolean?,
     val writableByUserWhenConsented: Boolean?,

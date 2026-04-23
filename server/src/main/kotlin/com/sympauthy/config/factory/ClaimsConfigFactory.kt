@@ -1,15 +1,8 @@
 package com.sympauthy.config.factory
 
-import com.sympauthy.business.model.oauth2.isBuiltInClientScope
-import com.sympauthy.business.model.oauth2.isBuiltInGrantableScope
-import com.sympauthy.business.model.oauth2.isAdminScope
 import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.OpenIdClaim
-import com.sympauthy.business.model.user.claim.UnconditionalAcl
-import com.sympauthy.business.model.user.isOpenIdConnectScope
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.exception.configExceptionOf
@@ -33,7 +26,7 @@ class ClaimsConfigFactory(
     @Inject private val parser: ConfigParser,
     @Inject private val authProperties: AuthConfigurationProperties,
     @Inject private val claimTemplatesConfig: ClaimTemplatesConfig,
-    @Inject private val scopesConfig: ScopesConfig
+    @Inject private val claimAclFactory: ClaimAclFactory
 ) {
 
     @Singleton
@@ -44,9 +37,6 @@ class ClaimsConfigFactory(
             ?: return DisabledClaimsConfig(emptyList())
         val templates = enabledTemplatesConfig.templates
 
-        val enabledScopesConfig = scopesConfig.orNull()
-        val knownScopeIds = collectKnownScopeIds(enabledScopesConfig)
-
         val errors = mutableListOf<ConfigurationException>()
 
         val openIdClaims = OpenIdClaim.entries.map { openIdClaim ->
@@ -55,7 +45,6 @@ class ClaimsConfigFactory(
                     properties = propertiesList.firstOrNull { it.id.normalizeClaimId() == openIdClaim.id },
                     openIdClaim = openIdClaim,
                     templates = templates,
-                    knownScopeIds = knownScopeIds,
                     errors = errors
                 )
             } else {
@@ -63,7 +52,6 @@ class ClaimsConfigFactory(
                     properties = propertiesList.firstOrNull { it.id.normalizeClaimId() == openIdClaim.id },
                     openIdClaim = openIdClaim,
                     templates = templates,
-                    knownScopeIds = knownScopeIds,
                     errors = errors
                 )
             }
@@ -75,7 +63,6 @@ class ClaimsConfigFactory(
                     properties = claimProperties,
                     claim = claimProperties.id,
                     templates = templates,
-                    knownScopeIds = knownScopeIds,
                     errors = errors
                 )
             } else null
@@ -108,85 +95,15 @@ class ClaimsConfigFactory(
     }
 
     /**
-     * Collect all known scope IDs from built-in scopes and the scopes configuration.
-     */
-    private fun collectKnownScopeIds(enabledScopesConfig: EnabledScopesConfig?): Set<String> {
-        val ids = mutableSetOf<String>()
-        com.sympauthy.business.model.user.OpenIdConnectScope.entries.forEach { ids.add(it.scope) }
-        com.sympauthy.business.model.oauth2.BuiltInGrantableScope.entries.forEach { ids.add(it.scope) }
-        com.sympauthy.business.model.oauth2.AdminScope.entries.forEach { ids.add(it.scope) }
-        com.sympauthy.business.model.oauth2.BuiltInClientScope.entries.forEach { ids.add(it.scope) }
-        enabledScopesConfig?.scopes?.forEach { ids.add(it.scope) }
-        return ids
-    }
-
-    // region Scope resolution utilities
-
-    /**
-     * Resolve a single scope ID from properties, falling back to the template, then to [defaultScope].
-     * Validates that the resolved scope exists in [knownScopeIds] when non-null.
-     */
-    private fun resolveConsentScope(
-        propertyValue: String?,
-        templateValue: String?,
-        defaultScope: String?,
-        configKey: String,
-        knownScopeIds: Set<String>,
-        errors: MutableList<ConfigurationException>
-    ): String? {
-        val scope = propertyValue ?: templateValue ?: defaultScope
-        if (scope != null && scope !in knownScopeIds) {
-            errors.add(
-                configExceptionOf(
-                    configKey,
-                    "config.claim.acl.unknown_scope",
-                    "scope" to scope
-                )
-            )
-        }
-        return scope
-    }
-
-    /**
-     * Resolve a list of scope IDs from properties, falling back to the template, then to an empty list.
-     * Validates that each scope exists in [knownScopeIds].
-     */
-    private fun resolveScopeList(
-        propertyValue: List<String>?,
-        templateValue: List<String>?,
-        configKey: String,
-        knownScopeIds: Set<String>,
-        errors: MutableList<ConfigurationException>
-    ): List<String> {
-        val scopes = propertyValue ?: templateValue ?: emptyList()
-        scopes.forEachIndexed { index, scope ->
-            if (scope.isBlank()) {
-                errors.add(configExceptionOf("${configKey}[$index]", "config.empty"))
-            } else if (scope !in knownScopeIds) {
-                errors.add(
-                    configExceptionOf(
-                        "${configKey}[$index]",
-                        "config.claim.acl.unknown_scope",
-                        "scope" to scope
-                    )
-                )
-            }
-        }
-        return scopes
-    }
-
-    // endregion
-
-    /**
      * Generated claims (e.g. `sub`, `updated_at`) have server-managed values.
      * They are always enabled, read-only, and gated by their OpenID scope.
-     * Only [UnconditionalAcl.readableWithClientScopes] is configurable via YAML/templates.
+     * Only [com.sympauthy.business.model.user.claim.UnconditionalAcl.readableWithClientScopes]
+     * is configurable via YAML/templates.
      */
     private fun provideGeneratedClaim(
         properties: ClaimConfigurationProperties?,
         openIdClaim: OpenIdClaim,
         templates: Map<String, ClaimTemplate>,
-        knownScopeIds: Set<String>,
         errors: MutableList<ConfigurationException>
     ): Claim {
         val template = if (properties != null) {
@@ -196,11 +113,11 @@ class ClaimsConfigFactory(
         }
         val configKeyPrefix = "$CLAIMS_KEY.${openIdClaim.id}"
 
-        val readableWithClientScopes = resolveScopeList(
-            propertyValue = properties?.acl?.readableWithClientScopesUnconditionally,
-            templateValue = template?.readableWithClientScopesUnconditionally,
-            configKey = "$configKeyPrefix.acl.readable-with-client-scopes-unconditionally",
-            knownScopeIds = knownScopeIds,
+        val acl = claimAclFactory.buildGeneratedClaimAcl(
+            acl = properties?.acl,
+            template = template,
+            configKeyPrefix = configKeyPrefix,
+            consentScope = openIdClaim.scope.scope,
             errors = errors
         )
 
@@ -214,19 +131,7 @@ class ClaimsConfigFactory(
             generated = true,
             userInputted = false,
             allowedValues = null,
-            acl = ClaimAcl(
-                consent = ConsentAcl(
-                    scope = openIdClaim.scope.scope,
-                    readableByUser = true,
-                    writableByUser = false,
-                    readableByClient = true,
-                    writableByClient = false
-                ),
-                unconditional = UnconditionalAcl(
-                    readableWithClientScopes = readableWithClientScopes,
-                    writableWithClientScopes = emptyList()
-                )
-            )
+            acl = acl
         )
     }
 
@@ -266,97 +171,10 @@ class ClaimsConfigFactory(
         return templates[DEFAULT]
     }
 
-    private fun buildAcl(
-        properties: ClaimConfigurationProperties?,
-        template: ClaimTemplate?,
-        configKeyPrefix: String,
-        defaultConsentScope: String?,
-        knownScopeIds: Set<String>,
-        errors: MutableList<ConfigurationException>
-    ): ClaimAcl {
-        val acl = properties?.acl
-
-        val consentScope = resolveConsentScope(
-            propertyValue = acl?.scopeWhenConsented,
-            templateValue = template?.consentScope,
-            defaultScope = defaultConsentScope,
-            configKey = "$configKeyPrefix.acl.scope-when-consented",
-            knownScopeIds = knownScopeIds,
-            errors = errors
-        )
-
-        val readableByUser = try {
-            acl?.readableByUserWhenConsented?.let {
-                parser.getBoolean(properties, "$configKeyPrefix.acl.readable-by-user-when-consented") { it }
-            } ?: template?.readableByUserWhenConsented ?: false
-        } catch (e: ConfigurationException) {
-            errors.add(e)
-            false
-        }
-
-        val writableByUser = try {
-            acl?.writableByUserWhenConsented?.let {
-                parser.getBoolean(properties, "$configKeyPrefix.acl.writable-by-user-when-consented") { it }
-            } ?: template?.writableByUserWhenConsented ?: false
-        } catch (e: ConfigurationException) {
-            errors.add(e)
-            false
-        }
-
-        val readableByClient = try {
-            acl?.readableByClientWhenConsented?.let {
-                parser.getBoolean(properties, "$configKeyPrefix.acl.readable-by-client-when-consented") { it }
-            } ?: template?.readableByClientWhenConsented ?: false
-        } catch (e: ConfigurationException) {
-            errors.add(e)
-            false
-        }
-
-        val writableByClient = try {
-            acl?.writableByClientWhenConsented?.let {
-                parser.getBoolean(properties, "$configKeyPrefix.acl.writable-by-client-when-consented") { it }
-            } ?: template?.writableByClientWhenConsented ?: false
-        } catch (e: ConfigurationException) {
-            errors.add(e)
-            false
-        }
-
-        val readableWithClientScopes = resolveScopeList(
-            propertyValue = acl?.readableWithClientScopesUnconditionally,
-            templateValue = template?.readableWithClientScopesUnconditionally,
-            configKey = "$configKeyPrefix.acl.readable-with-client-scopes-unconditionally",
-            knownScopeIds = knownScopeIds,
-            errors = errors
-        )
-
-        val writableWithClientScopes = resolveScopeList(
-            propertyValue = acl?.writableWithClientScopesUnconditionally,
-            templateValue = template?.writableWithClientScopesUnconditionally,
-            configKey = "$configKeyPrefix.acl.writable-with-client-scopes-unconditionally",
-            knownScopeIds = knownScopeIds,
-            errors = errors
-        )
-
-        return ClaimAcl(
-            consent = ConsentAcl(
-                scope = consentScope,
-                readableByUser = readableByUser,
-                writableByUser = writableByUser,
-                readableByClient = readableByClient,
-                writableByClient = writableByClient
-            ),
-            unconditional = UnconditionalAcl(
-                readableWithClientScopes = readableWithClientScopes,
-                writableWithClientScopes = writableWithClientScopes
-            )
-        )
-    }
-
     private fun provideOpenIdClaim(
         properties: ClaimConfigurationProperties?,
         openIdClaim: OpenIdClaim,
         templates: Map<String, ClaimTemplate>,
-        knownScopeIds: Set<String>,
         errors: MutableList<ConfigurationException>
     ): Claim {
         val template = if (properties != null) {
@@ -403,12 +221,11 @@ class ClaimsConfigFactory(
             template?.allowedValues
         }
 
-        val acl = buildAcl(
-            properties = properties,
+        val acl = claimAclFactory.buildAcl(
+            acl = properties?.acl,
             template = template,
             configKeyPrefix = configKeyPrefix,
             defaultConsentScope = openIdClaim.scope.scope,
-            knownScopeIds = knownScopeIds,
             errors = errors
         )
 
@@ -453,7 +270,6 @@ class ClaimsConfigFactory(
         properties: ClaimConfigurationProperties,
         claim: String,
         templates: Map<String, ClaimTemplate>,
-        knownScopeIds: Set<String>,
         errors: MutableList<ConfigurationException>
     ): Claim? {
         val template = resolveTemplate(properties, templates, errors)
@@ -497,12 +313,11 @@ class ClaimsConfigFactory(
             )
         } ?: template?.allowedValues
 
-        val acl = buildAcl(
-            properties = properties,
+        val acl = claimAclFactory.buildAcl(
+            acl = properties.acl,
             template = template,
             configKeyPrefix = configKeyPrefix,
             defaultConsentScope = null,
-            knownScopeIds = knownScopeIds,
             errors = errors
         )
 
