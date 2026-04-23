@@ -27,7 +27,6 @@ import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.RawProviderClaims
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.business.model.user.claim.OpenIdClaim
 import com.sympauthy.client.oauth2.TokenEndpointClient
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.EnabledAuthConfig
@@ -208,11 +207,11 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
      */
     @Transactional
     internal open suspend fun createOrAssociateUserByIdentifierClaimsWithProviderUserInfo(
-        identifierClaims: Map<OpenIdClaim, Pair<Claim, String>>,
+        identifierClaims: Map<String, Pair<Claim, String>>,
         provider: EnabledProvider,
         providerUserInfo: RawProviderClaims
     ): CreateOrAssociateResult {
-        val identifierMap = identifierClaims.map { (openIdClaim, pair) -> openIdClaim.id to pair.second }.toMap()
+        val identifierMap = identifierClaims.map { (claimId, pair) -> claimId to pair.second }.toMap()
         val existingUser = userManager.findByIdentifierClaims(identifierMap)
 
         val user = existingUser ?: userManager.createUser().also { newUser ->
@@ -237,11 +236,11 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
      */
     @Transactional
     internal open suspend fun createUserWithProviderUserInfo(
-        identifierClaims: Map<OpenIdClaim, Pair<Claim, String>>,
+        identifierClaims: Map<String, Pair<Claim, String>>,
         provider: EnabledProvider,
         providerUserInfo: RawProviderClaims
     ): CreateOrAssociateResult {
-        val identifierMap = identifierClaims.map { (openIdClaim, pair) -> openIdClaim.id to pair.second }.toMap()
+        val identifierMap = identifierClaims.map { (claimId, pair) -> claimId to pair.second }.toMap()
         val existingUser = userManager.findByIdentifierClaims(identifierMap)
         if (existingUser != null) {
             throw businessExceptionOf("user.create_with_provider.existing_user")
@@ -268,18 +267,18 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
         authConfig: EnabledAuthConfig,
         provider: EnabledProvider,
         providerUserInfo: RawProviderClaims
-    ): Map<OpenIdClaim, Pair<Claim, String>> {
-        return authConfig.identifierClaims.associateWith { openIdClaim ->
-            val value = providerUserInfo.getClaimValueOrNull(openIdClaim)
+    ): Map<String, Pair<Claim, String>> {
+        return authConfig.identifierClaims.associateWith { claimId ->
+            val value = providerUserInfo.getClaimValueOrNull(claimId)
                 ?: throw businessExceptionOf(
                     "user.create_with_provider.missing_identifier_claim",
                     "providerId" to provider.id,
-                    "claim" to openIdClaim.id
+                    "claim" to claimId
                 )
-            val claim = claimManager.findByIdOrNull(openIdClaim.id)
+            val claim = claimManager.findByIdOrNull(claimId)
                 ?: throw businessExceptionOf(
                     "user.create_with_provider.missing_identifier_claim_config",
-                    "claim" to openIdClaim.id
+                    "claim" to claimId
                 )
             claim to value
         }
@@ -287,7 +286,7 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
 
     private suspend fun saveIdentifierClaims(
         user: User,
-        identifierClaims: Map<OpenIdClaim, Pair<Claim, String>>
+        identifierClaims: Map<String, Pair<Claim, String>>
     ) {
         collectedClaimManager.update(
             user = user,

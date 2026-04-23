@@ -3,7 +3,7 @@ package com.sympauthy.api.mapper.admin
 import com.sympauthy.api.resource.admin.AdminClaimResource
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimGroup
-import com.sympauthy.business.model.user.claim.origin
+
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import jakarta.inject.Inject
@@ -17,7 +17,6 @@ class AdminClaimResourceMapper(
     fun toResource(claim: Claim): AdminClaimResource {
         val identifierClaimIds = uncheckedAuthConfig.orThrow()
             .identifierClaims
-            .map { it.id }
             .toSet()
         return AdminClaimResource(
             id = claim.id,

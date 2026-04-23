@@ -7,7 +7,7 @@ import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.model.mfa.TotpEnrollment
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.claim.OpenIdClaim
+import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import jakarta.inject.Inject
@@ -92,7 +92,7 @@ class WebAuthorizationFlowTotpEnrollmentManager(
      */
     private suspend fun getAccount(user: User): String {
         return collectedClaimManager.findByUserId(user.id)
-            .firstOrNull { it.claim.id == OpenIdClaim.EMAIL.id }
+            .firstOrNull { it.claim.id == OpenIdConnectClaimId.EMAIL }
             ?.value?.toString()
             ?: user.id.toString()
     }

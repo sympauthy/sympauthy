@@ -2,24 +2,14 @@ package com.sympauthy
 
 import com.sympauthy.api.controller.openapi.OpenApiController.Companion.OPENAPI_ENDPOINT
 import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.model.user.claim.CustomClaim
-import com.sympauthy.business.model.user.claim.StandardClaim
+import com.sympauthy.business.model.user.claim.ClaimOrigin
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ConfigReadinessManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.provider.ProviderManager
 import com.sympauthy.business.manager.rule.ScopeGrantingRuleManager
 import com.sympauthy.business.model.oauth2.isAdmin
-import com.sympauthy.config.model.AdminConfig
-import com.sympauthy.config.model.AuthConfig
-import com.sympauthy.config.model.EnabledAdminConfig
-import com.sympauthy.config.model.EnabledMfaConfig
-import com.sympauthy.config.model.EnabledUrlsConfig
-import com.sympauthy.config.model.MfaConfig
-import com.sympauthy.config.model.UrlsConfig
-import com.sympauthy.config.model.getOrNull
-import com.sympauthy.config.model.getUri
-import com.sympauthy.config.model.orThrow
+import com.sympauthy.config.model.*
 import com.sympauthy.server.ErrorMessages
 import com.sympauthy.util.DEFAULT_ENVIRONMENT
 import com.sympauthy.util.getKeyAndLocalizedMessage
@@ -51,6 +41,9 @@ class ApplicationReadinessStatusPrinter(
     @Inject private val uncheckedAuthConfig: AuthConfig,
     @Inject private val uncheckedMfaConfig: MfaConfig,
     @Inject private val uncheckedUrlsConfig: UrlsConfig,
+    @Inject private val claimTemplatesConfig: ClaimTemplatesConfig,
+    @Inject private val scopeTemplatesConfig: ScopeTemplatesConfig,
+    @Inject private val clientTemplatesConfig: kotlinx.coroutines.flow.Flow<ClientTemplatesConfig>,
     @Inject private val adminConfig: AdminConfig,
     @Inject private val environment: Environment,
     @param:ErrorMessages @Inject private val messageSource: MessageSource,
@@ -112,8 +105,8 @@ class ApplicationReadinessStatusPrinter(
         } catch (_: Throwable) {
             emptyList()
         }
-        val standardClaimsCount = enabledClaims.count { it is StandardClaim }
-        val customClaimsCount = enabledClaims.count { it is CustomClaim }
+        val standardClaimsCount = enabledClaims.count { it.origin == ClaimOrigin.OPENID_CONNECT }
+        val customClaimsCount = enabledClaims.count { it.origin == ClaimOrigin.CUSTOM }
         logger.info("- ${pluralize(enabledClaims.size, "claim")} (${pluralize(standardClaimsCount, "standard")}, ${pluralize(customClaimsCount, "custom")}).")
 
         val scopes = try {
@@ -146,6 +139,18 @@ class ApplicationReadinessStatusPrinter(
         }
         val totalRulesCount = userRulesCount + clientRulesCount
         logger.info("- ${pluralize(totalRulesCount, "rule")} (${pluralize(userRulesCount, "user")}, ${pluralize(clientRulesCount, "client")}).")
+
+        val clientTemplateCount = try {
+            clientTemplatesConfig.orNull()?.templates?.size ?: 0
+        } catch (_: Throwable) { 0 }
+        val scopeTemplateCount = try {
+            scopeTemplatesConfig.orNull()?.templates?.size ?: 0
+        } catch (_: Throwable) { 0 }
+        val claimTemplateCount = try {
+            claimTemplatesConfig.orNull()?.templates?.size ?: 0
+        } catch (_: Throwable) { 0 }
+        val totalTemplateCount = clientTemplateCount + scopeTemplateCount + claimTemplateCount
+        logger.info("- ${pluralize(totalTemplateCount, "template")} (${pluralize(clientTemplateCount, "client")}, ${pluralize(scopeTemplateCount, "scope")}, ${pluralize(claimTemplateCount, "claim")}).")
     }
 
     private fun pluralize(count: Int, singular: String) = if (count <= 1) "$count $singular" else "$count ${singular}s"

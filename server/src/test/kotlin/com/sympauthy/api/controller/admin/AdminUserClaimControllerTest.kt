@@ -10,10 +10,13 @@ import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
+import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.CustomClaim
-import com.sympauthy.business.model.user.claim.OpenIdClaim
-import com.sympauthy.business.model.user.claim.StandardClaim
+import com.sympauthy.business.model.user.claim.ConsentAcl
+import com.sympauthy.business.model.user.claim.ClaimGroup
+import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
+import com.sympauthy.business.model.user.claim.UnconditionalAcl
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.EnabledAuthConfig
 import io.micronaut.http.HttpStatus
@@ -54,62 +57,99 @@ class AdminUserClaimControllerTest {
 
     private val userId = UUID.randomUUID()
 
-    private val emailClaim = StandardClaim(
-        openIdClaim = OpenIdClaim.EMAIL,
-        enabled = true,
-        required = true,
-        allowedValues = null
+    private val openIdAcl = ClaimAcl(
+        consent = ConsentAcl(
+            scope = "email",
+            readableByUser = true,
+            writableByUser = true,
+            readableByClient = true,
+            writableByClient = false
+        ),
+        unconditional = UnconditionalAcl(emptyList(), emptyList())
     )
 
-    private val nameClaim = StandardClaim(
-        openIdClaim = OpenIdClaim.NAME,
+    private val profileAcl = ClaimAcl(
+        consent = ConsentAcl(
+            scope = "profile",
+            readableByUser = true,
+            writableByUser = true,
+            readableByClient = true,
+            writableByClient = false
+        ),
+        unconditional = UnconditionalAcl(emptyList(), emptyList())
+    )
+
+    private val customAcl = ClaimAcl(
+        consent = ConsentAcl(
+            scope = null,
+            readableByUser = false,
+            writableByUser = false,
+            readableByClient = false,
+            writableByClient = false
+        ),
+        unconditional = UnconditionalAcl(
+            readableWithClientScopes = listOf("users:claims:read"),
+            writableWithClientScopes = listOf("users:claims:write")
+        )
+    )
+
+    private val emailClaim = Claim(
+        id = OpenIdConnectClaimId.EMAIL,
         enabled = true,
+        verifiedId = "email_verified",
+        dataType = ClaimDataType.EMAIL,
+        group = null,
+        required = true,
+        generated = false,
+        userInputted = true,
+        allowedValues = null,
+        acl = openIdAcl
+    )
+
+    private val nameClaim = Claim(
+        id = OpenIdConnectClaimId.NAME,
+        enabled = true,
+        verifiedId = null,
+        dataType = ClaimDataType.STRING,
+        group = ClaimGroup.IDENTITY,
         required = false,
-        allowedValues = null
+        generated = false,
+        userInputted = true,
+        allowedValues = null,
+        acl = profileAcl
     )
 
     // email_verified — should be filtered out
-    private val emailVerifiedClaim = CustomClaim(
+    private val emailVerifiedClaim = Claim(
         id = "email_verified",
+
+        enabled = true,
+        verifiedId = null,
         dataType = ClaimDataType.STRING,
+        group = null,
         required = false,
-        allowedValues = null
+        generated = false,
+        userInputted = false,
+        allowedValues = null,
+        acl = customAcl
     )
 
-    private val customClaim = CustomClaim(
+    private val customClaim = Claim(
         id = "custom_field",
+
+        enabled = true,
+        verifiedId = null,
         dataType = ClaimDataType.STRING,
+        group = null,
         required = false,
-        allowedValues = null
+        generated = false,
+        userInputted = false,
+        allowedValues = null,
+        acl = customAcl
     )
 
     private fun mockUser(): User = mockk {
         every { id } returns userId
-    }
-
-    private fun mockEnabledAuthConfig(identifierClaimIds: List<OpenIdClaim>) {
-        val enabledConfig = mockk<EnabledAuthConfig> {
-            every { identifierClaims } returns identifierClaimIds
-        }
-        every { uncheckedAuthConfig.let { any<(AuthConfig) -> EnabledAuthConfig>().invoke(it) } } returns enabledConfig
-        // Use the orThrow extension properly by mocking the sealed class cast
-    }
-
-    private fun setupAuthConfig(identifierOpenIdClaims: List<OpenIdClaim> = listOf(OpenIdClaim.EMAIL)) {
-        val enabledConfig = EnabledAuthConfig(
-            issuer = "test",
-            audience = "test",
-            token = mockk(),
-            authorizationCode = mockk(),
-            identifierClaims = identifierOpenIdClaims,
-            userMergingEnabled = false,
-            byPassword = mockk()
-        )
-        // uncheckedAuthConfig must be the EnabledAuthConfig itself for orThrow() to work
-        // But since it's injected as AuthConfig, we need to mock it properly
-        // Actually, @MockK creates a mock of AuthConfig. orThrow() checks `is EnabledAuthConfig`.
-        // We can't make a MockK of AuthConfig pass `is EnabledAuthConfig` check.
-        // So we replace the field directly.
     }
 
     private fun mockResource(claimId: String, value: Any? = null): AdminUserClaimResource = AdminUserClaimResource(
@@ -125,7 +165,7 @@ class AdminUserClaimControllerTest {
     )
 
     private fun mockCollectedClaim(
-        claim: com.sympauthy.business.model.user.claim.Claim,
+        claim: Claim,
         value: Any? = "test-value",
         verificationDate: LocalDateTime? = null
     ): CollectedClaim = CollectedClaim(
@@ -137,32 +177,9 @@ class AdminUserClaimControllerTest {
         verificationDate = verificationDate
     )
 
-    private fun setupDefault(
-        claims: List<com.sympauthy.business.model.user.claim.Claim> = listOf(emailClaim, nameClaim),
-        identifierOpenIdClaims: List<OpenIdClaim> = listOf(OpenIdClaim.EMAIL)
-    ) {
-        coEvery { userManager.findByIdOrNull(userId) } returns mockUser()
-        every { claimManager.listEnabledClaims() } returns claims
-
-        val enabledConfig = EnabledAuthConfig(
-            issuer = "test",
-            audience = "test",
-            token = mockk(),
-            authorizationCode = mockk(),
-            identifierClaims = identifierOpenIdClaims,
-            userMergingEnabled = false,
-            byPassword = mockk()
-        )
-        // We need uncheckedAuthConfig to be an EnabledAuthConfig for orThrow() to work.
-        // Since @MockK creates a mock of AuthConfig (sealed class), and orThrow() uses a `when` on `is EnabledAuthConfig`,
-        // we must use a relaxed mock approach or directly set the field.
-        // The simplest workaround: replace the controller's field via reflection or use @RelaxedMockK.
-        // Actually, let's just create the controller manually for these tests.
-    }
-
     // Helper to create controller with real EnabledAuthConfig
     private fun createController(
-        identifierOpenIdClaims: List<OpenIdClaim> = listOf(OpenIdClaim.EMAIL)
+        identifierOpenIdClaims: List<String> = listOf(OpenIdConnectClaimId.EMAIL)
     ): AdminUserClaimController {
         val enabledConfig = EnabledAuthConfig(
             issuer = "test",
@@ -370,7 +387,19 @@ class AdminUserClaimControllerTest {
         coEvery { userManager.findByIdOrNull(userId) } returns mockUser()
 
         val claims = (1..5).map {
-            CustomClaim(id = "claim_$it", dataType = ClaimDataType.STRING, required = false, allowedValues = null)
+            Claim(
+                id = "claim_$it",
+        
+                enabled = true,
+                verifiedId = null,
+                dataType = ClaimDataType.STRING,
+                group = null,
+                required = false,
+                generated = false,
+                userInputted = false,
+                allowedValues = null,
+                acl = customAcl
+            )
         }
         every { claimManager.listEnabledClaims() } returns claims
         coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns emptyList()

@@ -1,7 +1,7 @@
 package com.sympauthy.business.manager
 
 import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.business.model.user.claim.StandardClaim
+import com.sympauthy.business.model.user.claim.ClaimOrigin
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.ClaimsConfig
 import com.sympauthy.config.model.orThrow
@@ -68,10 +68,10 @@ class ClaimManager(
     }
 
     /**
-     * Return all the [StandardClaim] enabled on this authorization server.
+     * Return all the OpenID claims enabled on this authorization server.
      */
-    fun listStandardClaims(): List<StandardClaim> {
-        return cachedClaimsMap.values.filterIsInstance<StandardClaim>()
+    fun listEnabledOpenIdConnectClaims(): List<Claim> {
+        return cachedClaimsMap.values.filter { it.origin == ClaimOrigin.OPENID_CONNECT && it.enabled }
     }
 
     /**
@@ -80,6 +80,6 @@ class ClaimManager(
     fun listIdentifierClaims(): List<Claim> {
         return uncheckedAuthConfig.orThrow()
             .identifierClaims
-            .mapNotNull { findByIdOrNull(it.id) }
+            .mapNotNull { findByIdOrNull(it) }
     }
 }

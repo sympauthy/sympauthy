@@ -45,17 +45,18 @@ open class ConsentAwareCollectedClaimManager(
 
     /**
      * Return the list of [CollectedClaim] collected from the user identified by [userId] and readable
-     * by a client according to the provided [consentedScopes].
+     * by a client according to the provided [consentedScopes] and [clientScopes].
      *
-     * Use this method when the caller is an authenticated client acting on behalf of the user
-     * (e.g. authorize attempts, client API endpoints, or token generation).
+     * @param consentedScopes scopes the end-user has consented to (e.g. profile, email).
+     * @param clientScopes scopes granted to the client itself (e.g. users:claims:read).
      */
     suspend fun findByUserIdAndReadableByClient(
         userId: UUID,
-        consentedScopes: List<String>
+        consentedScopes: List<String>,
+        clientScopes: List<String> = emptyList()
     ): List<CollectedClaim> {
         return collectedClaimManager.findByUserId(userId).filter {
-            it.claim.canBeReadByClient(consentedScopes)
+            it.claim.canBeReadByClient(consentedScopes, clientScopes)
         }
     }
 
@@ -63,7 +64,7 @@ open class ConsentAwareCollectedClaimManager(
      * Return the list of [CollectedClaim] collected from the end-user associated to the [authorizeAttempt].
      *
      * Only the claims that are readable according to the consentedScopes of the [authorizeAttempt] will be returned.
-     * Custom claims are always included.
+     * No client scopes are passed since authorize attempts operate in the user consent context only.
      */
     suspend fun findByAttempt(
         authorizeAttempt: AuthorizeAttempt
@@ -129,18 +130,22 @@ open class ConsentAwareCollectedClaimManager(
     /**
      * Update the claims collected for the [user] on behalf of a client.
      *
-     * Only claims writable by a client according to the [consentedScopes] are applied.
+     * Only claims writable by a client according to the [consentedScopes] and [clientScopes] are applied.
      * Updates targeting claims not writable by the given scopes are silently ignored.
      * Returns all claims readable by the client for those scopes.
+     *
+     * @param consentedScopes scopes the end-user has consented to (e.g. profile, email).
+     * @param clientScopes scopes granted to the client itself (e.g. users:claims:write).
      */
     @Transactional
     open suspend fun updateByClient(
         user: User,
         updates: List<CollectedClaimUpdate>,
-        consentedScopes: List<String>
+        consentedScopes: List<String>,
+        clientScopes: List<String> = emptyList()
     ): List<CollectedClaim> {
-        val applicableUpdates = updates.filter { it.claim.canBeWrittenByClient(consentedScopes) }
+        val applicableUpdates = updates.filter { it.claim.canBeWrittenByClient(consentedScopes, clientScopes) }
         val collectedClaims = collectedClaimManager.applyUpdates(user, applicableUpdates)
-        return collectedClaims.filter { it.claim.canBeReadByClient(consentedScopes) }
+        return collectedClaims.filter { it.claim.canBeReadByClient(consentedScopes, clientScopes) }
     }
 }

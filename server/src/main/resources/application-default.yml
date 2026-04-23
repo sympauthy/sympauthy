@@ -31,6 +31,20 @@ auth:
     dpop-required: false
 
 templates:
+  claims:
+    default:
+      acl:
+        readable-with-client-scopes-unconditionally:
+          - "users:claims:read"
+        writable-with-client-scopes-unconditionally:
+          - "users:claims:write"
+    openid:
+      enabled: "false"
+      acl:
+        readable-by-user-when-consented: "true"
+        writable-by-user-when-consented: "true"
+        readable-by-client-when-consented: "true"
+        writable-by-client-when-consented: "false"
   clients:
     default:
       default-scopes:
@@ -41,6 +55,119 @@ templates:
         - authorization_code
         - refresh_token
         - client_credentials
+
+claims:
+  name:
+    template: openid
+    type: string
+    group: identity
+    acl:
+      consent-scope: profile
+  given_name:
+    template: openid
+    type: string
+    group: identity
+    acl:
+      consent-scope: profile
+  family_name:
+    template: openid
+    type: string
+    group: identity
+    acl:
+      consent-scope: profile
+  middle_name:
+    template: openid
+    type: string
+    group: identity
+    acl:
+      consent-scope: profile
+  nickname:
+    template: openid
+    type: string
+    acl:
+      consent-scope: profile
+  preferred_username:
+    template: openid
+    type: string
+    acl:
+      consent-scope: profile
+  profile:
+    template: openid
+    type: string
+    acl:
+      consent-scope: profile
+  picture:
+    template: openid
+    type: string
+    acl:
+      consent-scope: profile
+  website:
+    template: openid
+    type: string
+    acl:
+      consent-scope: profile
+  email:
+    template: openid
+    type: email
+    verified-id: email_verified
+    acl:
+      consent-scope: email
+  gender:
+    template: openid
+    type: string
+    acl:
+      consent-scope: profile
+  birth_date:
+    template: openid
+    type: date
+    acl:
+      consent-scope: profile
+  zoneinfo:
+    template: openid
+    type: timezone
+    acl:
+      consent-scope: profile
+  locale:
+    template: openid
+    type: string
+    acl:
+      consent-scope: profile
+  phone_number:
+    template: openid
+    type: phone-number
+    verified-id: phone_number_verified
+    acl:
+      consent-scope: phone
+  street_address:
+    template: openid
+    type: string
+    group: address
+    acl:
+      consent-scope: address
+  locality:
+    template: openid
+    type: string
+    group: address
+    acl:
+      consent-scope: address
+  region:
+    template: openid
+    type: string
+    group: address
+    acl:
+      consent-scope: address
+  postal_code:
+    template: openid
+    type: string
+    group: address
+    acl:
+      consent-scope: address
+  country:
+    template: openid
+    type: string
+    group: address
+    acl:
+      consent-scope: address
 
 mfa:
   required: false

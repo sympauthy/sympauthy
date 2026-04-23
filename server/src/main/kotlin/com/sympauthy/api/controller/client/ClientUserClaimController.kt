@@ -9,7 +9,6 @@ import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.user.ClientUserManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
-import com.sympauthy.business.model.user.claim.CustomClaim
 import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
 import com.sympauthy.security.SecurityRule.CLIENT_USERS_CLAIMS_READ
 import com.sympauthy.security.SecurityRule.CLIENT_USERS_CLAIMS_WRITE
@@ -63,9 +62,12 @@ class ClientUserClaimController(
         @PathVariable userId: UUID
     ): ClientUserClaimResource {
         val clientAuth = authentication.clientAuthentication
+        val clientScopeIds = clientAuth.scopes.map { it.scope }
         clientUserManager.findUserForClientOrNull(clientAuth.clientId, userId).orNotFound()
         val consent = consentManager.findActiveConsentOrNull(userId, clientAuth.clientId).orNotFound()
-        val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consent.scopes)
+        val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
+            userId, consent.scopes, clientScopeIds
+        )
         return claimMapper.toResource(userId, claims)
     }
 
@@ -102,11 +104,15 @@ class ClientUserClaimController(
         @Body body: Map<String, Any?>
     ): ClientUserClaimResource {
         val clientAuth = authentication.clientAuthentication
+        val clientScopeIds = clientAuth.scopes.map { it.scope }
 
-        // Validate all keys are custom claims
+        val clientUser = clientUserManager.findUserForClientOrNull(clientAuth.clientId, userId).orNotFound()
+        val consent = consentManager.findActiveConsentOrNull(userId, clientAuth.clientId).orNotFound()
+
+        // Validate all keys are claims writable by the client
         val invalidClaim = body.keys.firstOrNull { claimId ->
             val claim = claimManager.findByIdOrNull(claimId)
-            claim == null || claim !is CustomClaim
+            claim == null || !claim.canBeWrittenByClient(consent.scopes, clientScopeIds)
         }
         if (invalidClaim != null) {
             throw recoverableBusinessExceptionOf(
@@ -116,13 +122,13 @@ class ClientUserClaimController(
             )
         }
 
-        val clientUser = clientUserManager.findUserForClientOrNull(clientAuth.clientId, userId).orNotFound()
-        val consent = consentManager.findActiveConsentOrNull(userId, clientAuth.clientId).orNotFound()
         val updates = collectedClaimUpdateMapper.toUpdates(body)
-        consentAwareCollectedClaimManager.updateByClient(clientUser.user, updates, consent.scopes)
+        consentAwareCollectedClaimManager.updateByClient(clientUser.user, updates, consent.scopes, clientScopeIds)
 
         // Return the full claim set after update
-        val allClaims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consent.scopes)
+        val allClaims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
+            userId, consent.scopes, clientScopeIds
+        )
         return claimMapper.toResource(userId, allClaims)
     }
 }

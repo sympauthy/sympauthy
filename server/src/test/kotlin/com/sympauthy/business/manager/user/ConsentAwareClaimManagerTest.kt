@@ -4,7 +4,7 @@ import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.FailedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
-import com.sympauthy.business.model.user.claim.StandardClaim
+import com.sympauthy.business.model.user.claim.Claim
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
@@ -30,10 +30,10 @@ class ConsentAwareClaimManagerTest {
         val scope1 = "scope1"
         val scope2 = "scope2"
 
-        val claim1 = mockk<StandardClaim> {
+        val claim1 = mockk<Claim> {
             every { canBeWrittenByUser(any()) } answers { (firstArg<List<String>>()).contains(scope1) }
         }
-        val claim2 = mockk<StandardClaim> {
+        val claim2 = mockk<Claim> {
             every { canBeWrittenByUser(any()) } answers { (firstArg<List<String>>()).contains(scope2) }
         }
 
@@ -50,10 +50,10 @@ class ConsentAwareClaimManagerTest {
     fun `listCollectableClaimsWithScopes - Exclude identifier claims`() {
         val scope1 = "scope1"
 
-        val identifierClaim = mockk<StandardClaim> {
+        val identifierClaim = mockk<Claim> {
             every { canBeWrittenByUser(any()) } returns true
         }
-        val regularClaim = mockk<StandardClaim> {
+        val regularClaim = mockk<Claim> {
             every { canBeWrittenByUser(any()) } returns true
         }
 
@@ -68,7 +68,7 @@ class ConsentAwareClaimManagerTest {
 
     @Test
     fun `listCollectableClaimsWithScopes - Return empty when no claims match scopes`() {
-        val claim1 = mockk<StandardClaim> {
+        val claim1 = mockk<Claim> {
             every { canBeWrittenByUser(any()) } returns false
         }
 
@@ -103,7 +103,7 @@ class ConsentAwareClaimManagerTest {
     @Test
     fun `listCollectableClaimsByAttempt - Return claims for OnGoingAuthorizeAttempt with consentedScopes`() {
         val consentedScopes = listOf("scope1")
-        val claim1 = mockk<StandardClaim>()
+        val claim1 = mockk<Claim>()
 
         val attempt = mockk<OnGoingAuthorizeAttempt> {
             every { this@mockk.consentedScopes } returns consentedScopes
@@ -120,7 +120,7 @@ class ConsentAwareClaimManagerTest {
     @Test
     fun `listCollectableClaimsByAttempt - Return claims for CompletedAuthorizeAttempt`() {
         val consentedScopes = listOf("scope1")
-        val claim1 = mockk<StandardClaim>()
+        val claim1 = mockk<Claim>()
 
         val attempt = mockk<CompletedAuthorizeAttempt> {
             every { this@mockk.consentedScopes } returns consentedScopes
