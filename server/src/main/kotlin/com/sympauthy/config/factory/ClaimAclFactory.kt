@@ -68,10 +68,10 @@ class ClaimAclFactory(
         val templateAcl = template?.acl
 
         val consentScope = resolveConsentScope(
-            propertyValue = acl?.scopeWhenConsented,
+            propertyValue = acl?.consentScope,
             templateValue = templateAcl?.consentScope,
             defaultScope = defaultConsentScope,
-            configKey = "$configKeyPrefix.acl.scope-when-consented",
+            configKey = "$configKeyPrefix.acl.consent-scope",
             errors = errors
         )
 
@@ -187,11 +187,11 @@ class ClaimAclFactory(
             )
         }
 
-        val consentScope = acl.scopeWhenConsented?.also { scope ->
+        val consentScope = acl.consentScope?.also { scope ->
             if (scope !in consentableScopeIds) {
                 errors.add(
                     configExceptionOf(
-                        "$configKeyPrefix.acl.scope-when-consented",
+                        "$configKeyPrefix.acl.consent-scope",
                         "config.claim.acl.not_consentable_scope",
                         "scope" to scope
                     )

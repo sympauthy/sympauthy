@@ -11,7 +11,7 @@ package com.sympauthy.config.properties
  * [com.sympauthy.config.factory.ClaimAclFactory] can accept either.
  */
 interface ClaimAclProperties {
-    val scopeWhenConsented: String?
+    val consentScope: String?
     val readableByUserWhenConsented: String?
     val writableByUserWhenConsented: String?
     val readableByClientWhenConsented: String?

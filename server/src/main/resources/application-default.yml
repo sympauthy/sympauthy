@@ -62,112 +62,112 @@ claims:
     type: string
     group: identity
     acl:
-      scope-when-consented: profile
+      consent-scope: profile
   given_name:
     template: openid
     type: string
     group: identity
     acl:
-      scope-when-consented: profile
+      consent-scope: profile
   family_name:
     template: openid
     type: string
     group: identity
     acl:
-      scope-when-consented: profile
+      consent-scope: profile
   middle_name:
     template: openid
     type: string
     group: identity
     acl:
-      scope-when-consented: profile
+      consent-scope: profile
   nickname:
     template: openid
     type: string
     acl:
-      scope-when-consented: profile
+      consent-scope: profile
   preferred_username:
     template: openid
     type: string
     acl:
-      scope-when-consented: profile
+      consent-scope: profile
   profile:
     template: openid
     type: string
     acl:
-      scope-when-consented: profile
+      consent-scope: profile
   picture:
     template: openid
     type: string
     acl:
-      scope-when-consented: profile
+      consent-scope: profile
   website:
     template: openid
     type: string
     acl:
-      scope-when-consented: profile
+      consent-scope: profile
   email:
     template: openid
     type: email
     verified-id: email_verified
     acl:
-      scope-when-consented: email
+      consent-scope: email
   gender:
     template: openid
     type: string
     acl:
-      scope-when-consented: profile
+      consent-scope: profile
   birth_date:
     template: openid
     type: date
     acl:
-      scope-when-consented: profile
+      consent-scope: profile
   zoneinfo:
     template: openid
     type: timezone
     acl:
-      scope-when-consented: profile
+      consent-scope: profile
   locale:
     template: openid
     type: string
     acl:
-      scope-when-consented: profile
+      consent-scope: profile
   phone_number:
     template: openid
     type: phone_number
     verified-id: phone_number_verified
     acl:
-      scope-when-consented: phone
+      consent-scope: phone
   street_address:
     template: openid
     type: string
     group: address
     acl:
-      scope-when-consented: address
+      consent-scope: address
   locality:
     template: openid
     type: string
     group: address
     acl:
-      scope-when-consented: address
+      consent-scope: address
   region:
     template: openid
     type: string
     group: address
     acl:
-      scope-when-consented: address
+      consent-scope: address
   postal_code:
     template: openid
     type: string
     group: address
     acl:
-      scope-when-consented: address
+      consent-scope: address
   country:
     template: openid
     type: string
     group: address
     acl:
-      scope-when-consented: address
+      consent-scope: address
 
 mfa:
   required: false
