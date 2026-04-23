@@ -13,7 +13,6 @@ import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.ClaimOrigin
 import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.OpenIdClaim
 import com.sympauthy.business.model.user.claim.UnconditionalAcl
@@ -95,7 +94,7 @@ class AdminUserClaimControllerTest {
 
     private val emailClaim = Claim(
         id = OpenIdClaim.EMAIL.id,
-        origin = ClaimOrigin.OPENID,
+
         enabled = true,
         verifiedId = OpenIdClaim.EMAIL.verifiedId,
         dataType = OpenIdClaim.EMAIL.type,
@@ -109,7 +108,7 @@ class AdminUserClaimControllerTest {
 
     private val nameClaim = Claim(
         id = OpenIdClaim.NAME.id,
-        origin = ClaimOrigin.OPENID,
+
         enabled = true,
         verifiedId = OpenIdClaim.NAME.verifiedId,
         dataType = OpenIdClaim.NAME.type,
@@ -124,7 +123,7 @@ class AdminUserClaimControllerTest {
     // email_verified — should be filtered out
     private val emailVerifiedClaim = Claim(
         id = "email_verified",
-        origin = ClaimOrigin.CUSTOM,
+
         enabled = true,
         verifiedId = null,
         dataType = ClaimDataType.STRING,
@@ -138,7 +137,7 @@ class AdminUserClaimControllerTest {
 
     private val customClaim = Claim(
         id = "custom_field",
-        origin = ClaimOrigin.CUSTOM,
+
         enabled = true,
         verifiedId = null,
         dataType = ClaimDataType.STRING,
@@ -391,7 +390,7 @@ class AdminUserClaimControllerTest {
         val claims = (1..5).map {
             Claim(
                 id = "claim_$it",
-                origin = ClaimOrigin.CUSTOM,
+        
                 enabled = true,
                 verifiedId = null,
                 dataType = ClaimDataType.STRING,

@@ -3,7 +3,6 @@ package com.sympauthy.config.factory
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.ClaimOrigin
 import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.OpenIdClaim
 import com.sympauthy.business.model.user.claim.UnconditionalAcl
@@ -261,7 +260,7 @@ class ClaimsConfigFactory(
 
         return Claim(
             id = openIdClaim.id,
-            origin = ClaimOrigin.OPENID,
+
             enabled = enabled,
             verifiedId = openIdClaim.verifiedId,
             dataType = openIdClaim.type,
@@ -354,7 +353,7 @@ class ClaimsConfigFactory(
 
         return Claim(
             id = claim,
-            origin = ClaimOrigin.CUSTOM,
+
             enabled = enabled,
             verifiedId = null,
             dataType = dataType,

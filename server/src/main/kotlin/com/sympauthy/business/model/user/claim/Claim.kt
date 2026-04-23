@@ -13,10 +13,6 @@ data class Claim(
      */
     val id: String,
     /**
-     * Origin of this claim (OpenID Connect specification or custom).
-     */
-    val origin: ClaimOrigin,
-    /**
      * Whether the claim is enabled on this authorization server.
      */
     val enabled: Boolean,
@@ -60,6 +56,12 @@ data class Claim(
      */
     val acl: ClaimAcl
 ) {
+
+    /**
+     * Origin of this claim, derived from whether the [id] matches a known OpenID Connect claim.
+     */
+    val origin: ClaimOrigin
+        get() = if (OpenIdClaim.entries.any { it.id == id }) ClaimOrigin.OPENID else ClaimOrigin.CUSTOM
 
     /**
      * Return true if this claim is covered by the given [scope].

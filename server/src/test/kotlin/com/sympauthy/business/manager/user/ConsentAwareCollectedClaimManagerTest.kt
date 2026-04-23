@@ -10,7 +10,6 @@ import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.ClaimOrigin
 import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.UnconditionalAcl
 import io.mockk.coEvery
@@ -44,7 +43,7 @@ class ConsentAwareCollectedClaimManagerTest {
 
     private fun claimWithConsentScope(scope: String) = Claim(
         id = "claim_$scope",
-        origin = ClaimOrigin.OPENID,
+
         enabled = true,
         verifiedId = null,
         dataType = ClaimDataType.STRING,
@@ -67,7 +66,7 @@ class ConsentAwareCollectedClaimManagerTest {
 
     private fun customClaimNotReadableByUser() = Claim(
         id = "custom_field",
-        origin = ClaimOrigin.CUSTOM,
+
         enabled = true,
         verifiedId = null,
         dataType = ClaimDataType.STRING,
