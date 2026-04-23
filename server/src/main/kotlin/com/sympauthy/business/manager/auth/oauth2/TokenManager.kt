@@ -160,9 +160,9 @@ open class TokenManager(
             }
         }
 
-        // For user tokens, verify the consent has not been revoked
+        // For user tokens, verify the consent has not been revoked (checked at audience level)
         if (refreshToken.userId != null) {
-            consentManager.findActiveConsentOrNull(refreshToken.userId, refreshToken.clientId)
+            consentManager.findActiveConsentByAudienceOrNull(refreshToken.userId, client.audience.id)
                 ?: throw oauth2ExceptionOf(INVALID_GRANT, "token.consent_revoked", "description.token.consent_revoked")
         }
 

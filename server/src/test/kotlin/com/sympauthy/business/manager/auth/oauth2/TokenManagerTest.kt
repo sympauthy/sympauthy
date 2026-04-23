@@ -151,13 +151,16 @@ class TokenManagerTest {
         val refreshedRefreshToken = mockk<EncodedAuthenticationToken>()
 
         every { client.id } returns clientId
-        every { client.audience } returns mockk { every { tokenAudience } returns "https://test-audience" }
+        every { client.audience } returns mockk {
+            every { tokenAudience } returns "https://test-audience"
+            every { id } returns "test-audience"
+        }
         coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, encodedRefreshToken) } returns decodedToken
         coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
         every { refreshToken.clientId } returns clientId
         every { refreshToken.dpopJkt } returns null
         every { refreshToken.userId } returns userId
-        coEvery { consentManager.findActiveConsentOrNull(userId, clientId) } returns mockk()
+        coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, any()) } returns mockk()
         coEvery { accessTokenGenerator.generateAccessToken(refreshToken, tokenAudience = any(), dpopJkt = null) } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns true
         coEvery {
@@ -186,13 +189,16 @@ class TokenManagerTest {
         val accessToken = mockk<EncodedAuthenticationToken>()
 
         every { client.id } returns clientId
-        every { client.audience } returns mockk { every { tokenAudience } returns "https://test-audience" }
+        every { client.audience } returns mockk {
+            every { tokenAudience } returns "https://test-audience"
+            every { id } returns "test-audience"
+        }
         coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, encodedRefreshToken) } returns decodedToken
         coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
         every { refreshToken.clientId } returns clientId
         every { refreshToken.dpopJkt } returns null
         every { refreshToken.userId } returns userId
-        coEvery { consentManager.findActiveConsentOrNull(userId, clientId) } returns mockk()
+        coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, any()) } returns mockk()
         coEvery { accessTokenGenerator.generateAccessToken(refreshToken, tokenAudience = any(), dpopJkt = null) } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
 
@@ -211,12 +217,13 @@ class TokenManagerTest {
         val refreshToken = mockk<AuthenticationToken>()
 
         every { client.id } returns clientId
+        every { client.audience } returns mockk { every { id } returns "test-audience" }
         coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, "token") } returns decodedToken
         coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
         every { refreshToken.clientId } returns clientId
         every { refreshToken.dpopJkt } returns null
         every { refreshToken.userId } returns userId
-        coEvery { consentManager.findActiveConsentOrNull(userId, clientId) } returns null
+        coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, any()) } returns null
 
         val exception = assertThrows<OAuth2Exception> {
             tokenManager.refreshToken(client, "token")
@@ -245,7 +252,7 @@ class TokenManagerTest {
         val tokens = tokenManager.refreshToken(client, "token")
 
         assertEquals(1, tokens.count())
-        coVerify(exactly = 0) { consentManager.findActiveConsentOrNull(any(), any()) }
+        coVerify(exactly = 0) { consentManager.findActiveConsentByAudienceOrNull(any(), any()) }
     }
 
     @Test

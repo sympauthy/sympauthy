@@ -6,6 +6,7 @@ import com.sympauthy.api.resource.client.ClientUserResource
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.user.ClientUserManager
 import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
 import com.sympauthy.security.SecurityRule.CLIENT_USERS_READ
@@ -28,6 +29,7 @@ import java.util.*
 @Secured(CLIENT_USERS_READ)
 @SecurityRequirement(name = "client", scopes = [BuiltInClientScopeId.USERS_READ])
 class ClientUserController(
+    @Inject private val clientManager: ClientManager,
     @Inject private val clientUserManager: ClientUserManager,
     @Inject private val userMapper: ClientUserResourceMapper
 ) {
@@ -80,9 +82,10 @@ class ClientUserController(
         }
 
         val clientAuth = authentication.clientAuthentication
+        val client = clientManager.findClientById(clientAuth.clientId)
         val (resolvedPage, resolvedSize) = resolvePageParams(page, size)
-        val (users, total) = clientUserManager.listUsersForClient(
-            clientId = clientAuth.clientId,
+        val (users, total) = clientUserManager.listUsersForAudience(
+            audienceId = client.audience.id,
             providerId = providerId,
             subject = subject,
             page = resolvedPage,
@@ -123,7 +126,8 @@ class ClientUserController(
         @PathVariable userId: UUID
     ): ClientUserResource {
         val clientAuth = authentication.clientAuthentication
-        val clientUser = clientUserManager.findUserForClientOrNull(clientAuth.clientId, userId).orNotFound()
+        val client = clientManager.findClientById(clientAuth.clientId)
+        val clientUser = clientUserManager.findUserForAudienceOrNull(client.audience.id, userId).orNotFound()
         return userMapper.toResource(clientUser)
     }
 }

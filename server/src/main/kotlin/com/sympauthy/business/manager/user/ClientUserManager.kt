@@ -8,7 +8,7 @@ import jakarta.inject.Singleton
 import java.util.*
 
 /**
- * Manager providing methods for the Client API to query users who have granted scopes to a client.
+ * Manager providing methods for the Client API to query users who have granted consent to an audience.
  */
 @Singleton
 class ClientUserManager(
@@ -19,19 +19,19 @@ class ClientUserManager(
 ) {
 
     /**
-     * List users who have active consents for the given [clientId].
+     * List users who have active consents for the given [audienceId].
      * Optionally filters by [providerId] and [subject].
      *
      * Returns a pair of (paginated users, total count).
      */
-    suspend fun listUsersForClient(
-        clientId: String,
+    suspend fun listUsersForAudience(
+        audienceId: String,
         providerId: String?,
         subject: String?,
         page: Int,
         size: Int
     ): Pair<List<ClientUser>, Int> {
-        val consents = consentManager.findActiveConsentsByClient(clientId)
+        val consents = consentManager.findActiveConsentsByAudience(audienceId)
         if (consents.isEmpty()) {
             return emptyList<ClientUser>() to 0
         }
@@ -88,10 +88,10 @@ class ClientUserManager(
     }
 
     /**
-     * Find a specific user if they have an active consent for the given [clientId], or null.
+     * Find a specific user if they have an active consent for the given [audienceId], or null.
      */
-    suspend fun findUserForClientOrNull(clientId: String, userId: UUID): ClientUser? {
-        val consent = consentManager.findActiveConsentOrNull(userId, clientId) ?: return null
+    suspend fun findUserForAudienceOrNull(audienceId: String, userId: UUID): ClientUser? {
+        val consent = consentManager.findActiveConsentByAudienceOrNull(userId, audienceId) ?: return null
         val user = userManager.findByIdOrNull(userId) ?: return null
         val identifierClaims = collectedClaimManager.findIdentifierByUserId(userId)
         val providers = providerUserInfoRepository.findByUserId(userId)
