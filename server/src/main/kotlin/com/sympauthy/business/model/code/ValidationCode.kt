@@ -3,7 +3,7 @@ package com.sympauthy.business.model.code
 import com.sympauthy.business.model.Expirable
 import com.sympauthy.business.model.code.ValidationCodeMedia.EMAIL
 import com.sympauthy.business.model.code.ValidationCodeMedia.SMS
-import com.sympauthy.business.model.user.claim.OpenIdClaim
+import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import java.time.LocalDateTime
 import java.util.*
 
@@ -88,6 +88,6 @@ enum class ValidationCodeMedia(
      */
     val claim: String
 ) {
-    EMAIL(OpenIdClaim.EMAIL.id),
-    SMS(OpenIdClaim.PHONE_NUMBER.id)
+    EMAIL(OpenIdConnectClaimId.EMAIL),
+    SMS(OpenIdConnectClaimId.PHONE_NUMBER)
 }

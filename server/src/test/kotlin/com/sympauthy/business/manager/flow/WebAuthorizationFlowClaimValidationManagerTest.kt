@@ -13,7 +13,7 @@ import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.business.model.user.claim.OpenIdClaim
+import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -49,7 +49,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
     @Test
     fun `getUnfilteredReasonsToSendValidationCode - Verify email from identity claims`() {
         val emailClaim = mockk<Claim> {
-            every { id } returns OpenIdClaim.EMAIL.id
+            every { id } returns OpenIdConnectClaimId.EMAIL
         }
         val collectedClaim = mockk<CollectedClaim> {
             every { claim } returns emailClaim
@@ -70,7 +70,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
     @Test
     fun `getUnfilteredReasonsToSendValidationCode - Verify email from consented claims`() {
         val emailClaim = mockk<Claim> {
-            every { id } returns OpenIdClaim.EMAIL.id
+            every { id } returns OpenIdConnectClaimId.EMAIL
         }
         val collectedClaim = mockk<CollectedClaim> {
             every { claim } returns emailClaim
@@ -91,7 +91,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
     @Test
     fun `getUnfilteredReasonsToSendValidationCode - Do not verify email if claim already verified`() {
         val emailClaim = mockk<Claim> {
-            every { id } returns OpenIdClaim.EMAIL.id
+            every { id } returns OpenIdConnectClaimId.EMAIL
         }
         val collectedClaim = mockk<CollectedClaim> {
             every { claim } returns emailClaim

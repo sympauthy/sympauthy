@@ -60,63 +60,114 @@ claims:
   name:
     template: openid
     type: string
+    group: identity
+    acl:
+      scope-when-consented: profile
   given_name:
     template: openid
     type: string
+    group: identity
+    acl:
+      scope-when-consented: profile
   family_name:
     template: openid
     type: string
+    group: identity
+    acl:
+      scope-when-consented: profile
   middle_name:
     template: openid
     type: string
+    group: identity
+    acl:
+      scope-when-consented: profile
   nickname:
     template: openid
     type: string
+    acl:
+      scope-when-consented: profile
   preferred_username:
     template: openid
     type: string
+    acl:
+      scope-when-consented: profile
   profile:
     template: openid
     type: string
+    acl:
+      scope-when-consented: profile
   picture:
     template: openid
     type: string
+    acl:
+      scope-when-consented: profile
   website:
     template: openid
     type: string
+    acl:
+      scope-when-consented: profile
   email:
     template: openid
     type: email
+    verified-id: email_verified
+    acl:
+      scope-when-consented: email
   gender:
     template: openid
     type: string
+    acl:
+      scope-when-consented: profile
   birth_date:
     template: openid
     type: date
+    acl:
+      scope-when-consented: profile
   zoneinfo:
     template: openid
     type: timezone
+    acl:
+      scope-when-consented: profile
   locale:
     template: openid
     type: string
+    acl:
+      scope-when-consented: profile
   phone_number:
     template: openid
     type: phone_number
+    verified-id: phone_number_verified
+    acl:
+      scope-when-consented: phone
   street_address:
     template: openid
     type: string
+    group: address
+    acl:
+      scope-when-consented: address
   locality:
     template: openid
     type: string
+    group: address
+    acl:
+      scope-when-consented: address
   region:
     template: openid
     type: string
+    group: address
+    acl:
+      scope-when-consented: address
   postal_code:
     template: openid
     type: string
+    group: address
+    acl:
+      scope-when-consented: address
   country:
     template: openid
     type: string
+    group: address
+    acl:
+      scope-when-consented: address
 
 mfa:
   required: false

@@ -1,5 +1,6 @@
 package com.sympauthy.config.factory
 
+import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.model.ClaimTemplate
@@ -62,6 +63,15 @@ class ClaimTemplatesConfigFactory(
             null
         }
 
+        val group = try {
+            properties.group?.let {
+                parser.convertToEnum<ClaimGroup>("$configKeyPrefix.group", it)
+            }
+        } catch (e: ConfigurationException) {
+            templateErrors.add(e)
+            null
+        }
+
         val acl = claimAclFactory.buildTemplateAcl(
             acl = properties.acl,
             configKeyPrefix = configKeyPrefix,
@@ -73,6 +83,7 @@ class ClaimTemplatesConfigFactory(
                 id = properties.id,
                 enabled = enabled,
                 required = required,
+                group = group,
                 allowedValues = properties.allowedValues,
                 acl = acl
             )

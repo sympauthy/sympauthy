@@ -1,6 +1,5 @@
 package com.sympauthy.config.model
 
-import com.sympauthy.business.model.user.claim.OpenIdClaim
 import com.sympauthy.config.exception.ConfigurationException
 
 sealed class AuthConfig(
@@ -13,10 +12,10 @@ data class EnabledAuthConfig(
     val token: TokenConfig,
     val authorizationCode: AuthorizationCodeConfig,
     /**
-     * List of [OpenIdClaim] that uniquely identify a user.
+     * List of claim IDs that uniquely identify a user.
      * Used as login claims for password sign-in and as merging keys for provider-based authentication.
      */
-    val identifierClaims: List<OpenIdClaim>,
+    val identifierClaims: List<String>,
     val userMergingEnabled: Boolean,
     val byPassword: ByPasswordConfig
 ) : AuthConfig()

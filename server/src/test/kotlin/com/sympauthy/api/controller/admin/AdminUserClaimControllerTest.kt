@@ -14,7 +14,8 @@ import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ConsentAcl
-import com.sympauthy.business.model.user.claim.OpenIdClaim
+import com.sympauthy.business.model.user.claim.ClaimGroup
+import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.business.model.user.claim.UnconditionalAcl
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.EnabledAuthConfig
@@ -93,12 +94,11 @@ class AdminUserClaimControllerTest {
     )
 
     private val emailClaim = Claim(
-        id = OpenIdClaim.EMAIL.id,
-
+        id = OpenIdConnectClaimId.EMAIL,
         enabled = true,
-        verifiedId = OpenIdClaim.EMAIL.verifiedId,
-        dataType = OpenIdClaim.EMAIL.type,
-        group = OpenIdClaim.EMAIL.group,
+        verifiedId = "email_verified",
+        dataType = ClaimDataType.EMAIL,
+        group = null,
         required = true,
         generated = false,
         userInputted = true,
@@ -107,12 +107,11 @@ class AdminUserClaimControllerTest {
     )
 
     private val nameClaim = Claim(
-        id = OpenIdClaim.NAME.id,
-
+        id = OpenIdConnectClaimId.NAME,
         enabled = true,
-        verifiedId = OpenIdClaim.NAME.verifiedId,
-        dataType = OpenIdClaim.NAME.type,
-        group = OpenIdClaim.NAME.group,
+        verifiedId = null,
+        dataType = ClaimDataType.STRING,
+        group = ClaimGroup.IDENTITY,
         required = false,
         generated = false,
         userInputted = true,
@@ -180,7 +179,7 @@ class AdminUserClaimControllerTest {
 
     // Helper to create controller with real EnabledAuthConfig
     private fun createController(
-        identifierOpenIdClaims: List<OpenIdClaim> = listOf(OpenIdClaim.EMAIL)
+        identifierOpenIdClaims: List<String> = listOf(OpenIdConnectClaimId.EMAIL)
     ): AdminUserClaimController {
         val enabledConfig = EnabledAuthConfig(
             issuer = "test",

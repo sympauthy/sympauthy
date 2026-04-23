@@ -113,7 +113,6 @@ class AdminUserClaimController(
 
         val identifierClaimIds = uncheckedAuthConfig.orThrow()
             .identifierClaims
-            .map { it.id }
             .toSet()
 
         // Get all enabled claims and filter out *_verified claims

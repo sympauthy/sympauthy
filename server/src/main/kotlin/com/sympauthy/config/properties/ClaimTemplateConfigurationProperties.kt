@@ -17,6 +17,7 @@ class ClaimTemplateConfigurationProperties(
 ) {
     var enabled: String? = null
     var required: String? = null
+    var group: String? = null
     var allowedValues: List<Any>? = null
     var acl: AclConfig? = null
 

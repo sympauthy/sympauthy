@@ -2,7 +2,9 @@ package com.sympauthy.config.factory
 
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.OpenIdClaim
+import com.sympauthy.business.model.user.claim.ClaimGroup
+import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
+import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.exception.configExceptionOf
@@ -39,48 +41,42 @@ class ClaimsConfigFactory(
 
         val errors = mutableListOf<ConfigurationException>()
 
-        val openIdClaims = OpenIdClaim.entries.map { openIdClaim ->
-            if (openIdClaim.generated) {
-                provideGeneratedClaim(
-                    properties = propertiesList.firstOrNull { it.id.normalizeClaimId() == openIdClaim.id },
-                    openIdClaim = openIdClaim,
-                    templates = templates,
-                    errors = errors
-                )
-            } else {
-                provideOpenIdClaim(
-                    properties = propertiesList.firstOrNull { it.id.normalizeClaimId() == openIdClaim.id },
-                    openIdClaim = openIdClaim,
-                    templates = templates,
-                    errors = errors
-                )
-            }
+        val generatedClaimIds = GeneratedOpenIdConnectClaim.entries.map { it.id }.toSet()
+
+        // Generated OpenID claims have hardcoded configuration.
+        val generatedClaims = GeneratedOpenIdConnectClaim.entries.map { generatedClaim ->
+            provideGeneratedClaim(
+                properties = propertiesList.firstOrNull { it.id.normalizeClaimId() == generatedClaim.id },
+                generatedClaim = generatedClaim,
+                templates = templates,
+                errors = errors
+            )
         }
 
-        val customClaims = propertiesList.mapNotNull { claimProperties ->
-            if (OpenIdClaim.entries.none { it.id == claimProperties.id.normalizeClaimId() }) {
-                provideCustomClaim(
-                    properties = claimProperties,
-                    claim = claimProperties.id,
-                    templates = templates,
-                    errors = errors
-                )
-            } else null
+        // All other claims (OpenID and custom) are configured the same way.
+        val configurableClaims = propertiesList.mapNotNull { claimProperties ->
+            val normalizedId = claimProperties.id.normalizeClaimId()
+            // Skip generated claims — they are handled above.
+            if (normalizedId in generatedClaimIds) return@mapNotNull null
+            provideClaim(
+                properties = claimProperties,
+                templates = templates,
+                errors = errors
+            )
         }
 
         // Check if claims are properly configured for user merging.
+        val allClaims = generatedClaims + configurableClaims
         if (authProperties.userMergingEnabled == true) {
-            val identifierClaimIds = authProperties.identifierClaims
-                ?.mapNotNull { id -> OpenIdClaim.entries.firstOrNull { it.id == id } }
-                ?: emptyList()
-            val enabledClaimIds = openIdClaims.filter { it.enabled }.map { it.id }.toSet()
-            identifierClaimIds.forEach { identifierClaim ->
-                if (identifierClaim.id !in enabledClaimIds) {
+            val identifierClaimIds = authProperties.identifierClaims ?: emptyList()
+            val enabledClaimIds = allClaims.filter { it.enabled }.map { it.id }.toSet()
+            identifierClaimIds.forEach { identifierClaimId ->
+                if (identifierClaimId !in enabledClaimIds) {
                     errors.add(
                         configExceptionOf(
-                            "$CLAIMS_KEY.${identifierClaim.id}",
+                            "$CLAIMS_KEY.$identifierClaimId",
                             "config.auth.identifier_claim.disabled",
-                            "claim" to identifierClaim.id
+                            "claim" to identifierClaimId
                         )
                     )
                 }
@@ -88,7 +84,7 @@ class ClaimsConfigFactory(
         }
 
         return if (errors.isEmpty()) {
-            EnabledClaimsConfig(openIdClaims + customClaims)
+            EnabledClaimsConfig(allClaims)
         } else {
             DisabledClaimsConfig(errors)
         }
@@ -102,7 +98,7 @@ class ClaimsConfigFactory(
      */
     private fun provideGeneratedClaim(
         properties: ClaimConfigurationProperties?,
-        openIdClaim: OpenIdClaim,
+        generatedClaim: GeneratedOpenIdConnectClaim,
         templates: Map<String, ClaimTemplate>,
         errors: MutableList<ConfigurationException>
     ): Claim {
@@ -111,26 +107,110 @@ class ClaimsConfigFactory(
         } else {
             templates[DEFAULT]
         }
-        val configKeyPrefix = "$CLAIMS_KEY.${openIdClaim.id}"
+        val configKeyPrefix = "$CLAIMS_KEY.${generatedClaim.id}"
 
         val acl = claimAclFactory.buildGeneratedClaimAcl(
             acl = properties?.acl,
             template = template,
             configKeyPrefix = configKeyPrefix,
-            consentScope = openIdClaim.scope.scope,
+            consentScope = generatedClaim.scope,
             errors = errors
         )
 
         return Claim(
-            id = openIdClaim.id,
+            id = generatedClaim.id,
             enabled = true,
-            verifiedId = openIdClaim.verifiedId,
-            dataType = openIdClaim.type,
-            group = openIdClaim.group,
+            verifiedId = generatedClaim.verifiedId,
+            dataType = generatedClaim.dataType,
+            group = generatedClaim.group,
             required = false,
             generated = true,
             userInputted = false,
             allowedValues = null,
+            acl = acl
+        )
+    }
+
+    /**
+     * Provide a configurable claim. Both OpenID Connect and custom claims share the same
+     * configuration path — the claim's origin is derived from its ID at runtime.
+     */
+    private fun provideClaim(
+        properties: ClaimConfigurationProperties,
+        templates: Map<String, ClaimTemplate>,
+        errors: MutableList<ConfigurationException>
+    ): Claim? {
+        val template = resolveTemplate(properties, templates, errors)
+        val claimId = properties.id.normalizeClaimId()
+        val configKeyPrefix = "$CLAIMS_KEY.$claimId"
+
+        val dataType: ClaimDataType = try {
+            parser.getEnumOrThrow(
+                properties, "$configKeyPrefix.type",
+            ) { properties.type }
+        } catch (e: ConfigurationException) {
+            errors.add(e)
+            return null
+        }
+
+        val enabled = try {
+            parser.getBoolean(
+                properties, "$configKeyPrefix.enabled",
+                ClaimConfigurationProperties::enabled
+            ) ?: template?.enabled ?: true
+        } catch (e: ConfigurationException) {
+            errors.add(e)
+            true
+        }
+
+        val required = try {
+            parser.getBoolean(
+                properties, "$configKeyPrefix.required",
+                ClaimConfigurationProperties::required
+            ) ?: template?.required ?: false
+        } catch (e: ConfigurationException) {
+            errors.add(e)
+            false
+        }
+
+        val group = try {
+            properties.group?.let {
+                parser.convertToEnum<ClaimGroup>("$configKeyPrefix.group", it)
+            } ?: template?.group
+        } catch (e: ConfigurationException) {
+            errors.add(e)
+            null
+        }
+
+        val verifiedId = properties.verifiedId
+
+        val allowedValues = properties.allowedValues?.let {
+            getAllowedValues(
+                properties = properties,
+                key = "$configKeyPrefix.allowed-values",
+                type = dataType,
+                errors = errors
+            )
+        } ?: template?.allowedValues
+
+        val acl = claimAclFactory.buildAcl(
+            acl = properties.acl,
+            template = template,
+            configKeyPrefix = configKeyPrefix,
+            defaultConsentScope = null,
+            errors = errors
+        )
+
+        return Claim(
+            id = claimId,
+            enabled = enabled,
+            verifiedId = verifiedId,
+            dataType = dataType,
+            group = group,
+            required = required,
+            generated = false,
+            userInputted = acl.consent.writableByUser,
+            allowedValues = allowedValues,
             acl = acl
         )
     }
@@ -171,78 +251,6 @@ class ClaimsConfigFactory(
         return templates[DEFAULT]
     }
 
-    private fun provideOpenIdClaim(
-        properties: ClaimConfigurationProperties?,
-        openIdClaim: OpenIdClaim,
-        templates: Map<String, ClaimTemplate>,
-        errors: MutableList<ConfigurationException>
-    ): Claim {
-        val template = if (properties != null) {
-            resolveTemplate(properties, templates, errors)
-        } else {
-            templates[DEFAULT]
-        }
-        val configKeyPrefix = "$CLAIMS_KEY.${openIdClaim.id}"
-
-        val enabled = try {
-            properties?.let {
-                parser.getBoolean(
-                    it, "$configKeyPrefix.enabled",
-                    ClaimConfigurationProperties::enabled
-                )
-            } ?: template?.enabled ?: false
-        } catch (e: ConfigurationException) {
-            errors.add(e)
-            false
-        }
-
-        val required = try {
-            properties?.let {
-                parser.getBoolean(
-                    it, "$configKeyPrefix.required",
-                    ClaimConfigurationProperties::required
-                )
-            } ?: template?.required ?: false
-        } catch (e: ConfigurationException) {
-            errors.add(e)
-            false
-        }
-
-        val allowedValues = if (properties != null) {
-            properties.allowedValues?.let {
-                getAllowedValues(
-                    properties = properties,
-                    key = "$configKeyPrefix.allowed-values",
-                    type = openIdClaim.type,
-                    errors = errors
-                )
-            } ?: template?.allowedValues
-        } else {
-            template?.allowedValues
-        }
-
-        val acl = claimAclFactory.buildAcl(
-            acl = properties?.acl,
-            template = template,
-            configKeyPrefix = configKeyPrefix,
-            defaultConsentScope = openIdClaim.scope.scope,
-            errors = errors
-        )
-
-        return Claim(
-            id = openIdClaim.id,
-            enabled = enabled,
-            verifiedId = openIdClaim.verifiedId,
-            dataType = openIdClaim.type,
-            group = openIdClaim.group,
-            required = required,
-            generated = openIdClaim.generated,
-            userInputted = !openIdClaim.generated && acl.consent.writableByUser,
-            allowedValues = allowedValues,
-            acl = acl
-        )
-    }
-
     private fun getAllowedValues(
         properties: ClaimConfigurationProperties,
         key: String,
@@ -264,74 +272,5 @@ class ClaimsConfigFactory(
                 null
             }
         }
-    }
-
-    private fun provideCustomClaim(
-        properties: ClaimConfigurationProperties,
-        claim: String,
-        templates: Map<String, ClaimTemplate>,
-        errors: MutableList<ConfigurationException>
-    ): Claim? {
-        val template = resolveTemplate(properties, templates, errors)
-        val configKeyPrefix = "$CLAIMS_KEY.$claim"
-
-        val dataType: ClaimDataType = try {
-            parser.getEnumOrThrow(
-                properties, "$configKeyPrefix.type",
-            ) { properties.type }
-        } catch (e: ConfigurationException) {
-            errors.add(e)
-            return null
-        }
-
-        val enabled = try {
-            parser.getBoolean(
-                properties, "$configKeyPrefix.enabled",
-                ClaimConfigurationProperties::enabled
-            ) ?: template?.enabled ?: true
-        } catch (e: ConfigurationException) {
-            errors.add(e)
-            true
-        }
-
-        val required = try {
-            parser.getBoolean(
-                properties, "$configKeyPrefix.required",
-                ClaimConfigurationProperties::required
-            ) ?: template?.required ?: false
-        } catch (e: ConfigurationException) {
-            errors.add(e)
-            false
-        }
-
-        val allowedValues = properties.allowedValues?.let {
-            getAllowedValues(
-                properties = properties,
-                key = "$configKeyPrefix.allowed-values",
-                type = dataType,
-                errors = errors
-            )
-        } ?: template?.allowedValues
-
-        val acl = claimAclFactory.buildAcl(
-            acl = properties.acl,
-            template = template,
-            configKeyPrefix = configKeyPrefix,
-            defaultConsentScope = null,
-            errors = errors
-        )
-
-        return Claim(
-            id = claim,
-            enabled = enabled,
-            verifiedId = null,
-            dataType = dataType,
-            group = null,
-            required = required,
-            generated = false,
-            userInputted = acl.consent.writableByUser,
-            allowedValues = allowedValues,
-            acl = acl
-        )
     }
 }

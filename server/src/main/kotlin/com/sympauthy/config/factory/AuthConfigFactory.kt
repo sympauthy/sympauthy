@@ -1,6 +1,5 @@
 package com.sympauthy.config.factory
 
-import com.sympauthy.business.model.user.claim.OpenIdClaim
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.exception.configExceptionOf
@@ -168,16 +167,19 @@ class AuthConfigFactory(
         properties: AuthConfigurationProperties,
         uncheckedClaimsConfig: ClaimsConfig,
         errors: MutableList<ConfigurationException>
-    ): List<OpenIdClaim>? {
+    ): List<String>? {
         val identifierClaimsErrors = mutableListOf<ConfigurationException>()
-        val identifierClaims = try {
-            properties.identifierClaims?.map {
-                parser.convertToEnum<OpenIdClaim>("$AUTH_KEY.identifier-claims", it)
-            } ?: emptyList()
-        } catch (e: ConfigurationException) {
-            identifierClaimsErrors.add(e)
-            null
-        }
+        val identifierClaims = properties.identifierClaims
+            ?.mapIndexedNotNull { index, value ->
+                val key = "$AUTH_KEY.identifier-claims[$index]"
+                try {
+                    parser.getStringOrThrow(properties, key) { value }
+                } catch (e: ConfigurationException) {
+                    identifierClaimsErrors.add(e)
+                    null
+                }
+            }
+            ?: emptyList()
 
         // Validate that each identifier claim is enabled in the claims configuration.
         val enabledClaimsConfig = uncheckedClaimsConfig as? EnabledClaimsConfig
@@ -186,19 +188,19 @@ class AuthConfigFactory(
                 .filter { it.enabled }
                 .map { it.id }
                 .toSet()
-            identifierClaims?.forEach { identifierClaim ->
-                if (identifierClaim.id !in enabledClaimIds) {
+            identifierClaims.forEach { identifierClaimId ->
+                if (identifierClaimId !in enabledClaimIds) {
                     identifierClaimsErrors.add(
                         configExceptionOf(
                             "$AUTH_KEY.identifier-claims",
                             "config.auth.identifier_claim.disabled",
-                            "claim" to identifierClaim.id
+                            "claim" to identifierClaimId
                         )
                     )
                 }
             }
 
-            return if (errors.isEmpty()) {
+            return if (identifierClaimsErrors.isEmpty()) {
                 identifierClaims
             } else {
                 errors.addAll(identifierClaimsErrors)

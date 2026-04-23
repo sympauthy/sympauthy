@@ -1,7 +1,7 @@
 package com.sympauthy.business.model.user
 
 import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.business.model.user.claim.OpenIdClaim
+import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.*
@@ -52,37 +52,35 @@ data class RawProviderClaims(
      * Return the value of the given [claim] as a string, or null if not available.
      * Returns null for custom claims that have no OpenID Connect equivalent.
      */
-    fun getClaimValueOrNull(claim: Claim): String? {
-        val openIdClaim = OpenIdClaim.entries.firstOrNull { it.id == claim.id } ?: return null
-        return getClaimValueOrNull(openIdClaim)
-    }
+    fun getClaimValueOrNull(claim: Claim): String? = getClaimValueOrNull(claim.id)
 
     /**
-     * Return the value of the given [claim] as a string, or null if not available.
+     * Return the value of the claim identified by [claimId] as a string, or null if not available.
      */
-    fun getClaimValueOrNull(claim: OpenIdClaim): String? = when (claim) {
-        OpenIdClaim.SUBJECT -> subject
-        OpenIdClaim.NAME -> name
-        OpenIdClaim.GIVEN_NAME -> givenName
-        OpenIdClaim.FAMILY_NAME -> familyName
-        OpenIdClaim.MIDDLE_NAME -> middleName
-        OpenIdClaim.NICKNAME -> nickname
-        OpenIdClaim.PREFERRED_USERNAME -> preferredUsername
-        OpenIdClaim.PROFILE -> profile
-        OpenIdClaim.PICTURE -> picture
-        OpenIdClaim.WEBSITE -> website
-        OpenIdClaim.EMAIL -> email
-        OpenIdClaim.GENDER -> gender
-        OpenIdClaim.BIRTH_DATE -> birthDate?.toString()
-        OpenIdClaim.ZONE_INFO -> zoneInfo
-        OpenIdClaim.LOCALE -> locale
-        OpenIdClaim.PHONE_NUMBER -> phoneNumber
-        OpenIdClaim.STREET_ADDRESS -> streetAddress
-        OpenIdClaim.LOCALITY -> locality
-        OpenIdClaim.REGION -> region
-        OpenIdClaim.POSTAL_CODE -> postalCode
-        OpenIdClaim.COUNTRY -> country
-        OpenIdClaim.UPDATED_AT -> updatedAt?.toString()
+    fun getClaimValueOrNull(claimId: String): String? = when (claimId) {
+        OpenIdConnectClaimId.SUB -> subject
+        OpenIdConnectClaimId.NAME -> name
+        OpenIdConnectClaimId.GIVEN_NAME -> givenName
+        OpenIdConnectClaimId.FAMILY_NAME -> familyName
+        OpenIdConnectClaimId.MIDDLE_NAME -> middleName
+        OpenIdConnectClaimId.NICKNAME -> nickname
+        OpenIdConnectClaimId.PREFERRED_USERNAME -> preferredUsername
+        OpenIdConnectClaimId.PROFILE -> profile
+        OpenIdConnectClaimId.PICTURE -> picture
+        OpenIdConnectClaimId.WEBSITE -> website
+        OpenIdConnectClaimId.EMAIL -> email
+        OpenIdConnectClaimId.GENDER -> gender
+        OpenIdConnectClaimId.BIRTH_DATE -> birthDate?.toString()
+        OpenIdConnectClaimId.ZONE_INFO -> zoneInfo
+        OpenIdConnectClaimId.LOCALE -> locale
+        OpenIdConnectClaimId.PHONE_NUMBER -> phoneNumber
+        OpenIdConnectClaimId.STREET_ADDRESS -> streetAddress
+        OpenIdConnectClaimId.LOCALITY -> locality
+        OpenIdConnectClaimId.REGION -> region
+        OpenIdConnectClaimId.POSTAL_CODE -> postalCode
+        OpenIdConnectClaimId.COUNTRY -> country
+        OpenIdConnectClaimId.UPDATED_AT -> updatedAt?.toString()
+        else -> null
     }
 }
 

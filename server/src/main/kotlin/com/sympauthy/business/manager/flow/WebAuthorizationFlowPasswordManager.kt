@@ -15,7 +15,6 @@ import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.business.model.user.claim.OpenIdClaim
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.config.model.orThrow
@@ -72,7 +71,7 @@ open class WebAuthorizationFlowPasswordManager(
     internal suspend fun findByLogin(login: String): User? {
         val identifierClaims = uncheckedAuthConfig.orThrow().identifierClaims
         val userInfo = collectedClaimRepository.findAnyClaimMatching(
-            claimIds = identifierClaims.map(OpenIdClaim::id),
+            claimIds = identifierClaims,
             value = claimValueMapper.toEntity(login) ?: return null,
         )
         return userInfo?.userId

@@ -17,7 +17,6 @@ class AdminClaimResourceMapper(
     fun toResource(claim: Claim): AdminClaimResource {
         val identifierClaimIds = uncheckedAuthConfig.orThrow()
             .identifierClaims
-            .map { it.id }
             .toSet()
         return AdminClaimResource(
             id = claim.id,

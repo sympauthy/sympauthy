@@ -16,7 +16,7 @@ import com.sympauthy.business.model.user.RawProviderClaims
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.business.model.user.claim.OpenIdClaim
+import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.client.oauth2.TokenEndpointClient
 import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.config.model.UrlsConfig
@@ -118,8 +118,8 @@ class WebAuthorizationFlowOAuth2ProviderManagerTest {
         val emailClaim = mockk<Claim>()
 
         every { uncheckedAuthConfig.userMergingEnabled } returns true
-        every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdClaim.EMAIL)
-        every { claimManager.findByIdOrNull(OpenIdClaim.Id.EMAIL) } returns emailClaim
+        every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
+        every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
         coEvery { userManager.findByIdentifierClaims(mapOf("email" to "user@example.com")) } returns existingUser
         coJustRun { providerClaimsManager.saveUserInfo(provider, existingUser.id, providerUserInfo) }
 
@@ -141,8 +141,8 @@ class WebAuthorizationFlowOAuth2ProviderManagerTest {
         val emailClaim = mockk<Claim>()
 
         every { uncheckedAuthConfig.userMergingEnabled } returns true
-        every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdClaim.EMAIL)
-        every { claimManager.findByIdOrNull(OpenIdClaim.Id.EMAIL) } returns emailClaim
+        every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
+        every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
         coEvery { userManager.findByIdentifierClaims(mapOf("email" to "new@example.com")) } returns null
         coEvery { userManager.createUser() } returns newUser
         coJustRun { collectedClaimManager.update(newUser, any()) }
@@ -174,9 +174,9 @@ class WebAuthorizationFlowOAuth2ProviderManagerTest {
         val phoneClaim = mockk<Claim>()
 
         every { uncheckedAuthConfig.userMergingEnabled } returns true
-        every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdClaim.EMAIL, OpenIdClaim.PHONE_NUMBER)
-        every { claimManager.findByIdOrNull(OpenIdClaim.Id.EMAIL) } returns emailClaim
-        every { claimManager.findByIdOrNull(OpenIdClaim.Id.PHONE_NUMBER) } returns phoneClaim
+        every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL, OpenIdConnectClaimId.PHONE_NUMBER)
+        every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
+        every { claimManager.findByIdOrNull(OpenIdConnectClaimId.PHONE_NUMBER) } returns phoneClaim
         coEvery {
             userManager.findByIdentifierClaims(mapOf("email" to "user@example.com", "phone_number" to "+33612345678"))
         } returns existingUser
@@ -201,9 +201,9 @@ class WebAuthorizationFlowOAuth2ProviderManagerTest {
         val phoneClaim = mockk<Claim>()
 
         every { uncheckedAuthConfig.userMergingEnabled } returns true
-        every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdClaim.EMAIL, OpenIdClaim.PHONE_NUMBER)
-        every { claimManager.findByIdOrNull(OpenIdClaim.Id.EMAIL) } returns emailClaim
-        every { claimManager.findByIdOrNull(OpenIdClaim.Id.PHONE_NUMBER) } returns phoneClaim
+        every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL, OpenIdConnectClaimId.PHONE_NUMBER)
+        every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
+        every { claimManager.findByIdOrNull(OpenIdConnectClaimId.PHONE_NUMBER) } returns phoneClaim
         coEvery {
             userManager.findByIdentifierClaims(mapOf("email" to "new@example.com", "phone_number" to "+33612345678"))
         } returns null
@@ -232,7 +232,7 @@ class WebAuthorizationFlowOAuth2ProviderManagerTest {
         )
 
         every { uncheckedAuthConfig.userMergingEnabled } returns true
-        every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdClaim.EMAIL)
+        every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
 
         val exception = assertThrows<BusinessException> {
             manager.createOrAssociateUserWithProviderUserInfo(provider, providerUserInfo)
@@ -251,8 +251,8 @@ class WebAuthorizationFlowOAuth2ProviderManagerTest {
         )
 
         every { uncheckedAuthConfig.userMergingEnabled } returns true
-        every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdClaim.EMAIL)
-        every { claimManager.findByIdOrNull(OpenIdClaim.Id.EMAIL) } returns null
+        every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
+        every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns null
 
         val exception = assertThrows<BusinessException> {
             manager.createOrAssociateUserWithProviderUserInfo(provider, providerUserInfo)
@@ -273,8 +273,8 @@ class WebAuthorizationFlowOAuth2ProviderManagerTest {
         val emailClaim = mockk<Claim>()
 
         every { uncheckedAuthConfig.userMergingEnabled } returns false
-        every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdClaim.EMAIL)
-        every { claimManager.findByIdOrNull(OpenIdClaim.Id.EMAIL) } returns emailClaim
+        every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
+        every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
         coEvery { userManager.findByIdentifierClaims(mapOf("email" to "new@example.com")) } returns null
         coEvery { userManager.createUser() } returns newUser
         coJustRun { collectedClaimManager.update(newUser, any()) }
@@ -305,8 +305,8 @@ class WebAuthorizationFlowOAuth2ProviderManagerTest {
         val emailClaim = mockk<Claim>()
 
         every { uncheckedAuthConfig.userMergingEnabled } returns false
-        every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdClaim.EMAIL)
-        every { claimManager.findByIdOrNull(OpenIdClaim.Id.EMAIL) } returns emailClaim
+        every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
+        every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
         coEvery { userManager.findByIdentifierClaims(mapOf("email" to "existing@example.com")) } returns existingUser
 
         val exception = assertThrows<BusinessException> {

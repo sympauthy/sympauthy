@@ -61,7 +61,7 @@ data class Claim(
      * Origin of this claim, derived from whether the [id] matches a known OpenID Connect claim.
      */
     val origin: ClaimOrigin
-        get() = if (OpenIdClaim.entries.any { it.id == id }) ClaimOrigin.OPENID_CONNECT else ClaimOrigin.CUSTOM
+        get() = if (id in OpenIdConnectClaimId.ALL) ClaimOrigin.OPENID_CONNECT else ClaimOrigin.CUSTOM
 
     /**
      * Return true if this claim is covered by the given [scope].

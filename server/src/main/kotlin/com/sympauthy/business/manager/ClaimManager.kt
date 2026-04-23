@@ -80,6 +80,6 @@ class ClaimManager(
     fun listIdentifierClaims(): List<Claim> {
         return uncheckedAuthConfig.orThrow()
             .identifierClaims
-            .mapNotNull { findByIdOrNull(it.id) }
+            .mapNotNull { findByIdOrNull(it) }
     }
 }

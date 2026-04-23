@@ -12,8 +12,10 @@ class ClaimConfigurationProperties(
     var template: String? = null
     var enabled: String? = null
     var required: String? = null
-    var allowedValues: List<Any>? = null
     var type: String? = null
+    var group: String? = null
+    var verifiedId: String? = null
+    var allowedValues: List<Any>? = null
     var acl: AclConfig? = null
 
     @ConfigurationProperties("acl")
