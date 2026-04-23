@@ -47,6 +47,7 @@ class ClientUserManagerTest {
     private fun mockConsent(userId: UUID, clientId: String = this.clientId) = Consent(
         id = UUID.randomUUID(),
         userId = userId,
+        audienceId = "test-audience",
         clientId = clientId,
         scopes = listOf("profile", "email"),
         consentedAt = LocalDateTime.now(),

@@ -7,7 +7,9 @@ import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.UserScopeGrantingManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
+import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.model.client.Client
+import jakarta.inject.Provider
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ID
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
@@ -36,6 +38,7 @@ class AuthorizationFlowManager(
     @Inject private val authorizationFlowsConfig: AuthorizationFlowsConfig,
     @Inject private val uncheckedUrlsConfig: UrlsConfig,
     @Inject private val uncheckedFeaturesConfig: FeaturesConfig,
+    @Inject private val clientManagerProvider: Provider<ClientManager>,
 ) {
 
     /**
@@ -142,8 +145,10 @@ class AuthorizationFlowManager(
             )
         } else {
             val completedAttempt = authorizeAttemptManager.markAsComplete(modifiedAuthorizedAttempt)
+            val client = clientManagerProvider.get().findClientById(completedAttempt.clientId)
             consentManager.saveGrantedConsent(
                 userId = completedAttempt.userId,
+                audienceId = client.audience.id,
                 clientId = completedAttempt.clientId,
                 scopes = completedAttempt.consentedScopes
             )

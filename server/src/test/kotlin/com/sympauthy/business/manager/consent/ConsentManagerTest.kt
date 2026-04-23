@@ -36,6 +36,7 @@ class ConsentManagerTest {
     lateinit var consentManager: ConsentManager
 
     private val userId = UUID.randomUUID()
+    private val audienceId = "test-audience"
     private val clientId = "test-client"
     private val scopes = listOf("read", "write")
 
@@ -43,11 +44,11 @@ class ConsentManagerTest {
     fun `saveGrantedConsent - Creates new consent when none exists`() = runTest {
         val consent = mockk<Consent>()
 
-        coEvery { consentRepository.findByUserIdAndClientIdAndRevokedAtIsNull(userId, clientId) } returns null
+        coEvery { consentRepository.findByUserIdAndAudienceIdAndRevokedAtIsNull(userId, audienceId) } returns null
         coEvery { consentRepository.save(any<ConsentEntity>()) } answers { firstArg() }
         every { consentMapper.toConsent(any()) } returns consent
 
-        val result = consentManager.saveGrantedConsent(userId, clientId, scopes)
+        val result = consentManager.saveGrantedConsent(userId, audienceId, clientId, scopes)
 
         assertSame(consent, result)
         coVerify(exactly = 0) {
@@ -56,21 +57,22 @@ class ConsentManagerTest {
     }
 
     @Test
-    fun `saveGrantedConsent - Revokes existing consent before creating new one`() = runTest {
+    fun `saveGrantedConsent - Revokes existing consent and merges scopes`() = runTest {
         val existingId = UUID.randomUUID()
         val existingEntity = mockk<ConsentEntity> {
             every { id } returns existingId
+            every { scopes } returns arrayOf("existing-scope")
         }
         val consent = mockk<Consent>()
 
-        coEvery { consentRepository.findByUserIdAndClientIdAndRevokedAtIsNull(userId, clientId) } returns existingEntity
+        coEvery { consentRepository.findByUserIdAndAudienceIdAndRevokedAtIsNull(userId, audienceId) } returns existingEntity
         coEvery {
             consentRepository.updateRevokedAt(existingId, any(), "USER", userId)
         } returns 1
         coEvery { consentRepository.save(any<ConsentEntity>()) } answers { firstArg() }
         every { consentMapper.toConsent(any()) } returns consent
 
-        val result = consentManager.saveGrantedConsent(userId, clientId, scopes)
+        val result = consentManager.saveGrantedConsent(userId, audienceId, clientId, scopes)
 
         assertSame(consent, result)
         coVerify(exactly = 1) {
@@ -125,6 +127,7 @@ class ConsentManagerTest {
         val consent = Consent(
             id = consentId,
             userId = userId,
+            audienceId = audienceId,
             clientId = clientId,
             scopes = scopes,
             consentedAt = LocalDateTime.now(),

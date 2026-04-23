@@ -2,6 +2,7 @@ CREATE TABLE consents
 (
     id            uuid      NOT NULL DEFAULT random_uuid(),
     user_id       uuid      NOT NULL,
+    audience_id   text      NOT NULL,
     client_id     text      NOT NULL,
     scopes        text ARRAY NOT NULL,
     consented_at  timestamp NOT NULL,
@@ -14,4 +15,5 @@ CREATE TABLE consents
 );
 
 CREATE INDEX consents__user_id ON consents (user_id);
+CREATE INDEX consents__audience_id ON consents (audience_id);
 CREATE INDEX consents__client_id ON consents (client_id);

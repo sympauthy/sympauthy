@@ -11,6 +11,7 @@ import java.util.*
 @MappedEntity("consents")
 class ConsentEntity(
     val userId: UUID,
+    val audienceId: String,
     val clientId: String,
     val scopes: Array<String>,
     val consentedAt: LocalDateTime,

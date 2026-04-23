@@ -10,9 +10,10 @@ import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.config.model.AuthorizationFlowsConfig
-import com.sympauthy.config.model.EnabledFeaturesConfig
-import com.sympauthy.config.model.UrlsConfig
+import com.sympauthy.business.manager.ClientManager
+import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.config.model.*
+import jakarta.inject.Provider
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -20,6 +21,8 @@ import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
@@ -52,6 +55,12 @@ class AuthorizationFlowManagerTest {
 
     @MockK
     lateinit var uncheckedFeaturesConfig: EnabledFeaturesConfig
+
+    @MockK
+    lateinit var clientManager: ClientManager
+
+    private val testAudience = Audience(id = "test-audience", tokenAudience = "test-audience")
+    private val clientManagerProvider: Provider<ClientManager> = Provider { clientManager }
 
     @InjectMockKs
     lateinit var manager: AuthorizationFlowManager
@@ -188,12 +197,14 @@ class AuthorizationFlowManagerTest {
             authorizeAttemptManager.setGrantedScopes(onGoingAttempt, grantedScopeObjects, any())
         } returns afterGranted
         coEvery { authorizeAttemptManager.markAsComplete(afterGranted) } returns completedAttempt
-        coEvery { consentManager.saveGrantedConsent(userId, clientId, consentedScopes) } returns mockk()
+
+        coEvery { clientManager.findClientById(clientId) } returns mockClient(clientId)
+        coEvery { consentManager.saveGrantedConsent(userId, any(), clientId, consentedScopes) } returns mockk()
 
         val result = manager.completeAuthorization(onGoingAttempt)
 
         assertSame(completedAttempt, result)
-        coVerify(exactly = 1) { consentManager.saveGrantedConsent(userId, clientId, consentedScopes) }
+        coVerify(exactly = 1) { consentManager.saveGrantedConsent(userId, any(), clientId, consentedScopes) }
     }
 
     @Test
@@ -231,12 +242,14 @@ class AuthorizationFlowManagerTest {
                 authorizeAttemptManager.setGrantedScopes(onGoingAttempt, emptyList(), any())
             } returns afterGranted
             coEvery { authorizeAttemptManager.markAsComplete(afterGranted) } returns completedAttempt
-            coEvery { consentManager.saveGrantedConsent(userId, clientId, emptyList()) } returns mockk()
+    
+            coEvery { clientManager.findClientById(clientId) } returns mockClient(clientId)
+            coEvery { consentManager.saveGrantedConsent(userId, any(), clientId, emptyList()) } returns mockk()
 
             val result = manager.completeAuthorization(onGoingAttempt)
 
             assertSame(completedAttempt, result)
-            coVerify(exactly = 1) { consentManager.saveGrantedConsent(userId, clientId, emptyList()) }
+            coVerify(exactly = 1) { consentManager.saveGrantedConsent(userId, any(), clientId, emptyList()) }
         }
 
     @Test
@@ -318,12 +331,21 @@ class AuthorizationFlowManagerTest {
             authorizeAttemptManager.setGrantedScopes(onGoingAttempt, grantedScopeObjects, any())
         } returns afterGranted
         coEvery { authorizeAttemptManager.markAsComplete(afterGranted) } returns completedAttempt
-        coEvery { consentManager.saveGrantedConsent(userId, clientId, emptyList()) } returns mockk()
+
+        coEvery { clientManager.findClientById(clientId) } returns mockClient(clientId)
+        coEvery { consentManager.saveGrantedConsent(userId, any(), clientId, emptyList()) } returns mockk()
 
         val result = manager.completeAuthorization(onGoingAttempt)
 
         assertSame(completedAttempt, result)
         coVerify { collectedClaimManager.findByUserId(userId) }
+    }
+
+    private fun mockClient(id: String = "test-client"): Client {
+        return mockk {
+            every { this@mockk.id } returns id
+            every { audience } returns testAudience
+        }
     }
 
     private fun createOnGoingAuthorizeAttempt(
@@ -347,10 +369,6 @@ class AuthorizationFlowManagerTest {
             consentedBy = consentedScopes?.let { ConsentedBy.AUTO },
             grantedScopes = grantedScopes,
         )
-    }
-
-    private fun mockClient(id: String = "test-client"): Client {
-        return mockk { every { this@mockk.id } returns id }
     }
 
     private fun createCompletedAuthorizeAttempt(
