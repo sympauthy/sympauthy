@@ -11,18 +11,21 @@ data class EnabledScopesConfig(
 ) : ScopesConfig()
 
 sealed class ScopeConfig(
-    val scope: String
+    val scope: String,
+    val audienceId: String?
 )
 
 class OpenIdConnectScopeConfig(
     scope: String,
-    val enabled: Boolean
-) : ScopeConfig(scope)
+    val enabled: Boolean,
+    audienceId: String? = null
+) : ScopeConfig(scope, audienceId)
 
 class CustomScopeConfig(
     scope: String,
-    val consentable: Boolean
-) : ScopeConfig(scope)
+    val consentable: Boolean,
+    audienceId: String? = null
+) : ScopeConfig(scope, audienceId)
 
 class DisabledScopesConfig(
     configurationErrors: List<ConfigurationException>

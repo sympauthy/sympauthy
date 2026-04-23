@@ -52,6 +52,11 @@ data class Claim(
      */
     val allowedValues: List<Any>?,
     /**
+     * Identifier of the audience this claim is restricted to.
+     * When null, the claim is shared across all audiences.
+     */
+    val audienceId: String? = null,
+    /**
      * Access control list determining who can read/write this claim and under what conditions.
      */
     val acl: ClaimAcl

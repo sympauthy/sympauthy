@@ -54,9 +54,10 @@ class ScopeManagerTest {
     @Test
     fun `findForClientOrThrow - Return scope when found and client has no allowedScopes`() = runTest {
         val scope = "openid"
-        val foundScope = mockk<Scope>()
+        val foundScope = mockk<Scope> { every { audienceId } returns null }
         val client = mockk<com.sympauthy.business.model.client.Client> {
             every { allowedScopes } returns null
+            every { audience } returns mockk { every { id } returns "test-audience" }
         }
 
         coEvery { scopeManager.find(scope) } returns foundScope
@@ -70,9 +71,10 @@ class ScopeManagerTest {
     @Test
     fun `findForClientOrThrow - Return scope when found and client allows it`() = runTest {
         val scope = "openid"
-        val foundScope = mockk<Scope>()
+        val foundScope = mockk<Scope> { every { audienceId } returns null }
         val client = mockk<com.sympauthy.business.model.client.Client> {
             every { allowedScopes } returns setOf(foundScope)
+            every { audience } returns mockk { every { id } returns "test-audience" }
         }
 
         coEvery { scopeManager.find(scope) } returns foundScope
@@ -97,10 +99,11 @@ class ScopeManagerTest {
     @Test
     fun `findForClientOrThrow - Throw when scope not allowed by client`() = runTest {
         val scope = "openid"
-        val foundScope = mockk<Scope>()
+        val foundScope = mockk<Scope> { every { audienceId } returns null }
         val otherScope = mockk<Scope>()
         val client = mockk<com.sympauthy.business.model.client.Client> {
             every { allowedScopes } returns setOf(otherScope)
+            every { audience } returns mockk { every { id } returns "test-audience" }
         }
 
         coEvery { scopeManager.find(scope) } returns foundScope

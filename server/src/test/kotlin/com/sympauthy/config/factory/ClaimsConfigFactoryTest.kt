@@ -52,6 +52,7 @@ class ClaimsConfigFactoryTest {
         enabled = null,
         required = null,
         group = null,
+        audience = null,
         allowedValues = null,
         acl = defaultTemplateAcl
     )
@@ -61,6 +62,7 @@ class ClaimsConfigFactoryTest {
         enabled = false,
         required = null,
         group = null,
+        audience = null,
         allowedValues = null,
         acl = defaultTemplateAcl
     )
@@ -81,7 +83,7 @@ class ClaimsConfigFactoryTest {
             "openid" to openidTemplate()
         )
         val claimTemplatesConfig = EnabledClaimTemplatesConfig(templates)
-        factory = ClaimsConfigFactory(parser, authProperties, claimTemplatesConfig, claimAclFactory)
+        factory = ClaimsConfigFactory(parser, authProperties, claimTemplatesConfig, claimAclFactory, EnabledAudiencesConfig(emptyList()))
     }
 
     private fun claimProperties(

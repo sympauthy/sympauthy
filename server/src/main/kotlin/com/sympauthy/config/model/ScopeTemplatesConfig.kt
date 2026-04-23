@@ -33,5 +33,6 @@ fun ScopeTemplatesConfig.orNull(): EnabledScopeTemplatesConfig? {
 data class ScopeTemplate(
     val id: String,
     val enabled: Boolean?,
-    val type: String?
+    val type: String?,
+    val audience: String?
 )

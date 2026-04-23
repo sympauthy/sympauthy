@@ -15,7 +15,12 @@ import com.sympauthy.business.model.user.isOpenIdConnectScope
  */
 sealed class Scope(
     val scope: String,
-    val discoverable: Boolean
+    val discoverable: Boolean,
+    /**
+     * Identifier of the audience this scope is restricted to.
+     * When null, the scope is shared across all audiences.
+     */
+    val audienceId: String? = null
 ) {
     override fun equals(other: Any?) = other is Scope && scope == other.scope
     override fun hashCode() = scope.hashCode()
@@ -29,8 +34,9 @@ sealed class Scope(
  */
 class ConsentableUserScope(
     scope: String,
-    discoverable: Boolean = true
-) : Scope(scope, discoverable)
+    discoverable: Boolean = true,
+    audienceId: String? = null
+) : Scope(scope, discoverable, audienceId)
 
 /**
  * A scope that is granted through granting rules or auto-granted.
@@ -38,8 +44,9 @@ class ConsentableUserScope(
  */
 class GrantableUserScope(
     scope: String,
-    discoverable: Boolean
-) : Scope(scope, discoverable)
+    discoverable: Boolean,
+    audienceId: String? = null
+) : Scope(scope, discoverable, audienceId)
 
 /**
  * A scope that is only usable in `client_credentials` flows.

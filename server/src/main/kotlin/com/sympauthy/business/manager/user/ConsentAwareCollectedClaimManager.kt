@@ -31,15 +31,20 @@ open class ConsentAwareCollectedClaimManager(
      * Return the list of [CollectedClaim] collected from the user identified by [userId] and readable
      * by the end-user according to the provided [consentedScopes].
      *
+     * When [audienceId] is provided, only claims that belong to that audience (or have no audience restriction)
+     * are included.
+     *
      * Use this method when the caller is the end-user themselves and there is no client authentication
      * (e.g. the OpenID UserInfo endpoint, which is only protected by a bearer token).
      */
     suspend fun findByUserIdAndReadableByUser(
         userId: UUID,
-        consentedScopes: List<String>
+        consentedScopes: List<String>,
+        audienceId: String? = null
     ): List<CollectedClaim> {
         return collectedClaimManager.findByUserId(userId).filter {
-            it.claim.canBeReadByUser(consentedScopes)
+            (audienceId == null || it.claim.audienceId == null || it.claim.audienceId == audienceId) &&
+                    it.claim.canBeReadByUser(consentedScopes)
         }
     }
 
@@ -47,16 +52,21 @@ open class ConsentAwareCollectedClaimManager(
      * Return the list of [CollectedClaim] collected from the user identified by [userId] and readable
      * by a client according to the provided [consentedScopes] and [clientScopes].
      *
+     * When [audienceId] is provided, only claims that belong to that audience (or have no audience restriction)
+     * are included.
+     *
      * @param consentedScopes scopes the end-user has consented to (e.g. profile, email).
      * @param clientScopes scopes granted to the client itself (e.g. users:claims:read).
      */
     suspend fun findByUserIdAndReadableByClient(
         userId: UUID,
         consentedScopes: List<String>,
-        clientScopes: List<String> = emptyList()
+        clientScopes: List<String> = emptyList(),
+        audienceId: String? = null
     ): List<CollectedClaim> {
         return collectedClaimManager.findByUserId(userId).filter {
-            it.claim.canBeReadByClient(consentedScopes, clientScopes)
+            (audienceId == null || it.claim.audienceId == null || it.claim.audienceId == audienceId) &&
+                    it.claim.canBeReadByClient(consentedScopes, clientScopes)
         }
     }
 
