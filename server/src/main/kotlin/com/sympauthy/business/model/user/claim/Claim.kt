@@ -3,7 +3,7 @@ package com.sympauthy.business.model.user.claim
 /**
  * A claim configured on this authorization server.
  *
- * Claims can originate from the OpenID Connect specification ([ClaimOrigin.OPENID]) or be
+ * Claims can originate from the OpenID Connect specification ([ClaimOrigin.OPENID_CONNECT]) or be
  * custom claims defined by the operator ([ClaimOrigin.CUSTOM]). Access control is determined
  * by the [acl] rather than the claim origin.
  */
@@ -61,7 +61,7 @@ data class Claim(
      * Origin of this claim, derived from whether the [id] matches a known OpenID Connect claim.
      */
     val origin: ClaimOrigin
-        get() = if (OpenIdClaim.entries.any { it.id == id }) ClaimOrigin.OPENID else ClaimOrigin.CUSTOM
+        get() = if (OpenIdClaim.entries.any { it.id == id }) ClaimOrigin.OPENID_CONNECT else ClaimOrigin.CUSTOM
 
     /**
      * Return true if this claim is covered by the given [scope].
@@ -114,6 +114,6 @@ data class Claim(
 }
 
 enum class ClaimOrigin(val value: String) {
-    OPENID("openid"),
+    OPENID_CONNECT("openid"),
     CUSTOM("custom")
 }

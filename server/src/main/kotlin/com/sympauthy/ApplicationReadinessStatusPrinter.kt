@@ -111,7 +111,7 @@ class ApplicationReadinessStatusPrinter(
         } catch (_: Throwable) {
             emptyList()
         }
-        val standardClaimsCount = enabledClaims.count { it.origin == ClaimOrigin.OPENID }
+        val standardClaimsCount = enabledClaims.count { it.origin == ClaimOrigin.OPENID_CONNECT }
         val customClaimsCount = enabledClaims.count { it.origin == ClaimOrigin.CUSTOM }
         logger.info("- ${pluralize(enabledClaims.size, "claim")} (${pluralize(standardClaimsCount, "standard")}, ${pluralize(customClaimsCount, "custom")}).")
 

@@ -68,10 +68,10 @@ class ClaimManager(
     }
 
     /**
-     * Return all the OpenID claims configured on this authorization server.
+     * Return all the OpenID claims enabled on this authorization server.
      */
-    fun listOpenIdClaims(): List<Claim> {
-        return cachedClaimsMap.values.filter { it.origin == ClaimOrigin.OPENID }
+    fun listEnabledOpenIdConnectClaims(): List<Claim> {
+        return cachedClaimsMap.values.filter { it.origin == ClaimOrigin.OPENID_CONNECT && it.enabled }
     }
 
     /**
