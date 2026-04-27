@@ -41,22 +41,20 @@ class ClientsConfigValidator(
             subCtx.addError(configExceptionOf("$configKeyPrefix.secret", "config.missing"))
         }
 
-        // Resolve grant types: from parsed, from template, or error.
-        val allowedGrantTypes = when {
-            parsed.allowedGrantTypes != null -> fieldValidator.validateGrantTypes(
+        // Validate grant types (already resolved with template fallback by parser).
+        val allowedGrantTypes = if (parsed.allowedGrantTypes != null) {
+            fieldValidator.validateGrantTypes(
                 subCtx, "$configKeyPrefix.allowed-grant-types", parsed.allowedGrantTypes
             )
-            parsed.template?.allowedGrantTypes != null -> parsed.template.allowedGrantTypes
-            else -> {
-                subCtx.addError(
-                    configExceptionOf(
-                        "$configKeyPrefix.allowed-grant-types",
-                        "config.client.allowed_grant_types.missing",
-                        "supportedValues" to GrantType.entries.joinToString(", ") { it.value }
-                    )
+        } else {
+            subCtx.addError(
+                configExceptionOf(
+                    "$configKeyPrefix.allowed-grant-types",
+                    "config.client.allowed_grant_types.missing",
+                    "supportedValues" to GrantType.entries.joinToString(", ") { it.value }
                 )
-                null
-            }
+            )
+            null
         }
 
         // Validate authorization flow.
@@ -67,20 +65,18 @@ class ClientsConfigValidator(
             else -> parsed.template?.authorizationFlow
         }
 
-        // Validate redirect URIs.
+        // Validate redirect URIs (already resolved with template fallback by parser).
         val allowedRedirectUris = if (allowedGrantTypes?.contains(GrantType.AUTHORIZATION_CODE) != false) {
-            when {
-                parsed.allowedRedirectUris != null -> parsed.allowedRedirectUris
-                parsed.template?.allowedRedirectUris != null -> parsed.template.allowedRedirectUris
-                else -> {
-                    subCtx.addError(
-                        configExceptionOf("$configKeyPrefix.allowed-redirect-uris", "config.client.allowed_redirect_uris.missing")
-                    )
-                    null
-                }
+            if (parsed.allowedRedirectUris != null) {
+                parsed.allowedRedirectUris
+            } else {
+                subCtx.addError(
+                    configExceptionOf("$configKeyPrefix.allowed-redirect-uris", "config.client.allowed_redirect_uris.missing")
+                )
+                null
             }
         } else {
-            if (parsed.allowedRedirectUris != null) {
+            if (parsed.hasExplicitRedirectUris) {
                 subCtx.addError(
                     configExceptionOf("$configKeyPrefix.allowed-redirect-uris", "config.client.allowed_redirect_uris.unnecessary")
                 )
@@ -102,11 +98,8 @@ class ClientsConfigValidator(
             else -> parsed.template?.defaultScopes
         }
 
-        // Validate webhook.
-        val authorizationWebhook = when {
-            parsed.authorizationWebhook != null -> fieldValidator.validateWebhook(parsed.authorizationWebhook)
-            else -> parsed.template?.authorizationWebhook
-        }
+        // Validate webhook (already resolved with template fallback by parser).
+        val authorizationWebhook = fieldValidator.validateWebhook(parsed.authorizationWebhook)
 
         ctx.merge(subCtx)
         if (subCtx.hasErrors) return null

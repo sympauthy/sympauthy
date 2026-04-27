@@ -20,6 +20,8 @@ data class ParsedClient(
     val allowedGrantTypes: Set<GrantType>?,
     val authorizationFlowId: String?,
     val allowedRedirectUris: List<String>?,
+    /** Whether [allowedRedirectUris] was explicitly set on the client (vs inherited from template). */
+    val hasExplicitRedirectUris: Boolean,
     val allowedScopes: List<String>?,
     val defaultScopes: List<String>?,
     val authorizationWebhook: ParsedAuthorizationWebhook?
@@ -61,7 +63,7 @@ class ClientsConfigParser(
         val allowedGrantTypes = if (properties.allowedGrantTypes != null) {
             fieldParser.parseGrantTypes(ctx, "$configKeyPrefix.allowed-grant-types", properties.allowedGrantTypes)
         } else {
-            null
+            template?.allowedGrantTypes
         }
 
         val allowedRedirectUris = if (properties.allowedRedirectUris != null) {
@@ -69,13 +71,15 @@ class ClientsConfigParser(
                 ctx, "$configKeyPrefix.allowed-redirect-uris", properties.uris, properties.allowedRedirectUris
             )
         } else {
-            null
+            template?.allowedRedirectUris
         }
 
         val authorizationWebhook = if (properties.authorizationWebhook != null) {
             fieldParser.parseWebhook(ctx, "$configKeyPrefix.authorization-webhook", properties.authorizationWebhook)
         } else {
-            null
+            template?.authorizationWebhook?.let {
+                ParsedAuthorizationWebhook(url = it.url, secret = it.secret, onFailure = it.onFailure)
+            }
         }
 
         return ParsedClient(
@@ -87,6 +91,7 @@ class ClientsConfigParser(
             allowedGrantTypes = allowedGrantTypes,
             authorizationFlowId = properties.authorizationFlow,
             allowedRedirectUris = allowedRedirectUris,
+            hasExplicitRedirectUris = properties.allowedRedirectUris != null,
             allowedScopes = properties.allowedScopes,
             defaultScopes = properties.defaultScopes,
             authorizationWebhook = authorizationWebhook
