@@ -1,7 +1,6 @@
 package com.sympauthy.config.validation
 
 import com.sympauthy.config.ConfigParsingContext
-import com.sympauthy.config.factory.ClaimAclFactory
 import com.sympauthy.config.model.ClaimTemplate
 import com.sympauthy.config.parsing.ParsedClaimTemplate
 import com.sympauthy.config.properties.ClaimTemplateConfigurationProperties.Companion.TEMPLATES_CLAIMS_KEY
@@ -10,7 +9,7 @@ import jakarta.inject.Singleton
 
 @Singleton
 class ClaimTemplatesConfigValidator(
-    @Inject private val claimAclFactory: ClaimAclFactory
+    @Inject private val claimAclValidator: ClaimAclValidator
 ) {
 
     fun validate(
@@ -30,15 +29,7 @@ class ClaimTemplatesConfigValidator(
         val configKeyPrefix = "$TEMPLATES_CLAIMS_KEY.${parsed.id}"
         val subCtx = ctx.child()
 
-        // ClaimAclFactory.buildTemplateAcl validates scope references.
-        // It will be properly split into parsing/validation in a later step.
-        val errors = mutableListOf<com.sympauthy.config.exception.ConfigurationException>()
-        val acl = claimAclFactory.buildTemplateAcl(
-            acl = parsed.acl,
-            configKeyPrefix = configKeyPrefix,
-            errors = errors
-        )
-        errors.forEach { subCtx.addError(it) }
+        val acl = claimAclValidator.validateTemplateAcl(subCtx, parsed.acl, configKeyPrefix)
 
         ctx.merge(subCtx)
         if (subCtx.hasErrors) return null

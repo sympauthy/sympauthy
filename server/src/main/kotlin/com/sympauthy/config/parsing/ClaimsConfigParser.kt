@@ -7,10 +7,10 @@ import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.ClaimTemplate
-import com.sympauthy.config.properties.ClaimAclProperties
 import com.sympauthy.config.properties.ClaimConfigurationProperties
 import com.sympauthy.config.properties.ClaimConfigurationProperties.Companion.CLAIMS_KEY
 import com.sympauthy.config.properties.ClaimTemplateConfigurationProperties.Companion.DEFAULT
+import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
 /**
@@ -29,12 +29,13 @@ data class ParsedClaim(
     val verifiedId: String?,
     val audienceId: String?,
     val allowedValues: List<Any>?,
-    val acl: ClaimAclProperties?
+    val acl: ParsedClaimAcl
 )
 
 @Singleton
 class ClaimsConfigParser(
-    private val parser: ConfigParser
+    @Inject private val parser: ConfigParser,
+    @Inject private val claimAclParser: ClaimAclParser
 ) {
     fun parse(
         ctx: ConfigParsingContext,
@@ -72,6 +73,8 @@ class ClaimsConfigParser(
         } else {
             templates[DEFAULT]
         }
+        val configKeyPrefix = "$CLAIMS_KEY.${generatedClaim.id}"
+        val acl = claimAclParser.parseGeneratedClaimAcl(ctx, properties?.acl, template, configKeyPrefix)
 
         return ParsedClaim(
             id = generatedClaim.id,
@@ -83,7 +86,7 @@ class ClaimsConfigParser(
             verifiedId = generatedClaim.verifiedId,
             audienceId = null,
             allowedValues = null,
-            acl = properties?.acl
+            acl = acl
         )
     }
 
@@ -123,6 +126,8 @@ class ClaimsConfigParser(
             template?.allowedValues
         }
 
+        val acl = claimAclParser.parseAcl(ctx, properties.acl, template, configKeyPrefix, null)
+
         return ParsedClaim(
             id = claimId,
             enabled = enabled,
@@ -133,7 +138,7 @@ class ClaimsConfigParser(
             verifiedId = properties.verifiedId,
             audienceId = audienceId,
             allowedValues = allowedValues,
-            acl = properties.acl
+            acl = acl
         )
     }
 

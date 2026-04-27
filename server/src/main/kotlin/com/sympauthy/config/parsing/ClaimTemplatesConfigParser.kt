@@ -3,9 +3,9 @@ package com.sympauthy.config.parsing
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
-import com.sympauthy.config.properties.ClaimAclProperties
 import com.sympauthy.config.properties.ClaimTemplateConfigurationProperties
 import com.sympauthy.config.properties.ClaimTemplateConfigurationProperties.Companion.TEMPLATES_CLAIMS_KEY
+import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
 data class ParsedClaimTemplate(
@@ -15,12 +15,13 @@ data class ParsedClaimTemplate(
     val group: ClaimGroup?,
     val audienceId: String?,
     val allowedValues: List<Any>?,
-    val acl: ClaimAclProperties?
+    val acl: ParsedClaimAcl
 )
 
 @Singleton
 class ClaimTemplatesConfigParser(
-    private val parser: ConfigParser
+    @Inject private val parser: ConfigParser,
+    @Inject private val claimAclParser: ClaimAclParser
 ) {
     fun parse(
         ctx: ConfigParsingContext,
@@ -51,6 +52,8 @@ class ClaimTemplatesConfigParser(
             }
         }
 
+        val acl = claimAclParser.parseTemplateAcl(ctx, properties.acl, configKeyPrefix)
+
         return ParsedClaimTemplate(
             id = properties.id,
             enabled = enabled,
@@ -58,7 +61,7 @@ class ClaimTemplatesConfigParser(
             group = group,
             audienceId = properties.audience,
             allowedValues = properties.allowedValues,
-            acl = properties.acl
+            acl = acl
         )
     }
 }

@@ -2,21 +2,18 @@ package com.sympauthy.config.validation
 
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.config.ConfigParsingContext
-import com.sympauthy.config.exception.ConfigurationException
-import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
-import com.sympauthy.config.factory.ClaimAclFactory
+import com.sympauthy.config.ConfigParsingContext
+import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.ClaimTemplate
 import com.sympauthy.config.parsing.ParsedClaim
 import com.sympauthy.config.properties.ClaimConfigurationProperties.Companion.CLAIMS_KEY
-import com.sympauthy.config.properties.ClaimTemplateConfigurationProperties.Companion.DEFAULT
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
 @Singleton
 class ClaimsConfigValidator(
-    @Inject private val claimAclFactory: ClaimAclFactory
+    @Inject private val claimAclValidator: ClaimAclValidator
 ) {
 
     fun validate(
@@ -28,7 +25,7 @@ class ClaimsConfigValidator(
         userMergingEnabled: Boolean?
     ): List<Claim> {
         val claims = parsed.mapNotNull { parsedClaim ->
-            validateClaim(ctx, parsedClaim, templates, audiencesById)
+            validateClaim(ctx, parsedClaim, audiencesById)
         }
 
         // Validate identifier claims are enabled.
@@ -53,7 +50,6 @@ class ClaimsConfigValidator(
     private fun validateClaim(
         ctx: ConfigParsingContext,
         parsed: ParsedClaim,
-        templates: Map<String, ClaimTemplate>,
         audiencesById: Map<String, Audience>
     ): Claim? {
         val configKeyPrefix = "$CLAIMS_KEY.${parsed.id}"
@@ -64,34 +60,13 @@ class ClaimsConfigValidator(
             "$configKeyPrefix.audience", "config.claim.audience.not_found"
         )
 
-        // Build ACL via ClaimAclFactory (will be properly split in a later step).
-        val template = templates.values.find { t ->
-            // Find the template that was resolved for this claim during parsing.
-            // For generated claims, use "default"; for others, match by audienceId pattern.
-            true
-        }
-
-        val errors = mutableListOf<ConfigurationException>()
+        // Validate ACL scope references.
         val acl = if (parsed.generated) {
-            val generatedClaim = GeneratedOpenIdConnectClaim.entries
-                .first { it.id == parsed.id }
-            claimAclFactory.buildGeneratedClaimAcl(
-                acl = parsed.acl,
-                template = templates[DEFAULT],
-                configKeyPrefix = configKeyPrefix,
-                consentScope = generatedClaim.scope,
-                errors = errors
-            )
+            val generatedClaim = GeneratedOpenIdConnectClaim.entries.first { it.id == parsed.id }
+            claimAclValidator.validateGeneratedClaimAcl(ctx, parsed.acl, configKeyPrefix, generatedClaim.scope)
         } else {
-            claimAclFactory.buildAcl(
-                acl = parsed.acl,
-                template = templates[DEFAULT],
-                configKeyPrefix = configKeyPrefix,
-                defaultConsentScope = null,
-                errors = errors
-            )
+            claimAclValidator.validateAcl(ctx, parsed.acl, configKeyPrefix)
         }
-        errors.forEach { ctx.addError(it) }
 
         if (parsed.dataType == null) return null
 
