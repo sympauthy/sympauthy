@@ -1,13 +1,14 @@
 package com.sympauthy.config.parsing
 
+import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.ClientTemplate
 import com.sympauthy.config.properties.ClientConfigurationProperties
-import com.sympauthy.config.properties.ClientConfigurationProperties.AuthorizationWebhookConfig
 import com.sympauthy.config.properties.ClientConfigurationProperties.Companion.CLIENTS_KEY
 import com.sympauthy.config.properties.ClientTemplateConfigurationProperties.Companion.DEFAULT
+import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
 data class ParsedClient(
@@ -16,18 +17,18 @@ data class ParsedClient(
     val isPublic: Boolean,
     val secret: String?,
     val template: ClientTemplate?,
-    val allowedGrantTypes: List<String>?,
+    val allowedGrantTypes: Set<GrantType>?,
     val authorizationFlowId: String?,
-    val uris: Map<String, String>?,
     val allowedRedirectUris: List<String>?,
     val allowedScopes: List<String>?,
     val defaultScopes: List<String>?,
-    val authorizationWebhook: AuthorizationWebhookConfig?
+    val authorizationWebhook: ParsedAuthorizationWebhook?
 )
 
 @Singleton
 class ClientsConfigParser(
-    private val parser: ConfigParser
+    @Inject private val parser: ConfigParser,
+    @Inject private val fieldParser: ClientConfigFieldParser
 ) {
     fun parse(
         ctx: ConfigParsingContext,
@@ -57,19 +58,38 @@ class ClientsConfigParser(
 
         val audienceId = properties.audience ?: template?.audienceId
 
+        val allowedGrantTypes = if (properties.allowedGrantTypes != null) {
+            fieldParser.parseGrantTypes(ctx, "$configKeyPrefix.allowed-grant-types", properties.allowedGrantTypes)
+        } else {
+            null
+        }
+
+        val allowedRedirectUris = if (properties.allowedRedirectUris != null) {
+            fieldParser.parseRedirectUris(
+                ctx, "$configKeyPrefix.allowed-redirect-uris", properties.uris, properties.allowedRedirectUris
+            )
+        } else {
+            null
+        }
+
+        val authorizationWebhook = if (properties.authorizationWebhook != null) {
+            fieldParser.parseWebhook(ctx, "$configKeyPrefix.authorization-webhook", properties.authorizationWebhook)
+        } else {
+            null
+        }
+
         return ParsedClient(
             id = properties.id,
             audienceId = audienceId,
             isPublic = isPublic,
             secret = secret,
             template = template,
-            allowedGrantTypes = properties.allowedGrantTypes,
+            allowedGrantTypes = allowedGrantTypes,
             authorizationFlowId = properties.authorizationFlow,
-            uris = properties.uris,
-            allowedRedirectUris = properties.allowedRedirectUris,
+            allowedRedirectUris = allowedRedirectUris,
             allowedScopes = properties.allowedScopes,
             defaultScopes = properties.defaultScopes,
-            authorizationWebhook = properties.authorizationWebhook
+            authorizationWebhook = authorizationWebhook
         )
     }
 

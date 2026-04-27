@@ -4,9 +4,7 @@ import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.config.ConfigParsingContext
-import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.exception.configExceptionOf
-import com.sympauthy.config.factory.ClientConfigFieldParser
 import com.sympauthy.config.parsing.ParsedClient
 import com.sympauthy.config.properties.ClientConfigurationProperties.Companion.CLIENTS_KEY
 import jakarta.inject.Inject
@@ -14,7 +12,7 @@ import jakarta.inject.Singleton
 
 @Singleton
 class ClientsConfigValidator(
-    @Inject private val fieldParser: ClientConfigFieldParser
+    @Inject private val fieldValidator: ClientConfigFieldValidator
 ) {
 
     suspend fun validate(
@@ -43,97 +41,73 @@ class ClientsConfigValidator(
             subCtx.addError(configExceptionOf("$configKeyPrefix.secret", "config.missing"))
         }
 
-        // Validate fields via ClientConfigFieldParser (temporarily mixing concerns).
-        val errors = mutableListOf<ConfigurationException>()
-
-        val allowedGrantTypes = try {
-            when {
-                parsed.allowedGrantTypes != null -> fieldParser.getAllowedGrantTypesOrNull(
-                    configKey = "$configKeyPrefix.allowed-grant-types",
-                    allowedGrantTypes = parsed.allowedGrantTypes,
-                    errors = errors
+        // Resolve grant types: from parsed, from template, or error.
+        val allowedGrantTypes = when {
+            parsed.allowedGrantTypes != null -> fieldValidator.validateGrantTypes(
+                subCtx, "$configKeyPrefix.allowed-grant-types", parsed.allowedGrantTypes
+            )
+            parsed.template?.allowedGrantTypes != null -> parsed.template.allowedGrantTypes
+            else -> {
+                subCtx.addError(
+                    configExceptionOf(
+                        "$configKeyPrefix.allowed-grant-types",
+                        "config.client.allowed_grant_types.missing",
+                        "supportedValues" to GrantType.entries.joinToString(", ") { it.value }
+                    )
                 )
-                parsed.template?.allowedGrantTypes != null -> parsed.template.allowedGrantTypes
+                null
+            }
+        }
+
+        // Validate authorization flow.
+        val authorizationFlow = when {
+            parsed.authorizationFlowId != null -> fieldValidator.validateAuthorizationFlow(
+                subCtx, "$configKeyPrefix.authorization-flow", parsed.authorizationFlowId
+            )
+            else -> parsed.template?.authorizationFlow
+        }
+
+        // Validate redirect URIs.
+        val allowedRedirectUris = if (allowedGrantTypes?.contains(GrantType.AUTHORIZATION_CODE) != false) {
+            when {
+                parsed.allowedRedirectUris != null -> parsed.allowedRedirectUris
+                parsed.template?.allowedRedirectUris != null -> parsed.template.allowedRedirectUris
                 else -> {
-                    errors.add(
-                        configExceptionOf(
-                            "$configKeyPrefix.allowed-grant-types",
-                            "config.client.allowed_grant_types.missing",
-                            "supportedValues" to GrantType.entries.joinToString(", ") { it.value }
-                        )
+                    subCtx.addError(
+                        configExceptionOf("$configKeyPrefix.allowed-redirect-uris", "config.client.allowed_redirect_uris.missing")
                     )
                     null
                 }
             }
-        } catch (e: ConfigurationException) { errors.add(e); null }
-
-        val authorizationFlow = try {
-            when {
-                parsed.authorizationFlowId != null -> fieldParser.getAuthorizationFlow(
-                    key = "$configKeyPrefix.authorization-flow",
-                    flowId = parsed.authorizationFlowId
-                )
-                else -> parsed.template?.authorizationFlow
-            }
-        } catch (e: ConfigurationException) { errors.add(e); null }
-
-        val allowedRedirectUris = if (allowedGrantTypes?.contains(GrantType.AUTHORIZATION_CODE) != false) {
-            try {
-                when {
-                    parsed.allowedRedirectUris != null -> fieldParser.getAllowedRedirectUrisOrNull(
-                        configKey = "$configKeyPrefix.allowed-redirect-uris",
-                        uris = parsed.uris,
-                        allowedRedirectUris = parsed.allowedRedirectUris,
-                        errors = errors
-                    )
-                    parsed.template?.allowedRedirectUris != null -> parsed.template.allowedRedirectUris
-                    else -> {
-                        errors.add(
-                            configExceptionOf("$configKeyPrefix.allowed-redirect-uris", "config.client.allowed_redirect_uris.missing")
-                        )
-                        null
-                    }
-                }
-            } catch (e: ConfigurationException) { errors.add(e); null }
         } else {
-            if (!parsed.allowedRedirectUris.isNullOrEmpty()) {
-                errors.add(
+            if (parsed.allowedRedirectUris != null) {
+                subCtx.addError(
                     configExceptionOf("$configKeyPrefix.allowed-redirect-uris", "config.client.allowed_redirect_uris.unnecessary")
                 )
             }
             emptyList()
         }
 
-        val allowedScopes = try {
-            when {
-                parsed.allowedScopes != null -> fieldParser.getScopes(
-                    key = "$configKeyPrefix.allowed-scopes", scopes = parsed.allowedScopes, errors = errors
-                )?.toSet()
-                else -> parsed.template?.allowedScopes
-            }
-        } catch (e: ConfigurationException) { errors.add(e); null }
+        // Validate scopes.
+        val allowedScopes = when {
+            parsed.allowedScopes != null -> fieldValidator.validateScopes(
+                subCtx, "$configKeyPrefix.allowed-scopes", parsed.allowedScopes
+            )?.toSet()
+            else -> parsed.template?.allowedScopes
+        }
+        val defaultScopes = when {
+            parsed.defaultScopes != null -> fieldValidator.validateScopes(
+                subCtx, "$configKeyPrefix.default-scopes", parsed.defaultScopes
+            )
+            else -> parsed.template?.defaultScopes
+        }
 
-        val defaultScopes = try {
-            when {
-                parsed.defaultScopes != null -> fieldParser.getScopes(
-                    key = "$configKeyPrefix.default-scopes", scopes = parsed.defaultScopes, errors = errors
-                )
-                else -> parsed.template?.defaultScopes
-            }
-        } catch (e: ConfigurationException) { errors.add(e); null }
+        // Validate webhook.
+        val authorizationWebhook = when {
+            parsed.authorizationWebhook != null -> fieldValidator.validateWebhook(parsed.authorizationWebhook)
+            else -> parsed.template?.authorizationWebhook
+        }
 
-        val authorizationWebhook = try {
-            when {
-                parsed.authorizationWebhook != null -> fieldParser.getAuthorizationWebhook(
-                    configKey = "$configKeyPrefix.authorization-webhook",
-                    webhookConfig = parsed.authorizationWebhook,
-                    errors = errors
-                )
-                else -> parsed.template?.authorizationWebhook
-            }
-        } catch (e: ConfigurationException) { errors.add(e); null }
-
-        errors.forEach { subCtx.addError(it) }
         ctx.merge(subCtx)
         if (subCtx.hasErrors) return null
 
