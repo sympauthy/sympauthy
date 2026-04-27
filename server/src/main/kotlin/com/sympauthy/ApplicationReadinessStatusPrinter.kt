@@ -38,6 +38,7 @@ class ApplicationReadinessStatusPrinter(
     @Inject private val scopeManager: ScopeManager,
     @Inject private val scopeGrantingRuleManager: ScopeGrantingRuleManager,
     @Inject private val providerConfigManager: ProviderManager,
+    @Inject private val uncheckedAudiencesConfig: AudiencesConfig,
     @Inject private val uncheckedAuthConfig: AuthConfig,
     @Inject private val uncheckedMfaConfig: MfaConfig,
     @Inject private val uncheckedUrlsConfig: UrlsConfig,
@@ -100,21 +101,19 @@ class ApplicationReadinessStatusPrinter(
             logger.info("- MFA enabled ($requiredLabel, ${mfaMethods.joinToString()}).")
         }
 
-        val enabledClaims = try {
-            claimManager.listEnabledClaims()
+        val audiencesCount = try {
+            uncheckedAudiencesConfig.orThrow().audiences.size
         } catch (_: Throwable) {
-            emptyList()
+            0
         }
-        val standardClaimsCount = enabledClaims.count { it.origin == ClaimOrigin.OPENID_CONNECT }
-        val customClaimsCount = enabledClaims.count { it.origin == ClaimOrigin.CUSTOM }
-        logger.info(
-            "- ${pluralize(enabledClaims.size, "claim")} (${
-                pluralize(
-                    standardClaimsCount,
-                    "standard"
-                )
-            }, ${pluralize(customClaimsCount, "custom")})."
-        )
+        logger.info("- ${pluralize(audiencesCount, "audience")}.")
+
+        val clientsCount = try {
+            clientManager.listClients().size
+        } catch (_: Throwable) {
+            0
+        }
+        logger.info("- ${pluralize(clientsCount, "client")}.")
 
         val scopes = try {
             scopeManager.listScopes()
@@ -141,12 +140,21 @@ class ApplicationReadinessStatusPrinter(
             })."
         )
 
-        val clientsCount = try {
-            clientManager.listClients().size
+        val enabledClaims = try {
+            claimManager.listEnabledClaims()
         } catch (_: Throwable) {
-            0
+            emptyList()
         }
-        logger.info("- ${pluralize(clientsCount, "client")}.")
+        val standardClaimsCount = enabledClaims.count { it.origin == ClaimOrigin.OPENID_CONNECT }
+        val customClaimsCount = enabledClaims.count { it.origin == ClaimOrigin.CUSTOM }
+        logger.info(
+            "- ${pluralize(enabledClaims.size, "claim")} (${
+                pluralize(
+                    standardClaimsCount,
+                    "standard"
+                )
+            }, ${pluralize(customClaimsCount, "custom")})."
+        )
 
         val userRulesCount = try {
             scopeGrantingRuleManager.listUserScopeGrantingRules().size
