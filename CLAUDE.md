@@ -40,7 +40,7 @@ Multi-module Gradle project (root + `server`). All source code is in `server/src
 - **`api/`** — HTTP controllers, DTOs (`resource/`), request/response mappers, error handlers, filters
 - **`business/`** — Core logic in managers (`manager/`), domain models (`model/`), entity-to-model mappers (`mapper/`)
 - **`data/`** — R2DBC entities (`model/`), reactive repositories (`repository/`), database-specific repos (`postgresql/`, `h2/`)
-- **`config/`** — Configuration properties (`properties/`), sealed config models (`model/`), config factories (`factory/`)
+- **`config/`** — Configuration properties (`properties/`), sealed config models (`model/`), parsers (`parsing/`), validators (`validation/`), config factories (`factory/`)
 - **`security/`** — Authentication/authorization (token validation, user/state authentication)
 
 ### Key Conventions
@@ -52,7 +52,11 @@ Multi-module Gradle project (root + `server`). All source code is in `server/src
 #### Config (com.sympauthy.config)
 
 - **Config sealed class pattern** — `EnabledXxxConfig` / `DisabledXxxConfig` with `orThrow()` extension for required configs, `as? EnabledXxxConfig` for optional feature checks
-- **Config factories must accumulate all errors** — Every field validation in a `*ConfigFactory` must be wrapped in its own try/catch, collecting `ConfigurationException` into an errors list. Never stop at the first error — the admin needs to see all issues at once.
+- **Config three-layer architecture** — Each config domain is split across three layers:
+  - **Parser** (`config/parsing/XxxConfigParser.kt`): `@Singleton` bean. Only does type conversion (`ctx.parse { parser.getXxxOrThrow(...) }`) and template resolution. Returns a parsed intermediate data class with nullable fields. Never validates values, never references other config domains.
+  - **Validator** (`config/validation/XxxConfigValidator.kt`): `@Singleton` bean. Handles intra-domain validation (value ranges, consistency checks) and cross-domain validation (audience exists, scope exists). Returns final business models.
+  - **Factory** (`config/factory/XxxConfigFactory.kt`): `@Factory` bean. Thin orchestration: creates `ConfigParsingContext`, calls parser, calls validator, assembles `EnabledXxxConfig` or `DisabledXxxConfig`.
+- **ConfigParsingContext** — All parsers and validators use `ConfigParsingContext` for error accumulation. Use `ctx.parse { }` to catch `ConfigurationException` automatically, `ctx.addError()` for explicit validation errors, `ctx.child()` + `ctx.merge()` for sub-sections.
 - **Config vs Manager separation** — Config factories validate YAML input only (no HTTP calls, no external interactions). Runtime operations (e.g. OpenID Connect discovery) belong in the manager layer. Error message keys must reflect where they occur (`config.*` for validation errors, `provider.*` for runtime errors).
 
 #### Business (com.sympauthy.business)
