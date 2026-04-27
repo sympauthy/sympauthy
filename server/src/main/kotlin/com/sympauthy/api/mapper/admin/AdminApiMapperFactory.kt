@@ -24,4 +24,8 @@ class AdminApiMapperFactory {
     @Singleton
     fun mfaMethodResourceMapper(): AdminUserMfaMethodResourceMapper =
         Mappers.getMapper(AdminUserMfaMethodResourceMapper::class.java)
+
+    @Singleton
+    fun audienceResourceMapper(): AdminAudienceResourceMapper =
+        Mappers.getMapper(AdminAudienceResourceMapper::class.java)
 }
