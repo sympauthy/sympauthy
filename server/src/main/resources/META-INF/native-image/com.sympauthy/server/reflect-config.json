@@ -26,6 +26,15 @@
     ]
   },
   {
+    "name": "com.sympauthy.api.mapper.admin.AdminAudienceResourceMapperImpl",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
     "name": "com.sympauthy.api.mapper.admin.AdminClientResourceMapperImpl",
     "methods": [
       {
