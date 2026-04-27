@@ -6,7 +6,9 @@ import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.model.*
+import com.sympauthy.config.parsing.ClientsConfigParser
 import com.sympauthy.config.properties.ClientConfigurationProperties
+import com.sympauthy.config.validation.ClientsConfigValidator
 import io.mockk.coEvery
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
@@ -70,7 +72,12 @@ class ClientsConfigFactoryTest {
         val templatesConfig = EnabledClientTemplatesConfig(templates.associateBy { it.id })
         val templatesFlow = flowOf<ClientTemplatesConfig>(templatesConfig)
         val audiencesConfig = EnabledAudiencesConfig(listOf(testAudience))
-        return ClientsConfigFactory(parser, fieldParser, templatesFlow, audiencesConfig)
+        return ClientsConfigFactory(
+            ClientsConfigParser(parser),
+            ClientsConfigValidator(fieldParser),
+            templatesFlow,
+            audiencesConfig
+        )
     }
 
     // --- Default template resolution ---
