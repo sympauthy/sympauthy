@@ -44,11 +44,11 @@ class ClientUserManagerTest {
         creationDate = LocalDateTime.now()
     )
 
-    private fun mockConsent(userId: UUID, clientId: String = "test-client") = Consent(
+    private fun mockConsent(userId: UUID, promptedByClientId: String = "test-client") = Consent(
         id = UUID.randomUUID(),
         userId = userId,
         audienceId = "test-audience",
-        clientId = clientId,
+        promptedByClientId = promptedByClientId,
         scopes = listOf("profile", "email"),
         consentedAt = LocalDateTime.now(),
         revokedAt = null,

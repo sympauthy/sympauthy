@@ -22,8 +22,8 @@ data class AdminConsentResource(
     @get:JsonProperty("audience_id")
     val audienceId: String,
     @get:Schema(description = "Identifier of the client that originally prompted the consent.")
-    @get:JsonProperty("client_id")
-    val clientId: String,
+    @get:JsonProperty("prompted_by_client_id")
+    val promptedByClientId: String,
     @get:Schema(description = "List of scope identifiers the user consented to for this audience.")
     val scopes: List<String>,
     @get:Schema(description = "Date and time at which the user consented.")

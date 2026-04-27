@@ -12,7 +12,7 @@ import java.util.*
 class ConsentEntity(
     val userId: UUID,
     val audienceId: String,
-    val clientId: String,
+    val promptedByClientId: String,
     val scopes: Array<String>,
     val consentedAt: LocalDateTime,
     val revokedAt: LocalDateTime? = null,

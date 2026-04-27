@@ -66,7 +66,7 @@ open class ConsentManager(
         val entity = ConsentEntity(
             userId = userId,
             audienceId = audienceId,
-            clientId = clientId,
+            promptedByClientId = clientId,
             scopes = mergedScopes.toTypedArray(),
             consentedAt = LocalDateTime.now()
         )
@@ -83,14 +83,6 @@ open class ConsentManager(
     }
 
     /**
-     * Find the active (non-revoked) consent for the given [userId] and [clientId], or null if none exists.
-     */
-    suspend fun findActiveConsentOrNull(userId: UUID, clientId: String): Consent? {
-        return consentRepository.findByUserIdAndClientIdAndRevokedAtIsNull(userId, clientId)
-            ?.let(consentMapper::toConsent)
-    }
-
-    /**
      * Find all active (non-revoked) consents for the given [userId].
      */
     suspend fun findActiveConsentsByUser(userId: UUID): List<Consent> {
@@ -103,22 +95,6 @@ open class ConsentManager(
      */
     suspend fun findActiveConsentsByAudience(audienceId: String): List<Consent> {
         return consentRepository.findByAudienceIdAndRevokedAtIsNull(audienceId)
-            .map(consentMapper::toConsent)
-    }
-
-    /**
-     * Find all active (non-revoked) consents for the given [clientId].
-     */
-    suspend fun findActiveConsentsByClient(clientId: String): List<Consent> {
-        return consentRepository.findByClientIdAndRevokedAtIsNull(clientId)
-            .map(consentMapper::toConsent)
-    }
-
-    /**
-     * Find all consents (including revoked) for the given [userId].
-     */
-    suspend fun findAllConsentsByUser(userId: UUID): List<Consent> {
-        return consentRepository.findByUserId(userId)
             .map(consentMapper::toConsent)
     }
 
@@ -140,7 +116,7 @@ open class ConsentManager(
         if (updatedCount > 0) {
             tokenRepository.updateRevokedAtByUserIdAndClientId(
                 userId = consent.userId,
-                clientId = consent.clientId,
+                clientId = consent.promptedByClientId,
                 revokedAt = LocalDateTime.now(),
                 revokedBy = TokenRevokedBy.CONSENT_REVOKED.name,
                 revokedById = revokedById

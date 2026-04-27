@@ -81,28 +81,6 @@ class ConsentManagerTest {
     }
 
     @Test
-    fun `findActiveConsentOrNull - Returns consent when found`() = runTest {
-        val entity = mockk<ConsentEntity>()
-        val consent = mockk<Consent>()
-
-        coEvery { consentRepository.findByUserIdAndClientIdAndRevokedAtIsNull(userId, clientId) } returns entity
-        every { consentMapper.toConsent(entity) } returns consent
-
-        val result = consentManager.findActiveConsentOrNull(userId, clientId)
-
-        assertSame(consent, result)
-    }
-
-    @Test
-    fun `findActiveConsentOrNull - Returns null when not found`() = runTest {
-        coEvery { consentRepository.findByUserIdAndClientIdAndRevokedAtIsNull(userId, clientId) } returns null
-
-        val result = consentManager.findActiveConsentOrNull(userId, clientId)
-
-        assertNull(result)
-    }
-
-    @Test
     fun `findActiveConsentsByUser - Returns mapped consents`() = runTest {
         val entity1 = mockk<ConsentEntity>()
         val entity2 = mockk<ConsentEntity>()
@@ -128,7 +106,7 @@ class ConsentManagerTest {
             id = consentId,
             userId = userId,
             audienceId = audienceId,
-            clientId = clientId,
+            promptedByClientId = clientId,
             scopes = scopes,
             consentedAt = LocalDateTime.now(),
             revokedAt = null,

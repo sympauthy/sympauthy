@@ -10,15 +10,7 @@ interface ConsentRepository : CoroutineCrudRepository<ConsentEntity, UUID> {
 
     suspend fun findByUserIdAndAudienceIdAndRevokedAtIsNull(userId: UUID, audienceId: String): ConsentEntity?
 
-    suspend fun findByUserIdAndClientIdAndRevokedAtIsNull(userId: UUID, clientId: String): ConsentEntity?
-
     suspend fun findByUserIdAndRevokedAtIsNull(userId: UUID): List<ConsentEntity>
-
-    suspend fun findByUserId(userId: UUID): List<ConsentEntity>
-
-    suspend fun findByClientId(clientId: String): List<ConsentEntity>
-
-    suspend fun findByClientIdAndRevokedAtIsNull(clientId: String): List<ConsentEntity>
 
     suspend fun findByAudienceIdAndRevokedAtIsNull(audienceId: String): List<ConsentEntity>
 
