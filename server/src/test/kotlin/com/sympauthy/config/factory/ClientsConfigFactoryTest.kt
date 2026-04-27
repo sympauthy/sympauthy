@@ -6,7 +6,11 @@ import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.model.*
+import com.sympauthy.config.parsing.ClientConfigFieldParser
+import com.sympauthy.config.parsing.ClientsConfigParser
 import com.sympauthy.config.properties.ClientConfigurationProperties
+import com.sympauthy.config.validation.ClientConfigFieldValidator
+import com.sympauthy.config.validation.ClientsConfigValidator
 import io.mockk.coEvery
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
@@ -24,7 +28,19 @@ class ClientsConfigFactoryTest {
     @MockK(relaxed = true)
     lateinit var fieldParser: ClientConfigFieldParser
 
+    @MockK(relaxed = true)
+    lateinit var fieldValidator: ClientConfigFieldValidator
+
     private val parser = ConfigParser()
+
+    private fun setUpFieldValidator() {
+        // By default, validateGrantTypes passes through the input.
+        coEvery { fieldValidator.validateGrantTypes(any(), any(), any()) } answers {
+            thirdArg()
+        }
+        // By default, validateWebhook passes through null.
+        coEvery { fieldValidator.validateWebhook(any()) } returns null
+    }
 
     private fun clientProperties(
         id: String,
@@ -67,10 +83,16 @@ class ClientsConfigFactoryTest {
     }
 
     private fun factory(vararg templates: ClientTemplate): ClientsConfigFactory {
+        setUpFieldValidator()
         val templatesConfig = EnabledClientTemplatesConfig(templates.associateBy { it.id })
         val templatesFlow = flowOf<ClientTemplatesConfig>(templatesConfig)
         val audiencesConfig = EnabledAudiencesConfig(listOf(testAudience))
-        return ClientsConfigFactory(parser, fieldParser, templatesFlow, audiencesConfig)
+        return ClientsConfigFactory(
+            ClientsConfigParser(parser, fieldParser),
+            ClientsConfigValidator(fieldValidator),
+            templatesFlow,
+            audiencesConfig
+        )
     }
 
     // --- Default template resolution ---
@@ -80,7 +102,7 @@ class ClientsConfigFactoryTest {
         val grantTypes = setOf(GrantType.AUTHORIZATION_CODE)
         val redirectUris = listOf("https://example.com/callback")
 
-        coEvery { fieldParser.getAllowedRedirectUrisOrNull(any(), any(), any(), any()) } returns redirectUris
+        coEvery { fieldParser.parseRedirectUris(any(), any(), any(), any()) } returns redirectUris
 
         val factory = factory(
             clientTemplate(
@@ -107,7 +129,7 @@ class ClientsConfigFactoryTest {
         val clientGrantTypes = setOf(GrantType.CLIENT_CREDENTIALS)
         val redirectUris = listOf("https://example.com/callback")
 
-        coEvery { fieldParser.getAllowedGrantTypesOrNull(any(), any(), any()) } returns clientGrantTypes
+        coEvery { fieldParser.parseGrantTypes(any(), any(), any()) } returns clientGrantTypes
 
         val factory = factory(
             clientTemplate(
@@ -194,17 +216,6 @@ class ClientsConfigFactoryTest {
 
     @Test
     fun `Client without template and no default requires all fields`() = runTest {
-        coEvery { fieldParser.getAllowedGrantTypesOrNull(any(), isNull(), any()) } answers {
-            val errors = thirdArg<MutableList<ConfigurationException>>()
-            errors.add(ConfigurationException("key", "config.client.allowed_grant_types.missing"))
-            null
-        }
-        coEvery { fieldParser.getAllowedRedirectUrisOrNull(any(), any(), isNull(), any()) } answers {
-            val errors = arg<MutableList<ConfigurationException>>(3)
-            errors.add(ConfigurationException("key", "config.client.allowed_redirect_uris.missing"))
-            null
-        }
-
         val factory = factory()
         val clients = listOf(
             clientProperties(id = "my-app", secret = "secret")

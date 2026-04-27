@@ -1,45 +1,30 @@
 package com.sympauthy.config.factory
 
-import com.sympauthy.config.ConfigParser
-import com.sympauthy.config.exception.ConfigurationException
+import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.DisabledUIConfig
 import com.sympauthy.config.model.EnabledUIConfig
 import com.sympauthy.config.model.UIConfig
+import com.sympauthy.config.parsing.UIConfigParser
 import com.sympauthy.config.properties.UIConfigurationProperties
-import com.sympauthy.config.properties.UIConfigurationProperties.Companion.UI_KEY
+import com.sympauthy.config.validation.UIConfigValidator
 import io.micronaut.context.annotation.Factory
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
 @Factory
 class UIConfigFactory(
-    @Inject private val parser: ConfigParser
+    @Inject private val uiParser: UIConfigParser,
+    @Inject private val uiValidator: UIConfigValidator
 ) {
 
     @Singleton
     fun provideUIConfig(
         properties: UIConfigurationProperties
     ): UIConfig {
-        val errors = mutableListOf<ConfigurationException>()
-
-        val displayName = try {
-            parser.getStringOrThrow(
-                properties, "${UI_KEY}.display-name",
-                UIConfigurationProperties::displayName
-            )
-        } catch (e: ConfigurationException) {
-            errors.add(e)
-            null
-        }
-
-        return if (errors.isEmpty()) {
-            EnabledUIConfig(
-                displayName = displayName!!
-            )
-        } else {
-            DisabledUIConfig(
-                configurationErrors = errors
-            )
-        }
+        val ctx = ConfigParsingContext()
+        val parsed = uiParser.parse(ctx, properties)
+        uiValidator.validate(ctx, parsed)
+        return if (ctx.hasErrors) DisabledUIConfig(ctx.errors)
+        else EnabledUIConfig(displayName = parsed.displayName!!)
     }
 }

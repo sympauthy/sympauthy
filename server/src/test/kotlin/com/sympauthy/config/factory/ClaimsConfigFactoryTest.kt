@@ -5,9 +5,13 @@ import com.sympauthy.business.model.user.claim.ClaimOrigin
 import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.model.*
+import com.sympauthy.config.parsing.ClaimAclParser
+import com.sympauthy.config.parsing.ClaimsConfigParser
 import com.sympauthy.config.properties.AuthConfigurationProperties
 import com.sympauthy.config.properties.ClaimConfigurationProperties
 import com.sympauthy.config.properties.ClaimTemplateConfigurationProperties.Companion.DEFAULT
+import com.sympauthy.config.validation.ClaimAclValidator
+import com.sympauthy.config.validation.ClaimsConfigValidator
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.SpyK
@@ -26,24 +30,7 @@ class ClaimsConfigFactoryTest {
     @MockK
     lateinit var authProperties: AuthConfigurationProperties
 
-    @MockK
-    lateinit var claimAclFactory: ClaimAclFactory
-
     lateinit var factory: ClaimsConfigFactory
-
-    private val defaultAcl = com.sympauthy.business.model.user.claim.ClaimAcl(
-        consent = com.sympauthy.business.model.user.claim.ConsentAcl(
-            scope = null,
-            readableByUser = false,
-            writableByUser = false,
-            readableByClient = false,
-            writableByClient = false
-        ),
-        unconditional = com.sympauthy.business.model.user.claim.UnconditionalAcl(
-            readableWithClientScopes = emptyList(),
-            writableWithClientScopes = emptyList()
-        )
-    )
 
     private val defaultTemplateAcl = ClaimTemplateAcl(null, null, null, null, null, null, null)
 
@@ -71,19 +58,22 @@ class ClaimsConfigFactoryTest {
     fun setUp() {
         every { authProperties.userMergingEnabled } returns null
         every { authProperties.identifierClaims } returns null
-        every {
-            claimAclFactory.buildAcl(any(), any(), any(), any(), any())
-        } returns defaultAcl
-        every {
-            claimAclFactory.buildGeneratedClaimAcl(any(), any(), any(), any(), any())
-        } returns defaultAcl
+
+        val claimAclParser = ClaimAclParser(parser)
+        val claimAclValidator = ClaimAclValidator(EnabledScopesConfig(emptyList()))
 
         val templates = mapOf(
             DEFAULT to defaultTemplate(),
             "openid" to openidTemplate()
         )
         val claimTemplatesConfig = EnabledClaimTemplatesConfig(templates)
-        factory = ClaimsConfigFactory(parser, authProperties, claimTemplatesConfig, claimAclFactory, EnabledAudiencesConfig(emptyList()))
+        factory = ClaimsConfigFactory(
+            ClaimsConfigParser(parser, claimAclParser),
+            ClaimsConfigValidator(claimAclValidator),
+            authProperties,
+            claimTemplatesConfig,
+            EnabledAudiencesConfig(emptyList())
+        )
     }
 
     private fun claimProperties(
@@ -263,18 +253,35 @@ class ClaimsConfigFactoryTest {
 
     @Test
     fun `provideClaims - userInputted is true when ACL allows user write`() {
-        val writableAcl = defaultAcl.copy(
-            consent = defaultAcl.consent.copy(writableByUser = true)
+        // Use a default template with writableByUser=true to produce writable ACL.
+        val writableTemplateAcl = ClaimTemplateAcl(
+            consentScope = null,
+            readableByUserWhenConsented = null,
+            writableByUserWhenConsented = true,
+            readableByClientWhenConsented = null,
+            writableByClientWhenConsented = null,
+            readableWithClientScopesUnconditionally = null,
+            writableWithClientScopesUnconditionally = null
         )
-        every {
-            claimAclFactory.buildAcl(any(), any(), any(), any(), any())
-        } returns writableAcl
+        val writableTemplate = ClaimTemplate(
+            id = DEFAULT, enabled = null, required = null, group = null,
+            audienceId = null, allowedValues = null, acl = writableTemplateAcl
+        )
+        val claimAclParser = ClaimAclParser(parser)
+        val claimAclValidator = ClaimAclValidator(EnabledScopesConfig(emptyList()))
+        val writableFactory = ClaimsConfigFactory(
+            ClaimsConfigParser(parser, claimAclParser),
+            ClaimsConfigValidator(claimAclValidator),
+            authProperties,
+            EnabledClaimTemplatesConfig(mapOf(DEFAULT to writableTemplate)),
+            EnabledAudiencesConfig(emptyList())
+        )
 
         val properties = listOf(
             claimProperties(id = "department", type = "string")
         )
 
-        val result = factory.provideClaims(properties)
+        val result = writableFactory.provideClaims(properties)
 
         assertInstanceOf(EnabledClaimsConfig::class.java, result)
         val claim = (result as EnabledClaimsConfig).claims.first { it.id == "department" }

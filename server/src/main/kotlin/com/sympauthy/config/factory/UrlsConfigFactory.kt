@@ -1,45 +1,30 @@
 package com.sympauthy.config.factory
 
-import com.sympauthy.config.ConfigParser
-import com.sympauthy.config.exception.ConfigurationException
+import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.DisabledUrlsConfig
 import com.sympauthy.config.model.EnabledUrlsConfig
 import com.sympauthy.config.model.UrlsConfig
+import com.sympauthy.config.parsing.UrlsConfigParser
 import com.sympauthy.config.properties.UrlsConfigurationProperties
-import com.sympauthy.config.properties.UrlsConfigurationProperties.Companion.URLS_KEY
+import com.sympauthy.config.validation.UrlsConfigValidator
 import io.micronaut.context.annotation.Factory
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
 @Factory
 class UrlsConfigFactory(
-    @Inject private val parser: ConfigParser
+    @Inject private val urlsParser: UrlsConfigParser,
+    @Inject private val urlsValidator: UrlsConfigValidator
 ) {
 
     @Singleton
     fun provideUrlsConfig(
         properties: UrlsConfigurationProperties
     ): UrlsConfig {
-        val errors = mutableListOf<ConfigurationException>()
-
-        val root = try {
-            parser.getAbsoluteUriOrThrow(
-                properties, "$URLS_KEY.root",
-                UrlsConfigurationProperties::root
-            )
-        } catch (e: ConfigurationException) {
-            errors.add(e)
-            null
-        }
-
-        return if (errors.isEmpty()) {
-            EnabledUrlsConfig(
-                root = root!!
-            )
-        } else {
-            DisabledUrlsConfig(
-                configurationErrors = errors
-            )
-        }
+        val ctx = ConfigParsingContext()
+        val parsed = urlsParser.parse(ctx, properties)
+        urlsValidator.validate(ctx, parsed)
+        return if (ctx.hasErrors) DisabledUrlsConfig(ctx.errors)
+        else EnabledUrlsConfig(root = parsed.root!!)
     }
 }

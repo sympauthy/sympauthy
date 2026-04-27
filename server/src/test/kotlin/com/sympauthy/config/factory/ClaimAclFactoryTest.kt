@@ -1,11 +1,14 @@
 package com.sympauthy.config.factory
 
 import com.sympauthy.config.ConfigParser
-import com.sympauthy.config.exception.ConfigurationException
+import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.ClaimTemplate
 import com.sympauthy.config.model.ClaimTemplateAcl
 import com.sympauthy.config.model.EnabledScopesConfig
+import com.sympauthy.config.model.ScopesConfig
+import com.sympauthy.config.parsing.ClaimAclParser
 import com.sympauthy.config.properties.ClaimAclProperties
+import com.sympauthy.config.validation.ClaimAclValidator
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -13,13 +16,15 @@ import org.junit.jupiter.api.Test
 class ClaimAclFactoryTest {
 
     private val parser = ConfigParser()
-    private val scopesConfig: com.sympauthy.config.model.ScopesConfig = EnabledScopesConfig(emptyList())
+    private val scopesConfig: ScopesConfig = EnabledScopesConfig(emptyList())
 
-    lateinit var factory: ClaimAclFactory
+    lateinit var claimAclParser: ClaimAclParser
+    lateinit var claimAclValidator: ClaimAclValidator
 
     @BeforeEach
     fun setUp() {
-        factory = ClaimAclFactory(parser, scopesConfig)
+        claimAclParser = ClaimAclParser(parser)
+        claimAclValidator = ClaimAclValidator(scopesConfig)
     }
 
     private fun aclProperties(
@@ -52,11 +57,11 @@ class ClaimAclFactoryTest {
         acl = acl
     )
 
-    // region buildAcl
+    // region parseAcl + validateAcl
 
     @Test
     fun `buildAcl - Resolves all fields from properties`() {
-        val errors = mutableListOf<ConfigurationException>()
+        val ctx = ConfigParsingContext()
         val acl = aclProperties(
             consentScope = "profile",
             readableByUser = "true",
@@ -67,9 +72,10 @@ class ClaimAclFactoryTest {
             writableWithClientScopes = listOf("users:claims:write")
         )
 
-        val result = factory.buildAcl(acl, null, "claims.test", null, errors)
+        val parsed = claimAclParser.parseAcl(ctx, acl, null, "claims.test", null)
+        val result = claimAclValidator.validateAcl(ctx, parsed, "claims.test")
 
-        assertTrue(errors.isEmpty())
+        assertFalse(ctx.hasErrors)
         assertEquals("profile", result.consent.scope)
         assertTrue(result.consent.readableByUser)
         assertFalse(result.consent.writableByUser)
@@ -81,7 +87,7 @@ class ClaimAclFactoryTest {
 
     @Test
     fun `buildAcl - Falls back to template when properties are null`() {
-        val errors = mutableListOf<ConfigurationException>()
+        val ctx = ConfigParsingContext()
         val template = template(
             acl = ClaimTemplateAcl(
                 consentScope = "email",
@@ -94,9 +100,10 @@ class ClaimAclFactoryTest {
             )
         )
 
-        val result = factory.buildAcl(null, template, "claims.test", null, errors)
+        val parsed = claimAclParser.parseAcl(ctx, null, template, "claims.test", null)
+        val result = claimAclValidator.validateAcl(ctx, parsed, "claims.test")
 
-        assertTrue(errors.isEmpty())
+        assertFalse(ctx.hasErrors)
         assertEquals("email", result.consent.scope)
         assertTrue(result.consent.readableByUser)
         assertFalse(result.consent.writableByUser)
@@ -107,21 +114,23 @@ class ClaimAclFactoryTest {
 
     @Test
     fun `buildAcl - Falls back to defaultConsentScope when neither properties nor template set scope`() {
-        val errors = mutableListOf<ConfigurationException>()
+        val ctx = ConfigParsingContext()
 
-        val result = factory.buildAcl(null, null, "claims.test", "profile", errors)
+        val parsed = claimAclParser.parseAcl(ctx, null, null, "claims.test", "profile")
+        val result = claimAclValidator.validateAcl(ctx, parsed, "claims.test")
 
-        assertTrue(errors.isEmpty())
+        assertFalse(ctx.hasErrors)
         assertEquals("profile", result.consent.scope)
     }
 
     @Test
     fun `buildAcl - Defaults to false and empty when nothing set`() {
-        val errors = mutableListOf<ConfigurationException>()
+        val ctx = ConfigParsingContext()
 
-        val result = factory.buildAcl(null, null, "claims.test", null, errors)
+        val parsed = claimAclParser.parseAcl(ctx, null, null, "claims.test", null)
+        val result = claimAclValidator.validateAcl(ctx, parsed, "claims.test")
 
-        assertTrue(errors.isEmpty())
+        assertFalse(ctx.hasErrors)
         assertNull(result.consent.scope)
         assertFalse(result.consent.readableByUser)
         assertFalse(result.consent.writableByUser)
@@ -133,7 +142,7 @@ class ClaimAclFactoryTest {
 
     @Test
     fun `buildAcl - Properties override template`() {
-        val errors = mutableListOf<ConfigurationException>()
+        val ctx = ConfigParsingContext()
         val acl = aclProperties(readableByUser = "false")
         val template = template(
             acl = ClaimTemplateAcl(
@@ -147,53 +156,57 @@ class ClaimAclFactoryTest {
             )
         )
 
-        val result = factory.buildAcl(acl, template, "claims.test", null, errors)
+        val parsed = claimAclParser.parseAcl(ctx, acl, template, "claims.test", null)
+        val result = claimAclValidator.validateAcl(ctx, parsed, "claims.test")
 
-        assertTrue(errors.isEmpty())
+        assertFalse(ctx.hasErrors)
         assertFalse(result.consent.readableByUser)
     }
 
     @Test
     fun `buildAcl - Accumulates error for invalid boolean`() {
-        val errors = mutableListOf<ConfigurationException>()
+        val ctx = ConfigParsingContext()
         val acl = aclProperties(readableByUser = "not_a_boolean", writableByUser = "also_bad")
 
-        factory.buildAcl(acl, null, "claims.test", null, errors)
+        claimAclParser.parseAcl(ctx, acl, null, "claims.test", null)
 
-        assertEquals(2, errors.size)
+        assertEquals(2, ctx.errors.size)
     }
 
     @Test
     fun `buildAcl - Error for unknown consent scope`() {
-        val errors = mutableListOf<ConfigurationException>()
+        val ctx = ConfigParsingContext()
         val acl = aclProperties(consentScope = "nonexistent_scope")
 
-        factory.buildAcl(acl, null, "claims.test", null, errors)
+        val parsed = claimAclParser.parseAcl(ctx, acl, null, "claims.test", null)
+        claimAclValidator.validateAcl(ctx, parsed, "claims.test")
 
-        assertEquals(1, errors.size)
+        assertEquals(1, ctx.errors.size)
     }
 
     @Test
     fun `buildAcl - Error for unknown client scope in unconditional list`() {
-        val errors = mutableListOf<ConfigurationException>()
+        val ctx = ConfigParsingContext()
         val acl = aclProperties(readableWithClientScopes = listOf("nonexistent:scope"))
 
-        factory.buildAcl(acl, null, "claims.test", null, errors)
+        val parsed = claimAclParser.parseAcl(ctx, acl, null, "claims.test", null)
+        claimAclValidator.validateAcl(ctx, parsed, "claims.test")
 
-        assertEquals(1, errors.size)
+        assertEquals(1, ctx.errors.size)
     }
 
     // endregion
 
-    // region buildGeneratedClaimAcl
+    // region parseGeneratedClaimAcl + validateGeneratedClaimAcl
 
     @Test
     fun `buildGeneratedClaimAcl - Always read-only with hardcoded consent`() {
-        val errors = mutableListOf<ConfigurationException>()
+        val ctx = ConfigParsingContext()
 
-        val result = factory.buildGeneratedClaimAcl(null, null, "claims.sub", "profile", errors)
+        val parsed = claimAclParser.parseGeneratedClaimAcl(ctx, null, null, "claims.sub")
+        val result = claimAclValidator.validateGeneratedClaimAcl(ctx, parsed, "claims.sub", "profile")
 
-        assertTrue(errors.isEmpty())
+        assertFalse(ctx.hasErrors)
         assertEquals("profile", result.consent.scope)
         assertTrue(result.consent.readableByUser)
         assertFalse(result.consent.writableByUser)
@@ -204,18 +217,19 @@ class ClaimAclFactoryTest {
 
     @Test
     fun `buildGeneratedClaimAcl - Resolves readable client scopes from properties`() {
-        val errors = mutableListOf<ConfigurationException>()
+        val ctx = ConfigParsingContext()
         val acl = aclProperties(readableWithClientScopes = listOf("users:claims:read"))
 
-        val result = factory.buildGeneratedClaimAcl(acl, null, "claims.sub", "profile", errors)
+        val parsed = claimAclParser.parseGeneratedClaimAcl(ctx, acl, null, "claims.sub")
+        val result = claimAclValidator.validateGeneratedClaimAcl(ctx, parsed, "claims.sub", "profile")
 
-        assertTrue(errors.isEmpty())
+        assertFalse(ctx.hasErrors)
         assertEquals(listOf("users:claims:read"), result.unconditional.readableWithClientScopes)
     }
 
     @Test
     fun `buildGeneratedClaimAcl - Falls back to template for readable client scopes`() {
-        val errors = mutableListOf<ConfigurationException>()
+        val ctx = ConfigParsingContext()
         val template = template(
             acl = ClaimTemplateAcl(
                 consentScope = null,
@@ -228,23 +242,25 @@ class ClaimAclFactoryTest {
             )
         )
 
-        val result = factory.buildGeneratedClaimAcl(null, template, "claims.sub", "profile", errors)
+        val parsed = claimAclParser.parseGeneratedClaimAcl(ctx, null, template, "claims.sub")
+        val result = claimAclValidator.validateGeneratedClaimAcl(ctx, parsed, "claims.sub", "profile")
 
-        assertTrue(errors.isEmpty())
+        assertFalse(ctx.hasErrors)
         assertEquals(listOf("users:claims:read"), result.unconditional.readableWithClientScopes)
     }
 
     // endregion
 
-    // region buildTemplateAcl
+    // region parseTemplateAcl + validateTemplateAcl
 
     @Test
     fun `buildTemplateAcl - Returns all nulls when acl is null`() {
-        val errors = mutableListOf<ConfigurationException>()
+        val ctx = ConfigParsingContext()
 
-        val result = factory.buildTemplateAcl(null, "templates.claims.test", errors)
+        val parsed = claimAclParser.parseTemplateAcl(ctx, null, "templates.claims.test")
+        val result = claimAclValidator.validateTemplateAcl(ctx, parsed, "templates.claims.test")
 
-        assertTrue(errors.isEmpty())
+        assertFalse(ctx.hasErrors)
         assertNull(result.consentScope)
         assertNull(result.readableByUserWhenConsented)
         assertNull(result.writableByUserWhenConsented)
@@ -256,7 +272,7 @@ class ClaimAclFactoryTest {
 
     @Test
     fun `buildTemplateAcl - Parses all fields`() {
-        val errors = mutableListOf<ConfigurationException>()
+        val ctx = ConfigParsingContext()
         val acl = aclProperties(
             consentScope = "profile",
             readableByUser = "true",
@@ -267,9 +283,10 @@ class ClaimAclFactoryTest {
             writableWithClientScopes = listOf("users:claims:write")
         )
 
-        val result = factory.buildTemplateAcl(acl, "templates.claims.test", errors)
+        val parsed = claimAclParser.parseTemplateAcl(ctx, acl, "templates.claims.test")
+        val result = claimAclValidator.validateTemplateAcl(ctx, parsed, "templates.claims.test")
 
-        assertTrue(errors.isEmpty())
+        assertFalse(ctx.hasErrors)
         assertEquals("profile", result.consentScope)
         assertEquals(true, result.readableByUserWhenConsented)
         assertEquals(false, result.writableByUserWhenConsented)
@@ -281,22 +298,23 @@ class ClaimAclFactoryTest {
 
     @Test
     fun `buildTemplateAcl - Accumulates errors for invalid booleans`() {
-        val errors = mutableListOf<ConfigurationException>()
+        val ctx = ConfigParsingContext()
         val acl = aclProperties(readableByUser = "bad", writableByClient = "worse")
 
-        factory.buildTemplateAcl(acl, "templates.claims.test", errors)
+        claimAclParser.parseTemplateAcl(ctx, acl, "templates.claims.test")
 
-        assertEquals(2, errors.size)
+        assertEquals(2, ctx.errors.size)
     }
 
     @Test
     fun `buildTemplateAcl - Error for unknown consent scope`() {
-        val errors = mutableListOf<ConfigurationException>()
+        val ctx = ConfigParsingContext()
         val acl = aclProperties(consentScope = "nonexistent")
 
-        factory.buildTemplateAcl(acl, "templates.claims.test", errors)
+        val parsed = claimAclParser.parseTemplateAcl(ctx, acl, "templates.claims.test")
+        claimAclValidator.validateTemplateAcl(ctx, parsed, "templates.claims.test")
 
-        assertEquals(1, errors.size)
+        assertEquals(1, ctx.errors.size)
     }
 
     // endregion

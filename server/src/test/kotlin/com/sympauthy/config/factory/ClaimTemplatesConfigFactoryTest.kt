@@ -5,9 +5,12 @@ import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.model.ClaimTemplateAcl
 import com.sympauthy.config.model.DisabledClaimTemplatesConfig
 import com.sympauthy.config.model.EnabledClaimTemplatesConfig
+import com.sympauthy.config.model.EnabledScopesConfig
+import com.sympauthy.config.parsing.ClaimAclParser
+import com.sympauthy.config.parsing.ClaimTemplatesConfigParser
 import com.sympauthy.config.properties.ClaimTemplateConfigurationProperties
-import io.mockk.every
-import io.mockk.impl.annotations.MockK
+import com.sympauthy.config.validation.ClaimAclValidator
+import com.sympauthy.config.validation.ClaimTemplatesConfigValidator
 import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import org.junit.jupiter.api.Assertions.*
@@ -20,18 +23,15 @@ class ClaimTemplatesConfigFactoryTest {
     @SpyK
     var parser = ConfigParser()
 
-    @MockK
-    lateinit var claimAclFactory: ClaimAclFactory
-
     lateinit var factory: ClaimTemplatesConfigFactory
 
-    private val emptyTemplateAcl = ClaimTemplateAcl(null, null, null, null, null, null, null)
-
     private fun setUp() {
-        every {
-            claimAclFactory.buildTemplateAcl(any(), any(), any())
-        } returns emptyTemplateAcl
-        factory = ClaimTemplatesConfigFactory(parser, claimAclFactory)
+        val claimAclParser = ClaimAclParser(parser)
+        val claimAclValidator = ClaimAclValidator(EnabledScopesConfig(emptyList()))
+        factory = ClaimTemplatesConfigFactory(
+            ClaimTemplatesConfigParser(parser, claimAclParser),
+            ClaimTemplatesConfigValidator(claimAclValidator)
+        )
     }
 
     private fun templateProperties(
