@@ -2,11 +2,13 @@ package com.sympauthy.config.factory
 
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.model.*
+import com.sympauthy.config.parsing.ScopeConfigParser
 import com.sympauthy.config.properties.ScopeConfigurationProperties
-import io.mockk.impl.annotations.InjectMockKs
+import com.sympauthy.config.validation.ScopeConfigValidator
 import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 
@@ -16,14 +18,17 @@ class ScopeConfigFactoryTest {
     @SpyK
     var parser = ConfigParser()
 
-    @SpyK
-    var scopeTemplatesConfig: ScopeTemplatesConfig = EnabledScopeTemplatesConfig(emptyMap())
-
-    @SpyK
-    var uncheckedAudiencesConfig: AudiencesConfig = EnabledAudiencesConfig(emptyList())
-
-    @InjectMockKs
     lateinit var factory: ScopeConfigFactory
+
+    @BeforeEach
+    fun setUp() {
+        factory = ScopeConfigFactory(
+            ScopeConfigParser(parser),
+            ScopeConfigValidator(),
+            EnabledScopeTemplatesConfig(emptyMap()),
+            EnabledAudiencesConfig(emptyList())
+        )
+    }
 
     private fun scopeProperties(
         id: String,
@@ -45,7 +50,12 @@ class ScopeConfigFactoryTest {
 
     private fun withTemplates(vararg templates: ScopeTemplate): ScopeConfigFactory {
         val config = EnabledScopeTemplatesConfig(templates.associateBy { it.id })
-        return ScopeConfigFactory(parser, config, EnabledAudiencesConfig(emptyList()))
+        return ScopeConfigFactory(
+            ScopeConfigParser(parser),
+            ScopeConfigValidator(),
+            config,
+            EnabledAudiencesConfig(emptyList())
+        )
     }
 
     // --- OpenID Connect scope with default_openid template ---

@@ -5,9 +5,11 @@ import com.sympauthy.business.model.user.claim.ClaimOrigin
 import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.model.*
+import com.sympauthy.config.parsing.ClaimsConfigParser
 import com.sympauthy.config.properties.AuthConfigurationProperties
 import com.sympauthy.config.properties.ClaimConfigurationProperties
 import com.sympauthy.config.properties.ClaimTemplateConfigurationProperties.Companion.DEFAULT
+import com.sympauthy.config.validation.ClaimsConfigValidator
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.SpyK
@@ -83,7 +85,13 @@ class ClaimsConfigFactoryTest {
             "openid" to openidTemplate()
         )
         val claimTemplatesConfig = EnabledClaimTemplatesConfig(templates)
-        factory = ClaimsConfigFactory(parser, authProperties, claimTemplatesConfig, claimAclFactory, EnabledAudiencesConfig(emptyList()))
+        factory = ClaimsConfigFactory(
+            ClaimsConfigParser(parser),
+            ClaimsConfigValidator(claimAclFactory),
+            authProperties,
+            claimTemplatesConfig,
+            EnabledAudiencesConfig(emptyList())
+        )
     }
 
     private fun claimProperties(
