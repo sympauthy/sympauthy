@@ -13,6 +13,14 @@ data class EnabledAdvancedConfig(
     val keysGenerationStrategy: CryptoKeysGenerationStrategy,
     val publicJwtAlgorithm: JwtAlgorithm,
     val accessJwtAlgorithm: JwtAlgorithm,
+    /**
+     * Algorithm used to sign internal JWTs (refresh tokens, provider nonces, state tokens).
+     *
+     * Must be deterministic (same key + same payload = same signature) because the provider nonce
+     * flow reconstructs a JWT at callback time and compares it to the one originally sent to the
+     * provider. A non-deterministic algorithm (e.g. ES256, PS256) would produce a different
+     * signature each time, causing nonce mismatch errors.
+     */
     val privateJwtAlgorithm: JwtAlgorithm,
     val hashConfig: HashConfig,
     val validationCode: ValidationCodeConfig,

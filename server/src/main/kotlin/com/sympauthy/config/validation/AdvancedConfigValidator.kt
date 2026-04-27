@@ -31,6 +31,7 @@ class AdvancedConfigValidator {
         )
         validatePublicKeyAlgorithm(ctx, parsed.publicJwtAlgorithm)
         validateAccessKeyAlgorithm(ctx, parsed.accessJwtAlgorithm)
+        validatePrivateKeyAlgorithm(ctx, parsed.privateJwtAlgorithm)
         val hashConfig = validateHashConfig(ctx, parsed.hash)
         val validationCodeConfig = validateValidationCodeConfig(ctx, parsed.validationCode)
         val webhookConfig = AuthorizationWebhookAdvancedConfig(
@@ -91,6 +92,20 @@ class AdvancedConfigValidator {
                     "config.advanced.jwt.access_alg.unsupported_public_key",
                     "algorithms" to JwtAlgorithm.entries
                         .filter { it.keyAlgorithm.supportsPublicKey }
+                        .joinToString(", ")
+                )
+            )
+        }
+    }
+
+    private fun validatePrivateKeyAlgorithm(ctx: ConfigParsingContext, algorithm: JwtAlgorithm?) {
+        if (algorithm != null && !algorithm.deterministic) {
+            ctx.addError(
+                configExceptionOf(
+                    "$JWT_KEY.private-alg",
+                    "config.advanced.jwt.private_alg.not_deterministic",
+                    "algorithms" to JwtAlgorithm.entries
+                        .filter { it.deterministic }
                         .joinToString(", ")
                 )
             )

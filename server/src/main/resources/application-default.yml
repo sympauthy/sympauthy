@@ -13,7 +13,7 @@ advanced:
   jwt:
     public-alg: es256
     access-alg: es256
-    private-alg: es256
+    private-alg: hs256
   keys-generation-strategy: autoincrement
   validation-code:
     length: 6

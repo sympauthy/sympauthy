@@ -5,11 +5,14 @@ import com.nimbusds.jose.JWSSigner
 import com.nimbusds.jose.JWSVerifier
 import com.nimbusds.jose.crypto.ECDSASigner
 import com.nimbusds.jose.crypto.ECDSAVerifier
+import com.nimbusds.jose.crypto.MACSigner
+import com.nimbusds.jose.crypto.MACVerifier
 import com.nimbusds.jose.crypto.RSASSASigner
 import com.nimbusds.jose.crypto.RSASSAVerifier
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.model.key.*
 import com.sympauthy.business.model.key.KeyAlgorithm.EC
+import com.sympauthy.business.model.key.KeyAlgorithm.HMAC
 import com.sympauthy.business.model.key.KeyAlgorithm.RSA
 
 /**
@@ -25,11 +28,18 @@ enum class JwtAlgorithm(
      * Cryptographic algorithm used to generate and store the signing keys.
      */
     val keyAlgorithm: KeyAlgorithm,
-    val impl: JwtAlgorithmImpl
+    val impl: JwtAlgorithmImpl,
+    /**
+     * True if signing the same payload with the same key always produces the same signature.
+     * Deterministic algorithms are required for the private JWT algorithm because the provider
+     * nonce flow relies on reconstructing an identical JWT at callback time.
+     */
+    val deterministic: Boolean
 ) {
-    RS256(RSA, RSAAlgorithmImpl(JWSAlgorithm.RS256)),
-    PS256(RSA, RSAAlgorithmImpl(JWSAlgorithm.PS256)),
-    ES256(EC, ES256AlgorithmImpl())
+    RS256(RSA, RSAAlgorithmImpl(JWSAlgorithm.RS256), deterministic = true),
+    PS256(RSA, RSAAlgorithmImpl(JWSAlgorithm.PS256), deterministic = false),
+    ES256(EC, ES256AlgorithmImpl(), deterministic = false),
+    HS256(HMAC, HS256AlgorithmImpl(), deterministic = true)
 }
 
 /**
@@ -101,6 +111,24 @@ class ES256AlgorithmImpl : JwtAlgorithmImpl() {
             algorithm = JWSAlgorithm.ES256,
             signer = ECDSASigner(privateKey),
             verifier = ECDSAVerifier(publicKey),
+            keyId = cryptoKeys.name
+        )
+    }
+}
+
+/**
+ * Implementation for HMAC with SHA-256.
+ * Uses a symmetric secret key for both signing and verification.
+ */
+class HS256AlgorithmImpl : JwtAlgorithmImpl() {
+
+    override fun unsafeInitialize(cryptoKeys: CryptoKeys): JwtSigningConfig {
+        val hmacKeyImpl = HMAC.getImpl<HMACKeyImpl>()
+        val secretKey = hmacKeyImpl.toSecretKey(cryptoKeys)
+        return JwtSigningConfig(
+            algorithm = JWSAlgorithm.HS256,
+            signer = MACSigner(secretKey),
+            verifier = MACVerifier(secretKey),
             keyId = cryptoKeys.name
         )
     }

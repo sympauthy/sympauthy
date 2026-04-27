@@ -9,6 +9,7 @@ import com.sympauthy.exception.LocalizedException
 import com.sympauthy.exception.localizedExceptionOf
 import java.security.KeyFactory
 import java.security.KeyPairGenerator
+import java.security.SecureRandom
 import java.security.interfaces.ECPrivateKey
 import java.security.interfaces.ECPublicKey
 import java.security.interfaces.RSAPrivateKey
@@ -17,6 +18,8 @@ import java.security.spec.ECGenParameterSpec
 import java.security.spec.KeySpec
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
+import javax.crypto.SecretKey
+import javax.crypto.spec.SecretKeySpec
 
 enum class KeyAlgorithm(
     val impl: KeyAlgorithmImpl,
@@ -26,7 +29,8 @@ enum class KeyAlgorithm(
     val supportsPublicKey: Boolean
 ) {
     RSA(RSAKeyImpl(), true),
-    EC(ECKeyImpl(), true)
+    EC(ECKeyImpl(), true),
+    HMAC(HMACKeyImpl(), false)
 }
 
 inline fun <reified T : KeyAlgorithmImpl> KeyAlgorithm.getImpl(): T {
@@ -149,6 +153,28 @@ class ECKeyImpl : KeyAlgorithmImpl() {
             .keyID(keys.name)
             .keyUse(SIGNATURE)
             .build()
+    }
+}
+
+class HMACKeyImpl : KeyAlgorithmImpl() {
+
+    override fun generate(name: String): CryptoKeys {
+        val secret = ByteArray(32)
+        SecureRandom().nextBytes(secret)
+        return CryptoKeys(
+            name = name,
+            algorithm = "HMAC",
+            // Empty array instead of null: R2DBC PostgreSQL cannot infer the bytea type
+            // for a null ByteArray and falls back to smallint[], causing a type mismatch.
+            publicKey = ByteArray(0),
+            publicKeyFormat = null,
+            privateKey = secret,
+            privateKeyFormat = "RAW"
+        )
+    }
+
+    internal fun toSecretKey(keys: CryptoKeys): SecretKey {
+        return SecretKeySpec(keys.privateKey, "HmacSHA256")
     }
 }
 
