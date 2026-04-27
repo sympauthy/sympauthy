@@ -17,6 +17,9 @@
     <logger name="io.micronaut.data.query" level="TRACE"/>
     -->
 
+    <!-- Mute "Rolling back transaction on error" warnings triggered by expected business exceptions. -->
+    <logger name="io.micronaut.transaction.support.AbstractReactorTransactionOperations" level="ERROR"/>
+
     <root level="info">
         <appender-ref ref="STDOUT"/>
     </root>
