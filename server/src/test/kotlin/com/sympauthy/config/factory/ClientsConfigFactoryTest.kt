@@ -1,5 +1,6 @@
 package com.sympauthy.config.factory
 
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.config.ConfigParser
@@ -42,8 +43,11 @@ class ClientsConfigFactoryTest {
         }
     }
 
+    private val testAudience = Audience(id = "test-audience", tokenAudience = "test-audience")
+
     private fun clientTemplate(
         id: String,
+        audience: String? = "test-audience",
         public: Boolean? = null,
         allowedGrantTypes: Set<GrantType>? = null,
         authorizationFlow: AuthorizationFlow? = null,
@@ -51,6 +55,7 @@ class ClientsConfigFactoryTest {
     ): ClientTemplate {
         return ClientTemplate(
             id = id,
+            audienceId = audience,
             public = public,
             allowedGrantTypes = allowedGrantTypes,
             authorizationFlow = authorizationFlow,
@@ -64,7 +69,8 @@ class ClientsConfigFactoryTest {
     private fun factory(vararg templates: ClientTemplate): ClientsConfigFactory {
         val templatesConfig = EnabledClientTemplatesConfig(templates.associateBy { it.id })
         val templatesFlow = flowOf<ClientTemplatesConfig>(templatesConfig)
-        return ClientsConfigFactory(parser, fieldParser, templatesFlow)
+        val audiencesConfig = EnabledAudiencesConfig(listOf(testAudience))
+        return ClientsConfigFactory(parser, fieldParser, templatesFlow, audiencesConfig)
     }
 
     // --- Default template resolution ---

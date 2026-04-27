@@ -6,6 +6,7 @@ import com.sympauthy.api.resource.client.ClientUserClaimResource
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.user.ClientUserManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
@@ -26,6 +27,7 @@ import java.util.*
 
 @Controller("/api/v1/client/users/{userId}/claims")
 class ClientUserClaimController(
+    @Inject private val clientManager: ClientManager,
     @Inject private val clientUserManager: ClientUserManager,
     @Inject private val claimManager: ClaimManager,
     @Inject private val consentManager: ConsentManager,
@@ -62,11 +64,13 @@ class ClientUserClaimController(
         @PathVariable userId: UUID
     ): ClientUserClaimResource {
         val clientAuth = authentication.clientAuthentication
+        val client = clientManager.findClientById(clientAuth.clientId)
+        val audienceId = client.audience.id
         val clientScopeIds = clientAuth.scopes.map { it.scope }
-        clientUserManager.findUserForClientOrNull(clientAuth.clientId, userId).orNotFound()
-        val consent = consentManager.findActiveConsentOrNull(userId, clientAuth.clientId).orNotFound()
+        clientUserManager.findUserForAudienceOrNull(audienceId, userId).orNotFound()
+        val consent = consentManager.findActiveConsentByAudienceOrNull(userId, audienceId).orNotFound()
         val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
-            userId, consent.scopes, clientScopeIds
+            userId, consent.scopes, clientScopeIds, audienceId = audienceId
         )
         return claimMapper.toResource(userId, claims)
     }
@@ -104,10 +108,12 @@ class ClientUserClaimController(
         @Body body: Map<String, Any?>
     ): ClientUserClaimResource {
         val clientAuth = authentication.clientAuthentication
+        val client = clientManager.findClientById(clientAuth.clientId)
+        val audienceId = client.audience.id
         val clientScopeIds = clientAuth.scopes.map { it.scope }
 
-        val clientUser = clientUserManager.findUserForClientOrNull(clientAuth.clientId, userId).orNotFound()
-        val consent = consentManager.findActiveConsentOrNull(userId, clientAuth.clientId).orNotFound()
+        val clientUser = clientUserManager.findUserForAudienceOrNull(audienceId, userId).orNotFound()
+        val consent = consentManager.findActiveConsentByAudienceOrNull(userId, audienceId).orNotFound()
 
         // Validate all keys are claims writable by the client
         val invalidClaim = body.keys.firstOrNull { claimId ->
@@ -127,7 +133,7 @@ class ClientUserClaimController(
 
         // Return the full claim set after update
         val allClaims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
-            userId, consent.scopes, clientScopeIds
+            userId, consent.scopes, clientScopeIds, audienceId = audienceId
         )
         return claimMapper.toResource(userId, allClaims)
     }

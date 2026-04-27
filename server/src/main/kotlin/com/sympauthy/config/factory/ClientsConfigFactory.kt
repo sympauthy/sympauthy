@@ -1,5 +1,6 @@
 package com.sympauthy.config.factory
 
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.config.ConfigParser
@@ -19,7 +20,8 @@ import kotlinx.coroutines.flow.flow
 class ClientsConfigFactory(
     @Inject private val parser: ConfigParser,
     @Inject private val fieldParser: ClientConfigFieldParser,
-    @Inject private val clientTemplatesConfig: Flow<ClientTemplatesConfig>
+    @Inject private val clientTemplatesConfig: Flow<ClientTemplatesConfig>,
+    @Inject private val uncheckedAudiencesConfig: AudiencesConfig
 ) {
 
     @Singleton
@@ -34,12 +36,20 @@ class ClientsConfigFactory(
             }
             val templates = templatesConfig.templates
 
+            val audiencesConfig = uncheckedAudiencesConfig as? EnabledAudiencesConfig
+            if (audiencesConfig == null) {
+                emit(DisabledClientsConfig(emptyList()))
+                return@flow
+            }
+            val audiencesById = audiencesConfig.audiences.associateBy { it.id }
+
             val errors = mutableListOf<ConfigurationException>()
             val clients = propertiesList.mapNotNull { config ->
                 val template = resolveTemplate(config, templates, errors)
                 getClient(
                     properties = config,
                     template = template,
+                    audiencesById = audiencesById,
                     errors = errors
                 )
             }
@@ -90,10 +100,18 @@ class ClientsConfigFactory(
     private suspend fun getClient(
         properties: ClientConfigurationProperties,
         template: ClientTemplate?,
+        audiencesById: Map<String, Audience>,
         errors: MutableList<ConfigurationException>
     ): Client? {
         val clientErrors = mutableListOf<ConfigurationException>()
         val configKeyPrefix = "$CLIENTS_KEY.${properties.id}"
+
+        val audience = try {
+            resolveAudience(properties, template, audiencesById)
+        } catch (e: ConfigurationException) {
+            clientErrors.add(e)
+            null
+        }
 
         val isPublic = parser.getBoolean(
             properties, "$configKeyPrefix.public",
@@ -238,6 +256,7 @@ class ClientsConfigFactory(
             Client(
                 id = properties.id,
                 secret = secret,
+                audience = audience!!,
                 public = isPublic,
                 allowedGrantTypes = allowedGrantTypes!!,
                 authorizationFlow = authorizationFlow,
@@ -250,5 +269,25 @@ class ClientsConfigFactory(
             errors.addAll(clientErrors)
             null
         }
+    }
+
+    private fun resolveAudience(
+        properties: ClientConfigurationProperties,
+        template: ClientTemplate?,
+        audiencesById: Map<String, Audience>
+    ): Audience {
+        val configKeyPrefix = "$CLIENTS_KEY.${properties.id}"
+        val audienceId = properties.audience ?: template?.audienceId
+            ?: throw configExceptionOf(
+                "$configKeyPrefix.audience",
+                "config.client.audience.missing"
+            )
+        return audiencesById[audienceId]
+            ?: throw configExceptionOf(
+                "$configKeyPrefix.audience",
+                "config.client.audience.not_found",
+                "audience" to audienceId,
+                "availableAudiences" to audiencesById.keys.joinToString(", ")
+            )
     }
 }

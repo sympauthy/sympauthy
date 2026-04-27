@@ -43,9 +43,9 @@ class ScopeManager(
             .filterIsInstance<CustomScopeConfig>()
             .forEach { config ->
                 val scope = if (config.consentable) {
-                    ConsentableUserScope(scope = config.scope, discoverable = true)
+                    ConsentableUserScope(scope = config.scope, discoverable = true, audienceId = config.audienceId)
                 } else {
-                    GrantableUserScope(scope = config.scope, discoverable = true)
+                    GrantableUserScope(scope = config.scope, discoverable = true, audienceId = config.audienceId)
                 }
                 emit(scope)
             }
@@ -107,6 +107,14 @@ class ScopeManager(
     }
 
     /**
+     * List all [Scope] visible for the given [audienceId].
+     * A scope is visible if it has no audience restriction or is restricted to this audience.
+     */
+    suspend fun listScopesForAudience(audienceId: String): List<Scope> {
+        return listScopes().filter { it.audienceId == null || it.audienceId == audienceId }
+    }
+
+    /**
      * Return the [Scope], otherwise null, if:
      * - [scope] is an OpenID Connect scope and has not been explicitly disabled by configuration.
      * - [scope] is a custom scope and has been properly defined in the configuration.
@@ -134,6 +142,18 @@ class ScopeManager(
      */
     suspend fun findForClientOrThrow(client: Client, scope: String): Scope {
         val foundScope = findOrThrow(scope)
+
+        // Validate that the scope's audience matches the client's audience (or scope has no audience)
+        if (foundScope.audienceId != null && foundScope.audienceId != client.audience.id) {
+            throw businessExceptionOf(
+                detailsId = "scope.audience_mismatch",
+                values = arrayOf(
+                    "scope" to scope,
+                    "scopeAudience" to foundScope.audienceId,
+                    "clientAudience" to client.audience.id
+                )
+            )
+        }
 
         // If client has allowedScopes defined, check if the scope is in the allowed list
         if (client.allowedScopes != null && !client.allowedScopes.contains(foundScope)) {

@@ -97,7 +97,7 @@ Client authentication is supported via:
             exp = authenticationToken.expirationDate?.toEpochSecond(ZoneOffset.UTC),
             iat = authenticationToken.issueDate.toEpochSecond(ZoneOffset.UTC),
             sub = authenticationToken.userId?.toString() ?: authenticationToken.clientId,
-            aud = authConfig.audience,
+            aud = client.audience.tokenAudience,
             iss = authConfig.issuer,
             jti = authenticationToken.id.toString()
         )

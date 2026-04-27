@@ -31,10 +31,12 @@ class RefreshTokenGenerator(
     suspend fun generateRefreshToken(
         authorizeAttempt: CompletedAuthorizeAttempt,
         userId: UUID,
+        tokenAudience: String,
         dpopJkt: String? = null
     ) = generateRefreshToken(
         userId = userId,
         clientId = authorizeAttempt.clientId,
+        tokenAudience = tokenAudience,
         grantedScopes = authorizeAttempt.grantedScopes,
         grantedAt = authorizeAttempt.grantedAt,
         grantedBy = authorizeAttempt.grantedBy.name,
@@ -52,10 +54,12 @@ class RefreshTokenGenerator(
      */
     suspend fun generateRefreshToken(
         refreshToken: AuthenticationToken,
+        tokenAudience: String,
         dpopJkt: String? = null
     ) = generateRefreshToken(
         userId = refreshToken.userId,
         clientId = refreshToken.clientId,
+        tokenAudience = tokenAudience,
         grantedScopes = refreshToken.grantedScopes,
         grantedAt = refreshToken.grantedAt,
         grantedBy = refreshToken.grantedBy?.name,
@@ -71,6 +75,7 @@ class RefreshTokenGenerator(
     internal suspend fun generateRefreshToken(
         userId: UUID?,
         clientId: String,
+        tokenAudience: String,
         grantedScopes: List<String>,
         grantedAt: java.time.LocalDateTime?,
         grantedBy: String?,
@@ -109,7 +114,7 @@ class RefreshTokenGenerator(
 
         val encodedToken = jwtManager.create(JwtManager.REFRESH_KEY) {
             entity.id?.toString()?.let(this::jwtID)
-            audience(listOf(enabledAuthConfig.audience))
+            audience(listOf(tokenAudience))
             subject(userId?.toString() ?: clientId)
             issueTime(Date.from(issueDate.toInstant(ZoneOffset.UTC)))
             expirationDate?.toInstant(ZoneOffset.UTC)?.let { expirationTime(Date.from(it)) }

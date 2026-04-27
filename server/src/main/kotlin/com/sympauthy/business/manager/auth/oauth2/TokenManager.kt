@@ -97,12 +97,13 @@ open class TokenManager(
             throw oauth2ExceptionOf(INVALID_GRANT, "token.expired", "description.oauth2.expired")
         }
 
+        val tokenAudience = client.audience.tokenAudience
         val deferredAccessToken = async {
-            accessTokenGenerator.generateAccessToken(authorizeAttempt, authorizeAttempt.userId, dpopJkt = dpopJkt)
+            accessTokenGenerator.generateAccessToken(authorizeAttempt, authorizeAttempt.userId, tokenAudience, dpopJkt = dpopJkt)
         }
         val deferredRefreshToken = if (client.supportsGrantType(GrantType.REFRESH_TOKEN)) {
             async {
-                refreshTokenGenerator.generateRefreshToken(authorizeAttempt, authorizeAttempt.userId, dpopJkt = dpopJkt)
+                refreshTokenGenerator.generateRefreshToken(authorizeAttempt, authorizeAttempt.userId, tokenAudience, dpopJkt = dpopJkt)
             }
         } else null
 
@@ -159,18 +160,19 @@ open class TokenManager(
             }
         }
 
-        // For user tokens, verify the consent has not been revoked
+        // For user tokens, verify the consent has not been revoked (checked at audience level)
         if (refreshToken.userId != null) {
-            consentManager.findActiveConsentOrNull(refreshToken.userId, refreshToken.clientId)
+            consentManager.findActiveConsentByAudienceOrNull(refreshToken.userId, client.audience.id)
                 ?: throw oauth2ExceptionOf(INVALID_GRANT, "token.consent_revoked", "description.token.consent_revoked")
         }
 
         // Use the DPoP jkt from the proof, or carry forward the existing binding
         val effectiveDpopJkt = dpopJkt ?: refreshToken.dpopJkt
+        val tokenAudience = client.audience.tokenAudience
 
-        val accessToken = accessTokenGenerator.generateAccessToken(refreshToken, dpopJkt = effectiveDpopJkt)
+        val accessToken = accessTokenGenerator.generateAccessToken(refreshToken, tokenAudience, dpopJkt = effectiveDpopJkt)
         val refreshedRefreshToken = if (shouldRefreshToken(refreshToken, accessToken)) {
-            refreshTokenGenerator.generateRefreshToken(refreshToken, dpopJkt = effectiveDpopJkt)
+            refreshTokenGenerator.generateRefreshToken(refreshToken, tokenAudience, dpopJkt = effectiveDpopJkt)
         } else null
 
         listOfNotNull(accessToken, refreshedRefreshToken)

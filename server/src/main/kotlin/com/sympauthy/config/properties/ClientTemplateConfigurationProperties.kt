@@ -14,6 +14,7 @@ import io.micronaut.context.annotation.Parameter
 class ClientTemplateConfigurationProperties(
     @param:Parameter val id: String
 ) {
+    var audience: String? = null
     var public: Boolean? = null
     var authorizationFlow: String? = null
     var uris: Map<String, String>? = null

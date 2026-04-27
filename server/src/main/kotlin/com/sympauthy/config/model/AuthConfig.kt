@@ -8,7 +8,6 @@ sealed class AuthConfig(
 
 data class EnabledAuthConfig(
     val issuer: String,
-    val audience: String,
     val token: TokenConfig,
     val authorizationCode: AuthorizationCodeConfig,
     /**

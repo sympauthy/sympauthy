@@ -1,5 +1,6 @@
 package com.sympauthy.config.factory
 
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimGroup
@@ -27,7 +28,8 @@ class ClaimsConfigFactory(
     @Inject private val parser: ConfigParser,
     @Inject private val authProperties: AuthConfigurationProperties,
     @Inject private val claimTemplatesConfig: ClaimTemplatesConfig,
-    @Inject private val claimAclFactory: ClaimAclFactory
+    @Inject private val claimAclFactory: ClaimAclFactory,
+    @Inject private val uncheckedAudiencesConfig: AudiencesConfig
 ) {
 
     @Singleton
@@ -37,6 +39,10 @@ class ClaimsConfigFactory(
         val enabledTemplatesConfig = claimTemplatesConfig.orNull()
             ?: return DisabledClaimsConfig(emptyList())
         val templates = enabledTemplatesConfig.templates
+
+        val enabledAudiencesConfig = uncheckedAudiencesConfig as? EnabledAudiencesConfig
+            ?: return DisabledClaimsConfig(emptyList())
+        val audiencesById = enabledAudiencesConfig.audiences.associateBy { it.id }
 
         val errors = mutableListOf<ConfigurationException>()
 
@@ -60,6 +66,7 @@ class ClaimsConfigFactory(
             provideClaim(
                 properties = claimProperties,
                 templates = templates,
+                audiencesById = audiencesById,
                 errors = errors
             )
         }
@@ -137,11 +144,14 @@ class ClaimsConfigFactory(
     private fun provideClaim(
         properties: ClaimConfigurationProperties,
         templates: Map<String, ClaimTemplate>,
+        audiencesById: Map<String, Audience>,
         errors: MutableList<ConfigurationException>
     ): Claim? {
         val template = resolveTemplate(properties, templates, errors)
         val claimId = properties.id.normalizeClaimId()
         val configKeyPrefix = "$CLAIMS_KEY.$claimId"
+
+        val audienceId = resolveClaimAudienceId(properties, template, audiencesById, configKeyPrefix, errors)
 
         val dataType: ClaimDataType = try {
             parser.getEnumOrThrow(
@@ -210,6 +220,7 @@ class ClaimsConfigFactory(
             generated = false,
             userInputted = acl.consent.writableByUser,
             allowedValues = allowedValues,
+            audienceId = audienceId,
             acl = acl
         )
     }
@@ -248,6 +259,28 @@ class ClaimsConfigFactory(
             return template
         }
         return templates[DEFAULT]
+    }
+
+    private fun resolveClaimAudienceId(
+        properties: ClaimConfigurationProperties,
+        template: ClaimTemplate?,
+        audiencesById: Map<String, Audience>,
+        configKeyPrefix: String,
+        errors: MutableList<ConfigurationException>
+    ): String? {
+        val audienceId = properties.audience ?: template?.audienceId ?: return null
+        if (audienceId !in audiencesById) {
+            errors.add(
+                configExceptionOf(
+                    "$configKeyPrefix.audience",
+                    "config.claim.audience.not_found",
+                    "audience" to audienceId,
+                    "availableAudiences" to audiencesById.keys.joinToString(", ")
+                )
+            )
+            return null
+        }
+        return audienceId
     }
 
     private fun getAllowedValues(

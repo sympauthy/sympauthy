@@ -11,6 +11,7 @@ class ScopeConfigurationProperties(
     val enabled: String? = null
     var discoverable: String? = null
     var type: String? = null
+    var audience: String? = null
 
     companion object {
         const val SCOPES_KEY = "scopes"

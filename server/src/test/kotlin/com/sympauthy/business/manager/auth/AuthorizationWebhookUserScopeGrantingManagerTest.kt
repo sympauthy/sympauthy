@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.auth
 
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.model.client.AuthorizationWebhook
@@ -71,6 +72,7 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
         return Client(
             id = id,
             secret = "secret",
+            audience = Audience(id = "test-audience", tokenAudience = "test-audience"),
             allowedGrantTypes = setOf(GrantType.AUTHORIZATION_CODE),
             authorizationFlow = null,
             authorizationWebhook = authorizationWebhook,

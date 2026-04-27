@@ -17,6 +17,7 @@ class ScopeTemplateConfigurationProperties(
     val enabled: String? = null
     var discoverable: String? = null
     var type: String? = null
+    var audience: String? = null
 
     companion object {
         const val TEMPLATES_SCOPES_KEY = "templates.scopes"

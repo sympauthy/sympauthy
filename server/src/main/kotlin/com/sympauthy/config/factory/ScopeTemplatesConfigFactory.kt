@@ -71,7 +71,8 @@ class ScopeTemplatesConfigFactory(
             ScopeTemplate(
                 id = properties.id,
                 enabled = enabled,
-                type = type
+                type = type,
+                audienceId = properties.audience
             )
         } else {
             errors.addAll(templateErrors)

@@ -253,6 +253,7 @@ Client authentication is supported via:
 
         val accessToken = accessTokenGenerator.generateAccessTokenForClient(
             clientId = client.id,
+            tokenAudience = client.audience.tokenAudience,
             clientScopes = scopeStrings,
             dpopJkt = dpopProof?.jkt
         )

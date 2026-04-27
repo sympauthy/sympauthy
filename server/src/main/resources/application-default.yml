@@ -20,6 +20,9 @@ advanced:
     resend-delay: 1m
     expiration: 10m
 
+audiences:
+  default: {}
+
 auth:
   authorization-code:
     expiration: 30m
@@ -47,6 +50,7 @@ templates:
         writable-by-client-when-consented: "false"
   clients:
     default:
+      audience: default
       default-scopes:
         - openid
         - profile

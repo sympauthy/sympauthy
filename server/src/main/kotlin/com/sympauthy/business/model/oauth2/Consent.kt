@@ -15,9 +15,9 @@ enum class ConsentRevokedBy {
 }
 
 /**
- * A record of the scopes a user has authorized for a given client.
+ * A record of the scopes a user has authorized for a given audience.
  *
- * Only one active (non-revoked) consent may exist per user+client pair at any time.
+ * Only one active (non-revoked) consent may exist per user+audience pair at any time.
  * A consent is considered active when [revokedAt] is null.
  */
 data class Consent(
@@ -25,8 +25,10 @@ data class Consent(
     val id: UUID,
     /** Identifier of the user who granted the consent. */
     val userId: UUID,
-    /** Identifier of the client the consent was granted to. */
-    val clientId: String,
+    /** Identifier of the audience the consent applies to. */
+    val audienceId: String,
+    /** Identifier of the client that originally prompted the consent. */
+    val promptedByClientId: String,
     /** List of scope identifiers the user authorized for this client. */
     val scopes: List<String>,
     /** Date and time at which the user granted the consent. */

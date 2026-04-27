@@ -177,7 +177,6 @@ class AdminUserClaimControllerTest {
     ): AdminUserClaimController {
         val enabledConfig = EnabledAuthConfig(
             issuer = "test",
-            audience = "test",
             token = mockk(),
             authorizationCode = mockk(),
             identifierClaims = identifierOpenIdClaims,

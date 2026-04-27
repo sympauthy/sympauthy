@@ -84,8 +84,8 @@ class AdminConsentController(
     }
 
     @Operation(
-        description = "Revoke the active consent for a given user and client. " +
-                "This also revokes all refresh tokens issued for this user+client pair.",
+        description = "Revoke the active consent for a given user and audience. " +
+                "This also revokes all refresh tokens issued for this user+audience pair.",
         tags = ["admin"],
         parameters = [
             Parameter(
@@ -94,8 +94,8 @@ class AdminConsentController(
                 schema = Schema(type = "string", format = "uuid")
             ),
             Parameter(
-                name = "clientId",
-                description = "Identifier of the client.",
+                name = "audienceId",
+                description = "Identifier of the audience.",
                 schema = Schema(type = "string")
             )
         ],
@@ -106,19 +106,19 @@ class AdminConsentController(
                 responseCode = "403",
                 description = "The access token does not include the required scope: admin:consent:write."
             ),
-            ApiResponse(responseCode = "404", description = "No active consent found for this user and client.")
+            ApiResponse(responseCode = "404", description = "No active consent found for this user and audience.")
         ]
     )
-    @Delete("/{clientId}")
+    @Delete("/{audienceId}")
     @Secured(ADMIN_CONSENT_WRITE)
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.CONSENT_WRITE])
     @Status(HttpStatus.NO_CONTENT)
     suspend fun revokeConsent(
         @PathVariable userId: UUID,
-        @PathVariable clientId: String,
+        @PathVariable audienceId: String,
         authentication: Authentication
     ) {
-        val consent = consentManager.findActiveConsentOrNull(userId, clientId).orNotFound()
+        val consent = consentManager.findActiveConsentByAudienceOrNull(userId, audienceId).orNotFound()
         consentManager.revokeConsent(
             consent = consent,
             revokedBy = ConsentRevokedBy.ADMIN,

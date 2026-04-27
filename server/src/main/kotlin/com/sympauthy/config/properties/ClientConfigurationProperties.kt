@@ -13,6 +13,7 @@ class ClientConfigurationProperties(
     @param:Parameter val id: String
 ) {
     var template: String? = null
+    var audience: String? = null
     var public: Boolean? = null
     var secret: String? = null
     var authorizationFlow: String? = null

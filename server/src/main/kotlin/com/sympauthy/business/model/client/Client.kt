@@ -1,11 +1,18 @@
 package com.sympauthy.business.model.client
 
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.oauth2.Scope
 
 data class Client(
     val id: String,
     val secret: String?,
+
+    /**
+     * The [Audience] this client belongs to.
+     * Clients in the same audience share user consent, and scopes/claims can be restricted per audience.
+     */
+    val audience: Audience,
 
     /**
      * Whether this client is a public client (e.g. SPA, mobile app, CLI tool).

@@ -4,6 +4,7 @@ import com.sympauthy.business.model.oauth2.isAdminScope
 import com.sympauthy.business.model.oauth2.isBuiltInClientScope
 import com.sympauthy.business.model.oauth2.isBuiltInGrantableScope
 import com.sympauthy.business.model.user.isOpenIdConnectScope
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.exception.configExceptionOf
@@ -20,7 +21,8 @@ import jakarta.inject.Singleton
 @Factory
 class ScopeConfigFactory(
     @Inject private val parser: ConfigParser,
-    @Inject private val scopeTemplatesConfig: ScopeTemplatesConfig
+    @Inject private val scopeTemplatesConfig: ScopeTemplatesConfig,
+    @Inject private val uncheckedAudiencesConfig: AudiencesConfig
 ) {
 
     @Singleton
@@ -30,6 +32,10 @@ class ScopeConfigFactory(
         val enabledTemplatesConfig = scopeTemplatesConfig.orNull()
             ?: return DisabledScopesConfig(emptyList())
         val templates = enabledTemplatesConfig.templates
+
+        val enabledAudiencesConfig = uncheckedAudiencesConfig as? EnabledAudiencesConfig
+            ?: return DisabledScopesConfig(emptyList())
+        val audiencesById = enabledAudiencesConfig.audiences.associateBy { it.id }
 
         val errors = mutableListOf<ConfigurationException>()
 
@@ -70,12 +76,14 @@ class ScopeConfigFactory(
 
                 properties.id.isOpenIdConnectScope() -> {
                     val template = resolveTemplate(properties, templates, DEFAULT_OPENID, errors)
-                    getOpenIdConnectScope(properties = properties, template = template, errors = errors)
+                    val audienceId = resolveAudienceId(properties, template, audiencesById, errors)
+                    getOpenIdConnectScope(properties = properties, template = template, audienceId = audienceId, errors = errors)
                 }
 
                 else -> {
                     val template = resolveTemplate(properties, templates, DEFAULT_CUSTOM, errors)
-                    getCustomScope(properties = properties, template = template, errors = errors)
+                    val audienceId = resolveAudienceId(properties, template, audiencesById, errors)
+                    getCustomScope(properties = properties, template = template, audienceId = audienceId, errors = errors)
                 }
             }
         }
@@ -124,9 +132,31 @@ class ScopeConfigFactory(
         return templates[defaultTemplateName]
     }
 
+    private fun resolveAudienceId(
+        properties: ScopeConfigurationProperties,
+        template: ScopeTemplate?,
+        audiencesById: Map<String, Audience>,
+        errors: MutableList<ConfigurationException>
+    ): String? {
+        val audienceId = properties.audience ?: template?.audienceId ?: return null
+        if (audienceId !in audiencesById) {
+            errors.add(
+                configExceptionOf(
+                    "$SCOPES_KEY.${properties.id}.audience",
+                    "config.scope.audience.not_found",
+                    "audience" to audienceId,
+                    "availableAudiences" to audiencesById.keys.joinToString(", ")
+                )
+            )
+            return null
+        }
+        return audienceId
+    }
+
     private fun getOpenIdConnectScope(
         properties: ScopeConfigurationProperties,
         template: ScopeTemplate?,
+        audienceId: String?,
         errors: MutableList<ConfigurationException>
     ): ScopeConfig? {
         val scopeErrors = mutableListOf<ConfigurationException>()
@@ -144,7 +174,8 @@ class ScopeConfigFactory(
         return if (scopeErrors.isEmpty()) {
             OpenIdConnectScopeConfig(
                 scope = properties.id,
-                enabled = enabled!!
+                enabled = enabled!!,
+                audienceId = audienceId
             )
         } else {
             errors.addAll(scopeErrors)
@@ -155,6 +186,7 @@ class ScopeConfigFactory(
     private fun getCustomScope(
         properties: ScopeConfigurationProperties,
         template: ScopeTemplate?,
+        audienceId: String?,
         errors: MutableList<ConfigurationException>
     ): ScopeConfig? {
         val scopeErrors = mutableListOf<ConfigurationException>()
@@ -190,7 +222,8 @@ class ScopeConfigFactory(
         return if (scopeErrors.isEmpty()) {
             CustomScopeConfig(
                 scope = properties.id,
-                consentable = consentable!!
+                consentable = consentable!!,
+                audienceId = audienceId
             )
         } else {
             errors.addAll(scopeErrors)

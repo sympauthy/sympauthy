@@ -6,7 +6,6 @@ import io.micronaut.context.annotation.ConfigurationProperties
 @ConfigurationProperties(AUTH_KEY)
 interface AuthConfigurationProperties {
     val issuer: String?
-    val audience: String?
     val identifierClaims: List<String>?
     val userMergingEnabled: Boolean?
 
