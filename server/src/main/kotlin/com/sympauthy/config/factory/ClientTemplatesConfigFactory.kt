@@ -126,7 +126,7 @@ class ClientTemplatesConfigFactory(
         return if (templateErrors.isEmpty()) {
             ClientTemplate(
                 id = properties.id,
-                audience = audience,
+                audienceId = audience,
                 public = isPublic,
                 allowedGrantTypes = allowedGrantTypes,
                 authorizationFlow = authorizationFlow,

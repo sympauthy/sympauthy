@@ -33,9 +33,9 @@ class ScopeConfigFactory(
             ?: return DisabledScopesConfig(emptyList())
         val templates = enabledTemplatesConfig.templates
 
-        val audiencesById = (uncheckedAudiencesConfig as? EnabledAudiencesConfig)
-            ?.audiences?.associateBy { it.id }
-            ?: emptyMap()
+        val enabledAudiencesConfig = uncheckedAudiencesConfig as? EnabledAudiencesConfig
+            ?: return DisabledScopesConfig(emptyList())
+        val audiencesById = enabledAudiencesConfig.audiences.associateBy { it.id }
 
         val errors = mutableListOf<ConfigurationException>()
 
@@ -138,7 +138,7 @@ class ScopeConfigFactory(
         audiencesById: Map<String, Audience>,
         errors: MutableList<ConfigurationException>
     ): String? {
-        val audienceId = properties.audience ?: template?.audience ?: return null
+        val audienceId = properties.audience ?: template?.audienceId ?: return null
         if (audienceId !in audiencesById) {
             errors.add(
                 configExceptionOf(

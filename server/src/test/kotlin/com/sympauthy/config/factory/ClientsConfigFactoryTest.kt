@@ -55,7 +55,7 @@ class ClientsConfigFactoryTest {
     ): ClientTemplate {
         return ClientTemplate(
             id = id,
-            audience = audience,
+            audienceId = audience,
             public = public,
             allowedGrantTypes = allowedGrantTypes,
             authorizationFlow = authorizationFlow,

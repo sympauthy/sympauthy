@@ -84,7 +84,7 @@ class ClaimTemplatesConfigFactory(
                 enabled = enabled,
                 required = required,
                 group = group,
-                audience = properties.audience,
+                audienceId = properties.audience,
                 allowedValues = properties.allowedValues,
                 acl = acl
             )

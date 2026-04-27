@@ -36,7 +36,7 @@ data class ClaimTemplate(
     val enabled: Boolean?,
     val required: Boolean?,
     val group: ClaimGroup?,
-    val audience: String?,
+    val audienceId: String?,
     val allowedValues: List<Any>?,
     val acl: ClaimTemplateAcl
 )

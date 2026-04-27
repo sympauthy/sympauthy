@@ -34,5 +34,5 @@ data class ScopeTemplate(
     val id: String,
     val enabled: Boolean?,
     val type: String?,
-    val audience: String?
+    val audienceId: String?
 )

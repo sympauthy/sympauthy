@@ -47,7 +47,7 @@ class ClaimAclFactoryTest {
         enabled = null,
         required = null,
         group = null,
-        audience = null,
+        audienceId = null,
         allowedValues = null,
         acl = acl
     )

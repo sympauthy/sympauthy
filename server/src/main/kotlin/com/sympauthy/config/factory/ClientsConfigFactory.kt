@@ -277,7 +277,7 @@ class ClientsConfigFactory(
         audiencesById: Map<String, Audience>
     ): Audience {
         val configKeyPrefix = "$CLIENTS_KEY.${properties.id}"
-        val audienceId = properties.audience ?: template?.audience
+        val audienceId = properties.audience ?: template?.audienceId
             ?: throw configExceptionOf(
                 "$configKeyPrefix.audience",
                 "config.client.audience.missing"

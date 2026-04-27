@@ -52,7 +52,7 @@ class ScopeConfigFactoryTest {
 
     @Test
     fun `OpenID scope gets default_openid template applied`() {
-        val factory = withTemplates(ScopeTemplate(id = "default_openid", enabled = false, type = null, audience = null))
+        val factory = withTemplates(ScopeTemplate(id = "default_openid", enabled = false, type = null, audienceId = null))
         val scopes = listOf(scopeProperties(id = "profile"))
 
         val result = factory.provideScopes(scopes)
@@ -66,7 +66,7 @@ class ScopeConfigFactoryTest {
 
     @Test
     fun `OpenID scope property overrides template`() {
-        val factory = withTemplates(ScopeTemplate(id = "default_openid", enabled = false, type = null, audience = null))
+        val factory = withTemplates(ScopeTemplate(id = "default_openid", enabled = false, type = null, audienceId = null))
         val scopes = listOf(scopeProperties(id = "email", enabled = "true"))
 
         val result = factory.provideScopes(scopes)
@@ -93,7 +93,7 @@ class ScopeConfigFactoryTest {
 
     @Test
     fun `Custom scope gets default_custom template type applied`() {
-        val factory = withTemplates(ScopeTemplate(id = "default_custom", enabled = null, type = "consentable", audience = null))
+        val factory = withTemplates(ScopeTemplate(id = "default_custom", enabled = null, type = "consentable", audienceId = null))
         val scopes = listOf(scopeProperties(id = "my-scope"))
 
         val result = factory.provideScopes(scopes)
@@ -107,7 +107,7 @@ class ScopeConfigFactoryTest {
 
     @Test
     fun `Custom scope property overrides template type`() {
-        val factory = withTemplates(ScopeTemplate(id = "default_custom", enabled = null, type = "consentable", audience = null))
+        val factory = withTemplates(ScopeTemplate(id = "default_custom", enabled = null, type = "consentable", audienceId = null))
         val scopes = listOf(scopeProperties(id = "my-scope", type = "grantable"))
 
         val result = factory.provideScopes(scopes)
@@ -135,8 +135,8 @@ class ScopeConfigFactoryTest {
     @Test
     fun `Custom scope with explicit template uses that template`() {
         val factory = withTemplates(
-            ScopeTemplate(id = "default_custom", enabled = null, type = "grantable", audience = null),
-            ScopeTemplate(id = "my-template", enabled = null, type = "consentable", audience = null)
+            ScopeTemplate(id = "default_custom", enabled = null, type = "grantable", audienceId = null),
+            ScopeTemplate(id = "my-template", enabled = null, type = "consentable", audienceId = null)
         )
         val scopes = listOf(scopeProperties(id = "my-scope", template = "my-template"))
 
@@ -152,7 +152,7 @@ class ScopeConfigFactoryTest {
 
     @Test
     fun `Referencing default template by name produces error`() {
-        val factory = withTemplates(ScopeTemplate(id = "default_openid", enabled = null, type = null, audience = null))
+        val factory = withTemplates(ScopeTemplate(id = "default_openid", enabled = null, type = null, audienceId = null))
         val scopes = listOf(scopeProperties(id = "my-scope", template = "default_openid"))
 
         val result = factory.provideScopes(scopes)

@@ -40,9 +40,9 @@ class ClaimsConfigFactory(
             ?: return DisabledClaimsConfig(emptyList())
         val templates = enabledTemplatesConfig.templates
 
-        val audiencesById = (uncheckedAudiencesConfig as? EnabledAudiencesConfig)
-            ?.audiences?.associateBy { it.id }
-            ?: emptyMap()
+        val enabledAudiencesConfig = uncheckedAudiencesConfig as? EnabledAudiencesConfig
+            ?: return DisabledClaimsConfig(emptyList())
+        val audiencesById = enabledAudiencesConfig.audiences.associateBy { it.id }
 
         val errors = mutableListOf<ConfigurationException>()
 
@@ -268,7 +268,7 @@ class ClaimsConfigFactory(
         configKeyPrefix: String,
         errors: MutableList<ConfigurationException>
     ): String? {
-        val audienceId = properties.audience ?: template?.audience ?: return null
+        val audienceId = properties.audience ?: template?.audienceId ?: return null
         if (audienceId !in audiencesById) {
             errors.add(
                 configExceptionOf(

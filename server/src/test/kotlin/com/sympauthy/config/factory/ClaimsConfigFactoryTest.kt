@@ -52,7 +52,7 @@ class ClaimsConfigFactoryTest {
         enabled = null,
         required = null,
         group = null,
-        audience = null,
+        audienceId = null,
         allowedValues = null,
         acl = defaultTemplateAcl
     )
@@ -62,7 +62,7 @@ class ClaimsConfigFactoryTest {
         enabled = false,
         required = null,
         group = null,
-        audience = null,
+        audienceId = null,
         allowedValues = null,
         acl = defaultTemplateAcl
     )
