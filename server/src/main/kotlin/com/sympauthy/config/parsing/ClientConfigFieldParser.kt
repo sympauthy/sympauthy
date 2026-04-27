@@ -1,5 +1,6 @@
 package com.sympauthy.config.parsing
 
+import com.sympauthy.business.model.client.AuthorizationWebhook
 import com.sympauthy.business.model.client.AuthorizationWebhookOnFailure
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.config.ConfigParser
@@ -89,28 +90,41 @@ class ClientConfigFieldParser(
     }
 
     /**
-     * Parse webhook configuration fields.
+     * Parse webhook configuration fields with per-field template fallback.
      */
     fun parseWebhook(
         ctx: ConfigParsingContext,
         configKey: String,
-        webhookConfig: AuthorizationWebhookConfig?
+        webhookConfig: AuthorizationWebhookConfig?,
+        templateWebhook: AuthorizationWebhook?
     ): ParsedAuthorizationWebhook? {
-        if (webhookConfig == null) return null
+        if (webhookConfig == null && templateWebhook == null) return null
 
         val subCtx = ctx.child()
-        val url = subCtx.parse {
-            parser.getAbsoluteUriOrThrow(webhookConfig, "$configKey.url", AuthorizationWebhookConfig::url)
+        val url = if (webhookConfig?.url != null) {
+            subCtx.parse {
+                parser.getAbsoluteUriOrThrow(webhookConfig, "$configKey.url", AuthorizationWebhookConfig::url)
+            }
+        } else {
+            templateWebhook?.url
         }
-        val secret = subCtx.parse {
-            parser.getStringOrThrow(webhookConfig, "$configKey.secret", AuthorizationWebhookConfig::secret)
+        val secret = if (webhookConfig?.secret != null) {
+            subCtx.parse {
+                parser.getStringOrThrow(webhookConfig, "$configKey.secret", AuthorizationWebhookConfig::secret)
+            }
+        } else {
+            templateWebhook?.secret
         }
-        val onFailure = subCtx.parse {
-            parser.getEnum(
-                webhookConfig, "$configKey.on-failure",
-                AuthorizationWebhookOnFailure.DENY_ALL,
-                AuthorizationWebhookConfig::onFailure
-            )
+        val onFailure = if (webhookConfig?.onFailure != null) {
+            subCtx.parse {
+                parser.getEnum(
+                    webhookConfig, "$configKey.on-failure",
+                    AuthorizationWebhookOnFailure.DENY_ALL,
+                    AuthorizationWebhookConfig::onFailure
+                )
+            }
+        } else {
+            templateWebhook?.onFailure ?: AuthorizationWebhookOnFailure.DENY_ALL
         }
         ctx.merge(subCtx)
         if (subCtx.hasErrors) return null

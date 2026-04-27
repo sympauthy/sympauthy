@@ -74,13 +74,10 @@ class ClientsConfigParser(
             template?.allowedRedirectUris
         }
 
-        val authorizationWebhook = if (properties.authorizationWebhook != null) {
-            fieldParser.parseWebhook(ctx, "$configKeyPrefix.authorization-webhook", properties.authorizationWebhook)
-        } else {
-            template?.authorizationWebhook?.let {
-                ParsedAuthorizationWebhook(url = it.url, secret = it.secret, onFailure = it.onFailure)
-            }
-        }
+        val authorizationWebhook = fieldParser.parseWebhook(
+            ctx, "$configKeyPrefix.authorization-webhook",
+            properties.authorizationWebhook, template?.authorizationWebhook
+        )
 
         return ParsedClient(
             id = properties.id,

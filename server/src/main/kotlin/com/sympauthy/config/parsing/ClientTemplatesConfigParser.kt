@@ -57,7 +57,7 @@ class ClientTemplatesConfigParser(
         )
 
         val authorizationWebhook = fieldParser.parseWebhook(
-            ctx, "$configKeyPrefix.authorization-webhook", properties.authorizationWebhook
+            ctx, "$configKeyPrefix.authorization-webhook", properties.authorizationWebhook, null
         )
 
         return ParsedClientTemplate(
