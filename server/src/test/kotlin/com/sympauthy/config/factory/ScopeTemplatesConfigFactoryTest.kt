@@ -3,11 +3,13 @@ package com.sympauthy.config.factory
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.model.DisabledScopeTemplatesConfig
 import com.sympauthy.config.model.EnabledScopeTemplatesConfig
+import com.sympauthy.config.parsing.ScopeTemplatesConfigParser
 import com.sympauthy.config.properties.ScopeTemplateConfigurationProperties
-import io.mockk.impl.annotations.InjectMockKs
+import com.sympauthy.config.validation.ScopeTemplatesConfigValidator
 import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 
@@ -17,8 +19,15 @@ class ScopeTemplatesConfigFactoryTest {
     @SpyK
     var parser = ConfigParser()
 
-    @InjectMockKs
     lateinit var factory: ScopeTemplatesConfigFactory
+
+    @BeforeEach
+    fun setUp() {
+        factory = ScopeTemplatesConfigFactory(
+            ScopeTemplatesConfigParser(parser),
+            ScopeTemplatesConfigValidator()
+        )
+    }
 
     private fun scopeTemplateProperties(
         id: String,

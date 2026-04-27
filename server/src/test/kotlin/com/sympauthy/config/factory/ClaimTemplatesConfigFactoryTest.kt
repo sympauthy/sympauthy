@@ -5,7 +5,9 @@ import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.model.ClaimTemplateAcl
 import com.sympauthy.config.model.DisabledClaimTemplatesConfig
 import com.sympauthy.config.model.EnabledClaimTemplatesConfig
+import com.sympauthy.config.parsing.ClaimTemplatesConfigParser
 import com.sympauthy.config.properties.ClaimTemplateConfigurationProperties
+import com.sympauthy.config.validation.ClaimTemplatesConfigValidator
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.SpyK
@@ -31,7 +33,10 @@ class ClaimTemplatesConfigFactoryTest {
         every {
             claimAclFactory.buildTemplateAcl(any(), any(), any())
         } returns emptyTemplateAcl
-        factory = ClaimTemplatesConfigFactory(parser, claimAclFactory)
+        factory = ClaimTemplatesConfigFactory(
+            ClaimTemplatesConfigParser(parser),
+            ClaimTemplatesConfigValidator(claimAclFactory)
+        )
     }
 
     private fun templateProperties(
