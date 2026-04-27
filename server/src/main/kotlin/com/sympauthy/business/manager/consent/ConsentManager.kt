@@ -44,7 +44,7 @@ open class ConsentManager(
      * the union of existing and new scopes.
      */
     @Transactional
-    open suspend fun saveGrantedConsent(
+    open suspend fun saveConsent(
         userId: UUID,
         audienceId: String,
         clientId: String,

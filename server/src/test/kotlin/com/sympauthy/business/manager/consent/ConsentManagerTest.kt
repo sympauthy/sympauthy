@@ -41,14 +41,14 @@ class ConsentManagerTest {
     private val scopes = listOf("read", "write")
 
     @Test
-    fun `saveGrantedConsent - Creates new consent when none exists`() = runTest {
+    fun `saveConsent - Creates new consent when none exists`() = runTest {
         val consent = mockk<Consent>()
 
         coEvery { consentRepository.findByUserIdAndAudienceIdAndRevokedAtIsNull(userId, audienceId) } returns null
         coEvery { consentRepository.save(any<ConsentEntity>()) } answers { firstArg() }
         every { consentMapper.toConsent(any()) } returns consent
 
-        val result = consentManager.saveGrantedConsent(userId, audienceId, clientId, scopes)
+        val result = consentManager.saveConsent(userId, audienceId, clientId, scopes)
 
         assertSame(consent, result)
         coVerify(exactly = 0) {
@@ -57,7 +57,7 @@ class ConsentManagerTest {
     }
 
     @Test
-    fun `saveGrantedConsent - Revokes existing consent and merges scopes`() = runTest {
+    fun `saveConsent - Revokes existing consent and merges scopes`() = runTest {
         val existingId = UUID.randomUUID()
         val existingEntity = mockk<ConsentEntity> {
             every { id } returns existingId
@@ -72,7 +72,7 @@ class ConsentManagerTest {
         coEvery { consentRepository.save(any<ConsentEntity>()) } answers { firstArg() }
         every { consentMapper.toConsent(any()) } returns consent
 
-        val result = consentManager.saveGrantedConsent(userId, audienceId, clientId, scopes)
+        val result = consentManager.saveConsent(userId, audienceId, clientId, scopes)
 
         assertSame(consent, result)
         coVerify(exactly = 1) {

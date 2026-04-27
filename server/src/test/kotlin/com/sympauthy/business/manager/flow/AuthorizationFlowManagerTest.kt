@@ -199,12 +199,12 @@ class AuthorizationFlowManagerTest {
         coEvery { authorizeAttemptManager.markAsComplete(afterGranted) } returns completedAttempt
 
         coEvery { clientManager.findClientById(clientId) } returns mockClient(clientId)
-        coEvery { consentManager.saveGrantedConsent(userId, any(), clientId, consentedScopes) } returns mockk()
+        coEvery { consentManager.saveConsent(userId, any(), clientId, consentedScopes) } returns mockk()
 
         val result = manager.completeAuthorization(onGoingAttempt)
 
         assertSame(completedAttempt, result)
-        coVerify(exactly = 1) { consentManager.saveGrantedConsent(userId, any(), clientId, consentedScopes) }
+        coVerify(exactly = 1) { consentManager.saveConsent(userId, any(), clientId, consentedScopes) }
     }
 
     @Test
@@ -244,12 +244,12 @@ class AuthorizationFlowManagerTest {
             coEvery { authorizeAttemptManager.markAsComplete(afterGranted) } returns completedAttempt
     
             coEvery { clientManager.findClientById(clientId) } returns mockClient(clientId)
-            coEvery { consentManager.saveGrantedConsent(userId, any(), clientId, emptyList()) } returns mockk()
+            coEvery { consentManager.saveConsent(userId, any(), clientId, emptyList()) } returns mockk()
 
             val result = manager.completeAuthorization(onGoingAttempt)
 
             assertSame(completedAttempt, result)
-            coVerify(exactly = 1) { consentManager.saveGrantedConsent(userId, any(), clientId, emptyList()) }
+            coVerify(exactly = 1) { consentManager.saveConsent(userId, any(), clientId, emptyList()) }
         }
 
     @Test
@@ -333,7 +333,7 @@ class AuthorizationFlowManagerTest {
         coEvery { authorizeAttemptManager.markAsComplete(afterGranted) } returns completedAttempt
 
         coEvery { clientManager.findClientById(clientId) } returns mockClient(clientId)
-        coEvery { consentManager.saveGrantedConsent(userId, any(), clientId, emptyList()) } returns mockk()
+        coEvery { consentManager.saveConsent(userId, any(), clientId, emptyList()) } returns mockk()
 
         val result = manager.completeAuthorization(onGoingAttempt)
 
