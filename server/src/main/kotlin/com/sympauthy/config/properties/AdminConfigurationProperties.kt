@@ -7,6 +7,7 @@ import io.micronaut.context.annotation.ConfigurationProperties
 interface AdminConfigurationProperties {
     val enabled: String?
     val integratedUi: String?
+    val audience: String?
 
     companion object {
         const val ADMIN_KEY = "admin"

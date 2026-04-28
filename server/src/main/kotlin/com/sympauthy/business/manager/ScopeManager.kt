@@ -6,10 +6,7 @@ import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.user.OpenIdConnectScope
 import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.config.model.CustomScopeConfig
-import com.sympauthy.config.model.OpenIdConnectScopeConfig
-import com.sympauthy.config.model.ScopesConfig
-import com.sympauthy.config.model.orThrow
+import com.sympauthy.config.model.*
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -20,6 +17,7 @@ import kotlinx.coroutines.flow.toList
 @Singleton
 class ScopeManager(
     @Inject private val uncheckedScopesConfig: ScopesConfig,
+    @Inject private val uncheckedAdminConfig: AdminConfig,
     @Inject private val claimManager: ClaimManager
 ) {
     /**
@@ -53,12 +51,20 @@ class ScopeManager(
 
     /**
      * Built-in scopes granting access to the administration APIs of this authorization server.
+     * When admin is enabled, scopes are bound to the configured admin audience.
+     * When admin is disabled, returns an empty list.
      */
-    val adminScopes: List<Scope> = AdminScope.entries.map { adminScope ->
-        GrantableUserScope(
-            scope = adminScope.scope,
-            discoverable = false
-        )
+    val adminScopes: List<Scope> by lazy {
+        when (val config = uncheckedAdminConfig) {
+            is EnabledAdminConfig -> AdminScope.entries.map { adminScope ->
+                GrantableUserScope(
+                    scope = adminScope.scope,
+                    discoverable = false,
+                    audienceId = config.audienceId
+                )
+            }
+            is DisabledAdminConfig -> emptyList()
+        }
     }
 
     /**
@@ -185,7 +191,8 @@ class ScopeManager(
      * This method does the following:
      * - If no scope is provided by the end-user, return the default scopes defined by the [client].
      * - parse the [uncheckedScopes] and throw an unrecoverable exception if it fails.
-     * - filter out the scopes that have been disabled by the [client].
+     * - reject scopes whose audience does not match the [client]'s audience.
+     * - reject scopes that are not in the [client]'s allowed scopes.
      */
     suspend fun parseRequestedScopes(
         client: Client,
@@ -204,6 +211,16 @@ class ScopeManager(
                         descriptionId = "description.scope.parse_requested.unsupported",
                         values = mapOf("scope" to scope)
                     )
+                    if (foundScope.audienceId != null && foundScope.audienceId != client.audience.id) {
+                        throw businessExceptionOf(
+                            detailsId = "scope.audience_mismatch",
+                            values = arrayOf(
+                                "scope" to scope,
+                                "scopeAudience" to foundScope.audienceId,
+                                "clientAudience" to client.audience.id
+                            )
+                        )
+                    }
                     if (client.allowedScopes != null && !client.allowedScopes.contains(foundScope)) {
                         throw BusinessException(
                             recoverable = false,

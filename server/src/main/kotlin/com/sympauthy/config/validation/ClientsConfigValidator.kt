@@ -87,13 +87,15 @@ class ClientsConfigValidator(
         // Validate scopes.
         val allowedScopes = when {
             parsed.allowedScopes != null -> fieldValidator.validateScopes(
-                subCtx, "$configKeyPrefix.allowed-scopes", parsed.allowedScopes
+                subCtx, "$configKeyPrefix.allowed-scopes", parsed.allowedScopes,
+                audienceId = parsed.audienceId
             )?.toSet()
             else -> parsed.template?.allowedScopes
         }
         val defaultScopes = when {
             parsed.defaultScopes != null -> fieldValidator.validateScopes(
-                subCtx, "$configKeyPrefix.default-scopes", parsed.defaultScopes
+                subCtx, "$configKeyPrefix.default-scopes", parsed.defaultScopes,
+                audienceId = parsed.audienceId
             )
             else -> parsed.template?.defaultScopes
         }

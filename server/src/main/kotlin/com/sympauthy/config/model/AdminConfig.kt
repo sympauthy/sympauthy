@@ -8,7 +8,12 @@ sealed class AdminConfig(
 
 data class EnabledAdminConfig(
     val enabled: Boolean,
-    val integratedUi: Boolean
+    val integratedUi: Boolean,
+    /**
+     * ID of the audience that admin scopes are bound to.
+     * Only clients in this audience can request or receive admin scopes.
+     */
+    val audienceId: String
 ) : AdminConfig()
 
 class DisabledAdminConfig(

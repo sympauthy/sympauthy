@@ -8,7 +8,8 @@ import jakarta.inject.Singleton
 
 data class ParsedAdminConfig(
     val enabled: Boolean?,
-    val integratedUi: Boolean?
+    val integratedUi: Boolean?,
+    val audience: String?
 )
 
 @Singleton
@@ -25,6 +26,9 @@ class AdminConfigParser(
         val integratedUi = ctx.parse {
             parser.getBooleanOrThrow(properties, "$ADMIN_KEY.integrated-ui", AdminConfigurationProperties::integratedUi)
         }
-        return ParsedAdminConfig(enabled = enabled, integratedUi = integratedUi)
+        val audience = ctx.parse {
+            parser.getStringOrThrow(properties, "$ADMIN_KEY.audience", AdminConfigurationProperties::audience)
+        }
+        return ParsedAdminConfig(enabled = enabled, integratedUi = integratedUi, audience = audience)
     }
 }

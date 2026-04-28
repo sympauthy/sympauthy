@@ -6,9 +6,14 @@
 admin:
   enabled: true
   integrated-ui: true
+  audience: admin
+
+audiences:
+  admin: {}
 
 clients:
   admin:
+    audience: admin
     public: true
     allowed-grant-types:
       - authorization_code
