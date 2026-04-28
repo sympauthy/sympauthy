@@ -191,7 +191,8 @@ class ScopeManager(
      * This method does the following:
      * - If no scope is provided by the end-user, return the default scopes defined by the [client].
      * - parse the [uncheckedScopes] and throw an unrecoverable exception if it fails.
-     * - filter out the scopes that have been disabled by the [client].
+     * - reject scopes whose audience does not match the [client]'s audience.
+     * - reject scopes that are not in the [client]'s allowed scopes.
      */
     suspend fun parseRequestedScopes(
         client: Client,
@@ -210,6 +211,16 @@ class ScopeManager(
                         descriptionId = "description.scope.parse_requested.unsupported",
                         values = mapOf("scope" to scope)
                     )
+                    if (foundScope.audienceId != null && foundScope.audienceId != client.audience.id) {
+                        throw businessExceptionOf(
+                            detailsId = "scope.audience_mismatch",
+                            values = arrayOf(
+                                "scope" to scope,
+                                "scopeAudience" to foundScope.audienceId,
+                                "clientAudience" to client.audience.id
+                            )
+                        )
+                    }
                     if (client.allowedScopes != null && !client.allowedScopes.contains(foundScope)) {
                         throw BusinessException(
                             recoverable = false,

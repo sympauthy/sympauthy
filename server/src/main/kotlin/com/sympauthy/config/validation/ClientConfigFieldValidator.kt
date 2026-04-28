@@ -67,11 +67,15 @@ class ClientConfigFieldValidator(
 
     /**
      * Look up scopes by name via [ScopeManager].
+     *
+     * When [audienceId] is provided, also validates that each scope belongs to the given audience
+     * (or has no audience restriction).
      */
     suspend fun validateScopes(
         ctx: ConfigParsingContext,
         key: String,
-        scopes: List<String>?
+        scopes: List<String>?,
+        audienceId: String? = null
     ): List<Scope>? {
         if (scopes == null) return null
 
@@ -85,6 +89,21 @@ class ClientConfigFieldValidator(
                             "scope" to scope
                         )
                     )
+                    return@mapIndexedNotNull null
+                }
+                if (audienceId != null
+                    && verifiedScope.audienceId != null
+                    && verifiedScope.audienceId != audienceId
+                ) {
+                    ctx.addError(
+                        configExceptionOf(
+                            "$key[$index]", "config.client.scope.audience_mismatch",
+                            "scope" to scope,
+                            "scopeAudience" to verifiedScope.audienceId,
+                            "clientAudience" to audienceId
+                        )
+                    )
+                    return@mapIndexedNotNull null
                 }
                 verifiedScope
             } catch (_: Throwable) {

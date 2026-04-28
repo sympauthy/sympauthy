@@ -139,8 +139,8 @@ class ScopeManagerTest {
     fun `parseRequestedScopes - Parse and return scopes allowed by client`() = runTest {
         val scopeOne = "openid"
         val scopeTwo = "profile"
-        val foundScopeOne = mockk<Scope>()
-        val foundScopeTwo = mockk<Scope>()
+        val foundScopeOne = mockk<Scope> { every { audienceId } returns null }
+        val foundScopeTwo = mockk<Scope> { every { audienceId } returns null }
         val client = mockk<com.sympauthy.business.model.client.Client> {
             every { allowedScopes } returns setOf(foundScopeOne, foundScopeTwo)
         }
@@ -159,8 +159,8 @@ class ScopeManagerTest {
     fun `parseRequestedScopes - Parse scopes with whitespace`() = runTest {
         val scopeOne = "openid"
         val scopeTwo = "profile"
-        val foundScopeOne = mockk<Scope>()
-        val foundScopeTwo = mockk<Scope>()
+        val foundScopeOne = mockk<Scope> { every { audienceId } returns null }
+        val foundScopeTwo = mockk<Scope> { every { audienceId } returns null }
         val client = mockk<com.sympauthy.business.model.client.Client> {
             every { allowedScopes } returns setOf(foundScopeOne, foundScopeTwo)
         }
@@ -173,6 +173,24 @@ class ScopeManagerTest {
         assertEquals(2, result.size)
         assertSame(foundScopeOne, result[0])
         assertSame(foundScopeTwo, result[1])
+    }
+
+    @Test
+    fun `parseRequestedScopes - Throw when scope audience does not match client audience`() = runTest {
+        val scope = "admin:users:read"
+        val foundScope = mockk<Scope> {
+            every { audienceId } returns "admin"
+            every { this@mockk.scope } returns scope
+        }
+        val client = mockk<com.sympauthy.business.model.client.Client> {
+            every { audience } returns mockk { every { id } returns "default" }
+        }
+
+        coEvery { scopeManager.find(scope) } returns foundScope
+
+        assertThrows<BusinessException> {
+            scopeManager.parseRequestedScopes(client, scope)
+        }
     }
 
     @Test
