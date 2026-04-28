@@ -6,10 +6,7 @@ import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.user.OpenIdConnectScope
 import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.config.model.CustomScopeConfig
-import com.sympauthy.config.model.OpenIdConnectScopeConfig
-import com.sympauthy.config.model.ScopesConfig
-import com.sympauthy.config.model.orThrow
+import com.sympauthy.config.model.*
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -20,6 +17,7 @@ import kotlinx.coroutines.flow.toList
 @Singleton
 class ScopeManager(
     @Inject private val uncheckedScopesConfig: ScopesConfig,
+    @Inject private val uncheckedAdminConfig: AdminConfig,
     @Inject private val claimManager: ClaimManager
 ) {
     /**
@@ -53,12 +51,20 @@ class ScopeManager(
 
     /**
      * Built-in scopes granting access to the administration APIs of this authorization server.
+     * When admin is enabled, scopes are bound to the configured admin audience.
+     * When admin is disabled, returns an empty list.
      */
-    val adminScopes: List<Scope> = AdminScope.entries.map { adminScope ->
-        GrantableUserScope(
-            scope = adminScope.scope,
-            discoverable = false
-        )
+    val adminScopes: List<Scope> by lazy {
+        when (val config = uncheckedAdminConfig) {
+            is EnabledAdminConfig -> AdminScope.entries.map { adminScope ->
+                GrantableUserScope(
+                    scope = adminScope.scope,
+                    discoverable = false,
+                    audienceId = config.audienceId
+                )
+            }
+            is DisabledAdminConfig -> emptyList()
+        }
     }
 
     /**

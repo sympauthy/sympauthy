@@ -18,3 +18,7 @@ urls:
 admin:
   enabled: true
   integrated-ui: true
+  audience: admin
+
+audiences:
+  admin: {}
