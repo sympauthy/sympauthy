@@ -21,7 +21,9 @@ enum class AdminScope(
     USERS_WRITE(AdminScopeId.USERS_WRITE),
     USERS_DELETE(AdminScopeId.USERS_DELETE),
     CONSENT_READ(AdminScopeId.CONSENT_READ),
-    CONSENT_WRITE(AdminScopeId.CONSENT_WRITE);
+    CONSENT_WRITE(AdminScopeId.CONSENT_WRITE),
+    INVITATIONS_READ(AdminScopeId.INVITATIONS_READ),
+    INVITATIONS_WRITE(AdminScopeId.INVITATIONS_WRITE);
 }
 
 /**
@@ -36,4 +38,6 @@ object AdminScopeId {
     const val USERS_DELETE = "admin:users:delete"
     const val CONSENT_READ = "admin:consent:read"
     const val CONSENT_WRITE = "admin:consent:write"
+    const val INVITATIONS_READ = "admin:invitations:read"
+    const val INVITATIONS_WRITE = "admin:invitations:write"
 }

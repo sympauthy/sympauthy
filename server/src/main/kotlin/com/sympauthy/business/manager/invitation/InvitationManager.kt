@@ -14,6 +14,7 @@ import com.sympauthy.data.repository.InvitationRepository
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import kotlinx.coroutines.flow.toList
 import java.time.LocalDateTime
 import java.util.*
 
@@ -100,6 +101,11 @@ open class InvitationManager(
             detailsId = "invitation.not_found",
             values = arrayOf("id" to id.toString())
         )
+    }
+
+    suspend fun findAll(): List<Invitation> {
+        return invitationRepository.findAll().toList()
+            .map(invitationMapper::toInvitation)
     }
 
     suspend fun findByAudienceId(audienceId: String): List<Invitation> {

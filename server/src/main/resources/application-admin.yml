@@ -9,7 +9,9 @@ admin:
   audience: admin
 
 audiences:
-  admin: {}
+  admin:
+    sign-up-enabled: false
+    invitation-enabled: true
 
 clients:
   admin:
@@ -29,6 +31,8 @@ clients:
       - admin:users:delete
       - admin:consent:read
       - admin:consent:write
+      - admin:invitations:read
+      - admin:invitations:write
     default-scopes:
       - openid
       - profile
@@ -38,3 +42,5 @@ clients:
       - admin:users:delete
       - admin:consent:read
       - admin:consent:write
+      - admin:invitations:read
+      - admin:invitations:write
