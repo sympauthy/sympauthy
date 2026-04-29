@@ -9,7 +9,9 @@ import jakarta.inject.Singleton
 
 data class ParsedAudience(
     val id: String?,
-    val tokenAudience: String?
+    val tokenAudience: String?,
+    val signUpEnabled: Boolean?,
+    val invitationEnabled: Boolean?
 )
 
 @Singleton
@@ -48,7 +50,26 @@ class AudiencesConfigParser(
                 AudienceConfigurationProperties::tokenAudience
             )
         }
+        val signUpEnabled = subCtx.parse {
+            parser.getBoolean(
+                properties,
+                "$AUDIENCES_KEY.${properties.id}.sign-up-enabled",
+                AudienceConfigurationProperties::signUpEnabled
+            )
+        }
+        val invitationEnabled = subCtx.parse {
+            parser.getBoolean(
+                properties,
+                "$AUDIENCES_KEY.${properties.id}.invitation-enabled",
+                AudienceConfigurationProperties::invitationEnabled
+            )
+        }
         ctx.merge(subCtx)
-        return ParsedAudience(id = id, tokenAudience = tokenAudience)
+        return ParsedAudience(
+            id = id,
+            tokenAudience = tokenAudience,
+            signUpEnabled = signUpEnabled,
+            invitationEnabled = invitationEnabled
+        )
     }
 }

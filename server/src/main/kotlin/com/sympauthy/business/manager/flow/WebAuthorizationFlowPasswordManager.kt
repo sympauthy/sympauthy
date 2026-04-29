@@ -2,8 +2,10 @@ package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
+import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
+import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.password.PasswordManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
@@ -24,6 +26,7 @@ import com.sympauthy.data.repository.findAnyClaimMatching
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import java.util.*
 import kotlin.jvm.optionals.getOrNull
 
 /**
@@ -36,9 +39,11 @@ import kotlin.jvm.optionals.getOrNull
 @Singleton
 open class WebAuthorizationFlowPasswordManager(
     @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
+    @Inject private val clientManager: ClientManager,
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val collectedClaimRepository: CollectedClaimRepository,
+    @Inject private val invitationManager: InvitationManager,
     @Inject private val passwordManager: PasswordManager,
     @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
     @Inject private val userManager: UserManager,
@@ -134,6 +139,8 @@ open class WebAuthorizationFlowPasswordManager(
         unfilteredUpdates: List<CollectedClaimUpdate>,
         password: String
     ): AuthorizeAttempt {
+        checkSignUpAllowed(authorizeAttempt)
+
         val claimUpdateMap = claimManager.listIdentifierClaims().associateWith { claim ->
             unfilteredUpdates.firstOrNull { it.claim == claim }
         }
@@ -150,6 +157,9 @@ open class WebAuthorizationFlowPasswordManager(
         )
         passwordManager.createPassword(user, password)
 
+        // Apply invitation claims and consume the invitation
+        applyInvitationClaims(authorizeAttempt, user.id)
+
         // Update the authorize attempt with the id of the user so they can retrieve their access token.
         val updatedAuthorizeAttempt = authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, user.id)
 
@@ -159,6 +169,56 @@ open class WebAuthorizationFlowPasswordManager(
             authorizeAttempt = updatedAuthorizeAttempt,
             status = status,
         )
+    }
+
+    /**
+     * Check that sign-up is allowed for the audience of the client that initiated the authorize attempt.
+     * If the audience requires an invitation (`signUpEnabled=false, invitationEnabled=true`), verify that
+     * an invitation is bound to the attempt.
+     */
+    internal suspend fun checkSignUpAllowed(authorizeAttempt: OnGoingAuthorizeAttempt) {
+        val client = clientManager.findClientById(authorizeAttempt.clientId)
+        val audience = client.audience
+
+        if (!audience.signUpEnabled && !audience.invitationEnabled) {
+            throw recoverableBusinessExceptionOf(
+                detailsId = "flow.sign_up.disabled",
+                descriptionId = "description.flow.sign_up.disabled"
+            )
+        }
+
+        if (!audience.signUpEnabled && audience.invitationEnabled && authorizeAttempt.invitationId == null) {
+            throw recoverableBusinessExceptionOf(
+                detailsId = "flow.sign_up.invitation_required",
+                descriptionId = "description.flow.sign_up.invitation_required"
+            )
+        }
+    }
+
+    /**
+     * If an invitation is bound to the authorize attempt, apply its pre-assigned claims to the user
+     * and mark the invitation as consumed.
+     */
+    internal suspend fun applyInvitationClaims(authorizeAttempt: OnGoingAuthorizeAttempt, userId: UUID) {
+        val invitationId = authorizeAttempt.invitationId ?: return
+        val invitation = invitationManager.findById(invitationId)
+        val claims = invitation.claims
+
+        if (!claims.isNullOrEmpty()) {
+            val claimUpdates = claims.mapNotNull { (claimId, value) ->
+                val claim = claimManager.findByIdOrNull(claimId) ?: return@mapNotNull null
+                CollectedClaimUpdate(
+                    claim = claim,
+                    value = java.util.Optional.of(value)
+                )
+            }
+            if (claimUpdates.isNotEmpty()) {
+                val user = userManager.findById(userId)
+                collectedClaimManager.update(user = user, updates = claimUpdates)
+            }
+        }
+
+        invitationManager.consumeInvitation(invitationId, userId)
     }
 
     /**

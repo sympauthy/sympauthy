@@ -54,6 +54,7 @@ class AuthorizeAttemptManager(
         redirectUri: URI? = null,
         codeChallenge: String? = null,
         codeChallengeMethod: CodeChallengeMethod? = null,
+        invitationId: UUID? = null,
         error: BusinessException? = null
     ): AuthorizeAttempt {
         val now = LocalDateTime.now()
@@ -82,6 +83,8 @@ class AuthorizeAttemptManager(
 
             codeChallenge = codeChallenge,
             codeChallengeMethod = codeChallengeMethod?.value,
+
+            invitationId = invitationId,
 
             attemptDate = now,
             expirationDate = now.plus(uncheckedAuthConfig.orThrow().authorizationCode.expiration)

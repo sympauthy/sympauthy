@@ -13,7 +13,9 @@ enum class BuiltInClientScope(
 ) {
     USERS_READ(BuiltInClientScopeId.USERS_READ),
     USERS_CLAIMS_READ(BuiltInClientScopeId.USERS_CLAIMS_READ),
-    USERS_CLAIMS_WRITE(BuiltInClientScopeId.USERS_CLAIMS_WRITE);
+    USERS_CLAIMS_WRITE(BuiltInClientScopeId.USERS_CLAIMS_WRITE),
+    INVITATIONS_READ(BuiltInClientScopeId.INVITATIONS_READ),
+    INVITATIONS_WRITE(BuiltInClientScopeId.INVITATIONS_WRITE);
 }
 
 /**
@@ -25,4 +27,6 @@ object BuiltInClientScopeId {
     const val USERS_READ = "users:read"
     const val USERS_CLAIMS_READ = "users:claims:read"
     const val USERS_CLAIMS_WRITE = "users:claims:write"
+    const val INVITATIONS_READ = "invitations:read"
+    const val INVITATIONS_WRITE = "invitations:write"
 }

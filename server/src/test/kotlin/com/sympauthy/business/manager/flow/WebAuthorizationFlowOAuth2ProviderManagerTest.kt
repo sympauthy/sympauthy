@@ -1,8 +1,10 @@
 package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
+import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderClaimsResolver
 import com.sympauthy.business.manager.provider.ProviderManager
@@ -38,10 +40,16 @@ class WebAuthorizationFlowOAuth2ProviderManagerTest {
     lateinit var authorizeAttemptManager: AuthorizeAttemptManager
 
     @MockK
+    lateinit var clientManager: ClientManager
+
+    @MockK
     lateinit var claimManager: ClaimManager
 
     @MockK
     lateinit var collectedClaimManager: CollectedClaimManager
+
+    @MockK
+    lateinit var invitationManager: InvitationManager
 
     @MockK
     lateinit var providerConfigManager: ProviderManager

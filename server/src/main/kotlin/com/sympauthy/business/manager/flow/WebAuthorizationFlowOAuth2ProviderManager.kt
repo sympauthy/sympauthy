@@ -3,8 +3,10 @@ package com.sympauthy.business.manager.flow
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_CALLBACK_ENDPOINT
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_ENDPOINTS
 import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
+import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderClaimsResolver
 import com.sympauthy.business.manager.provider.ProviderManager
@@ -42,8 +44,10 @@ import java.util.*
 @Singleton
 open class WebAuthorizationFlowOAuth2ProviderManager(
     @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
+    @Inject private val clientManager: ClientManager,
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
+    @Inject private val invitationManager: InvitationManager,
     @Inject private val providerConfigManager: ProviderManager,
     @Inject private val providerClaimsManager: ProviderClaimsManager,
     @Inject private val providerClaimsResolver: ProviderClaimsResolver,
@@ -161,7 +165,10 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
         )
 
         val userId = if (existingUserInfo == null) {
-            createOrAssociateUserWithProviderUserInfo(provider, rawUserInfo).user.id
+            checkSignUpAllowedForProvider(authorizeAttempt)
+            val result = createOrAssociateUserWithProviderUserInfo(provider, rawUserInfo)
+            applyInvitationClaimsForProvider(authorizeAttempt, result.user.id)
+            result.user.id
         } else {
             providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo)
             existingUserInfo.userId
@@ -294,6 +301,55 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
                 )
             }
         )
+    }
+
+    /**
+     * Check that sign-up is allowed for the audience of the client that initiated the authorize attempt.
+     * Used when a third-party provider authenticates a user that does not yet have an account.
+     */
+    private suspend fun checkSignUpAllowedForProvider(authorizeAttempt: OnGoingAuthorizeAttempt) {
+        val client = clientManager.findClientById(authorizeAttempt.clientId)
+        val audience = client.audience
+
+        if (!audience.signUpEnabled && !audience.invitationEnabled) {
+            throw businessExceptionOf(
+                "flow.sign_up.disabled",
+                "description" to "description.flow.sign_up.disabled"
+            )
+        }
+
+        if (!audience.signUpEnabled && audience.invitationEnabled && authorizeAttempt.invitationId == null) {
+            throw businessExceptionOf(
+                "flow.sign_up.invitation_required",
+                "description" to "description.flow.sign_up.invitation_required"
+            )
+        }
+    }
+
+    /**
+     * If an invitation is bound to the authorize attempt, apply its pre-assigned claims to the user
+     * and mark the invitation as consumed.
+     */
+    private suspend fun applyInvitationClaimsForProvider(authorizeAttempt: OnGoingAuthorizeAttempt, userId: UUID) {
+        val invitationId = authorizeAttempt.invitationId ?: return
+        val invitation = invitationManager.findById(invitationId)
+        val claims = invitation.claims
+
+        if (!claims.isNullOrEmpty()) {
+            val claimUpdates = claims.mapNotNull { (claimId, value) ->
+                val claim = claimManager.findByIdOrNull(claimId) ?: return@mapNotNull null
+                CollectedClaimUpdate(
+                    claim = claim,
+                    value = java.util.Optional.of(value)
+                )
+            }
+            if (claimUpdates.isNotEmpty()) {
+                val user = userManager.findById(userId)
+                collectedClaimManager.update(user = user, updates = claimUpdates)
+            }
+        }
+
+        invitationManager.consumeInvitation(invitationId, userId)
     }
 
     suspend fun fetchTokens(

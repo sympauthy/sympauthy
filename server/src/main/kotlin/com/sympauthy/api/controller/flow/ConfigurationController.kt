@@ -2,7 +2,9 @@ package com.sympauthy.api.controller.flow
 
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_AUTHORIZE_ENDPOINT
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_ENDPOINTS
+import com.sympauthy.api.controller.flow.util.WebAuthorizationFlowControllerUtil
 import com.sympauthy.api.resource.flow.*
+import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowPasswordManager
 import com.sympauthy.business.manager.provider.ProviderManager
@@ -11,6 +13,8 @@ import com.sympauthy.config.model.EnabledUrlsConfig
 import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.config.model.getUri
 import com.sympauthy.config.model.orThrow
+import com.sympauthy.security.SecurityRule.HAS_STATE
+import com.sympauthy.security.stateOrNull
 import com.sympauthy.server.DisplayMessages
 import com.sympauthy.util.orDefault
 import io.micronaut.context.MessageSource
@@ -18,19 +22,21 @@ import io.micronaut.http.HttpRequest
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
 import io.micronaut.security.annotation.Secured
-import io.micronaut.security.rules.SecurityRule.IS_ANONYMOUS
+import io.micronaut.security.authentication.Authentication
 import io.swagger.v3.oas.annotations.Operation
 import jakarta.inject.Inject
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import java.util.*
 
-@Secured(IS_ANONYMOUS)
+@Secured(HAS_STATE)
 @Controller("/api/v1/flow/configuration")
 class ConfigurationController(
     @Inject private val claimManager: ClaimManager,
+    @Inject private val clientManager: ClientManager,
     @Inject private val passwordFlowManager: WebAuthorizationFlowPasswordManager,
     @Inject private val providerManager: ProviderManager,
+    @Inject private val webAuthorizationFlowControllerUtil: WebAuthorizationFlowControllerUtil,
     @Inject private val uncheckedUrlsConfig: UrlsConfig,
     @Inject @param:DisplayMessages private val displayMessageSource: MessageSource
 ) {
@@ -49,27 +55,35 @@ they can be cached across the different end-users trying to authenticate.
     )
     @Get
     suspend fun getConfiguration(
-        httpRequest: HttpRequest<*>
-    ): ConfigurationResource = coroutineScope {
-        val locale = httpRequest.locale.orDefault()
-        val urlsConfig = uncheckedUrlsConfig.orThrow()
+        httpRequest: HttpRequest<*>,
+        authentication: Authentication
+    ): ConfigurationResource = webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenRun(
+        state = authentication.stateOrNull
+    ) { authorizeAttempt, _ ->
+        coroutineScope {
+            val locale = httpRequest.locale.orDefault()
+            val urlsConfig = uncheckedUrlsConfig.orThrow()
 
-        val deferredClaims = async {
-            getCollectableClaims(locale)
-        }
-        val features = getFeatures()
-        val deferredProviders = async {
-            providerManager.listEnabledProviders()
-                .takeIf(List<EnabledProvider>::isNotEmpty)
-                ?.map { getProvider(it, urlsConfig) }
-        }
+            val client = clientManager.findClientByIdOrNull(authorizeAttempt.clientId)
+            val audience = client?.audience
 
-        ConfigurationResource(
-            claims = deferredClaims.await(),
-            features = features,
-            password = getPassword(),
-            providers = deferredProviders.await()
-        )
+            val deferredClaims = async {
+                getCollectableClaims(locale)
+            }
+            val features = getFeatures(audience)
+            val deferredProviders = async {
+                providerManager.listEnabledProviders()
+                    .takeIf(List<EnabledProvider>::isNotEmpty)
+                    ?.map { getProvider(it, urlsConfig) }
+            }
+
+            ConfigurationResource(
+                claims = deferredClaims.await(),
+                features = features,
+                password = getPassword(),
+                providers = deferredProviders.await()
+            )
+        }
     }
 
     private fun getCollectableClaims(locale: Locale): List<CollectableClaimConfigurationResource> {
@@ -84,10 +98,14 @@ they can be cached across the different end-users trying to authenticate.
         }
     }
 
-    private fun getFeatures(): FeaturesResource {
+    private fun getFeatures(
+        audience: com.sympauthy.business.model.audience.Audience?
+    ): FeaturesResource {
         return FeaturesResource(
             passwordSignIn = passwordFlowManager.signInEnabled,
-            signUp = passwordFlowManager.signUpEnabled
+            signUp = passwordFlowManager.signUpEnabled,
+            signUpEnabled = audience?.signUpEnabled ?: true,
+            invitationEnabled = audience?.invitationEnabled ?: false,
         )
     }
 

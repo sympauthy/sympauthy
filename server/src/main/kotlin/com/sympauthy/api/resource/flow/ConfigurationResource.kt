@@ -93,6 +93,16 @@ data class FeaturesResource(
     )
     @get:JsonProperty("sign_up")
     val signUp: Boolean,
+    @get:Schema(
+        description = "Whether open registration is enabled for the audience."
+    )
+    @get:JsonProperty("sign_up_enabled")
+    val signUpEnabled: Boolean = true,
+    @get:Schema(
+        description = "Whether invitation-based registration is enabled for the audience."
+    )
+    @get:JsonProperty("invitation_enabled")
+    val invitationEnabled: Boolean = false,
 )
 
 @Schema(

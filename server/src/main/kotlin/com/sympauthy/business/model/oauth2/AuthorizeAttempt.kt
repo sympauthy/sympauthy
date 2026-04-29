@@ -75,6 +75,13 @@ class OnGoingAuthorizeAttempt(
      */
     val codeChallengeMethod: CodeChallengeMethod? = null,
 
+    // Invitation
+    /**
+     * The identifier of the invitation used to initiate this authorization attempt.
+     * Null if the attempt was not initiated via an invitation.
+     */
+    val invitationId: UUID? = null,
+
     // Third-party provider
     /**
      * The identifier of the third-party provider the user is authenticating with.
@@ -158,6 +165,7 @@ class OnGoingAuthorizeAttempt(
         nonce = this.nonce,
         codeChallenge = this.codeChallenge,
         codeChallengeMethod = this.codeChallengeMethod,
+        invitationId = this.invitationId,
         providerId = this.providerId,
         providerNonceJsonWebTokenId = this.providerNonceJsonWebTokenId,
         userId = userId ?: this.userId,

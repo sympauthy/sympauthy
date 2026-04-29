@@ -12,6 +12,8 @@ class AudienceConfigurationProperties(
     @param:Parameter val id: String
 ) {
     var tokenAudience: String? = null
+    var signUpEnabled: String? = null
+    var invitationEnabled: String? = null
 
     companion object {
         const val AUDIENCES_KEY = "audiences"
