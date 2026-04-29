@@ -35,7 +35,9 @@ class AudiencesConfigValidator {
         val id = this.id ?: return null
         return Audience(
             id = id,
-            tokenAudience = tokenAudience ?: id
+            tokenAudience = tokenAudience ?: id,
+            signUpEnabled = signUpEnabled ?: true,
+            invitationEnabled = invitationEnabled ?: false
         )
     }
 }

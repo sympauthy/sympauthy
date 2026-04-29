@@ -7,10 +7,14 @@ import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.AuthorizationWebhookAdvancedConfig
 import com.sympauthy.config.model.EnabledAdvancedConfig
 import com.sympauthy.config.model.HashConfig
+import com.sympauthy.config.model.InvitationAdvancedConfig
 import com.sympauthy.config.model.ValidationCodeConfig
 import com.sympauthy.config.parsing.ParsedAdvancedConfig
 import com.sympauthy.config.parsing.ParsedHashConfig
+import com.sympauthy.config.parsing.ParsedInvitationConfig
 import com.sympauthy.config.parsing.ParsedValidationCodeConfig
+import com.sympauthy.config.properties.InvitationConfigurationProperties.Companion.INVITATION_KEY
+import com.sympauthy.config.properties.InvitationHashConfigurationProperties.Companion.INVITATION_HASH_KEY
 import com.sympauthy.config.properties.AdvancedConfigurationProperties.Companion.ADVANCED_KEY
 import com.sympauthy.config.properties.HashConfigurationProperties.Companion.HASH_KEY
 import com.sympauthy.config.properties.JwtConfigurationProperties.Companion.JWT_KEY
@@ -32,7 +36,8 @@ class AdvancedConfigValidator {
         validatePublicKeyAlgorithm(ctx, parsed.publicJwtAlgorithm)
         validateAccessKeyAlgorithm(ctx, parsed.accessJwtAlgorithm)
         validatePrivateKeyAlgorithm(ctx, parsed.privateJwtAlgorithm)
-        val hashConfig = validateHashConfig(ctx, parsed.hash)
+        val hashConfig = validateHashConfig(ctx, HASH_KEY, parsed.hash)
+        val invitationConfig = validateInvitationConfig(ctx, parsed.invitation)
         val validationCodeConfig = validateValidationCodeConfig(ctx, parsed.validationCode)
         val webhookConfig = AuthorizationWebhookAdvancedConfig(
             timeout = parsed.webhookTimeout ?: DEFAULT_WEBHOOK_TIMEOUT
@@ -45,6 +50,7 @@ class AdvancedConfigValidator {
             accessJwtAlgorithm = parsed.accessJwtAlgorithm!!,
             privateJwtAlgorithm = parsed.privateJwtAlgorithm!!,
             hashConfig = hashConfig!!,
+            invitationConfig = invitationConfig!!,
             validationCode = validationCodeConfig!!,
             authorizationWebhook = webhookConfig
         )
@@ -112,19 +118,23 @@ class AdvancedConfigValidator {
         }
     }
 
-    private fun validateHashConfig(ctx: ConfigParsingContext, parsed: ParsedHashConfig): HashConfig? {
+    private fun validateHashConfig(
+        ctx: ConfigParsingContext,
+        configKeyPrefix: String,
+        parsed: ParsedHashConfig
+    ): HashConfig? {
         val subCtx = ctx.child()
 
         val costParameter = parsed.costParameter
         if (costParameter != null && (costParameter !in 2..65535 || !isPowerOf2(costParameter))) {
             subCtx.addError(
-                configExceptionOf("$HASH_KEY.cost-parameter", "config.advanced.hash.invalid_cost_parameter")
+                configExceptionOf("$configKeyPrefix.cost-parameter", "config.advanced.hash.invalid_cost_parameter")
             )
         }
 
         if (parsed.blockSize != null && parsed.blockSize <= 0) {
             subCtx.addError(
-                configExceptionOf("$HASH_KEY.block-size", "config.advanced.hash.invalid_block_size")
+                configExceptionOf("$configKeyPrefix.block-size", "config.advanced.hash.invalid_block_size")
             )
         }
 
@@ -133,7 +143,7 @@ class AdvancedConfigValidator {
             if (parsed.parallelizationParameter !in 1..max) {
                 subCtx.addError(
                     configExceptionOf(
-                        "$HASH_KEY.parallelization-parameter",
+                        "$configKeyPrefix.parallelization-parameter",
                         "config.advanced.hash.invalid_parallelization_parameter",
                         "max" to max
                     )
@@ -143,13 +153,13 @@ class AdvancedConfigValidator {
 
         if (parsed.saltLength != null && (parsed.saltLength <= 0 && parsed.saltLength % 8 != 0)) {
             subCtx.addError(
-                configExceptionOf("$HASH_KEY.salt-length", "config.advanced.hash.invalid_salt_length")
+                configExceptionOf("$configKeyPrefix.salt-length", "config.advanced.hash.invalid_salt_length")
             )
         }
 
         if (parsed.keyLength != null && parsed.keyLength <= 0) {
             subCtx.addError(
-                configExceptionOf("$HASH_KEY.key-length", "config.advanced.hash.invalid_key_length")
+                configExceptionOf("$configKeyPrefix.key-length", "config.advanced.hash.invalid_key_length")
             )
         }
 
@@ -165,6 +175,49 @@ class AdvancedConfigValidator {
             parallelizationParameter = parsed.parallelizationParameter,
             saltLengthInBytes = parsed.saltLength / 8,
             keyLengthInBytes = parsed.keyLength
+        )
+    }
+
+    private fun validateInvitationConfig(
+        ctx: ConfigParsingContext,
+        parsed: ParsedInvitationConfig
+    ): InvitationAdvancedConfig? {
+        val subCtx = ctx.child()
+
+        if (parsed.tokenLength != null && parsed.tokenLength <= 0) {
+            subCtx.addError(
+                configExceptionOf(
+                    "$INVITATION_KEY.token-length",
+                    "config.advanced.invitation.invalid_token_length"
+                )
+            )
+        }
+
+        if (parsed.defaultExpiration != null && parsed.maxExpiration != null
+            && parsed.defaultExpiration > parsed.maxExpiration
+        ) {
+            subCtx.addError(
+                configExceptionOf(
+                    "$INVITATION_KEY.default-expiration",
+                    "config.advanced.invitation.default_exceeds_max"
+                )
+            )
+        }
+
+        val hashConfig = validateHashConfig(subCtx, INVITATION_HASH_KEY, parsed.hash)
+
+        ctx.merge(subCtx)
+        if (subCtx.hasErrors || parsed.tokenLength == null
+            || parsed.defaultExpiration == null || parsed.maxExpiration == null
+            || hashConfig == null
+        ) {
+            return null
+        }
+        return InvitationAdvancedConfig(
+            tokenLengthInBytes = parsed.tokenLength,
+            defaultExpiration = parsed.defaultExpiration,
+            maxExpiration = parsed.maxExpiration,
+            hashConfig = hashConfig
         )
     }
 

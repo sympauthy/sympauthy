@@ -34,6 +34,11 @@ class WebAuthorizationFlow(
      */
     val signInUri: URI,
     /**
+     * [URI] of the sign-up page. Null if not configured.
+     * Used when the user arrives via an invitation link and needs to create an account.
+     */
+    val signUpUri: URI? = null,
+    /**
      * [URI] of the page in charge of collecting claims from the end-user claims.
      *
      * This page will be presented during the authentication flow whenever all required claims

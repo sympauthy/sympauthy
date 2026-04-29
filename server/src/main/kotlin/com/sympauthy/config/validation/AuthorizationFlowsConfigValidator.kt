@@ -46,6 +46,7 @@ class AuthorizationFlowsConfigValidator(
             ?: (uncheckedUrlsConfig as? EnabledUrlsConfig)?.root
 
         val signInUri = resolveUri(rootUri, parsed.signInUri)
+        val signUpUri = parsed.signUpUri?.let { resolveUri(rootUri, it) }
         val collectClaimsUri = resolveUri(rootUri, parsed.collectClaimsUri)
         val validateClaimsUri = resolveUri(rootUri, parsed.validateClaimsUri)
         val errorUri = resolveUri(rootUri, parsed.errorUri)
@@ -81,6 +82,7 @@ class AuthorizationFlowsConfigValidator(
         return WebAuthorizationFlow(
             id = parsed.id,
             signInUri = signInUri,
+            signUpUri = signUpUri,
             collectClaimsUri = collectClaimsUri,
             validateClaimsUri = validateClaimsUri,
             errorUri = errorUri,
