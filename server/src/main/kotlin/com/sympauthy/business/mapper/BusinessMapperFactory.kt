@@ -59,5 +59,8 @@ class BusinessMapperFactory {
     fun consentMapper() = Mappers.getMapper(ConsentMapper::class.java)
 
     @Singleton
+    fun invitationMapper() = Mappers.getMapper(InvitationMapper::class.java)
+
+    @Singleton
     fun validationCodeMapper() = Mappers.getMapper(ValidationCodeMapper::class.java)
 }
