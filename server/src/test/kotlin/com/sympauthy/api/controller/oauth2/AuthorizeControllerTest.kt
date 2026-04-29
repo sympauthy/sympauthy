@@ -46,7 +46,8 @@ class AuthorizeControllerTest {
                 uncheckedClientState = null,
                 uncheckedClientNonce = null,
                 uncheckedCodeChallenge = null,
-                uncheckedCodeChallengeMethod = null
+                uncheckedCodeChallengeMethod = null,
+                uncheckedInvitationToken = null
             )
         }
         assertEquals(UNSUPPORTED_RESPONSE_TYPE, exception.errorCode)
@@ -64,7 +65,8 @@ class AuthorizeControllerTest {
                 uncheckedClientState = null,
                 uncheckedClientNonce = null,
                 uncheckedCodeChallenge = null,
-                uncheckedCodeChallengeMethod = null
+                uncheckedCodeChallengeMethod = null,
+                uncheckedInvitationToken = null
             )
         }
         assertEquals(UNSUPPORTED_RESPONSE_TYPE, exception.errorCode)
@@ -82,7 +84,8 @@ class AuthorizeControllerTest {
                 uncheckedClientState = null,
                 uncheckedClientNonce = null,
                 uncheckedCodeChallenge = null,
-                uncheckedCodeChallengeMethod = null
+                uncheckedCodeChallengeMethod = null,
+                uncheckedInvitationToken = null
             )
         }
         assertEquals(UNSUPPORTED_RESPONSE_TYPE, exception.errorCode)
@@ -100,7 +103,8 @@ class AuthorizeControllerTest {
                 uncheckedClientState = null,
                 uncheckedClientNonce = null,
                 uncheckedCodeChallenge = null,
-                uncheckedCodeChallengeMethod = null
+                uncheckedCodeChallengeMethod = null,
+                uncheckedInvitationToken = null
             )
         }
         assertEquals(UNSUPPORTED_RESPONSE_TYPE, exception.errorCode)
@@ -118,7 +122,8 @@ class AuthorizeControllerTest {
                 uncheckedClientState = null,
                 uncheckedClientNonce = null,
                 uncheckedCodeChallenge = null,
-                uncheckedCodeChallengeMethod = null
+                uncheckedCodeChallengeMethod = null,
+                uncheckedInvitationToken = null
             )
         }
         assertEquals(UNSUPPORTED_RESPONSE_TYPE, exception.errorCode)
@@ -142,7 +147,8 @@ class AuthorizeControllerTest {
                 uncheckedScopes = "openid profile",
                 uncheckedRedirectUri = "https://example.com/callback",
                 uncheckedCodeChallenge = null,
-                uncheckedCodeChallengeMethod = null
+                uncheckedCodeChallengeMethod = null,
+                uncheckedInvitationToken = null
             )
         } returns (authorizeAttempt to flow)
 
@@ -164,7 +170,8 @@ class AuthorizeControllerTest {
             uncheckedClientState = "my-state",
             uncheckedClientNonce = null,
             uncheckedCodeChallenge = null,
-            uncheckedCodeChallengeMethod = null
+            uncheckedCodeChallengeMethod = null,
+            uncheckedInvitationToken = null
         )
 
         assertEquals(HttpStatus.SEE_OTHER, result.status)
@@ -204,7 +211,8 @@ class AuthorizeControllerTest {
             uncheckedClientState = "my-state",
             uncheckedClientNonce = "my-nonce",
             uncheckedCodeChallenge = "challenge123",
-            uncheckedCodeChallengeMethod = "S256"
+            uncheckedCodeChallengeMethod = "S256",
+            uncheckedInvitationToken = null
         )
 
         coVerify(exactly = 1) {
@@ -235,7 +243,8 @@ class AuthorizeControllerTest {
                 uncheckedScopes = null,
                 uncheckedRedirectUri = null,
                 uncheckedCodeChallenge = null,
-                uncheckedCodeChallengeMethod = null
+                uncheckedCodeChallengeMethod = null,
+                uncheckedInvitationToken = null
             )
         } returns (authorizeAttempt to flow)
 
@@ -253,7 +262,8 @@ class AuthorizeControllerTest {
             uncheckedClientState = null,
             uncheckedClientNonce = null,
             uncheckedCodeChallenge = null,
-            uncheckedCodeChallengeMethod = null
+            uncheckedCodeChallengeMethod = null,
+            uncheckedInvitationToken = null
         )
 
         coVerify(exactly = 1) {
@@ -264,7 +274,8 @@ class AuthorizeControllerTest {
                 uncheckedScopes = null,
                 uncheckedRedirectUri = null,
                 uncheckedCodeChallenge = null,
-                uncheckedCodeChallengeMethod = null
+                uncheckedCodeChallengeMethod = null,
+                uncheckedInvitationToken = null
             )
         }
     }

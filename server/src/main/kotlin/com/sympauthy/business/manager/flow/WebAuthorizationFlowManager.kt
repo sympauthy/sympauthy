@@ -7,11 +7,13 @@ import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
+import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.code.ValidationCodeReason
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
+import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.config.model.ClientTemplatesConfig
 import com.sympauthy.config.model.MfaConfig
@@ -41,6 +43,7 @@ class WebAuthorizationFlowManager(
     @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
     @Inject private val claimValidationManager: WebAuthorizationFlowClaimValidationManager,
     @Inject private val clientManager: ClientManager,
+    @Inject private val invitationManager: InvitationManager,
     @Inject private val scopeManager: ScopeManager,
     @Inject private val uncheckedMfaConfig: MfaConfig,
     @Inject private val uncheckedClientTemplatesConfig: Flow<ClientTemplatesConfig>
@@ -82,14 +85,16 @@ class WebAuthorizationFlowManager(
     }
 
     /**
-     * Create a new [AuthorizeAttempt] for the end-user
+     * Create a new [AuthorizeAttempt] for the end-user.
      *
      * This method is in charge of:
      * - validating the [uncheckedClientId]. Redirect the user to the error page of the default web authorization flow in case of error.
      * - selecting the flow: Either the one provided by the [Client] or the default one.
-     * - creating the [AuthorizeAttempt].
      * - validating the [uncheckedScopes]. Redirect the user to the error page of the selected flow in case of error.
      * - validating the [uncheckedRedirectUri]. Redirect the user to the error page of the selected flow in case of error.
+     * - validating the [uncheckedInvitationToken] if provided: checks that the invitation exists, is pending, and
+     *   belongs to the same audience as the client. The invitation ID is stored on the [AuthorizeAttempt].
+     * - creating the [AuthorizeAttempt].
      *
      * Parameters are expected to be non-validated as this method will perform the validation and assign default values
      * if necessary.
@@ -101,7 +106,8 @@ class WebAuthorizationFlowManager(
         uncheckedScopes: String?,
         uncheckedRedirectUri: String?,
         uncheckedCodeChallenge: String? = null,
-        uncheckedCodeChallengeMethod: String? = null
+        uncheckedCodeChallengeMethod: String? = null,
+        uncheckedInvitationToken: String? = null
     ): Pair<AuthorizeAttempt, WebAuthorizationFlow> {
         val (client, clientException) = try {
             val client = clientManager.parseRequestedClient(uncheckedClientId)
@@ -161,6 +167,16 @@ class WebAuthorizationFlowManager(
             uncheckedCodeChallengeMethod = uncheckedCodeChallengeMethod
         )
 
+        val (invitation, invitationException) = if (!uncheckedInvitationToken.isNullOrBlank() && client != null) {
+            try {
+                invitationManager.validateToken(uncheckedInvitationToken, client.audience.id) to null
+            } catch (e: BusinessException) {
+                null to e
+            }
+        } else {
+            null to null
+        }
+
         val authorizeAttempt = authorizeAttemptManager.newAuthorizeAttempt(
             client = client,
             clientState = uncheckedClientState,
@@ -169,12 +185,14 @@ class WebAuthorizationFlowManager(
             redirectUri = redirectUri,
             codeChallenge = codeChallenge,
             codeChallengeMethod = codeChallengeMethod,
+            invitationId = invitation?.id,
             error = listOfNotNull(
                 clientException,
                 flowException,
                 scopeException,
                 redirectUriException,
-                pkceException
+                pkceException,
+                invitationException
             ).firstOrNull()
         )
         return authorizeAttempt to flow

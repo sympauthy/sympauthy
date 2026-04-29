@@ -5,6 +5,7 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
+import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.client.Client
@@ -55,6 +56,9 @@ class WebAuthorizationFlowManagerTest {
 
     @MockK
     lateinit var clientManager: ClientManager
+
+    @MockK
+    lateinit var invitationManager: InvitationManager
 
     @MockK
     lateinit var scopeManager: ScopeManager
@@ -360,7 +364,7 @@ class WebAuthorizationFlowManagerTest {
             val realManager = WebAuthorizationFlowManager(
                 authorizationFlowManager, authorizeAttemptManager, collectedClaimManager,
                 consentAwareCollectedClaimManager, claimValidationManager, clientManager,
-                scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
+                invitationManager, scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
             )
 
             val result = realManager.getDefaultWebAuthorizationFlow()
@@ -376,7 +380,7 @@ class WebAuthorizationFlowManagerTest {
         val realManager = WebAuthorizationFlowManager(
             authorizationFlowManager, authorizeAttemptManager, collectedClaimManager,
             consentAwareCollectedClaimManager, claimValidationManager, clientManager,
-            scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
+            invitationManager, scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
         )
 
         val result = realManager.getDefaultWebAuthorizationFlow()
@@ -405,7 +409,7 @@ class WebAuthorizationFlowManagerTest {
             val realManager = WebAuthorizationFlowManager(
                 authorizationFlowManager, authorizeAttemptManager, collectedClaimManager,
                 consentAwareCollectedClaimManager, claimValidationManager, clientManager,
-                scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
+                invitationManager, scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
             )
 
             val result = realManager.getDefaultWebAuthorizationFlow()
@@ -433,7 +437,7 @@ class WebAuthorizationFlowManagerTest {
             val realManager = WebAuthorizationFlowManager(
                 authorizationFlowManager, authorizeAttemptManager, collectedClaimManager,
                 consentAwareCollectedClaimManager, claimValidationManager, clientManager,
-                scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
+                invitationManager, scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
             )
 
             val result = realManager.getDefaultWebAuthorizationFlow()

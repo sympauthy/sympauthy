@@ -55,7 +55,11 @@ class WebAuthorizationFlowRedirectUriBuilder(
             when {
                 status.missingUser -> appendStateToUri(
                     authorizeAttempt = authorizeAttempt,
-                    uri = flow.signInUri
+                    uri = if (authorizeAttempt.invitationId != null && flow.signUpUri != null) {
+                        flow.signUpUri
+                    } else {
+                        flow.signInUri
+                    }
                 )
 
                 status.missingMfa -> appendStateToUri(
