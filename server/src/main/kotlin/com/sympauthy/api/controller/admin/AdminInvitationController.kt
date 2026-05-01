@@ -70,6 +70,11 @@ class AdminInvitationController(
                 schema = Schema(type = "string")
             ),
             Parameter(
+                name = "status",
+                description = "Filter by invitation status.",
+                schema = Schema(type = "string", allowableValues = ["pending", "consumed", "revoked", "expired"])
+            ),
+            Parameter(
                 name = "page",
                 description = "Zero-indexed page number.",
                 schema = Schema(type = "integer", defaultValue = "0")
@@ -94,6 +99,7 @@ class AdminInvitationController(
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.INVITATIONS_READ])
     suspend fun listInvitations(
         @QueryValue("audience_id") audienceId: String?,
+        @QueryValue status: String?,
         @QueryValue page: Int?,
         @QueryValue size: Int?
     ): AdminInvitationListResource {
@@ -103,7 +109,12 @@ class AdminInvitationController(
         } else {
             invitationManager.findAll()
         }
-        val paged = allInvitations
+        val filtered = if (status != null) {
+            allInvitations.filter { it.status.name.equals(status, ignoreCase = true) }
+        } else {
+            allInvitations
+        }
+        val paged = filtered
             .drop(resolvedPage * resolvedSize)
             .take(resolvedSize)
             .map(invitationMapper::toResource)
@@ -111,7 +122,7 @@ class AdminInvitationController(
             invitations = paged,
             page = resolvedPage,
             size = resolvedSize,
-            total = allInvitations.size
+            total = filtered.size
         )
     }
 
