@@ -1,5 +1,6 @@
 package com.sympauthy.config.validation
 
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
@@ -14,16 +15,18 @@ class BootstrapInvitationsConfigValidator {
     fun validate(
         ctx: ConfigParsingContext,
         propertiesList: List<BootstrapInvitationConfigurationProperties>,
+        audiencesById: Map<String, Audience>,
         enabledClaims: List<Claim>
     ): List<BootstrapInvitation> {
         return propertiesList.mapNotNull { properties ->
-            validateInvitation(ctx, properties, enabledClaims)
+            validateInvitation(ctx, properties, audiencesById, enabledClaims)
         }
     }
 
     private fun validateInvitation(
         ctx: ConfigParsingContext,
         properties: BootstrapInvitationConfigurationProperties,
+        audiencesById: Map<String, Audience>,
         enabledClaims: List<Claim>
     ): BootstrapInvitation? {
         val subCtx = ctx.child()
@@ -36,6 +39,12 @@ class BootstrapInvitationsConfigValidator {
                     "$configKeyPrefix.audience",
                     "config.missing"
                 )
+            )
+        } else {
+            validateAudienceId(
+                subCtx, audienceId, audiencesById,
+                "$configKeyPrefix.audience",
+                "config.bootstrap_invitation.audience.not_found"
             )
         }
 

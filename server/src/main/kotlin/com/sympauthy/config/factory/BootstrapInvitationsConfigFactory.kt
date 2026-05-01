@@ -11,6 +11,7 @@ import jakarta.inject.Singleton
 @Factory
 class BootstrapInvitationsConfigFactory(
     @Inject private val validator: BootstrapInvitationsConfigValidator,
+    @Inject private val uncheckedAudiencesConfig: AudiencesConfig,
     @Inject private val uncheckedClaimsConfig: ClaimsConfig
 ) {
 
@@ -21,15 +22,20 @@ class BootstrapInvitationsConfigFactory(
         if (propertiesList.isEmpty()) {
             return EnabledBootstrapInvitationsConfig(emptyList())
         }
+        if (uncheckedAudiencesConfig is DisabledAudiencesConfig) {
+            return DisabledBootstrapInvitationsConfig(emptyList())
+        }
         if (uncheckedClaimsConfig is DisabledClaimsConfig) {
             return DisabledBootstrapInvitationsConfig(emptyList())
         }
+        val audiencesById = (uncheckedAudiencesConfig as EnabledAudiencesConfig)
+            .audiences.associateBy { it.id }
         val enabledClaims = (uncheckedClaimsConfig as EnabledClaimsConfig)
             .claims
             .filter { it.enabled }
 
         val ctx = ConfigParsingContext()
-        val invitations = validator.validate(ctx, propertiesList, enabledClaims)
+        val invitations = validator.validate(ctx, propertiesList, audiencesById, enabledClaims)
         return if (ctx.hasErrors) DisabledBootstrapInvitationsConfig(ctx.errors)
         else EnabledBootstrapInvitationsConfig(invitations)
     }
