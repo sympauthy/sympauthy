@@ -43,6 +43,10 @@ open class InvitationManager(
     /**
      * Create a new invitation. Returns the [Invitation] model and the raw base64url-encoded token.
      * The raw token is only available at creation time.
+     *
+     * @param clientScopeIds When creating from the client API, the scopes held by the client.
+     *   Used to check the client has write access to the pre-assigned claims via the unconditional ACL.
+     *   Null when creating from the admin API or bootstrap (no ACL check).
      */
     @Transactional
     open suspend fun createInvitation(
@@ -51,9 +55,10 @@ open class InvitationManager(
         note: String?,
         expiresAt: LocalDateTime?,
         createdBy: InvitationCreatedBy,
-        createdById: String? = null
+        createdById: String? = null,
+        clientScopeIds: List<String>? = null
     ): Pair<Invitation, String> {
-        val validatedClaims = validateAndCleanClaims(claims)
+        val validatedClaims = validateAndCleanClaims(claims, clientScopeIds)
 
         val config = invitationConfig
         val now = LocalDateTime.now()
@@ -88,9 +93,17 @@ open class InvitationManager(
     /**
      * Validate that all claim keys in the map correspond to existing enabled claims
      * and that the values are valid for the claim type.
+     *
+     * When [clientScopeIds] is provided (client API), additionally checks that the client
+     * has unconditional write access to each claim.
+     * When null (admin API, bootstrap), no ACL check is performed.
+     *
      * Returns a new map with cleaned values.
      */
-    private fun validateAndCleanClaims(claims: Map<String, String>?): Map<String, String>? {
+internal fun validateAndCleanClaims(
+        claims: Map<String, String>?,
+        clientScopeIds: List<String>?
+    ): Map<String, String>? {
         if (claims.isNullOrEmpty()) return claims
         return claims.mapValues { (claimId, value) ->
             val claim = claimManager.findByIdOrNull(claimId)
@@ -98,6 +111,13 @@ open class InvitationManager(
                 throw recoverableBusinessExceptionOf(
                     detailsId = "invitation.unknown_claim",
                     descriptionId = "description.invitation.unknown_claim",
+                    "claim" to claimId
+                )
+            }
+            if (clientScopeIds != null && !claim.canBeWrittenByClient(emptyList(), clientScopeIds)) {
+                throw recoverableBusinessExceptionOf(
+                    detailsId = "invitation.claim_not_writable",
+                    descriptionId = "description.invitation.claim_not_writable",
                     "claim" to claimId
                 )
             }

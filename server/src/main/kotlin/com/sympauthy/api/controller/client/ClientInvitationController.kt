@@ -57,6 +57,7 @@ class ClientInvitationController(
         val clientAuth = authentication.clientAuthentication
         val client = clientManager.findClientById(clientAuth.clientId)
         val expiresAt = input.expiresAt?.let { LocalDateTime.parse(it) }
+        val clientScopeIds = clientAuth.scopes.map { it.scope }
         val (invitation, rawToken) = invitationManager.createInvitation(
             audienceId = client.audience.id,
             claims = input.claims,
@@ -64,6 +65,7 @@ class ClientInvitationController(
             expiresAt = expiresAt,
             createdBy = InvitationCreatedBy.CLIENT,
             createdById = client.id,
+            clientScopeIds = clientScopeIds,
         )
         return invitationMapper.toCreatedResource(invitation, rawToken)
     }

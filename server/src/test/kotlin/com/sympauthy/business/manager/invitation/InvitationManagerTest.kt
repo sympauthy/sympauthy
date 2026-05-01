@@ -10,9 +10,6 @@ import com.sympauthy.business.model.invitation.InvitationStatus
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.config.model.AdvancedConfig
-import com.sympauthy.config.model.EnabledAdvancedConfig
-import com.sympauthy.config.model.HashConfig
-import com.sympauthy.config.model.InvitationAdvancedConfig
 import com.sympauthy.data.model.InvitationEntity
 import com.sympauthy.data.repository.InvitationRepository
 import io.mockk.*
@@ -24,7 +21,6 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
-import java.time.Duration
 import java.time.LocalDateTime
 import java.util.*
 
@@ -50,29 +46,10 @@ class InvitationManagerTest {
     lateinit var invitationMapper: InvitationMapper
 
     @MockK
-    lateinit var uncheckedAdvancedConfig: EnabledAdvancedConfig
+    lateinit var uncheckedAdvancedConfig: AdvancedConfig
 
     @InjectMockKs
     lateinit var manager: InvitationManager
-
-    private val testHashConfig = HashConfig(
-        costParameter = 16384,
-        blockSize = 8,
-        parallelizationParameter = 1,
-        saltLengthInBytes = 32,
-        keyLengthInBytes = 32
-    )
-
-    private val testInvitationConfig = InvitationAdvancedConfig(
-        tokenLengthInBytes = 32,
-        defaultExpiration = Duration.ofDays(7),
-        maxExpiration = Duration.ofDays(30),
-        hashConfig = testHashConfig
-    )
-
-    private fun mockAdvancedConfig() {
-        every { uncheckedAdvancedConfig.invitationConfig } returns testInvitationConfig
-    }
 
     private fun createClaim(id: String, enabled: Boolean = true, dataType: ClaimDataType = ClaimDataType.STRING): Claim {
         return mockk {
@@ -106,130 +83,91 @@ class InvitationManagerTest {
         )
     }
 
-    // --- createInvitation ---
+    // --- validateAndCleanClaims ---
 
     @Test
-    fun `createInvitation - Throws when claim does not exist`() = runTest {
+    fun `validateAndCleanClaims - Returns null when claims are null`() {
+        val result = manager.validateAndCleanClaims(null, null)
+        assertNull(result)
+    }
+
+    @Test
+    fun `validateAndCleanClaims - Returns input when claims are empty`() {
+        val result = manager.validateAndCleanClaims(emptyMap(), null)
+        assertTrue(result.isNullOrEmpty())
+    }
+
+    @Test
+    fun `validateAndCleanClaims - Throws when claim does not exist`() {
         every { claimManager.findByIdOrNull("unknown_claim") } returns null
 
         val exception = assertThrows<BusinessException> {
-            manager.createInvitation(
-                audienceId = "default",
-                claims = mapOf("unknown_claim" to "value"),
-                note = null,
-                expiresAt = null,
-                createdBy = InvitationCreatedBy.ADMIN,
-            )
+            manager.validateAndCleanClaims(mapOf("unknown_claim" to "value"), null)
         }
         assertEquals("invitation.unknown_claim", exception.detailsId)
         assertTrue(exception.recoverable)
     }
 
     @Test
-    fun `createInvitation - Throws when claim is disabled`() = runTest {
+    fun `validateAndCleanClaims - Throws when claim is disabled`() {
         val claim = createClaim("disabled_claim", enabled = false)
         every { claimManager.findByIdOrNull("disabled_claim") } returns claim
 
         val exception = assertThrows<BusinessException> {
-            manager.createInvitation(
-                audienceId = "default",
-                claims = mapOf("disabled_claim" to "value"),
-                note = null,
-                expiresAt = null,
-                createdBy = InvitationCreatedBy.ADMIN,
-            )
+            manager.validateAndCleanClaims(mapOf("disabled_claim" to "value"), null)
         }
         assertEquals("invitation.unknown_claim", exception.detailsId)
     }
 
     @Test
-    fun `createInvitation - Validates claim value against type`() = runTest {
+    fun `validateAndCleanClaims - Validates claim value against type`() {
         val claim = createClaim("my_boolean", dataType = ClaimDataType.BOOLEAN)
         every { claimManager.findByIdOrNull("my_boolean") } returns claim
         every { claimValueValidator.validateAndCleanValueForClaim(claim, "not_a_boolean") } throws
                 BusinessException(recoverable = true, detailsId = "user.claim_value_validator.invalid_boolean")
 
         val exception = assertThrows<BusinessException> {
-            manager.createInvitation(
-                audienceId = "default",
-                claims = mapOf("my_boolean" to "not_a_boolean"),
-                note = null,
-                expiresAt = null,
-                createdBy = InvitationCreatedBy.ADMIN,
-            )
+            manager.validateAndCleanClaims(mapOf("my_boolean" to "not_a_boolean"), null)
         }
         assertEquals("user.claim_value_validator.invalid_boolean", exception.detailsId)
     }
 
     @Test
-    fun `createInvitation - Stores cleaned claim values`() = runTest {
-        mockAdvancedConfig()
+    fun `validateAndCleanClaims - Returns cleaned values`() {
         val claim = createClaim("my_boolean", dataType = ClaimDataType.BOOLEAN)
         every { claimManager.findByIdOrNull("my_boolean") } returns claim
         every { claimValueValidator.validateAndCleanValueForClaim(claim, "TRUE") } returns Optional.of("true")
 
-        val tokenBytes = byteArrayOf(1, 2, 3)
-        val salt = byteArrayOf(4, 5, 6)
-        val lookupHash = byteArrayOf(7, 8, 9)
-        val hashedToken = byteArrayOf(10, 11, 12)
-        every { invitationTokenGenerator.generate(any()) } returnsMany listOf(tokenBytes, salt)
-        every { invitationTokenGenerator.encode(tokenBytes) } returns "AQID"
-        every { invitationTokenGenerator.extractPrefix("AQID") } returns "AQID"
-        every { invitationHashGenerator.computeLookupHash(tokenBytes) } returns lookupHash
-        coEvery { invitationHashGenerator.hash(tokenBytes, salt) } returns hashedToken
-
-        val savedEntity = mockk<InvitationEntity>()
-        coEvery { invitationRepository.save(any()) } returns savedEntity
-
-        val expectedInvitation = createInvitation(claims = mapOf("my_boolean" to "true"))
-        every { invitationMapper.toInvitation(savedEntity) } returns expectedInvitation
-
-        val (invitation, token) = manager.createInvitation(
-            audienceId = "default",
-            claims = mapOf("my_boolean" to "TRUE"),
-            note = null,
-            expiresAt = null,
-            createdBy = InvitationCreatedBy.ADMIN,
-        )
-
-        assertEquals("AQID", token)
-        assertEquals(mapOf("my_boolean" to "true"), invitation.claims)
-
-        coVerify {
-            invitationRepository.save(match { entity ->
-                entity.claims == mapOf("my_boolean" to "true")
-            })
-        }
+        val result = manager.validateAndCleanClaims(mapOf("my_boolean" to "TRUE"), null)
+        assertEquals(mapOf("my_boolean" to "true"), result)
     }
 
     @Test
-    fun `createInvitation - Succeeds with null claims`() = runTest {
-        mockAdvancedConfig()
+    fun `validateAndCleanClaims - Throws when client does not have write access to claim`() {
+        val claim = createClaim("custom_role")
+        every { claimManager.findByIdOrNull("custom_role") } returns claim
+        every { claim.canBeWrittenByClient(emptyList(), listOf("invitations:write")) } returns false
 
-        val tokenBytes = byteArrayOf(1, 2, 3)
-        val salt = byteArrayOf(4, 5, 6)
-        every { invitationTokenGenerator.generate(any()) } returnsMany listOf(tokenBytes, salt)
-        every { invitationTokenGenerator.encode(tokenBytes) } returns "AQID"
-        every { invitationTokenGenerator.extractPrefix("AQID") } returns "AQID"
-        every { invitationHashGenerator.computeLookupHash(tokenBytes) } returns byteArrayOf(7)
-        coEvery { invitationHashGenerator.hash(tokenBytes, salt) } returns byteArrayOf(8)
+        val exception = assertThrows<BusinessException> {
+            manager.validateAndCleanClaims(
+                mapOf("custom_role" to "admin"),
+                listOf("invitations:write")
+            )
+        }
+        assertEquals("invitation.claim_not_writable", exception.detailsId)
+        assertTrue(exception.recoverable)
+    }
 
-        val savedEntity = mockk<InvitationEntity>()
-        coEvery { invitationRepository.save(any()) } returns savedEntity
+    @Test
+    fun `validateAndCleanClaims - Skips ACL check when clientScopeIds is null`() {
+        val claim = createClaim("custom_role")
+        every { claimManager.findByIdOrNull("custom_role") } returns claim
+        every { claimValueValidator.validateAndCleanValueForClaim(claim, "admin") } returns Optional.of("admin")
 
-        val expectedInvitation = createInvitation()
-        every { invitationMapper.toInvitation(savedEntity) } returns expectedInvitation
+        val result = manager.validateAndCleanClaims(mapOf("custom_role" to "admin"), null)
 
-        val (_, token) = manager.createInvitation(
-            audienceId = "default",
-            claims = null,
-            note = null,
-            expiresAt = null,
-            createdBy = InvitationCreatedBy.ADMIN,
-        )
-
-        assertEquals("AQID", token)
-        verify(exactly = 0) { claimManager.findByIdOrNull(any()) }
+        assertEquals(mapOf("custom_role" to "admin"), result)
+        verify(exactly = 0) { claim.canBeWrittenByClient(any(), any()) }
     }
 
     // --- validateToken ---
