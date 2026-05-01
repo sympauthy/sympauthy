@@ -21,10 +21,12 @@ class BootstrapInvitationsConfigFactory(
         if (propertiesList.isEmpty()) {
             return EnabledBootstrapInvitationsConfig(emptyList())
         }
-        val enabledClaims = (uncheckedClaimsConfig as? EnabledClaimsConfig)
-            ?.claims
-            ?.filter { it.enabled }
-            ?: emptyList()
+        if (uncheckedClaimsConfig is DisabledClaimsConfig) {
+            return DisabledBootstrapInvitationsConfig(emptyList())
+        }
+        val enabledClaims = (uncheckedClaimsConfig as EnabledClaimsConfig)
+            .claims
+            .filter { it.enabled }
 
         val ctx = ConfigParsingContext()
         val invitations = validator.validate(ctx, propertiesList, enabledClaims)
