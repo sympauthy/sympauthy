@@ -4,7 +4,10 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.user.ClaimValueValidator
+import com.sympauthy.business.manager.user.CollectedClaimManager
+import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.InvitationMapper
+import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.invitation.InvitationStatus
@@ -30,6 +33,8 @@ import java.util.*
 open class InvitationManager(
     @Inject private val claimManager: ClaimManager,
     @Inject private val claimValueValidator: ClaimValueValidator,
+    @Inject private val collectedClaimManager: CollectedClaimManager,
+    @Inject private val userManager: UserManager,
     @Inject private val invitationRepository: InvitationRepository,
     @Inject private val invitationHashGenerator: InvitationHashGenerator,
     @Inject private val invitationTokenGenerator: InvitationTokenGenerator,
@@ -222,6 +227,35 @@ internal fun validateAndCleanClaims(
         }
 
         return invitation
+    }
+
+    /**
+     * If an invitation is bound to the authorize attempt, apply its pre-assigned claims to the user
+     * and mark the invitation as consumed.
+     *
+     * Does nothing if no invitation is bound to the attempt.
+     */
+    @Transactional
+    open suspend fun applyInvitationClaimsAndConsume(invitationId: UUID?, userId: UUID) {
+        if (invitationId == null) return
+        val invitation = findById(invitationId)
+        val claims = invitation.claims
+
+        if (!claims.isNullOrEmpty()) {
+            val claimUpdates = claims.mapNotNull { (claimId, value) ->
+                val claim = claimManager.findByIdOrNull(claimId) ?: return@mapNotNull null
+                CollectedClaimUpdate(
+                    claim = claim,
+                    value = java.util.Optional.of(value)
+                )
+            }
+            if (claimUpdates.isNotEmpty()) {
+                val user = userManager.findById(userId)
+                collectedClaimManager.update(user = user, updates = claimUpdates)
+            }
+        }
+
+        consumeInvitation(invitationId, userId)
     }
 
     /**

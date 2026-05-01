@@ -165,7 +165,7 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
         val userId = if (existingUserInfo == null) {
             webAuthorizationFlowManager.checkSignUpAllowed(authorizeAttempt, recoverable = false)
             val result = createOrAssociateUserWithProviderUserInfo(provider, rawUserInfo)
-            applyInvitationClaimsForProvider(authorizeAttempt, result.user.id)
+            invitationManager.applyInvitationClaimsAndConsume(authorizeAttempt.invitationId, result.user.id)
             result.user.id
         } else {
             providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo)
@@ -299,32 +299,6 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
                 )
             }
         )
-    }
-
-    /**
-     * If an invitation is bound to the authorize attempt, apply its pre-assigned claims to the user
-     * and mark the invitation as consumed.
-     */
-    private suspend fun applyInvitationClaimsForProvider(authorizeAttempt: OnGoingAuthorizeAttempt, userId: UUID) {
-        val invitationId = authorizeAttempt.invitationId ?: return
-        val invitation = invitationManager.findById(invitationId)
-        val claims = invitation.claims
-
-        if (!claims.isNullOrEmpty()) {
-            val claimUpdates = claims.mapNotNull { (claimId, value) ->
-                val claim = claimManager.findByIdOrNull(claimId) ?: return@mapNotNull null
-                CollectedClaimUpdate(
-                    claim = claim,
-                    value = java.util.Optional.of(value)
-                )
-            }
-            if (claimUpdates.isNotEmpty()) {
-                val user = userManager.findById(userId)
-                collectedClaimManager.update(user = user, updates = claimUpdates)
-            }
-        }
-
-        invitationManager.consumeInvitation(invitationId, userId)
     }
 
     suspend fun fetchTokens(

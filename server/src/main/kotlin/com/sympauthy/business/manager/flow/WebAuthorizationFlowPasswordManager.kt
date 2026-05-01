@@ -156,7 +156,7 @@ open class WebAuthorizationFlowPasswordManager(
         passwordManager.createPassword(user, password)
 
         // Apply invitation claims and consume the invitation
-        applyInvitationClaims(authorizeAttempt, user.id)
+        invitationManager.applyInvitationClaimsAndConsume(authorizeAttempt.invitationId, user.id)
 
         // Update the authorize attempt with the id of the user so they can retrieve their access token.
         val updatedAuthorizeAttempt = authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, user.id)
@@ -167,32 +167,6 @@ open class WebAuthorizationFlowPasswordManager(
             authorizeAttempt = updatedAuthorizeAttempt,
             status = status,
         )
-    }
-
-    /**
-     * If an invitation is bound to the authorize attempt, apply its pre-assigned claims to the user
-     * and mark the invitation as consumed.
-     */
-    internal suspend fun applyInvitationClaims(authorizeAttempt: OnGoingAuthorizeAttempt, userId: UUID) {
-        val invitationId = authorizeAttempt.invitationId ?: return
-        val invitation = invitationManager.findById(invitationId)
-        val claims = invitation.claims
-
-        if (!claims.isNullOrEmpty()) {
-            val claimUpdates = claims.mapNotNull { (claimId, value) ->
-                val claim = claimManager.findByIdOrNull(claimId) ?: return@mapNotNull null
-                CollectedClaimUpdate(
-                    claim = claim,
-                    value = java.util.Optional.of(value)
-                )
-            }
-            if (claimUpdates.isNotEmpty()) {
-                val user = userManager.findById(userId)
-                collectedClaimManager.update(user = user, updates = claimUpdates)
-            }
-        }
-
-        invitationManager.consumeInvitation(invitationId, userId)
     }
 
     /**

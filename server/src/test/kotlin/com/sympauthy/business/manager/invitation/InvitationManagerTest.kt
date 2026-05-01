@@ -34,6 +34,12 @@ class InvitationManagerTest {
     lateinit var claimValueValidator: ClaimValueValidator
 
     @MockK
+    lateinit var collectedClaimManager: com.sympauthy.business.manager.user.CollectedClaimManager
+
+    @MockK
+    lateinit var userManager: com.sympauthy.business.manager.user.UserManager
+
+    @MockK
     lateinit var invitationRepository: InvitationRepository
 
     @MockK
@@ -271,5 +277,82 @@ class InvitationManagerTest {
             manager.revokeInvitation(invitationId)
         }
         assertEquals("invitation.cannot_revoke", exception.detailsId)
+    }
+
+    // --- applyInvitationClaimsAndConsume ---
+
+    @Test
+    fun `applyInvitationClaimsAndConsume - Does nothing when invitationId is null`() = runTest {
+        manager.applyInvitationClaimsAndConsume(null, UUID.randomUUID())
+
+        coVerify(exactly = 0) { invitationRepository.findById(any()) }
+        coVerify(exactly = 0) { collectedClaimManager.update(any(), any()) }
+    }
+
+    @Test
+    fun `applyInvitationClaimsAndConsume - Applies claims and consumes invitation`() = runTest {
+        val invitationId = UUID.randomUUID()
+        val userId = UUID.randomUUID()
+        val invitation = createInvitation(
+            id = invitationId,
+            claims = mapOf("custom_role" to "admin")
+        )
+        val claim = createClaim("custom_role")
+        val user = mockk<com.sympauthy.business.model.user.User>()
+        val entity = mockk<InvitationEntity>()
+
+        coEvery { invitationRepository.findById(invitationId) } returns entity
+        every { invitationMapper.toInvitation(entity) } returns invitation
+        every { claimManager.findByIdOrNull("custom_role") } returns claim
+        coEvery { userManager.findById(userId) } returns user
+        coEvery { collectedClaimManager.update(user, any()) } returns emptyList()
+        coEvery { invitationRepository.updateStatus(invitationId, any(), any(), any()) } just runs
+
+        manager.applyInvitationClaimsAndConsume(invitationId, userId)
+
+        coVerify { collectedClaimManager.update(user, match { it.size == 1 && it[0].claim == claim }) }
+        coVerify { invitationRepository.updateStatus(invitationId, "CONSUMED", userId, any()) }
+    }
+
+    @Test
+    fun `applyInvitationClaimsAndConsume - Consumes invitation even with no claims`() = runTest {
+        val invitationId = UUID.randomUUID()
+        val userId = UUID.randomUUID()
+        val invitation = createInvitation(id = invitationId, claims = null)
+        val entity = mockk<InvitationEntity>()
+
+        coEvery { invitationRepository.findById(invitationId) } returns entity
+        every { invitationMapper.toInvitation(entity) } returns invitation
+        coEvery { invitationRepository.updateStatus(invitationId, any(), any(), any()) } just runs
+
+        manager.applyInvitationClaimsAndConsume(invitationId, userId)
+
+        coVerify(exactly = 0) { collectedClaimManager.update(any(), any()) }
+        coVerify { invitationRepository.updateStatus(invitationId, "CONSUMED", userId, any()) }
+    }
+
+    @Test
+    fun `applyInvitationClaimsAndConsume - Skips unknown claims`() = runTest {
+        val invitationId = UUID.randomUUID()
+        val userId = UUID.randomUUID()
+        val invitation = createInvitation(
+            id = invitationId,
+            claims = mapOf("known" to "value", "unknown" to "value")
+        )
+        val knownClaim = createClaim("known")
+        val user = mockk<com.sympauthy.business.model.user.User>()
+        val entity = mockk<InvitationEntity>()
+
+        coEvery { invitationRepository.findById(invitationId) } returns entity
+        every { invitationMapper.toInvitation(entity) } returns invitation
+        every { claimManager.findByIdOrNull("known") } returns knownClaim
+        every { claimManager.findByIdOrNull("unknown") } returns null
+        coEvery { userManager.findById(userId) } returns user
+        coEvery { collectedClaimManager.update(user, any()) } returns emptyList()
+        coEvery { invitationRepository.updateStatus(invitationId, any(), any(), any()) } just runs
+
+        manager.applyInvitationClaimsAndConsume(invitationId, userId)
+
+        coVerify { collectedClaimManager.update(user, match { it.size == 1 && it[0].claim == knownClaim }) }
     }
 }
