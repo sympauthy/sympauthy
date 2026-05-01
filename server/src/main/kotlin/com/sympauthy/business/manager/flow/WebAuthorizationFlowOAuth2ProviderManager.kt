@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.flow
 
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_CALLBACK_ENDPOINT
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_ENDPOINTS
+import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ClaimManager
@@ -312,16 +313,18 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
         val audience = client.audience
 
         if (!audience.signUpEnabled && !audience.invitationEnabled) {
-            throw businessExceptionOf(
-                "flow.sign_up.disabled",
-                "description" to "description.flow.sign_up.disabled"
+            throw BusinessException(
+                recoverable = false,
+                detailsId = "flow.sign_up.disabled",
+                descriptionId = "description.flow.sign_up.disabled"
             )
         }
 
         if (!audience.signUpEnabled && audience.invitationEnabled && authorizeAttempt.invitationId == null) {
-            throw businessExceptionOf(
-                "flow.sign_up.invitation_required",
-                "description" to "description.flow.sign_up.invitation_required"
+            throw BusinessException(
+                recoverable = false,
+                detailsId = "flow.sign_up.invitation_required",
+                descriptionId = "description.flow.sign_up.invitation_required"
             )
         }
     }

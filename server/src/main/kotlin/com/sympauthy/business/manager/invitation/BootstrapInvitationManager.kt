@@ -3,7 +3,9 @@ package com.sympauthy.business.manager.invitation
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.invitation.InvitationStatus
-import com.sympauthy.config.properties.BootstrapInvitationConfigurationProperties
+import com.sympauthy.config.model.BootstrapInvitation
+import com.sympauthy.config.model.BootstrapInvitationsConfig
+import com.sympauthy.config.model.orThrow
 import com.sympauthy.util.loggerForClass
 import io.micronaut.context.event.ApplicationEventListener
 import io.micronaut.discovery.event.ServiceReadyEvent
@@ -26,7 +28,7 @@ import kotlinx.coroutines.runBlocking
  */
 @Singleton
 class BootstrapInvitationManager(
-    @Inject private val bootstrapInvitationProperties: List<BootstrapInvitationConfigurationProperties>,
+    @Inject private val bootstrapInvitationsConfig: BootstrapInvitationsConfig,
     @Inject private val invitationManager: InvitationManager,
     @Inject private val consentManager: ConsentManager
 ) : ApplicationEventListener<ServiceReadyEvent> {
@@ -34,55 +36,50 @@ class BootstrapInvitationManager(
     private val logger = loggerForClass()
 
     override fun onApplicationEvent(event: ServiceReadyEvent) {
-        if (bootstrapInvitationProperties.isEmpty()) return
+        val invitations = bootstrapInvitationsConfig.orThrow().invitations
+        if (invitations.isEmpty()) return
 
         runBlocking {
             launch {
-                bootstrapInvitationProperties.forEach { properties ->
-                    processBootstrapInvitation(properties)
+                invitations.forEach { invitation ->
+                    processBootstrapInvitation(invitation)
                 }
             }
         }
     }
 
-    private suspend fun processBootstrapInvitation(properties: BootstrapInvitationConfigurationProperties) {
-        val audienceId = properties.audience
-        if (audienceId.isNullOrBlank()) {
-            logger.warn("Bootstrap invitation '${properties.id}' is missing the 'audience' property. Skipping.")
-            return
-        }
-
-        val existingConsents = consentManager.findActiveConsentsByAudience(audienceId)
+    private suspend fun processBootstrapInvitation(bootstrapInvitation: BootstrapInvitation) {
+        val existingConsents = consentManager.findActiveConsentsByAudience(bootstrapInvitation.audienceId)
         if (existingConsents.isNotEmpty()) {
             logger.info(
-                "Bootstrap invitation '${properties.id}': skipping — " +
-                        "${existingConsents.size} user(s) already consented for audience '$audienceId'."
+                "Bootstrap invitation '${bootstrapInvitation.id}': skipping — " +
+                        "${existingConsents.size} user(s) already consented for audience '${bootstrapInvitation.audienceId}'."
             )
             return
         }
 
         // Revoke previous bootstrap invitations for this audience
-        revokePreviousBootstrapInvitations(audienceId)
+        revokePreviousBootstrapInvitations(bootstrapInvitation.audienceId)
 
-        val (invitation, rawToken) = invitationManager.createInvitation(
-            audienceId = audienceId,
-            claims = properties.claims,
-            note = properties.note ?: "Bootstrap invitation '${properties.id}'",
+        val (_, rawToken) = invitationManager.createInvitation(
+            audienceId = bootstrapInvitation.audienceId,
+            claims = bootstrapInvitation.claims,
+            note = bootstrapInvitation.note ?: "Bootstrap invitation '${bootstrapInvitation.id}'",
             expiresAt = null,
             createdBy = InvitationCreatedBy.BOOTSTRAP,
-            createdById = properties.id
+            createdById = bootstrapInvitation.id
         )
 
-        val urlTemplate = properties.urlTemplate
+        val urlTemplate = bootstrapInvitation.urlTemplate
         if (urlTemplate != null) {
             val url = urlTemplate.replace("{token}", rawToken)
             logger.info(
-                "Bootstrap invitation '${properties.id}' created for audience '$audienceId'. " +
+                "Bootstrap invitation '${bootstrapInvitation.id}' created for audience '${bootstrapInvitation.audienceId}'. " +
                         "Registration URL: $url"
             )
         } else {
             logger.info(
-                "Bootstrap invitation '${properties.id}' created for audience '$audienceId'. " +
+                "Bootstrap invitation '${bootstrapInvitation.id}' created for audience '${bootstrapInvitation.audienceId}'. " +
                         "Token: $rawToken"
             )
         }
