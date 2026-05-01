@@ -2,9 +2,7 @@ package com.sympauthy.business.manager.flow
 
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_CALLBACK_ENDPOINT
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_ENDPOINTS
-import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
-import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.invitation.InvitationManager
@@ -45,7 +43,6 @@ import java.util.*
 @Singleton
 open class WebAuthorizationFlowOAuth2ProviderManager(
     @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
-    @Inject private val clientManager: ClientManager,
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val invitationManager: InvitationManager,
@@ -166,7 +163,7 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
         )
 
         val userId = if (existingUserInfo == null) {
-            checkSignUpAllowedForProvider(authorizeAttempt)
+            webAuthorizationFlowManager.checkSignUpAllowed(authorizeAttempt, recoverable = false)
             val result = createOrAssociateUserWithProviderUserInfo(provider, rawUserInfo)
             applyInvitationClaimsForProvider(authorizeAttempt, result.user.id)
             result.user.id
@@ -302,31 +299,6 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
                 )
             }
         )
-    }
-
-    /**
-     * Check that sign-up is allowed for the audience of the client that initiated the authorize attempt.
-     * Used when a third-party provider authenticates a user that does not yet have an account.
-     */
-    private suspend fun checkSignUpAllowedForProvider(authorizeAttempt: OnGoingAuthorizeAttempt) {
-        val client = clientManager.findClientById(authorizeAttempt.clientId)
-        val audience = client.audience
-
-        if (!audience.signUpEnabled && !audience.invitationEnabled) {
-            throw BusinessException(
-                recoverable = false,
-                detailsId = "flow.sign_up.disabled",
-                descriptionId = "description.flow.sign_up.disabled"
-            )
-        }
-
-        if (!audience.signUpEnabled && audience.invitationEnabled && authorizeAttempt.invitationId == null) {
-            throw BusinessException(
-                recoverable = false,
-                detailsId = "flow.sign_up.invitation_required",
-                descriptionId = "description.flow.sign_up.invitation_required"
-            )
-        }
     }
 
     /**

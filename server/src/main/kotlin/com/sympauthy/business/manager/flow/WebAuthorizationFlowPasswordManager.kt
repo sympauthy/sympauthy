@@ -2,7 +2,6 @@ package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
-import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.invitation.InvitationManager
@@ -39,7 +38,6 @@ import kotlin.jvm.optionals.getOrNull
 @Singleton
 open class WebAuthorizationFlowPasswordManager(
     @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
-    @Inject private val clientManager: ClientManager,
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val collectedClaimRepository: CollectedClaimRepository,
@@ -139,7 +137,7 @@ open class WebAuthorizationFlowPasswordManager(
         unfilteredUpdates: List<CollectedClaimUpdate>,
         password: String
     ): AuthorizeAttempt {
-        checkSignUpAllowed(authorizeAttempt)
+        webAuthorizationFlowManager.checkSignUpAllowed(authorizeAttempt, recoverable = true)
 
         val claimUpdateMap = claimManager.listIdentifierClaims().associateWith { claim ->
             unfilteredUpdates.firstOrNull { it.claim == claim }
@@ -169,30 +167,6 @@ open class WebAuthorizationFlowPasswordManager(
             authorizeAttempt = updatedAuthorizeAttempt,
             status = status,
         )
-    }
-
-    /**
-     * Check that sign-up is allowed for the audience of the client that initiated the authorize attempt.
-     * If the audience requires an invitation (`signUpEnabled=false, invitationEnabled=true`), verify that
-     * an invitation is bound to the attempt.
-     */
-    internal suspend fun checkSignUpAllowed(authorizeAttempt: OnGoingAuthorizeAttempt) {
-        val client = clientManager.findClientById(authorizeAttempt.clientId)
-        val audience = client.audience
-
-        if (!audience.signUpEnabled && !audience.invitationEnabled) {
-            throw recoverableBusinessExceptionOf(
-                detailsId = "flow.sign_up.disabled",
-                descriptionId = "description.flow.sign_up.disabled"
-            )
-        }
-
-        if (!audience.signUpEnabled && audience.invitationEnabled && authorizeAttempt.invitationId == null) {
-            throw recoverableBusinessExceptionOf(
-                detailsId = "flow.sign_up.invitation_required",
-                descriptionId = "description.flow.sign_up.invitation_required"
-            )
-        }
     }
 
     /**

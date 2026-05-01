@@ -8,6 +8,7 @@ import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.code.ValidationCodeReason
 import com.sympauthy.business.model.flow.NonInteractiveAuthorizationFlow
@@ -1022,5 +1023,85 @@ class WebAuthorizationFlowManagerTest {
             listOf("myapp://127.0.0.1:8080/callback")
         )
         assertFalse(result)
+    }
+
+    // --- checkSignUpAllowed ---
+
+    private fun createAttempt(
+        clientId: String = "test-client",
+        invitationId: UUID? = null
+    ): OnGoingAuthorizeAttempt = mockk {
+        every { this@mockk.clientId } returns clientId
+        every { this@mockk.invitationId } returns invitationId
+    }
+
+    private fun mockClientWithAudience(
+        clientId: String = "test-client",
+        signUpEnabled: Boolean = true,
+        invitationEnabled: Boolean = false
+    ) {
+        val audience = Audience(
+            id = "test-audience",
+            tokenAudience = "test-audience",
+            signUpEnabled = signUpEnabled,
+            invitationEnabled = invitationEnabled
+        )
+        val client = mockk<Client> {
+            every { this@mockk.audience } returns audience
+        }
+        coEvery { clientManager.findClientById(clientId) } returns client
+    }
+
+    @Test
+    fun `checkSignUpAllowed - Succeeds when sign-up is enabled`() = runTest {
+        mockClientWithAudience(signUpEnabled = true, invitationEnabled = false)
+        manager.checkSignUpAllowed(createAttempt(), recoverable = true)
+    }
+
+    @Test
+    fun `checkSignUpAllowed - Succeeds when both sign-up and invitation enabled without invitation`() = runTest {
+        mockClientWithAudience(signUpEnabled = true, invitationEnabled = true)
+        manager.checkSignUpAllowed(createAttempt(invitationId = null), recoverable = true)
+    }
+
+    @Test
+    fun `checkSignUpAllowed - Succeeds when invitation required and invitation is bound`() = runTest {
+        mockClientWithAudience(signUpEnabled = false, invitationEnabled = true)
+        manager.checkSignUpAllowed(createAttempt(invitationId = UUID.randomUUID()), recoverable = false)
+    }
+
+    @Test
+    fun `checkSignUpAllowed - Throws when both sign-up and invitation are disabled`() = runTest {
+        mockClientWithAudience(signUpEnabled = false, invitationEnabled = false)
+
+        val exception = assertThrows<BusinessException> {
+            manager.checkSignUpAllowed(createAttempt(), recoverable = true)
+        }
+        assertEquals("flow.sign_up.disabled", exception.detailsId)
+    }
+
+    @Test
+    fun `checkSignUpAllowed - Throws when invitation required but not bound`() = runTest {
+        mockClientWithAudience(signUpEnabled = false, invitationEnabled = true)
+
+        val exception = assertThrows<BusinessException> {
+            manager.checkSignUpAllowed(createAttempt(invitationId = null), recoverable = false)
+        }
+        assertEquals("flow.sign_up.invitation_required", exception.detailsId)
+    }
+
+    @Test
+    fun `checkSignUpAllowed - Respects recoverable flag`() = runTest {
+        mockClientWithAudience(signUpEnabled = false, invitationEnabled = false)
+
+        val recoverableException = assertThrows<BusinessException> {
+            manager.checkSignUpAllowed(createAttempt(), recoverable = true)
+        }
+        assertTrue(recoverableException.recoverable)
+
+        val nonRecoverableException = assertThrows<BusinessException> {
+            manager.checkSignUpAllowed(createAttempt(), recoverable = false)
+        }
+        assertFalse(nonRecoverableException.recoverable)
     }
 }

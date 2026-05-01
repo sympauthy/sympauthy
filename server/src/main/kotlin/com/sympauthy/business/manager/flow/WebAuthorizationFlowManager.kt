@@ -390,6 +390,40 @@ class WebAuthorizationFlowManager(
         } else authorizeAttempt
     }
 
+    /**
+     * Check that sign-up is allowed for the audience of the client that initiated the [authorizeAttempt].
+     *
+     * Throws a [BusinessException] if:
+     * - Both `signUpEnabled` and `invitationEnabled` are false on the audience.
+     * - `signUpEnabled` is false and `invitationEnabled` is true but no invitation is bound to the attempt.
+     *
+     * @param recoverable Whether the thrown exception should be recoverable (true for password sign-up
+     *   where the user can retry, false for provider sign-up where the flow is non-interactive).
+     */
+    suspend fun checkSignUpAllowed(
+        authorizeAttempt: OnGoingAuthorizeAttempt,
+        recoverable: Boolean
+    ) {
+        val client = clientManager.findClientById(authorizeAttempt.clientId)
+        val audience = client.audience
+
+        if (!audience.signUpEnabled && !audience.invitationEnabled) {
+            throw BusinessException(
+                recoverable = recoverable,
+                detailsId = "flow.sign_up.disabled",
+                descriptionId = "description.flow.sign_up.disabled"
+            )
+        }
+
+        if (!audience.signUpEnabled && audience.invitationEnabled && authorizeAttempt.invitationId == null) {
+            throw BusinessException(
+                recoverable = recoverable,
+                detailsId = "flow.sign_up.invitation_required",
+                descriptionId = "description.flow.sign_up.invitation_required"
+            )
+        }
+    }
+
     suspend fun getStatusAndCompleteIfNecessary(
         authorizeAttempt: AuthorizeAttempt
     ): Pair<AuthorizeAttempt, WebAuthorizationFlowStatus> {
