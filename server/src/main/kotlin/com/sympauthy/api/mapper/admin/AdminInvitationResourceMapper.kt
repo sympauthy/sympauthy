@@ -11,7 +11,7 @@ class AdminInvitationResourceMapper {
     fun toResource(invitation: Invitation): AdminInvitationResource {
         return AdminInvitationResource(
             invitationId = invitation.id,
-            audience = invitation.audienceId,
+            audienceId = invitation.audienceId,
             tokenPrefix = invitation.tokenPrefix,
             status = invitation.status.name.lowercase(),
             claims = invitation.claims,
@@ -29,7 +29,7 @@ class AdminInvitationResourceMapper {
         return AdminCreatedInvitationResource(
             invitationId = invitation.id,
             token = rawToken,
-            audience = invitation.audienceId,
+            audienceId = invitation.audienceId,
             status = invitation.status.name.lowercase(),
             claims = invitation.claims,
             note = invitation.note,

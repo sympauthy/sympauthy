@@ -16,7 +16,8 @@ data class AdminCreatedInvitationResource(
     @get:Schema(description = "The raw invitation token. Only returned at creation time — store it now.")
     val token: String,
     @get:Schema(description = "Identifier of the audience the invitation is bound to.")
-    val audience: String,
+    @get:JsonProperty("audience_id")
+    val audienceId: String,
     @get:Schema(description = "Current status of the invitation.")
     val status: String,
     @get:Schema(description = "Custom claims pre-assigned to the user upon registration.", nullable = true)

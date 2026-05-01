@@ -14,7 +14,8 @@ data class AdminInvitationResource(
     @get:JsonProperty("invitation_id")
     val invitationId: UUID,
     @get:Schema(description = "Identifier of the audience the invitation is bound to.")
-    val audience: String,
+    @get:JsonProperty("audience_id")
+    val audienceId: String,
     @get:Schema(description = "First 8 characters of the token, for identification.")
     @get:JsonProperty("token_prefix")
     val tokenPrefix: String,

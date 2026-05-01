@@ -2,6 +2,8 @@ package com.sympauthy.business.manager.invitation
 
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
+import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.manager.user.ClaimValueValidator
 import com.sympauthy.business.mapper.InvitationMapper
 import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
@@ -26,6 +28,8 @@ import java.util.*
  */
 @Singleton
 open class InvitationManager(
+    @Inject private val claimManager: ClaimManager,
+    @Inject private val claimValueValidator: ClaimValueValidator,
     @Inject private val invitationRepository: InvitationRepository,
     @Inject private val invitationHashGenerator: InvitationHashGenerator,
     @Inject private val invitationTokenGenerator: InvitationTokenGenerator,
@@ -49,6 +53,8 @@ open class InvitationManager(
         createdBy: InvitationCreatedBy,
         createdById: String? = null
     ): Pair<Invitation, String> {
+        val validatedClaims = validateAndCleanClaims(claims)
+
         val config = invitationConfig
         val now = LocalDateTime.now()
 
@@ -67,7 +73,7 @@ open class InvitationManager(
             hashedToken = hashedToken,
             salt = salt,
             tokenPrefix = tokenPrefix,
-            claims = claims,
+            claims = validatedClaims,
             note = note,
             status = InvitationStatus.PENDING.name,
             createdBy = createdBy.name,
@@ -77,6 +83,27 @@ open class InvitationManager(
         )
         val saved = invitationRepository.save(entity)
         return invitationMapper.toInvitation(saved) to encodedToken
+    }
+
+    /**
+     * Validate that all claim keys in the map correspond to existing enabled claims
+     * and that the values are valid for the claim type.
+     * Returns a new map with cleaned values.
+     */
+    private fun validateAndCleanClaims(claims: Map<String, String>?): Map<String, String>? {
+        if (claims.isNullOrEmpty()) return claims
+        return claims.mapValues { (claimId, value) ->
+            val claim = claimManager.findByIdOrNull(claimId)
+            if (claim == null || !claim.enabled) {
+                throw recoverableBusinessExceptionOf(
+                    detailsId = "invitation.unknown_claim",
+                    descriptionId = "description.invitation.unknown_claim",
+                    "claim" to claimId
+                )
+            }
+            val cleaned = claimValueValidator.validateAndCleanValueForClaim(claim, value)
+            cleaned.orElse(null)?.toString() ?: value
+        }
     }
 
     private fun resolveExpiresAt(

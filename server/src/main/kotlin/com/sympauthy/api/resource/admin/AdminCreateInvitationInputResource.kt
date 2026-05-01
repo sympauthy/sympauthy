@@ -8,7 +8,8 @@ import io.swagger.v3.oas.annotations.media.Schema
 @Serdeable
 data class AdminCreateInvitationInputResource(
     @get:Schema(description = "Identifier of the audience the invitation is bound to.", required = true)
-    val audience: String,
+    @get:JsonProperty("audience_id")
+    val audienceId: String,
     @get:Schema(description = "Expiration date and time. Defaults to now + default-expiration. Capped at now + max-expiration.", nullable = true)
     @get:JsonProperty("expires_at")
     val expiresAt: String?,

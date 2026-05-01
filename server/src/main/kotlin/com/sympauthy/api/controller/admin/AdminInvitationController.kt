@@ -51,7 +51,7 @@ class AdminInvitationController(
     ): AdminCreatedInvitationResource {
         val expiresAt = input.expiresAt?.let { LocalDateTime.parse(it) }
         val (invitation, rawToken) = invitationManager.createInvitation(
-            audienceId = input.audience,
+            audienceId = input.audienceId,
             claims = input.claims,
             note = input.note,
             expiresAt = expiresAt,

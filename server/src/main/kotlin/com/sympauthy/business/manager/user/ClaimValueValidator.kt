@@ -39,7 +39,7 @@ class ClaimValueValidator {
                 "claim" to claim.id,
                 "type" to claim.dataType.name
             )
-        }
+    }
         if (claim.allowedValues != null && value != null && !claim.allowedValues.contains(value)) {
             throw recoverableBusinessExceptionOf(
                 "user.claim_value_validator.invalid_value",
