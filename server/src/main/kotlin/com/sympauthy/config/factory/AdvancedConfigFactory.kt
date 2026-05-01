@@ -8,6 +8,8 @@ import com.sympauthy.config.parsing.AdvancedConfigParser
 import com.sympauthy.config.properties.AdvancedConfigurationProperties
 import com.sympauthy.config.properties.AuthorizationWebhookConfigurationProperties
 import com.sympauthy.config.properties.HashConfigurationProperties
+import com.sympauthy.config.properties.InvitationConfigurationProperties
+import com.sympauthy.config.properties.InvitationHashConfigurationProperties
 import com.sympauthy.config.properties.JwtConfigurationProperties
 import com.sympauthy.config.properties.ValidationCodeConfigurationProperties
 import com.sympauthy.config.validation.AdvancedConfigValidator
@@ -26,6 +28,8 @@ class AdvancedConfigFactory(
         properties: AdvancedConfigurationProperties,
         jwtProperties: JwtConfigurationProperties,
         hashProperties: HashConfigurationProperties,
+        invitationProperties: InvitationConfigurationProperties,
+        invitationHashProperties: InvitationHashConfigurationProperties,
         validationCodeProperties: ValidationCodeConfigurationProperties,
         authorizationWebhookProperties: AuthorizationWebhookConfigurationProperties,
         keyGenerationStrategies: Map<String, CryptoKeysGenerationStrategy>,
@@ -33,6 +37,7 @@ class AdvancedConfigFactory(
         val ctx = ConfigParsingContext()
         val parsed = advancedParser.parse(
             ctx, properties, jwtProperties, hashProperties,
+            invitationProperties, invitationHashProperties,
             validationCodeProperties, authorizationWebhookProperties
         )
         val config = advancedValidator.validate(ctx, parsed, keyGenerationStrategies)

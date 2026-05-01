@@ -52,6 +52,7 @@ class AuthorizationFlowManager(
         WebAuthorizationFlow(
             id = DEFAULT_WEB_AUTHORIZATION_FLOW_ID,
             signInUri = UriBuilder.of(rootUri).path("sign-in").build(),
+            signUpUri = UriBuilder.of(rootUri).path("sign-up").build(),
             mfaUri = UriBuilder.of(rootUri).path("mfa").build(),
             mfaTotpChallengeUri = UriBuilder.of(rootUri).path("mfa/totp").build(),
             mfaTotpEnrollUri = UriBuilder.of(rootUri).path("mfa/totp/enroll").build(),

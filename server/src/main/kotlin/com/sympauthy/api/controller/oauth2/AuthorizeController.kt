@@ -102,6 +102,14 @@ The authorization server includes this value unmodified in the ID Token.
                     type = "string",
                     allowableValues = ["S256"]
                 )
+            ),
+            Parameter(
+                name = "invitation_token",
+                `in` = QUERY,
+                description = "Invitation token to bind to this authorization flow. When provided, the invitation is validated and bound to the flow state.",
+                schema = Schema(
+                    type = "string"
+                )
             )
         ],
         externalDocs = ExternalDocumentation(
@@ -126,7 +134,9 @@ The authorization server includes this value unmodified in the ID Token.
         @QueryValue("code_challenge")
         uncheckedCodeChallenge: String?,
         @QueryValue("code_challenge_method")
-        uncheckedCodeChallengeMethod: String?
+        uncheckedCodeChallengeMethod: String?,
+        @QueryValue("invitation_token")
+        uncheckedInvitationToken: String?
     ): HttpResponse<*> {
         return when {
             responseType.isNullOrBlank() -> throw oauth2ExceptionOf(
@@ -140,7 +150,8 @@ The authorization server includes this value unmodified in the ID Token.
                 uncheckedScopes = uncheckedScopes,
                 uncheckedRedirectUri = uncheckedRedirectUri,
                 uncheckedCodeChallenge = uncheckedCodeChallenge,
-                uncheckedCodeChallengeMethod = uncheckedCodeChallengeMethod
+                uncheckedCodeChallengeMethod = uncheckedCodeChallengeMethod,
+                uncheckedInvitationToken = uncheckedInvitationToken
             )
 
             else -> throw oauth2ExceptionOf(
@@ -157,7 +168,8 @@ The authorization server includes this value unmodified in the ID Token.
         uncheckedScopes: String?,
         uncheckedRedirectUri: String?,
         uncheckedCodeChallenge: String?,
-        uncheckedCodeChallengeMethod: String?
+        uncheckedCodeChallengeMethod: String?,
+        uncheckedInvitationToken: String?
     ): HttpResponse<*> {
         val (authorizeAttempt, flow) = webAuthorizationFlowManager.startAuthorizationWith(
             uncheckedClientId = uncheckedClientId,
@@ -166,7 +178,8 @@ The authorization server includes this value unmodified in the ID Token.
             uncheckedScopes = uncheckedScopes,
             uncheckedRedirectUri = uncheckedRedirectUri,
             uncheckedCodeChallenge = uncheckedCodeChallenge,
-            uncheckedCodeChallengeMethod = uncheckedCodeChallengeMethod
+            uncheckedCodeChallengeMethod = uncheckedCodeChallengeMethod,
+            uncheckedInvitationToken = uncheckedInvitationToken
         )
         val status = webAuthorizationFlowManager.getStatus(authorizeAttempt)
         val redirectUri = webFlowRedirectBuilder.getRedirectUri(

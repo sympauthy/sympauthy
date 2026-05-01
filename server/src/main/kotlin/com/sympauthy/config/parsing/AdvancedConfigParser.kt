@@ -9,6 +9,10 @@ import com.sympauthy.config.properties.AuthorizationWebhookConfigurationProperti
 import com.sympauthy.config.properties.AuthorizationWebhookConfigurationProperties.Companion.AUTHORIZATION_WEBHOOK_KEY
 import com.sympauthy.config.properties.HashConfigurationProperties
 import com.sympauthy.config.properties.HashConfigurationProperties.Companion.HASH_KEY
+import com.sympauthy.config.properties.InvitationConfigurationProperties
+import com.sympauthy.config.properties.InvitationConfigurationProperties.Companion.INVITATION_KEY
+import com.sympauthy.config.properties.InvitationHashConfigurationProperties
+import com.sympauthy.config.properties.InvitationHashConfigurationProperties.Companion.INVITATION_HASH_KEY
 import com.sympauthy.config.properties.JwtConfigurationProperties
 import com.sympauthy.config.properties.JwtConfigurationProperties.Companion.JWT_KEY
 import com.sympauthy.config.properties.ValidationCodeConfigurationProperties
@@ -22,8 +26,16 @@ data class ParsedAdvancedConfig(
     val accessJwtAlgorithm: JwtAlgorithm?,
     val privateJwtAlgorithm: JwtAlgorithm?,
     val hash: ParsedHashConfig,
+    val invitation: ParsedInvitationConfig,
     val validationCode: ParsedValidationCodeConfig,
     val webhookTimeout: Duration?
+)
+
+data class ParsedInvitationConfig(
+    val tokenLength: Int?,
+    val defaultExpiration: Duration?,
+    val maxExpiration: Duration?,
+    val hash: ParsedHashConfig
 )
 
 data class ParsedHashConfig(
@@ -49,6 +61,8 @@ class AdvancedConfigParser(
         properties: AdvancedConfigurationProperties,
         jwtProperties: JwtConfigurationProperties,
         hashProperties: HashConfigurationProperties,
+        invitationProperties: InvitationConfigurationProperties,
+        invitationHashProperties: InvitationHashConfigurationProperties,
         validationCodeProperties: ValidationCodeConfigurationProperties,
         authorizationWebhookProperties: AuthorizationWebhookConfigurationProperties
     ): ParsedAdvancedConfig {
@@ -80,7 +94,8 @@ class AdvancedConfigParser(
             )
         }
 
-        val hash = parseHashConfig(ctx, hashProperties)
+        val hash = parseHashConfig(ctx, HASH_KEY, hashProperties)
+        val invitation = parseInvitationConfig(ctx, invitationProperties, invitationHashProperties)
         val validationCode = parseValidationCodeConfig(ctx, validationCodeProperties)
 
         val webhookTimeout = ctx.parse {
@@ -96,6 +111,7 @@ class AdvancedConfigParser(
             accessJwtAlgorithm = accessJwtAlgorithm,
             privateJwtAlgorithm = privateJwtAlgorithm,
             hash = hash,
+            invitation = invitation,
             validationCode = validationCode,
             webhookTimeout = webhookTimeout
         )
@@ -103,26 +119,58 @@ class AdvancedConfigParser(
 
     private fun parseHashConfig(
         ctx: ConfigParsingContext,
+        configKeyPrefix: String,
         properties: HashConfigurationProperties
+    ): ParsedHashConfig {
+        return parseHashConfigFrom(ctx, configKeyPrefix, properties,
+            HashConfigurationProperties::costParameter,
+            HashConfigurationProperties::blockSize,
+            HashConfigurationProperties::parallelizationParameter,
+            HashConfigurationProperties::saltLength,
+            HashConfigurationProperties::keyLength
+        )
+    }
+
+    private fun parseInvitationHashConfig(
+        ctx: ConfigParsingContext,
+        properties: InvitationHashConfigurationProperties
+    ): ParsedHashConfig {
+        return parseHashConfigFrom(ctx, INVITATION_HASH_KEY, properties,
+            InvitationHashConfigurationProperties::costParameter,
+            InvitationHashConfigurationProperties::blockSize,
+            InvitationHashConfigurationProperties::parallelizationParameter,
+            InvitationHashConfigurationProperties::saltLength,
+            InvitationHashConfigurationProperties::keyLength
+        )
+    }
+
+    private fun <C : Any> parseHashConfigFrom(
+        ctx: ConfigParsingContext,
+        configKeyPrefix: String,
+        properties: C,
+        costParameterAccessor: (C) -> String?,
+        blockSizeAccessor: (C) -> String?,
+        parallelizationParameterAccessor: (C) -> String?,
+        saltLengthAccessor: (C) -> String?,
+        keyLengthAccessor: (C) -> String?
     ): ParsedHashConfig {
         val subCtx = ctx.child()
         val costParameter = subCtx.parse {
-            parser.getIntOrThrow(properties, "$HASH_KEY.cost-parameter", HashConfigurationProperties::costParameter)
+            parser.getIntOrThrow(properties, "$configKeyPrefix.cost-parameter", costParameterAccessor)
         }
         val blockSize = subCtx.parse {
-            parser.getIntOrThrow(properties, "$HASH_KEY.block-size", HashConfigurationProperties::blockSize)
+            parser.getIntOrThrow(properties, "$configKeyPrefix.block-size", blockSizeAccessor)
         }
         val parallelizationParameter = subCtx.parse {
             parser.getIntOrThrow(
-                properties, "$HASH_KEY.parallelization-parameter",
-                HashConfigurationProperties::parallelizationParameter
+                properties, "$configKeyPrefix.parallelization-parameter", parallelizationParameterAccessor
             )
         }
         val saltLength = subCtx.parse {
-            parser.getIntOrThrow(properties, "$HASH_KEY.salt-length", HashConfigurationProperties::saltLength)
+            parser.getIntOrThrow(properties, "$configKeyPrefix.salt-length", saltLengthAccessor)
         }
         val keyLength = subCtx.parse {
-            parser.getIntOrThrow(properties, "$HASH_KEY.key-length", HashConfigurationProperties::keyLength)
+            parser.getIntOrThrow(properties, "$configKeyPrefix.key-length", keyLengthAccessor)
         }
         ctx.merge(subCtx)
         return ParsedHashConfig(
@@ -131,6 +179,40 @@ class AdvancedConfigParser(
             parallelizationParameter = parallelizationParameter,
             saltLength = saltLength,
             keyLength = keyLength
+        )
+    }
+
+    private fun parseInvitationConfig(
+        ctx: ConfigParsingContext,
+        properties: InvitationConfigurationProperties,
+        hashProperties: InvitationHashConfigurationProperties
+    ): ParsedInvitationConfig {
+        val subCtx = ctx.child()
+        val tokenLength = subCtx.parse {
+            parser.getIntOrThrow(
+                properties, "$INVITATION_KEY.token-length",
+                InvitationConfigurationProperties::tokenLength
+            )
+        }
+        val defaultExpiration = subCtx.parse {
+            parser.getDurationOrThrow(
+                properties, "$INVITATION_KEY.default-expiration",
+                InvitationConfigurationProperties::defaultExpiration
+            )
+        }
+        val maxExpiration = subCtx.parse {
+            parser.getDurationOrThrow(
+                properties, "$INVITATION_KEY.max-expiration",
+                InvitationConfigurationProperties::maxExpiration
+            )
+        }
+        val hash = parseInvitationHashConfig(subCtx, hashProperties)
+        ctx.merge(subCtx)
+        return ParsedInvitationConfig(
+            tokenLength = tokenLength,
+            defaultExpiration = defaultExpiration,
+            maxExpiration = maxExpiration,
+            hash = hash
         )
     }
 

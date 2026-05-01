@@ -4,6 +4,7 @@ import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
+import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.password.PasswordManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
@@ -24,6 +25,7 @@ import com.sympauthy.data.repository.findAnyClaimMatching
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import java.util.*
 import kotlin.jvm.optionals.getOrNull
 
 /**
@@ -39,6 +41,7 @@ open class WebAuthorizationFlowPasswordManager(
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val collectedClaimRepository: CollectedClaimRepository,
+    @Inject private val invitationManager: InvitationManager,
     @Inject private val passwordManager: PasswordManager,
     @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
     @Inject private val userManager: UserManager,
@@ -134,6 +137,8 @@ open class WebAuthorizationFlowPasswordManager(
         unfilteredUpdates: List<CollectedClaimUpdate>,
         password: String
     ): AuthorizeAttempt {
+        webAuthorizationFlowManager.checkSignUpAllowed(authorizeAttempt, recoverable = true)
+
         val claimUpdateMap = claimManager.listIdentifierClaims().associateWith { claim ->
             unfilteredUpdates.firstOrNull { it.claim == claim }
         }
@@ -149,6 +154,9 @@ open class WebAuthorizationFlowPasswordManager(
             updates = claimUpdates
         )
         passwordManager.createPassword(user, password)
+
+        // Apply invitation claims and consume the invitation
+        invitationManager.applyInvitationClaimsAndConsume(authorizeAttempt.invitationId, user.id)
 
         // Update the authorize attempt with the id of the user so they can retrieve their access token.
         val updatedAuthorizeAttempt = authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, user.id)

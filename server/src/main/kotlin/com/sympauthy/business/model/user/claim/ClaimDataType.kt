@@ -13,6 +13,7 @@ enum class ClaimDataType(
      */
     val typeClass: KClass<*>
 ) {
+    BOOLEAN(String::class),
     DATE(String::class),
     EMAIL(String::class),
     PHONE_NUMBER(String::class),

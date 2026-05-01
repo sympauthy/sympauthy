@@ -23,6 +23,7 @@ data class EnabledAdvancedConfig(
      */
     val privateJwtAlgorithm: JwtAlgorithm,
     val hashConfig: HashConfig,
+    val invitationConfig: InvitationAdvancedConfig,
     val validationCode: ValidationCodeConfig,
     val authorizationWebhook: AuthorizationWebhookAdvancedConfig,
 ) : AdvancedConfig()
@@ -31,6 +32,12 @@ class DisabledAdvancedConfig(
     configurationErrors: List<ConfigurationException>
 ) : AdvancedConfig(configurationErrors)
 
+/**
+ * Scrypt parameters for hashing secrets (passwords, invitation tokens) before storing them in the database.
+ *
+ * Each use case (passwords, invitations) has its own [HashConfig] instance so that the cost parameters
+ * can be tuned independently.
+ */
 data class HashConfig(
     val costParameter: Int,
     val blockSize: Int,
@@ -49,6 +56,25 @@ data class ValidationCodeConfig(
     val length: Int,
     val resendDelay: Duration?,
     val expiration: Duration,
+)
+
+data class InvitationAdvancedConfig(
+    /**
+     * Number of random bytes to generate for the invitation token (before base64url encoding).
+     */
+    val tokenLengthInBytes: Int,
+    /**
+     * Default validity duration when no explicit expiration is provided.
+     */
+    val defaultExpiration: Duration,
+    /**
+     * Maximum allowed validity duration.
+     */
+    val maxExpiration: Duration,
+    /**
+     * Scrypt hash configuration for invitation token storage.
+     */
+    val hashConfig: HashConfig,
 )
 
 data class AuthorizationWebhookAdvancedConfig(

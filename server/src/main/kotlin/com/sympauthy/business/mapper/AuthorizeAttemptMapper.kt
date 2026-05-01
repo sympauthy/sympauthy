@@ -37,6 +37,7 @@ abstract class AuthorizeAttemptMapper {
             nonce = entity.nonce,
             codeChallenge = codeChallenge,
             codeChallengeMethod = codeChallengeMethod,
+            invitationId = entity.invitationId,
             providerId = entity.providerId,
             providerNonceJsonWebTokenId = entity.providerNonceJsonWebTokenId,
             userId = entity.userId,

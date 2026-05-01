@@ -26,6 +26,9 @@ class AuthorizeAttemptEntity(
     val codeChallenge: String? = null,
     val codeChallengeMethod: String? = null,
 
+    // Invitation
+    val invitationId: UUID? = null,
+
     // Third-party provider
     val providerId: String? = null,
     val providerNonceJsonWebTokenId: UUID? = null,

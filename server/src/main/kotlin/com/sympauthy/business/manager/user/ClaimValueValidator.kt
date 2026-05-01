@@ -39,7 +39,7 @@ class ClaimValueValidator {
                 "claim" to claim.id,
                 "type" to claim.dataType.name
             )
-        }
+    }
         if (claim.allowedValues != null && value != null && !claim.allowedValues.contains(value)) {
             throw recoverableBusinessExceptionOf(
                 "user.claim_value_validator.invalid_value",
@@ -64,6 +64,7 @@ class ClaimValueValidator {
         }
         @Suppress("REDUNDANT_ELSE_IN_WHEN")
         return when (claim.dataType) {
+            BOOLEAN -> validateBooleanForClaim(value)
             DATE -> validateDateForClaim(value)
             EMAIL -> validateEmailForClaim(value)
             PHONE_NUMBER -> validatePhoneNumberForClaim(value)
@@ -75,6 +76,17 @@ class ClaimValueValidator {
                 "claim" to claim.id
             )
         }
+    }
+
+    internal fun validateBooleanForClaim(value: String): Optional<Any> {
+        val normalized = value.trim().lowercase()
+        if (normalized != "true" && normalized != "false") {
+            throw recoverableBusinessExceptionOf(
+                "user.claim_value_validator.invalid_boolean",
+                "description.user.claim_value_validator.invalid_boolean"
+            )
+        }
+        return Optional.of(normalized)
     }
 
     internal fun validateDateForClaim(value: String): Optional<Any> {

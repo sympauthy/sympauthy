@@ -26,7 +26,8 @@ class ConfigReadinessManager(
     @Inject private val scopesConfig: ScopesConfig,
     @Inject private val uiConfig: UIConfig,
     @Inject private val urlsConfig: UrlsConfig,
-    @Inject private val providersConfig: ProvidersConfig
+    @Inject private val providersConfig: ProvidersConfig,
+    @Inject private val bootstrapInvitationsConfig: BootstrapInvitationsConfig
 ) {
     /**
      * List of synchronous configuration objects.
@@ -35,6 +36,7 @@ class ConfigReadinessManager(
         advancedConfig,
         authConfig,
         authorizationFlowsConfig,
+        bootstrapInvitationsConfig,
         claimTemplatesConfig,
         claimsConfig,
         featuresConfig,

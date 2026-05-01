@@ -15,5 +15,15 @@ data class Audience(
      * Value used as the `aud` claim in access and refresh tokens issued for clients
      * belonging to this audience. Defaults to [id] if not explicitly configured.
      */
-    val tokenAudience: String
+    val tokenAudience: String,
+    /**
+     * Whether open registration is enabled for this audience.
+     * When true, any user can create an account through the sign-up flow.
+     */
+    val signUpEnabled: Boolean = true,
+    /**
+     * Whether invitation-based registration is enabled for this audience.
+     * When true, invitations can be created and used to register.
+     */
+    val invitationEnabled: Boolean = false
 )

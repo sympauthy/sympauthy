@@ -1,5 +1,7 @@
 # This configuration creates an admin client used by the admin UI application.
-# End-users authenticating through it can be granted admin scopes via scope granting rules.
+# End-users authenticating through it are granted admin scopes via a scope granting rule
+# that evaluates the is_sympauthy_admin claim. The bootstrap invitation sets this claim
+# to true for the first admin user.
 #
 # Activate this environment by adding "admin" to MICRONAUT_ENVIRONMENTS (e.g. "default,admin").
 
@@ -9,7 +11,14 @@ admin:
   audience: admin
 
 audiences:
-  admin: {}
+  admin:
+    sign-up-enabled: false
+    invitation-enabled: true
+
+claims:
+  is_sympauthy_admin:
+    type: boolean
+    audience: admin
 
 clients:
   admin:
@@ -29,6 +38,8 @@ clients:
       - admin:users:delete
       - admin:consent:read
       - admin:consent:write
+      - admin:invitations:read
+      - admin:invitations:write
     default-scopes:
       - openid
       - profile
@@ -38,3 +49,27 @@ clients:
       - admin:users:delete
       - admin:consent:read
       - admin:consent:write
+      - admin:invitations:read
+      - admin:invitations:write
+
+rules:
+  user:
+    - scopes:
+        - admin:config:read
+        - admin:users:read
+        - admin:users:write
+        - admin:users:delete
+        - admin:consent:read
+        - admin:consent:write
+        - admin:invitations:read
+        - admin:invitations:write
+      expressions:
+        - 'CLAIM("is_sympauthy_admin") = "true"'
+
+invitations:
+  first-admin:
+    audience: admin
+    url-template: "${urls.root}/admin/register?invitation_token={token}"
+    claims:
+      is_sympauthy_admin: "true"
+    note: Bootstrap invitation for the first admin user

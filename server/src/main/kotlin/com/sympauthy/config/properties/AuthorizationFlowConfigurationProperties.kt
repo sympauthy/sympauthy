@@ -18,6 +18,9 @@ class AuthorizationFlowConfigurationProperties(
     var validateClaims: String? = null
     var error: String? = null
 
+    // Properties for sign-up (optional; only required when sign-up or invitation is enabled)
+    var signUp: String? = null
+
     // Properties for MFA steps (optional; only required when MFA is enabled)
     var mfa: String? = null
     var mfaTotpEnroll: String? = null

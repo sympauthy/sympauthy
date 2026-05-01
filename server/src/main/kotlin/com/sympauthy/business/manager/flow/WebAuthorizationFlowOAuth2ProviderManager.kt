@@ -5,6 +5,7 @@ import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROV
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
+import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderClaimsResolver
 import com.sympauthy.business.manager.provider.ProviderManager
@@ -44,6 +45,7 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
     @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
+    @Inject private val invitationManager: InvitationManager,
     @Inject private val providerConfigManager: ProviderManager,
     @Inject private val providerClaimsManager: ProviderClaimsManager,
     @Inject private val providerClaimsResolver: ProviderClaimsResolver,
@@ -161,7 +163,10 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
         )
 
         val userId = if (existingUserInfo == null) {
-            createOrAssociateUserWithProviderUserInfo(provider, rawUserInfo).user.id
+            webAuthorizationFlowManager.checkSignUpAllowed(authorizeAttempt, recoverable = false)
+            val result = createOrAssociateUserWithProviderUserInfo(provider, rawUserInfo)
+            invitationManager.applyInvitationClaimsAndConsume(authorizeAttempt.invitationId, result.user.id)
+            result.user.id
         } else {
             providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo)
             existingUserInfo.userId

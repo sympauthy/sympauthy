@@ -16,6 +16,8 @@ CREATE TABLE authorize_attempts
     provider_id                      text,
     provider_nonce_json_web_token_id uuid,
 
+    invitation_id                    uuid,
+
     user_id                          uuid,
 
     consented_scopes                 text array,

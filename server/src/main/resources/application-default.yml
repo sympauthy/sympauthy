@@ -10,6 +10,16 @@ advanced:
     key-length: 32
     parallelization-parameter: 1
     salt-length: 256
+  invitation:
+    token-length: 32
+    default-expiration: 7d
+    max-expiration: 30d
+    hash:
+      block-size: 8
+      cost-parameter: 16_384
+      key-length: 32
+      parallelization-parameter: 1
+      salt-length: 256
   jwt:
     public-alg: es256
     access-alg: es256
