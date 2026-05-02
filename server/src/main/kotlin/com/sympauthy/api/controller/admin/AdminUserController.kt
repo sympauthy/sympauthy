@@ -172,8 +172,7 @@ class AdminUserController(
     ): AdminUserDetailResource {
         val user = userManager.findByIdOrNull(id).orNotFound()
         val identifierClaims = collectedClaimManager.findIdentifierByUserId(user.id)
-        val generatedClaimValues = generatedClaimsManager.computeValues(user.id)
-        return userDetailMapper.toResource(user, identifierClaims, generatedClaimValues)
+        return userDetailMapper.toResource(user, identifierClaims)
     }
 
     /**

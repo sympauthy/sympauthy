@@ -78,7 +78,7 @@ class AdminUserControllerTest {
 
         coEvery { userManager.findByIdOrNull(userId) } returns user
         coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns identifierClaims
-        every { userDetailMapper.toResource(user, identifierClaims, any()) } returns expectedResource
+        every { userDetailMapper.toResource(user, identifierClaims) } returns expectedResource
 
         val result = controller.getUser(userId)
 

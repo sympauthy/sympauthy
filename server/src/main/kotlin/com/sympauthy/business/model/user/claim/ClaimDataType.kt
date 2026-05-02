@@ -16,6 +16,7 @@ enum class ClaimDataType(
     BOOLEAN(String::class),
     DATE(String::class),
     EMAIL(String::class),
+    NUMBER(Long::class),
     PHONE_NUMBER(String::class),
     STRING(String::class),
     TIMEZONE(String::class)

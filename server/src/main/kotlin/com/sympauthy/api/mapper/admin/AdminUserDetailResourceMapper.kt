@@ -14,20 +14,11 @@ import org.mapstruct.Named
 )
 abstract class AdminUserDetailResourceMapper {
 
-    fun toResource(
-        user: User,
-        identifierClaims: List<CollectedClaim>,
-        generatedClaimValues: Map<String, Any?>
-    ): AdminUserDetailResource {
-        val resource = toResourceFromCollectedClaims(user, identifierClaims)
-        return resource.copy(identifierClaims = resource.identifierClaims + generatedClaimValues.filterKeys { it !in resource.identifierClaims })
-    }
-
     @Mapping(source = "user.id", target = "userId")
     @Mapping(source = "user.status", target = "status", qualifiedByName = ["toStatusString"])
     @Mapping(source = "user.creationDate", target = "createdAt")
     @Mapping(source = "identifierClaims", target = "identifierClaims", qualifiedByName = ["toClaimsMap"])
-    internal abstract fun toResourceFromCollectedClaims(user: User, identifierClaims: List<CollectedClaim>): AdminUserDetailResource
+    abstract fun toResource(user: User, identifierClaims: List<CollectedClaim>): AdminUserDetailResource
 
     @Named("toStatusString")
     fun toStatusString(status: UserStatus): String = status.name.lowercase()

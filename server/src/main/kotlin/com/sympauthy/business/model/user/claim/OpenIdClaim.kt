@@ -20,7 +20,7 @@ enum class GeneratedOpenIdConnectClaim(
     ),
     UPDATED_AT(
         id = OpenIdConnectClaimId.UPDATED_AT,
-        dataType = ClaimDataType.STRING,
+        dataType = ClaimDataType.NUMBER,
         scope = "profile"
     );
 }

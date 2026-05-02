@@ -6,15 +6,15 @@ import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
-import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.time.LocalDate
 import java.util.*
 
 @Singleton
 class UserInfoResourceMapper(
-    @Inject private val generatedClaimsManager: GeneratedClaimsManager
+    private val generatedClaimsManager: GeneratedClaimsManager
 ) {
+
 
     suspend fun toResource(userId: UUID, claims: List<CollectedClaim>): UserInfoResource {
         val claimById = claims.associateBy { it.claim.id }
