@@ -21,9 +21,10 @@ the features of SympAuthy:
 - **Client ID**: dev
 - **Client Secret**: dev
 - **Allowed Scopes**:
-    - openid: Required to access to the authorization flow.
     - profile: Authorize the end-user(you) to get their personal user info.
-    - admin:*: Authorize the end-user(you) to access Admin APIs of SympAuthy.
+    - phone: Authorize the end-user(you) to get their phone number.
+    - users:*: Authorize the end-user(you) to access User APIs of SympAuthy.
+    - invitations:*: Authorize the end-user(you) to manage invitations.
 
 As SympAuthy is fully configurable using a text file, we can create a file **application.yml** in the **config**
 directory
@@ -37,53 +38,75 @@ r2dbc:
 
 auth:
   issuer: http://localhost:8080
-  audience: sympauthy
+
+templates:
+  clients:
+    default:
+      authorization-flow: local
 
 clients:
-  default:
-    authorization-flow: local
   admin:
     allowed-redirect-uris:
       - http://localhost:5174/callback # Allow local instance of sympauthy-admin
   dev:
     public: false
     secret: dev
+    allowed-grant-types:
+      - authorization_code
+      - refresh_token
+      - client_credentials
     allowed-redirect-uris:
       - https://example.com
-    allowed-scopes:
+    default-scopes:
       - openid
       - profile
-      - admin:config:read
-      - admin:users:read
-      - admin:users:write
-      - admin:users:delete
-      - admin:consent:read
-      - admin:consent:write
+      - phone
+    allowed-scopes:
+      - profile
+      - phone
+      - users:read
+      - users:claims:read
+      - users:claims:write
+      - invitations:read
+      - invitations:write
 
 flows:
   local:
     type: web
     sign-in: http://localhost:5173/sign-in
+    sign-up: http://localhost:5173/sign-up
     collect-claims: http://localhost:5173/claims/edit
     validate-claims: http://localhost:5173/claims/validate
     error: http://localhost:5173/error
+    mfa: http://localhost:5173/mfa
+    mfa-totp-challenge: http://localhost:5173/mfa/totp
+    mfa-totp-enroll: http://localhost:5173/mfa/totp/enroll
+
+invitations:
+  first-admin:
+    url-template: "http://localhost:5174/register?invitation_token={token}"
 
 urls:
   root: http://localhost:8080
 ```
 
-You can refer to the [wiki]() to
+You can refer to the [configuration documentation](https://sympauthy.github.io/technical/configuration/) to learn more about all available configuration options.
 
 #### Configure a database
 
 - [PostgreSQL](https://www.postgresql.org)
 - [H2](https://www.h2database.com)
 
-##### PostgreSQL
+##### [PostgreSQL](https://sympauthy.github.io/technical/configuration/database.html#postgresql)
 
-**FIXME**
+```yaml
+r2dbc:
+  datasources:
+    default:
+      url: r2dbc:postgresql://localhost:5432/sympauthy
+```
 
-##### H2
+##### [H2](https://sympauthy.github.io/technical/configuration/database.html#h2-in-memory-for-development-only)
 
 - Stored in a local **sympauthy.mv.db** file:
 
