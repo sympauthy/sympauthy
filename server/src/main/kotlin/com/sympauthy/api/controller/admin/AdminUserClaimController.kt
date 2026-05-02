@@ -5,6 +5,7 @@ import com.sympauthy.api.resource.admin.AdminUserClaimListResource
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
@@ -30,6 +31,7 @@ class AdminUserClaimController(
     @Inject private val userManager: UserManager,
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
+    @Inject private val generatedClaimsManager: GeneratedClaimsManager,
     @Inject private val uncheckedAuthConfig: AuthConfig,
     @Inject private val userClaimMapper: AdminUserClaimResourceMapper
 ) {
@@ -153,16 +155,27 @@ class AdminUserClaimController(
             }
         }
 
+        val generatedClaimValues = generatedClaimsManager.computeValues(userId)
+
         val total = filteredClaims.size
         val paged = filteredClaims
             .drop(resolvedPage * resolvedSize)
             .take(resolvedSize)
             .map { claim ->
-                userClaimMapper.toResource(
-                    claim = claim,
-                    collectedClaim = collectedClaimMap[claim.id],
-                    identifier = claim.id in identifierClaimIds
-                )
+                val identifier = claim.id in identifierClaimIds
+                if (claim.generated) {
+                    userClaimMapper.toResourceFromGeneratedClaim(
+                        claim = claim,
+                        identifier = identifier,
+                        generatedClaimValue = generatedClaimValues[claim.id]
+                    )
+                } else {
+                    userClaimMapper.toResourceFromCollectedClaim(
+                        claim = claim,
+                        collectedClaim = collectedClaimMap[claim.id],
+                        identifier = identifier
+                    )
+                }
             }
 
         return AdminUserClaimListResource(

@@ -14,8 +14,12 @@ import java.util.*
 @Singleton
 class ClientUserClaimResourceMapper {
 
-    fun toResource(userId: UUID, claims: List<CollectedClaim>): ClientUserClaimResource {
-        val claimsMap = claims.associate { it.claim.id to it.value }
+    fun toResource(
+        userId: UUID,
+        collectedClaims: List<CollectedClaim>,
+        generatedClaimValues: Map<String, Any?> = emptyMap()
+    ): ClientUserClaimResource {
+        val claimsMap = collectedClaims.associate { it.claim.id to it.value } + generatedClaimValues
         return ClientUserClaimResource(
             userId = userId,
             claims = claimsMap

@@ -2,23 +2,26 @@ package com.sympauthy.api.mapper
 
 import com.sympauthy.api.resource.openid.AddressResource
 import com.sympauthy.api.resource.openid.UserInfoResource
+import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import jakarta.inject.Singleton
 import java.time.LocalDate
-import java.time.ZoneOffset
 import java.util.*
 
 @Singleton
-class UserInfoResourceMapper {
+class UserInfoResourceMapper(
+    private val generatedClaimsManager: GeneratedClaimsManager
+) {
 
-    fun toResource(userId: UUID, claims: List<CollectedClaim>): UserInfoResource {
+
+    suspend fun toResource(userId: UUID, claims: List<CollectedClaim>): UserInfoResource {
         val claimById = claims.associateBy { it.claim.id }
         val addressClaims = claims.filter { it.claim.group == ClaimGroup.ADDRESS }
 
         return UserInfoResource(
-            sub = userId.toString(),
+            sub = generatedClaimsManager.computeSubject(userId),
             name = claimById.stringOrNull(OpenIdConnectClaimId.NAME),
             givenName = claimById.stringOrNull(OpenIdConnectClaimId.GIVEN_NAME),
             familyName = claimById.stringOrNull(OpenIdConnectClaimId.FAMILY_NAME),
@@ -37,8 +40,7 @@ class UserInfoResourceMapper {
             phoneNumber = claimById.stringOrNull(OpenIdConnectClaimId.PHONE_NUMBER),
             phoneNumberVerified = claimById[OpenIdConnectClaimId.PHONE_NUMBER]?.verified,
             address = toAddressResource(addressClaims),
-            updatedAt = claims.maxOfOrNull { it.collectionDate }
-                ?.toInstant(ZoneOffset.UTC)?.epochSecond
+            updatedAt = generatedClaimsManager.computeUpdatedAt(userId)
         )
     }
 

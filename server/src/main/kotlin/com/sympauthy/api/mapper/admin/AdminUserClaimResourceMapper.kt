@@ -25,7 +25,18 @@ abstract class AdminUserClaimResourceMapper {
     @Mapping(source = "collectedClaim.value", target = "value")
     @Mapping(source = "collectedClaim.collectionDate", target = "collectedAt")
     @Mapping(source = "collectedClaim.verificationDate", target = "verifiedAt")
-    abstract fun toResource(claim: Claim, collectedClaim: CollectedClaim?, identifier: Boolean): AdminUserClaimResource
+    abstract fun toResourceFromCollectedClaim(claim: Claim, collectedClaim: CollectedClaim?, identifier: Boolean): AdminUserClaimResource
+
+    @Mapping(source = "claim.id", target = "claimId")
+    @Mapping(source = "claim.dataType", target = "type", qualifiedByName = ["toTypeString"])
+    @Mapping(source = "claim", target = "origin", qualifiedByName = ["toOrigin"])
+    @Mapping(source = "claim.required", target = "required")
+    @Mapping(source = "identifier", target = "identifier")
+    @Mapping(source = "claim.group", target = "group", qualifiedByName = ["toGroupString"])
+    @Mapping(source = "generatedClaimValue", target = "value")
+    @Mapping(target = "collectedAt", ignore = true)
+    @Mapping(target = "verifiedAt", ignore = true)
+    abstract fun toResourceFromGeneratedClaim(claim: Claim, identifier: Boolean, generatedClaimValue: Any?): AdminUserClaimResource
 
     @Named("toTypeString")
     fun toTypeString(dataType: ClaimDataType): String = dataType.name.lowercase()

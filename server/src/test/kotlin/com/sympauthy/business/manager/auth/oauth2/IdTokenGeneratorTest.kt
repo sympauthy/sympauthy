@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.auth.oauth2
 
+import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
@@ -19,6 +20,9 @@ class IdTokenGeneratorTest {
 
     @MockK
     lateinit var consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager
+
+    @MockK
+    lateinit var generatedClaimsManager: GeneratedClaimsManager
 
     @MockK
     lateinit var jwtManager: JwtManager

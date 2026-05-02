@@ -5,6 +5,7 @@ import com.sympauthy.api.mapper.admin.AdminUserDetailResourceMapper
 import com.sympauthy.api.mapper.admin.AdminUserResourceMapper
 import com.sympauthy.api.resource.admin.AdminUserDetailResource
 import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.manager.user.UserSearchManager
@@ -41,6 +42,9 @@ class AdminUserControllerTest {
 
     @MockK
     lateinit var claimManager: ClaimManager
+
+    @MockK(relaxed = true)
+    lateinit var generatedClaimsManager: GeneratedClaimsManager
 
     @MockK
     lateinit var userMapper: AdminUserResourceMapper
