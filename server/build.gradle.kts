@@ -154,6 +154,9 @@ graalvmNative {
             // Classpaths for all supported databases must be listed under location and all terminate by the name of the driver: postgresql, h2
             // https://micronaut-projects.github.io/micronaut-flyway/latest/guide/#graalvm
             buildArgs.add("-Dflyway.locations=classpath:databases/postgresql,classpath:databases/h2")
+            // Increase per-method compilation timeout from default 300s to 900s.
+            // macOS ARM64 CI runners can be slow enough to hit the default limit.
+            buildArgs.add("-H:CompilationExpirationPeriod=900")
         }
     }
 }
