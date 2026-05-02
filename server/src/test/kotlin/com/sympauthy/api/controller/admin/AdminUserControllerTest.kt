@@ -5,6 +5,7 @@ import com.sympauthy.api.mapper.admin.AdminUserDetailResourceMapper
 import com.sympauthy.api.mapper.admin.AdminUserResourceMapper
 import com.sympauthy.api.resource.admin.AdminUserDetailResource
 import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.manager.user.UserSearchManager
@@ -42,6 +43,9 @@ class AdminUserControllerTest {
     @MockK
     lateinit var claimManager: ClaimManager
 
+    @MockK(relaxed = true)
+    lateinit var generatedClaimsManager: GeneratedClaimsManager
+
     @MockK
     lateinit var userMapper: AdminUserResourceMapper
 
@@ -74,7 +78,7 @@ class AdminUserControllerTest {
 
         coEvery { userManager.findByIdOrNull(userId) } returns user
         coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns identifierClaims
-        every { userDetailMapper.toResource(user, identifierClaims) } returns expectedResource
+        every { userDetailMapper.toResource(user, identifierClaims, any()) } returns expectedResource
 
         val result = controller.getUser(userId)
 

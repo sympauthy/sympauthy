@@ -14,12 +14,19 @@ import org.mapstruct.Mapping
 )
 abstract class ClientUserResourceMapper {
 
+    fun toResource(clientUser: ClientUser, generatedClaimValues: Map<String, Any?>): ClientUserResource {
+        val resource = toResourceFromCollectedClaims(clientUser)
+        return resource.copy(
+            identifierClaims = resource.identifierClaims + generatedClaimValues.filterKeys { it !in resource.identifierClaims }
+        )
+    }
+
     @Mapping(source = "user.id", target = "userId")
     @Mapping(source = "identifierClaims", target = "identifierClaims")
     @Mapping(source = "providers", target = "providers")
     @Mapping(source = "consent.scopes", target = "consentedScopes")
     @Mapping(source = "consent.consentedAt", target = "consentedAt")
-    abstract fun toResource(clientUser: ClientUser): ClientUserResource
+    internal abstract fun toResourceFromCollectedClaims(clientUser: ClientUser): ClientUserResource
 
     fun toIdentifierClaimsMap(claims: List<CollectedClaim>): Map<String, Any?> {
         return claims.associate { it.claim.id to it.value }

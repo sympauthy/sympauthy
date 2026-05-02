@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager.auth.oauth2
 
 import com.nimbusds.jwt.JWTClaimsSet
+import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
@@ -21,6 +22,7 @@ import java.util.*
 @Singleton
 class IdTokenGenerator(
     @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
+    @Inject private val generatedClaimsManager: GeneratedClaimsManager,
     @Inject private val jwtManager: JwtManager,
     @Inject private val tokenRepository: AuthenticationTokenRepository,
     @Inject private val tokenMapper: EncodedAuthenticationTokenMapper,
@@ -107,7 +109,7 @@ class IdTokenGenerator(
             // Pretty weird but in OpenID spec, the audience is the client_id of the client which defer from OAuth2 spec.
             // https://openid.net/specs/openid-connect-basic-1_0.html#IDToken
             audience(listOf(clientId))
-            subject(userId.toString())
+            subject(generatedClaimsManager.computeSubject(userId))
             issueTime(Date.from(issueDate.toInstant(ZoneOffset.UTC)))
             expirationTime(Date.from(expirationDate.toInstant(ZoneOffset.UTC)))
             nonce?.let { claim("nonce", it) }

@@ -7,6 +7,7 @@ import com.sympauthy.api.resource.admin.AdminUserListResource
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.manager.user.UserSearchManager
@@ -34,6 +35,7 @@ class AdminUserController(
     @Inject private val userSearchManager: UserSearchManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val claimManager: ClaimManager,
+    @Inject private val generatedClaimsManager: GeneratedClaimsManager,
     @Inject private val userMapper: AdminUserResourceMapper,
     @Inject private val userDetailMapper: AdminUserDetailResourceMapper
 ) {
@@ -131,7 +133,8 @@ class AdminUserController(
             .drop(page * size)
             .take(size)
             .map { uwc ->
-                val claimsMap = userMapper.buildClaimsMap(uwc.collectedClaims, selectedClaims)
+                val generatedClaimValues = generatedClaimsManager.computeValues(uwc.user.id)
+                val claimsMap = userMapper.buildClaimsMap(uwc.collectedClaims, selectedClaims, generatedClaimValues)
                 userMapper.toResource(uwc.user, claimsMap)
             }
 
@@ -169,7 +172,8 @@ class AdminUserController(
     ): AdminUserDetailResource {
         val user = userManager.findByIdOrNull(id).orNotFound()
         val identifierClaims = collectedClaimManager.findIdentifierByUserId(user.id)
-        return userDetailMapper.toResource(user, identifierClaims)
+        val generatedClaimValues = generatedClaimsManager.computeValues(user.id)
+        return userDetailMapper.toResource(user, identifierClaims, generatedClaimValues)
     }
 
     /**

@@ -6,6 +6,7 @@ import com.sympauthy.api.resource.admin.AdminUserClaimResource
 import com.sympauthy.api.util.DEFAULT_PAGE
 import com.sympauthy.api.util.DEFAULT_PAGE_SIZE
 import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.user.CollectedClaim
@@ -39,6 +40,9 @@ class AdminUserClaimControllerTest {
 
     @MockK
     lateinit var collectedClaimManager: CollectedClaimManager
+
+    @MockK(relaxed = true)
+    lateinit var generatedClaimsManager: GeneratedClaimsManager
 
     @MockK
     lateinit var uncheckedAuthConfig: AuthConfig
@@ -187,6 +191,7 @@ class AdminUserClaimControllerTest {
             userManager = userManager,
             claimManager = claimManager,
             collectedClaimManager = collectedClaimManager,
+            generatedClaimsManager = generatedClaimsManager,
             uncheckedAuthConfig = enabledConfig,
             userClaimMapper = userClaimMapper
         )
@@ -201,8 +206,8 @@ class AdminUserClaimControllerTest {
 
         val emailResource = mockResource("email")
         val nameResource = mockResource("name")
-        every { userClaimMapper.toResource(emailClaim, null, true) } returns emailResource
-        every { userClaimMapper.toResource(nameClaim, null, false) } returns nameResource
+        every { userClaimMapper.toResourceFromCollectedClaim(emailClaim, null, true) } returns emailResource
+        every { userClaimMapper.toResourceFromCollectedClaim(nameClaim, null, false) } returns nameResource
 
         val result = ctrl.listUserClaims(userId, null, null, null, null, null, null, null, null)
 
@@ -224,8 +229,8 @@ class AdminUserClaimControllerTest {
 
         val emailResource = mockResource("email")
         val nameResource = mockResource("name")
-        every { userClaimMapper.toResource(emailClaim, null, true) } returns emailResource
-        every { userClaimMapper.toResource(nameClaim, null, false) } returns nameResource
+        every { userClaimMapper.toResourceFromCollectedClaim(emailClaim, null, true) } returns emailResource
+        every { userClaimMapper.toResourceFromCollectedClaim(nameClaim, null, false) } returns nameResource
 
         val result = ctrl.listUserClaims(userId, null, null, null, null, null, null, null, null)
 
@@ -241,7 +246,7 @@ class AdminUserClaimControllerTest {
         coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns emptyList()
 
         val emailResource = mockResource("email")
-        every { userClaimMapper.toResource(emailClaim, null, true) } returns emailResource
+        every { userClaimMapper.toResourceFromCollectedClaim(emailClaim, null, true) } returns emailResource
 
         val result = ctrl.listUserClaims(userId, null, null, "email", null, null, null, null, null)
 
@@ -257,7 +262,7 @@ class AdminUserClaimControllerTest {
         coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns emptyList()
 
         val emailResource = mockResource("email")
-        every { userClaimMapper.toResource(emailClaim, null, true) } returns emailResource
+        every { userClaimMapper.toResourceFromCollectedClaim(emailClaim, null, true) } returns emailResource
 
         val result = ctrl.listUserClaims(userId, null, null, null, true, null, null, null, null)
 
@@ -273,7 +278,7 @@ class AdminUserClaimControllerTest {
         coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns emptyList()
 
         val emailResource = mockResource("email")
-        every { userClaimMapper.toResource(emailClaim, null, true) } returns emailResource
+        every { userClaimMapper.toResourceFromCollectedClaim(emailClaim, null, true) } returns emailResource
 
         val result = ctrl.listUserClaims(userId, null, null, null, null, true, null, null, null)
 
@@ -289,7 +294,7 @@ class AdminUserClaimControllerTest {
         coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns emptyList()
 
         val customResource = mockResource("custom_field")
-        every { userClaimMapper.toResource(customClaim, null, false) } returns customResource
+        every { userClaimMapper.toResourceFromCollectedClaim(customClaim, null, false) } returns customResource
 
         val result = ctrl.listUserClaims(userId, null, null, null, null, null, null, null, "custom")
 
@@ -307,7 +312,7 @@ class AdminUserClaimControllerTest {
         coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns listOf(collectedEmail)
 
         val emailResource = mockResource("email", "user@test.com")
-        every { userClaimMapper.toResource(emailClaim, collectedEmail, true) } returns emailResource
+        every { userClaimMapper.toResourceFromCollectedClaim(emailClaim, collectedEmail, true) } returns emailResource
 
         val result = ctrl.listUserClaims(userId, null, null, null, null, null, true, null, null)
 
@@ -326,7 +331,7 @@ class AdminUserClaimControllerTest {
         coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns listOf(collectedEmail)
 
         val emailResource = mockResource("email", "user@test.com")
-        every { userClaimMapper.toResource(emailClaim, collectedEmail, true) } returns emailResource
+        every { userClaimMapper.toResourceFromCollectedClaim(emailClaim, collectedEmail, true) } returns emailResource
 
         val result = ctrl.listUserClaims(userId, null, null, null, null, null, null, true, null)
 
@@ -352,7 +357,7 @@ class AdminUserClaimControllerTest {
             collectedAt = null,
             verifiedAt = null
         )
-        every { userClaimMapper.toResource(nameClaim, null, false) } returns nameResource
+        every { userClaimMapper.toResourceFromCollectedClaim(nameClaim, null, false) } returns nameResource
 
         val result = ctrl.listUserClaims(userId, null, null, null, null, null, null, null, null)
 
@@ -399,7 +404,7 @@ class AdminUserClaimControllerTest {
 
         val resources = claims.map { mockResource(it.id) }
         claims.forEachIndexed { i, claim ->
-            every { userClaimMapper.toResource(claim, null, false) } returns resources[i]
+            every { userClaimMapper.toResourceFromCollectedClaim(claim, null, false) } returns resources[i]
         }
 
         val result = ctrl.listUserClaims(userId, 1, 2, null, null, null, null, null, null)

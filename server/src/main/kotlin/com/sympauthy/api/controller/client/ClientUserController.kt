@@ -7,6 +7,7 @@ import com.sympauthy.api.util.orNotFound
 import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClientManager
+import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.manager.user.ClientUserManager
 import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
 import com.sympauthy.security.SecurityRule.CLIENT_USERS_READ
@@ -31,6 +32,7 @@ import java.util.*
 class ClientUserController(
     @Inject private val clientManager: ClientManager,
     @Inject private val clientUserManager: ClientUserManager,
+    @Inject private val generatedClaimsManager: GeneratedClaimsManager,
     @Inject private val userMapper: ClientUserResourceMapper
 ) {
 
@@ -93,7 +95,10 @@ class ClientUserController(
         )
 
         return ClientUserListResource(
-            users = users.map(userMapper::toResource),
+            users = users.map { clientUser ->
+                val generatedClaimValues = generatedClaimsManager.computeValues(clientUser.user.id)
+                userMapper.toResource(clientUser, generatedClaimValues)
+            },
             page = resolvedPage,
             size = resolvedSize,
             total = total
@@ -128,6 +133,7 @@ class ClientUserController(
         val clientAuth = authentication.clientAuthentication
         val client = clientManager.findClientById(clientAuth.clientId)
         val clientUser = clientUserManager.findUserForAudienceOrNull(client.audience.id, userId).orNotFound()
-        return userMapper.toResource(clientUser)
+        val generatedClaimValues = generatedClaimsManager.computeValues(clientUser.user.id)
+        return userMapper.toResource(clientUser, generatedClaimValues)
     }
 }

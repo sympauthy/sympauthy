@@ -7,6 +7,7 @@ import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.ClientManager
+import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.user.ClientUserManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
@@ -30,6 +31,7 @@ class ClientUserClaimController(
     @Inject private val clientManager: ClientManager,
     @Inject private val clientUserManager: ClientUserManager,
     @Inject private val claimManager: ClaimManager,
+    @Inject private val generatedClaimsManager: GeneratedClaimsManager,
     @Inject private val consentManager: ConsentManager,
     @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
     @Inject private val collectedClaimUpdateMapper: CollectedClaimUpdateMapper,
@@ -72,7 +74,8 @@ class ClientUserClaimController(
         val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
             userId, consent.scopes, clientScopeIds, audienceId = audienceId
         )
-        return claimMapper.toResource(userId, claims)
+        val generatedClaimValues = generatedClaimsManager.computeValues(userId)
+        return claimMapper.toResource(userId, claims, generatedClaimValues)
     }
 
     @Operation(
@@ -135,6 +138,7 @@ class ClientUserClaimController(
         val allClaims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
             userId, consent.scopes, clientScopeIds, audienceId = audienceId
         )
-        return claimMapper.toResource(userId, allClaims)
+        val generatedClaimValues = generatedClaimsManager.computeValues(userId)
+        return claimMapper.toResource(userId, allClaims, generatedClaimValues)
     }
 }
