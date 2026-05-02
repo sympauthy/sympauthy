@@ -115,7 +115,7 @@ jobs:
     with:
       ref: ${{ inputs.ref || 'main' }}
 
-  build_binary:
+  build_linux_binary:
     needs: [ should_build, build_flow, build_admin ]
     if: needs.should_build.outputs.result == '1'
     strategy:
@@ -126,6 +126,18 @@ jobs:
             runner: ubuntu-latest
           - platform: linux-arm64
             runner: ubuntu-24.04-arm
+    uses: ./.github/workflows/build-native-binary.yml
+    with:
+      runner: ${{ matrix.runner }}
+      platform: ${{ matrix.platform }}
+
+  build_macos_binary:
+    needs: [ should_build, build_flow, build_admin ]
+    if: needs.should_build.outputs.result == '1'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
           - platform: macos-x64
             runner: macos-15-intel
           - platform: macos-arm64
@@ -141,7 +153,7 @@ jobs:
       platform: ${{ matrix.platform }}
 
   publish_docker:
-    needs: [ should_build, build_binary ]
+    needs: [ should_build, build_linux_binary ]
     if: needs.should_build.outputs.result == '1'
     strategy:
       fail-fast: false
@@ -196,7 +208,7 @@ jobs:
 
   publish_release:
     name: Publish to nightly release
-    needs: [ should_build, build_binary ]
+    needs: [ should_build, build_linux_binary, build_macos_binary ]
     if: needs.should_build.outputs.result == '1'
     runs-on: ubuntu-latest
     steps:
