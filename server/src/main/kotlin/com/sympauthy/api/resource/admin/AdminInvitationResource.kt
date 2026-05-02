@@ -19,7 +19,10 @@ data class AdminInvitationResource(
     @get:Schema(description = "First 8 characters of the token, for identification.")
     @get:JsonProperty("token_prefix")
     val tokenPrefix: String,
-    @get:Schema(description = "Current status of the invitation.", allowableValues = ["pending", "consumed", "revoked", "expired"])
+    @get:Schema(
+        description = "Current status of the invitation.",
+        allowableValues = ["pending", "consumed", "revoked", "expired"]
+    )
     val status: String,
     @get:Schema(description = "Custom claims pre-assigned to the user upon registration.", nullable = true)
     @get:JsonInclude(JsonInclude.Include.NON_NULL)

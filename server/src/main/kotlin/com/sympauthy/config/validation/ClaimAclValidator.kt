@@ -46,8 +46,16 @@ class ClaimAclValidator(
         configKeyPrefix: String
     ): ClaimTemplateAcl {
         validateConsentScope(ctx, parsed.consentScope, "$configKeyPrefix.acl.consent-scope")
-        validateClientScopeList(ctx, parsed.readableWithClientScopes, "$configKeyPrefix.acl.readable-with-client-scopes-unconditionally")
-        validateClientScopeList(ctx, parsed.writableWithClientScopes, "$configKeyPrefix.acl.writable-with-client-scopes-unconditionally")
+        validateClientScopeList(
+            ctx,
+            parsed.readableWithClientScopes,
+            "$configKeyPrefix.acl.readable-with-client-scopes-unconditionally"
+        )
+        validateClientScopeList(
+            ctx,
+            parsed.writableWithClientScopes,
+            "$configKeyPrefix.acl.writable-with-client-scopes-unconditionally"
+        )
 
         return ClaimTemplateAcl(
             consentScope = parsed.consentScope,
@@ -69,8 +77,16 @@ class ClaimAclValidator(
         configKeyPrefix: String
     ): ClaimAcl {
         validateConsentScope(ctx, parsed.consentScope, "$configKeyPrefix.acl.consent-scope")
-        validateClientScopeList(ctx, parsed.readableWithClientScopes, "$configKeyPrefix.acl.readable-with-client-scopes-unconditionally")
-        validateClientScopeList(ctx, parsed.writableWithClientScopes, "$configKeyPrefix.acl.writable-with-client-scopes-unconditionally")
+        validateClientScopeList(
+            ctx,
+            parsed.readableWithClientScopes,
+            "$configKeyPrefix.acl.readable-with-client-scopes-unconditionally"
+        )
+        validateClientScopeList(
+            ctx,
+            parsed.writableWithClientScopes,
+            "$configKeyPrefix.acl.writable-with-client-scopes-unconditionally"
+        )
 
         return ClaimAcl(
             consent = ConsentAcl(
@@ -96,7 +112,11 @@ class ClaimAclValidator(
         configKeyPrefix: String,
         consentScope: String
     ): ClaimAcl {
-        validateClientScopeList(ctx, parsed.readableWithClientScopes, "$configKeyPrefix.acl.readable-with-client-scopes-unconditionally")
+        validateClientScopeList(
+            ctx,
+            parsed.readableWithClientScopes,
+            "$configKeyPrefix.acl.readable-with-client-scopes-unconditionally"
+        )
 
         return ClaimAcl(
             consent = ConsentAcl(

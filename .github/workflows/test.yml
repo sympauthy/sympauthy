@@ -13,15 +13,15 @@ jobs:
     name: Run tests on all projects
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v6
-      with:
-        gradle-version: wrapper
-    - name: Setup Java
-      uses: actions/setup-java@v5
-      with:
-        java-version: ${{ env.JAVA_VERSION }}
-        distribution: 'temurin'
-        cache: 'gradle'
-    - run: gradle test --no-daemon
+      - uses: actions/checkout@v6
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: wrapper
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'gradle'
+      - run: gradle test --no-daemon

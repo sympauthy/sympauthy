@@ -94,7 +94,7 @@ jobs:
 
   test:
     name: Run tests
-    needs: [validate_branch, read_version]
+    needs: [ validate_branch, read_version ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -115,19 +115,19 @@ jobs:
         run: ./gradlew test --no-daemon
 
   build_flow:
-    needs: [read_version, test]
+    needs: [ read_version, test ]
     uses: ./.github/workflows/build-flow.yml
     with:
       ref: ${{ needs.read_version.outputs.frontend_ref }}
 
   build_admin:
-    needs: [read_version, test]
+    needs: [ read_version, test ]
     uses: ./.github/workflows/build-admin.yml
     with:
       ref: ${{ needs.read_version.outputs.frontend_ref }}
 
   build_binary:
-    needs: [test, build_flow, build_admin]
+    needs: [ test, build_flow, build_admin ]
     strategy:
       fail-fast: false
       matrix:
@@ -146,7 +146,7 @@ jobs:
       platform: ${{ matrix.platform }}
 
   publish_docker:
-    needs: [read_version, build_binary]
+    needs: [ read_version, build_binary ]
     strategy:
       fail-fast: false
       matrix:
@@ -162,7 +162,7 @@ jobs:
 
   publish_docker_manifest:
     name: Create multi-arch Docker manifest
-    needs: [read_version, publish_docker]
+    needs: [ read_version, publish_docker ]
     runs-on: ubuntu-latest
     steps:
       - uses: docker/setup-buildx-action@v4
@@ -191,7 +191,7 @@ jobs:
 
   publish_release:
     name: Publish GitHub release
-    needs: [read_version, build_binary]
+    needs: [ read_version, build_binary ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -240,7 +240,7 @@ jobs:
 
   release_frontend_repos:
     name: Trigger frontend releases
-    needs: [read_version, publish_release]
+    needs: [ read_version, publish_release ]
     runs-on: ubuntu-latest
     steps:
       - name: Trigger release on sympauthy-flow and sympauthy-admin
@@ -262,7 +262,7 @@ jobs:
 
   version_bump:
     name: Bump version
-    needs: [read_version, publish_docker_manifest, publish_release, release_frontend_repos]
+    needs: [ read_version, publish_docker_manifest, publish_release, release_frontend_repos ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

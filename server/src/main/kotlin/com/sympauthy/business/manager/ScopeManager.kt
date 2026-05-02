@@ -63,6 +63,7 @@ class ScopeManager(
                     audienceId = config.audienceId
                 )
             }
+
             is DisabledAdminConfig -> emptyList()
         }
     }

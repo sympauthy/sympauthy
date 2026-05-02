@@ -21,4 +21,4 @@ admin:
   audience: admin
 
 audiences:
-  admin: {}
+  admin: { }

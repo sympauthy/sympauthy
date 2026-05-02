@@ -4,7 +4,8 @@ An open-source, self-hosted authorization server.
 
 ## Getting started
 
-To get started with SympAuthy, please refer to the [Getting Started guide](https://sympauthy.github.io/getting-started/).
+To get started with SympAuthy, please refer to
+the [Getting Started guide](https://sympauthy.github.io/getting-started/).
 
 ## Setting up the application for local development
 
@@ -20,9 +21,9 @@ the features of SympAuthy:
 - **Client ID**: dev
 - **Client Secret**: dev
 - **Allowed Scopes**:
-  - openid: Required to access to the authorization flow.
-  - profile: Authorize the end-user(you) to get their personal user info.
-  - admin:*: Authorize the end-user(you) to access Admin APIs of SympAuthy.
+    - openid: Required to access to the authorization flow.
+    - profile: Authorize the end-user(you) to get their personal user info.
+    - admin:*: Authorize the end-user(you) to access Admin APIs of SympAuthy.
 
 As SympAuthy is fully configurable using a text file, we can create a file **application.yml** in the **config**
 directory
@@ -85,6 +86,7 @@ You can refer to the [wiki]() to
 ##### H2
 
 - Stored in a local **sympauthy.mv.db** file:
+
 ```yaml
 r2dbc:
   datasources:
@@ -93,6 +95,7 @@ r2dbc:
 ```
 
 - In memory:
+
 ```yaml
 r2dbc:
   datasources:
@@ -114,13 +117,14 @@ MICRONAUT_CONFIG_FILES=$(pwd)/config/application.yml MICRONAUT_ENVIRONMENTS=defa
 #### IntelliJ
 
 Add a new **Micronaut** configuration:
+
 - **Name**: JVM - Application
 - **Main class**: com.sympauthy.Application
 - **Classpath**: sympauthy.server.main
 - **Working directory**: $ProjectFileDir$
 - **Environment variables**:
-  - **MICRONAUT_ENVIRONMENTS**: default,admin
-  - **MICRONAUT_CONFIG_FILES**: config/application.yml
+    - **MICRONAUT_ENVIRONMENTS**: default,admin
+    - **MICRONAUT_CONFIG_FILES**: config/application.yml
 
 ### Build and run the native image locally
 
@@ -137,17 +141,21 @@ Open the **Gradle** window and double-click on **sympauthy > server > Tasks > bu
 It should create a new configuration that you can rename into: Native - Compile.
 
 Then add a new **Shell script** configuration:
+
 - **Name**: Native - Application
 - **Execute**: Script Text
-- **Script text**: MICRONAUT_CONFIG_FILES=config/application.yml MICRONAUT_ENVIRONMENTS=default,admin ./server/build/native/nativeCompile/server
+- **Script text**: MICRONAUT_CONFIG_FILES=config/application.yml MICRONAUT_ENVIRONMENTS=default,admin
+  ./server/build/native/nativeCompile/server
 - **Working directory**: $ProjectFileDir$
 - **Execute in Terminal**: Unchecked
 
 Then click on **Add** button in the **Before launch** section:
+
 - Select a **Run another configuration**
 - Select the Gradle configuration we have created.
 
-> Native compilation is slow. You may create an additional configuration without the Before launch to only run the previous build.
+> Native compilation is slow. You may create an additional configuration without the Before launch to only run the
+> previous build.
 
 ### Test the application
 
@@ -169,7 +177,8 @@ Open the collection in Bruno, then configure the **Local** environment:
 1. Open the **Environments** panel and select **Local**
 2. Set `clientId` to the ID of the OAuth2 client you want to test with (defaults to `admin` as configured above)
 3. Set the following secret variables:
-   - `login`: the login of the test user
-   - `password`: the password of the test user
+    - `login`: the login of the test user
+    - `password`: the password of the test user
 
-Bruno stores secret variable values locally and never writes them back to the collection files, so credentials are never committed to the repository.
+Bruno stores secret variable values locally and never writes them back to the collection files, so credentials are never
+committed to the repository.

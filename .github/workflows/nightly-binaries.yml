@@ -26,7 +26,7 @@ jobs:
 
   has_changed:
     name: Check if sympauthy has changed today.
-    needs: [today]
+    needs: [ today ]
     runs-on: ubuntu-latest
     outputs:
       result: ${{ steps.has_changed.outputs.result }}
@@ -42,7 +42,7 @@ jobs:
 
   has_flow_changed:
     name: Check if sympauthy-flow has changed today.
-    needs: [today]
+    needs: [ today ]
     runs-on: ubuntu-latest
     outputs:
       result: ${{ steps.has_changed.outputs.result }}
@@ -64,7 +64,7 @@ jobs:
 
   has_admin_changed:
     name: Check if sympauthy-admin has changed today.
-    needs: [today]
+    needs: [ today ]
     runs-on: ubuntu-latest
     outputs:
       result: ${{ steps.has_changed.outputs.result }}
@@ -86,7 +86,7 @@ jobs:
 
   should_build:
     name: Determine if build is needed
-    needs: [has_changed, has_flow_changed, has_admin_changed]
+    needs: [ has_changed, has_flow_changed, has_admin_changed ]
     runs-on: ubuntu-latest
     outputs:
       result: ${{ steps.check.outputs.result }}
@@ -102,21 +102,21 @@ jobs:
           fi
 
   build_flow:
-    needs: [should_build]
+    needs: [ should_build ]
     if: needs.should_build.outputs.result == '1'
     uses: ./.github/workflows/build-flow.yml
     with:
       ref: ${{ inputs.ref || 'main' }}
 
   build_admin:
-    needs: [should_build]
+    needs: [ should_build ]
     if: needs.should_build.outputs.result == '1'
     uses: ./.github/workflows/build-admin.yml
     with:
       ref: ${{ inputs.ref || 'main' }}
 
   build_binary:
-    needs: [should_build, build_flow, build_admin]
+    needs: [ should_build, build_flow, build_admin ]
     if: needs.should_build.outputs.result == '1'
     strategy:
       fail-fast: false
@@ -141,7 +141,7 @@ jobs:
       platform: ${{ matrix.platform }}
 
   publish_docker:
-    needs: [should_build, build_binary]
+    needs: [ should_build, build_binary ]
     if: needs.should_build.outputs.result == '1'
     strategy:
       fail-fast: false
@@ -158,7 +158,7 @@ jobs:
 
   publish_docker_manifest:
     name: Create multi-arch Docker manifest
-    needs: [should_build, publish_docker]
+    needs: [ should_build, publish_docker ]
     if: needs.should_build.outputs.result == '1'
     runs-on: ubuntu-latest
     steps:
@@ -179,7 +179,7 @@ jobs:
 
   cleanup_docker:
     name: Clean up old untagged Docker images
-    needs: [should_build, publish_docker_manifest]
+    needs: [ should_build, publish_docker_manifest ]
     if: needs.should_build.outputs.result == '1'
     runs-on: ubuntu-latest
     steps:
@@ -196,7 +196,7 @@ jobs:
 
   publish_release:
     name: Publish to nightly release
-    needs: [should_build, build_binary]
+    needs: [ should_build, build_binary ]
     if: needs.should_build.outputs.result == '1'
     runs-on: ubuntu-latest
     steps:

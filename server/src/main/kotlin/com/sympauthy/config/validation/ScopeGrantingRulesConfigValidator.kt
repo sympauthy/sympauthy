@@ -25,7 +25,12 @@ class ScopeGrantingRulesConfigValidator(
         parsed: List<ParsedScopeGrantingRule>
     ): List<ScopeGrantingRule> {
         return parsed.mapNotNull { rule ->
-            validateRule(ctx, rule, ::validateUserRuleScope, scopeGrantingRuleExpressionExecutor::validateUserExpression)
+            validateRule(
+                ctx,
+                rule,
+                ::validateUserRuleScope,
+                scopeGrantingRuleExpressionExecutor::validateUserExpression
+            )
         }
     }
 
@@ -34,7 +39,12 @@ class ScopeGrantingRulesConfigValidator(
         parsed: List<ParsedScopeGrantingRule>
     ): List<ScopeGrantingRule> {
         return parsed.mapNotNull { rule ->
-            validateRule(ctx, rule, ::validateClientRuleScope, scopeGrantingRuleExpressionExecutor::validateClientExpression)
+            validateRule(
+                ctx,
+                rule,
+                ::validateClientRuleScope,
+                scopeGrantingRuleExpressionExecutor::validateClientExpression
+            )
         }
     }
 
@@ -52,7 +62,11 @@ class ScopeGrantingRulesConfigValidator(
                 val scope = scopeManager.find(scopeId)
                 if (scope == null) {
                     subCtx.addError(
-                        configExceptionOf("${parsed.key}.scopes[$index]", "config.rule.scope.invalid", "scope" to scopeId)
+                        configExceptionOf(
+                            "${parsed.key}.scopes[$index]",
+                            "config.rule.scope.invalid",
+                            "scope" to scopeId
+                        )
                     )
                 } else {
                     scopeValidator(scope, "${parsed.key}.scopes", index, subCtx)
@@ -95,9 +109,11 @@ class ScopeGrantingRulesConfigValidator(
             is ConsentableUserScope -> ctx.addError(
                 configExceptionOf("$key[$index]", "config.rule.scope.consentable_not_allowed", "scope" to scope.scope)
             )
+
             is ClientScope -> ctx.addError(
                 configExceptionOf("$key[$index]", "config.rule.scope.client_scope_not_allowed", "scope" to scope.scope)
             )
+
             is GrantableUserScope -> {} // Valid
         }
     }

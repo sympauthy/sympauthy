@@ -22,6 +22,7 @@ abstract class InvitationMapper {
         val status = when {
             rawStatus == InvitationStatus.PENDING
                     && entity.expiresAt.isBefore(LocalDateTime.now()) -> InvitationStatus.EXPIRED
+
             else -> rawStatus
         }
         val createdBy = try {

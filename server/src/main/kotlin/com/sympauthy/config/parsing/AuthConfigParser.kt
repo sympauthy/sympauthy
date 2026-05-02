@@ -43,7 +43,11 @@ class AuthConfigParser(
 
         val accessExpiration = ctx.parse {
             tokenProperties?.let {
-                parser.getDurationOrThrow(it, "$TOKEN_KEY.access-expiration", TokenConfigurationProperties::accessExpiration)
+                parser.getDurationOrThrow(
+                    it,
+                    "$TOKEN_KEY.access-expiration",
+                    TokenConfigurationProperties::accessExpiration
+                )
             }
         }
 

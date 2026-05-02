@@ -7,10 +7,10 @@ import com.sympauthy.business.manager.user.ClaimValueValidator
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.InvitationMapper
-import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.invitation.InvitationStatus
+import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.InvitationAdvancedConfig
 import com.sympauthy.config.model.orThrow
@@ -105,7 +105,7 @@ open class InvitationManager(
      *
      * Returns a new map with cleaned values.
      */
-internal fun validateAndCleanClaims(
+    internal fun validateAndCleanClaims(
         claims: Map<String, String>?,
         clientScopeIds: List<String>?
     ): Map<String, String>? {
@@ -205,15 +205,19 @@ internal fun validateAndCleanClaims(
                 detailsId = "invitation.already_consumed",
                 descriptionId = "description.invitation.already_consumed"
             )
+
             InvitationStatus.REVOKED -> throw recoverableBusinessExceptionOf(
                 detailsId = "invitation.revoked",
                 descriptionId = "description.invitation.revoked"
             )
+
             InvitationStatus.EXPIRED -> throw recoverableBusinessExceptionOf(
                 detailsId = "invitation.expired",
                 descriptionId = "description.invitation.expired"
             )
-            InvitationStatus.PENDING -> { /* valid */ }
+
+            InvitationStatus.PENDING -> { /* valid */
+            }
         }
 
         if (invitation.audienceId != clientAudienceId) {

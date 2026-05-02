@@ -57,7 +57,11 @@ class InvitationManagerTest {
     @InjectMockKs
     lateinit var manager: InvitationManager
 
-    private fun createClaim(id: String, enabled: Boolean = true, dataType: ClaimDataType = ClaimDataType.STRING): Claim {
+    private fun createClaim(
+        id: String,
+        enabled: Boolean = true,
+        dataType: ClaimDataType = ClaimDataType.STRING
+    ): Claim {
         return mockk {
             every { this@mockk.id } returns id
             every { this@mockk.enabled } returns enabled

@@ -62,6 +62,7 @@ class ClientsConfigValidator(
             parsed.authorizationFlowId != null -> fieldValidator.validateAuthorizationFlow(
                 subCtx, "$configKeyPrefix.authorization-flow", parsed.authorizationFlowId
             )
+
             else -> parsed.template?.authorizationFlow
         }
 
@@ -71,14 +72,20 @@ class ClientsConfigValidator(
                 parsed.allowedRedirectUris
             } else {
                 subCtx.addError(
-                    configExceptionOf("$configKeyPrefix.allowed-redirect-uris", "config.client.allowed_redirect_uris.missing")
+                    configExceptionOf(
+                        "$configKeyPrefix.allowed-redirect-uris",
+                        "config.client.allowed_redirect_uris.missing"
+                    )
                 )
                 null
             }
         } else {
             if (parsed.hasExplicitRedirectUris) {
                 subCtx.addError(
-                    configExceptionOf("$configKeyPrefix.allowed-redirect-uris", "config.client.allowed_redirect_uris.unnecessary")
+                    configExceptionOf(
+                        "$configKeyPrefix.allowed-redirect-uris",
+                        "config.client.allowed_redirect_uris.unnecessary"
+                    )
                 )
             }
             emptyList()
@@ -90,6 +97,7 @@ class ClientsConfigValidator(
                 subCtx, "$configKeyPrefix.allowed-scopes", parsed.allowedScopes,
                 audienceId = parsed.audienceId
             )?.toSet()
+
             else -> parsed.template?.allowedScopes
         }
         val defaultScopes = when {
@@ -97,6 +105,7 @@ class ClientsConfigValidator(
                 subCtx, "$configKeyPrefix.default-scopes", parsed.defaultScopes,
                 audienceId = parsed.audienceId
             )
+
             else -> parsed.template?.defaultScopes
         }
 

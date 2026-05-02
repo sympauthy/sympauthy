@@ -67,17 +67,33 @@ class ProvidersConfigParser(
             val oauth2 = properties.oauth2!!
             val prefix = "$keyPrefix.oauth2"
             oauth2ClientId = subCtx.parse {
-                parser.getStringOrThrow(oauth2, "$prefix.client-id", ProviderConfigurationProperties.OAuth2Config::clientId)
+                parser.getStringOrThrow(
+                    oauth2,
+                    "$prefix.client-id",
+                    ProviderConfigurationProperties.OAuth2Config::clientId
+                )
             }
             oauth2ClientSecret = subCtx.parse {
-                parser.getStringOrThrow(oauth2, "$prefix.client-secret", ProviderConfigurationProperties.OAuth2Config::clientSecret)
+                parser.getStringOrThrow(
+                    oauth2,
+                    "$prefix.client-secret",
+                    ProviderConfigurationProperties.OAuth2Config::clientSecret
+                )
             }
             oauth2Scopes = oauth2.scopes
             oauth2AuthorizationUri = subCtx.parse {
-                parser.getAbsoluteUriOrThrow(oauth2, "$prefix.authorization-url", ProviderConfigurationProperties.OAuth2Config::authorizationUrl)
+                parser.getAbsoluteUriOrThrow(
+                    oauth2,
+                    "$prefix.authorization-url",
+                    ProviderConfigurationProperties.OAuth2Config::authorizationUrl
+                )
             }
             oauth2TokenUri = subCtx.parse {
-                parser.getAbsoluteUriOrThrow(oauth2, "$prefix.token-url", ProviderConfigurationProperties.OAuth2Config::tokenUrl)
+                parser.getAbsoluteUriOrThrow(
+                    oauth2,
+                    "$prefix.token-url",
+                    ProviderConfigurationProperties.OAuth2Config::tokenUrl
+                )
             }
         }
 
@@ -90,13 +106,25 @@ class ProvidersConfigParser(
             val oidc = properties.oidc!!
             val prefix = "$keyPrefix.oidc"
             oidcClientId = subCtx.parse {
-                parser.getStringOrThrow(oidc, "$prefix.client-id", ProviderConfigurationProperties.OpenIdConnectConfig::clientId)
+                parser.getStringOrThrow(
+                    oidc,
+                    "$prefix.client-id",
+                    ProviderConfigurationProperties.OpenIdConnectConfig::clientId
+                )
             }
             oidcClientSecret = subCtx.parse {
-                parser.getStringOrThrow(oidc, "$prefix.client-secret", ProviderConfigurationProperties.OpenIdConnectConfig::clientSecret)
+                parser.getStringOrThrow(
+                    oidc,
+                    "$prefix.client-secret",
+                    ProviderConfigurationProperties.OpenIdConnectConfig::clientSecret
+                )
             }
             oidcIssuer = subCtx.parse {
-                parser.getAbsoluteUriOrThrow(oidc, "$prefix.issuer", ProviderConfigurationProperties.OpenIdConnectConfig::issuer)
+                parser.getAbsoluteUriOrThrow(
+                    oidc,
+                    "$prefix.issuer",
+                    ProviderConfigurationProperties.OpenIdConnectConfig::issuer
+                )
             }
             oidcScopes = (oidc.scopes ?: listOf("openid")).let { scopes ->
                 if ("openid" !in scopes) listOf("openid") + scopes else scopes
@@ -110,7 +138,11 @@ class ProvidersConfigParser(
         if (hasUserInfo) {
             val userInfo = properties.userInfo!!
             userInfoUri = subCtx.parse {
-                parser.getAbsoluteUriOrThrow(userInfo, "$keyPrefix.user-info.url", ProviderConfigurationProperties.UserInfoConfig::url)
+                parser.getAbsoluteUriOrThrow(
+                    userInfo,
+                    "$keyPrefix.user-info.url",
+                    ProviderConfigurationProperties.UserInfoConfig::url
+                )
             }
             userInfoPaths = parseUserInfoPaths(subCtx, userInfo, keyPrefix)
         }

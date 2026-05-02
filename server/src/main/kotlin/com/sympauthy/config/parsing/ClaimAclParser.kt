@@ -43,10 +43,26 @@ class ClaimAclParser(
         }
         return ParsedClaimAcl(
             consentScope = acl.consentScope,
-            readableByUser = parseOptionalBoolean(ctx, acl.readableByUserWhenConsented, "$configKeyPrefix.acl.readable-by-user-when-consented"),
-            writableByUser = parseOptionalBoolean(ctx, acl.writableByUserWhenConsented, "$configKeyPrefix.acl.writable-by-user-when-consented"),
-            readableByClient = parseOptionalBoolean(ctx, acl.readableByClientWhenConsented, "$configKeyPrefix.acl.readable-by-client-when-consented"),
-            writableByClient = parseOptionalBoolean(ctx, acl.writableByClientWhenConsented, "$configKeyPrefix.acl.writable-by-client-when-consented"),
+            readableByUser = parseOptionalBoolean(
+                ctx,
+                acl.readableByUserWhenConsented,
+                "$configKeyPrefix.acl.readable-by-user-when-consented"
+            ),
+            writableByUser = parseOptionalBoolean(
+                ctx,
+                acl.writableByUserWhenConsented,
+                "$configKeyPrefix.acl.writable-by-user-when-consented"
+            ),
+            readableByClient = parseOptionalBoolean(
+                ctx,
+                acl.readableByClientWhenConsented,
+                "$configKeyPrefix.acl.readable-by-client-when-consented"
+            ),
+            writableByClient = parseOptionalBoolean(
+                ctx,
+                acl.writableByClientWhenConsented,
+                "$configKeyPrefix.acl.writable-by-client-when-consented"
+            ),
             readableWithClientScopes = acl.readableWithClientScopesUnconditionally,
             writableWithClientScopes = acl.writableWithClientScopesUnconditionally
         )
@@ -67,12 +83,34 @@ class ClaimAclParser(
         val templateAcl = template?.acl
         return ParsedClaimAcl(
             consentScope = acl?.consentScope ?: templateAcl?.consentScope ?: defaultConsentScope,
-            readableByUser = resolveBoolean(ctx, acl?.readableByUserWhenConsented, templateAcl?.readableByUserWhenConsented, "$configKeyPrefix.acl.readable-by-user-when-consented"),
-            writableByUser = resolveBoolean(ctx, acl?.writableByUserWhenConsented, templateAcl?.writableByUserWhenConsented, "$configKeyPrefix.acl.writable-by-user-when-consented"),
-            readableByClient = resolveBoolean(ctx, acl?.readableByClientWhenConsented, templateAcl?.readableByClientWhenConsented, "$configKeyPrefix.acl.readable-by-client-when-consented"),
-            writableByClient = resolveBoolean(ctx, acl?.writableByClientWhenConsented, templateAcl?.writableByClientWhenConsented, "$configKeyPrefix.acl.writable-by-client-when-consented"),
-            readableWithClientScopes = acl?.readableWithClientScopesUnconditionally ?: templateAcl?.readableWithClientScopesUnconditionally ?: emptyList(),
-            writableWithClientScopes = acl?.writableWithClientScopesUnconditionally ?: templateAcl?.writableWithClientScopesUnconditionally ?: emptyList()
+            readableByUser = resolveBoolean(
+                ctx,
+                acl?.readableByUserWhenConsented,
+                templateAcl?.readableByUserWhenConsented,
+                "$configKeyPrefix.acl.readable-by-user-when-consented"
+            ),
+            writableByUser = resolveBoolean(
+                ctx,
+                acl?.writableByUserWhenConsented,
+                templateAcl?.writableByUserWhenConsented,
+                "$configKeyPrefix.acl.writable-by-user-when-consented"
+            ),
+            readableByClient = resolveBoolean(
+                ctx,
+                acl?.readableByClientWhenConsented,
+                templateAcl?.readableByClientWhenConsented,
+                "$configKeyPrefix.acl.readable-by-client-when-consented"
+            ),
+            writableByClient = resolveBoolean(
+                ctx,
+                acl?.writableByClientWhenConsented,
+                templateAcl?.writableByClientWhenConsented,
+                "$configKeyPrefix.acl.writable-by-client-when-consented"
+            ),
+            readableWithClientScopes = acl?.readableWithClientScopesUnconditionally
+                ?: templateAcl?.readableWithClientScopesUnconditionally ?: emptyList(),
+            writableWithClientScopes = acl?.writableWithClientScopesUnconditionally
+                ?: templateAcl?.writableWithClientScopesUnconditionally ?: emptyList()
         )
     }
 

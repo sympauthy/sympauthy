@@ -161,7 +161,13 @@ class TokenManagerTest {
         every { refreshToken.dpopJkt } returns null
         every { refreshToken.userId } returns userId
         coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, any()) } returns mockk()
-        coEvery { accessTokenGenerator.generateAccessToken(refreshToken, tokenAudience = any(), dpopJkt = null) } returns accessToken
+        coEvery {
+            accessTokenGenerator.generateAccessToken(
+                refreshToken,
+                tokenAudience = any(),
+                dpopJkt = null
+            )
+        } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns true
         coEvery {
             refreshTokenGenerator.generateRefreshToken(
@@ -199,7 +205,13 @@ class TokenManagerTest {
         every { refreshToken.dpopJkt } returns null
         every { refreshToken.userId } returns userId
         coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, any()) } returns mockk()
-        coEvery { accessTokenGenerator.generateAccessToken(refreshToken, tokenAudience = any(), dpopJkt = null) } returns accessToken
+        coEvery {
+            accessTokenGenerator.generateAccessToken(
+                refreshToken,
+                tokenAudience = any(),
+                dpopJkt = null
+            )
+        } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
 
         val tokens = tokenManager.refreshToken(client, encodedRefreshToken)
@@ -246,7 +258,13 @@ class TokenManagerTest {
         every { refreshToken.clientId } returns clientId
         every { refreshToken.dpopJkt } returns null
         every { refreshToken.userId } returns null
-        coEvery { accessTokenGenerator.generateAccessToken(refreshToken, tokenAudience = any(), dpopJkt = null) } returns accessToken
+        coEvery {
+            accessTokenGenerator.generateAccessToken(
+                refreshToken,
+                tokenAudience = any(),
+                dpopJkt = null
+            )
+        } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
 
         val tokens = tokenManager.refreshToken(client, "token")

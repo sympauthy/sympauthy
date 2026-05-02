@@ -89,6 +89,7 @@ class ScopeConfigValidator {
                 )
                 return null
             }
+
             else -> {
                 ctx.addError(
                     configExceptionOf(

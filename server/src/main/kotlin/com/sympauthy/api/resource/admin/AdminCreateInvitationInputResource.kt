@@ -10,7 +10,10 @@ data class AdminCreateInvitationInputResource(
     @get:Schema(description = "Identifier of the audience the invitation is bound to.", required = true)
     @get:JsonProperty("audience_id")
     val audienceId: String,
-    @get:Schema(description = "Expiration date and time. Defaults to now + default-expiration. Capped at now + max-expiration.", nullable = true)
+    @get:Schema(
+        description = "Expiration date and time. Defaults to now + default-expiration. Capped at now + max-expiration.",
+        nullable = true
+    )
     @get:JsonProperty("expires_at")
     val expiresAt: String?,
     @get:Schema(description = "Custom claims to pre-assign to the user upon registration.", nullable = true)

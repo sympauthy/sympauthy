@@ -3,19 +3,13 @@ package com.sympauthy.config.parsing
 import com.sympauthy.business.model.jwt.JwtAlgorithm
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
-import com.sympauthy.config.properties.AdvancedConfigurationProperties
+import com.sympauthy.config.properties.*
 import com.sympauthy.config.properties.AdvancedConfigurationProperties.Companion.ADVANCED_KEY
-import com.sympauthy.config.properties.AuthorizationWebhookConfigurationProperties
 import com.sympauthy.config.properties.AuthorizationWebhookConfigurationProperties.Companion.AUTHORIZATION_WEBHOOK_KEY
-import com.sympauthy.config.properties.HashConfigurationProperties
 import com.sympauthy.config.properties.HashConfigurationProperties.Companion.HASH_KEY
-import com.sympauthy.config.properties.InvitationConfigurationProperties
 import com.sympauthy.config.properties.InvitationConfigurationProperties.Companion.INVITATION_KEY
-import com.sympauthy.config.properties.InvitationHashConfigurationProperties
 import com.sympauthy.config.properties.InvitationHashConfigurationProperties.Companion.INVITATION_HASH_KEY
-import com.sympauthy.config.properties.JwtConfigurationProperties
 import com.sympauthy.config.properties.JwtConfigurationProperties.Companion.JWT_KEY
-import com.sympauthy.config.properties.ValidationCodeConfigurationProperties
 import com.sympauthy.config.properties.ValidationCodeConfigurationProperties.Companion.VALIDATION_CODE_KEY
 import jakarta.inject.Singleton
 import java.time.Duration
@@ -122,7 +116,8 @@ class AdvancedConfigParser(
         configKeyPrefix: String,
         properties: HashConfigurationProperties
     ): ParsedHashConfig {
-        return parseHashConfigFrom(ctx, configKeyPrefix, properties,
+        return parseHashConfigFrom(
+            ctx, configKeyPrefix, properties,
             HashConfigurationProperties::costParameter,
             HashConfigurationProperties::blockSize,
             HashConfigurationProperties::parallelizationParameter,
@@ -135,7 +130,8 @@ class AdvancedConfigParser(
         ctx: ConfigParsingContext,
         properties: InvitationHashConfigurationProperties
     ): ParsedHashConfig {
-        return parseHashConfigFrom(ctx, INVITATION_HASH_KEY, properties,
+        return parseHashConfigFrom(
+            ctx, INVITATION_HASH_KEY, properties,
             InvitationHashConfigurationProperties::costParameter,
             InvitationHashConfigurationProperties::blockSize,
             InvitationHashConfigurationProperties::parallelizationParameter,

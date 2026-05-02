@@ -1,19 +1,20 @@
 package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.UserGrantScopesResult
 import com.sympauthy.business.manager.auth.UserScopeGrantingManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.business.manager.ClientManager
-import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.config.model.*
-import jakarta.inject.Provider
+import com.sympauthy.config.model.AuthorizationFlowsConfig
+import com.sympauthy.config.model.EnabledFeaturesConfig
+import com.sympauthy.config.model.UrlsConfig
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -21,8 +22,7 @@ import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOf
+import jakarta.inject.Provider
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
@@ -242,7 +242,7 @@ class AuthorizationFlowManagerTest {
                 authorizeAttemptManager.setGrantedScopes(onGoingAttempt, emptyList(), any())
             } returns afterGranted
             coEvery { authorizeAttemptManager.markAsComplete(afterGranted) } returns completedAttempt
-    
+
             coEvery { clientManager.findClientById(clientId) } returns mockClient(clientId)
             coEvery { consentManager.saveConsent(userId, any(), clientId, emptyList()) } returns mockk()
 

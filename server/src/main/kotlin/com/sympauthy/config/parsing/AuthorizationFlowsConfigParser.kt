@@ -50,7 +50,11 @@ class AuthorizationFlowsConfigParser(
             parser.getUri(properties, "$configKeyPrefix.root", AuthorizationFlowConfigurationProperties::root)
         }
         val signInUri = ctx.parse {
-            parser.getUriOrThrow(properties, "$configKeyPrefix.sign-in", AuthorizationFlowConfigurationProperties::signIn)
+            parser.getUriOrThrow(
+                properties,
+                "$configKeyPrefix.sign-in",
+                AuthorizationFlowConfigurationProperties::signIn
+            )
         }
         val signUpUri = properties.signUp?.let {
             ctx.parse {
