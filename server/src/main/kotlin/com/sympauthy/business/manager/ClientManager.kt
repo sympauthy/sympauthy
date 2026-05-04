@@ -20,6 +20,13 @@ class ClientManager(
     }
 
     /**
+     * Return the number of clients grouped by their audience identifier.
+     */
+    suspend fun countClientsByAudienceId(): Map<String, Int> {
+        return listClients().groupBy { it.audience.id }.mapValues { it.value.size }
+    }
+
+    /**
      * Return the [Client] identified by [id]. Otherwise, return null if no client matches.
      */
     suspend fun findClientByIdOrNull(id: String): Client? {
