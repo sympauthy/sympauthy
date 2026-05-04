@@ -6,6 +6,7 @@ import com.sympauthy.api.resource.admin.AdminAudienceResource
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.AudienceManager
+import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.security.SecurityRule.ADMIN_CONFIG_READ
 import io.micronaut.http.annotation.Controller
@@ -25,6 +26,7 @@ import jakarta.inject.Inject
 @SecurityRequirement(name = "admin", scopes = [AdminScopeId.CONFIG_READ])
 class AdminAudienceController(
     @Inject private val audienceManager: AudienceManager,
+    @Inject private val clientManager: ClientManager,
     @Inject private val audienceMapper: AdminAudienceResourceMapper
 ) {
 
@@ -59,10 +61,11 @@ class AdminAudienceController(
     ): AdminAudienceListResource {
         val (page, size) = resolvePageParams(page, size)
         val audiences = audienceManager.listAudiences()
+        val clientCountsByAudienceId = clientManager.countClientsByAudienceId()
         val paged = audiences
             .drop(page * size)
             .take(size)
-            .map(audienceMapper::toResource)
+            .map { audienceMapper.toResource(it, clientCountsByAudienceId[it.id] ?: 0) }
         return AdminAudienceListResource(
             audiences = paged,
             page = page,
@@ -96,6 +99,7 @@ class AdminAudienceController(
         @PathVariable audienceId: String
     ): AdminAudienceResource {
         val audience = audienceManager.findAudienceByIdOrNull(audienceId).orNotFound()
-        return audienceMapper.toResource(audience)
+        val clientsCount = clientManager.countClientsByAudienceId()[audience.id] ?: 0
+        return audienceMapper.toResource(audience, clientsCount)
     }
 }

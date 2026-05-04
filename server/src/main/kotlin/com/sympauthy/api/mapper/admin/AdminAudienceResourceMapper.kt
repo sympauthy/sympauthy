@@ -11,6 +11,6 @@ import org.mapstruct.Mapping
 )
 abstract class AdminAudienceResourceMapper {
 
-    @Mapping(source = "id", target = "audienceId")
-    abstract fun toResource(audience: Audience): AdminAudienceResource
+    @Mapping(source = "audience.id", target = "audienceId")
+    abstract fun toResource(audience: Audience, clientsCount: Int): AdminAudienceResource
 }
