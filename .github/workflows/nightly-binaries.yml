@@ -15,18 +15,8 @@ permissions:
   packages: write
 
 jobs:
-  today:
-    name: Today
-    runs-on: ubuntu-latest
-    outputs:
-      today: ${{ steps.set_today.outputs.today }}
-    steps:
-      - id: set_today
-        run: echo today="$(date +'%Y%m%d')" >> "$GITHUB_OUTPUT"
-
   has_changed:
-    name: Check if sympauthy has changed today.
-    needs: [ today ]
+    name: Check if sympauthy has changed recently.
     runs-on: ubuntu-latest
     outputs:
       result: ${{ steps.has_changed.outputs.result }}
@@ -38,11 +28,9 @@ jobs:
         uses: ./.github/actions/has_changed
         with:
           name: sympauthy
-          today: ${{ needs.today.outputs.today }}
 
   has_flow_changed:
-    name: Check if sympauthy-flow has changed today.
-    needs: [ today ]
+    name: Check if sympauthy-flow has changed recently.
     runs-on: ubuntu-latest
     outputs:
       result: ${{ steps.has_changed.outputs.result }}
@@ -59,12 +47,10 @@ jobs:
         uses: ./.github/actions/has_changed
         with:
           name: sympauthy-flow
-          today: ${{ needs.today.outputs.today }}
           path: sympauthy-flow
 
   has_admin_changed:
-    name: Check if sympauthy-admin has changed today.
-    needs: [ today ]
+    name: Check if sympauthy-admin has changed recently.
     runs-on: ubuntu-latest
     outputs:
       result: ${{ steps.has_changed.outputs.result }}
@@ -81,7 +67,6 @@ jobs:
         uses: ./.github/actions/has_changed
         with:
           name: sympauthy-admin
-          today: ${{ needs.today.outputs.today }}
           path: sympauthy-admin
 
   should_build:

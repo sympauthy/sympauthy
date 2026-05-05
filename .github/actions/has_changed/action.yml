@@ -1,18 +1,15 @@
 name: has_changed
-description: Check if repository has changed today.
+description: Check if repository has changed in the last 24 hours.
 inputs:
   name:
     description: Name of the repository
-    required: true
-  today:
-    description: Today formatted as YYYYMMDD.
     required: true
   path:
     description: Path to the directory where the repository has been checkout.
     default: '.'
 outputs:
   result:
-    description: '1 if the repository has changed today, 0 otherwise.'
+    description: '1 if the repository has changed in the last 24 hours, 0 otherwise.'
     value: ${{ steps.has_changed.outputs.result }}
 runs:
   using: "composite"
@@ -21,13 +18,13 @@ runs:
       shell: bash
       working-directory: ${{ inputs.path }}
       run: |
-        export COMMIT_DATE=$(git log -1 --date=format:"%Y%m%d" --format="%ad")
-        if [ "$TODAY_DATE" == "$COMMIT_DATE" ]; then
-          echo "${{ inputs.name }}  has changed today."
+        LAST_COMMIT_TS=$(git log -1 --format="%ct")
+        NOW_TS=$(date +%s)
+        DIFF=$(( NOW_TS - LAST_COMMIT_TS ))
+        if [ "$DIFF" -le 86400 ]; then
+          echo "${{ inputs.name }} has changed in the last 24 hours."
           echo "result=1" >> "$GITHUB_OUTPUT"
         else
-          echo "${{ inputs.name }} has not changed today. Last commit on $COMMIT_DATE"
+          echo "${{ inputs.name }} has not changed in the last 24 hours. Last commit $(( DIFF / 3600 ))h ago."
           echo "result=0" >> "$GITHUB_OUTPUT"
         fi
-      env:
-        TODAY_DATE: ${{ inputs.today }}
