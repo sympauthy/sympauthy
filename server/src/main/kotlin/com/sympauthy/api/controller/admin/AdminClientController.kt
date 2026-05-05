@@ -62,7 +62,7 @@ class AdminClientController(
         val paged = clients
             .drop(page * size)
             .take(size)
-            .map(clientMapper::toResource)
+            .map(clientMapper::toSummaryResource)
         return AdminClientListResource(
             clients = paged,
             page = page,

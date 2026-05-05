@@ -9,7 +9,7 @@ import io.swagger.v3.oas.annotations.media.Schema
 @Serdeable
 data class AdminClientListResource(
     @get:Schema(description = "Array of client records.")
-    val clients: List<AdminClientResource>,
+    val clients: List<AdminClientSummaryResource>,
     @get:Schema(description = "Current page number.")
     val page: Int,
     @get:Schema(description = "Number of results per page.")
