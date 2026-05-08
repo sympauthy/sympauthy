@@ -3,6 +3,7 @@ package com.sympauthy.api.controller.admin
 import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.mapper.admin.AdminClientResourceMapper
 import com.sympauthy.api.resource.admin.AdminClientResource
+import com.sympauthy.api.resource.admin.AdminClientSummaryResource
 import com.sympauthy.api.util.DEFAULT_PAGE
 import com.sympauthy.api.util.DEFAULT_PAGE_SIZE
 import com.sympauthy.business.manager.ClientManager
@@ -36,24 +37,35 @@ class AdminClientControllerTest {
         every { this@mockk.id } returns id
     }
 
+    private fun mockSummaryResource(clientId: String): AdminClientSummaryResource = AdminClientSummaryResource(
+        clientId = clientId,
+        type = "confidential",
+        audienceId = "default",
+        allowedRedirectUris = emptyList()
+    )
+
     private fun mockResource(clientId: String): AdminClientResource = AdminClientResource(
         clientId = clientId,
         type = "confidential",
+        audienceId = "default",
+        allowedGrantTypes = listOf("authorization_code"),
+        authorizationFlowId = null,
         allowedScopes = emptyList(),
         defaultScopes = emptyList(),
-        allowedRedirectUris = emptyList()
+        allowedRedirectUris = emptyList(),
+        authorizationWebhook = null
     )
 
     @Test
     fun `listClients - Return paginated list with defaults`() = runTest {
         val client1 = mockClient("c1")
         val client2 = mockClient("c2")
-        val resource1 = mockResource("c1")
-        val resource2 = mockResource("c2")
+        val resource1 = mockSummaryResource("c1")
+        val resource2 = mockSummaryResource("c2")
 
         coEvery { clientManager.listClients() } returns listOf(client1, client2)
-        every { clientMapper.toResource(client1) } returns resource1
-        every { clientMapper.toResource(client2) } returns resource2
+        every { clientMapper.toSummaryResource(client1) } returns resource1
+        every { clientMapper.toSummaryResource(client2) } returns resource2
 
         val result = controller.listClients(null, null)
 
@@ -68,11 +80,11 @@ class AdminClientControllerTest {
     @Test
     fun `listClients - Apply page and size`() = runTest {
         val clients = (1..5).map { mockClient("c$it") }
-        val resources = (1..5).map { mockResource("c$it") }
+        val resources = (1..5).map { mockSummaryResource("c$it") }
 
         coEvery { clientManager.listClients() } returns clients
         clients.forEachIndexed { i, client ->
-            every { clientMapper.toResource(client) } returns resources[i]
+            every { clientMapper.toSummaryResource(client) } returns resources[i]
         }
 
         val result = controller.listClients(1, 2)
