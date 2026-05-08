@@ -24,7 +24,7 @@ allprojects {
 
     extra.apply {
         set("kotlinVersion", project.findProperty("kotlinVersion"))
-        set("kotlinCoroutinesVersion", "1.10.2")
+        set("kotlinCoroutinesVersion", "1.11.0")
         set("mapStructVersion", "1.6.3")
         set("jsonPathVersion", "3.0.0")
         set("bouncyCastleVersion", "1.84")
