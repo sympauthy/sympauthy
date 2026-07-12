@@ -53,7 +53,7 @@ jobs:
       release_branch: ${{ steps.extract.outputs.release_branch }}
       frontend_ref: ${{ steps.extract.outputs.frontend_ref }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Extract version and compute release metadata
         id: extract
@@ -97,7 +97,7 @@ jobs:
     needs: [ validate_branch, read_version ]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Extract Java version from build script
         id: java-version
@@ -194,7 +194,7 @@ jobs:
     needs: [ read_version, build_binary ]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Download all binary artifacts
         uses: actions/download-artifact@v8
@@ -265,7 +265,7 @@ jobs:
     needs: [ read_version, publish_docker_manifest, publish_release, release_frontend_repos ]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.ref_name }}
 

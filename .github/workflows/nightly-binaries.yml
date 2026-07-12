@@ -21,7 +21,7 @@ jobs:
     outputs:
       result: ${{ steps.has_changed.outputs.result }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || 'main' }}
       - id: has_changed
@@ -35,10 +35,10 @@ jobs:
     outputs:
       result: ${{ steps.has_changed.outputs.result }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || 'main' }}
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           repository: 'sympauthy/sympauthy-flow'
           ref: ${{ inputs.ref || 'main' }}
@@ -55,10 +55,10 @@ jobs:
     outputs:
       result: ${{ steps.has_changed.outputs.result }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || 'main' }}
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           repository: 'sympauthy/sympauthy-admin'
           ref: ${{ inputs.ref || 'main' }}
@@ -197,7 +197,7 @@ jobs:
     if: needs.should_build.outputs.result == '1'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Download all binary artifacts
         uses: actions/download-artifact@v8
