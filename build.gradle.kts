@@ -33,7 +33,7 @@ allprojects {
 
         // Test dependencies
         set("junitJupiterVersion", "6.1.1")
-        set("mockkVersion", "1.14.9")
+        set("mockkVersion", "1.14.11")
         set("mockWebServerVersion", "5.3.2")
     }
 
