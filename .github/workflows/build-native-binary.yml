@@ -17,7 +17,7 @@ jobs:
     name: Build native binary (${{ inputs.platform }})
     runs-on: ${{ inputs.runner }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Create sympauthy-flow directory into resources
         shell: bash
