@@ -81,6 +81,11 @@ Multi-module Gradle project (root + `server`). All source code is in `server/src
 - **Managers never return entities** — only `business.model` types are exposed to controllers
 - **Exception factory methods** — `businessExceptionOf()`, `recoverableBusinessExceptionOf()` (user-retryable),
   `internalBusinessExceptionOf()` (server errors). Error messages in `error_messages.properties`
+- **OAuth2 managers may throw `OAuth2Exception`** — managers under `business.manager.auth.oauth2` (e.g. `TokenManager`,
+  `TokenExchangeManager`) are an intentional exception to the "managers throw business exceptions" rule: they may throw
+  `OAuth2Exception` directly (via `oauth2ExceptionOf(...)`) so the standardized OAuth2 error code (`invalid_grant`,
+  `invalid_request`, `invalid_target`, `access_denied`, …) is emitted per the OAuth2 / RFC 8693 specification rather
+  than being flattened to a single code at the controller boundary.
 - **Error message placeholders** — Never use `'` (single quote) before `{` in `error_messages.properties` because the
   MessageSource interprets `'{...}'` as a literal string and does not perform placeholder replacement. Write `{scope}`
   directly, not `'{scope}'`.
