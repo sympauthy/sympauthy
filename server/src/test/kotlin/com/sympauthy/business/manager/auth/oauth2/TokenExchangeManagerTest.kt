@@ -150,7 +150,9 @@ class TokenExchangeManagerTest {
         stubKnownUser()
         coEvery { actAsRuleManager.isActAsAllowed(actingClient, emptyList()) } returns true
         val ex = assertFailsWith<OAuth2Exception> {
-            manager().exchangeForActAsToken(actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), "unknown")
+            manager().exchangeForActAsToken(
+                actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), audience = "unknown"
+            )
         }
         assertEquals(INVALID_TARGET, ex.errorCode)
     }
@@ -178,7 +180,7 @@ class TokenExchangeManagerTest {
     }
 
     @Test
-    fun `success with requested audience by id uses the configured token audience`() = runTest {
+    fun `success with audience by id uses the configured token audience`() = runTest {
         val actorToken = mockActorToken()
         stubValidSubjectToken(actorToken)
         stubKnownUser()
@@ -186,7 +188,9 @@ class TokenExchangeManagerTest {
         val encoded = mockk<EncodedAuthenticationToken>()
         coEvery { accessTokenGenerator.generateActAsAccessToken(any(), any(), any(), any()) } returns encoded
 
-        manager().exchangeForActAsToken(actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), "backend")
+        manager().exchangeForActAsToken(
+            actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), audience = "backend"
+        )
 
         coVerify {
             accessTokenGenerator.generateActAsAccessToken(
@@ -196,6 +200,18 @@ class TokenExchangeManagerTest {
                 dpopJkt = null
             )
         }
+    }
+
+    @Test
+    fun `resource parameter is rejected as unsupported and never resolves the audience`() = runTest {
+        // resource is rejected up front: no subject-token / rule / audience resolution should be attempted.
+        val ex = assertFailsWith<OAuth2Exception> {
+            manager().exchangeForActAsToken(
+                actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(),
+                resource = "https://backend.example.com", audience = "backend"
+            )
+        }
+        assertEquals(INVALID_TARGET, ex.errorCode)
     }
 
     companion object {

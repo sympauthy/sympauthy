@@ -47,8 +47,10 @@ class TokenExchangeManager(
      * @param subjectToken the client's own client-credentials access token.
      * @param subjectTokenType must be [ACCESS_TOKEN_TYPE].
      * @param requestedSubject the id (UUID) of the user to act on behalf of.
-     * @param requestedAudience the target audience/resource for the issued token; defaults to the acting client's own
-     * audience when null or blank.
+     * @param resource RFC 8693 `resource`: a URI where the client intends to use the token, mapped by the server to a
+     * policy. It never contributes to the issued token's audience. Not supported yet: rejected when present.
+     * @param audience RFC 8693 `audience`: the logical name of the target service; the only input used to resolve the
+     * issued token's audience.
      * @param dpopJkt the JWK thumbprint to bind the issued token to, or null for a bearer token.
      */
     suspend fun exchangeForActAsToken(
@@ -56,13 +58,19 @@ class TokenExchangeManager(
         subjectToken: String,
         subjectTokenType: String,
         requestedSubject: String,
-        requestedAudience: String?,
+        resource: String? = null,
+        audience: String? = null,
         dpopJkt: String? = null
     ): EncodedAuthenticationToken {
         if (subjectTokenType != ACCESS_TOKEN_TYPE) {
             throw oauth2ExceptionOf(
                 INVALID_REQUEST, "token_exchange.unsupported_subject_token_type", "type" to subjectTokenType
             )
+        }
+        // `resource` selects a policy for a target URI, which this server does not implement yet; it must never be
+        // silently ignored (it would change where the client believes the token is usable), so reject it when present.
+        if (!resource.isNullOrBlank()) {
+            throw oauth2ExceptionOf(INVALID_TARGET, "token_exchange.unsupported_resource")
         }
 
         val actorToken = validateActorSubjectToken(actingClient, subjectToken)
@@ -74,7 +82,7 @@ class TokenExchangeManager(
             throw oauth2ExceptionOf(ACCESS_DENIED, "token_exchange.not_allowed")
         }
 
-        val tokenAudience = resolveTargetAudience(actingClient, requestedAudience)
+        val tokenAudience = resolveTargetAudience(actingClient, audience)
 
         return accessTokenGenerator.generateActAsAccessToken(
             userId = targetUser,
@@ -123,21 +131,21 @@ class TokenExchangeManager(
     }
 
     /**
-     * Resolve the target audience for the issued token, defaulting to the acting client's own audience.
-     * A requested audience must match a configured audience (by token audience or id).
+     * Resolve the issued token's audience from the RFC 8693 [audience] parameter (the logical name of the target
+     * service), matched against a configured audience by token audience or id. Defaults to the acting client's own
+     * audience when [audience] is not provided.
      */
     private fun resolveTargetAudience(
         actingClient: Client,
-        requestedAudience: String?
+        audience: String?
     ): String {
-        if (requestedAudience.isNullOrBlank()) {
+        if (audience.isNullOrBlank()) {
             return actingClient.audience.tokenAudience
         }
         val audiences = uncheckedAudiencesConfig.orThrow().audiences
-        val matched = audiences.firstOrNull {
-            it.tokenAudience == requestedAudience || it.id == requestedAudience
-        } ?: throw oauth2ExceptionOf(INVALID_TARGET, "token_exchange.invalid_target", "target" to requestedAudience)
-        return matched.tokenAudience
+        return (audiences.firstOrNull { it.tokenAudience == audience || it.id == audience }
+            ?: throw oauth2ExceptionOf(INVALID_TARGET, "token_exchange.invalid_target", "target" to audience))
+            .tokenAudience
     }
 
     companion object {

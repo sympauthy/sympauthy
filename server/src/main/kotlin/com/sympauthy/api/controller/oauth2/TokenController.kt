@@ -102,12 +102,12 @@ Client authentication is supported via:
             ),
             Parameter(
                 name = "resource",
-                description = "The target service/resource (URI) for the issued token. Optional for the `urn:ietf:params:oauth:grant-type:token-exchange` grant.",
+                description = "A URI (RFC 8693 `resource`) indicating where the client intends to use the token, used by the server to apply policy. It does not set the token audience and is not supported yet: the request is rejected when it is present. Optional for the `urn:ietf:params:oauth:grant-type:token-exchange` grant.",
                 schema = Schema(type = "string")
             ),
             Parameter(
                 name = "audience",
-                description = "The target audience for the issued token. Optional for the `urn:ietf:params:oauth:grant-type:token-exchange` grant.",
+                description = "The logical name (RFC 8693 `audience`) of the target service for the issued token; the only input that sets the token audience. Optional for the `urn:ietf:params:oauth:grant-type:token-exchange` grant.",
                 schema = Schema(type = "string")
             ),
             Parameter(
@@ -358,7 +358,8 @@ Client authentication is supported via:
             subjectToken = subjectToken,
             subjectTokenType = subjectTokenType,
             requestedSubject = requestedSubject,
-            requestedAudience = resource ?: audience,
+            resource = resource,
+            audience = audience,
             dpopJkt = dpopProof?.jkt
         )
         val tokenType = if (dpopProof != null) TOKEN_TYPE_DPOP else TOKEN_TYPE_BEARER
