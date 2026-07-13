@@ -163,12 +163,12 @@ Client authentication is supported via:
         @Part("client_id") clientId: String?,
         @Part("client_secret") clientSecret: String?,
         @Part("code_verifier") codeVerifier: String?,
-        @Part(SUBJECT_TOKEN_PARAM) subjectToken: String?,
-        @Part(SUBJECT_TOKEN_TYPE_PARAM) subjectTokenType: String?,
-        @Part(REQUESTED_SUBJECT_PARAM) requestedSubject: String?,
-        @Part("requested_token_type") requestedTokenType: String?,
-        @Part("resource") resource: String?,
-        @Part("audience") audience: String?,
+        @Part(SUBJECT_TOKEN_PARAM) subjectToken: String? = null,
+        @Part(SUBJECT_TOKEN_TYPE_PARAM) subjectTokenType: String? = null,
+        @Part(REQUESTED_SUBJECT_PARAM) requestedSubject: String? = null,
+        @Part("requested_token_type") requestedTokenType: String? = null,
+        @Part("resource") resource: String? = null,
+        @Part("audience") audience: String? = null,
     ): TokenResource {
         // Validate DPoP proof if present, enforce if required by config
         val dpopProof = dpopManager.validateDpopProof(request)

@@ -19,6 +19,7 @@ import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.UNSUPPORTED_GRANT_TYPE
 import com.sympauthy.config.model.*
 import io.micronaut.http.HttpHeaders
@@ -62,6 +63,9 @@ class TokenControllerTest {
 
     @MockK
     lateinit var clientScopeGrantingManager: ClientScopeGrantingManager
+
+    @MockK
+    lateinit var tokenExchangeManager: TokenExchangeManager
 
     @MockK
     lateinit var dpopManager: DpopManager
@@ -144,6 +148,57 @@ class TokenControllerTest {
 
         coVerify(exactly = 1) { clientAuthenticationUtil.resolveClient(request, any(), any()) }
         coVerify(exactly = 0) { clientAuthenticationUtil.resolveClientAllowingPublic(any(), any(), any()) }
+    }
+
+    @Test
+    fun `getTokens - token-exchange uses resolveClient, not resolveClientAllowingPublic`() = runTest {
+        val request = mockRequestWithoutAuth()
+        coEvery {
+            clientAuthenticationUtil.resolveClient(request, any(), any())
+        } throws oauth2ExceptionOf(INVALID_GRANT, "authentication.wrong")
+
+        assertThrows<OAuth2Exception> {
+            controller.getTokens(
+                request = request,
+                grantType = "urn:ietf:params:oauth:grant-type:token-exchange",
+                code = null,
+                redirectUri = null,
+                refreshToken = null,
+                scope = null,
+                clientId = "any-client",
+                clientSecret = null,
+                codeVerifier = null
+            )
+        }
+
+        coVerify(exactly = 1) { clientAuthenticationUtil.resolveClient(request, any(), any()) }
+        coVerify(exactly = 0) { clientAuthenticationUtil.resolveClientAllowingPublic(any(), any(), any()) }
+    }
+
+    @Test
+    fun `getTokens - token-exchange without subject_token throws invalid_request`() = runTest {
+        val request = mockRequestWithoutAuth()
+        val client = mockClient()
+        coEvery { clientAuthenticationUtil.resolveClient(request, any(), any()) } returns client
+
+        val exception = assertThrows<OAuth2Exception> {
+            controller.getTokens(
+                request = request,
+                grantType = "urn:ietf:params:oauth:grant-type:token-exchange",
+                code = null,
+                redirectUri = null,
+                refreshToken = null,
+                scope = null,
+                clientId = "any-client",
+                clientSecret = null,
+                codeVerifier = null
+            )
+        }
+
+        assertEquals(INVALID_REQUEST, exception.errorCode)
+        coVerify(exactly = 0) {
+            tokenExchangeManager.exchangeForActAsToken(any(), any(), any(), any(), any(), any())
+        }
     }
 
     @Test
