@@ -87,27 +87,27 @@ Client authentication is supported via:
             ),
             Parameter(
                 name = "subject_token_type",
-                description = "The type of the `subject_token`. Must be `urn:ietf:params:oauth:token-type:access_token`. Required for the token-exchange grant.",
+                description = "The type of the `subject_token`. Must be `urn:ietf:params:oauth:token-type:access_token`. Required for the `urn:ietf:params:oauth:grant-type:token-exchange` grant.",
                 schema = Schema(type = "string")
             ),
             Parameter(
                 name = "requested_subject",
-                description = "The id of the user to act on behalf of. Required for the token-exchange grant.",
+                description = "The id of the user to act on behalf of. Required for the `urn:ietf:params:oauth:grant-type:token-exchange` grant.",
                 schema = Schema(type = "string")
             ),
             Parameter(
                 name = "requested_token_type",
-                description = "The type of token requested. Only `urn:ietf:params:oauth:token-type:access_token` is supported. Optional for the token-exchange grant.",
+                description = "The type of token requested. Only `urn:ietf:params:oauth:token-type:access_token` is supported. Optional for the `urn:ietf:params:oauth:grant-type:token-exchange` grant.",
                 schema = Schema(type = "string")
             ),
             Parameter(
                 name = "resource",
-                description = "The target service/resource (URI) for the issued token. Optional for the token-exchange grant.",
+                description = "The target service/resource (URI) for the issued token. Optional for the `urn:ietf:params:oauth:grant-type:token-exchange` grant.",
                 schema = Schema(type = "string")
             ),
             Parameter(
                 name = "audience",
-                description = "The target audience for the issued token. Optional for the token-exchange grant.",
+                description = "The target audience for the issued token. Optional for the `urn:ietf:params:oauth:grant-type:token-exchange` grant.",
                 schema = Schema(type = "string")
             ),
             Parameter(
