@@ -1,0 +1,149 @@
+package com.sympauthy.business.manager.auth.oauth2
+
+import com.sympauthy.api.exception.oauth2ExceptionOf
+import com.sympauthy.business.manager.actas.ActAsRuleManager
+import com.sympauthy.business.manager.jwt.JwtManager
+import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
+import com.sympauthy.business.manager.user.CollectedClaimManager
+import com.sympauthy.business.manager.user.UserManager
+import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.oauth2.AuthenticationToken
+import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.ACCESS_DENIED
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TARGET
+import com.sympauthy.config.model.AudiencesConfig
+import com.sympauthy.config.model.orThrow
+import com.sympauthy.exception.LocalizedException
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
+import java.util.*
+
+/**
+ * Handles OAuth 2.0 Token Exchange (RFC 8693) requests.
+ *
+ * Phase 1 — **act as a user by id**: a confidential client presents its own client-credentials access token as the
+ * `subject_token` (to prove it is the actor) and names the target user via `requested_subject`. When authorized by the
+ * configured `rules.act_as` rules, an identity-only access token is issued with the user as `sub` and the acting client
+ * recorded in the `act` claim.
+ */
+@Singleton
+class TokenExchangeManager(
+    @Inject private val jwtManager: JwtManager,
+    @Inject private val tokenManager: TokenManager,
+    @Inject private val accessTokenGenerator: AccessTokenGenerator,
+    @Inject private val userManager: UserManager,
+    @Inject private val collectedClaimManager: CollectedClaimManager,
+    @Inject private val actAsRuleManager: ActAsRuleManager,
+    @Inject private val uncheckedAudiencesConfig: AudiencesConfig
+) {
+
+    /**
+     * Exchange the acting client's own client-credentials [subjectToken] for an identity-only access token that acts on
+     * behalf of the user identified by [requestedSubject] (Phase 1).
+     *
+     * @param actingClient the authenticated confidential client, which is the actor.
+     * @param subjectToken the client's own client-credentials access token.
+     * @param subjectTokenType must be [ACCESS_TOKEN_TYPE].
+     * @param requestedSubject the id (UUID) of the user to act on behalf of.
+     * @param requestedAudience the target audience/resource for the issued token; defaults to the acting client's own
+     * audience when null or blank.
+     * @param dpopJkt the JWK thumbprint to bind the issued token to, or null for a bearer token.
+     */
+    suspend fun exchangeForActAsToken(
+        actingClient: Client,
+        subjectToken: String,
+        subjectTokenType: String,
+        requestedSubject: String,
+        requestedAudience: String?,
+        dpopJkt: String? = null
+    ): EncodedAuthenticationToken {
+        if (subjectTokenType != ACCESS_TOKEN_TYPE) {
+            throw oauth2ExceptionOf(
+                INVALID_REQUEST, "token_exchange.unsupported_subject_token_type", "type" to subjectTokenType
+            )
+        }
+
+        val actorToken = validateActorSubjectToken(actingClient, subjectToken)
+
+        val targetUser = resolveTargetUser(requestedSubject)
+        val targetClaims = collectedClaimManager.findByUserId(targetUser)
+
+        if (!actAsRuleManager.isActAsAllowed(actingClient, targetClaims)) {
+            throw oauth2ExceptionOf(ACCESS_DENIED, "token_exchange.not_allowed")
+        }
+
+        val tokenAudience = resolveTargetAudience(actingClient, requestedAudience)
+
+        return accessTokenGenerator.generateActAsAccessToken(
+            userId = targetUser,
+            actorToken = actorToken,
+            tokenAudience = tokenAudience,
+            dpopJkt = dpopJkt
+        )
+    }
+
+    /**
+     * Validate that [subjectToken] is a valid, non-revoked client-credentials access token issued to [actingClient].
+     */
+    private suspend fun validateActorSubjectToken(
+        actingClient: Client,
+        subjectToken: String
+    ): AuthenticationToken {
+        val decodedToken = try {
+            jwtManager.decodeAndVerify(ACCESS_KEY, subjectToken)
+        } catch (e: LocalizedException) {
+            throw oauth2ExceptionOf(INVALID_GRANT, e.detailsId)
+        }
+
+        // getAuthenticationToken throws if the token is unknown, revoked or its subject does not match.
+        val token = tokenManager.getAuthenticationToken(decodedToken)
+        if (token.clientId != actingClient.id) {
+            throw oauth2ExceptionOf(INVALID_GRANT, "token_exchange.subject_token_not_owned")
+        }
+        // A client-credentials token is not associated with any user.
+        if (token.userId != null) {
+            throw oauth2ExceptionOf(INVALID_GRANT, "token_exchange.subject_token_not_client")
+        }
+        return token
+    }
+
+    /**
+     * Resolve the [requestedSubject] to an existing user id.
+     */
+    private suspend fun resolveTargetUser(requestedSubject: String): UUID {
+        val targetUserId = try {
+            UUID.fromString(requestedSubject)
+        } catch (e: IllegalArgumentException) {
+            throw oauth2ExceptionOf(INVALID_TARGET, "token_exchange.invalid_subject")
+        }
+        return userManager.findByIdOrNull(targetUserId)?.id
+            ?: throw oauth2ExceptionOf(INVALID_TARGET, "token_exchange.invalid_subject")
+    }
+
+    /**
+     * Resolve the target audience for the issued token, defaulting to the acting client's own audience.
+     * A requested audience must match a configured audience (by token audience or id).
+     */
+    private fun resolveTargetAudience(
+        actingClient: Client,
+        requestedAudience: String?
+    ): String {
+        if (requestedAudience.isNullOrBlank()) {
+            return actingClient.audience.tokenAudience
+        }
+        val audiences = uncheckedAudiencesConfig.orThrow().audiences
+        val matched = audiences.firstOrNull {
+            it.tokenAudience == requestedAudience || it.id == requestedAudience
+        } ?: throw oauth2ExceptionOf(INVALID_TARGET, "token_exchange.invalid_target", "target" to requestedAudience)
+        return matched.tokenAudience
+    }
+
+    companion object {
+        /**
+         * RFC 8693 token type identifier for an OAuth 2.0 access token.
+         */
+        const val ACCESS_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:access_token"
+    }
+}

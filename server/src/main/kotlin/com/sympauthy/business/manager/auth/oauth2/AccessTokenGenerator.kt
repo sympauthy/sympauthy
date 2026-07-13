@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.auth.oauth2
 
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
+import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
@@ -72,6 +73,39 @@ class AccessTokenGenerator(
     )
 
     /**
+     * Generate an identity-only access token that acts on behalf of a user via OAuth 2.0 Token Exchange
+     * (RFC 8693 delegation).
+     *
+     * The token carries the target [userId] as `sub`, the acting client (derived from [actorToken]) as `client_id` and
+     * in the `act` claim, and no scopes. The resource server authorizes from the asserted identity and the trusted
+     * actor. The [actorToken] is the client-credentials token that was exchanged; its id is recorded for provenance.
+     */
+    suspend fun generateActAsAccessToken(
+        userId: UUID,
+        actorToken: AuthenticationToken,
+        tokenAudience: String,
+        dpopJkt: String? = null
+    ): EncodedAuthenticationToken {
+        return generateAccessToken(
+            userId = userId,
+            clientId = actorToken.clientId,
+            tokenAudience = tokenAudience,
+            grantedScopes = emptyList(),
+            grantedAt = null,
+            grantedBy = null,
+            consentedScopes = emptyList(),
+            consentedAt = null,
+            consentedBy = null,
+            clientScopes = emptyList(),
+            authorizeAttemptId = null,
+            grantType = GrantType.TOKEN_EXCHANGE.value,
+            dpopJkt = dpopJkt,
+            actorClientId = actorToken.clientId,
+            actorTokenId = actorToken.id
+        )
+    }
+
+    /**
      * Generate an access token for client credentials flow (machine-to-machine).
      * This token is not associated with any end-user.
      */
@@ -111,7 +145,16 @@ class AccessTokenGenerator(
         clientScopes: List<String>,
         authorizeAttemptId: UUID?,
         grantType: String,
-        dpopJkt: String? = null
+        dpopJkt: String? = null,
+        /**
+         * When non-null, the token records this client as the actor via the RFC 8693 `act` claim
+         * (`{ "sub": actorClientId }`). Set for act-as tokens issued through token exchange.
+         */
+        actorClientId: String? = null,
+        /**
+         * Id of the token that was exchanged to issue this token (RFC 8693). Stored for provenance.
+         */
+        actorTokenId: UUID? = null
     ): EncodedAuthenticationToken {
         val authConfig = uncheckedAuthConfig.orThrow()
         val allScopes = grantedScopes + consentedScopes + clientScopes
@@ -132,6 +175,7 @@ class AccessTokenGenerator(
             authorizeAttemptId = authorizeAttemptId,
             grantType = grantType,
             dpopJkt = dpopJkt,
+            actorTokenId = actorTokenId,
             issueDate = issueDate,
             expirationDate = expirationDate
         ).let { tokenRepository.save(it) }
@@ -145,6 +189,7 @@ class AccessTokenGenerator(
             subject(userId?.toString() ?: clientId)
             claim("client_id", clientId)
             claim("scope", allScopes.joinToString(" "))
+            actorClientId?.let { claim("act", mapOf("sub" to it)) }
             dpopJkt?.let { claim("cnf", mapOf("jkt" to it)) }
             issueTime(Date.from(issueDate.toInstant(ZoneOffset.UTC)))
             expirationTime(Date.from(expirationDate.toInstant(ZoneOffset.UTC)))
