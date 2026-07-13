@@ -4,9 +4,9 @@ import com.ezylang.evalex.Expression
 import com.ezylang.evalex.config.ExpressionConfiguration
 import com.ezylang.evalex.data.EvaluationValue.DataType.BOOLEAN
 import com.ezylang.evalex.parser.ParseException
-import com.sympauthy.business.manager.rule.function.ClaimFunction
-import com.sympauthy.business.manager.rule.function.ClaimIsVerifiedFunction
-import com.sympauthy.business.manager.rule.function.ClientFunction
+import com.sympauthy.business.manager.expression.ClaimFunction
+import com.sympauthy.business.manager.expression.ClaimIsVerifiedFunction
+import com.sympauthy.business.manager.expression.ClientFunction
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.user.CollectedClaim
 import jakarta.inject.Singleton
