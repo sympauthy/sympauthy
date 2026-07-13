@@ -27,8 +27,9 @@ class ClientFunction(
         val property = parameterValues[0].stringValue
         val client = this.client ?: return EvaluationValue.NULL_VALUE
         return when (property) {
-            "id" -> EvaluationValue.stringValue(client.id)
+            "id", "client_id" -> EvaluationValue.stringValue(client.id)
             "public" -> EvaluationValue.booleanValue(client.public)
+            "audience" -> EvaluationValue.stringValue(client.audience.id)
             else -> EvaluationValue.NULL_VALUE
         }
     }

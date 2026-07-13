@@ -25,7 +25,8 @@ class ClaimIsVerifiedFunction(
         vararg parameterValues: EvaluationValue
     ): EvaluationValue {
         val claim = parameterValues[0].stringValue
-        return EvaluationValue.booleanValue(false)
+        val collectedClaim = collectedClaims.find { it.claim.id == claim }
+        return EvaluationValue.booleanValue(collectedClaim?.verified == true)
     }
 
     companion object {
