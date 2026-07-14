@@ -110,6 +110,12 @@ class TokenExchangeManager(
         if (token.clientId != actingClient.id) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token_exchange.subject_token_not_owned")
         }
+        // An act-as token already carries an actor. Exchanging it again would chain act-as tokens, which is not
+        // supported yet. Checked before the user check below because an act-as token is also bound to a user, so
+        // this surfaces the specific chaining error rather than the generic "not a client token" one.
+        if (token.actorTokenId != null) {
+            throw oauth2ExceptionOf(INVALID_GRANT, "token_exchange.subject_token_has_actor")
+        }
         // A client-credentials token is not associated with any user.
         if (token.userId != null) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token_exchange.subject_token_not_client")

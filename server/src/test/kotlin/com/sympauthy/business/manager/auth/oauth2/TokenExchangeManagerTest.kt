@@ -68,10 +68,15 @@ class TokenExchangeManagerTest {
             uncheckedAudiencesConfig = EnabledAudiencesConfig(audiences)
         )
 
-    private fun mockActorToken(clientId: String = CLIENT_ID, userId: UUID? = null): AuthenticationToken {
+    private fun mockActorToken(
+        clientId: String = CLIENT_ID,
+        userId: UUID? = null,
+        actorTokenId: UUID? = null
+    ): AuthenticationToken {
         val token = mockk<AuthenticationToken>()
         every { token.clientId } returns clientId
         every { token.userId } returns userId
+        every { token.actorTokenId } returns actorTokenId
         every { token.id } returns UUID.randomUUID()
         return token
     }
@@ -112,6 +117,17 @@ class TokenExchangeManagerTest {
             manager().exchangeForActAsToken(actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), null)
         }
         assertEquals(INVALID_GRANT, ex.errorCode)
+    }
+
+    @Test
+    fun `subject_token that already has an actor is rejected as unsupported chaining`() = runTest {
+        // An act-as token carries an actor and a user; presenting it would chain act-as tokens, which is unsupported.
+        stubValidSubjectToken(mockActorToken(userId = UUID.randomUUID(), actorTokenId = UUID.randomUUID()))
+        val ex = assertFailsWith<OAuth2Exception> {
+            manager().exchangeForActAsToken(actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), null)
+        }
+        assertEquals(INVALID_GRANT, ex.errorCode)
+        assertEquals("token_exchange.subject_token_has_actor", ex.detailsId)
     }
 
     @Test
