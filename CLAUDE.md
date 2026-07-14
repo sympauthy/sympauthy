@@ -158,6 +158,11 @@ only.
 - `@MockK` for dependencies, `@InjectMockKs` for auto-wiring the class under test
 - `runTest { }` for suspend function tests, `coEvery { }` / `coVerify { }` for suspend mocks
 - Tests mirror main package structure in `server/src/test/kotlin/`
+- **No redundant `verify(exactly = 1)` for stubbed methods** — when a method is stubbed with `every` / `coEvery` and its
+  behavior drives the asserted outcome (e.g. the stub throws the caught exception, or its return value is asserted), do
+  not add a `verify(exactly = 1)` / `coVerify(exactly = 1)` for that same call. Reaching the assertion already proves
+  the call happened, and the MockK extension's unnecessary-stub check flags an unused stub. Keep `exactly = 0`
+  verifications, which assert a method was *not* called — no stub covers that.
 
 ## Code Documentation
 

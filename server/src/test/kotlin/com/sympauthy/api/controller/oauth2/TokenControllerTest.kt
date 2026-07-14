@@ -146,7 +146,6 @@ class TokenControllerTest {
             )
         }
 
-        coVerify(exactly = 1) { clientAuthenticationUtil.resolveClient(request, any(), any()) }
         coVerify(exactly = 0) { clientAuthenticationUtil.resolveClientAllowingPublic(any(), any(), any()) }
     }
 
@@ -171,7 +170,6 @@ class TokenControllerTest {
             )
         }
 
-        coVerify(exactly = 1) { clientAuthenticationUtil.resolveClient(request, any(), any()) }
         coVerify(exactly = 0) { clientAuthenticationUtil.resolveClientAllowingPublic(any(), any(), any()) }
     }
 
@@ -222,7 +220,6 @@ class TokenControllerTest {
             )
         }
 
-        coVerify(exactly = 1) { clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any()) }
         coVerify(exactly = 0) { clientAuthenticationUtil.resolveClient(any(), any(), any()) }
     }
 
@@ -247,7 +244,6 @@ class TokenControllerTest {
             )
         }
 
-        coVerify(exactly = 1) { clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any()) }
         coVerify(exactly = 0) { clientAuthenticationUtil.resolveClient(any(), any(), any()) }
     }
 
