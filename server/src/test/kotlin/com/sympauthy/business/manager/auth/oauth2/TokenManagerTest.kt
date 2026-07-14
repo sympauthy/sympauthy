@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager.auth.oauth2
 
 import com.sympauthy.api.exception.OAuth2Exception
+import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
@@ -14,6 +15,7 @@ import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
 import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.data.repository.AuthenticationTokenRepository
 import com.sympauthy.exception.localizedExceptionOf
 import io.mockk.coEvery
@@ -51,6 +53,9 @@ class TokenManagerTest {
 
     @MockK
     lateinit var consentManager: ConsentManager
+
+    @MockK
+    lateinit var actorTokenValidator: ActorTokenValidator
 
     @MockK
     lateinit var tokenRepository: AuthenticationTokenRepository
@@ -365,8 +370,28 @@ class TokenManagerTest {
         coEvery { tokenManager.findById(tokenId) } returns token
         every { token.userId } returns userId
         every { token.revoked } returns false
+        coEvery { actorTokenValidator.validateActorToken(token) } returns Unit
 
         assertSame(token, tokenManager.getAuthenticationToken(decodedToken))
+    }
+
+    @Test
+    fun `getAuthenticationToken - Throws if actor token is invalid`() = runTest {
+        val tokenId = UUID.randomUUID()
+        val userId = UUID.randomUUID()
+        val decodedToken = DecodedJwt(id = tokenId.toString(), subject = userId.toString(), keyId = null)
+        val token = mockk<AuthenticationToken>()
+
+        coEvery { tokenManager.findById(tokenId) } returns token
+        every { token.userId } returns userId
+        every { token.revoked } returns false
+        coEvery {
+            actorTokenValidator.validateActorToken(token)
+        } throws oauth2ExceptionOf(INVALID_GRANT, "token.actor_revoked")
+
+        assertThrows<OAuth2Exception> {
+            tokenManager.getAuthenticationToken(decodedToken)
+        }
     }
 
     @Test
@@ -412,6 +437,7 @@ class TokenManagerTest {
         every { token.type } returns ACCESS
         every { token.id } returns tokenId
         coEvery { tokenRepository.updateRevokedAt(tokenId, any(), "CLIENT", null) } returns Unit
+        coEvery { tokenRepository.updateRevokedAtByActorTokenId(tokenId, any(), "CLIENT", null) } returns 0
 
         tokenManager.revokeTokenByEncodedToken(client, "token", null)
 
@@ -432,8 +458,10 @@ class TokenManagerTest {
         coEvery { tokenManager.findById(tokenId) } returns token
         every { token.clientId } returns clientId
         every { token.type } returns REFRESH
+        every { token.id } returns tokenId
         every { token.authorizeAttemptId } returns attemptId
         coEvery { tokenRepository.updateRevokedAtByAuthorizeAttemptId(attemptId, any(), "CLIENT", null) } returns Unit
+        coEvery { tokenRepository.updateRevokedAtByActorTokenId(tokenId, any(), "CLIENT", null) } returns 0
 
         tokenManager.revokeTokenByEncodedToken(client, "token", "refresh_token")
 
@@ -457,6 +485,7 @@ class TokenManagerTest {
         every { token.type } returns ACCESS
         every { token.id } returns tokenId
         coEvery { tokenRepository.updateRevokedAt(tokenId, any(), "CLIENT", null) } returns Unit
+        coEvery { tokenRepository.updateRevokedAtByActorTokenId(tokenId, any(), "CLIENT", null) } returns 0
 
         tokenManager.revokeTokenByEncodedToken(client, "token", "access_token")
 
@@ -479,6 +508,7 @@ class TokenManagerTest {
 
         coEvery { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, "encoded-token") } returns decodedJwt
         coEvery { tokenManager.findById(tokenId) } returns token
+        coEvery { actorTokenValidator.validateActorToken(token) } returns Unit
 
         val result = tokenManager.introspectToken(client, "encoded-token", "access_token")
 
@@ -498,6 +528,7 @@ class TokenManagerTest {
 
         coEvery { jwtManager.decodeAndVerifyOrNull(REFRESH_KEY, "encoded-token") } returns decodedJwt
         coEvery { tokenManager.findById(tokenId) } returns token
+        coEvery { actorTokenValidator.validateActorToken(token) } returns Unit
 
         val result = tokenManager.introspectToken(client, "encoded-token", "refresh_token")
 
@@ -518,6 +549,7 @@ class TokenManagerTest {
         every { jwtManager.getKeyIdOrNull("encoded-token") } returns ACCESS_KEY
         coEvery { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, "encoded-token") } returns decodedJwt
         coEvery { tokenManager.findById(tokenId) } returns token
+        coEvery { actorTokenValidator.validateActorToken(token) } returns Unit
 
         val result = tokenManager.introspectToken(client, "encoded-token", null)
 
@@ -555,6 +587,28 @@ class TokenManagerTest {
 
         coEvery { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, "encoded-token") } returns decodedJwt
         coEvery { tokenManager.findById(tokenId) } returns token
+
+        val result = tokenManager.introspectToken(client, "encoded-token", "access_token")
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `introspectToken - Returns null when actor token is invalid`() = runTest {
+        val clientId = "test-client"
+        val tokenId = UUID.randomUUID()
+        val client = mockk<Client> { every { id } returns clientId }
+        val decodedJwt = DecodedJwt(id = tokenId.toString(), subject = null, keyId = null)
+        val token = mockk<AuthenticationToken> {
+            every { this@mockk.clientId } returns clientId
+            every { revoked } returns false
+        }
+
+        coEvery { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, "encoded-token") } returns decodedJwt
+        coEvery { tokenManager.findById(tokenId) } returns token
+        coEvery {
+            actorTokenValidator.validateActorToken(token)
+        } throws oauth2ExceptionOf(INVALID_GRANT, "token.actor_revoked")
 
         val result = tokenManager.introspectToken(client, "encoded-token", "access_token")
 
@@ -620,12 +674,37 @@ class TokenManagerTest {
         coEvery { tokenManager.findById(tokenId) } returns token
         every { token.clientId } returns clientId
         every { token.type } returns REFRESH
+        every { token.id } returns tokenId
         every { token.authorizeAttemptId } returns attemptId
         coEvery { tokenRepository.updateRevokedAtByAuthorizeAttemptId(attemptId, any(), "CLIENT", null) } returns Unit
+        coEvery { tokenRepository.updateRevokedAtByActorTokenId(tokenId, any(), "CLIENT", null) } returns 0
 
         tokenManager.revokeTokenByEncodedToken(client, "token", null)
 
         coVerify(exactly = 0) { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, any()) }
         coVerify(exactly = 1) { tokenRepository.updateRevokedAtByAuthorizeAttemptId(attemptId, any(), "CLIENT", null) }
+    }
+
+    @Test
+    fun `revokeTokenByEncodedToken - Cascades revocation to act-as tokens derived from the token`() = runTest {
+        val clientId = "client-a"
+        val tokenId = UUID.randomUUID()
+        val client = mockk<Client>()
+        val decodedToken = DecodedJwt(id = tokenId.toString(), subject = null, keyId = null)
+        val token = mockk<AuthenticationToken>()
+
+        every { client.id } returns clientId
+        every { jwtManager.getKeyIdOrNull("token") } returns ACCESS_KEY
+        coEvery { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, "token") } returns decodedToken
+        coEvery { tokenManager.findById(tokenId) } returns token
+        every { token.clientId } returns clientId
+        every { token.type } returns ACCESS
+        every { token.id } returns tokenId
+        coEvery { tokenRepository.updateRevokedAt(tokenId, any(), "CLIENT", null) } returns Unit
+        coEvery { tokenRepository.updateRevokedAtByActorTokenId(tokenId, any(), "CLIENT", null) } returns 1
+
+        tokenManager.revokeTokenByEncodedToken(client, "token", null)
+
+        coVerify(exactly = 1) { tokenRepository.updateRevokedAtByActorTokenId(tokenId, any(), "CLIENT", null) }
     }
 }

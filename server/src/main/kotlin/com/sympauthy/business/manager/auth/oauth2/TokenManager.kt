@@ -252,6 +252,14 @@ open class TokenManager(
                 revokedById = null
             )
         }
+
+        // RFC 8693: revoking a token also revokes every act-as token derived from it (subject_token provenance).
+        tokenRepository.updateRevokedAtByActorTokenId(
+            actorTokenId = token.id,
+            revokedAt = now,
+            revokedBy = TokenRevokedBy.CLIENT.name,
+            revokedById = null
+        )
     }
 
     /**
