@@ -22,6 +22,18 @@ interface AuthenticationTokenRepository : CoroutineCrudRepository<Authentication
         revokedById: UUID?
     )
 
+    /**
+     * Revoke every act-as token (RFC 8693) derived from the token identified by [actorTokenId],
+     * i.e. all tokens issued through token exchange with this token as their `subject_token`.
+     * Returns the number of tokens revoked.
+     */
+    suspend fun updateRevokedAtByActorTokenId(
+        actorTokenId: UUID,
+        revokedAt: LocalDateTime,
+        revokedBy: String,
+        revokedById: UUID?
+    ): Int
+
     suspend fun updateRevokedAtByUserIdAndClientId(
         userId: UUID,
         clientId: String,

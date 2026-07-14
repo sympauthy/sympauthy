@@ -12,6 +12,7 @@ import com.sympauthy.business.manager.auth.ClientScopeGrantingManager
 import com.sympauthy.business.manager.auth.oauth2.AccessTokenGenerator
 import com.sympauthy.business.manager.auth.oauth2.DpopManager
 import com.sympauthy.business.manager.auth.oauth2.PkceManager
+import com.sympauthy.business.manager.auth.oauth2.TokenExchangeManager
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
 import com.sympauthy.business.manager.flow.AuthorizationFlowManager
 import com.sympauthy.business.model.client.Client
@@ -51,6 +52,7 @@ class TokenController(
     @Inject private val clientAuthenticationUtil: ClientAuthenticationUtil,
     @Inject private val pkceManager: PkceManager,
     @Inject private val clientScopeGrantingManager: ClientScopeGrantingManager,
+    @Inject private val tokenExchangeManager: TokenExchangeManager,
     @Inject private val dpopManager: DpopManager,
     @Inject private val uncheckedAuthConfig: AuthConfig
 ) {
@@ -70,8 +72,43 @@ Client authentication is supported via:
                 description = "The type of grant being requested.",
                 schema = Schema(
                     type = "string",
-                    allowableValues = ["authorization_code", "refresh_token", "client_credentials"]
+                    allowableValues = [
+                        "authorization_code",
+                        "refresh_token",
+                        "client_credentials",
+                        "urn:ietf:params:oauth:grant-type:token-exchange"
+                    ]
                 )
+            ),
+            Parameter(
+                name = "subject_token",
+                description = "The client's own client-credentials access token, proving it is the actor. Required for the `urn:ietf:params:oauth:grant-type:token-exchange` grant.",
+                schema = Schema(type = "string")
+            ),
+            Parameter(
+                name = "subject_token_type",
+                description = "The type of the `subject_token`. Must be `urn:ietf:params:oauth:token-type:access_token`. Required for the `urn:ietf:params:oauth:grant-type:token-exchange` grant.",
+                schema = Schema(type = "string")
+            ),
+            Parameter(
+                name = "requested_subject",
+                description = "The id of the user to act on behalf of. Required for the `urn:ietf:params:oauth:grant-type:token-exchange` grant.",
+                schema = Schema(type = "string")
+            ),
+            Parameter(
+                name = "requested_token_type",
+                description = "The type of token requested. Only `urn:ietf:params:oauth:token-type:access_token` is supported. Optional for the `urn:ietf:params:oauth:grant-type:token-exchange` grant.",
+                schema = Schema(type = "string")
+            ),
+            Parameter(
+                name = "resource",
+                description = "A URI (RFC 8693 `resource`) indicating where the client intends to use the token, used by the server to apply policy. It does not set the token audience and is not supported yet: the request is rejected when it is present. Optional for the `urn:ietf:params:oauth:grant-type:token-exchange` grant.",
+                schema = Schema(type = "string")
+            ),
+            Parameter(
+                name = "audience",
+                description = "The logical name (RFC 8693 `audience`) of the target service for the issued token; the only input that sets the token audience. Optional for the `urn:ietf:params:oauth:grant-type:token-exchange` grant.",
+                schema = Schema(type = "string")
             ),
             Parameter(
                 name = "code",
@@ -126,6 +163,12 @@ Client authentication is supported via:
         @Part("client_id") clientId: String?,
         @Part("client_secret") clientSecret: String?,
         @Part("code_verifier") codeVerifier: String?,
+        @Part(SUBJECT_TOKEN_PARAM) subjectToken: String? = null,
+        @Part(SUBJECT_TOKEN_TYPE_PARAM) subjectTokenType: String? = null,
+        @Part(REQUESTED_SUBJECT_PARAM) requestedSubject: String? = null,
+        @Part("requested_token_type") requestedTokenType: String? = null,
+        @Part("resource") resource: String? = null,
+        @Part("audience") audience: String? = null,
     ): TokenResource {
         // Validate DPoP proof if present, enforce if required by config
         val dpopProof = dpopManager.validateDpopProof(request)
@@ -165,6 +208,21 @@ Client authentication is supported via:
                 getTokensUsingClientCredentials(
                     client = client,
                     scope = scope,
+                    dpopProof = dpopProof
+                )
+            }
+
+            GrantType.TOKEN_EXCHANGE.value -> {
+                val client = clientAuthenticationUtil.resolveClient(request, clientId, clientSecret)
+                checkClientSupportsGrantType(client, GrantType.TOKEN_EXCHANGE)
+                getTokensUsingTokenExchange(
+                    client = client,
+                    subjectToken = subjectToken,
+                    subjectTokenType = subjectTokenType,
+                    requestedSubject = requestedSubject,
+                    requestedTokenType = requestedTokenType,
+                    resource = resource,
+                    audience = audience,
                     dpopProof = dpopProof
                 )
             }
@@ -269,6 +327,54 @@ Client authentication is supported via:
         )
     }
 
+    private suspend fun getTokensUsingTokenExchange(
+        client: Client,
+        subjectToken: String?,
+        subjectTokenType: String?,
+        requestedSubject: String?,
+        requestedTokenType: String?,
+        resource: String?,
+        audience: String?,
+        dpopProof: DpopProof?
+    ): TokenResource {
+        if (subjectToken.isNullOrBlank()) {
+            throw oauth2ExceptionOf(INVALID_REQUEST, "token.missing_param", "param" to SUBJECT_TOKEN_PARAM)
+        }
+        if (subjectTokenType.isNullOrBlank()) {
+            throw oauth2ExceptionOf(INVALID_REQUEST, "token.missing_param", "param" to SUBJECT_TOKEN_TYPE_PARAM)
+        }
+        if (requestedSubject.isNullOrBlank()) {
+            throw oauth2ExceptionOf(INVALID_REQUEST, "token.missing_param", "param" to REQUESTED_SUBJECT_PARAM)
+        }
+        // requested_token_type is optional, but when present we only support issuing access tokens.
+        if (requestedTokenType != null && requestedTokenType != TokenExchangeManager.ACCESS_TOKEN_TYPE) {
+            throw oauth2ExceptionOf(
+                INVALID_REQUEST, "token_exchange.unsupported_requested_token_type", "type" to requestedTokenType
+            )
+        }
+
+        val accessToken = tokenExchangeManager.exchangeForActAsToken(
+            actingClient = client,
+            subjectToken = subjectToken,
+            subjectTokenType = subjectTokenType,
+            requestedSubject = requestedSubject,
+            resource = resource,
+            audience = audience,
+            dpopJkt = dpopProof?.jkt
+        )
+        val tokenType = if (dpopProof != null) TOKEN_TYPE_DPOP else TOKEN_TYPE_BEARER
+
+        return TokenResource(
+            accessToken = accessToken.token,
+            tokenType = tokenType,
+            expiredIn = getExpiredIn(accessToken),
+            scope = getScope(accessToken),
+            refreshToken = null,
+            idToken = null,
+            issuedTokenType = TokenExchangeManager.ACCESS_TOKEN_TYPE
+        )
+    }
+
     private fun checkClientSupportsGrantType(client: Client, grantType: GrantType) {
         if (!client.supportsGrantType(grantType)) {
             throw oauth2ExceptionOf(
@@ -299,6 +405,9 @@ Client authentication is supported via:
         const val OAUTH2_TOKEN_ENDPOINT = "/api/oauth2/token"
         const val CODE_PARAM = "code"
         const val REFRESH_TOKEN_PARAM = "refresh_token"
+        const val SUBJECT_TOKEN_PARAM = "subject_token"
+        const val SUBJECT_TOKEN_TYPE_PARAM = "subject_token_type"
+        const val REQUESTED_SUBJECT_PARAM = "requested_subject"
         const val TOKEN_TYPE_BEARER = "bearer"
         const val TOKEN_TYPE_DPOP = "DPoP"
     }

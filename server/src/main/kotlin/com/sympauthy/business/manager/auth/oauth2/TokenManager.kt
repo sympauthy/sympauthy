@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.auth.oauth2
 
+import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.jwt.JwtManager
@@ -34,6 +35,7 @@ open class TokenManager(
     @Inject private val refreshTokenGenerator: RefreshTokenGenerator,
     @Inject private val idTokenGenerator: IdTokenGenerator,
     @Inject private val consentManager: ConsentManager,
+    @Inject private val actorTokenValidator: ActorTokenValidator,
     @Inject private val tokenRepository: AuthenticationTokenRepository,
     @Inject private val tokenMapper: AuthenticationTokenMapper
 ) {
@@ -250,6 +252,14 @@ open class TokenManager(
                 revokedById = null
             )
         }
+
+        // RFC 8693: revoking a token also revokes every act-as token derived from it (subject_token provenance).
+        tokenRepository.updateRevokedAtByActorTokenId(
+            actorTokenId = token.id,
+            revokedAt = now,
+            revokedBy = TokenRevokedBy.CLIENT.name,
+            revokedById = null
+        )
     }
 
     /**
@@ -283,7 +293,12 @@ open class TokenManager(
         val token = findById(tokenId) ?: return null
         if (token.revoked) return null
         if (token.clientId != client.id) return null
-        return token
+        return try {
+            actorTokenValidator.validateActorToken(token)
+            token
+        } catch (e: OAuth2Exception) {
+            null
+        }
     }
 
     /**
@@ -293,6 +308,7 @@ open class TokenManager(
      * - the identifier of the token cannot be decoded.
      * - the token cannot be found in the database despite being signed with our signature.
      * - the token has been revoked.
+     * - the token is an act-as token (RFC 8693) whose actor token is no longer valid (missing, revoked, or expired).
      */
     suspend fun getAuthenticationToken(decodedToken: DecodedJwt): AuthenticationToken {
         val id = try {
@@ -313,7 +329,10 @@ open class TokenManager(
                 INVALID_GRANT, "token.invalid_token_id"
             )
 
-            else -> token
+            else -> {
+                actorTokenValidator.validateActorToken(token)
+                token
+            }
         }
     }
 }

@@ -50,6 +50,13 @@ class AuthenticationTokenEntity(
      */
     val dpopJkt: String? = null,
 
+    /**
+     * Id of the token that was exchanged to issue this token via OAuth 2.0 Token Exchange (RFC 8693).
+     * For an act-as token, this is the acting client's own client-credentials token presented as the `subject_token`.
+     * Null for tokens not issued through token exchange.
+     */
+    val actorTokenId: UUID? = null,
+
     val revokedAt: LocalDateTime? = null,
     val revokedBy: String? = null,
     val revokedById: UUID? = null,

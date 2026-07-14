@@ -16,6 +16,8 @@ CREATE TABLE authentication_tokens
 
     dpop_jkt             text,
 
+    actor_token_id       uuid,
+
     revoked_at           timestamp,
     revoked_by           text,
     revoked_by_id        uuid,

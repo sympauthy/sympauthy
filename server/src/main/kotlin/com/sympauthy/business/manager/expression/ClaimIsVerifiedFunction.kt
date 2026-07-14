@@ -1,4 +1,4 @@
-package com.sympauthy.business.manager.rule.function
+package com.sympauthy.business.manager.expression
 
 import com.ezylang.evalex.Expression
 import com.ezylang.evalex.data.EvaluationValue
@@ -8,11 +8,15 @@ import com.ezylang.evalex.parser.Token
 import com.sympauthy.business.model.user.CollectedClaim
 
 /**
- * Custom function returning the value of the claim as a string for the authenticating end-user.
+ * Custom function checking if the claim is verified for the authenticating end-user.
+ * Return true or false.
  */
 @FunctionParameter(name = "claim")
-class ClaimFunction(
-    private val collectedClaims: List<CollectedClaim> = emptyList()
+class ClaimIsVerifiedFunction(
+    /**
+     * List of claims collected for the end-user.
+     */
+    val collectedClaims: List<CollectedClaim> = emptyList()
 ) : AbstractFunction() {
 
     override fun evaluate(
@@ -20,15 +24,12 @@ class ClaimFunction(
         functionToken: Token,
         vararg parameterValues: EvaluationValue
     ): EvaluationValue {
-        if (parameterValues.isEmpty()) {
-            return EvaluationValue.NULL_VALUE
-        }
         val claim = parameterValues[0].stringValue
-        val collectedClaim = collectedClaims.find { it.claim.id == claim } ?: return EvaluationValue.NULL_VALUE
-        return EvaluationValue.stringValue(collectedClaim.value?.toString() ?: "")
+        val collectedClaim = collectedClaims.find { it.claim.id == claim }
+        return EvaluationValue.booleanValue(collectedClaim?.verified == true)
     }
 
     companion object {
-        const val FUNCTION_NAME = "CLAIM"
+        const val FUNCTION_NAME = "CLAIM_IS_VERIFIED"
     }
 }

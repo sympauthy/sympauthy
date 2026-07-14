@@ -81,6 +81,11 @@ Multi-module Gradle project (root + `server`). All source code is in `server/src
 - **Managers never return entities** — only `business.model` types are exposed to controllers
 - **Exception factory methods** — `businessExceptionOf()`, `recoverableBusinessExceptionOf()` (user-retryable),
   `internalBusinessExceptionOf()` (server errors). Error messages in `error_messages.properties`
+- **OAuth2 managers may throw `OAuth2Exception`** — managers under `business.manager.auth.oauth2` (e.g. `TokenManager`,
+  `TokenExchangeManager`) are an intentional exception to the "managers throw business exceptions" rule: they may throw
+  `OAuth2Exception` directly (via `oauth2ExceptionOf(...)`) so the standardized OAuth2 error code (`invalid_grant`,
+  `invalid_request`, `invalid_target`, `access_denied`, …) is emitted per the OAuth2 / RFC 8693 specification rather
+  than being flattened to a single code at the controller boundary.
 - **Error message placeholders** — Never use `'` (single quote) before `{` in `error_messages.properties` because the
   MessageSource interprets `'{...}'` as a literal string and does not perform placeholder replacement. Write `{scope}`
   directly, not `'{scope}'`.
@@ -153,6 +158,11 @@ only.
 - `@MockK` for dependencies, `@InjectMockKs` for auto-wiring the class under test
 - `runTest { }` for suspend function tests, `coEvery { }` / `coVerify { }` for suspend mocks
 - Tests mirror main package structure in `server/src/test/kotlin/`
+- **No redundant `verify(exactly = 1)` for stubbed methods** — when a method is stubbed with `every` / `coEvery` and its
+  behavior drives the asserted outcome (e.g. the stub throws the caught exception, or its return value is asserted), do
+  not add a `verify(exactly = 1)` / `coVerify(exactly = 1)` for that same call. Reaching the assertion already proves
+  the call happened, and the MockK extension's unnecessary-stub check flags an unused stub. Keep `exactly = 0`
+  verifications, which assert a method was *not* called — no stub covers that.
 
 ## Code Documentation
 

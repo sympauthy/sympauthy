@@ -92,6 +92,18 @@ enum class OAuth2ErrorCode(
     ),
 
     /**
+     * The authorization server is unable to issue a token for the target service or resource indicated by the
+     * `resource` or `audience` request parameter of a token exchange request.
+     *
+     * @see <a href="https://datatracker.ietf.org/doc/html/rfc8693#section-2.2.2">RFC 8693 Section 2.2.2</a>
+     */
+    INVALID_TARGET(
+        BAD_REQUEST,
+        "invalid_target",
+        "description.oauth2.invalid"
+    ),
+
+    /**
      * Client authentication failed (e.g., unknown client, no client authentication included, or unsupported authentication method).
      */
     INVALID_CLIENT(

@@ -65,6 +65,12 @@ data class AuthenticationToken(
      */
     val dpopJkt: String? = null,
 
+    /**
+     * Id of the token that was exchanged to issue this token via OAuth 2.0 Token Exchange (RFC 8693).
+     * Present for act-as tokens (the acting client's own client-credentials token), null otherwise.
+     */
+    val actorTokenId: UUID? = null,
+
     /** Date and time at which this token was revoked, or null if still active. */
     val revokedAt: LocalDateTime?,
     /** Actor who revoked this token, or null if still active. */

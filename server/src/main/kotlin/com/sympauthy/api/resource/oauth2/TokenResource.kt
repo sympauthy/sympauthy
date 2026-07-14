@@ -25,5 +25,11 @@ data class TokenResource(
     @get:JsonProperty("refresh_token")
     val refreshToken: String? = null,
     @get:JsonProperty("id_token")
-    val idToken: String? = null
+    val idToken: String? = null,
+    /**
+     * The token type identifier of the issued token, per OAuth 2.0 Token Exchange (RFC 8693).
+     * Only set for responses to a token-exchange grant.
+     */
+    @get:JsonProperty("issued_token_type")
+    val issuedTokenType: String? = null
 )
