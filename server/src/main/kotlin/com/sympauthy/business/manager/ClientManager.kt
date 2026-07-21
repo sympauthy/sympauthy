@@ -73,9 +73,15 @@ class ClientManager(
 
     /**
      * Return the [Client] identified by [clientId] if the [clientSecret] matches the one configured.
-     * Otherwise, return null whether no client matches or the secret does not match.
+     * Otherwise, return null whether a credential is missing, no client matches or the secret does not match.
+     *
+     * This method is reserved for confidential (private) clients: since it returns null when no [clientSecret] is
+     * provided, it cannot authenticate public clients. Use [findPublicClientByIdOrNull] to resolve a public client.
      */
-    suspend fun authenticateClientOrNull(clientId: String, clientSecret: String): Client? {
+    suspend fun authenticateClientOrNull(clientId: String?, clientSecret: String?): Client? {
+        if (clientId == null || clientSecret == null) {
+            return null
+        }
         return listClients().firstOrNull { it.id == clientId && it.secret == clientSecret }
     }
 }

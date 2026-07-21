@@ -9,7 +9,7 @@ data class ProviderOAuth2Tokens(
     val idToken: String? = null
 ) : ProviderCredentials {
 
-    override fun <T> authenticate(httpRequest: MutableHttpRequest<T>) {
+    override fun <T : Any> authenticate(httpRequest: MutableHttpRequest<T>) {
         httpRequest.bearerAuth(accessToken)
     }
 }

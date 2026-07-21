@@ -35,7 +35,7 @@ class AccessTokenValidator<T>(
     @Inject private val jwtManager: JwtManager
 ) : TokenValidator<T> {
 
-    override fun validateToken(token: String, request: T): Publisher<Authentication> = publish {
+    override fun validateToken(token: String, request: T?): Publisher<Authentication> = publish {
         val decodedToken = try {
             jwtManager.decodeAndVerify(ACCESS_KEY, token)
         } catch (e: LocalizedException) {

@@ -1,19 +1,9 @@
-buildscript {
-    val kotlinVersion = project.findProperty("kotlinVersion")
-    val micronautPluginVersion = project.findProperty("micronautPluginVersion")
-    val kspGradlePluginVersion = project.findProperty("kspGradlePluginVersion")
-
-    repositories {
-        gradlePluginPortal()
-    }
-
-    dependencies {
-        classpath("org.jetbrains.kotlin.jvm:org.jetbrains.kotlin.jvm.gradle.plugin:$kotlinVersion")
-        classpath("org.jetbrains.kotlin.kapt:org.jetbrains.kotlin.kapt.gradle.plugin:$kotlinVersion")
-        classpath("org.jetbrains.kotlin.plugin.allopen:org.jetbrains.kotlin.plugin.allopen.gradle.plugin:$kotlinVersion")
-        classpath("com.google.devtools.ksp:com.google.devtools.ksp.gradle.plugin:$kspGradlePluginVersion")
-        classpath("io.micronaut.gradle:micronaut-gradle-plugin:$micronautPluginVersion")
-    }
+plugins {
+    alias(libs.plugins.kotlin.jvm) apply false
+    alias(libs.plugins.kotlin.kapt) apply false
+    alias(libs.plugins.kotlin.allopen) apply false
+    alias(libs.plugins.ksp) apply false
+    alias(libs.plugins.micronaut.application) apply false
 }
 
 allprojects {
@@ -21,21 +11,6 @@ allprojects {
 
     version = "0.5.0"
     group = "com.sympauthy"
-
-    extra.apply {
-        set("kotlinVersion", project.findProperty("kotlinVersion"))
-        set("kotlinCoroutinesVersion", "1.11.0")
-        set("mapStructVersion", "1.6.3")
-        set("jsonPathVersion", "3.0.0")
-        set("bouncyCastleVersion", "1.85")
-        set("freemarkerVersion", "2.3.34")
-        set("evalExVersion", "3.7.0")
-
-        // Test dependencies
-        set("junitJupiterVersion", "6.1.2")
-        set("mockkVersion", "1.14.11")
-        set("mockWebServerVersion", "5.4.0")
-    }
 
     repositories {
         mavenCentral()

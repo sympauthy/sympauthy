@@ -2,19 +2,19 @@ import org.gradle.api.tasks.testing.logging.TestLogEvent.*
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-    id("org.jetbrains.kotlin.jvm")
-    id("org.jetbrains.kotlin.kapt")
-    id("org.jetbrains.kotlin.plugin.allopen")
-    id("com.google.devtools.ksp")
-    id("io.micronaut.application")
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.kapt)
+    alias(libs.plugins.kotlin.allopen)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.micronaut.application)
 }
 
 dependencies {
     // Kotlin
-    implementation("org.jetbrains.kotlin:kotlin-reflect:${project.extra["kotlinVersion"]}")
-    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:${project.extra["kotlinVersion"]}")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:${project.extra["kotlinCoroutinesVersion"]}")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-rx3:${project.extra["kotlinCoroutinesVersion"]}")
+    implementation(libs.kotlin.reflect)
+    implementation(libs.kotlin.stdlib.jdk8)
+    implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.coroutines.rx3)
     implementation("io.micronaut.kotlin:micronaut-kotlin-runtime")
     implementation("io.micronaut.kotlin:micronaut-kotlin-extension-functions") {
         // micronaut-kotlin-extension-functions transitively pulls in micronaut-jackson-databind, which ships a
@@ -30,7 +30,7 @@ dependencies {
 
     // R2DBC Database
     api("io.micronaut.data:micronaut-data-r2dbc")
-    api("jakarta.persistence:jakarta.persistence-api:3.2.0")
+    api(libs.jakarta.persistence.api)
     ksp("io.micronaut.data:micronaut-data-processor")
 
     // Database migration
@@ -56,11 +56,11 @@ dependencies {
     implementation("io.micronaut.validation:micronaut-validation")
 
     // Security
-    ksp("io.micronaut.security:micronaut-security-annotations")
+    ksp("io.micronaut.security:micronaut-security-processor")
     implementation("io.micronaut.security:micronaut-security")
     implementation("io.micronaut.security:micronaut-security-oauth2")
     implementation("io.micronaut.security:micronaut-security-jwt")
-    implementation("org.bouncycastle:bcprov-jdk18on:${project.extra["bouncyCastleVersion"]}")
+    implementation(libs.bouncycastle.bcprov)
 
     // Reactive programming
     implementation("io.micronaut.rxjava3:micronaut-rxjava3")
@@ -71,15 +71,15 @@ dependencies {
 
     // Mail templating
     implementation("io.micronaut.email:micronaut-email-template")
-    runtimeOnly("org.freemarker:freemarker:${project.extra["freemarkerVersion"]}")
+    runtimeOnly(libs.freemarker)
 
     // Mail sending (SMTP)
     implementation("io.micronaut.email:micronaut-email-javamail")
     runtimeOnly("org.eclipse.angus:angus-mail")
 
     // Object mapping
-    api("org.mapstruct:mapstruct:${project.extra["mapStructVersion"]}")
-    kapt("org.mapstruct:mapstruct-processor:${project.extra["mapStructVersion"]}")
+    api(libs.mapstruct)
+    kapt(libs.mapstruct.processor)
 
     // Serialization/Deserialization
     ksp("io.micronaut.serde:micronaut-serde-processor")
@@ -99,21 +99,21 @@ dependencies {
     runtimeOnly("org.yaml:snakeyaml")
 
     // JsonPath: for user info extraction
-    implementation("com.jayway.jsonpath:json-path:${project.extra["jsonPathVersion"]}")
+    implementation(libs.json.path)
 
     // Health & Liveness endpoints
     implementation("io.micronaut:micronaut-management")
 
     // Expression evaluation: for scope granting rules
-    implementation("com.ezylang:EvalEx:${project.extra["evalExVersion"]}")
+    implementation(libs.evalex)
 
     // Testing
     kspTest("io.micronaut:micronaut-inject-java")
     testImplementation("io.micronaut.test:micronaut-test-junit5")
-    testImplementation("org.junit.jupiter:junit-jupiter:${project.extra["junitJupiterVersion"]}")
-    testImplementation("io.mockk:mockk:${project.extra["mockkVersion"]}")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:${project.extra["kotlinCoroutinesVersion"]}")
-    testImplementation("com.squareup.okhttp3:mockwebserver:${project.extra["mockWebServerVersion"]}")
+    testImplementation(libs.junit.jupiter)
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.mock.webserver)
     testImplementation(kotlin("test"))
 }
 

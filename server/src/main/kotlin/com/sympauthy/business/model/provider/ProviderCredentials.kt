@@ -4,5 +4,5 @@ import io.micronaut.http.MutableHttpRequest
 
 interface ProviderCredentials {
 
-    fun <T> authenticate(httpRequest: MutableHttpRequest<T>)
+    fun <T : Any> authenticate(httpRequest: MutableHttpRequest<T>)
 }
