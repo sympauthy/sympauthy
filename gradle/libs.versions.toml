@@ -17,6 +17,10 @@ jakarta-persistence = "3.2.0"
 junit-jupiter = "6.1.2"
 mockk = "1.14.11"
 mock-webserver = "5.4.0"
+# Integration tests (integration-tests module). testcontainers, nimbus-jose-jwt and slf4j are
+# intentionally unversioned: the module imports the Micronaut Platform BOM so those stay in sync with
+# the server. Only testcontainers-sympauthy (absent from the BOM) is pinned here.
+testcontainers-sympauthy = "0.1.1"
 
 [libraries]
 # Platform BOM — the Micronaut Gradle plugin resolves the platform version from this "micronaut-platform" alias.
@@ -36,6 +40,15 @@ evalex = { module = "com.ezylang:EvalEx", version.ref = "evalex" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit-jupiter" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 mock-webserver = { module = "com.squareup.okhttp3:mockwebserver", version.ref = "mock-webserver" }
+# Integration tests (integration-tests module)
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit-jupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+testcontainers-sympauthy = { module = "com.sympauthy:testcontainers-sympauthy", version.ref = "testcontainers-sympauthy" }
+# Versions supplied by the Micronaut Platform BOM (see integration-tests/build.gradle.kts).
+testcontainers = { module = "org.testcontainers:testcontainers" }
+testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql" }
+nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt" }
+slf4j-simple = { module = "org.slf4j:slf4j-simple" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

@@ -116,6 +116,17 @@ jobs:
       runner: ${{ matrix.runner }}
       platform: ${{ matrix.platform }}
 
+  # Publication gate: publish_docker and publish_release depend on this job, so a failing integration
+  # run blocks the nightly image and release. Reuses the linux-x64 binary built above.
+  integration_test:
+    name: Integration tests
+    needs: [ should_build, build_linux_binary ]
+    if: needs.should_build.outputs.result == '1'
+    uses: ./.github/workflows/integration-test.yml
+    with:
+      ref: ${{ inputs.ref || 'main' }}
+      binary-artifact: sympauthy-linux-x64
+
   build_macos_binary:
     needs: [ should_build, build_flow, build_admin ]
     if: needs.should_build.outputs.result == '1'
@@ -138,7 +149,7 @@ jobs:
       platform: ${{ matrix.platform }}
 
   publish_docker:
-    needs: [ should_build, build_linux_binary ]
+    needs: [ should_build, build_linux_binary, integration_test ]
     if: needs.should_build.outputs.result == '1'
     strategy:
       fail-fast: false
@@ -193,7 +204,7 @@ jobs:
 
   publish_release:
     name: Publish to nightly release
-    needs: [ should_build, build_linux_binary, build_macos_binary ]
+    needs: [ should_build, build_linux_binary, build_macos_binary, integration_test ]
     if: needs.should_build.outputs.result == '1'
     runs-on: ubuntu-latest
     steps:
