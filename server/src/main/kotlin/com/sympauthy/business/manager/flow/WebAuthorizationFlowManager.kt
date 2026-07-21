@@ -180,6 +180,7 @@ class WebAuthorizationFlowManager(
         val authorizeAttempt = authorizeAttemptManager.newAuthorizeAttempt(
             client = client,
             clientState = uncheckedClientState,
+            clientNonce = uncheckedClientNonce,
             authorizationFlow = flow,
             scopes = scopes,
             redirectUri = redirectUri,
