@@ -1,5 +1,11 @@
 package com.sympauthy.it
 
+import com.nimbusds.jose.JOSEObjectType
+import com.nimbusds.jose.JWSAlgorithm
+import com.nimbusds.jose.JWSHeader
+import com.nimbusds.jose.crypto.ECDSASigner
+import com.nimbusds.jose.jwk.Curve
+import com.nimbusds.jose.jwk.gen.ECKeyGenerator
 import com.nimbusds.jose.jwk.source.JWKSourceBuilder
 import com.nimbusds.jose.proc.JWSVerificationKeySelector
 import com.nimbusds.jose.proc.SecurityContext
@@ -16,7 +22,10 @@ import java.net.http.HttpResponse
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.security.SecureRandom
+import java.time.Instant
 import java.util.Base64
+import java.util.Date
+import java.util.UUID
 
 /**
  * Shared support for the container-starting integration tests: a minimal SympAuthy configuration
@@ -54,22 +63,45 @@ abstract class AbstractSympauthyIT {
     private fun newContainer(
         fixture: DatabaseFixture,
         registry: InteractiveFlowRegistry,
+        extraConfig: Map<String, Any>,
     ): SympauthyContainer = fixture
-        .applyTo(SympauthyContainer(SympauthyImage.resolve()).withConfig(config(registry)))
+        .applyTo(SympauthyContainer(SympauthyImage.resolve()).withConfig(deepMerge(config(registry), extraConfig)))
         .withFlows(registry)
+
+    /**
+     * Recursively merges [override] into [base]: nested maps are merged key-by-key, any other value
+     * (scalar or list) replaces the base value. Lets a scenario contribute extra config — a second
+     * client, extra scopes, a feature flag — on top of the shared [config] without restating it.
+     */
+    private fun deepMerge(base: Map<String, Any>, override: Map<String, Any>): Map<String, Any> {
+        if (override.isEmpty()) return base
+        val merged = LinkedHashMap<String, Any>(base)
+        for ((key, overrideValue) in override) {
+            val baseValue = merged[key]
+            merged[key] = if (baseValue is Map<*, *> && overrideValue is Map<*, *>) {
+                @Suppress("UNCHECKED_CAST")
+                deepMerge(baseValue as Map<String, Any>, overrideValue as Map<String, Any>)
+            } else {
+                overrideValue
+            }
+        }
+        return merged
+    }
 
     /**
      * Starts a SympAuthy container backed by [database] with the mock flow frontend attached, runs
      * [block] against it, and always tears both down. Dumps the container logs to stderr on failure to
-     * make CI diagnostics actionable.
+     * make CI diagnostics actionable. Pass [extraConfig] to deep-merge scenario-specific configuration
+     * (e.g. a second client) on top of the shared base [config].
      */
     protected fun withContainer(
         database: Database,
+        extraConfig: Map<String, Any> = emptyMap(),
         block: (SympauthyContainer, InteractiveFlowRegistry) -> Unit,
     ) {
         database.createFixture().use { fixture ->
             InteractiveFlowRegistry.forClient(clientId).withScopes("openid").use { registry ->
-                newContainer(fixture, registry).use { sympauthy ->
+                newContainer(fixture, registry, extraConfig).use { sympauthy ->
                     sympauthy.start()
                     try {
                         block(sympauthy, registry)
@@ -110,12 +142,14 @@ abstract class AbstractSympauthyIT {
 
     /**
      * Builds a valid authorization request URL for the mock frontend's public client (with a fresh
-     * PKCE challenge). Pass [overrides] to change individual query parameters for a specific scenario.
+     * PKCE challenge). Pass [overrides] to replace individual query parameters for a specific scenario;
+     * a null override value removes that parameter entirely (e.g. to omit PKCE and prove it is
+     * mandatory).
      */
     protected fun authorizeUrl(
         sympauthy: SympauthyContainer,
         registry: InteractiveFlowRegistry,
-        overrides: Map<String, String> = emptyMap(),
+        overrides: Map<String, String?> = emptyMap(),
     ): String {
         val params = linkedMapOf(
             "response_type" to "code",
@@ -126,26 +160,70 @@ abstract class AbstractSympauthyIT {
             "code_challenge" to generatePkce().challenge,
             "code_challenge_method" to "S256",
         )
-        params.putAll(overrides)
+        overrides.forEach { (key, value) -> if (value == null) params.remove(key) else params[key] = value }
         val query = params.entries.joinToString("&") { (key, value) -> "${encode(key)}=${encode(value)}" }
         return "${discovery(sympauthy)["authorization_endpoint"]}?$query"
     }
 
-    protected fun httpGet(url: String, followRedirects: Boolean = false): HttpResponse<String> =
+    protected fun httpGet(
+        url: String,
+        followRedirects: Boolean = false,
+        headers: Map<String, String> = emptyMap(),
+    ): HttpResponse<String> =
         client(followRedirects).send(
-            HttpRequest.newBuilder(URI.create(url)).header("Accept", "application/json").GET().build(),
+            HttpRequest.newBuilder(URI.create(url))
+                .header("Accept", "application/json")
+                .apply { headers.forEach { (name, value) -> header(name, value) } }
+                .GET().build(),
             HttpResponse.BodyHandlers.ofString(),
         )
 
-    protected fun httpPostForm(url: String, form: Map<String, String>): HttpResponse<String> =
+    protected fun httpPostForm(
+        url: String,
+        form: Map<String, String>,
+        headers: Map<String, String> = emptyMap(),
+    ): HttpResponse<String> =
         client(followRedirects = false).send(
             HttpRequest.newBuilder(URI.create(url))
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .header("Accept", "application/json")
+                .apply { headers.forEach { (name, value) -> header(name, value) } }
                 .POST(HttpRequest.BodyPublishers.ofString(formEncode(form)))
                 .build(),
             HttpResponse.BodyHandlers.ofString(),
         )
+
+    /** The `Authorization: Basic` header value for authenticating a confidential client. */
+    protected fun basicAuth(clientId: String, secret: String): String =
+        "Basic " + Base64.getEncoder()
+            .encodeToString("$clientId:$secret".toByteArray(StandardCharsets.UTF_8))
+
+    /**
+     * Builds a DPoP proof JWT (RFC 9449) signed with a fresh ES256 key whose public JWK is embedded in
+     * the header. The defaults produce a *valid* proof for a `POST` to [htu]; override [htm] or [iat] to
+     * forge an invalid one (wrong HTTP method, stale timestamp) for negative tests.
+     */
+    protected fun dpopProof(
+        htu: String,
+        htm: String = "POST",
+        iat: Instant = Instant.now(),
+    ): String {
+        val ecKey = ECKeyGenerator(Curve.P_256).generate()
+        val header = JWSHeader.Builder(JWSAlgorithm.ES256)
+            .type(JOSEObjectType("dpop+jwt"))
+            .jwk(ecKey.toPublicJWK())
+            .build()
+        val claims = JWTClaimsSet.Builder()
+            .jwtID(UUID.randomUUID().toString())
+            .claim("htm", htm)
+            .claim("htu", htu)
+            .issueTime(Date.from(iat))
+            .build()
+        return SignedJWT(header, claims).apply { sign(ECDSASigner(ecKey)) }.serialize()
+    }
+
+    /** The request header map carrying a DPoP [proof]. */
+    protected fun dpopHeader(proof: String): Map<String, String> = mapOf("DPoP" to proof)
 
     private fun client(followRedirects: Boolean): HttpClient = HttpClient.newBuilder()
         .followRedirects(if (followRedirects) HttpClient.Redirect.NORMAL else HttpClient.Redirect.NEVER)
