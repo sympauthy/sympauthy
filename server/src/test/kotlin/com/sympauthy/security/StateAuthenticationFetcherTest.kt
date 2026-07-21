@@ -77,7 +77,7 @@ class StateAuthenticationFetcherTest {
         val request = mockk<HttpRequest<*>>()
         every { request.path } returns "/api/v1/flow/sign-in"
         every { request.method } returns HttpMethod.POST
-        every { request.headers.authorization } returns null
+        every { request.headers.authorization } returns Optional.empty()
 
         val result = fetcher.fetchAuthentication(request).asFlow().toList()
 

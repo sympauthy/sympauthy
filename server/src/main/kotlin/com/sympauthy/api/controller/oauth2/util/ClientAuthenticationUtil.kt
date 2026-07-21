@@ -47,7 +47,7 @@ class ClientAuthenticationUtil(
                 ?: throw oauth2ExceptionOf(INVALID_GRANT, "authentication.wrong", "description.authentication.wrong")
         }
         if (clientId != null) {
-            return clientManager.authenticateClientOrNull(clientId, clientSecret ?: "")
+            return clientManager.authenticateClientOrNull(clientId, clientSecret)
                 ?: throw oauth2ExceptionOf(INVALID_GRANT, "authentication.wrong", "description.authentication.wrong")
         }
         throw oauth2ExceptionOf(
