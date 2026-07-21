@@ -2,3 +2,4 @@
 rootProject.name = "sympauthy"
 
 include("server")
+include("integration-tests")

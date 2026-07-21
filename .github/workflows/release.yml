@@ -145,8 +145,18 @@ jobs:
       runner: ${{ matrix.runner }}
       platform: ${{ matrix.platform }}
 
-  publish_docker:
+  # Publication gate: publish_docker and publish_release depend on this job, so a failing integration
+  # run blocks the release (image, binaries and version bump). Reuses the linux-x64 binary built above.
+  integration_test:
+    name: Integration tests
     needs: [ read_version, build_binary ]
+    uses: ./.github/workflows/integration-test.yml
+    with:
+      ref: ${{ github.ref_name }}
+      binary-artifact: sympauthy-linux-x64
+
+  publish_docker:
+    needs: [ read_version, build_binary, integration_test ]
     strategy:
       fail-fast: false
       matrix:
@@ -191,7 +201,7 @@ jobs:
 
   publish_release:
     name: Publish GitHub release
-    needs: [ read_version, build_binary ]
+    needs: [ read_version, build_binary, integration_test ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

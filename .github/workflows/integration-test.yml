@@ -1,0 +1,115 @@
+# Integration tests — boots the SympAuthy native image (as a Docker container, via testcontainers-sympauthy)
+# and exercises it over real HTTP against H2 and PostgreSQL. See integration-tests/README.md.
+#
+# Reusable from release.yml / nightly-binaries.yml, where the Linux native binary already exists: pass
+# its artifact name via `binary-artifact` to skip a duplicate native build. Standalone (workflow_dispatch)
+# runs build the native image from source.
+
+name: Integration tests
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Git reference to check out (must match the commit the binary was built from).
+        type: string
+        required: false
+        default: main
+      binary-artifact:
+        description: >-
+          Name of a pre-built Linux native binary artifact from this run to reuse (e.g.
+          sympauthy-linux-x64). When empty, the native image is built from source in this job.
+        type: string
+        required: false
+        default: ''
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git reference to build and test.
+        type: string
+        default: main
+
+permissions:
+  contents: read
+  # Required to resolve the testcontainers-sympauthy dependency from GitHub Packages. The package and
+  # the sympauthy/sympauthy repo are in the same org; if resolution is denied, grant this repo read
+  # access to the package (or use a PAT with read:packages).
+  packages: read
+
+jobs:
+  integration-test:
+    name: Native image + H2/PostgreSQL
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Extract Java version from build script
+        id: java-version
+        shell: bash
+        run: |
+          VERSION=$(grep -E 'JavaVersion\.VERSION_[0-9]+' server/build.gradle.kts | grep -oE '[0-9]+$')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      # --- Reuse a pre-built native binary (release / nightly) ------------------------------------
+      - name: Download pre-built native binary
+        if: inputs.binary-artifact != ''
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.binary-artifact }}
+          path: .github/docker
+
+      - name: Stage downloaded binary for the Dockerfile
+        if: inputs.binary-artifact != ''
+        shell: bash
+        run: mv ".github/docker/${{ inputs.binary-artifact }}" .github/docker/sympauthy
+
+      - name: Setup JDK ${{ steps.java-version.outputs.version }}
+        if: inputs.binary-artifact != ''
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ steps.java-version.outputs.version }}
+          distribution: temurin
+
+      # --- Build the native image from source (standalone workflow_dispatch) ----------------------
+      - name: Create empty frontend resource dirs
+        if: inputs.binary-artifact == ''
+        shell: bash
+        # The flow driver hits SympAuthy's JSON API, not the bundled UI, so empty frontend bundles are fine.
+        run: mkdir -p server/src/main/resources/sympauthy-flow server/src/main/resources/sympauthy-admin
+
+      - name: Setup GraalVM for JDK ${{ steps.java-version.outputs.version }}
+        if: inputs.binary-artifact == ''
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: ${{ steps.java-version.outputs.version }}
+          distribution: graalvm
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build native image
+        if: inputs.binary-artifact == ''
+        shell: bash
+        run: |
+          ./gradlew :server:nativeCompile
+          cp server/build/native/nativeCompile/server .github/docker/sympauthy
+
+      # --- Package as a Docker image and run the suite against it ----------------------------------
+      - name: Build SympAuthy Docker image under test
+        shell: bash
+        run: docker build -t sympauthy:it -f .github/docker/Dockerfile .github/docker
+
+      - name: Run integration tests (H2 + PostgreSQL)
+        shell: bash
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./gradlew :integration-tests:integrationTest -Dsympauthy.image=sympauthy:it
+
+      - name: Upload test report on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: integration-test-report
+          path: integration-tests/build/reports/tests/integrationTest
+          if-no-files-found: ignore
