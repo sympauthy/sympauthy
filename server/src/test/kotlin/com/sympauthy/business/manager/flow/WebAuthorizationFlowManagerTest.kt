@@ -876,6 +876,41 @@ class WebAuthorizationFlowManagerTest {
         assertEquals("my-state-value", stateSlot.captured)
     }
 
+    @Test
+    fun `startAuthorizationWith - Passes nonce to newAuthorizeAttempt`() = runTest {
+        val client = mockk<Client> {
+            every { authorizationFlow } returns null
+            every { `public` } returns false
+            every { supportsGrantType(any()) } returns true
+        }
+        setupDefaultFlow()
+        setupValidClient(client)
+        val nonceSlot = slot<String?>()
+        coEvery {
+            authorizeAttemptManager.newAuthorizeAttempt(
+                client = any(),
+                clientState = any(),
+                clientNonce = captureNullable(nonceSlot),
+                authorizationFlow = any(),
+                scopes = any(),
+                redirectUri = any(),
+                codeChallenge = any(),
+                codeChallengeMethod = any(),
+                error = any()
+            )
+        } returns mockk()
+
+        manager.startAuthorizationWith(
+            uncheckedClientId = "client",
+            uncheckedClientState = null,
+            uncheckedClientNonce = "my-nonce-value",
+            uncheckedScopes = null,
+            uncheckedRedirectUri = "https://example.com/callback"
+        )
+
+        assertEquals("my-nonce-value", nonceSlot.captured)
+    }
+
     // --- parseRequestedRedirectUri tests ---
 
     @Test
