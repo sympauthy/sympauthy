@@ -34,8 +34,9 @@ configurations["integrationTestImplementation"].extendsFrom(configurations["test
 configurations["integrationTestRuntimeOnly"].extendsFrom(configurations["testRuntimeOnly"])
 
 dependencies {
+    // Micronaut Platform BOM governs testcontainers, nimbus-jose-jwt and slf4j so they match the server.
+    testImplementation(platform(libs.micronaut.platform))
     testImplementation(platform(libs.junit.bom))
-    testImplementation(platform(libs.testcontainers.bom))
 
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.testcontainers)
