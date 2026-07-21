@@ -13,6 +13,7 @@ import com.nimbusds.jose.util.JSONObjectUtils
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import com.nimbusds.jwt.proc.DefaultJWTProcessor
+import com.sympauthy.testcontainers.Client
 import com.sympauthy.testcontainers.SympauthyContainer
 import com.sympauthy.testcontainers.flow.InteractiveFlowRegistry
 import java.net.URI
@@ -39,25 +40,39 @@ abstract class AbstractSympauthyIT {
     protected val clientId: String = "test-app"
 
     /**
-     * Password auth with an email identifier, plus the public client the tests own — wired to the mock
-     * frontend's callback and flow id. Only the `flows.<id>` definition is contributed by `withFlows`.
+     * Password auth with an email identifier, plus the client the tests own — wired to the mock
+     * frontend's callback and flow id. The client is public or confidential according to
+     * [InteractiveFlowRegistry.client]; a confidential client also carries its secret and the
+     * `refresh_token` grant. Only the `flows.<id>` definition is contributed by `withFlows`.
      */
-    protected fun config(registry: InteractiveFlowRegistry): Map<String, Any> = mapOf(
-        "auth" to mapOf(
-            "by-password" to mapOf("enabled" to true),
-            "identifier-claims" to listOf("email"),
-        ),
-        "claims" to mapOf("email" to mapOf("enabled" to true)),
-        "clients" to mapOf(
-            registry.clientId() to mapOf(
+    protected fun config(registry: InteractiveFlowRegistry): Map<String, Any> {
+        val clientConfig = if (registry.client().isPublic) {
+            mapOf(
                 "public" to true,
                 "authorizationFlow" to registry.flowId(),
                 "allowed-grant-types" to listOf("authorization_code"),
                 "allowed-scopes" to listOf("openid"),
                 "allowed-redirect-uris" to listOf(registry.redirectUri()),
+            )
+        } else {
+            mapOf(
+                "public" to false,
+                "secret" to registry.clientSecret(),
+                "authorizationFlow" to registry.flowId(),
+                "allowed-grant-types" to listOf("authorization_code", "refresh_token"),
+                "allowed-scopes" to listOf("openid"),
+                "allowed-redirect-uris" to listOf(registry.redirectUri()),
+            )
+        }
+        return mapOf(
+            "auth" to mapOf(
+                "by-password" to mapOf("enabled" to true),
+                "identifier-claims" to listOf("email"),
             ),
-        ),
-    )
+            "claims" to mapOf("email" to mapOf("enabled" to true)),
+            "clients" to mapOf(registry.clientId() to clientConfig),
+        )
+    }
 
     /** A configured, not-yet-started container backed by [fixture] and wired to [registry]. */
     private fun newContainer(
@@ -92,15 +107,17 @@ abstract class AbstractSympauthyIT {
      * Starts a SympAuthy container backed by [database] with the mock flow frontend attached, runs
      * [block] against it, and always tears both down. Dumps the container logs to stderr on failure to
      * make CI diagnostics actionable. Pass [extraConfig] to deep-merge scenario-specific configuration
-     * (e.g. a second client) on top of the shared base [config].
+     * (e.g. a second client) on top of the shared base [config], and [client] to own the flow as a
+     * confidential client (default: a public client using PKCE).
      */
     protected fun withContainer(
         database: Database,
         extraConfig: Map<String, Any> = emptyMap(),
+        client: Client = Client.publicClient(clientId),
         block: (SympauthyContainer, InteractiveFlowRegistry) -> Unit,
     ) {
         database.createFixture().use { fixture ->
-            InteractiveFlowRegistry.forClient(clientId).withScopes("openid").use { registry ->
+            InteractiveFlowRegistry.forClient(client).withScopes("openid").use { registry ->
                 newContainer(fixture, registry, extraConfig).use { sympauthy ->
                     sympauthy.start()
                     try {
