@@ -20,7 +20,7 @@ mock-webserver = "5.4.0"
 # Integration tests (integration-tests module). testcontainers, nimbus-jose-jwt and slf4j are
 # intentionally unversioned: the module imports the Micronaut Platform BOM so those stay in sync with
 # the server. Only testcontainers-sympauthy (absent from the BOM) is pinned here.
-testcontainers-sympauthy = "0.1.0"
+testcontainers-sympauthy = "0.1.1"
 
 [libraries]
 # Platform BOM — the Micronaut Gradle plugin resolves the platform version from this "micronaut-platform" alias.

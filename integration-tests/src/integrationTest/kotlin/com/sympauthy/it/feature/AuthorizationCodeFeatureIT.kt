@@ -28,14 +28,12 @@ class AuthorizationCodeFeatureIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun signsUpAndExchangesCodeForSignedTokens(database: Database) {
         withContainer(database) { sympauthy, registry ->
-            val steps = mutableListOf<FlowStep.Type>()
             val flow = registry.newFlow()
                 .withSignUpHandler { mapOf("email" to "ada@example.com", "password" to "Str0ngP@ssw0rd!") }
-                .withStepListener { steps.add(it.type()) }
 
             val result = flow.run()
 
-            assertEquals(listOf(FlowStep.Type.SIGN_UP, FlowStep.Type.COMPLETED), steps)
+            assertEquals(listOf(FlowStep.Type.SIGN_UP, FlowStep.Type.COMPLETED), flow.stepTypes())
             assertNotNull(result.code(), "should receive an authorization code")
 
             val tokens = result.exchange()
