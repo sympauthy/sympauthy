@@ -16,12 +16,7 @@ data class ConfigurationResource(
         description = "List of claims collectable by the authorization server."
     )
     val claims: List<CollectableClaimConfigurationResource>,
-    val features: FeaturesResource,
-    val password: PasswordConfigurationResource?,
-    @get:Schema(
-        description = "List of configuration of third-party providers."
-    )
-    val providers: List<ProviderConfigurationResource>?
+    val features: FeaturesResource
 )
 
 @Schema(
@@ -84,11 +79,6 @@ Ex. first name & last name are related to the identity of the end-user.
 @Serdeable
 data class FeaturesResource(
     @get:Schema(
-        description = "Authentication of the end-user using a login and a password couple."
-    )
-    @get:JsonProperty("password_sign_in")
-    val passwordSignIn: Boolean,
-    @get:Schema(
         description = "End-user account creation."
     )
     @get:JsonProperty("sign_up")
@@ -103,44 +93,4 @@ data class FeaturesResource(
     )
     @get:JsonProperty("invitation_enabled")
     val invitationEnabled: Boolean = false,
-)
-
-@Schema(
-    description = "Configuration related to a third-party provider that can be used by the end-user to authenticate."
-)
-@Serdeable
-data class ProviderConfigurationResource(
-    @get:Schema(
-        description = "Identifier of the third-party provider."
-    )
-    @get:JsonProperty("id")
-    val id: String,
-    @get:Schema(
-        description = "Name of the third-party provider as it should be displayed to the end-user."
-    )
-    @get:JsonProperty("name")
-    val name: String,
-    @get:Schema(
-        name = "authorize_url",
-        description = """
-URL to redirect the end-user to to initiate a authorization grant flow with the third-party provider.
-        """
-    )
-    @get:JsonProperty("authorize_url")
-    val authorizeUrl: String
-)
-
-@Schema(
-    description = """
-If null or not present, the authentication by password is disabled by the authorization server.
-"""
-)
-@Serdeable
-data class PasswordConfigurationResource(
-    @get:Schema(
-        name = "identifier_claims",
-        description = "List of claims that uniquely identify a user. Used as login for sign-in and as required claims for sign-up."
-    )
-    @get:JsonProperty("identifier_claims")
-    val identifierClaims: List<String>,
 )
