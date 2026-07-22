@@ -231,5 +231,14 @@
         "parameterTypes": []
       }
     ]
+  },
+  {
+    "name": "com.sympauthy.business.mapper.ReAuthenticationAttemptMapperImpl",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
   }
 ]
