@@ -6,13 +6,16 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
+import com.sympauthy.business.manager.flow.reauth.ReAuthenticationCompletionDispatcher
 import com.sympauthy.business.manager.flow.reauth.WebAuthorizationFlowProviderAttachManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderClaimsResolver
 import com.sympauthy.business.manager.provider.ProviderManager
+import com.sympauthy.business.manager.reauth.ReAuthenticationManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
+import com.sympauthy.business.model.reauth.ReAuthenticationMethod
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
@@ -34,6 +37,7 @@ import com.sympauthy.config.model.*
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import org.slf4j.LoggerFactory
 import java.net.URI
 import java.util.*
 
@@ -52,12 +56,16 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
     @Inject private val providerConfigManager: ProviderManager,
     @Inject private val providerClaimsManager: ProviderClaimsManager,
     @Inject private val providerClaimsResolver: ProviderClaimsResolver,
+    @Inject private val reAuthenticationManager: ReAuthenticationManager,
+    @Inject private val reAuthenticationCompletionDispatcher: ReAuthenticationCompletionDispatcher,
     @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
     @Inject private val tokenEndpointClient: TokenEndpointClient,
     @Inject private val userManager: UserManager,
     @Inject private val uncheckedAuthConfig: AuthConfig,
     @Inject private val uncheckedUrlsConfig: UrlsConfig
 ) {
+
+    private val logger = LoggerFactory.getLogger(WebAuthorizationFlowOAuth2ProviderManager::class.java)
 
     fun getOAuth2(provider: EnabledProvider): ProviderOAuth2Config {
         if (provider.auth !is ProviderOAuth2Config) {
@@ -161,6 +169,13 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
         val expectedNonce = authorizeAttemptManager.buildProviderNonceOrNull(authorizeAttempt)
         val rawUserInfo = providerClaimsResolver.resolveClaims(provider, tokens, expectedNonce)
 
+        // If a re-authentication (interactive provider attach) is pending, this callback is the end-user proving
+        // ownership of the target account with an already-linked provider — not a normal sign-in.
+        if (authorizeAttempt.reauthenticationAttemptId != null) {
+            val updated = completeProviderReAuthentication(authorizeAttempt, provider, rawUserInfo)
+            return webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(updated)
+        }
+
         val existingUserInfo = providerClaimsManager.findByProviderAndSubject(
             provider = provider,
             subject = rawUserInfo.subject
@@ -177,6 +192,40 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
         return webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
             authorizeAttempt = updatedAuthorizeAttempt
         )
+    }
+
+    /**
+     * Complete a pending re-authentication (interactive provider attach) when the end-user re-authenticated through
+     * an already-linked provider. The resolved provider subject must map to the account being confirmed
+     * ([com.sympauthy.business.model.reauth.ReAuthenticationAttempt.targetUserId]).
+     *
+     * On success the ownership proof is recorded and handed off to the purpose handler (which promotes the pending
+     * provider identity). If the end-user re-authenticated with the wrong provider account — or the
+     * re-authentication has expired — the attach stays pending and the end-user is routed back to the sign-in page
+     * to try again.
+     */
+    @Transactional
+    internal open suspend fun completeProviderReAuthentication(
+        authorizeAttempt: OnGoingAuthorizeAttempt,
+        provider: EnabledProvider,
+        providerUserInfo: RawProviderClaims
+    ): AuthorizeAttempt {
+        val reAuthenticationId = authorizeAttempt.reauthenticationAttemptId ?: return authorizeAttempt
+        val reAuthentication = reAuthenticationManager.getPendingOrNull(reAuthenticationId)
+            ?: return authorizeAttempt
+
+        val existingUserInfo = providerClaimsManager.findByProviderAndSubject(provider, providerUserInfo.subject)
+        if (existingUserInfo == null || existingUserInfo.userId != reAuthentication.targetUserId) {
+            logger.warn(
+                "Provider re-authentication failed: provider={} subject resolved to userId={} but target was {} (attemptId={})",
+                provider.id, existingUserInfo?.userId, reAuthentication.targetUserId, authorizeAttempt.id
+            )
+            return authorizeAttempt
+        }
+
+        providerClaimsManager.refreshUserInfo(existingUserInfo, providerUserInfo)
+        val passed = reAuthenticationManager.markPassed(reAuthentication, ReAuthenticationMethod.PROVIDER)
+        return reAuthenticationCompletionDispatcher.complete(authorizeAttempt, passed)
     }
 
     /**

@@ -53,6 +53,7 @@ class AuthorizationFlowsConfigValidator(
         val mfaUri = parsed.mfaUri?.let { resolveUri(rootUri, it) }
         val mfaTotpEnrollUri = parsed.mfaTotpEnrollUri?.let { resolveUri(rootUri, it) }
         val mfaTotpChallengeUri = parsed.mfaTotpChallengeUri?.let { resolveUri(rootUri, it) }
+        val reauthUri = parsed.reauthUri?.let { resolveUri(rootUri, it) }
 
         // MFA cross-reference validation.
         val mfaConfig = uncheckedMfaConfig as? EnabledMfaConfig
@@ -88,7 +89,8 @@ class AuthorizationFlowsConfigValidator(
             errorUri = errorUri,
             mfaUri = mfaUri,
             mfaTotpEnrollUri = mfaTotpEnrollUri,
-            mfaTotpChallengeUri = mfaTotpChallengeUri
+            mfaTotpChallengeUri = mfaTotpChallengeUri,
+            reauthUri = reauthUri
         )
     }
 

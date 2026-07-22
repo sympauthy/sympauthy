@@ -26,6 +26,10 @@ class AuthorizationFlowConfigurationProperties(
     var mfaTotpEnroll: String? = null
     var mfaTotpChallenge: String? = null
 
+    // Property for the re-authentication dialog (optional; only required when provider attach is enabled on an
+    // audience). The page confirms an existing account and hosts the forced re-login before attaching a provider.
+    var reauth: String? = null
+
     companion object {
         const val AUTHORIZATION_FLOWS_KEY = "flows"
     }

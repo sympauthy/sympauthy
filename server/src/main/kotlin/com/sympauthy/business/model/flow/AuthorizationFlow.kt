@@ -75,6 +75,14 @@ class WebAuthorizationFlow(
      * Null if MFA via TOTP is not configured for this flow.
      */
     val mfaTotpChallengeUri: URI? = null,
+    /**
+     * [URI] of the re-authentication dialog page.
+     * The end-user is redirected here when they must prove ownership of an existing account before a step can
+     * proceed (e.g. to attach a third-party provider to it). The page reuses the sign-in endpoints for the actual
+     * re-login and calls GET /api/v1/flow/reauth for the dialog context.
+     * Null if provider attach is not configured for any audience using this flow.
+     */
+    val reauthUri: URI? = null,
 ) : AuthorizationFlow(
     id = id
 )

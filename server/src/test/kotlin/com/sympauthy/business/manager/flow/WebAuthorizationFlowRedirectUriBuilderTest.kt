@@ -64,6 +64,30 @@ class WebAuthorizationFlowRedirectUriBuilderTest {
     }
 
     @Test
+    fun `getRedirectUri - Redirect to re-authentication dialog when a re-authentication is pending`() = runTest {
+        val rawReauthUri = URI.create("https://www.example.com/reauth")
+        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
+        val flow = mockk<WebAuthorizationFlow> {
+            every { reauthUri } returns rawReauthUri
+        }
+        // pendingReAuthentication takes priority over missingUser.
+        val flowResult = WebAuthorizationFlowStatus(
+            pendingReAuthentication = true,
+            missingUser = true
+        )
+
+        coEvery { uriBuilder.appendStateToUri(authorizeAttempt, rawReauthUri) } returns rawReauthUri
+
+        val result = uriBuilder.getRedirectUri(
+            authorizeAttempt = authorizeAttempt,
+            flow = flow,
+            status = flowResult
+        )
+
+        assertEquals(rawReauthUri, result)
+    }
+
+    @Test
     fun `getRedirectUri - Redirect to code validation step of the authorization flow if a validation is required`() =
         runTest {
             val rawValidateCodeUri = URI.create("https://www.example.com/code")

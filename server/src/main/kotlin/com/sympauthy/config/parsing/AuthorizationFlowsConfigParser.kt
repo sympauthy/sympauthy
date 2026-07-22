@@ -19,7 +19,8 @@ data class ParsedAuthorizationFlow(
     val errorUri: URI?,
     val mfaUri: URI?,
     val mfaTotpEnrollUri: URI?,
-    val mfaTotpChallengeUri: URI?
+    val mfaTotpChallengeUri: URI?,
+    val reauthUri: URI?
 )
 
 @Singleton
@@ -100,6 +101,14 @@ class AuthorizationFlowsConfigParser(
                 )
             }
         }
+        val reauthUri = properties.reauth?.let {
+            ctx.parse {
+                parser.getUriOrThrow(
+                    properties, "$configKeyPrefix.reauth",
+                    AuthorizationFlowConfigurationProperties::reauth
+                )
+            }
+        }
         return ParsedAuthorizationFlow(
             id = properties.id,
             type = type,
@@ -111,7 +120,8 @@ class AuthorizationFlowsConfigParser(
             errorUri = errorUri,
             mfaUri = mfaUri,
             mfaTotpEnrollUri = mfaTotpEnrollUri,
-            mfaTotpChallengeUri = mfaTotpChallengeUri
+            mfaTotpChallengeUri = mfaTotpChallengeUri,
+            reauthUri = reauthUri
         )
     }
 }

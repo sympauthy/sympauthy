@@ -6,17 +6,25 @@ import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.flow.reauth.WebAuthorizationFlowProviderAttachManager
 import com.sympauthy.business.manager.invitation.InvitationManager
+import com.sympauthy.business.manager.flow.reauth.ReAuthenticationCompletionDispatcher
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderClaimsResolver
 import com.sympauthy.business.manager.provider.ProviderManager
+import com.sympauthy.business.manager.reauth.ReAuthenticationManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.provider.EnabledProvider
+import com.sympauthy.business.model.provider.ProviderUserInfo
 import com.sympauthy.business.model.provider.config.ProviderOAuth2Config
 import com.sympauthy.business.model.provider.config.ProviderUserInfoConfig
+import com.sympauthy.business.model.reauth.PassedReAuthenticationAttempt
+import com.sympauthy.business.model.reauth.PendingReAuthenticationAttempt
+import com.sympauthy.business.model.reauth.ReAuthenticationMethod
+import com.sympauthy.business.model.reauth.ReAuthenticationPurpose
 import com.sympauthy.business.model.user.RawProviderClaims
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
@@ -66,6 +74,12 @@ class WebAuthorizationFlowOAuth2ProviderManagerTest {
 
     @MockK
     lateinit var providerClaimsResolver: ProviderClaimsResolver
+
+    @MockK
+    lateinit var reAuthenticationManager: ReAuthenticationManager
+
+    @MockK
+    lateinit var reAuthenticationCompletionDispatcher: ReAuthenticationCompletionDispatcher
 
     @MockK
     lateinit var webAuthorizationFlowManager: WebAuthorizationFlowManager
@@ -267,5 +281,75 @@ class WebAuthorizationFlowOAuth2ProviderManagerTest {
 
         assertEquals("user.create_with_provider.missing_identifier_claim_config", exception.detailsId)
         assertEquals("email", exception.values["claim"])
+    }
+
+    // --- completeProviderReAuthentication ---
+
+    private fun pending(reAuthId: UUID, targetUserId: UUID) = PendingReAuthenticationAttempt(
+        id = reAuthId,
+        targetUserId = targetUserId,
+        purpose = ReAuthenticationPurpose.PROVIDER_ATTACH,
+        expirationDate = LocalDateTime.now().plusMinutes(30),
+        attemptDate = LocalDateTime.now()
+    )
+
+    @Test
+    fun `completeProviderReAuthentication - Completes attach when re-auth provider maps to the target account`() =
+        runTest {
+            val reAuthId = UUID.randomUUID()
+            val targetUserId = UUID.randomUUID()
+            val att = attempt().copy(reauthenticationAttemptId = reAuthId)
+            val provider = createProvider()
+            val providerUserInfo = RawProviderClaims(subject = "sub-linked", email = "user@example.com")
+            val reAuth = pending(reAuthId, targetUserId)
+            val existingUserInfo = mockk<ProviderUserInfo> { every { userId } returns targetUserId }
+            val passed = mockk<PassedReAuthenticationAttempt>()
+            val completed = mockk<AuthorizeAttempt>()
+
+            coEvery { reAuthenticationManager.getPendingOrNull(reAuthId) } returns reAuth
+            coEvery { providerClaimsManager.findByProviderAndSubject(provider, "sub-linked") } returns existingUserInfo
+            coJustRun { providerClaimsManager.refreshUserInfo(existingUserInfo, providerUserInfo) }
+            coEvery { reAuthenticationManager.markPassed(reAuth, ReAuthenticationMethod.PROVIDER) } returns passed
+            coEvery { reAuthenticationCompletionDispatcher.complete(att, passed) } returns completed
+
+            val result = manager.completeProviderReAuthentication(att, provider, providerUserInfo)
+
+            assertSame(completed, result)
+        }
+
+    @Test
+    fun `completeProviderReAuthentication - Stays pending when re-auth provider maps to a different account`() =
+        runTest {
+            val reAuthId = UUID.randomUUID()
+            val targetUserId = UUID.randomUUID()
+            val att = attempt().copy(reauthenticationAttemptId = reAuthId)
+            val provider = createProvider()
+            val providerUserInfo = RawProviderClaims(subject = "sub-other", email = "user@example.com")
+            val reAuth = pending(reAuthId, targetUserId)
+            val existingUserInfo = mockk<ProviderUserInfo> { every { userId } returns UUID.randomUUID() }
+
+            coEvery { reAuthenticationManager.getPendingOrNull(reAuthId) } returns reAuth
+            coEvery { providerClaimsManager.findByProviderAndSubject(provider, "sub-other") } returns existingUserInfo
+
+            val result = manager.completeProviderReAuthentication(att, provider, providerUserInfo)
+
+            assertSame(att, result)
+            coVerify(exactly = 0) { reAuthenticationCompletionDispatcher.complete(any(), any()) }
+            coVerify(exactly = 0) { reAuthenticationManager.markPassed(any(), any()) }
+        }
+
+    @Test
+    fun `completeProviderReAuthentication - Stays pending when the re-authentication has expired`() = runTest {
+        val reAuthId = UUID.randomUUID()
+        val att = attempt().copy(reauthenticationAttemptId = reAuthId)
+        val provider = createProvider()
+        val providerUserInfo = RawProviderClaims(subject = "sub-linked", email = "user@example.com")
+
+        coEvery { reAuthenticationManager.getPendingOrNull(reAuthId) } returns null
+
+        val result = manager.completeProviderReAuthentication(att, provider, providerUserInfo)
+
+        assertSame(att, result)
+        coVerify(exactly = 0) { reAuthenticationCompletionDispatcher.complete(any(), any()) }
     }
 }
