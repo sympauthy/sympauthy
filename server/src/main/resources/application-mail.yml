@@ -22,7 +22,6 @@ javamail:
   enabled: true
 
 auth:
-  user-merging-enabled: true
   identifier-claims:
     - email
   by-password:

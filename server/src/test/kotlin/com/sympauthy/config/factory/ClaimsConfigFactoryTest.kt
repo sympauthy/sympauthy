@@ -7,7 +7,6 @@ import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.model.*
 import com.sympauthy.config.parsing.ClaimAclParser
 import com.sympauthy.config.parsing.ClaimsConfigParser
-import com.sympauthy.config.properties.AuthConfigurationProperties
 import com.sympauthy.config.properties.ClaimConfigurationProperties
 import com.sympauthy.config.properties.ClaimTemplateConfigurationProperties.Companion.DEFAULT
 import com.sympauthy.config.validation.ClaimAclValidator
@@ -26,9 +25,6 @@ class ClaimsConfigFactoryTest {
 
     @SpyK
     var parser = ConfigParser()
-
-    @MockK
-    lateinit var authProperties: AuthConfigurationProperties
 
     lateinit var factory: ClaimsConfigFactory
 
@@ -56,9 +52,6 @@ class ClaimsConfigFactoryTest {
 
     @BeforeEach
     fun setUp() {
-        every { authProperties.userMergingEnabled } returns null
-        every { authProperties.identifierClaims } returns null
-
         val claimAclParser = ClaimAclParser(parser)
         val claimAclValidator = ClaimAclValidator(EnabledScopesConfig(emptyList()))
 
@@ -70,7 +63,6 @@ class ClaimsConfigFactoryTest {
         factory = ClaimsConfigFactory(
             ClaimsConfigParser(parser, claimAclParser),
             ClaimsConfigValidator(claimAclValidator),
-            authProperties,
             claimTemplatesConfig,
             EnabledAudiencesConfig(emptyList())
         )
@@ -272,7 +264,6 @@ class ClaimsConfigFactoryTest {
         val writableFactory = ClaimsConfigFactory(
             ClaimsConfigParser(parser, claimAclParser),
             ClaimsConfigValidator(claimAclValidator),
-            authProperties,
             EnabledClaimTemplatesConfig(mapOf(DEFAULT to writableTemplate)),
             EnabledAudiencesConfig(emptyList())
         )

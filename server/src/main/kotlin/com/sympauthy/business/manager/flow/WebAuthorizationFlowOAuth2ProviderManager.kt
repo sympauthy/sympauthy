@@ -116,8 +116,9 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
      * This method will perform the following actions:
      * - retrieve the access token from the [Provider] to check if the user is authenticated.
      * - retrieve end-user claims from the [Provider] and store them in this authorization server database.
-     * - sign in the user if it already exists, according to the user-merging strategy.
-     * - otherwise, sign up the user with the claims retrieved from the [Provider].
+     * - sign in the user if the provider subject is already known.
+     * - otherwise, sign up the user with the claims retrieved from the [Provider], rejecting the sign-in if the
+     *   identifier claims already match an existing account.
      */
     suspend fun signInOrSignUpUsingProvider(
         authorizeAttempt: OnGoingAuthorizeAttempt,
@@ -164,7 +165,7 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
 
         val userId = if (existingUserInfo == null) {
             webAuthorizationFlowManager.checkSignUpAllowed(authorizeAttempt, recoverable = false)
-            val result = createOrAssociateUserWithProviderUserInfo(provider, rawUserInfo)
+            val result = createUserWithProviderUserInfo(provider, rawUserInfo)
             invitationManager.applyInvitationClaimsAndConsume(authorizeAttempt.invitationId, result.user.id)
             result.user.id
         } else {
@@ -179,72 +180,27 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
     }
 
     /**
-     * Create a new [com.sympauthy.business.model.user.User] or associate to an existing [com.sympauthy.business.model.user.User].
-     * Then update the provider user info with the newly collected [providerUserInfo].
+     * Create a new [com.sympauthy.business.model.user.User] with the provider user info and its identifier claims.
      *
-     * Depending on ```auth.user-merging-enabled```, we may instead associate the [providerUserInfo] to
-     * an existing user based on the configured identifier claims.
+     * If a user already exists with matching values for all configured identifier claims, the provider identity is
+     * NOT silently merged into it (that was an account-takeover vector). Instead an error is thrown so the end-user
+     * must sign in with their existing account.
+     *
+     * The identifier claim values are collected and copied as first-party data so this information is stable and
+     * not affected by later changes from the third party.
      */
     @Transactional
-    open suspend fun createOrAssociateUserWithProviderUserInfo(
+    open suspend fun createUserWithProviderUserInfo(
         provider: EnabledProvider,
         providerUserInfo: RawProviderClaims
     ): CreateOrAssociateResult {
         val authConfig = uncheckedAuthConfig.orThrow()
         val identifierClaims = resolveIdentifierClaims(authConfig, provider, providerUserInfo)
-        return if (authConfig.userMergingEnabled) {
-            createOrAssociateUserByIdentifierClaimsWithProviderUserInfo(identifierClaims, provider, providerUserInfo)
-        } else {
-            createUserWithProviderUserInfo(identifierClaims, provider, providerUserInfo)
-        }
-    }
-
-    /**
-     * Create a new [com.sympauthy.business.model.user.User] or associate it to an existing user
-     * that has matching values for all configured identifier claims.
-     *
-     * The identifier claim values are collected and copied as first-party data. We want this information
-     * to be stable and not be affected by changes from the third party in the future.
-     * Otherwise, an update from a provider may break our uniqueness and cause uncontrolled side effects.
-     */
-    @Transactional
-    internal open suspend fun createOrAssociateUserByIdentifierClaimsWithProviderUserInfo(
-        identifierClaims: Map<String, Pair<Claim, String>>,
-        provider: EnabledProvider,
-        providerUserInfo: RawProviderClaims
-    ): CreateOrAssociateResult {
-        val identifierMap = identifierClaims.map { (claimId, pair) -> claimId to pair.second }.toMap()
-        val existingUser = userManager.findByIdentifierClaims(identifierMap)
-
-        val user = existingUser ?: userManager.createUser().also { newUser ->
-            saveIdentifierClaims(newUser, identifierClaims)
-        }
-
-        providerClaimsManager.saveUserInfo(
-            provider = provider,
-            userId = user.id,
-            rawProviderClaims = providerUserInfo
-        )
-        return CreateOrAssociateResult(
-            created = existingUser == null,
-            user = user
-        )
-    }
-
-    /**
-     * Create a new [com.sympauthy.business.model.user.User] with the provider user info.
-     * Without user merging, if a user already exists with the same identifier claims, throw an error
-     * as the user must sign in with their existing account.
-     */
-    @Transactional
-    internal open suspend fun createUserWithProviderUserInfo(
-        identifierClaims: Map<String, Pair<Claim, String>>,
-        provider: EnabledProvider,
-        providerUserInfo: RawProviderClaims
-    ): CreateOrAssociateResult {
         val identifierMap = identifierClaims.map { (claimId, pair) -> claimId to pair.second }.toMap()
         val existingUser = userManager.findByIdentifierClaims(identifierMap)
         if (existingUser != null) {
+            // TODO(#266 Phase 3): when the initiating client's audience has provider-attach-enabled, start the
+            //  interactive attach + forced re-login flow here instead of rejecting.
             throw businessExceptionOf("user.create_with_provider.existing_user")
         }
 

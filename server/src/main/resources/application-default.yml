@@ -36,7 +36,6 @@ audiences:
 auth:
   authorization-code:
     expiration: 30m
-  user-merging-enabled: false
   token:
     access-expiration: 1h
     refresh-enabled: true

@@ -20,31 +20,11 @@ class ClaimsConfigValidator(
         ctx: ConfigParsingContext,
         parsed: List<ParsedClaim>,
         templates: Map<String, ClaimTemplate>,
-        audiencesById: Map<String, Audience>,
-        identifierClaims: List<String>?,
-        userMergingEnabled: Boolean?
+        audiencesById: Map<String, Audience>
     ): List<Claim> {
-        val claims = parsed.mapNotNull { parsedClaim ->
+        return parsed.mapNotNull { parsedClaim ->
             validateClaim(ctx, parsedClaim, audiencesById)
         }
-
-        // Validate identifier claims are enabled.
-        if (userMergingEnabled == true) {
-            val enabledClaimIds = claims.filter { it.enabled }.map { it.id }.toSet()
-            identifierClaims?.forEach { identifierClaimId ->
-                if (identifierClaimId !in enabledClaimIds) {
-                    ctx.addError(
-                        configExceptionOf(
-                            "$CLAIMS_KEY.$identifierClaimId",
-                            "config.auth.identifier_claim.disabled",
-                            "claim" to identifierClaimId
-                        )
-                    )
-                }
-            }
-        }
-
-        return claims
     }
 
     private fun validateClaim(

@@ -1,19 +1,15 @@
 package com.sympauthy.config.validation
 
-import com.sympauthy.business.model.provider.ProviderUserInfoPathKey.EMAIL
 import com.sympauthy.business.model.provider.ProviderUserInfoPathKey.SUB
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.*
 import com.sympauthy.config.parsing.ParsedProviderConfig
 import com.sympauthy.config.properties.ProviderConfigurationProperties.Companion.PROVIDERS_KEY
-import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
 @Singleton
-class ProvidersConfigValidator(
-    @Inject private val uncheckedAuthConfig: AuthConfig
-) {
+class ProvidersConfigValidator {
 
     fun validate(
         ctx: ConfigParsingContext,
@@ -72,12 +68,6 @@ class ProvidersConfigValidator(
                 if (parsed.userInfoPaths[SUB] == null) {
                     subCtx.addError(
                         configExceptionOf("$keyPrefix.user-info.paths", "config.provider.user_info.missing_subject_key")
-                    )
-                }
-                val authConfig = uncheckedAuthConfig as? EnabledAuthConfig
-                if (authConfig?.userMergingEnabled == true && parsed.userInfoPaths[EMAIL] == null) {
-                    subCtx.addError(
-                        configExceptionOf("$keyPrefix.user-info.paths", "config.provider.user_info.missing_email_key")
                     )
                 }
                 if (subCtx.hasErrors) null

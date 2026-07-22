@@ -60,7 +60,6 @@ class AuthConfigValidator {
                 expiration = parsed.authorizationCodeExpiration!!
             ),
             identifierClaims = parsed.identifierClaims,
-            userMergingEnabled = parsed.userMergingEnabled!!,
             byPassword = ByPasswordConfig(
                 enabled = parsed.byPasswordEnabled!!
             )

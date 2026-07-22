@@ -11,7 +11,8 @@ data class ParsedAudience(
     val id: String?,
     val tokenAudience: String?,
     val signUpEnabled: Boolean?,
-    val invitationEnabled: Boolean?
+    val invitationEnabled: Boolean?,
+    val providerAttachEnabled: Boolean?
 )
 
 @Singleton
@@ -64,12 +65,20 @@ class AudiencesConfigParser(
                 AudienceConfigurationProperties::invitationEnabled
             )
         }
+        val providerAttachEnabled = subCtx.parse {
+            parser.getBoolean(
+                properties,
+                "$AUDIENCES_KEY.${properties.id}.provider-attach-enabled",
+                AudienceConfigurationProperties::providerAttachEnabled
+            )
+        }
         ctx.merge(subCtx)
         return ParsedAudience(
             id = id,
             tokenAudience = tokenAudience,
             signUpEnabled = signUpEnabled,
-            invitationEnabled = invitationEnabled
+            invitationEnabled = invitationEnabled,
+            providerAttachEnabled = providerAttachEnabled
         )
     }
 }

@@ -83,7 +83,6 @@ class TokenControllerTest {
             expiration = java.time.Duration.ofMinutes(30)
         ),
         identifierClaims = emptyList(),
-        userMergingEnabled = false,
         byPassword = ByPasswordConfig(enabled = false)
     )
 

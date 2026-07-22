@@ -37,7 +37,8 @@ class AudiencesConfigValidator {
             id = id,
             tokenAudience = tokenAudience ?: id,
             signUpEnabled = signUpEnabled ?: true,
-            invitationEnabled = invitationEnabled ?: false
+            invitationEnabled = invitationEnabled ?: false,
+            providerAttachEnabled = providerAttachEnabled ?: false
         )
     }
 }

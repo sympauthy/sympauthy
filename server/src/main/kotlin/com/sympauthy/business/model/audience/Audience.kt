@@ -25,5 +25,13 @@ data class Audience(
      * Whether invitation-based registration is enabled for this audience.
      * When true, invitations can be created and used to register.
      */
-    val invitationEnabled: Boolean = false
+    val invitationEnabled: Boolean = false,
+    /**
+     * Whether interactive provider attachment is enabled for this audience.
+     *
+     * When true, a provider sign-in whose subject is unknown but whose identifier claims match an existing
+     * account triggers the interactive attach flow (confirm + forced re-login) instead of being rejected.
+     * When false, such a collision is rejected and the end-user must sign in with their existing account.
+     */
+    val providerAttachEnabled: Boolean = false
 )

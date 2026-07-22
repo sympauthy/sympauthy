@@ -184,7 +184,6 @@ class AdminUserClaimControllerTest {
             token = mockk(),
             authorizationCode = mockk(),
             identifierClaims = identifierOpenIdClaims,
-            userMergingEnabled = false,
             byPassword = mockk()
         )
         return AdminUserClaimController(

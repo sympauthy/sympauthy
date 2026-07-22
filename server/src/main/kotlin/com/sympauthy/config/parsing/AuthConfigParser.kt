@@ -22,7 +22,6 @@ data class ParsedAuthConfig(
     val dpopRequired: Boolean?,
     val authorizationCodeExpiration: Duration?,
     val identifierClaims: List<String>,
-    val userMergingEnabled: Boolean?,
     val byPasswordEnabled: Boolean?
 )
 
@@ -91,13 +90,6 @@ class AuthConfigParser(
             }
             ?: emptyList()
 
-        val userMergingEnabled = ctx.parse {
-            parser.getBooleanOrThrow(
-                properties, "$AUTH_KEY.user-merging-enabled",
-                AuthConfigurationProperties::userMergingEnabled
-            )
-        }
-
         val byPasswordEnabled = ctx.parse {
             byPasswordProperties?.let {
                 parser.getBoolean(it, "$BY_PASSWORD_KEY.enabled", ByPasswordConfigurationProperties::enabled)
@@ -113,7 +105,6 @@ class AuthConfigParser(
             dpopRequired = dpopRequired,
             authorizationCodeExpiration = authorizationCodeExpiration,
             identifierClaims = identifierClaims,
-            userMergingEnabled = userMergingEnabled,
             byPasswordEnabled = byPasswordEnabled
         )
     }
