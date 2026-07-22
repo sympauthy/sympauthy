@@ -40,6 +40,7 @@ abstract class AuthorizeAttemptMapper {
             invitationId = entity.invitationId,
             providerId = entity.providerId,
             providerNonceJsonWebTokenId = entity.providerNonceJsonWebTokenId,
+            reauthenticationAttemptId = entity.reauthenticationAttemptId,
             userId = entity.userId,
             consentedScopes = entity.consentedScopes?.toList(),
             consentedAt = entity.consentedAt,

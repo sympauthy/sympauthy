@@ -16,6 +16,11 @@ import java.util.*
  * This manager does not handle how claims are resolved from providers — that responsibility
  * belongs to [ProviderClaimsResolver]. This separation mirrors how [com.sympauthy.business.manager.auth.AuthorizeAttemptManager]
  * manages the lifecycle of authorize attempts without handling the authorization flow logic.
+ *
+ * A provider identity may be **provisional**: stored while scoped to an in-progress authorization attempt (pending
+ * an interactive attach + forced re-login). Provisional rows are invisible to the confirmed lookups below; they are
+ * either promoted ([confirmProvisionalUserInfo]) once ownership of the account is proven, or discarded
+ * ([deleteProvisionalByAttempt]).
  */
 @Singleton
 class ProviderClaimsManager(
@@ -27,19 +32,19 @@ class ProviderClaimsManager(
         provider: EnabledProvider,
         subject: String
     ): ProviderUserInfo? {
-        return userInfoRepository.findByProviderIdAndSubject(
+        return userInfoRepository.findByProviderIdAndSubjectAndAuthorizeAttemptIdIsNull(
             providerId = provider.id,
             subject = subject
         )?.let(userInfoMapper::toProviderUserInfo)
     }
 
     suspend fun findByUserId(userId: UUID): List<ProviderUserInfo> {
-        return userInfoRepository.findByUserId(userId)
+        return userInfoRepository.findByUserIdAndAuthorizeAttemptIdIsNull(userId)
             .map(userInfoMapper::toProviderUserInfo)
     }
 
     suspend fun findByUserIdAndProviderIdOrNull(userId: UUID, providerId: String): ProviderUserInfo? {
-        return userInfoRepository.findByProviderIdAndUserId(providerId, userId)
+        return userInfoRepository.findByProviderIdAndUserIdAndAuthorizeAttemptIdIsNull(providerId, userId)
             ?.let(userInfoMapper::toProviderUserInfo)
     }
 
@@ -58,10 +63,59 @@ class ProviderClaimsManager(
             userId = userId,
             userInfo = rawProviderClaims,
             fetchDate = now,
-            changeDate = now
+            changeDate = now,
+            authorizeAttemptId = null
         )
         userInfoRepository.save(entity)
         return userInfoMapper.toProviderUserInfo(entity)
+    }
+
+    /**
+     * Persist a **provisional** provider identity scoped to [authorizeAttemptId]. The row is stored under
+     * [targetUserId] but stays invisible to the confirmed lookups until it is promoted by
+     * [confirmProvisionalUserInfo].
+     */
+    suspend fun saveProvisionalUserInfo(
+        provider: EnabledProvider,
+        targetUserId: UUID,
+        rawProviderClaims: RawProviderClaims,
+        authorizeAttemptId: UUID
+    ): ProviderUserInfo {
+        val now = LocalDateTime.now()
+        val entity = userInfoMapper.toEntity(
+            providerId = provider.id,
+            userId = targetUserId,
+            userInfo = rawProviderClaims,
+            fetchDate = now,
+            changeDate = now,
+            authorizeAttemptId = authorizeAttemptId
+        )
+        userInfoRepository.save(entity)
+        return userInfoMapper.toProviderUserInfo(entity)
+    }
+
+    /**
+     * Return the provisional provider identity scoped to [authorizeAttemptId], or null if there is none.
+     */
+    suspend fun findProvisionalByAttempt(authorizeAttemptId: UUID): ProviderUserInfo? {
+        return userInfoRepository.findByAuthorizeAttemptId(authorizeAttemptId)
+            ?.let(userInfoMapper::toProviderUserInfo)
+    }
+
+    /**
+     * Promote the provisional provider identity scoped to [authorizeAttemptId] into a permanent provider identity
+     * by clearing its scope. Does nothing if there is no provisional row for the attempt.
+     */
+    suspend fun confirmProvisionalUserInfo(authorizeAttemptId: UUID) {
+        val entity = userInfoRepository.findByAuthorizeAttemptId(authorizeAttemptId) ?: return
+        userInfoRepository.update(entity.copy(authorizeAttemptId = null))
+    }
+
+    /**
+     * Discard the provisional provider identity scoped to [authorizeAttemptId].
+     */
+    suspend fun deleteProvisionalByAttempt(authorizeAttemptId: UUID): Int {
+        return userInfoRepository.deleteByAuthorizeAttemptId(authorizeAttemptId)
     }
 
     /**
@@ -79,7 +133,8 @@ class ProviderClaimsManager(
             userId = existingUserInfo.userId,
             userInfo = if (changed) newUserInfo else existingUserInfo.userInfo,
             fetchDate = now,
-            changeDate = if (changed) now else existingUserInfo.changeDate
+            changeDate = if (changed) now else existingUserInfo.changeDate,
+            authorizeAttemptId = null
         )
         userInfoRepository.update(entity)
     }

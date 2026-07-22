@@ -94,6 +94,15 @@ class OnGoingAuthorizeAttempt(
      */
     val providerNonceJsonWebTokenId: UUID? = null,
 
+    // Re-authentication (forced re-login / step-up)
+    /**
+     * Identifier of the in-progress [com.sympauthy.business.model.reauth.ReAuthenticationAttempt] the end-user must
+     * complete before this attempt can proceed (e.g. an interactive provider attach). Null when no re-authentication
+     * is pending. While set (and [userId] is null) the flow routes the end-user to the sign-in page to prove
+     * ownership of the target account.
+     */
+    val reauthenticationAttemptId: UUID? = null,
+
     // User identification
     /**
      * The identifier of the user that was connected at the end of the authentication process.
@@ -146,6 +155,7 @@ class OnGoingAuthorizeAttempt(
 
     fun copy(
         userId: UUID? = null,
+        reauthenticationAttemptId: UUID? = this.reauthenticationAttemptId,
         consentedScopes: List<String>? = null,
         consentedAt: LocalDateTime? = null,
         consentedBy: ConsentedBy? = null,
@@ -168,6 +178,7 @@ class OnGoingAuthorizeAttempt(
         invitationId = this.invitationId,
         providerId = this.providerId,
         providerNonceJsonWebTokenId = this.providerNonceJsonWebTokenId,
+        reauthenticationAttemptId = reauthenticationAttemptId,
         userId = userId ?: this.userId,
         consentedScopes = consentedScopes ?: this.consentedScopes,
         consentedAt = consentedAt ?: this.consentedAt,

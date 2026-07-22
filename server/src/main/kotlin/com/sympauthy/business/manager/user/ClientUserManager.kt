@@ -40,7 +40,7 @@ class ClientUserManager(
         val consentByUserId = consents.associateBy { it.userId }
 
         // Load providers for all users
-        val providersByUserId = providerUserInfoRepository.findByUserIdInList(userIds)
+        val providersByUserId = providerUserInfoRepository.findByUserIdInListAndAuthorizeAttemptIdIsNull(userIds)
             .groupBy { it.id.userId }
 
         // Filter by provider_id and subject if specified
@@ -94,7 +94,7 @@ class ClientUserManager(
         val consent = consentManager.findActiveConsentByAudienceOrNull(userId, audienceId) ?: return null
         val user = userManager.findByIdOrNull(userId) ?: return null
         val identifierClaims = collectedClaimManager.findIdentifierByUserId(userId)
-        val providers = providerUserInfoRepository.findByUserId(userId)
+        val providers = providerUserInfoRepository.findByUserIdAndAuthorizeAttemptIdIsNull(userId)
 
         return ClientUser(
             user = user,

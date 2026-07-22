@@ -80,7 +80,7 @@ class ClientUserManagerTest {
         val consent = mockConsent(userId)
 
         coEvery { consentManager.findActiveConsentsByAudience(audienceId) } returns listOf(consent)
-        coEvery { providerUserInfoRepository.findByUserIdInList(listOf(userId)) } returns emptyList()
+        coEvery { providerUserInfoRepository.findByUserIdInListAndAuthorizeAttemptIdIsNull(listOf(userId)) } returns emptyList()
         coEvery { userManager.findByIdOrNull(userId) } returns user
         coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns emptyList()
 
@@ -102,7 +102,7 @@ class ClientUserManagerTest {
         val provider = mockProviderEntity(userId1, "discord", "123")
 
         coEvery { consentManager.findActiveConsentsByAudience(audienceId) } returns listOf(consent1, consent2)
-        coEvery { providerUserInfoRepository.findByUserIdInList(listOf(userId1, userId2)) } returns listOf(provider)
+        coEvery { providerUserInfoRepository.findByUserIdInListAndAuthorizeAttemptIdIsNull(listOf(userId1, userId2)) } returns listOf(provider)
         coEvery { userManager.findByIdOrNull(userId1) } returns user1
         coEvery { collectedClaimManager.findIdentifierByUserId(userId1) } returns emptyList()
 
@@ -124,7 +124,7 @@ class ClientUserManagerTest {
         val provider2 = mockProviderEntity(userId2, "discord", "456")
 
         coEvery { consentManager.findActiveConsentsByAudience(audienceId) } returns listOf(consent1, consent2)
-        coEvery { providerUserInfoRepository.findByUserIdInList(listOf(userId1, userId2)) } returns listOf(
+        coEvery { providerUserInfoRepository.findByUserIdInListAndAuthorizeAttemptIdIsNull(listOf(userId1, userId2)) } returns listOf(
             provider1,
             provider2
         )
@@ -144,7 +144,7 @@ class ClientUserManagerTest {
         val consents = userIds.map { mockConsent(it) }
 
         coEvery { consentManager.findActiveConsentsByAudience(audienceId) } returns consents
-        coEvery { providerUserInfoRepository.findByUserIdInList(userIds) } returns emptyList()
+        coEvery { providerUserInfoRepository.findByUserIdInListAndAuthorizeAttemptIdIsNull(userIds) } returns emptyList()
 
         // Only mock the users on page 1 (indices 2, 3)
         userIds.forEachIndexed { index, id ->
@@ -169,7 +169,7 @@ class ClientUserManagerTest {
         coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, audienceId) } returns consent
         coEvery { userManager.findByIdOrNull(userId) } returns user
         coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns emptyList()
-        coEvery { providerUserInfoRepository.findByUserId(userId) } returns emptyList()
+        coEvery { providerUserInfoRepository.findByUserIdAndAuthorizeAttemptIdIsNull(userId) } returns emptyList()
 
         val result = manager.findUserForAudienceOrNull(audienceId, userId)
 

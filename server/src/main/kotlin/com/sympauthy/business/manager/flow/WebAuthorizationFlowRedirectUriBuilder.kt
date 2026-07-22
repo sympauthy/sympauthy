@@ -53,6 +53,14 @@ class WebAuthorizationFlowRedirectUriBuilder(
         is FailedAuthorizeAttempt -> getErrorUri(authorizeAttempt, flow)
         is OnGoingAuthorizeAttempt -> {
             when {
+                // A pending re-authentication (e.g. interactive provider attach) reuses the existing sign-in page:
+                // the end-user must prove ownership of the target account. Checked before missingUser so a
+                // collision is not routed to sign-up.
+                status.pendingReAuthentication -> appendStateToUri(
+                    authorizeAttempt = authorizeAttempt,
+                    uri = flow.signInUri
+                )
+
                 status.missingUser -> appendStateToUri(
                     authorizeAttempt = authorizeAttempt,
                     uri = if (authorizeAttempt.invitationId != null && flow.signUpUri != null) {

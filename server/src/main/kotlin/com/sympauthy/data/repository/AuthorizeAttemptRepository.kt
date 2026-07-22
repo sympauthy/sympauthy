@@ -36,6 +36,8 @@ interface AuthorizeAttemptRepository : CoroutineCrudRepository<AuthorizeAttemptE
 
     suspend fun updateUserId(@Id id: UUID, userId: UUID)
 
+    suspend fun updateReauthenticationAttemptId(@Id id: UUID, reauthenticationAttemptId: UUID?)
+
     suspend fun updateGrantedScopes(
         @Id id: UUID,
         grantedScopes: List<String>?,

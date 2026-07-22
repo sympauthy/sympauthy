@@ -38,8 +38,14 @@ CREATE TABLE provider_user_info
 
     updated_at            timestamp,
 
+    -- When set, this row is a provisional provider identity scoped to an in-progress authorization attempt
+    -- (pending an interactive attach + forced re-login). It is invisible to normal sign-in lookups until the
+    -- scope is cleared (promoted) once ownership of the account has been proven.
+    authorize_attempt_id  uuid,
+
     PRIMARY KEY (provider_id, user_id),
     FOREIGN KEY (user_id) REFERENCES users (id)
 );
 
 CREATE INDEX provider_user_info__user_id ON provider_user_info (user_id);
+CREATE INDEX provider_user_info__authorize_attempt_id ON provider_user_info (authorize_attempt_id);

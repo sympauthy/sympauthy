@@ -33,6 +33,9 @@ class AuthorizeAttemptEntity(
     val providerId: String? = null,
     val providerNonceJsonWebTokenId: UUID? = null,
 
+    // Re-authentication (forced re-login / step-up), e.g. an in-progress interactive provider attach.
+    val reauthenticationAttemptId: UUID? = null,
+
     // User identification
     val userId: UUID? = null,
 

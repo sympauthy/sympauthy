@@ -24,6 +24,12 @@ data class WebAuthorizationFlowStatus(
      */
     val missingUser: Boolean = false,
     /**
+     * True if the end-user must complete a re-authentication (forced re-login) before the flow can proceed, e.g.
+     * to prove ownership of an existing account before a provider is attached to it. Takes priority over
+     * [missingUser]: the end-user is routed to the sign-in page to re-authenticate as the target account.
+     */
+    val pendingReAuthentication: Boolean = false,
+    /**
      * True if we are missing some required claims from the end-user, and they must be collected by the client.
      */
     val missingRequiredClaims: Boolean = false,
@@ -41,6 +47,7 @@ data class WebAuthorizationFlowStatus(
      * True if the authorization is complete and the user can be redirected to the client.
      */
     val complete: Boolean = listOf(
+        pendingReAuthentication,
         missingUser,
         missingRequiredClaims,
         missingMediaForClaimValidation.isNotEmpty(),

@@ -4,10 +4,13 @@ import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
+import com.sympauthy.business.manager.flow.reauth.ReAuthenticationCompletionDispatcher
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.password.PasswordManager
+import com.sympauthy.business.manager.reauth.ReAuthenticationManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
+import com.sympauthy.business.model.reauth.ReAuthenticationMethod
 import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
@@ -43,6 +46,8 @@ open class WebAuthorizationFlowPasswordManager(
     @Inject private val collectedClaimRepository: CollectedClaimRepository,
     @Inject private val invitationManager: InvitationManager,
     @Inject private val passwordManager: PasswordManager,
+    @Inject private val reAuthenticationManager: ReAuthenticationManager,
+    @Inject private val reAuthenticationCompletionDispatcher: ReAuthenticationCompletionDispatcher,
     @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
     @Inject private val userManager: UserManager,
     @Inject private val userRepository: UserRepository,
@@ -115,6 +120,25 @@ open class WebAuthorizationFlowPasswordManager(
                 detailsId = "flow.password.sign_in.invalid",
                 descriptionId = "description.flow.password.sign_in.invalid"
             )
+        }
+
+        // If a re-authentication (forced re-login) is pending for this attempt, the password proves ownership of a
+        // specific target account. Bind the proof to that account and hand off to the purpose handler instead of
+        // signing in as whoever matched the login.
+        authorizeAttempt.reauthenticationAttemptId?.let { reAuthenticationId ->
+            val reAuthentication = reAuthenticationManager.getPendingOrNull(reAuthenticationId)
+                ?: throw recoverableBusinessExceptionOf(
+                    detailsId = "flow.reauth.expired",
+                    descriptionId = "description.flow.reauth.expired"
+                )
+            if (user.id != reAuthentication.targetUserId) {
+                throw recoverableBusinessExceptionOf(
+                    detailsId = "flow.reauth.wrong_account",
+                    descriptionId = "description.flow.reauth.wrong_account"
+                )
+            }
+            val passed = reAuthenticationManager.markPassed(reAuthentication, ReAuthenticationMethod.PASSWORD)
+            return reAuthenticationCompletionDispatcher.complete(authorizeAttempt, passed)
         }
 
         // Update the authorize attempt with the id of the user so they can retrieve their access token.

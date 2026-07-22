@@ -35,7 +35,8 @@ interface ProviderUserInfoMapper {
         userId: UUID,
         userInfo: RawProviderClaims,
         fetchDate: LocalDateTime,
-        changeDate: LocalDateTime
+        changeDate: LocalDateTime,
+        authorizeAttemptId: UUID?
     ): ProviderUserInfoEntity
 
     fun toEntityId(

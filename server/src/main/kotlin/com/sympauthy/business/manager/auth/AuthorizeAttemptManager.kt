@@ -209,6 +209,36 @@ class AuthorizeAttemptManager(
     }
 
     /**
+     * Associate an in-progress [com.sympauthy.business.model.reauth.ReAuthenticationAttempt] with the
+     * [authorizeAttempt]. While set (and the attempt has no user yet), the flow routes the end-user to the sign-in
+     * page to prove ownership of the target account.
+     */
+    suspend fun setReAuthenticationAttempt(
+        authorizeAttempt: OnGoingAuthorizeAttempt,
+        reauthenticationAttemptId: UUID
+    ): OnGoingAuthorizeAttempt {
+        authorizeAttemptRepository.updateReauthenticationAttemptId(
+            id = authorizeAttempt.id,
+            reauthenticationAttemptId = reauthenticationAttemptId
+        )
+        return authorizeAttempt.copy(reauthenticationAttemptId = reauthenticationAttemptId)
+    }
+
+    /**
+     * Clear any in-progress re-authentication reference from the [authorizeAttempt] (e.g. once the attach has been
+     * completed or declined) and return the updated attempt.
+     */
+    suspend fun clearReAuthentication(
+        authorizeAttempt: OnGoingAuthorizeAttempt
+    ): OnGoingAuthorizeAttempt {
+        authorizeAttemptRepository.updateReauthenticationAttemptId(
+            id = authorizeAttempt.id,
+            reauthenticationAttemptId = null
+        )
+        return authorizeAttempt.copy(reauthenticationAttemptId = null)
+    }
+
+    /**
      * Records that the end-user has passed the MFA step for this [authorizeAttempt].
      * Persists the [mfaPassedDate] and returns the updated attempt.
      */

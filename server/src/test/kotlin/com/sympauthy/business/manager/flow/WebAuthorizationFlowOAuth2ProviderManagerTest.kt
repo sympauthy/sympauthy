@@ -2,13 +2,18 @@ package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
+import com.sympauthy.business.manager.flow.reauth.WebAuthorizationFlowProviderAttachManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderClaimsResolver
 import com.sympauthy.business.manager.provider.ProviderManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
+import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.business.model.provider.config.ProviderOAuth2Config
 import com.sympauthy.business.model.provider.config.ProviderUserInfoConfig
@@ -42,10 +47,16 @@ class WebAuthorizationFlowOAuth2ProviderManagerTest {
     lateinit var claimManager: ClaimManager
 
     @MockK
+    lateinit var clientManager: ClientManager
+
+    @MockK
     lateinit var collectedClaimManager: CollectedClaimManager
 
     @MockK
     lateinit var invitationManager: InvitationManager
+
+    @MockK
+    lateinit var providerAttachManager: WebAuthorizationFlowProviderAttachManager
 
     @MockK
     lateinit var providerConfigManager: ProviderManager
@@ -91,6 +102,19 @@ class WebAuthorizationFlowOAuth2ProviderManagerTest {
         )
     }
 
+    private fun attempt(clientId: String = "client-id") = OnGoingAuthorizeAttempt(
+        id = UUID.randomUUID(),
+        authorizationFlowId = "flow",
+        expirationDate = LocalDateTime.now().plusMinutes(30),
+        attemptDate = LocalDateTime.now(),
+        clientId = clientId,
+        redirectUri = "https://client/callback",
+        requestedScopes = emptyList(),
+        userId = null,
+        consentedScopes = null,
+        grantedScopes = null
+    )
+
     // --- getOAuth2 ---
 
     @Test
@@ -108,116 +132,120 @@ class WebAuthorizationFlowOAuth2ProviderManagerTest {
         assertSame(oauth2Config, result)
     }
 
-    // --- createUserWithProviderUserInfo ---
+    // --- signUpOrStartAttach ---
 
     @Test
-    fun `createUserWithProviderUserInfo - Create new user when no existing user`() = runTest {
+    fun `signUpOrStartAttach - Creates and authenticates a new account when no existing user`() = runTest {
+        val att = attempt()
         val provider = createProvider()
-        val providerUserInfo = RawProviderClaims(
-            subject = "sub-123",
-            email = "new@example.com"
-        )
+        val providerUserInfo = RawProviderClaims(subject = "sub-123", email = "new@example.com")
         val newUser = createUser()
         val emailClaim = mockk<Claim>()
+        val authenticated = att.copy(userId = newUser.id)
 
         every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
         every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
         coEvery { userManager.findByIdentifierClaims(mapOf("email" to "new@example.com")) } returns null
+        coJustRun { webAuthorizationFlowManager.checkSignUpAllowed(att, false) }
         coEvery { userManager.createUser() } returns newUser
         coJustRun { collectedClaimManager.update(newUser, any()) }
         coJustRun { providerClaimsManager.saveUserInfo(provider, newUser.id, providerUserInfo) }
+        coJustRun { invitationManager.applyInvitationClaimsAndConsume(any(), newUser.id) }
+        coEvery { authorizeAttemptManager.setAuthenticatedUserId(att, newUser.id) } returns authenticated
 
-        val result = manager.createUserWithProviderUserInfo(provider, providerUserInfo)
+        val result = manager.signUpOrStartAttach(att, provider, providerUserInfo)
 
-        assertTrue(result.created)
-        assertSame(newUser, result.user)
-        coVerify {
-            collectedClaimManager.update(newUser, withArg { updates ->
-                assertEquals(1, updates.size)
-                assertEquals(emailClaim, updates[0].claim)
-                assertEquals(Optional.of("new@example.com"), updates[0].value)
-            })
-        }
-        coVerify { providerClaimsManager.saveUserInfo(provider, newUser.id, providerUserInfo) }
+        assertSame(authenticated, result)
+        coVerify(exactly = 0) { providerAttachManager.startAttach(any(), any(), any(), any()) }
     }
 
     @Test
-    fun `createUserWithProviderUserInfo - Create new user with multiple identifier claims when no existing user`() =
-        runTest {
-            val provider = createProvider()
-            val providerUserInfo = RawProviderClaims(
-                subject = "sub-123",
-                email = "new@example.com",
-                phoneNumber = "+33612345678"
-            )
-            val newUser = createUser()
-            val emailClaim = mockk<Claim>()
-            val phoneClaim = mockk<Claim>()
-
-            every { uncheckedAuthConfig.identifierClaims } returns listOf(
-                OpenIdConnectClaimId.EMAIL,
-                OpenIdConnectClaimId.PHONE_NUMBER
-            )
-            every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
-            every { claimManager.findByIdOrNull(OpenIdConnectClaimId.PHONE_NUMBER) } returns phoneClaim
-            coEvery {
-                userManager.findByIdentifierClaims(
-                    mapOf(
-                        "email" to "new@example.com",
-                        "phone_number" to "+33612345678"
-                    )
-                )
-            } returns null
-            coEvery { userManager.createUser() } returns newUser
-            coJustRun { collectedClaimManager.update(newUser, any()) }
-            coJustRun { providerClaimsManager.saveUserInfo(provider, newUser.id, providerUserInfo) }
-
-            val result = manager.createUserWithProviderUserInfo(provider, providerUserInfo)
-
-            assertTrue(result.created)
-            coVerify {
-                collectedClaimManager.update(newUser, withArg { updates ->
-                    assertEquals(2, updates.size)
-                    assertTrue(updates.any { it.claim == emailClaim && it.value == Optional.of("new@example.com") })
-                    assertTrue(updates.any { it.claim == phoneClaim && it.value == Optional.of("+33612345678") })
-                })
-            }
-        }
-
-    @Test
-    fun `createUserWithProviderUserInfo - Throw when user already exists with matching identifier claims`() = runTest {
+    fun `signUpOrStartAttach - Starts attach when identifier claims collide and attach enabled`() = runTest {
+        val att = attempt()
         val provider = createProvider()
-        val providerUserInfo = RawProviderClaims(
-            subject = "sub-123",
-            email = "existing@example.com"
-        )
+        val providerUserInfo = RawProviderClaims(subject = "sub-123", email = "existing@example.com")
         val existingUser = createUser()
         val emailClaim = mockk<Claim>()
+        val client = mockk<Client>()
+        val audience = mockk<Audience>()
+        val started = mockk<OnGoingAuthorizeAttempt>()
 
         every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
         every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
         coEvery { userManager.findByIdentifierClaims(mapOf("email" to "existing@example.com")) } returns existingUser
+        coEvery { clientManager.findClientById(att.clientId) } returns client
+        every { client.audience } returns audience
+        every { audience.providerAttachEnabled } returns true
+        coEvery { providerClaimsManager.findByUserIdAndProviderIdOrNull(existingUser.id, provider.id) } returns null
+        coEvery { providerAttachManager.startAttach(att, existingUser, provider, providerUserInfo) } returns started
 
-        val exception = assertThrows<BusinessException> {
-            manager.createUserWithProviderUserInfo(provider, providerUserInfo)
-        }
+        val result = manager.signUpOrStartAttach(att, provider, providerUserInfo)
 
-        assertEquals("user.create_with_provider.existing_user", exception.detailsId)
-        coVerify(exactly = 0) { userManager.createUser() }
+        assertSame(started, result)
+        coVerify(exactly = 0) { authorizeAttemptManager.setAuthenticatedUserId(any(), any()) }
     }
 
     @Test
-    fun `createUserWithProviderUserInfo - Throw when identifier claim not provided by provider`() = runTest {
+    fun `signUpOrStartAttach - Rejects when identifier claims collide and attach disabled`() = runTest {
+        val att = attempt()
         val provider = createProvider()
-        val providerUserInfo = RawProviderClaims(
-            subject = "sub-123",
-            email = null
-        )
+        val providerUserInfo = RawProviderClaims(subject = "sub-123", email = "existing@example.com")
+        val existingUser = createUser()
+        val emailClaim = mockk<Claim>()
+        val client = mockk<Client>()
+        val audience = mockk<Audience>()
+
+        every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
+        every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
+        coEvery { userManager.findByIdentifierClaims(mapOf("email" to "existing@example.com")) } returns existingUser
+        coEvery { clientManager.findClientById(att.clientId) } returns client
+        every { client.audience } returns audience
+        every { audience.providerAttachEnabled } returns false
+
+        val exception = assertThrows<BusinessException> {
+            manager.signUpOrStartAttach(att, provider, providerUserInfo)
+        }
+
+        assertEquals("user.create_with_provider.existing_user", exception.detailsId)
+        coVerify(exactly = 0) { providerAttachManager.startAttach(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `signUpOrStartAttach - Rejects when target account already has this provider linked`() = runTest {
+        val att = attempt()
+        val provider = createProvider()
+        val providerUserInfo = RawProviderClaims(subject = "sub-123", email = "existing@example.com")
+        val existingUser = createUser()
+        val emailClaim = mockk<Claim>()
+        val client = mockk<Client>()
+        val audience = mockk<Audience>()
+
+        every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
+        every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
+        coEvery { userManager.findByIdentifierClaims(mapOf("email" to "existing@example.com")) } returns existingUser
+        coEvery { clientManager.findClientById(att.clientId) } returns client
+        every { client.audience } returns audience
+        every { audience.providerAttachEnabled } returns true
+        coEvery { providerClaimsManager.findByUserIdAndProviderIdOrNull(existingUser.id, provider.id) } returns mockk()
+
+        val exception = assertThrows<BusinessException> {
+            manager.signUpOrStartAttach(att, provider, providerUserInfo)
+        }
+
+        assertEquals("user.create_with_provider.existing_user", exception.detailsId)
+        coVerify(exactly = 0) { providerAttachManager.startAttach(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `signUpOrStartAttach - Throws when identifier claim not provided by provider`() = runTest {
+        val att = attempt()
+        val provider = createProvider()
+        val providerUserInfo = RawProviderClaims(subject = "sub-123", email = null)
 
         every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
 
         val exception = assertThrows<BusinessException> {
-            manager.createUserWithProviderUserInfo(provider, providerUserInfo)
+            manager.signUpOrStartAttach(att, provider, providerUserInfo)
         }
 
         assertEquals("user.create_with_provider.missing_identifier_claim", exception.detailsId)
@@ -225,18 +253,16 @@ class WebAuthorizationFlowOAuth2ProviderManagerTest {
     }
 
     @Test
-    fun `createUserWithProviderUserInfo - Throw when identifier claim not configured`() = runTest {
+    fun `signUpOrStartAttach - Throws when identifier claim not configured`() = runTest {
+        val att = attempt()
         val provider = createProvider()
-        val providerUserInfo = RawProviderClaims(
-            subject = "sub-123",
-            email = "user@example.com"
-        )
+        val providerUserInfo = RawProviderClaims(subject = "sub-123", email = "user@example.com")
 
         every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
         every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns null
 
         val exception = assertThrows<BusinessException> {
-            manager.createUserWithProviderUserInfo(provider, providerUserInfo)
+            manager.signUpOrStartAttach(att, provider, providerUserInfo)
         }
 
         assertEquals("user.create_with_provider.missing_identifier_claim_config", exception.detailsId)

@@ -4,13 +4,14 @@ import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROV
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_ENDPOINTS
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
+import com.sympauthy.business.manager.flow.reauth.WebAuthorizationFlowProviderAttachManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderClaimsResolver
 import com.sympauthy.business.manager.provider.ProviderManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
-import com.sympauthy.business.manager.user.CreateOrAssociateResult
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
 import com.sympauthy.business.model.oauth2.AuthorizeAttempt
@@ -44,8 +45,10 @@ import java.util.*
 open class WebAuthorizationFlowOAuth2ProviderManager(
     @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
     @Inject private val claimManager: ClaimManager,
+    @Inject private val clientManager: ClientManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val invitationManager: InvitationManager,
+    @Inject private val providerAttachManager: WebAuthorizationFlowProviderAttachManager,
     @Inject private val providerConfigManager: ProviderManager,
     @Inject private val providerClaimsManager: ProviderClaimsManager,
     @Inject private val providerClaimsResolver: ProviderClaimsResolver,
@@ -163,16 +166,13 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
             subject = rawUserInfo.subject
         )
 
-        val userId = if (existingUserInfo == null) {
-            webAuthorizationFlowManager.checkSignUpAllowed(authorizeAttempt, recoverable = false)
-            val result = createUserWithProviderUserInfo(provider, rawUserInfo)
-            invitationManager.applyInvitationClaimsAndConsume(authorizeAttempt.invitationId, result.user.id)
-            result.user.id
-        } else {
+        val updatedAuthorizeAttempt = if (existingUserInfo != null) {
+            // Known provider subject: sign the user in.
             providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo)
-            existingUserInfo.userId
+            authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, existingUserInfo.userId)
+        } else {
+            signUpOrStartAttach(authorizeAttempt, provider, rawUserInfo)
         }
-        val updatedAuthorizeAttempt = authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, userId)
 
         return webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
             authorizeAttempt = updatedAuthorizeAttempt
@@ -180,41 +180,52 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
     }
 
     /**
-     * Create a new [com.sympauthy.business.model.user.User] with the provider user info and its identifier claims.
+     * Handle a provider sign-in whose subject is unknown:
+     * - if no account matches the identifier claims, sign up a brand-new account and authenticate it.
+     * - if an account already matches the identifier claims (a collision) and the client's audience allows it,
+     *   start the interactive attach + forced re-login flow instead of authenticating. The provider identity is
+     *   NOT silently merged into the existing account (that was an account-takeover vector).
+     * - otherwise (attach disabled, or the account already has this provider linked) reject: the end-user must
+     *   sign in with their existing account.
      *
-     * If a user already exists with matching values for all configured identifier claims, the provider identity is
-     * NOT silently merged into it (that was an account-takeover vector). Instead an error is thrown so the end-user
-     * must sign in with their existing account.
-     *
-     * The identifier claim values are collected and copied as first-party data so this information is stable and
-     * not affected by later changes from the third party.
+     * Returns the updated [OnGoingAuthorizeAttempt] (authenticated for a new account, or with a pending
+     * re-authentication when an attach was started).
      */
     @Transactional
-    open suspend fun createUserWithProviderUserInfo(
+    internal open suspend fun signUpOrStartAttach(
+        authorizeAttempt: OnGoingAuthorizeAttempt,
         provider: EnabledProvider,
         providerUserInfo: RawProviderClaims
-    ): CreateOrAssociateResult {
+    ): OnGoingAuthorizeAttempt {
         val authConfig = uncheckedAuthConfig.orThrow()
         val identifierClaims = resolveIdentifierClaims(authConfig, provider, providerUserInfo)
         val identifierMap = identifierClaims.map { (claimId, pair) -> claimId to pair.second }.toMap()
         val existingUser = userManager.findByIdentifierClaims(identifierMap)
-        if (existingUser != null) {
-            // TODO(#266 Phase 3): when the initiating client's audience has provider-attach-enabled, start the
-            //  interactive attach + forced re-login flow here instead of rejecting.
-            throw businessExceptionOf("user.create_with_provider.existing_user")
+
+        if (existingUser == null) {
+            webAuthorizationFlowManager.checkSignUpAllowed(authorizeAttempt, recoverable = false)
+            val user = userManager.createUser()
+            saveIdentifierClaims(user, identifierClaims)
+            providerClaimsManager.saveUserInfo(
+                provider = provider,
+                userId = user.id,
+                rawProviderClaims = providerUserInfo
+            )
+            invitationManager.applyInvitationClaimsAndConsume(authorizeAttempt.invitationId, user.id)
+            return authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, user.id)
         }
 
-        val user = userManager.createUser()
-        saveIdentifierClaims(user, identifierClaims)
-        providerClaimsManager.saveUserInfo(
-            provider = provider,
-            userId = user.id,
-            rawProviderClaims = providerUserInfo
-        )
-        return CreateOrAssociateResult(
-            created = true,
-            user = user
-        )
+        // Collision: an account already exists with the same identifier claims.
+        val audience = clientManager.findClientById(authorizeAttempt.clientId).audience
+        if (!audience.providerAttachEnabled) {
+            throw businessExceptionOf("user.create_with_provider.existing_user")
+        }
+        // A user can hold at most one identity per provider, so a target already linked to this provider cannot
+        // receive a second one — reject rather than attempt an impossible attach.
+        if (providerClaimsManager.findByUserIdAndProviderIdOrNull(existingUser.id, provider.id) != null) {
+            throw businessExceptionOf("user.create_with_provider.existing_user")
+        }
+        return providerAttachManager.startAttach(authorizeAttempt, existingUser, provider, providerUserInfo)
     }
 
     /**

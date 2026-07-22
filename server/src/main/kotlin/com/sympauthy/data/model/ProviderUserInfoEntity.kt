@@ -53,5 +53,12 @@ data class ProviderUserInfoEntity(
     val postalCode: String? = null,
     val country: String? = null,
 
-    val updatedAt: LocalDateTime? = null
+    val updatedAt: LocalDateTime? = null,
+
+    /**
+     * When set, this row is a provisional provider identity scoped to the in-progress authorization attempt with
+     * this id (pending an interactive attach + forced re-login). Provisional rows are excluded from normal sign-in
+     * lookups; clearing this column promotes the row to a permanent provider identity.
+     */
+    val authorizeAttemptId: UUID? = null
 )

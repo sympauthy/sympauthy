@@ -347,6 +347,7 @@ class WebAuthorizationFlowManager(
             consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(it, consentedScopes)
         } ?: emptyList()
         val missingUser = authorizeAttempt.userId == null
+        val pendingReAuthentication = missingUser && authorizeAttempt.reauthenticationAttemptId != null
         val missingMfa = uncheckedMfaConfig.orThrow().enabled && !authorizeAttempt.mfaPassed
         val allClaims = (identifierClaims + consentedClaims).distinctBy { it.claim.id }
         val missingRequiredClaims = !consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(
@@ -363,6 +364,7 @@ class WebAuthorizationFlowManager(
             identifierClaims = identifierClaims,
             consentedClaims = consentedClaims,
             missingUser = missingUser,
+            pendingReAuthentication = pendingReAuthentication,
             missingMfa = missingMfa,
             missingRequiredClaims = missingRequiredClaims,
             missingMediaForClaimValidation = missingMediaForClaimValidation

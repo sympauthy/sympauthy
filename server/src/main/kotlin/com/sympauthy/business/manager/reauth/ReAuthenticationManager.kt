@@ -58,6 +58,16 @@ class ReAuthenticationManager(
     }
 
     /**
+     * Return the [PendingReAuthenticationAttempt] identified by [id] only if it is still pending and not expired.
+     * Returns null otherwise. Used by the generic sign-in managers, which do not know the [ReAuthenticationPurpose]
+     * — the purpose is dispatched on afterward.
+     */
+    suspend fun getPendingOrNull(id: UUID): PendingReAuthenticationAttempt? {
+        return (findByIdOrNull(id) as? PendingReAuthenticationAttempt)
+            ?.takeIf { !it.expired }
+    }
+
+    /**
      * Return the [PendingReAuthenticationAttempt] identified by [id] only if it is still pending, not expired, and
      * matches the expected [purpose]. Returns null otherwise.
      */
@@ -65,8 +75,7 @@ class ReAuthenticationManager(
         id: UUID,
         purpose: ReAuthenticationPurpose
     ): PendingReAuthenticationAttempt? {
-        return (findByIdOrNull(id) as? PendingReAuthenticationAttempt)
-            ?.takeIf { !it.expired && it.purpose == purpose }
+        return getPendingOrNull(id)?.takeIf { it.purpose == purpose }
     }
 
     /**
