@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.auth
 import com.sympauthy.data.model.AuthorizeAttemptEntity
 import com.sympauthy.data.repository.AuthorizationCodeRepository
 import com.sympauthy.data.repository.AuthorizeAttemptRepository
+import com.sympauthy.data.repository.ProviderUserInfoRepository
 import com.sympauthy.data.repository.ValidationCodeRepository
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -18,6 +19,7 @@ open class AuthorizeAttemptCleaner(
     @Inject private val authorizeAttemptRepository: AuthorizeAttemptRepository,
     @Inject private val validationCodeRepository: ValidationCodeRepository,
     @Inject private val authorizationCodeRepository: AuthorizationCodeRepository,
+    @Inject private val providerUserInfoRepository: ProviderUserInfoRepository,
 ) {
 
     @Transactional
@@ -31,15 +33,21 @@ open class AuthorizeAttemptCleaner(
         val deferredValidationCodesCount = async {
             validationCodeRepository.deleteByAttemptIdIn(expiredAttemptsIds)
         }
+        // Discard any provisional provider identity scoped to an expired attempt (abandoned interactive attach).
+        val deferredProvisionalProviderCount = async {
+            providerUserInfoRepository.deleteByAuthorizeAttemptIdIn(expiredAttemptsIds)
+        }
 
         val authorizationCodesCount = deferredAuthorizationCodesCount.await()
         val validationCodesCount = deferredValidationCodesCount.await()
+        val provisionalProviderCount = deferredProvisionalProviderCount.await()
         val authorizeAttemptsCount = authorizeAttemptRepository.deleteByIds(expiredAttemptsIds)
 
         CleanResult(
             authorizeAttemptCount = authorizeAttemptsCount,
             authorizationCodeCount = authorizationCodesCount,
-            validationCodesCount = validationCodesCount
+            validationCodesCount = validationCodesCount,
+            provisionalProviderCount = provisionalProviderCount
         )
     }
 
@@ -47,5 +55,6 @@ open class AuthorizeAttemptCleaner(
         val authorizeAttemptCount: Int,
         val authorizationCodeCount: Int,
         val validationCodesCount: Int,
+        val provisionalProviderCount: Int,
     )
 }

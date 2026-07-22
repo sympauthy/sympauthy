@@ -31,5 +31,7 @@ interface ProviderUserInfoRepository : CoroutineCrudRepository<ProviderUserInfoE
 
     suspend fun deleteByAuthorizeAttemptId(authorizeAttemptId: UUID): Int
 
+    suspend fun deleteByAuthorizeAttemptIdIn(authorizeAttemptIds: List<UUID>): Int
+
     suspend fun deleteByProviderIdAndUserId(providerId: String, userId: UUID): Int
 }

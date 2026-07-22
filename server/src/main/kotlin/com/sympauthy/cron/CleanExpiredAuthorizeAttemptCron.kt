@@ -21,7 +21,7 @@ class CleanExpiredAuthorizeAttemptCron(
         GlobalScope.launch {
             val result = authorizeAttemptCleaner.clean()
             if (result.authorizeAttemptCount > 0) {
-                logger.debug("Cleaned ${result.authorizeAttemptCount} expired authorize attempts (including ${result.authorizationCodeCount} authorization codes, ${result.validationCodesCount} validation codes).")
+                logger.debug("Cleaned ${result.authorizeAttemptCount} expired authorize attempts (including ${result.authorizationCodeCount} authorization codes, ${result.validationCodesCount} validation codes, ${result.provisionalProviderCount} provisional provider identities).")
             }
         }
     }
