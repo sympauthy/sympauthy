@@ -19,7 +19,7 @@ import jakarta.inject.Singleton
 import java.net.URI
 
 /**
- * Utility class for controller providing APIs for web authorization flows.
+ * Utility class for controller providing APIs for interactive auth flows.
  *
  * It provides utility methods for controller to retrieve the following:
  * - the [OnGoingInteractiveFlowSession] associated to the state in the [Authentication].

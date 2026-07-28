@@ -22,7 +22,7 @@ import jakarta.inject.Singleton
 import jakarta.transaction.Transactional
 
 /**
- * Component in charge of validating the claim collected during a web authorization flow.
+ * Component in charge of validating the claim collected during an interactive auth flow.
  */
 @Singleton
 open class InteractiveAuthFlowSessionClaimValidationManager(
@@ -60,7 +60,7 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
      *
      * @param identifierClaims claims that identify the user, which the authorization server must always validate
      * regardless of consent.
-     * @param consentedClaims claims the client has consent for during this authorization attempt.
+     * @param consentedClaims claims the client has consent for during this interactive flow session.
      */
     fun getReasonsToSendValidationCode(
         identifierClaims: List<CollectedClaim>,
@@ -78,7 +78,7 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
      *
      * @param identifierClaims claims that identify the user, which the authorization server must always validate
      * regardless of consent.
-     * @param consentedClaims claims the client has consent for during this authorization attempt.
+     * @param consentedClaims claims the client has consent for during this interactive flow session.
      */
     internal fun getUnfilteredReasonsToSendValidationCode(
         identifierClaims: List<CollectedClaim>,

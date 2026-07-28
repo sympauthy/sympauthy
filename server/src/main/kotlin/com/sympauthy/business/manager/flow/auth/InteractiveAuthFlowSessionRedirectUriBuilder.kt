@@ -21,7 +21,7 @@ import java.net.URI
 
 /**
  * Component in charge of constructing the URIs where the end-user will be redirected to continue its
- * authentication & authorization through a web authorization flow.
+ * authentication & authorization through an interactive auth flow.
  */
 @Singleton
 class InteractiveAuthFlowSessionRedirectUriBuilder(

@@ -31,7 +31,7 @@ import java.util.*
 import kotlin.jvm.optionals.getOrNull
 
 /**
- * Manager in charge of the authentication and registration of an end-user going through a web authorization flow
+ * Manager in charge of the authentication and registration of an end-user going through an interactive auth flow
  * using a password.
  *
  * This manager uses [CollectedClaimManager] (not consent-aware) because identifier claims

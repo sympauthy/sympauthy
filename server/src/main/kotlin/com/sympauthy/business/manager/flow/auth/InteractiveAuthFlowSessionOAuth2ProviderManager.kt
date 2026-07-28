@@ -40,7 +40,7 @@ import java.net.URI
 import java.util.*
 
 /**
- * Manager in charge of the authentication and registration of an end-user going through a web authorization flow
+ * Manager in charge of the authentication and registration of an end-user going through an interactive auth flow
  * using an OAuth 2 or OIDC provider.
  */
 @Singleton

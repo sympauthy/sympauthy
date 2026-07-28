@@ -32,7 +32,7 @@ import java.net.URI
 import java.net.URISyntaxException
 
 /**
- * Manager providing utility methods supporting the lifecycle of web-based interactive authorization flows described in the
+ * Manager providing utility methods supporting the lifecycle of interactive auth flows described in the
  * OAuth 2 like:
  * - [Authorization Code Grant](https://datatracker.ietf.org/doc/html/rfc6749#section-4.1)
  * - [Implicit Grant](https://datatracker.ietf.org/doc/html/rfc6749#section-4.2)
@@ -59,7 +59,7 @@ class InteractiveAuthFlowSessionManager(
      * Return the default [InteractiveFlow].
      *
      * First checks the default client template for an authorization flow, then falls back
-     * to the hardcoded default web authorization flow.
+     * to the hardcoded default interactive auth flow.
      */
     suspend fun getDefaultInteractiveFlow(): InteractiveFlow {
         val templateFlow = uncheckedClientTemplatesConfig.orThrow()
@@ -94,7 +94,7 @@ class InteractiveAuthFlowSessionManager(
      * Create a new [InteractiveFlowSession] for the end-user.
      *
      * This method is in charge of:
-     * - validating the [uncheckedClientId]. Redirect the user to the error page of the default web authorization flow in case of error.
+     * - validating the [uncheckedClientId]. Redirect the user to the error page of the default interactive auth flow in case of error.
      * - selecting the flow: Either the one provided by the [Client] or the default one.
      * - validating the [uncheckedScopes]. Redirect the user to the error page of the selected flow in case of error.
      * - validating the [uncheckedRedirectUri]. Redirect the user to the error page of the selected flow in case of error.
@@ -320,7 +320,7 @@ class InteractiveAuthFlowSessionManager(
     }
 
     /**
-     * Return the status of the [session] if the end-user is going through a web authorization flow.
+     * Return the status of the [session] if the end-user is going through an interactive auth flow.
      */
     suspend fun getStatus(
         session: InteractiveFlowSession
@@ -340,7 +340,7 @@ class InteractiveAuthFlowSessionManager(
     }
 
     /**
-     * Return the status of the [session] if the end-user is going through a web authorization flow.
+     * Return the status of the [session] if the end-user is going through an interactive auth flow.
      */
     internal suspend fun getStatusForOnGoingSession(
         session: OnGoingInteractiveFlowSession

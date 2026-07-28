@@ -4,7 +4,7 @@ import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.user.CollectedClaim
 
 /**
- * Summary of the current status of an authorization attempt going through a web authorization flow.
+ * Summary of the current status of an interactive flow session.
  */
 data class InteractiveFlowStatus(
     /**
@@ -16,7 +16,7 @@ data class InteractiveFlowStatus(
      */
     val consentedClaims: List<CollectedClaim> = emptyList(),
     /**
-     * True if the authorization attempt failed.
+     * True if the interactive flow session failed.
      */
     val failed: Boolean = false,
     /**
