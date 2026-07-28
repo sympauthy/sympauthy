@@ -125,6 +125,33 @@
     ]
   },
   {
+    "name": "com.sympauthy.business.mapper.InteractiveFlowSessionMapperImpl",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sympauthy.business.mapper.InteractiveFlowSessionOAuth2MapperImpl",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sympauthy.business.mapper.InteractiveFlowSessionProviderMapperImpl",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
     "name": "com.sympauthy.business.mapper.ConsentMapperImpl",
     "methods": [
       {
