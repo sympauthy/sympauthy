@@ -28,7 +28,7 @@ open class ValidationCodeManager(
      * Return the list of existing [ValidationCode] generated during the [session] for one of the
      * provided [reasons].
      */
-    suspend fun findCodeForReasonsDuringAttempt(
+    suspend fun findCodeForReasonsDuringSession(
         session: InteractiveFlowSession,
         reasons: List<ValidationCodeReason>,
         includesExpired: Boolean = false
@@ -50,7 +50,7 @@ open class ValidationCodeManager(
      * Return the list of [ValidationCode] generated during the [session] and sent using the provided
      * [media].
      */
-    suspend fun findCodeSentByMediaDuringAttempt(
+    suspend fun findCodeSentByMediaDuringSession(
         session: InteractiveFlowSession,
         media: ValidationCodeMedia,
         includesExpired: Boolean = false
@@ -72,12 +72,12 @@ open class ValidationCodeManager(
      * Return the latest [ValidationCode] generated during the [session] and sent using the provided
      * [media].
      */
-    internal suspend fun findLatestCodeSentByMediaDuringAttempt(
+    internal suspend fun findLatestCodeSentByMediaDuringSession(
         session: InteractiveFlowSession,
         media: ValidationCodeMedia,
         includesExpired: Boolean = false
     ): ValidationCode? {
-        return findCodeSentByMediaDuringAttempt(
+        return findCodeSentByMediaDuringSession(
             session = session,
             media = media,
             includesExpired = includesExpired

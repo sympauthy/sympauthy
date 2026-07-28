@@ -146,7 +146,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
             )
         } returns reasons
         coEvery {
-            validationCodeManager.findLatestCodeSentByMediaDuringAttempt(
+            validationCodeManager.findLatestCodeSentByMediaDuringSession(
                 session = session,
                 media = media,
                 includesExpired = true,
@@ -204,7 +204,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
             )
         } returns listOf(EMAIL_CLAIM)
         coEvery {
-            validationCodeManager.findLatestCodeSentByMediaDuringAttempt(
+            validationCodeManager.findLatestCodeSentByMediaDuringSession(
                 session = session,
                 media = media,
                 includesExpired = true,
@@ -274,7 +274,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
         val collectedClaims = emptyList<CollectedClaim>()
 
         coEvery {
-            validationCodeManager.findLatestCodeSentByMediaDuringAttempt(
+            validationCodeManager.findLatestCodeSentByMediaDuringSession(
                 session = session,
                 media = media,
                 includesExpired = true,
@@ -311,7 +311,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
         val media = EMAIL
 
         coEvery {
-            validationCodeManager.findLatestCodeSentByMediaDuringAttempt(
+            validationCodeManager.findLatestCodeSentByMediaDuringSession(
                 session = session,
                 media = media,
                 includesExpired = true,
@@ -336,7 +336,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
         val existingCode = mockk<ValidationCode>()
 
         coEvery {
-            validationCodeManager.findLatestCodeSentByMediaDuringAttempt(
+            validationCodeManager.findLatestCodeSentByMediaDuringSession(
                 session = session,
                 media = media,
                 includesExpired = true,
@@ -371,7 +371,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
         val emailClaim = mockk<Claim>()
 
         coEvery {
-            manager.findCodesSentDuringAttempt(session = session, media = media)
+            manager.findCodesSentDuringSession(session = session, media = media)
         } returns listOf(validValidationCode)
         every { manager.getClaimValidatedBy(reason) } returns emailClaim
         coEvery {
@@ -394,7 +394,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
         }
 
         coEvery {
-            manager.findCodesSentDuringAttempt(session = session, media = media)
+            manager.findCodesSentDuringSession(session = session, media = media)
         } returns listOf(validValidationCode)
 
         coAssertThrowsBusinessException("flow.claim_validation.invalid_code") {
@@ -417,7 +417,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
         }
 
         coEvery {
-            manager.findCodesSentDuringAttempt(session = session, media = media)
+            manager.findCodesSentDuringSession(session = session, media = media)
         } returns listOf(validValidationCode)
 
         coAssertThrowsBusinessException("flow.claim_validation.expired_code") {

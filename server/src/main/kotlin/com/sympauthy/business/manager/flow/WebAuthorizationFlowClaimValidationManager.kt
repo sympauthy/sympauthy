@@ -121,7 +121,7 @@ open class WebAuthorizationFlowClaimValidationManager(
         if (reasons.isEmpty()) return null
 
         val allClaims = (identifierClaims + consentedClaims).distinctBy { it.claim.id }
-        val existingCode = validationCodeManager.findLatestCodeSentByMediaDuringAttempt(
+        val existingCode = validationCodeManager.findLatestCodeSentByMediaDuringSession(
             session = session,
             media = media,
             includesExpired = true
@@ -149,7 +149,7 @@ open class WebAuthorizationFlowClaimValidationManager(
         user: User,
         media: ValidationCodeMedia
     ): ResendResult {
-        val existingCode = validationCodeManager.findLatestCodeSentByMediaDuringAttempt(
+        val existingCode = validationCodeManager.findLatestCodeSentByMediaDuringSession(
             session = session,
             media = media,
             includesExpired = true,
@@ -181,7 +181,7 @@ open class WebAuthorizationFlowClaimValidationManager(
         media: ValidationCodeMedia,
         code: String
     ) {
-        val validationCodes = findCodesSentDuringAttempt(
+        val validationCodes = findCodesSentDuringSession(
             session = session,
             media = media
         )
@@ -213,11 +213,11 @@ open class WebAuthorizationFlowClaimValidationManager(
      *
      * This method ignores return codes that have been sent for other reason like resetting user password, etc.
      */
-    internal suspend fun findCodesSentDuringAttempt(
+    internal suspend fun findCodesSentDuringSession(
         session: InteractiveFlowSession,
         media: ValidationCodeMedia? = null,
     ): List<ValidationCode> {
-        val codes = validationCodeManager.findCodeForReasonsDuringAttempt(
+        val codes = validationCodeManager.findCodeForReasonsDuringSession(
             session = session,
             reasons = validationCodeReasons,
             includesExpired = true
