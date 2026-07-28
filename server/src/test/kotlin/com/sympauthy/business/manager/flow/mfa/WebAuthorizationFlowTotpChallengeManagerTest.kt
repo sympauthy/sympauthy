@@ -1,9 +1,9 @@
 package com.sympauthy.business.manager.flow.mfa
 
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.mfa.TotpManager
-import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.User
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -27,51 +27,51 @@ class WebAuthorizationFlowTotpChallengeManagerTest {
     lateinit var totpManager: TotpManager
 
     @MockK
-    lateinit var authorizeAttemptManager: AuthorizeAttemptManager
+    lateinit var sessionManager: InteractiveFlowSessionManager
 
     @InjectMockKs
     lateinit var manager: WebAuthorizationFlowTotpChallengeManager
 
     private val userId = UUID.randomUUID()
     private val user = mockk<User> { every { id } returns userId }
-    private val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
+    private val session = mockk<OnGoingInteractiveFlowSession>()
 
     // --- validateTotpChallenge ---
 
     @Test
-    fun `validateTotpChallenge - Records mfaPassedDate and returns updated attempt when code is valid`() = runTest {
-        val updatedAttempt = mockk<OnGoingAuthorizeAttempt>()
+    fun `validateTotpChallenge - Records mfaPassedDate and returns updated session when code is valid`() = runTest {
+        val updatedSession = mockk<OnGoingInteractiveFlowSession>()
         coEvery { totpManager.isCodeValidForUser(userId, "123456") } returns true
-        coEvery { authorizeAttemptManager.setMfaPassed(authorizeAttempt) } returns updatedAttempt
+        coEvery { sessionManager.setMfaPassed(session) } returns updatedSession
 
-        val result = manager.validateTotpChallenge(authorizeAttempt, user, "123456")
+        val result = manager.validateTotpChallenge(session, user, "123456")
 
-        assertSame(updatedAttempt, result)
-        coVerify(exactly = 1) { authorizeAttemptManager.setMfaPassed(authorizeAttempt) }
+        assertSame(updatedSession, result)
+        coVerify(exactly = 1) { sessionManager.setMfaPassed(session) }
     }
 
     @Test
     fun `validateTotpChallenge - Throws recoverable exception when code is null`() = runTest {
         val exception = assertThrows<BusinessException> {
-            manager.validateTotpChallenge(authorizeAttempt, user, null)
+            manager.validateTotpChallenge(session, user, null)
         }
 
         assertEquals("flow.mfa.totp.challenge.invalid_code", exception.detailsId)
         assertTrue(exception.recoverable)
         coVerify(exactly = 0) { totpManager.isCodeValidForUser(any(), any()) }
-        coVerify(exactly = 0) { authorizeAttemptManager.setMfaPassed(any()) }
+        coVerify(exactly = 0) { sessionManager.setMfaPassed(any()) }
     }
 
     @Test
     fun `validateTotpChallenge - Throws recoverable exception when code is blank`() = runTest {
         val exception = assertThrows<BusinessException> {
-            manager.validateTotpChallenge(authorizeAttempt, user, "")
+            manager.validateTotpChallenge(session, user, "")
         }
 
         assertEquals("flow.mfa.totp.challenge.invalid_code", exception.detailsId)
         assertTrue(exception.recoverable)
         coVerify(exactly = 0) { totpManager.isCodeValidForUser(any(), any()) }
-        coVerify(exactly = 0) { authorizeAttemptManager.setMfaPassed(any()) }
+        coVerify(exactly = 0) { sessionManager.setMfaPassed(any()) }
     }
 
     @Test
@@ -79,11 +79,11 @@ class WebAuthorizationFlowTotpChallengeManagerTest {
         coEvery { totpManager.isCodeValidForUser(userId, "000000") } returns false
 
         val exception = assertThrows<BusinessException> {
-            manager.validateTotpChallenge(authorizeAttempt, user, "000000")
+            manager.validateTotpChallenge(session, user, "000000")
         }
 
         assertEquals("flow.mfa.totp.challenge.invalid_code", exception.detailsId)
         assertTrue(exception.recoverable)
-        coVerify(exactly = 0) { authorizeAttemptManager.setMfaPassed(any()) }
+        coVerify(exactly = 0) { sessionManager.setMfaPassed(any()) }
     }
 }

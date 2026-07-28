@@ -2,7 +2,6 @@ package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClientManager
-import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.UserGrantScopesResult
 import com.sympauthy.business.manager.auth.UserScopeGrantingManager
 import com.sympauthy.business.manager.consent.ConsentManager
@@ -10,6 +9,11 @@ import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
+import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
+import com.sympauthy.business.model.flow.InteractiveFlowSessionType
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.config.model.AuthorizationFlowsConfig
@@ -36,7 +40,10 @@ import java.util.*
 class AuthorizationFlowManagerTest {
 
     @MockK
-    lateinit var authorizeAttemptManager: AuthorizeAttemptManager
+    lateinit var sessionManager: InteractiveFlowSessionManager
+
+    @MockK
+    lateinit var oauth2Manager: InteractiveFlowSessionOAuth2Manager
 
     @MockK
     lateinit var collectedClaimManager: CollectedClaimManager
@@ -68,7 +75,7 @@ class AuthorizationFlowManagerTest {
     // --- checkCanIssueToken tests ---
 
     @Test
-    fun `checkCanIssueToken - Throws when attempt is null`() = runTest {
+    fun `checkCanIssueToken - Throws when session is null`() = runTest {
         val client = mockClient()
 
         val exception = assertThrows<BusinessException> {
@@ -78,43 +85,43 @@ class AuthorizationFlowManagerTest {
     }
 
     @Test
-    fun `checkCanIssueToken - Throws when attempt is ongoing`() = runTest {
+    fun `checkCanIssueToken - Throws when session is ongoing`() = runTest {
         val client = mockClient()
-        val onGoingAttempt = createOnGoingAuthorizeAttempt(userId = UUID.randomUUID())
+        val onGoingSession = createOnGoingSession(userId = UUID.randomUUID())
 
         val exception = assertThrows<BusinessException> {
-            manager.checkCanIssueToken(onGoingAttempt, client)
+            manager.checkCanIssueToken(onGoingSession, client)
         }
         assertEquals("token.expired", exception.detailsId)
     }
 
     @Test
-    fun `checkCanIssueToken - Throws when attempt has failed`() = runTest {
+    fun `checkCanIssueToken - Throws when session has failed`() = runTest {
         val client = mockClient()
-        val failedAttempt = FailedAuthorizeAttempt(
+        val failedSession = FailedInteractiveFlowSession(
             id = UUID.randomUUID(),
-            authorizationFlowId = "flow-id",
+            type = InteractiveFlowSessionType.OAUTH2,
+            flowId = "flow-id",
             expirationDate = LocalDateTime.now().plusHours(1),
             errorDetailsId = "some.error",
             errorDate = LocalDateTime.now()
         )
 
         val exception = assertThrows<BusinessException> {
-            manager.checkCanIssueToken(failedAttempt, client)
+            manager.checkCanIssueToken(failedSession, client)
         }
         assertEquals("token.expired", exception.detailsId)
     }
 
     @Test
-    fun `checkCanIssueToken - Throws when attempt is expired`() = runTest {
+    fun `checkCanIssueToken - Throws when session is expired`() = runTest {
         val client = mockClient()
-        val completedAttempt = createCompletedAuthorizeAttempt(
-            clientId = "test-client",
+        val completedSession = createCompletedSession(
             expirationDate = LocalDateTime.now().minusMinutes(1)
         )
 
         val exception = assertThrows<BusinessException> {
-            manager.checkCanIssueToken(completedAttempt, client)
+            manager.checkCanIssueToken(completedSession, client)
         }
         assertEquals("token.expired", exception.detailsId)
     }
@@ -122,42 +129,50 @@ class AuthorizationFlowManagerTest {
     @Test
     fun `checkCanIssueToken - Throws when client does not match`() = runTest {
         val client = mockClient("other-client")
-        val completedAttempt = createCompletedAuthorizeAttempt(clientId = "test-client")
+        val completedSession = createCompletedSession()
+        coEvery { oauth2Manager.fetchOAuth2(completedSession) } returns oauth2Of(
+            sessionId = completedSession.id,
+            clientId = "test-client"
+        )
 
         val exception = assertThrows<BusinessException> {
-            manager.checkCanIssueToken(completedAttempt, client)
+            manager.checkCanIssueToken(completedSession, client)
         }
         assertEquals("token.mismatching_client", exception.detailsId)
     }
 
     @Test
-    fun `checkCanIssueToken - Returns completed attempt when valid`() = runTest {
+    fun `checkCanIssueToken - Returns completed session when valid`() = runTest {
         val client = mockClient("test-client")
-        val completedAttempt = createCompletedAuthorizeAttempt(clientId = "test-client")
+        val completedSession = createCompletedSession()
+        coEvery { oauth2Manager.fetchOAuth2(completedSession) } returns oauth2Of(
+            sessionId = completedSession.id,
+            clientId = "test-client"
+        )
 
-        val result = manager.checkCanIssueToken(completedAttempt, client)
+        val result = manager.checkCanIssueToken(completedSession, client)
 
-        assertSame(completedAttempt, result)
+        assertSame(completedSession, result)
     }
 
     // --- completeAuthorization tests ---
 
     @Test
-    fun `completeAuthorization - Returns attempt unchanged when already completed`() = runTest {
-        val completedAttempt = mockk<CompletedAuthorizeAttempt>()
+    fun `completeAuthorization - Returns session unchanged when already completed`() = runTest {
+        val completedSession = mockk<CompletedInteractiveFlowSession>()
 
-        val result = manager.completeAuthorization(completedAttempt)
+        val result = manager.completeAuthorization(completedSession)
 
-        assertEquals(completedAttempt, result)
+        assertSame(completedSession, result)
     }
 
     @Test
-    fun `completeAuthorization - Returns attempt unchanged when already failed`() = runTest {
-        val failedAttempt = mockk<FailedAuthorizeAttempt>()
+    fun `completeAuthorization - Returns session unchanged when already failed`() = runTest {
+        val failedSession = mockk<FailedInteractiveFlowSession>()
 
-        val result = manager.completeAuthorization(failedAttempt)
+        val result = manager.completeAuthorization(failedSession)
 
-        assertSame(failedAttempt, result)
+        assertSame(failedSession, result)
     }
 
     @Test
@@ -165,18 +180,16 @@ class AuthorizationFlowManagerTest {
         val userId = UUID.randomUUID()
         val clientId = "client-id"
         val grantedScopes = listOf("read")
-        val consentedScopes = emptyList<String>()
         val grantedScopeObjects = grantedScopes.map { mockkScope(it) }
-        val onGoingAttempt = createOnGoingAuthorizeAttempt(userId = userId, consentedScopes = consentedScopes)
-        val afterGranted = createOnGoingAuthorizeAttempt(
-            userId = userId,
+        val onGoingSession = createOnGoingSession(userId = userId)
+        val oauth2AfterGranted = oauth2Of(
+            sessionId = onGoingSession.id,
+            clientId = clientId,
             grantedScopes = grantedScopes,
-            consentedScopes = consentedScopes
+            consentedScopes = emptyList()
         )
-        val completedAttempt = mockk<CompletedAuthorizeAttempt> {
+        val completedSession = mockk<CompletedInteractiveFlowSession> {
             every { this@mockk.userId } returns userId
-            every { this@mockk.clientId } returns clientId
-            every { this@mockk.consentedScopes } returns consentedScopes
         }
         val collectedClaims = emptyList<CollectedClaim>()
 
@@ -192,19 +205,19 @@ class AuthorizationFlowManagerTest {
                 )
             )
         )
-        coEvery { scopeGrantingManager.grantScopes(onGoingAttempt, collectedClaims) } returns grantScopesResult
+        coEvery { scopeGrantingManager.grantScopes(onGoingSession, collectedClaims) } returns grantScopesResult
         coEvery {
-            authorizeAttemptManager.setGrantedScopes(onGoingAttempt, grantedScopeObjects, any())
-        } returns afterGranted
-        coEvery { authorizeAttemptManager.markAsComplete(afterGranted) } returns completedAttempt
+            oauth2Manager.setGrantedScopes(onGoingSession, grantedScopeObjects, any())
+        } returns oauth2AfterGranted
+        coEvery { sessionManager.markAsComplete(onGoingSession) } returns completedSession
 
         coEvery { clientManager.findClientById(clientId) } returns mockClient(clientId)
-        coEvery { consentManager.saveConsent(userId, any(), clientId, consentedScopes) } returns mockk()
+        coEvery { consentManager.saveConsent(userId, any(), clientId, emptyList()) } returns mockk()
 
-        val result = manager.completeAuthorization(onGoingAttempt)
+        val result = manager.completeAuthorization(onGoingSession)
 
-        assertSame(completedAttempt, result)
-        coVerify(exactly = 1) { consentManager.saveConsent(userId, any(), clientId, consentedScopes) }
+        assertSame(completedSession, result)
+        coVerify(exactly = 1) { consentManager.saveConsent(userId, any(), clientId, emptyList()) }
     }
 
     @Test
@@ -212,16 +225,15 @@ class AuthorizationFlowManagerTest {
         runTest {
             val userId = UUID.randomUUID()
             val clientId = "client-id"
-            val onGoingAttempt = createOnGoingAuthorizeAttempt(userId = userId, consentedScopes = emptyList())
-            val afterGranted = createOnGoingAuthorizeAttempt(
-                userId = userId,
+            val onGoingSession = createOnGoingSession(userId = userId)
+            val oauth2AfterGranted = oauth2Of(
+                sessionId = onGoingSession.id,
+                clientId = clientId,
                 grantedScopes = emptyList(),
                 consentedScopes = emptyList()
             )
-            val completedAttempt = mockk<CompletedAuthorizeAttempt> {
+            val completedSession = mockk<CompletedInteractiveFlowSession> {
                 every { this@mockk.userId } returns userId
-                every { this@mockk.clientId } returns clientId
-                every { consentedScopes } returns emptyList()
             }
             val collectedClaims = emptyList<CollectedClaim>()
 
@@ -237,18 +249,18 @@ class AuthorizationFlowManagerTest {
                     )
                 )
             )
-            coEvery { scopeGrantingManager.grantScopes(onGoingAttempt, collectedClaims) } returns grantScopesResult
+            coEvery { scopeGrantingManager.grantScopes(onGoingSession, collectedClaims) } returns grantScopesResult
             coEvery {
-                authorizeAttemptManager.setGrantedScopes(onGoingAttempt, emptyList(), any())
-            } returns afterGranted
-            coEvery { authorizeAttemptManager.markAsComplete(afterGranted) } returns completedAttempt
+                oauth2Manager.setGrantedScopes(onGoingSession, emptyList(), any())
+            } returns oauth2AfterGranted
+            coEvery { sessionManager.markAsComplete(onGoingSession) } returns completedSession
 
             coEvery { clientManager.findClientById(clientId) } returns mockClient(clientId)
             coEvery { consentManager.saveConsent(userId, any(), clientId, emptyList()) } returns mockk()
 
-            val result = manager.completeAuthorization(onGoingAttempt)
+            val result = manager.completeAuthorization(onGoingSession)
 
-            assertSame(completedAttempt, result)
+            assertSame(completedSession, result)
             coVerify(exactly = 1) { consentManager.saveConsent(userId, any(), clientId, emptyList()) }
         }
 
@@ -256,13 +268,14 @@ class AuthorizationFlowManagerTest {
     fun `completeAuthorization - Marks as failed when no scopes granted and allowAccessToClientWithoutScope is false`() =
         runTest {
             val userId = UUID.randomUUID()
-            val onGoingAttempt = createOnGoingAuthorizeAttempt(userId = userId, consentedScopes = emptyList())
-            val afterGranted = createOnGoingAuthorizeAttempt(
-                userId = userId,
+            val onGoingSession = createOnGoingSession(userId = userId)
+            val oauth2AfterGranted = oauth2Of(
+                sessionId = onGoingSession.id,
+                clientId = "client-id",
                 grantedScopes = emptyList(),
                 consentedScopes = emptyList()
             )
-            val failedAttempt = mockk<FailedAuthorizeAttempt>()
+            val failedSession = mockk<FailedInteractiveFlowSession>()
             val collectedClaims = emptyList<CollectedClaim>()
 
             every { uncheckedFeaturesConfig.allowAccessToClientWithoutScope } returns false
@@ -277,20 +290,20 @@ class AuthorizationFlowManagerTest {
                     )
                 )
             )
-            coEvery { scopeGrantingManager.grantScopes(onGoingAttempt, collectedClaims) } returns grantScopesResult
+            coEvery { scopeGrantingManager.grantScopes(onGoingSession, collectedClaims) } returns grantScopesResult
             coEvery {
-                authorizeAttemptManager.setGrantedScopes(onGoingAttempt, emptyList(), any())
-            } returns afterGranted
+                oauth2Manager.setGrantedScopes(onGoingSession, emptyList(), any())
+            } returns oauth2AfterGranted
             coEvery {
-                authorizeAttemptManager.markAsFailedIfNotRecoverable(onGoingAttempt, any())
-            } returns failedAttempt
+                sessionManager.markAsFailedIfNotRecoverable(onGoingSession, any())
+            } returns failedSession
 
-            val result = manager.completeAuthorization(onGoingAttempt)
+            val result = manager.completeAuthorization(onGoingSession)
 
-            assertEquals(failedAttempt, result)
+            assertEquals(failedSession, result)
             coVerify {
-                authorizeAttemptManager.markAsFailedIfNotRecoverable(
-                    authorizeAttempt = onGoingAttempt,
+                sessionManager.markAsFailedIfNotRecoverable(
+                    session = onGoingSession,
                     error = match<BusinessException> { it.detailsId == "flow.authorization_flow.complete.no_scope" }
                 )
             }
@@ -302,16 +315,15 @@ class AuthorizationFlowManagerTest {
         val clientId = "client-id"
         val grantedScopes = listOf("read")
         val grantedScopeObjects = grantedScopes.map { mockkScope(it) }
-        val onGoingAttempt = createOnGoingAuthorizeAttempt(userId = userId, consentedScopes = emptyList())
-        val afterGranted = createOnGoingAuthorizeAttempt(
-            userId = userId,
-            grantedScopes = listOf("read"),
+        val onGoingSession = createOnGoingSession(userId = userId)
+        val oauth2AfterGranted = oauth2Of(
+            sessionId = onGoingSession.id,
+            clientId = clientId,
+            grantedScopes = grantedScopes,
             consentedScopes = emptyList()
         )
-        val completedAttempt = mockk<CompletedAuthorizeAttempt> {
+        val completedSession = mockk<CompletedInteractiveFlowSession> {
             every { this@mockk.userId } returns userId
-            every { this@mockk.clientId } returns clientId
-            every { this@mockk.consentedScopes } returns emptyList()
         }
         val collectedClaims = listOf(mockk<CollectedClaim>())
 
@@ -326,18 +338,18 @@ class AuthorizationFlowManagerTest {
                 )
             )
         )
-        coEvery { scopeGrantingManager.grantScopes(onGoingAttempt, collectedClaims) } returns grantScopesResult
+        coEvery { scopeGrantingManager.grantScopes(onGoingSession, collectedClaims) } returns grantScopesResult
         coEvery {
-            authorizeAttemptManager.setGrantedScopes(onGoingAttempt, grantedScopeObjects, any())
-        } returns afterGranted
-        coEvery { authorizeAttemptManager.markAsComplete(afterGranted) } returns completedAttempt
+            oauth2Manager.setGrantedScopes(onGoingSession, grantedScopeObjects, any())
+        } returns oauth2AfterGranted
+        coEvery { sessionManager.markAsComplete(onGoingSession) } returns completedSession
 
         coEvery { clientManager.findClientById(clientId) } returns mockClient(clientId)
         coEvery { consentManager.saveConsent(userId, any(), clientId, emptyList()) } returns mockk()
 
-        val result = manager.completeAuthorization(onGoingAttempt)
+        val result = manager.completeAuthorization(onGoingSession)
 
-        assertSame(completedAttempt, result)
+        assertSame(completedSession, result)
         coVerify { collectedClaimManager.findByUserId(userId) }
     }
 
@@ -348,50 +360,51 @@ class AuthorizationFlowManagerTest {
         }
     }
 
-    private fun createOnGoingAuthorizeAttempt(
-        userId: UUID,
-        grantedScopes: List<String>? = null,
-        consentedScopes: List<String>? = null
-    ): OnGoingAuthorizeAttempt {
-        return OnGoingAuthorizeAttempt(
+    private fun createOnGoingSession(
+        userId: UUID?
+    ): OnGoingInteractiveFlowSession {
+        return OnGoingInteractiveFlowSession(
             id = UUID.randomUUID(),
-            authorizationFlowId = "flow-id",
+            type = InteractiveFlowSessionType.OAUTH2,
+            flowId = "flow-id",
             expirationDate = LocalDateTime.now().plusHours(1),
-            attemptDate = LocalDateTime.now(),
-            clientId = "client-id",
+            sessionDate = LocalDateTime.now(),
+            userId = userId
+        )
+    }
+
+    private fun createCompletedSession(
+        expirationDate: LocalDateTime = LocalDateTime.now().plusHours(1)
+    ): CompletedInteractiveFlowSession {
+        val now = LocalDateTime.now()
+        return CompletedInteractiveFlowSession(
+            id = UUID.randomUUID(),
+            type = InteractiveFlowSessionType.OAUTH2,
+            flowId = "flow-id",
+            expirationDate = expirationDate,
+            sessionDate = now,
+            userId = UUID.randomUUID(),
+            completeDate = now
+        )
+    }
+
+    private fun oauth2Of(
+        sessionId: UUID,
+        clientId: String = "client-id",
+        consentedScopes: List<String>? = null,
+        grantedScopes: List<String>? = null
+    ): InteractiveFlowSessionOAuth2 {
+        return InteractiveFlowSessionOAuth2(
+            sessionId = sessionId,
+            clientId = clientId,
             redirectUri = "https://example.com/callback",
             requestedScopes = emptyList(),
             state = "state",
             nonce = "nonce",
-            userId = userId,
             consentedScopes = consentedScopes,
             consentedAt = consentedScopes?.let { LocalDateTime.now() },
             consentedBy = consentedScopes?.let { ConsentedBy.AUTO },
-            grantedScopes = grantedScopes,
-        )
-    }
-
-    private fun createCompletedAuthorizeAttempt(
-        clientId: String = "test-client",
-        expirationDate: LocalDateTime = LocalDateTime.now().plusHours(1)
-    ): CompletedAuthorizeAttempt {
-        val now = LocalDateTime.now()
-        return CompletedAuthorizeAttempt(
-            id = UUID.randomUUID(),
-            authorizationFlowId = "flow-id",
-            expirationDate = expirationDate,
-            attemptDate = now,
-            clientId = clientId,
-            redirectUri = "https://example.com/callback",
-            requestedScopes = emptyList(),
-            userId = UUID.randomUUID(),
-            consentedScopes = emptyList(),
-            consentedAt = now,
-            consentedBy = ConsentedBy.AUTO,
-            grantedScopes = emptyList(),
-            grantedAt = now,
-            grantedBy = GrantedBy.AUTO,
-            completeDate = now
+            grantedScopes = grantedScopes
         )
     }
 

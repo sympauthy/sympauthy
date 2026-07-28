@@ -2,7 +2,6 @@ package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderClaimsResolver
@@ -36,7 +35,13 @@ import java.util.*
 class WebAuthorizationFlowOAuth2ProviderManagerTest {
 
     @MockK
-    lateinit var authorizeAttemptManager: AuthorizeAttemptManager
+    lateinit var sessionManager: InteractiveFlowSessionManager
+
+    @MockK
+    lateinit var oauth2Manager: InteractiveFlowSessionOAuth2Manager
+
+    @MockK
+    lateinit var providerManager: InteractiveFlowSessionProviderManager
 
     @MockK
     lateinit var claimManager: ClaimManager

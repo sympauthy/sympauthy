@@ -4,19 +4,19 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
-import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.code.ValidationCodeReason
+import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.NonInteractiveAuthorizationFlow
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
-import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
-import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.config.model.ClientTemplate
 import com.sympauthy.config.model.ClientTemplatesConfig
@@ -44,7 +44,7 @@ class WebAuthorizationFlowManagerTest {
     lateinit var authorizationFlowManager: AuthorizationFlowManager
 
     @MockK
-    lateinit var authorizeAttemptManager: AuthorizeAttemptManager
+    lateinit var oauth2Manager: InteractiveFlowSessionOAuth2Manager
 
     @MockK
     lateinit var collectedClaimManager: CollectedClaimManager
@@ -144,16 +144,15 @@ class WebAuthorizationFlowManagerTest {
     }
 
     @Test
-    fun `getStatusForOnGoingAuthorizeAttempt - Non complete if missing claims`() = runTest {
+    fun `getStatusForOnGoingSession - Non complete if missing claims`() = runTest {
         val userId = UUID.randomUUID()
         val consentedScopes = listOf("openid", "profile")
-        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
-            val mock = this
-            every { mock.userId } returns userId
-            every { mock.consentedScopes } returns consentedScopes
-            every { mock.mfaPassed } returns false
+        val session = mockk<OnGoingInteractiveFlowSession> {
+            every { this@mockk.userId } returns userId
+            every { mfaPassed } returns false
         }
         every { uncheckedMfaConfig.enabled } returns false
+        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2With(consentedScopes = consentedScopes)
         coEvery {
             consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
                 userId,
@@ -169,22 +168,21 @@ class WebAuthorizationFlowManagerTest {
         coEvery { collectedClaimManager.findIdentifierByUserId(any()) } returns emptyList()
         every { claimValidationManager.getReasonsToSendValidationCode(any(), any()) } returns emptyList()
 
-        val result = manager.getStatusForOnGoingAuthorizeAttempt(authorizeAttempt)
+        val result = manager.getStatusForOnGoingSession(session)
 
         assertTrue(result.missingRequiredClaims)
     }
 
     @Test
-    fun `getStatusForOnGoingAuthorizeAttempt - Non complete if missing validation`() = runTest {
+    fun `getStatusForOnGoingSession - Non complete if missing validation`() = runTest {
         val userId = UUID.randomUUID()
         val consentedScopes = listOf("openid", "profile")
-        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
-            val mock = this
-            every { mock.userId } returns userId
-            every { mock.consentedScopes } returns consentedScopes
-            every { mock.mfaPassed } returns false
+        val session = mockk<OnGoingInteractiveFlowSession> {
+            every { this@mockk.userId } returns userId
+            every { mfaPassed } returns false
         }
         every { uncheckedMfaConfig.enabled } returns false
+        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2With(consentedScopes = consentedScopes)
         coEvery {
             consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
                 userId,
@@ -202,23 +200,22 @@ class WebAuthorizationFlowManagerTest {
             ValidationCodeReason.EMAIL_CLAIM,
         )
 
-        val result = manager.getStatusForOnGoingAuthorizeAttempt(authorizeAttempt)
+        val result = manager.getStatusForOnGoingSession(session)
 
         assertTrue(result.missingMediaForClaimValidation.isNotEmpty())
     }
 
     @Test
-    fun `getStatusForOnGoingAuthorizeAttempt - Missing MFA when user has not passed MFA and MFA is enabled`() =
+    fun `getStatusForOnGoingSession - Missing MFA when user has not passed MFA and MFA is enabled`() =
         runTest {
             val userId = UUID.randomUUID()
             val consentedScopes = listOf("openid", "profile")
-            val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
-                val mock = this
-                every { mock.userId } returns userId
-                every { mock.consentedScopes } returns consentedScopes
-                every { mock.mfaPassed } returns false
+            val session = mockk<OnGoingInteractiveFlowSession> {
+                every { this@mockk.userId } returns userId
+                every { mfaPassed } returns false
             }
             every { uncheckedMfaConfig.enabled } returns true
+            coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2With(consentedScopes = consentedScopes)
             coEvery {
                 consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
                     userId,
@@ -234,22 +231,21 @@ class WebAuthorizationFlowManagerTest {
             coEvery { collectedClaimManager.findIdentifierByUserId(any()) } returns emptyList()
             every { claimValidationManager.getReasonsToSendValidationCode(any(), any()) } returns emptyList()
 
-            val result = manager.getStatusForOnGoingAuthorizeAttempt(authorizeAttempt)
+            val result = manager.getStatusForOnGoingSession(session)
 
             assertTrue(result.missingMfa)
         }
 
     @Test
-    fun `getStatusForOnGoingAuthorizeAttempt - Not missing MFA when user has already passed MFA`() = runTest {
+    fun `getStatusForOnGoingSession - Not missing MFA when user has already passed MFA`() = runTest {
         val userId = UUID.randomUUID()
         val consentedScopes = listOf("openid", "profile")
-        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
-            val mock = this
-            every { mock.userId } returns userId
-            every { mock.consentedScopes } returns consentedScopes
-            every { mock.mfaPassed } returns true
+        val session = mockk<OnGoingInteractiveFlowSession> {
+            every { this@mockk.userId } returns userId
+            every { mfaPassed } returns true
         }
         every { uncheckedMfaConfig.enabled } returns true
+        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2With(consentedScopes = consentedScopes)
         coEvery {
             consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
                 userId,
@@ -265,27 +261,27 @@ class WebAuthorizationFlowManagerTest {
         coEvery { collectedClaimManager.findIdentifierByUserId(any()) } returns emptyList()
         every { claimValidationManager.getReasonsToSendValidationCode(any(), any()) } returns emptyList()
 
-        val result = manager.getStatusForOnGoingAuthorizeAttempt(authorizeAttempt)
+        val result = manager.getStatusForOnGoingSession(session)
 
         assertFalse(result.missingMfa)
     }
 
     @Test
     fun `getStatusAndCompleteIfNecessary - Complete`() = runTest {
-        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
-        val completeAuthorizeAttempt = mockk<CompletedAuthorizeAttempt>()
+        val session = mockk<OnGoingInteractiveFlowSession>()
+        val completedSession = mockk<CompletedInteractiveFlowSession>()
         val status = mockk<WebAuthorizationFlowStatus> {
             every { complete } returns true
         }
 
-        coEvery { manager.getStatus(authorizeAttempt) } returns status
+        coEvery { manager.getStatus(session) } returns status
         coEvery {
-            authorizationFlowManager.completeAuthorization(authorizeAttempt)
-        } returns completeAuthorizeAttempt
+            authorizationFlowManager.completeAuthorization(session)
+        } returns completedSession
 
-        val result = manager.getStatusAndCompleteIfNecessary(authorizeAttempt)
+        val result = manager.getStatusAndCompleteIfNecessary(session)
 
-        assertSame(completeAuthorizeAttempt, result.first)
+        assertSame(completedSession, result.first)
         assertTrue(result.second.complete)
     }
 
@@ -363,7 +359,7 @@ class WebAuthorizationFlowManagerTest {
             )
             val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
             val realManager = WebAuthorizationFlowManager(
-                authorizationFlowManager, authorizeAttemptManager, collectedClaimManager,
+                authorizationFlowManager, oauth2Manager, collectedClaimManager,
                 consentAwareCollectedClaimManager, claimValidationManager, clientManager,
                 invitationManager, scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
             )
@@ -379,7 +375,7 @@ class WebAuthorizationFlowManagerTest {
         every { authorizationFlowManager.defaultWebAuthorizationFlow } returns hardcodedFlow
         val templatesConfig = EnabledClientTemplatesConfig(emptyMap())
         val realManager = WebAuthorizationFlowManager(
-            authorizationFlowManager, authorizeAttemptManager, collectedClaimManager,
+            authorizationFlowManager, oauth2Manager, collectedClaimManager,
             consentAwareCollectedClaimManager, claimValidationManager, clientManager,
             invitationManager, scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
         )
@@ -408,7 +404,7 @@ class WebAuthorizationFlowManagerTest {
             )
             val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
             val realManager = WebAuthorizationFlowManager(
-                authorizationFlowManager, authorizeAttemptManager, collectedClaimManager,
+                authorizationFlowManager, oauth2Manager, collectedClaimManager,
                 consentAwareCollectedClaimManager, claimValidationManager, clientManager,
                 invitationManager, scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
             )
@@ -436,7 +432,7 @@ class WebAuthorizationFlowManagerTest {
             )
             val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
             val realManager = WebAuthorizationFlowManager(
-                authorizationFlowManager, authorizeAttemptManager, collectedClaimManager,
+                authorizationFlowManager, oauth2Manager, collectedClaimManager,
                 consentAwareCollectedClaimManager, claimValidationManager, clientManager,
                 invitationManager, scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
             )
@@ -469,17 +465,19 @@ class WebAuthorizationFlowManagerTest {
         val clientException = businessExceptionOf(detailsId = "client.parse_requested.missing")
         setupDefaultFlow()
         coEvery { clientManager.parseRequestedClient(null) } throws clientException
-        val attemptSlot = slot<BusinessException?>()
+        val errorSlot = slot<BusinessException?>()
         coEvery {
-            authorizeAttemptManager.newAuthorizeAttempt(
+            oauth2Manager.startOAuth2Session(
                 client = null,
                 clientState = any(),
-                authorizationFlow = any(),
+                clientNonce = any(),
+                flow = any(),
                 scopes = any(),
                 redirectUri = any(),
                 codeChallenge = any(),
                 codeChallengeMethod = any(),
-                error = captureNullable(attemptSlot)
+                invitationId = any(),
+                error = captureNullable(errorSlot)
             )
         } returns mockk()
 
@@ -491,7 +489,7 @@ class WebAuthorizationFlowManagerTest {
             uncheckedRedirectUri = null
         )
 
-        assertEquals("client.parse_requested.missing", attemptSlot.captured?.detailsId)
+        assertEquals("client.parse_requested.missing", errorSlot.captured?.detailsId)
     }
 
     @Test
@@ -499,17 +497,19 @@ class WebAuthorizationFlowManagerTest {
         val clientException = businessExceptionOf(detailsId = "client.invalid_client_id")
         setupDefaultFlow()
         coEvery { clientManager.parseRequestedClient("unknown") } throws clientException
-        val attemptSlot = slot<BusinessException?>()
+        val errorSlot = slot<BusinessException?>()
         coEvery {
-            authorizeAttemptManager.newAuthorizeAttempt(
+            oauth2Manager.startOAuth2Session(
                 client = null,
                 clientState = any(),
-                authorizationFlow = any(),
+                clientNonce = any(),
+                flow = any(),
                 scopes = any(),
                 redirectUri = any(),
                 codeChallenge = any(),
                 codeChallengeMethod = any(),
-                error = captureNullable(attemptSlot)
+                invitationId = any(),
+                error = captureNullable(errorSlot)
             )
         } returns mockk()
 
@@ -521,7 +521,7 @@ class WebAuthorizationFlowManagerTest {
             uncheckedRedirectUri = null
         )
 
-        assertEquals("client.invalid_client_id", attemptSlot.captured?.detailsId)
+        assertEquals("client.invalid_client_id", errorSlot.captured?.detailsId)
     }
 
     @Test
@@ -535,14 +535,16 @@ class WebAuthorizationFlowManagerTest {
         setupValidClient(client)
         val flowSlot = slot<WebAuthorizationFlow>()
         coEvery {
-            authorizeAttemptManager.newAuthorizeAttempt(
+            oauth2Manager.startOAuth2Session(
                 client = any(),
                 clientState = any(),
-                authorizationFlow = capture(flowSlot),
+                clientNonce = any(),
+                flow = capture(flowSlot),
                 scopes = any(),
                 redirectUri = any(),
                 codeChallenge = any(),
                 codeChallengeMethod = any(),
+                invitationId = any(),
                 error = any()
             )
         } returns mockk()
@@ -574,17 +576,19 @@ class WebAuthorizationFlowManagerTest {
             )
         } throws businessExceptionOf(detailsId = "scope.unsupported")
         every { manager.parseRequestedRedirectUri(client, any()) } returns URI("https://example.com/callback")
-        val attemptSlot = slot<BusinessException?>()
+        val errorSlot = slot<BusinessException?>()
         coEvery {
-            authorizeAttemptManager.newAuthorizeAttempt(
+            oauth2Manager.startOAuth2Session(
                 client = any(),
                 clientState = any(),
-                authorizationFlow = any(),
+                clientNonce = any(),
+                flow = any(),
                 scopes = any(),
                 redirectUri = any(),
                 codeChallenge = any(),
                 codeChallengeMethod = any(),
-                error = captureNullable(attemptSlot)
+                invitationId = any(),
+                error = captureNullable(errorSlot)
             )
         } returns mockk()
 
@@ -596,7 +600,7 @@ class WebAuthorizationFlowManagerTest {
             uncheckedRedirectUri = "https://example.com/callback"
         )
 
-        assertEquals("scope.unsupported", attemptSlot.captured?.detailsId)
+        assertEquals("scope.unsupported", errorSlot.captured?.detailsId)
     }
 
     @Test
@@ -604,14 +608,16 @@ class WebAuthorizationFlowManagerTest {
         setupDefaultFlow()
         coEvery { clientManager.parseRequestedClient(null) } throws businessExceptionOf(detailsId = "client.parse_requested.missing")
         coEvery {
-            authorizeAttemptManager.newAuthorizeAttempt(
+            oauth2Manager.startOAuth2Session(
                 client = any(),
                 clientState = any(),
-                authorizationFlow = any(),
+                clientNonce = any(),
+                flow = any(),
                 scopes = any(),
                 redirectUri = any(),
                 codeChallenge = any(),
                 codeChallengeMethod = any(),
+                invitationId = any(),
                 error = any()
             )
         } returns mockk()
@@ -640,17 +646,19 @@ class WebAuthorizationFlowManagerTest {
         every { manager.parseRequestedRedirectUri(client, any()) } throws businessExceptionOf(
             detailsId = "flow.web.parse_requested_redirect_uri.missing"
         )
-        val attemptSlot = slot<BusinessException?>()
+        val errorSlot = slot<BusinessException?>()
         coEvery {
-            authorizeAttemptManager.newAuthorizeAttempt(
+            oauth2Manager.startOAuth2Session(
                 client = any(),
                 clientState = any(),
-                authorizationFlow = any(),
+                clientNonce = any(),
+                flow = any(),
                 scopes = any(),
                 redirectUri = any(),
                 codeChallenge = any(),
                 codeChallengeMethod = any(),
-                error = captureNullable(attemptSlot)
+                invitationId = any(),
+                error = captureNullable(errorSlot)
             )
         } returns mockk()
 
@@ -662,7 +670,7 @@ class WebAuthorizationFlowManagerTest {
             uncheckedRedirectUri = ""
         )
 
-        assertEquals("flow.web.parse_requested_redirect_uri.missing", attemptSlot.captured?.detailsId)
+        assertEquals("flow.web.parse_requested_redirect_uri.missing", errorSlot.captured?.detailsId)
     }
 
     @Test
@@ -670,14 +678,16 @@ class WebAuthorizationFlowManagerTest {
         setupDefaultFlow()
         coEvery { clientManager.parseRequestedClient(null) } throws businessExceptionOf(detailsId = "client.parse_requested.missing")
         coEvery {
-            authorizeAttemptManager.newAuthorizeAttempt(
+            oauth2Manager.startOAuth2Session(
                 client = any(),
                 clientState = any(),
-                authorizationFlow = any(),
+                clientNonce = any(),
+                flow = any(),
                 scopes = any(),
                 redirectUri = any(),
                 codeChallenge = any(),
                 codeChallengeMethod = any(),
+                invitationId = any(),
                 error = any()
             )
         } returns mockk()
@@ -704,17 +714,19 @@ class WebAuthorizationFlowManagerTest {
         coEvery { clientManager.parseRequestedClient(any()) } returns client
         coEvery { scopeManager.parseRequestedScopes(client, any()) } returns emptyList()
         every { manager.parseRequestedRedirectUri(client, any()) } returns URI("https://example.com/callback")
-        val attemptSlot = slot<BusinessException?>()
+        val errorSlot = slot<BusinessException?>()
         coEvery {
-            authorizeAttemptManager.newAuthorizeAttempt(
+            oauth2Manager.startOAuth2Session(
                 client = any(),
                 clientState = any(),
-                authorizationFlow = any(),
+                clientNonce = any(),
+                flow = any(),
                 scopes = any(),
                 redirectUri = any(),
                 codeChallenge = any(),
                 codeChallengeMethod = any(),
-                error = captureNullable(attemptSlot)
+                invitationId = any(),
+                error = captureNullable(errorSlot)
             )
         } returns mockk()
 
@@ -728,7 +740,7 @@ class WebAuthorizationFlowManagerTest {
             uncheckedCodeChallengeMethod = null
         )
 
-        assertEquals("authorize.pkce.missing_code_challenge", attemptSlot.captured?.detailsId)
+        assertEquals("authorize.pkce.missing_code_challenge", errorSlot.captured?.detailsId)
     }
 
     @Test
@@ -743,14 +755,16 @@ class WebAuthorizationFlowManagerTest {
         val challengeSlot = slot<String?>()
         val methodSlot = slot<CodeChallengeMethod?>()
         coEvery {
-            authorizeAttemptManager.newAuthorizeAttempt(
+            oauth2Manager.startOAuth2Session(
                 client = any(),
                 clientState = any(),
-                authorizationFlow = any(),
+                clientNonce = any(),
+                flow = any(),
                 scopes = any(),
                 redirectUri = any(),
                 codeChallenge = captureNullable(challengeSlot),
                 codeChallengeMethod = captureNullable(methodSlot),
+                invitationId = any(),
                 error = any()
             )
         } returns mockk()
@@ -773,17 +787,19 @@ class WebAuthorizationFlowManagerTest {
     fun `startAuthorizationWith - Client error takes priority over other errors`() = runTest {
         setupDefaultFlow()
         coEvery { clientManager.parseRequestedClient(null) } throws businessExceptionOf(detailsId = "client.parse_requested.missing")
-        val attemptSlot = slot<BusinessException?>()
+        val errorSlot = slot<BusinessException?>()
         coEvery {
-            authorizeAttemptManager.newAuthorizeAttempt(
+            oauth2Manager.startOAuth2Session(
                 client = any(),
                 clientState = any(),
-                authorizationFlow = any(),
+                clientNonce = any(),
+                flow = any(),
                 scopes = any(),
                 redirectUri = any(),
                 codeChallenge = any(),
                 codeChallengeMethod = any(),
-                error = captureNullable(attemptSlot)
+                invitationId = any(),
+                error = captureNullable(errorSlot)
             )
         } returns mockk()
 
@@ -795,7 +811,7 @@ class WebAuthorizationFlowManagerTest {
             uncheckedRedirectUri = ""
         )
 
-        assertEquals("client.parse_requested.missing", attemptSlot.captured?.detailsId)
+        assertEquals("client.parse_requested.missing", errorSlot.captured?.detailsId)
     }
 
     @Test
@@ -816,17 +832,19 @@ class WebAuthorizationFlowManagerTest {
         every { manager.parseRequestedRedirectUri(client, any()) } throws businessExceptionOf(
             detailsId = "flow.web.parse_requested_redirect_uri.missing"
         )
-        val attemptSlot = slot<BusinessException?>()
+        val errorSlot = slot<BusinessException?>()
         coEvery {
-            authorizeAttemptManager.newAuthorizeAttempt(
+            oauth2Manager.startOAuth2Session(
                 client = any(),
                 clientState = any(),
-                authorizationFlow = any(),
+                clientNonce = any(),
+                flow = any(),
                 scopes = any(),
                 redirectUri = any(),
                 codeChallenge = any(),
                 codeChallengeMethod = any(),
-                error = captureNullable(attemptSlot)
+                invitationId = any(),
+                error = captureNullable(errorSlot)
             )
         } returns mockk()
 
@@ -839,11 +857,11 @@ class WebAuthorizationFlowManagerTest {
         )
 
         // Scope error comes before redirect_uri error in the listOfNotNull
-        assertEquals("scope.unsupported", attemptSlot.captured?.detailsId)
+        assertEquals("scope.unsupported", errorSlot.captured?.detailsId)
     }
 
     @Test
-    fun `startAuthorizationWith - Passes state to newAuthorizeAttempt`() = runTest {
+    fun `startAuthorizationWith - Passes state to startOAuth2Session`() = runTest {
         val client = mockk<Client> {
             every { authorizationFlow } returns null
             every { `public` } returns false
@@ -853,14 +871,16 @@ class WebAuthorizationFlowManagerTest {
         setupValidClient(client)
         val stateSlot = slot<String?>()
         coEvery {
-            authorizeAttemptManager.newAuthorizeAttempt(
+            oauth2Manager.startOAuth2Session(
                 client = any(),
                 clientState = captureNullable(stateSlot),
-                authorizationFlow = any(),
+                clientNonce = any(),
+                flow = any(),
                 scopes = any(),
                 redirectUri = any(),
                 codeChallenge = any(),
                 codeChallengeMethod = any(),
+                invitationId = any(),
                 error = any()
             )
         } returns mockk()
@@ -877,7 +897,7 @@ class WebAuthorizationFlowManagerTest {
     }
 
     @Test
-    fun `startAuthorizationWith - Passes nonce to newAuthorizeAttempt`() = runTest {
+    fun `startAuthorizationWith - Passes nonce to startOAuth2Session`() = runTest {
         val client = mockk<Client> {
             every { authorizationFlow } returns null
             every { `public` } returns false
@@ -887,15 +907,16 @@ class WebAuthorizationFlowManagerTest {
         setupValidClient(client)
         val nonceSlot = slot<String?>()
         coEvery {
-            authorizeAttemptManager.newAuthorizeAttempt(
+            oauth2Manager.startOAuth2Session(
                 client = any(),
                 clientState = any(),
                 clientNonce = captureNullable(nonceSlot),
-                authorizationFlow = any(),
+                flow = any(),
                 scopes = any(),
                 redirectUri = any(),
                 codeChallenge = any(),
                 codeChallengeMethod = any(),
+                invitationId = any(),
                 error = any()
             )
         } returns mockk()
@@ -1062,19 +1083,19 @@ class WebAuthorizationFlowManagerTest {
 
     // --- checkSignUpAllowed ---
 
-    private fun createAttempt(
-        clientId: String = "test-client",
-        invitationId: UUID? = null
-    ): OnGoingAuthorizeAttempt = mockk {
-        every { this@mockk.clientId } returns clientId
-        every { this@mockk.invitationId } returns invitationId
-    }
+    private fun createSession(): OnGoingInteractiveFlowSession = mockk()
 
-    private fun mockClientWithAudience(
+    private fun mockOAuth2AndClient(
+        session: OnGoingInteractiveFlowSession,
         clientId: String = "test-client",
+        invitationId: UUID? = null,
         signUpEnabled: Boolean = true,
         invitationEnabled: Boolean = false
     ) {
+        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2With(
+            clientId = clientId,
+            invitationId = invitationId
+        )
         val audience = Audience(
             id = "test-audience",
             tokenAudience = "test-audience",
@@ -1089,54 +1110,78 @@ class WebAuthorizationFlowManagerTest {
 
     @Test
     fun `checkSignUpAllowed - Succeeds when sign-up is enabled`() = runTest {
-        mockClientWithAudience(signUpEnabled = true, invitationEnabled = false)
-        manager.checkSignUpAllowed(createAttempt(), recoverable = true)
+        val session = createSession()
+        mockOAuth2AndClient(session, signUpEnabled = true, invitationEnabled = false)
+        manager.checkSignUpAllowed(session, recoverable = true)
     }
 
     @Test
     fun `checkSignUpAllowed - Succeeds when both sign-up and invitation enabled without invitation`() = runTest {
-        mockClientWithAudience(signUpEnabled = true, invitationEnabled = true)
-        manager.checkSignUpAllowed(createAttempt(invitationId = null), recoverable = true)
+        val session = createSession()
+        mockOAuth2AndClient(session, invitationId = null, signUpEnabled = true, invitationEnabled = true)
+        manager.checkSignUpAllowed(session, recoverable = true)
     }
 
     @Test
     fun `checkSignUpAllowed - Succeeds when invitation required and invitation is bound`() = runTest {
-        mockClientWithAudience(signUpEnabled = false, invitationEnabled = true)
-        manager.checkSignUpAllowed(createAttempt(invitationId = UUID.randomUUID()), recoverable = false)
+        val session = createSession()
+        mockOAuth2AndClient(
+            session,
+            invitationId = UUID.randomUUID(),
+            signUpEnabled = false,
+            invitationEnabled = true
+        )
+        manager.checkSignUpAllowed(session, recoverable = false)
     }
 
     @Test
     fun `checkSignUpAllowed - Throws when both sign-up and invitation are disabled`() = runTest {
-        mockClientWithAudience(signUpEnabled = false, invitationEnabled = false)
+        val session = createSession()
+        mockOAuth2AndClient(session, signUpEnabled = false, invitationEnabled = false)
 
         val exception = assertThrows<BusinessException> {
-            manager.checkSignUpAllowed(createAttempt(), recoverable = true)
+            manager.checkSignUpAllowed(session, recoverable = true)
         }
         assertEquals("flow.sign_up.disabled", exception.detailsId)
     }
 
     @Test
     fun `checkSignUpAllowed - Throws when invitation required but not bound`() = runTest {
-        mockClientWithAudience(signUpEnabled = false, invitationEnabled = true)
+        val session = createSession()
+        mockOAuth2AndClient(session, invitationId = null, signUpEnabled = false, invitationEnabled = true)
 
         val exception = assertThrows<BusinessException> {
-            manager.checkSignUpAllowed(createAttempt(invitationId = null), recoverable = false)
+            manager.checkSignUpAllowed(session, recoverable = false)
         }
         assertEquals("flow.sign_up.invitation_required", exception.detailsId)
     }
 
     @Test
     fun `checkSignUpAllowed - Respects recoverable flag`() = runTest {
-        mockClientWithAudience(signUpEnabled = false, invitationEnabled = false)
+        val session = createSession()
+        mockOAuth2AndClient(session, signUpEnabled = false, invitationEnabled = false)
 
         val recoverableException = assertThrows<BusinessException> {
-            manager.checkSignUpAllowed(createAttempt(), recoverable = true)
+            manager.checkSignUpAllowed(session, recoverable = true)
         }
         assertTrue(recoverableException.recoverable)
 
         val nonRecoverableException = assertThrows<BusinessException> {
-            manager.checkSignUpAllowed(createAttempt(), recoverable = false)
+            manager.checkSignUpAllowed(session, recoverable = false)
         }
         assertFalse(nonRecoverableException.recoverable)
     }
+
+    private fun oauth2With(
+        clientId: String = "test-client",
+        consentedScopes: List<String>? = null,
+        invitationId: UUID? = null
+    ): InteractiveFlowSessionOAuth2 = InteractiveFlowSessionOAuth2(
+        sessionId = UUID.randomUUID(),
+        clientId = clientId,
+        redirectUri = "https://example.com/callback",
+        requestedScopes = emptyList(),
+        consentedScopes = consentedScopes,
+        invitationId = invitationId
+    )
 }

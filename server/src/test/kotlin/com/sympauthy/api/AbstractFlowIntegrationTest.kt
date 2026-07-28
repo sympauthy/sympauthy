@@ -18,9 +18,9 @@ import java.net.URI
  * interact with the authorization flow, because it provides:
  *
  * - A pre-configured [httpClient] bound to the root of the embedded server.
- * - [createAuthorizeAttempt]: starts an authorization code flow with the test client (`default`)
- *   and returns the opaque `state` token that the flow API requires on every subsequent request.
- *   Call this in a `@BeforeEach` method and pass the state to the endpoints under test.
+ * - [createFlowSession]: starts an authorization code flow with the test client (`default`), creating an
+ *   interactive flow session, and returns the opaque `state` token that the flow API requires on every
+ *   subsequent request. Call this in a `@BeforeEach` method and pass the state to the endpoints under test.
  */
 @MicronautTest(
     environments = ["default", "test"],
@@ -37,7 +37,7 @@ abstract class AbstractFlowIntegrationTest {
 
     fun stateAuthorizationHeader(state: String): String = "State $state"
 
-    fun createAuthorizeAttempt(): String {
+    fun createFlowSession(): String {
         val config = DefaultHttpClientConfiguration()
         config.isFollowRedirects = false
         val client = HttpClient.create(embeddedServer.url, config)

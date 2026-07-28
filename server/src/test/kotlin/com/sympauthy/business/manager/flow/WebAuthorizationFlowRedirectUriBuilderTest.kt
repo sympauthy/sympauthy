@@ -1,14 +1,14 @@
 package com.sympauthy.business.manager.flow
 
-import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
 import com.sympauthy.business.model.code.ValidationCodeMedia
+import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
 import com.sympauthy.business.model.oauth2.AuthorizationCode
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
-import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
-import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.config.model.UrlsConfig
 import io.mockk.coEvery
 import io.mockk.every
@@ -22,12 +22,16 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import java.net.URI
+import java.util.*
 
 @ExtendWith(MockKExtension::class)
 class WebAuthorizationFlowRedirectUriBuilderTest {
 
     @MockK
-    lateinit var authorizeAttemptManager: AuthorizeAttemptManager
+    lateinit var sessionManager: InteractiveFlowSessionManager
+
+    @MockK
+    lateinit var oauth2Manager: InteractiveFlowSessionOAuth2Manager
 
     @MockK
     lateinit var authorizationCodeManager: AuthorizationCodeManager
@@ -42,7 +46,7 @@ class WebAuthorizationFlowRedirectUriBuilderTest {
     @Test
     fun `getRedirectUri - Redirect to collect claims step of the authorization flow if a claim is missing`() = runTest {
         val rawCollectClaimsUri = URI.create("https://www.example.com/collect-claims")
-        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
+        val session = mockk<OnGoingInteractiveFlowSession>()
         val flow = mockk<WebAuthorizationFlow> {
             every { collectClaimsUri } returns rawCollectClaimsUri
         }
@@ -52,10 +56,10 @@ class WebAuthorizationFlowRedirectUriBuilderTest {
             missingMediaForClaimValidation = emptyList()
         )
 
-        coEvery { uriBuilder.appendStateToUri(authorizeAttempt, rawCollectClaimsUri) } returns rawCollectClaimsUri
+        coEvery { uriBuilder.appendStateToUri(session, rawCollectClaimsUri) } returns rawCollectClaimsUri
 
         val result = uriBuilder.getRedirectUri(
-            authorizeAttempt = authorizeAttempt,
+            session = session,
             flow = flow,
             status = flowResult
         )
@@ -67,7 +71,7 @@ class WebAuthorizationFlowRedirectUriBuilderTest {
     fun `getRedirectUri - Redirect to code validation step of the authorization flow if a validation is required`() =
         runTest {
             val rawValidateCodeUri = URI.create("https://www.example.com/code")
-            val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
+            val session = mockk<OnGoingInteractiveFlowSession>()
             val flow = mockk<WebAuthorizationFlow> {
                 every { validateClaimsUri } returns rawValidateCodeUri
             }
@@ -78,10 +82,10 @@ class WebAuthorizationFlowRedirectUriBuilderTest {
                 missingMediaForClaimValidation = listOf(missingMedia)
             )
 
-            coEvery { uriBuilder.appendStateToUri(authorizeAttempt, any()) } returnsArgument 1
+            coEvery { uriBuilder.appendStateToUri(session, any()) } returnsArgument 1
 
             val result = uriBuilder.getRedirectUri(
-                authorizeAttempt = authorizeAttempt,
+                session = session,
                 flow = flow,
                 status = flowResult
             )
@@ -95,7 +99,7 @@ class WebAuthorizationFlowRedirectUriBuilderTest {
     @Test
     fun `getRedirectUri - Redirect to client if flow is complete`() = runTest {
         val rawClientUri = URI.create("https://www.example.com/callback")
-        val authorizeAttempt = mockk<CompletedAuthorizeAttempt>()
+        val session = mockk<CompletedInteractiveFlowSession>()
         val flow = mockk<WebAuthorizationFlow>()
         val flowResult = WebAuthorizationFlowStatus(
             missingUser = false,
@@ -103,10 +107,10 @@ class WebAuthorizationFlowRedirectUriBuilderTest {
             missingMediaForClaimValidation = emptyList()
         )
 
-        coEvery { uriBuilder.getRedirectUriToClient(authorizeAttempt) } returns rawClientUri
+        coEvery { uriBuilder.getRedirectUriToClient(session) } returns rawClientUri
 
         val result = uriBuilder.getRedirectUri(
-            authorizeAttempt = authorizeAttempt,
+            session = session,
             flow = flow,
             status = flowResult
         )
@@ -120,17 +124,22 @@ class WebAuthorizationFlowRedirectUriBuilderTest {
             val clientRedirectUri = "https://www.example.com"
             val clientState = "clientState"
             val rawAuthorizationCode = "authorizationCode"
-            val authorizeAttempt = mockk<CompletedAuthorizeAttempt> {
-                every { redirectUri } returns clientRedirectUri
-                every { state } returns clientState
-            }
+            val session = mockk<CompletedInteractiveFlowSession>()
+            val oauth2 = InteractiveFlowSessionOAuth2(
+                sessionId = UUID.randomUUID(),
+                clientId = "test-client",
+                redirectUri = clientRedirectUri,
+                requestedScopes = emptyList(),
+                state = clientState
+            )
             val authorizationCode = mockk<AuthorizationCode> {
                 every { code } returns rawAuthorizationCode
             }
 
-            coEvery { authorizationCodeManager.generateCode(authorizeAttempt) } returns authorizationCode
+            coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
+            coEvery { authorizationCodeManager.generateCode(session) } returns authorizationCode
 
-            val result = uriBuilder.getRedirectUriToClient(authorizeAttempt)
+            val result = uriBuilder.getRedirectUriToClient(session)
 
             assertEquals("${clientRedirectUri}?state=${clientState}&code=${rawAuthorizationCode}", result.toString())
         }
@@ -138,13 +147,13 @@ class WebAuthorizationFlowRedirectUriBuilderTest {
     @Test
     fun `appendStateToUri - Encode state and add it as query param to uri`() = runTest {
         val uri = URI.create("https://www.example.com")
-        val authorizeAttempt = mockk<AuthorizeAttempt>()
+        val session = mockk<InteractiveFlowSession>()
         val encodedState = "encodedState"
 
-        coEvery { authorizeAttemptManager.encodeState(authorizeAttempt) } returns encodedState
+        coEvery { sessionManager.encodeState(session) } returns encodedState
 
         val result = uriBuilder.appendStateToUri(
-            authorizeAttempt = authorizeAttempt,
+            session = session,
             uri = uri
         )
 

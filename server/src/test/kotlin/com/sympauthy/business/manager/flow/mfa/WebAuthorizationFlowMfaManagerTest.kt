@@ -1,12 +1,12 @@
 package com.sympauthy.business.manager.flow.mfa
 
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowRedirectUriBuilder
 import com.sympauthy.business.manager.mfa.TotpManager
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.mfa.TotpEnrollment
-import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.EnabledMfaConfig
 import com.sympauthy.config.model.MfaConfig
@@ -29,7 +29,7 @@ import java.util.*
 class WebAuthorizationFlowMfaManagerTest {
 
     @MockK
-    lateinit var authorizeAttemptManager: AuthorizeAttemptManager
+    lateinit var sessionManager: InteractiveFlowSessionManager
 
     @MockK
     lateinit var totpManager: TotpManager
@@ -39,13 +39,13 @@ class WebAuthorizationFlowMfaManagerTest {
 
     private val userId = UUID.randomUUID()
     private val user = mockk<User> { every { id } returns userId }
-    private val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
+    private val session = mockk<OnGoingInteractiveFlowSession>()
     private val flow = mockk<WebAuthorizationFlow>()
     private val skipEndpointPath = "/api/v1/flow/mfa/skip"
 
     private fun managerWith(mfaConfig: MfaConfig) = WebAuthorizationFlowMfaManager(
         uncheckedMfaConfig = mfaConfig,
-        authorizeAttemptManager = authorizeAttemptManager,
+        sessionManager = sessionManager,
         totpManager = totpManager,
         redirectUriBuilder = redirectUriBuilder
     )
@@ -58,9 +58,9 @@ class WebAuthorizationFlowMfaManagerTest {
         val manager = managerWith(EnabledMfaConfig(totp = true, required = true))
 
         coEvery { totpManager.findConfirmedEnrollments(userId) } returns emptyList()
-        coEvery { redirectUriBuilder.getMfaTotpEnrollUri(authorizeAttempt, flow) } returns enrollUri
+        coEvery { redirectUriBuilder.getMfaTotpEnrollUri(session, flow) } returns enrollUri
 
-        val result = manager.getMfaResult(authorizeAttempt, user, flow, skipEndpointPath)
+        val result = manager.getMfaResult(session, user, flow, skipEndpointPath)
 
         assertEquals(MfaAutoRedirect(enrollUri), result)
     }
@@ -72,9 +72,9 @@ class WebAuthorizationFlowMfaManagerTest {
         val manager = managerWith(EnabledMfaConfig(totp = true, required = true))
 
         coEvery { totpManager.findConfirmedEnrollments(userId) } returns listOf(enrollment)
-        coEvery { redirectUriBuilder.getMfaTotpChallengeUri(authorizeAttempt, flow) } returns challengeUri
+        coEvery { redirectUriBuilder.getMfaTotpChallengeUri(session, flow) } returns challengeUri
 
-        val result = manager.getMfaResult(authorizeAttempt, user, flow, skipEndpointPath)
+        val result = manager.getMfaResult(session, user, flow, skipEndpointPath)
 
         assertEquals(MfaAutoRedirect(challengeUri), result)
     }
@@ -87,10 +87,10 @@ class WebAuthorizationFlowMfaManagerTest {
             val manager = managerWith(EnabledMfaConfig(totp = true, required = false))
 
             coEvery { totpManager.findConfirmedEnrollments(userId) } returns emptyList()
-            coEvery { redirectUriBuilder.getMfaTotpEnrollUri(authorizeAttempt, flow) } returns enrollUri
-            coEvery { redirectUriBuilder.getMfaSkipUri(authorizeAttempt, skipEndpointPath) } returns skipUri
+            coEvery { redirectUriBuilder.getMfaTotpEnrollUri(session, flow) } returns enrollUri
+            coEvery { redirectUriBuilder.getMfaSkipUri(session, skipEndpointPath) } returns skipUri
 
-            val result = manager.getMfaResult(authorizeAttempt, user, flow, skipEndpointPath)
+            val result = manager.getMfaResult(session, user, flow, skipEndpointPath)
 
             assertEquals(
                 MfaMethodSelection(
@@ -108,9 +108,9 @@ class WebAuthorizationFlowMfaManagerTest {
         val manager = managerWith(EnabledMfaConfig(totp = true, required = false))
 
         coEvery { totpManager.findConfirmedEnrollments(userId) } returns listOf(enrollment)
-        coEvery { redirectUriBuilder.getMfaTotpChallengeUri(authorizeAttempt, flow) } returns challengeUri
+        coEvery { redirectUriBuilder.getMfaTotpChallengeUri(session, flow) } returns challengeUri
 
-        val result = manager.getMfaResult(authorizeAttempt, user, flow, skipEndpointPath)
+        val result = manager.getMfaResult(session, user, flow, skipEndpointPath)
 
         assertEquals(MfaAutoRedirect(challengeUri), result)
     }
@@ -118,18 +118,18 @@ class WebAuthorizationFlowMfaManagerTest {
     // --- skipMfa ---
 
     @Test
-    fun `skipMfa - Sets mfaPassed and returns updated attempt when MFA is optional and not enrolled`() = runTest {
-        val updatedAttempt = mockk<OnGoingAuthorizeAttempt>()
+    fun `skipMfa - Sets mfaPassed and returns updated session when MFA is optional and not enrolled`() = runTest {
+        val updatedSession = mockk<OnGoingInteractiveFlowSession>()
         val manager = managerWith(EnabledMfaConfig(totp = true, required = false))
 
-        every { authorizeAttempt.userId } returns userId
+        every { session.userId } returns userId
         coEvery { totpManager.findConfirmedEnrollments(userId) } returns emptyList()
-        coEvery { authorizeAttemptManager.setMfaPassed(authorizeAttempt) } returns updatedAttempt
+        coEvery { sessionManager.setMfaPassed(session) } returns updatedSession
 
-        val result = manager.skipMfa(authorizeAttempt)
+        val result = manager.skipMfa(session)
 
-        assertSame(updatedAttempt, result)
-        coVerify(exactly = 1) { authorizeAttemptManager.setMfaPassed(authorizeAttempt) }
+        assertSame(updatedSession, result)
+        coVerify(exactly = 1) { sessionManager.setMfaPassed(session) }
     }
 
     @Test
@@ -137,12 +137,12 @@ class WebAuthorizationFlowMfaManagerTest {
         val manager = managerWith(EnabledMfaConfig(totp = true, required = true))
 
         val exception = assertThrows<BusinessException> {
-            manager.skipMfa(authorizeAttempt)
+            manager.skipMfa(session)
         }
 
         assertEquals("flow.mfa.skip.not_allowed", exception.detailsId)
         assertFalse(exception.recoverable)
-        coVerify(exactly = 0) { authorizeAttemptManager.setMfaPassed(any()) }
+        coVerify(exactly = 0) { sessionManager.setMfaPassed(any()) }
     }
 
     @Test
@@ -150,15 +150,15 @@ class WebAuthorizationFlowMfaManagerTest {
         val enrollment = mockk<TotpEnrollment>()
         val manager = managerWith(EnabledMfaConfig(totp = true, required = false))
 
-        every { authorizeAttempt.userId } returns userId
+        every { session.userId } returns userId
         coEvery { totpManager.findConfirmedEnrollments(userId) } returns listOf(enrollment)
 
         val exception = assertThrows<BusinessException> {
-            manager.skipMfa(authorizeAttempt)
+            manager.skipMfa(session)
         }
 
         assertEquals("flow.mfa.skip.not_allowed_when_enrolled", exception.detailsId)
         assertFalse(exception.recoverable)
-        coVerify(exactly = 0) { authorizeAttemptManager.setMfaPassed(any()) }
+        coVerify(exactly = 0) { sessionManager.setMfaPassed(any()) }
     }
 }

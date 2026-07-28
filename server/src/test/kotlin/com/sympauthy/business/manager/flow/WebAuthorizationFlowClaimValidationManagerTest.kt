@@ -9,7 +9,8 @@ import com.sympauthy.business.model.code.ValidationCode
 import com.sympauthy.business.model.code.ValidationCodeMedia.EMAIL
 import com.sympauthy.business.model.code.ValidationCodeReason.EMAIL_CLAIM
 import com.sympauthy.business.model.code.ValidationCodeReason.PHONE_NUMBER_CLAIM
-import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
+import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.Claim
@@ -38,6 +39,9 @@ class WebAuthorizationFlowClaimValidationManagerTest {
 
     @MockK
     lateinit var consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager
+
+    @MockK
+    lateinit var oauth2Manager: InteractiveFlowSessionOAuth2Manager
 
     @MockK
     lateinit var validationCodeManager: ValidationCodeManager
@@ -116,7 +120,8 @@ class WebAuthorizationFlowClaimValidationManagerTest {
             every { id } returns userId
         }
         val consentedScopes = listOf("openid", "profile")
-        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
+        val session = mockk<OnGoingInteractiveFlowSession>()
+        val oauth2 = mockk<InteractiveFlowSessionOAuth2> {
             every { this@mockk.consentedScopes } returns consentedScopes
         }
         val media = EMAIL
@@ -129,6 +134,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
         val reasons = listOf(EMAIL_CLAIM)
         val validationCode = mockk<ValidationCode>()
 
+        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
         coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns identifierClaims
         coEvery {
             consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes)
@@ -141,7 +147,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
         } returns reasons
         coEvery {
             validationCodeManager.findLatestCodeSentByMediaDuringAttempt(
-                authorizeAttempt = authorizeAttempt,
+                session = session,
                 media = media,
                 includesExpired = true,
             )
@@ -149,14 +155,14 @@ class WebAuthorizationFlowClaimValidationManagerTest {
         coEvery {
             validationCodeManager.queueRequiredValidationCodes(
                 user = user,
-                authorizeAttempt = authorizeAttempt,
+                session = session,
                 collectedClaims = any(),
                 reasons = reasons,
             )
         } returns listOf(validationCode)
 
         val result = manager.getOrSendValidationCode(
-            authorizeAttempt = authorizeAttempt,
+            session = session,
             user = user,
             media = media,
         )
@@ -171,7 +177,8 @@ class WebAuthorizationFlowClaimValidationManagerTest {
             every { id } returns userId
         }
         val consentedScopes = listOf("openid", "profile")
-        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
+        val session = mockk<OnGoingInteractiveFlowSession>()
+        val oauth2 = mockk<InteractiveFlowSessionOAuth2> {
             every { this@mockk.consentedScopes } returns consentedScopes
         }
         val media = EMAIL
@@ -185,6 +192,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
             every { reasons } returns listOf(EMAIL_CLAIM)
         }
 
+        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
         coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns identifierClaims
         coEvery {
             consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes)
@@ -197,14 +205,14 @@ class WebAuthorizationFlowClaimValidationManagerTest {
         } returns listOf(EMAIL_CLAIM)
         coEvery {
             validationCodeManager.findLatestCodeSentByMediaDuringAttempt(
-                authorizeAttempt = authorizeAttempt,
+                session = session,
                 media = media,
                 includesExpired = true,
             )
         } returns existingValidationCode
 
         val result = manager.getOrSendValidationCode(
-            authorizeAttempt = authorizeAttempt,
+            session = session,
             user = user,
             media = media,
         )
@@ -219,7 +227,8 @@ class WebAuthorizationFlowClaimValidationManagerTest {
             every { id } returns userId
         }
         val consentedScopes = listOf("openid", "profile")
-        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
+        val session = mockk<OnGoingInteractiveFlowSession>()
+        val oauth2 = mockk<InteractiveFlowSessionOAuth2> {
             every { this@mockk.consentedScopes } returns consentedScopes
         }
         val media = EMAIL
@@ -231,6 +240,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
         })
         val reasons = listOf(PHONE_NUMBER_CLAIM)
 
+        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
         coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns identifierClaims
         coEvery {
             consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes)
@@ -243,7 +253,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
         } returns reasons
 
         val result = manager.getOrSendValidationCode(
-            authorizeAttempt = authorizeAttempt,
+            session = session,
             user = user,
             media = media,
         )
@@ -253,7 +263,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
 
     @Test
     fun `resendValidationCodes - Send new validation code if previous is expired`() = runTest {
-        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
+        val session = mockk<OnGoingInteractiveFlowSession>()
         val userId = UUID.randomUUID()
         val user = mockk<User> {
             every { id } returns userId
@@ -265,7 +275,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
 
         coEvery {
             validationCodeManager.findLatestCodeSentByMediaDuringAttempt(
-                authorizeAttempt = authorizeAttempt,
+                session = session,
                 media = media,
                 includesExpired = true,
             )
@@ -275,7 +285,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
         coEvery {
             validationCodeManager.refreshAndQueueValidationCode(
                 user = user,
-                authorizeAttempt = authorizeAttempt,
+                session = session,
                 collectedClaims = collectedClaims,
                 validationCode = expiredCode,
             )
@@ -285,7 +295,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
         )
 
         val result = manager.resendValidationCode(
-            authorizeAttempt = authorizeAttempt,
+            session = session,
             user = user,
             media = media,
         )
@@ -296,20 +306,20 @@ class WebAuthorizationFlowClaimValidationManagerTest {
 
     @Test
     fun `resendValidationCodes - Do nothing if no code previously sent`() = runTest {
-        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
+        val session = mockk<OnGoingInteractiveFlowSession>()
         val user = mockk<User>()
         val media = EMAIL
 
         coEvery {
             validationCodeManager.findLatestCodeSentByMediaDuringAttempt(
-                authorizeAttempt = authorizeAttempt,
+                session = session,
                 media = media,
                 includesExpired = true,
             )
         } returns null
 
         val result = manager.resendValidationCode(
-            authorizeAttempt = authorizeAttempt,
+            session = session,
             user = user,
             media = media,
         )
@@ -320,14 +330,14 @@ class WebAuthorizationFlowClaimValidationManagerTest {
 
     @Test
     fun `resendValidationCodes - Do nothing if previous code is not refreshable`() = runTest {
-        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
+        val session = mockk<OnGoingInteractiveFlowSession>()
         val user = mockk<User>()
         val media = EMAIL
         val existingCode = mockk<ValidationCode>()
 
         coEvery {
             validationCodeManager.findLatestCodeSentByMediaDuringAttempt(
-                authorizeAttempt = authorizeAttempt,
+                session = session,
                 media = media,
                 includesExpired = true,
             )
@@ -335,7 +345,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
         every { validationCodeManager.canBeRefreshed(existingCode) } returns false
 
         val result = manager.resendValidationCode(
-            authorizeAttempt = authorizeAttempt,
+            session = session,
             user = user,
             media = media,
         )
@@ -347,7 +357,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
     @Test
     fun `validateClaimsByCode - Validate claims`() = runTest {
         val attemptUserId = UUID.randomUUID()
-        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
+        val session = mockk<OnGoingInteractiveFlowSession> {
             every { userId } returns attemptUserId
         }
         val media = EMAIL
@@ -361,7 +371,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
         val emailClaim = mockk<Claim>()
 
         coEvery {
-            manager.findCodesSentDuringAttempt(authorizeAttempt = authorizeAttempt, media = media)
+            manager.findCodesSentDuringAttempt(session = session, media = media)
         } returns listOf(validValidationCode)
         every { manager.getClaimValidatedBy(reason) } returns emailClaim
         coEvery {
@@ -369,7 +379,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
         } returns Unit
 
         manager.validateClaimsByCode(
-            authorizeAttempt = authorizeAttempt,
+            session = session,
             media = media,
             code = validCode,
         )
@@ -377,19 +387,19 @@ class WebAuthorizationFlowClaimValidationManagerTest {
 
     @Test
     fun `validateClaimsByCode - Invalid if no code is matching`() = runTest {
-        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
+        val session = mockk<OnGoingInteractiveFlowSession>()
         val media = EMAIL
         val validValidationCode = mockk<ValidationCode> {
             every { code } returns "123456"
         }
 
         coEvery {
-            manager.findCodesSentDuringAttempt(authorizeAttempt = authorizeAttempt, media = media)
+            manager.findCodesSentDuringAttempt(session = session, media = media)
         } returns listOf(validValidationCode)
 
         coAssertThrowsBusinessException("flow.claim_validation.invalid_code") {
             manager.validateClaimsByCode(
-                authorizeAttempt = authorizeAttempt,
+                session = session,
                 media = media,
                 code = "654321",
             )
@@ -398,7 +408,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
 
     @Test
     fun `validateClaimsByCode - Invalid if code is expired`() = runTest {
-        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
+        val session = mockk<OnGoingInteractiveFlowSession>()
         val media = EMAIL
         val validCode = "123456"
         val validValidationCode = mockk<ValidationCode> {
@@ -407,12 +417,12 @@ class WebAuthorizationFlowClaimValidationManagerTest {
         }
 
         coEvery {
-            manager.findCodesSentDuringAttempt(authorizeAttempt = authorizeAttempt, media = media)
+            manager.findCodesSentDuringAttempt(session = session, media = media)
         } returns listOf(validValidationCode)
 
         coAssertThrowsBusinessException("flow.claim_validation.expired_code") {
             manager.validateClaimsByCode(
-                authorizeAttempt = authorizeAttempt,
+                session = session,
                 media = media,
                 code = validCode,
             )
