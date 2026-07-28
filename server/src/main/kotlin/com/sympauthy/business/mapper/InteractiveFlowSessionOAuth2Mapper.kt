@@ -26,8 +26,8 @@ abstract class InteractiveFlowSessionOAuth2Mapper {
         val (codeChallenge, codeChallengeMethod) = mapCodeChallenge(entity)
         return InteractiveFlowSessionOAuth2(
             sessionId = entity.sessionId,
-            clientId = entity.clientId,
-            redirectUri = entity.redirectUri,
+            clientId = entity.clientId ?: throw invalidBusinessException("clientId"),
+            redirectUri = entity.redirectUri ?: throw invalidBusinessException("redirectUri"),
             requestedScopes = entity.requestedScopes.toList(),
             state = entity.state,
             nonce = entity.nonce,

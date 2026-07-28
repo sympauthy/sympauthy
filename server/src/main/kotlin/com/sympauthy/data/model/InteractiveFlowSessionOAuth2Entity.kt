@@ -13,8 +13,12 @@ class InteractiveFlowSessionOAuth2Entity(
     val sessionId: UUID,
 
     // Authorize endpoint fields
-    val clientId: String,
-    val redirectUri: String,
+    // clientId / redirectUri are nullable: the record is also created for a failed authorize request
+    // (to preserve state for replay detection) where the client or redirect URI could not be resolved.
+    // They are always present on the ongoing / completed path, which is the only path that reads them;
+    // the mapper enforces that when producing the non-null model.
+    val clientId: String? = null,
+    val redirectUri: String? = null,
     val requestedScopes: Array<String> = emptyArray(),
     val state: String? = null,
     val nonce: String? = null,
