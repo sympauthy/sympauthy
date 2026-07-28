@@ -42,6 +42,21 @@ class WebAuthorizationFlowRedirectUriBuilder(
     }
 
     /**
+     * Return the [URI] where the end-user must be redirected to reach the sign-up page of the flow,
+     * or null if the flow does not configure a sign-up page.
+     */
+    suspend fun getSignUpRedirectUri(
+        authorizeAttempt: AuthorizeAttempt,
+        flow: WebAuthorizationFlow
+    ): URI? {
+        val uri = flow.signUpUri ?: return null
+        return appendStateToUri(
+            authorizeAttempt = authorizeAttempt,
+            uri = uri
+        )
+    }
+
+    /**
      * Return the [URI] where the end-user must be redirected to according to the [status].
      */
     suspend fun getRedirectUri(
