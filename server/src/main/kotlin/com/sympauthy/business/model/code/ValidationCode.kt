@@ -40,9 +40,9 @@ class ValidationCode(
     val reasons: List<ValidationCodeReason>,
 
     /**
-     * Identifier of the authorization attempt that requested a validation.
+     * Identifier of the interactive flow session that requested a validation.
      */
-    val attemptId: UUID?,
+    val sessionId: UUID?,
 
     val creationDate: LocalDateTime,
 

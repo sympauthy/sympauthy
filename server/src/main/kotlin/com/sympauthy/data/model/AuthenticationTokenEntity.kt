@@ -37,7 +37,7 @@ class AuthenticationTokenEntity(
      * There is no foreign key.
      * This can be null for tokens issued via client credentials flow.
      */
-    val authorizeAttemptId: UUID?,
+    val sessionId: UUID?,
     /**
      * The OAuth2 grant type used to generate this token.
      * Examples: "authorization_code", "refresh_token", "client_credentials"

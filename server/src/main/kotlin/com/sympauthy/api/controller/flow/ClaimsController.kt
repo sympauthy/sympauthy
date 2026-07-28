@@ -6,6 +6,7 @@ import com.sympauthy.api.mapper.flow.ClaimsResourceMapper
 import com.sympauthy.api.resource.flow.ClaimInputResource
 import com.sympauthy.api.resource.flow.ClaimsFlowResource
 import com.sympauthy.api.resource.flow.SimpleFlowResource
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.user.ConsentAwareClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
@@ -28,6 +29,7 @@ import jakarta.inject.Inject
 class ClaimsController(
     @Inject private val consentAwareClaimManager: ConsentAwareClaimManager,
     @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
+    @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
     @Inject private val providerClaimsManager: ProviderClaimsManager,
     @Inject private val claimsMapper: ClaimsResourceMapper,
     @Inject private val collectedClaimUpdateMapper: CollectedClaimUpdateMapper,
@@ -54,15 +56,15 @@ must be redirected to continue the authorization flow.
         httpRequest: HttpRequest<*>
     ): ClaimsFlowResource {
         val locale = httpRequest.locale.orDefault()
-        return webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenRunAndRedirect(
+        return webAuthorizationFlowControllerUtil.fetchOnGoingSessionThenRunAndRedirect(
             state = authentication.stateOrNull,
-            run = { authorizeAttempt, _ ->
-                val collectableClaims = consentAwareClaimManager.listCollectableClaimsByAttempt(authorizeAttempt)
+            run = { session, _ ->
+                val collectableClaims = consentAwareClaimManager.listCollectableClaimsBySession(session)
                 if (collectableClaims.isEmpty()) {
                     null
                 } else {
-                    val collectedClaims = consentAwareCollectedClaimManager.findByAttempt(authorizeAttempt)
-                    val providerUserInfoList = authorizeAttempt.userId?.let {
+                    val collectedClaims = consentAwareCollectedClaimManager.findBySession(session)
+                    val providerUserInfoList = session.userId?.let {
                         providerClaimsManager.findByUserId(it)
                     } ?: emptyList()
                     Triple(collectableClaims, collectedClaims, providerUserInfoList)
@@ -100,15 +102,15 @@ but they chose not to provide a value.
         authentication: Authentication,
         @Body inputResource: ClaimInputResource
     ): SimpleFlowResource =
-        webAuthorizationFlowControllerUtil.fetchOnGoingAttemptWithUserThenUpdateAndRedirect(
+        webAuthorizationFlowControllerUtil.fetchOnGoingSessionWithUserThenUpdateAndRedirect(
             state = authentication.stateOrNull,
-            update = { authorizeAttempt, _, user ->
+            update = { session, _, user ->
                 consentAwareCollectedClaimManager.updateByUser(
                     user = user,
                     updates = collectedClaimUpdateMapper.toUpdates(inputResource.claims),
-                    consentedScopes = authorizeAttempt.consentedScopes ?: emptyList()
+                    consentedScopes = oauth2Manager.fetchOAuth2(session).consentedScopes ?: emptyList()
                 )
-                authorizeAttempt
+                session
             },
             mapRedirectUriToResource = { SimpleFlowResource(it.toString()) }
         )

@@ -15,9 +15,6 @@ class BusinessMapperFactory {
     fun authorizationCodeMapper() = Mappers.getMapper(AuthorizationCodeMapper::class.java)
 
     @Singleton
-    fun authorizeAttemptMapper() = Mappers.getMapper(AuthorizeAttemptMapper::class.java)
-
-    @Singleton
     fun collectedUserInfoMapper(
         claimManager: ClaimManager,
         claimValueMapper: ClaimValueMapper

@@ -1,14 +1,13 @@
 package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.exception.internalBusinessExceptionOf
-import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
+import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
+import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
-import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
-import com.sympauthy.business.model.oauth2.FailedAuthorizeAttempt
-import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.config.model.getUri
 import com.sympauthy.config.model.orThrow
@@ -23,7 +22,8 @@ import java.net.URI
  */
 @Singleton
 class WebAuthorizationFlowRedirectUriBuilder(
-    @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
+    @Inject private val sessionManager: InteractiveFlowSessionManager,
+    @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
     @Inject private val authorizationCodeManager: AuthorizationCodeManager,
     @Inject private val uncheckedUrlsConfig: UrlsConfig
 ) {
@@ -32,11 +32,11 @@ class WebAuthorizationFlowRedirectUriBuilder(
      * Return the [URI] where the end-user must be redirected to start the authorization flow.
      */
     suspend fun getSignInRedirectUri(
-        authorizeAttempt: AuthorizeAttempt,
+        session: InteractiveFlowSession,
         flow: WebAuthorizationFlow
     ): URI {
         return appendStateToUri(
-            authorizeAttempt = authorizeAttempt,
+            session = session,
             uri = flow.signInUri
         )
     }
@@ -46,12 +46,12 @@ class WebAuthorizationFlowRedirectUriBuilder(
      * or null if the flow does not configure a sign-up page.
      */
     suspend fun getSignUpRedirectUri(
-        authorizeAttempt: AuthorizeAttempt,
+        session: InteractiveFlowSession,
         flow: WebAuthorizationFlow
     ): URI? {
         val uri = flow.signUpUri ?: return null
         return appendStateToUri(
-            authorizeAttempt = authorizeAttempt,
+            session = session,
             uri = uri
         )
     }
@@ -60,35 +60,38 @@ class WebAuthorizationFlowRedirectUriBuilder(
      * Return the [URI] where the end-user must be redirected to according to the [status].
      */
     suspend fun getRedirectUri(
-        authorizeAttempt: AuthorizeAttempt,
+        session: InteractiveFlowSession,
         flow: WebAuthorizationFlow,
         status: WebAuthorizationFlowStatus
-    ): URI = when (authorizeAttempt) {
-        is CompletedAuthorizeAttempt -> getRedirectUriToClient(authorizeAttempt)
-        is FailedAuthorizeAttempt -> getErrorUri(authorizeAttempt, flow)
-        is OnGoingAuthorizeAttempt -> {
+    ): URI = when (session) {
+        is CompletedInteractiveFlowSession -> getRedirectUriToClient(session)
+        is FailedInteractiveFlowSession -> getErrorUri(session, flow)
+        is OnGoingInteractiveFlowSession -> {
             when {
-                status.missingUser -> appendStateToUri(
-                    authorizeAttempt = authorizeAttempt,
-                    uri = if (authorizeAttempt.invitationId != null && flow.signUpUri != null) {
-                        flow.signUpUri
-                    } else {
-                        flow.signInUri
-                    }
-                )
+                status.missingUser -> {
+                    val invitationId = oauth2Manager.fetchOAuth2(session).invitationId
+                    appendStateToUri(
+                        session = session,
+                        uri = if (invitationId != null && flow.signUpUri != null) {
+                            flow.signUpUri
+                        } else {
+                            flow.signInUri
+                        }
+                    )
+                }
 
                 status.missingMfa -> appendStateToUri(
-                    authorizeAttempt = authorizeAttempt,
+                    session = session,
                     uri = flow.mfaUri ?: throw internalBusinessExceptionOf("flow.mfa.uri.missing")
                 )
 
                 status.missingRequiredClaims -> appendStateToUri(
-                    authorizeAttempt = authorizeAttempt,
+                    session = session,
                     uri = flow.collectClaimsUri
                 )
 
                 status.missingMediaForClaimValidation.isNotEmpty() -> getRedirectUriToClaimValidation(
-                    authorizeAttempt = authorizeAttempt,
+                    session = session,
                     flow = flow,
                     result = status,
                 )
@@ -102,11 +105,11 @@ class WebAuthorizationFlowRedirectUriBuilder(
      * Return the [URI] where the end-user must be redirected when there is an error during the authorization flow.
      */
     suspend fun getErrorUri(
-        authorizeAttempt: AuthorizeAttempt,
+        session: InteractiveFlowSession,
         flow: WebAuthorizationFlow
     ): URI {
         return appendStateToUri(
-            authorizeAttempt = authorizeAttempt,
+            session = session,
             uri = flow.errorUri
         )
     }
@@ -115,7 +118,7 @@ class WebAuthorizationFlowRedirectUriBuilder(
      * Return the [URI] where the end-user must be redirected to validate
      */
     suspend fun getRedirectUriToClaimValidation(
-        authorizeAttempt: AuthorizeAttempt,
+        session: InteractiveFlowSession,
         flow: WebAuthorizationFlow,
         result: WebAuthorizationFlowStatus,
     ): URI {
@@ -125,7 +128,7 @@ class WebAuthorizationFlowRedirectUriBuilder(
             }
             .build()
         return appendStateToUri(
-            authorizeAttempt = authorizeAttempt,
+            session = session,
             uri = uri,
         )
     }
@@ -135,12 +138,13 @@ class WebAuthorizationFlowRedirectUriBuilder(
      * The authorization code may be exchanged for tokens by the client using the token endpoint.
      */
     internal suspend fun getRedirectUriToClient(
-        authorizeAttempt: CompletedAuthorizeAttempt
+        session: CompletedInteractiveFlowSession
     ): URI {
-        val builder = UriBuilder.of(authorizeAttempt.redirectUri)
-        authorizeAttempt.state
+        val oauth2 = oauth2Manager.fetchOAuth2(session)
+        val builder = UriBuilder.of(oauth2.redirectUri)
+        oauth2.state
             ?.let { builder.queryParam("state", it) }
-        authorizationCodeManager.generateCode(authorizeAttempt)
+        authorizationCodeManager.generateCode(session)
             .let { builder.queryParam("code", it.code) }
         return builder.build()
     }
@@ -150,11 +154,11 @@ class WebAuthorizationFlowRedirectUriBuilder(
      * Throws an unrecoverable [com.sympauthy.business.exception.BusinessException] if the URI is not configured.
      */
     suspend fun getMfaTotpEnrollUri(
-        authorizeAttempt: AuthorizeAttempt,
+        session: InteractiveFlowSession,
         flow: WebAuthorizationFlow
     ): URI {
         val uri = flow.mfaTotpEnrollUri ?: throw internalBusinessExceptionOf("flow.mfa.totp.enroll_uri.missing")
-        return appendStateToUri(authorizeAttempt, uri)
+        return appendStateToUri(session, uri)
     }
 
     /**
@@ -162,11 +166,11 @@ class WebAuthorizationFlowRedirectUriBuilder(
      * Throws an unrecoverable [com.sympauthy.business.exception.BusinessException] if the URI is not configured.
      */
     suspend fun getMfaTotpChallengeUri(
-        authorizeAttempt: AuthorizeAttempt,
+        session: InteractiveFlowSession,
         flow: WebAuthorizationFlow
     ): URI {
         val uri = flow.mfaTotpChallengeUri ?: throw internalBusinessExceptionOf("flow.mfa.totp.challenge_uri.missing")
-        return appendStateToUri(authorizeAttempt, uri)
+        return appendStateToUri(session, uri)
     }
 
     /**
@@ -174,18 +178,18 @@ class WebAuthorizationFlowRedirectUriBuilder(
      * Used as the `skip_redirect_url` in the MFA selection screen response.
      */
     suspend fun getMfaSkipUri(
-        authorizeAttempt: AuthorizeAttempt,
+        session: InteractiveFlowSession,
         skipEndpointPath: String
     ): URI {
         val uri = uncheckedUrlsConfig.orThrow().getUri(skipEndpointPath)
-        return appendStateToUri(authorizeAttempt, uri)
+        return appendStateToUri(session, uri)
     }
 
     internal suspend fun appendStateToUri(
-        authorizeAttempt: AuthorizeAttempt,
+        session: InteractiveFlowSession,
         uri: URI
     ): URI {
-        val state = authorizeAttemptManager.encodeState(authorizeAttempt)
+        val state = sessionManager.encodeState(session)
         return uri.let(UriBuilder::of)
             .queryParam("state", state)
             .build()

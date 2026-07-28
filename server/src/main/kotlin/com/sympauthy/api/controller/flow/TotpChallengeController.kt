@@ -47,10 +47,10 @@ On failure, a recoverable 4xx error is returned so the end-user can retry with t
         authentication: Authentication,
         @Body inputResource: TotpChallengeInputResource
     ): SimpleFlowResource =
-        webAuthorizationFlowControllerUtil.fetchOnGoingAttemptWithUserThenUpdateAndRedirect(
+        webAuthorizationFlowControllerUtil.fetchOnGoingSessionWithUserThenUpdateAndRedirect(
             state = authentication.stateOrNull,
-            update = { authorizeAttempt, _, user ->
-                challengeManager.validateTotpChallenge(authorizeAttempt, user, inputResource.code)
+            update = { session, _, user ->
+                challengeManager.validateTotpChallenge(session, user, inputResource.code)
             },
             mapRedirectUriToResource = { redirectUri -> SimpleFlowResource(redirectUri.toString()) }
         )

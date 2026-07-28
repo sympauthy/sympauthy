@@ -9,7 +9,7 @@ import java.util.*
 @Serdeable
 @MappedEntity("authorization_codes")
 data class AuthorizationCodeEntity(
-    @get:Id val attemptId: UUID,
+    @get:Id val sessionId: UUID,
     val code: String,
     val creationDate: LocalDateTime,
     val expirationDate: LocalDateTime

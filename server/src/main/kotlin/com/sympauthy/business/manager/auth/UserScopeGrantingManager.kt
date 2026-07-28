@@ -1,8 +1,11 @@
 package com.sympauthy.business.manager.auth
 
 import com.sympauthy.business.manager.ScopeManager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.rule.ScopeGrantingRuleManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
+import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.config.model.FeaturesConfig
@@ -29,12 +32,13 @@ class UserScopeGrantingManager(
     @Inject private val scopeManager: ScopeManager,
     @Inject private val authorizationWebhookScopeGrantingManager: AuthorizationWebhookUserScopeGrantingManager,
     @Inject private val scopeGrantingRuleManager: ScopeGrantingRuleManager,
+    @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
     @Inject private val featuresConfig: FeaturesConfig
 ) {
 
     /**
-     * Pass the grantable scopes from [AuthorizeAttempt.requestedScopes] through the chain of scope granting methods.
-     * Consentable and client scopes are excluded from this pipeline.
+     * Pass the grantable scopes from the session's OAuth2 requested scopes through the chain of scope
+     * granting methods. Consentable and client scopes are excluded from this pipeline.
      *
      * Built-in grantable scopes marked as [BuiltInGrantableScope.autoGranted] (e.g. `openid`) are automatically
      * granted when requested, without going through the granting rules.
@@ -43,10 +47,10 @@ class UserScopeGrantingManager(
      * it should be provided in the [allClaims] parameter.
      */
     suspend fun grantScopes(
-        authorizeAttempt: OnGoingAuthorizeAttempt,
+        session: OnGoingInteractiveFlowSession,
         allClaims: List<CollectedClaim>
     ): UserGrantScopesResult {
-        val allRequestedScopes = authorizeAttempt.requestedScopes.map {
+        val allRequestedScopes = oauth2Manager.fetchOAuth2(session).requestedScopes.map {
             scopeManager.findOrThrow(it)
         }
         // Only grantable scopes go through the granting pipeline
@@ -75,7 +79,7 @@ class UserScopeGrantingManager(
                 results = results
             )
             val result = method.invoke(
-                authorizeAttempt,
+                session,
                 unhandledRequestedScopes,
                 allClaims
             )
@@ -91,7 +95,7 @@ class UserScopeGrantingManager(
     /**
      * Return the list of scope granting methods to apply.
      */
-    internal fun getScopeGrantingMethods(): List<suspend (authorizeAttempt: AuthorizeAttempt, requestedScopes: List<Scope>, collectedClaims: List<CollectedClaim>) -> ScopeGrantingMethodResult> {
+    internal fun getScopeGrantingMethods(): List<suspend (session: InteractiveFlowSession, requestedScopes: List<Scope>, collectedClaims: List<CollectedClaim>) -> ScopeGrantingMethodResult> {
         return listOf(
             authorizationWebhookScopeGrantingManager::applyAuthorizationWebhookScopeGranting,
             scopeGrantingRuleManager::applyUserScopeGrantingRules,
@@ -112,7 +116,7 @@ class UserScopeGrantingManager(
     }
 
     internal suspend fun applyDefaultBehavior(
-        authorizeAttempt: AuthorizeAttempt,
+        @Suppress("UNUSED_PARAMETER") session: InteractiveFlowSession,
         requestedScopes: List<Scope>,
         collectedClaims: List<CollectedClaim> = emptyList()
     ): ScopeGrantingMethodResult {

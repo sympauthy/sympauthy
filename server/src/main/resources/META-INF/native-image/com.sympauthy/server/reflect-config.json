@@ -116,15 +116,6 @@
     ]
   },
   {
-    "name": "com.sympauthy.business.mapper.AuthorizeAttemptMapperImpl",
-    "methods": [
-      {
-        "name": "<init>",
-        "parameterTypes": []
-      }
-    ]
-  },
-  {
     "name": "com.sympauthy.business.mapper.InteractiveFlowSessionMapperImpl",
     "methods": [
       {

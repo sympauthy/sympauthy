@@ -43,11 +43,11 @@ defined in ```urls.flow.error``` configuration.
         authentication: Authentication,
         providerId: String
     ): HttpResponse<*> =
-        webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenRunAndRedirect(
+        webAuthorizationFlowControllerUtil.fetchOnGoingSessionThenRunAndRedirect(
             state = authentication.stateOrNull,
-            run = { authorizeAttempt, _ ->
+            run = { session, _ ->
                 webAuthorizationFlowOAuth2ProviderManager.authorizeWithProvider(
-                    authorizeAttempt,
+                    session,
                     providerId = providerId
                 )
             },
@@ -81,17 +81,17 @@ Redirection to either:
         @QueryValue("state") state: String?,
         @QueryValue("error") error: String?,
         @QueryValue("error_description") errorDescription: String?
-    ) = webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenUpdateAndRedirect(
+    ) = webAuthorizationFlowControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect(
         state = state,
-        update = { authorizeAttempt, _ ->
-            val (updatedAuthorizeAttempt, _) = webAuthorizationFlowOAuth2ProviderManager.signInOrSignUpUsingProvider(
-                authorizeAttempt = authorizeAttempt,
+        update = { session, _ ->
+            val (updatedSession, _) = webAuthorizationFlowOAuth2ProviderManager.signInOrSignUpUsingProvider(
+                session = session,
                 providerId = providerId,
                 authorizeCode = code,
                 providerError = error,
                 providerErrorDescription = errorDescription
             )
-            updatedAuthorizeAttempt
+            updatedSession
         },
         mapRedirectUriToResource = { redirectUri -> HttpResponse.seeOther<Any>(redirectUri) }
     )

@@ -4,7 +4,7 @@ import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.manager.RandomGenerator
 import com.sympauthy.business.mapper.AuthorizationCodeMapper
 import com.sympauthy.business.model.oauth2.AuthorizationCode
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
+import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.data.model.AuthorizationCodeEntity
 import com.sympauthy.data.repository.AuthorizationCodeRepository
@@ -25,15 +25,15 @@ class AuthorizationCodeManager(
 ) {
 
     suspend fun generateCode(
-        authorizeAttempt: AuthorizeAttempt
+        session: InteractiveFlowSession
     ): AuthorizationCode {
         val entity = AuthorizationCodeEntity(
-            attemptId = authorizeAttempt.id,
+            sessionId = session.id,
             // To avoid encoded characters in the returned code.
             code = randomGenerator.generateAndEncodeToHex(),
             creationDate = LocalDateTime.now(),
             // We copy the expiration to simplify the cleanup code.
-            expirationDate = authorizeAttempt.expirationDate
+            expirationDate = session.expirationDate
         )
         return try {
             authorizeCodeRepository.save(entity)

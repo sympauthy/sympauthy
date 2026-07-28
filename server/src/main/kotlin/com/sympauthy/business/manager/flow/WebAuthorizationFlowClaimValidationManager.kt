@@ -10,8 +10,8 @@ import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.code.ValidationCodeReason
 import com.sympauthy.business.model.code.ValidationCodeReason.EMAIL_CLAIM
 import com.sympauthy.business.model.code.ValidationCodeReason.PHONE_NUMBER_CLAIM
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
-import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
+import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.Claim
@@ -27,6 +27,7 @@ open class WebAuthorizationFlowClaimValidationManager(
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
+    @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
     @Inject private val validationCodeManager: ValidationCodeManager,
 ) {
 
@@ -102,11 +103,11 @@ open class WebAuthorizationFlowClaimValidationManager(
      */
     @Transactional
     open suspend fun getOrSendValidationCode(
-        authorizeAttempt: OnGoingAuthorizeAttempt,
+        session: OnGoingInteractiveFlowSession,
         user: User,
         media: ValidationCodeMedia
     ): ValidationCode? {
-        val consentedScopes = authorizeAttempt.consentedScopes ?: emptyList()
+        val consentedScopes = oauth2Manager.fetchOAuth2(session).consentedScopes ?: emptyList()
         val identifierClaims = collectedClaimManager.findIdentifierByUserId(user.id)
         val consentedClaims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
             userId = user.id,
@@ -121,14 +122,14 @@ open class WebAuthorizationFlowClaimValidationManager(
 
         val allClaims = (identifierClaims + consentedClaims).distinctBy { it.claim.id }
         val existingCode = validationCodeManager.findLatestCodeSentByMediaDuringAttempt(
-            authorizeAttempt = authorizeAttempt,
+            session = session,
             media = media,
             includesExpired = true
         )
         return if (existingCode == null) {
             validationCodeManager.queueRequiredValidationCodes(
                 user = user,
-                authorizeAttempt = authorizeAttempt,
+                session = session,
                 reasons = reasons,
                 collectedClaims = allClaims
             ).firstOrNull()
@@ -136,7 +137,7 @@ open class WebAuthorizationFlowClaimValidationManager(
     }
 
     /**
-     * Resend the codes that were previously sent to this [user] during the [authorizeAttempt].
+     * Resend the codes that were previously sent to this [user] during the [session].
      * Return the list of codes that have been resent.
      *
      * For a code to be resent using a given media, all previous code sent using this media must have passed
@@ -144,12 +145,12 @@ open class WebAuthorizationFlowClaimValidationManager(
      */
     @Transactional
     open suspend fun resendValidationCode(
-        authorizeAttempt: OnGoingAuthorizeAttempt,
+        session: OnGoingInteractiveFlowSession,
         user: User,
         media: ValidationCodeMedia
     ): ResendResult {
         val existingCode = validationCodeManager.findLatestCodeSentByMediaDuringAttempt(
-            authorizeAttempt = authorizeAttempt,
+            session = session,
             media = media,
             includesExpired = true,
         )
@@ -164,7 +165,7 @@ open class WebAuthorizationFlowClaimValidationManager(
 
         val result = validationCodeManager.refreshAndQueueValidationCode(
             user = user,
-            authorizeAttempt = authorizeAttempt,
+            session = session,
             collectedClaims = collectedClaims,
             validationCode = existingCode,
         )
@@ -176,12 +177,12 @@ open class WebAuthorizationFlowClaimValidationManager(
 
     @Transactional
     open suspend fun validateClaimsByCode(
-        authorizeAttempt: OnGoingAuthorizeAttempt,
+        session: OnGoingInteractiveFlowSession,
         media: ValidationCodeMedia,
         code: String
     ) {
         val validationCodes = findCodesSentDuringAttempt(
-            authorizeAttempt = authorizeAttempt,
+            session = session,
             media = media
         )
 
@@ -201,23 +202,23 @@ open class WebAuthorizationFlowClaimValidationManager(
 
         val claims = matchingValidationCode.reasons.mapNotNull(this::getClaimValidatedBy)
         collectedClaimManager.validateClaims(
-            userId = authorizeAttempt.userId!!,
+            userId = session.userId!!,
             claims = claims
         )
     }
 
     /**
-     * Return the code we have sent to the user to validate a claim during the [authorizeAttempt].
+     * Return the code we have sent to the user to validate a claim during the [session].
      * If a [media] is provided, it will only return codes send using this [media].
      *
      * This method ignores return codes that have been sent for other reason like resetting user password, etc.
      */
     internal suspend fun findCodesSentDuringAttempt(
-        authorizeAttempt: AuthorizeAttempt,
+        session: InteractiveFlowSession,
         media: ValidationCodeMedia? = null,
     ): List<ValidationCode> {
         val codes = validationCodeManager.findCodeForReasonsDuringAttempt(
-            authorizeAttempt = authorizeAttempt,
+            session = session,
             reasons = validationCodeReasons,
             includesExpired = true
         )

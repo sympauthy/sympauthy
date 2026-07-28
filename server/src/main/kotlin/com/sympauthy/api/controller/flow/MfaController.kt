@@ -50,10 +50,10 @@ Returns one of two response shapes depending on the situation:
     suspend fun getMfaRedirect(
         authentication: Authentication
     ): MfaFlowResource =
-        webAuthorizationFlowControllerUtil.fetchOnGoingAttemptWithUserThenRun(
+        webAuthorizationFlowControllerUtil.fetchOnGoingSessionWithUserThenRun(
             state = authentication.stateOrNull,
-            run = { authorizeAttempt, flow, user ->
-                when (val result = mfaManager.getMfaResult(authorizeAttempt, user, flow, MFA_SKIP_ENDPOINT)) {
+            run = { session, flow, user ->
+                when (val result = mfaManager.getMfaResult(session, user, flow, MFA_SKIP_ENDPOINT)) {
                     is MfaAutoRedirect -> MfaFlowResource(redirectUrl = result.uri.toString())
                     is MfaMethodSelection -> MfaFlowResource(
                         methods = result.methods.map {

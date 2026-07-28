@@ -14,8 +14,8 @@ import java.util.*
  * Manages the lifecycle (lookup, persistence, refresh) of provider claims stored in the database.
  *
  * This manager does not handle how claims are resolved from providers — that responsibility
- * belongs to [ProviderClaimsResolver]. This separation mirrors how [com.sympauthy.business.manager.auth.AuthorizeAttemptManager]
- * manages the lifecycle of authorize attempts without handling the authorization flow logic.
+ * belongs to [ProviderClaimsResolver]. This separation mirrors how [com.sympauthy.business.manager.flow.InteractiveFlowSessionManager]
+ * manages the lifecycle of interactive flow sessions without handling the authorization flow logic.
  */
 @Singleton
 class ProviderClaimsManager(

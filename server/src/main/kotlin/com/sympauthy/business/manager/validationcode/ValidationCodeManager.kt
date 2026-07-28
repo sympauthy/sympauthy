@@ -5,8 +5,8 @@ import com.sympauthy.business.mapper.ValidationCodeMapper
 import com.sympauthy.business.model.code.ValidationCode
 import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.code.ValidationCodeReason
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
-import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
+import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.data.repository.ValidationCodeRepository
@@ -25,16 +25,16 @@ open class ValidationCodeManager(
 ) {
 
     /**
-     * Return the list of existing [ValidationCode] generated during the [authorizeAttempt] for one of the
+     * Return the list of existing [ValidationCode] generated during the [session] for one of the
      * provided [reasons].
      */
     suspend fun findCodeForReasonsDuringAttempt(
-        authorizeAttempt: AuthorizeAttempt,
+        session: InteractiveFlowSession,
         reasons: List<ValidationCodeReason>,
         includesExpired: Boolean = false
     ): List<ValidationCode> {
         var sequence = validationCodeRepository
-            .findByAttemptId(attemptId = authorizeAttempt.id)
+            .findBySessionId(sessionId = session.id)
             .asSequence()
             .map(validationCodeMapper::toValidationCode)
             .filter { entity ->
@@ -47,17 +47,17 @@ open class ValidationCodeManager(
     }
 
     /**
-     * Return the list of [ValidationCode] generated during the [authorizeAttempt] and sent using the provided
+     * Return the list of [ValidationCode] generated during the [session] and sent using the provided
      * [media].
      */
     suspend fun findCodeSentByMediaDuringAttempt(
-        authorizeAttempt: AuthorizeAttempt,
+        session: InteractiveFlowSession,
         media: ValidationCodeMedia,
         includesExpired: Boolean = false
     ): List<ValidationCode> {
         var sequence = validationCodeRepository
-            .findByAttemptIdAndMedia(
-                attemptId = authorizeAttempt.id,
+            .findBySessionIdAndMedia(
+                sessionId = session.id,
                 media = media.name
             )
             .asSequence()
@@ -69,16 +69,16 @@ open class ValidationCodeManager(
     }
 
     /**
-     * Return the latest [ValidationCode] generated during the [authorizeAttempt] and sent using the provided
+     * Return the latest [ValidationCode] generated during the [session] and sent using the provided
      * [media].
      */
     internal suspend fun findLatestCodeSentByMediaDuringAttempt(
-        authorizeAttempt: AuthorizeAttempt,
+        session: InteractiveFlowSession,
         media: ValidationCodeMedia,
         includesExpired: Boolean = false
     ): ValidationCode? {
         return findCodeSentByMediaDuringAttempt(
-            authorizeAttempt = authorizeAttempt,
+            session = session,
             media = media,
             includesExpired = includesExpired
         ).maxByOrNull(ValidationCode::creationDate)
@@ -99,12 +99,12 @@ open class ValidationCodeManager(
     @Transactional
     open suspend fun queueRequiredValidationCodes(
         user: User,
-        authorizeAttempt: OnGoingAuthorizeAttempt,
+        session: OnGoingInteractiveFlowSession,
         collectedClaims: List<CollectedClaim>,
         reasons: List<ValidationCodeReason>
     ): List<ValidationCode> {
-        if (user.id != authorizeAttempt.userId) {
-            throw IllegalArgumentException("The user (${user.id}) does not match the one in the authorizeAttempt (${authorizeAttempt.userId}).")
+        if (user.id != session.userId) {
+            throw IllegalArgumentException("The user (${user.id}) does not match the one in the session (${session.userId}).")
         }
         if (collectedClaims.any { it.userId != user.id }) {
             throw IllegalArgumentException("One of the collectedClaims does not have a matching user (${user.id}).")
@@ -122,7 +122,7 @@ open class ValidationCodeManager(
                 user = user,
                 media = media,
                 reasons = reasons,
-                authorizeAttempt = authorizeAttempt
+                session = session
             )
         }
 
@@ -148,15 +148,15 @@ open class ValidationCodeManager(
      */
     open suspend fun refreshAndQueueValidationCode(
         user: User,
-        authorizeAttempt: OnGoingAuthorizeAttempt,
+        session: OnGoingInteractiveFlowSession,
         collectedClaims: List<CollectedClaim>,
         validationCode: ValidationCode
     ): RefreshResult {
-        if (validationCode.attemptId != authorizeAttempt.id) {
-            throw IllegalArgumentException("The authorizeAttempt (${authorizeAttempt.id}) does not match the one in the validationCode (${validationCode.attemptId}).")
+        if (validationCode.sessionId != session.id) {
+            throw IllegalArgumentException("The session (${session.id}) does not match the one in the validationCode (${validationCode.sessionId}).")
         }
-        if (user.id != authorizeAttempt.userId) {
-            throw IllegalArgumentException("The user (${user.id}) does not match the one in the authorizeAttempt (${authorizeAttempt.userId}).")
+        if (user.id != session.userId) {
+            throw IllegalArgumentException("The user (${user.id}) does not match the one in the session (${session.userId}).")
         }
         if (collectedClaims.any { it.userId != user.id }) {
             throw IllegalArgumentException("One of the collectedClaims does not have a matching user (${user.id}).")
@@ -173,7 +173,7 @@ open class ValidationCodeManager(
             user = user,
             media = validationCode.media,
             reasons = validationCode.reasons,
-            authorizeAttempt = authorizeAttempt
+            session = session
         )
 
         val senderByMediaMap = getSenderByMediaMap(

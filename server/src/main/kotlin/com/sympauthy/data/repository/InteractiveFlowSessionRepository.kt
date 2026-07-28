@@ -12,7 +12,7 @@ interface InteractiveFlowSessionRepository : CoroutineCrudRepository<Interactive
     @Query(
         """
         SELECT * FROM interactive_flow_sessions AS s
-        JOIN authorization_codes AS ac ON s.id = ac.attempt_id
+        JOIN authorization_codes AS ac ON s.id = ac.session_id
         WHERE ac.code = :code
         """
     )

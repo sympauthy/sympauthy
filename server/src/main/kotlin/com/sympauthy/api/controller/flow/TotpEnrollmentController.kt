@@ -44,7 +44,7 @@ Any previously unconfirmed enrollment for the user is discarded and replaced wit
     suspend fun getEnrollmentData(
         authentication: Authentication
     ): TotpEnrollDataFlowResource =
-        webAuthorizationFlowControllerUtil.fetchOnGoingAttemptWithUserThenRun(
+        webAuthorizationFlowControllerUtil.fetchOnGoingSessionWithUserThenRun(
             state = authentication.stateOrNull,
             run = { _, _, user ->
                 val data = enrollmentManager.getEnrollmentData(user)
@@ -77,10 +77,10 @@ On failure, a recoverable 4xx error is returned so the end-user can retry with t
         authentication: Authentication,
         @Body inputResource: TotpEnrollInputResource
     ): SimpleFlowResource =
-        webAuthorizationFlowControllerUtil.fetchOnGoingAttemptWithUserThenUpdateAndRedirect(
+        webAuthorizationFlowControllerUtil.fetchOnGoingSessionWithUserThenUpdateAndRedirect(
             state = authentication.stateOrNull,
-            update = { authorizeAttempt, _, user ->
-                enrollmentManager.confirmEnrollment(authorizeAttempt, user, inputResource.code.orEmpty())
+            update = { session, _, user ->
+                enrollmentManager.confirmEnrollment(session, user, inputResource.code.orEmpty())
             },
             mapRedirectUriToResource = { redirectUri -> SimpleFlowResource(redirectUri.toString()) }
         )

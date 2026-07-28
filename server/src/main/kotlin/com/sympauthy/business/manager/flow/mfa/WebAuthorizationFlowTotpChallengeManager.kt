@@ -1,10 +1,10 @@
 package com.sympauthy.business.manager.flow.mfa
 
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
-import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.mfa.TotpManager
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
-import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
+import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.User
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -12,7 +12,7 @@ import jakarta.inject.Singleton
 @Singleton
 class WebAuthorizationFlowTotpChallengeManager(
     @Inject private val totpManager: TotpManager,
-    @Inject private val authorizeAttemptManager: AuthorizeAttemptManager
+    @Inject private val sessionManager: InteractiveFlowSessionManager
 ) {
 
     /**
@@ -22,20 +22,20 @@ class WebAuthorizationFlowTotpChallengeManager(
      * - the [code] is null or blank.
      * - the [code] does not match any of the user's confirmed TOTP enrollments.
      *
-     * On success, records [com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt.mfaPassedDate]
-     * on the attempt and returns the updated attempt.
+     * On success, records [com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession.mfaPassedDate]
+     * on the session and returns the updated session.
      */
     suspend fun validateTotpChallenge(
-        authorizeAttempt: OnGoingAuthorizeAttempt,
+        session: OnGoingInteractiveFlowSession,
         user: User,
         code: String?
-    ): AuthorizeAttempt {
+    ): InteractiveFlowSession {
         if (code.isNullOrBlank() || !totpManager.isCodeValidForUser(user.id, code)) {
             throw recoverableBusinessExceptionOf(
                 detailsId = "flow.mfa.totp.challenge.invalid_code",
                 descriptionId = "description.flow.mfa.totp.challenge.invalid_code"
             )
         }
-        return authorizeAttemptManager.setMfaPassed(authorizeAttempt)
+        return sessionManager.setMfaPassed(session)
     }
 }

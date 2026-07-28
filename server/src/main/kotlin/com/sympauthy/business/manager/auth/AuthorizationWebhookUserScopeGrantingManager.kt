@@ -2,8 +2,11 @@ package com.sympauthy.business.manager.auth
 
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.client.AuthorizationWebhookOnFailure
+import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.client.authorization.webhook.AuthorizationWebhookClient
@@ -31,7 +34,8 @@ import jakarta.inject.Singleton
 class AuthorizationWebhookUserScopeGrantingManager(
     @Inject private val clientManagerProvider: Provider<ClientManager>,
     @Inject private val scopeManager: ScopeManager,
-    @Inject private val authorizationWebhookClient: AuthorizationWebhookClient
+    @Inject private val authorizationWebhookClient: AuthorizationWebhookClient,
+    @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager
 ) {
 
     private val logger = loggerForClass()
@@ -45,18 +49,19 @@ class AuthorizationWebhookUserScopeGrantingManager(
      * the client's `allowed-scopes` configuration.
      */
     suspend fun applyAuthorizationWebhookScopeGranting(
-        authorizeAttempt: AuthorizeAttempt,
+        session: InteractiveFlowSession,
         requestedScopes: List<Scope>,
         collectedClaims: List<CollectedClaim>
     ): ScopeGrantingMethodResult {
-        val onGoingAttempt = authorizeAttempt as OnGoingAuthorizeAttempt
-        val client = clientManagerProvider.get().findClientById(onGoingAttempt.clientId)
+        val onGoingSession = session as OnGoingInteractiveFlowSession
+        val clientId = oauth2Manager.fetchOAuth2(session).clientId
+        val client = clientManagerProvider.get().findClientById(clientId)
         val authorizationWebhook = client.authorizationWebhook
             ?: return ScopeGrantingMethodResult()
 
         val request = AuthorizationWebhookRequest(
-            userId = onGoingAttempt.userId.toString(),
-            clientId = onGoingAttempt.clientId,
+            userId = onGoingSession.userId.toString(),
+            clientId = clientId,
             requestedScopes = requestedScopes.map { it.scope },
             claims = collectedClaims.associate { it.claim.id to it.value }
         )

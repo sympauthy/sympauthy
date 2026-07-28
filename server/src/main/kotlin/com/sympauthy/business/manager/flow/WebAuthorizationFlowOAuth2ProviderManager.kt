@@ -4,7 +4,6 @@ import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROV
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_ENDPOINTS
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderClaimsResolver
@@ -12,9 +11,9 @@ import com.sympauthy.business.manager.provider.ProviderManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.CreateOrAssociateResult
 import com.sympauthy.business.manager.user.UserManager
+import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
-import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.business.model.provider.Provider
 import com.sympauthy.business.model.provider.config.ProviderAuthConfig
@@ -42,7 +41,9 @@ import java.util.*
  */
 @Singleton
 open class WebAuthorizationFlowOAuth2ProviderManager(
-    @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
+    @Inject private val sessionManager: InteractiveFlowSessionManager,
+    @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
+    @Inject private val providerManager: InteractiveFlowSessionProviderManager,
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val invitationManager: InvitationManager,
@@ -81,14 +82,14 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
      * If the provider is not found or is disabled, an unrecoverable business exception is thrown.
      */
     suspend fun authorizeWithProvider(
-        authorizeAttempt: OnGoingAuthorizeAttempt,
+        session: OnGoingInteractiveFlowSession,
         providerId: String
     ): URI {
         val provider = providerConfigManager.findByIdAndCheckEnabled(providerId)
-        val state = authorizeAttemptManager.encodeState(authorizeAttempt)
+        val state = sessionManager.encodeState(session)
         return when (val auth = provider.auth) {
             is ProviderOpenIdConnectConfig -> {
-                val nonce = authorizeAttemptManager.setProvider(authorizeAttempt, providerId, generateNonce = true)!!
+                val nonce = providerManager.setProvider(session, providerId, generateNonce = true)!!
                 ProviderOpenIdConnectAuthorizationRedirect(
                     openIdConnect = auth,
                     responseType = "code",
@@ -99,7 +100,7 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
             }
 
             is ProviderOAuth2Config -> {
-                authorizeAttemptManager.setProvider(authorizeAttempt, providerId)
+                providerManager.setProvider(session, providerId)
                 ProviderOAuth2AuthorizationRedirect(
                     oauth2 = auth,
                     responseType = "code",
@@ -120,12 +121,12 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
      * - otherwise, sign up the user with the claims retrieved from the [Provider].
      */
     suspend fun signInOrSignUpUsingProvider(
-        authorizeAttempt: OnGoingAuthorizeAttempt,
+        session: OnGoingInteractiveFlowSession,
         providerId: String?,
         authorizeCode: String?,
         providerError: String? = null,
         providerErrorDescription: String? = null
-    ): Pair<AuthorizeAttempt, WebAuthorizationFlowStatus> {
+    ): Pair<InteractiveFlowSession, WebAuthorizationFlowStatus> {
         // Check if the provider returned an error instead of a code.
         if (!providerError.isNullOrBlank()) {
             throw businessExceptionOf(
@@ -143,10 +144,11 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
         }
 
         // Verify the provider ID in the callback matches the one stored during the authorization redirect.
-        if (authorizeAttempt.providerId != null && authorizeAttempt.providerId != providerId) {
+        val storedProviderId = providerManager.fetchProviderOrNull(session)?.providerId
+        if (storedProviderId != null && storedProviderId != providerId) {
             throw businessExceptionOf(
                 "flow.web_oauth2_provider.provider_mismatch",
-                "expectedProviderId" to authorizeAttempt.providerId!!,
+                "expectedProviderId" to storedProviderId,
                 "actualProviderId" to (providerId ?: "")
             )
         }
@@ -154,7 +156,7 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
         val provider = providerConfigManager.findByIdAndCheckEnabled(providerId)
 
         val tokens = fetchTokens(provider, provider.auth, authorizeCode)
-        val expectedNonce = authorizeAttemptManager.buildProviderNonceOrNull(authorizeAttempt)
+        val expectedNonce = providerManager.buildProviderNonceOrNull(session)
         val rawUserInfo = providerClaimsResolver.resolveClaims(provider, tokens, expectedNonce)
 
         val existingUserInfo = providerClaimsManager.findByProviderAndSubject(
@@ -163,18 +165,19 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
         )
 
         val userId = if (existingUserInfo == null) {
-            webAuthorizationFlowManager.checkSignUpAllowed(authorizeAttempt, recoverable = false)
+            webAuthorizationFlowManager.checkSignUpAllowed(session, recoverable = false)
             val result = createOrAssociateUserWithProviderUserInfo(provider, rawUserInfo)
-            invitationManager.applyInvitationClaimsAndConsume(authorizeAttempt.invitationId, result.user.id)
+            val invitationId = oauth2Manager.fetchOAuth2(session).invitationId
+            invitationManager.applyInvitationClaimsAndConsume(invitationId, result.user.id)
             result.user.id
         } else {
             providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo)
             existingUserInfo.userId
         }
-        val updatedAuthorizeAttempt = authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, userId)
+        val updatedSession = sessionManager.setAuthenticatedUserId(session, userId)
 
         return webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
-            authorizeAttempt = updatedAuthorizeAttempt
+            session = updatedSession
         )
     }
 

@@ -1,11 +1,11 @@
 package com.sympauthy.business.manager.flow.mfa
 
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
-import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.mfa.TotpEnrollment
-import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.config.model.AuthConfig
@@ -17,7 +17,7 @@ import java.net.URI
 @Singleton
 class WebAuthorizationFlowTotpEnrollmentManager(
     @Inject private val totpManager: TotpManager,
-    @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
+    @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val uncheckedAuthConfig: AuthConfig
 ) {
@@ -48,7 +48,7 @@ class WebAuthorizationFlowTotpEnrollmentManager(
     /**
      * Confirms the pending TOTP enrollment for [user] by validating the [code] from their authenticator app.
      *
-     * On success, also marks the MFA step as passed on the [authorizeAttempt]: enrollment confirmation
+     * On success, also marks the MFA step as passed on the [session]: enrollment confirmation
      * already proves the end-user controls the authenticator app, so a separate challenge is not needed.
      *
      * Throws a recoverable [com.sympauthy.business.exception.BusinessException] if:
@@ -56,10 +56,10 @@ class WebAuthorizationFlowTotpEnrollmentManager(
      * - the [code] is invalid.
      */
     suspend fun confirmEnrollment(
-        authorizeAttempt: OnGoingAuthorizeAttempt,
+        session: OnGoingInteractiveFlowSession,
         user: User,
         code: String
-    ): OnGoingAuthorizeAttempt {
+    ): OnGoingInteractiveFlowSession {
         val pendingEnrollment = totpManager.findPendingEnrollmentOrNull(user.id)
             ?: throw recoverableBusinessExceptionOf(
                 detailsId = "flow.mfa.totp.enroll.no_pending_enrollment",
@@ -72,7 +72,7 @@ class WebAuthorizationFlowTotpEnrollmentManager(
                 descriptionId = "description.flow.mfa.totp.enroll.invalid_code"
             )
 
-        return authorizeAttemptManager.setMfaPassed(authorizeAttempt)
+        return sessionManager.setMfaPassed(session)
     }
 
     /**

@@ -1,12 +1,12 @@
 package com.sympauthy.business.manager.flow.mfa
 
 import com.sympauthy.business.exception.internalBusinessExceptionOf
-import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowRedirectUriBuilder
 import com.sympauthy.business.manager.mfa.TotpManager
+import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
-import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.config.model.orThrow
@@ -28,7 +28,7 @@ data class AvailableMfaMethod(val name: String, val uri: URI)
 @Singleton
 class WebAuthorizationFlowMfaManager(
     @Inject private val uncheckedMfaConfig: MfaConfig,
-    @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
+    @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val totpManager: TotpManager,
     @Inject private val redirectUriBuilder: WebAuthorizationFlowRedirectUriBuilder
 ) {
@@ -45,7 +45,7 @@ class WebAuthorizationFlowMfaManager(
      * | false    | 0                | Method selection: all methods as enrollment offers + skip |
      */
     suspend fun getMfaResult(
-        authorizeAttempt: AuthorizeAttempt,
+        session: InteractiveFlowSession,
         user: User,
         flow: WebAuthorizationFlow,
         skipEndpointPath: String
@@ -56,7 +56,7 @@ class WebAuthorizationFlowMfaManager(
         return when {
             // User is enrolled in exactly one method — go straight to its challenge.
             enrollments.size == 1 ->
-                MfaAutoRedirect(redirectUriBuilder.getMfaTotpChallengeUri(authorizeAttempt, flow))
+                MfaAutoRedirect(redirectUriBuilder.getMfaTotpChallengeUri(session, flow))
 
             // User is enrolled in multiple methods (future) — let them pick, but no skip.
             enrollments.size > 1 ->
@@ -64,7 +64,7 @@ class WebAuthorizationFlowMfaManager(
                     methods = listOf(
                         AvailableMfaMethod(
                             name = "TOTP",
-                            uri = redirectUriBuilder.getMfaTotpChallengeUri(authorizeAttempt, flow)
+                            uri = redirectUriBuilder.getMfaTotpChallengeUri(session, flow)
                         )
                     ),
                     skipUri = null
@@ -72,7 +72,7 @@ class WebAuthorizationFlowMfaManager(
 
             // Not enrolled + required — force enrollment in the only available method.
             mfaConfig.required ->
-                MfaAutoRedirect(redirectUriBuilder.getMfaTotpEnrollUri(authorizeAttempt, flow))
+                MfaAutoRedirect(redirectUriBuilder.getMfaTotpEnrollUri(session, flow))
 
             // Not enrolled + optional — offer enrollment with the option to skip.
             else ->
@@ -80,10 +80,10 @@ class WebAuthorizationFlowMfaManager(
                     methods = listOf(
                         AvailableMfaMethod(
                             name = "TOTP",
-                            uri = redirectUriBuilder.getMfaTotpEnrollUri(authorizeAttempt, flow)
+                            uri = redirectUriBuilder.getMfaTotpEnrollUri(session, flow)
                         )
                     ),
-                    skipUri = redirectUriBuilder.getMfaSkipUri(authorizeAttempt, skipEndpointPath)
+                    skipUri = redirectUriBuilder.getMfaSkipUri(session, skipEndpointPath)
                 )
         }
     }
@@ -95,15 +95,15 @@ class WebAuthorizationFlowMfaManager(
      * - MFA is required (`mfa.required=true`), or
      * - the end-user has already enrolled in at least one MFA method.
      */
-    suspend fun skipMfa(authorizeAttempt: OnGoingAuthorizeAttempt): OnGoingAuthorizeAttempt {
+    suspend fun skipMfa(session: OnGoingInteractiveFlowSession): OnGoingInteractiveFlowSession {
         if (uncheckedMfaConfig.orThrow().required) {
             throw internalBusinessExceptionOf("flow.mfa.skip.not_allowed")
         }
-        val userId = authorizeAttempt.userId
+        val userId = session.userId
             ?: throw internalBusinessExceptionOf("flow.mfa.skip.not_allowed")
         if (totpManager.findConfirmedEnrollments(userId).isNotEmpty()) {
             throw internalBusinessExceptionOf("flow.mfa.skip.not_allowed_when_enrolled")
         }
-        return authorizeAttemptManager.setMfaPassed(authorizeAttempt)
+        return sessionManager.setMfaPassed(session)
     }
 }

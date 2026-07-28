@@ -4,13 +4,16 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
-import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.code.ValidationCodeReason
+import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
+import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
 import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
 import com.sympauthy.business.model.invitation.Invitation
@@ -32,13 +35,13 @@ import java.net.URISyntaxException
  * - [Implicit Grant](https://datatracker.ietf.org/doc/html/rfc6749#section-4.2)
  *
  * This manager is responsible for:
- * - creating an [AuthorizeAttempt] using one of the grant types cited above after validation.
- * - verifying the state of an [AuthorizeAttempt].
+ * - creating an [InteractiveFlowSession] using one of the grant types cited above after validation.
+ * - verifying the state of an [InteractiveFlowSession].
  */
 @Singleton
 class WebAuthorizationFlowManager(
     @Inject private val authorizationFlowManager: AuthorizationFlowManager,
-    @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
+    @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
     @Inject private val claimValidationManager: WebAuthorizationFlowClaimValidationManager,
@@ -85,7 +88,7 @@ class WebAuthorizationFlowManager(
     }
 
     /**
-     * Create a new [AuthorizeAttempt] for the end-user.
+     * Create a new [InteractiveFlowSession] for the end-user.
      *
      * This method is in charge of:
      * - validating the [uncheckedClientId]. Redirect the user to the error page of the default web authorization flow in case of error.
@@ -93,8 +96,8 @@ class WebAuthorizationFlowManager(
      * - validating the [uncheckedScopes]. Redirect the user to the error page of the selected flow in case of error.
      * - validating the [uncheckedRedirectUri]. Redirect the user to the error page of the selected flow in case of error.
      * - validating the [uncheckedInvitationToken] if provided: checks that the invitation exists, is pending, and
-     *   belongs to the same audience as the client. The invitation ID is stored on the [AuthorizeAttempt].
-     * - creating the [AuthorizeAttempt].
+     *   belongs to the same audience as the client. The invitation ID is stored on the session's OAuth2 record.
+     * - creating the [InteractiveFlowSession].
      *
      * Parameters are expected to be non-validated as this method will perform the validation and assign default values
      * if necessary.
@@ -108,7 +111,7 @@ class WebAuthorizationFlowManager(
         uncheckedCodeChallenge: String? = null,
         uncheckedCodeChallengeMethod: String? = null,
         uncheckedInvitationToken: String? = null
-    ): Pair<AuthorizeAttempt, WebAuthorizationFlow> {
+    ): Pair<InteractiveFlowSession, WebAuthorizationFlow> {
         val (client, clientException) = try {
             val client = clientManager.parseRequestedClient(uncheckedClientId)
             if (!client.supportsGrantType(GrantType.AUTHORIZATION_CODE)) {
@@ -177,11 +180,11 @@ class WebAuthorizationFlowManager(
             null to null
         }
 
-        val authorizeAttempt = authorizeAttemptManager.newAuthorizeAttempt(
+        val session = oauth2Manager.startOAuth2Session(
             client = client,
             clientState = uncheckedClientState,
             clientNonce = uncheckedClientNonce,
-            authorizationFlow = flow,
+            flow = flow,
             scopes = scopes,
             redirectUri = redirectUri,
             codeChallenge = codeChallenge,
@@ -196,7 +199,7 @@ class WebAuthorizationFlowManager(
                 invitationException
             ).firstOrNull()
         )
-        return authorizeAttempt to flow
+        return session to flow
     }
 
     /**
@@ -314,40 +317,40 @@ class WebAuthorizationFlowManager(
     }
 
     /**
-     * Return the status of the [authorizeAttempt] if the end-user is going through a web authorization flow.
+     * Return the status of the [session] if the end-user is going through a web authorization flow.
      */
     suspend fun getStatus(
-        authorizeAttempt: AuthorizeAttempt
+        session: InteractiveFlowSession
     ): WebAuthorizationFlowStatus {
-        return when (authorizeAttempt) {
-            is FailedAuthorizeAttempt -> getStatusForFailedAuthorizeAttempt()
-            is CompletedAuthorizeAttempt -> getStatusForCompletedAuthorizeAttempt()
-            is OnGoingAuthorizeAttempt -> getStatusForOnGoingAuthorizeAttempt(authorizeAttempt)
+        return when (session) {
+            is FailedInteractiveFlowSession -> getStatusForFailedSession()
+            is CompletedInteractiveFlowSession -> getStatusForCompletedSession()
+            is OnGoingInteractiveFlowSession -> getStatusForOnGoingSession(session)
         }
     }
 
     /**
-     * Return the status of an attempt the authorization flow has failed.
+     * Return the status of a session whose authorization flow has failed.
      */
-    internal fun getStatusForFailedAuthorizeAttempt(): WebAuthorizationFlowStatus {
+    internal fun getStatusForFailedSession(): WebAuthorizationFlowStatus {
         return WebAuthorizationFlowStatus(failed = true)
     }
 
     /**
-     * Return the status of the [authorizeAttempt] if the end-user is going through a web authorization flow.
+     * Return the status of the [session] if the end-user is going through a web authorization flow.
      */
-    internal suspend fun getStatusForOnGoingAuthorizeAttempt(
-        authorizeAttempt: OnGoingAuthorizeAttempt
+    internal suspend fun getStatusForOnGoingSession(
+        session: OnGoingInteractiveFlowSession
     ): WebAuthorizationFlowStatus {
-        val consentedScopes = authorizeAttempt.consentedScopes ?: emptyList()
-        val identifierClaims = authorizeAttempt.userId?.let {
+        val consentedScopes = oauth2Manager.fetchOAuth2(session).consentedScopes ?: emptyList()
+        val identifierClaims = session.userId?.let {
             collectedClaimManager.findIdentifierByUserId(it)
         } ?: emptyList()
-        val consentedClaims = authorizeAttempt.userId?.let {
+        val consentedClaims = session.userId?.let {
             consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(it, consentedScopes)
         } ?: emptyList()
-        val missingUser = authorizeAttempt.userId == null
-        val missingMfa = uncheckedMfaConfig.orThrow().enabled && !authorizeAttempt.mfaPassed
+        val missingUser = session.userId == null
+        val missingMfa = uncheckedMfaConfig.orThrow().enabled && !session.mfaPassed
         val allClaims = (identifierClaims + consentedClaims).distinctBy { it.claim.id }
         val missingRequiredClaims = !consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(
             allClaims, consentedScopes
@@ -370,59 +373,60 @@ class WebAuthorizationFlowManager(
     }
 
     /**
-     * Return the status of an attempt if the end-user has completed the authorization flow.
+     * Return the status of a session if the end-user has completed the authorization flow.
      */
-    internal fun getStatusForCompletedAuthorizeAttempt(): WebAuthorizationFlowStatus {
+    internal fun getStatusForCompletedSession(): WebAuthorizationFlowStatus {
         return WebAuthorizationFlowStatus()
     }
 
     /**
      * Completes the authorization flow by calling [AuthorizationFlowManager.completeAuthorization]
-     * if the [status] indicates that the flow is complete. Then return the updated [AuthorizeAttempt].
+     * if the [status] indicates that the flow is complete. Then return the updated [InteractiveFlowSession].
      */
     suspend fun completeIfNecessary(
-        authorizeAttempt: AuthorizeAttempt,
+        session: InteractiveFlowSession,
         status: WebAuthorizationFlowStatus
-    ): AuthorizeAttempt {
+    ): InteractiveFlowSession {
         return if (status.complete) {
             authorizationFlowManager.completeAuthorization(
-                authorizeAttempt = authorizeAttempt
+                session = session
             )
-        } else authorizeAttempt
+        } else session
     }
 
     /**
-     * Return true if sign-up is allowed for the audience of the client that initiated the [authorizeAttempt].
+     * Return true if sign-up is allowed for the audience of the client that initiated the [session].
      *
      * Sign-up is allowed when the audience enables open registration, or when it enables invitation-based
-     * registration and an invitation is bound to the attempt. Non-throwing counterpart of [checkSignUpAllowed].
+     * registration and an invitation is bound to the session. Non-throwing counterpart of [checkSignUpAllowed].
      */
     suspend fun isSignUpAllowed(
-        authorizeAttempt: OnGoingAuthorizeAttempt
+        session: OnGoingInteractiveFlowSession
     ): Boolean {
-        val audience = clientManager.findClientById(authorizeAttempt.clientId).audience
-        return audience.signUpEnabled || (audience.invitationEnabled && authorizeAttempt.invitationId != null)
+        val oauth2 = oauth2Manager.fetchOAuth2(session)
+        val audience = clientManager.findClientById(oauth2.clientId).audience
+        return audience.signUpEnabled || (audience.invitationEnabled && oauth2.invitationId != null)
     }
 
     /**
-     * Check that sign-up is allowed for the audience of the client that initiated the [authorizeAttempt].
+     * Check that sign-up is allowed for the audience of the client that initiated the [session].
      *
      * Throws a [BusinessException] if:
      * - Both `signUpEnabled` and `invitationEnabled` are false on the audience.
-     * - `signUpEnabled` is false and `invitationEnabled` is true but no invitation is bound to the attempt.
+     * - `signUpEnabled` is false and `invitationEnabled` is true but no invitation is bound to the session.
      *
      * @param recoverable Whether the thrown exception should be recoverable (true for password sign-up
      *   where the user can retry, false for provider sign-up where the flow is non-interactive).
      */
     suspend fun checkSignUpAllowed(
-        authorizeAttempt: OnGoingAuthorizeAttempt,
+        session: OnGoingInteractiveFlowSession,
         recoverable: Boolean
     ) {
-        if (isSignUpAllowed(authorizeAttempt)) {
+        if (isSignUpAllowed(session)) {
             return
         }
         // Not allowed: pick the precise error. Re-reads the audience only on the rejection path.
-        val audience = clientManager.findClientById(authorizeAttempt.clientId).audience
+        val audience = clientManager.findClientById(oauth2Manager.fetchOAuth2(session).clientId).audience
         if (!audience.signUpEnabled && !audience.invitationEnabled) {
             throw BusinessException(
                 recoverable = recoverable,
@@ -438,14 +442,14 @@ class WebAuthorizationFlowManager(
     }
 
     suspend fun getStatusAndCompleteIfNecessary(
-        authorizeAttempt: AuthorizeAttempt
-    ): Pair<AuthorizeAttempt, WebAuthorizationFlowStatus> {
-        val status = getStatus(authorizeAttempt)
-        val completedAuthorizeAttempt = completeIfNecessary(
-            authorizeAttempt = authorizeAttempt,
+        session: InteractiveFlowSession
+    ): Pair<InteractiveFlowSession, WebAuthorizationFlowStatus> {
+        val status = getStatus(session)
+        val completedSession = completeIfNecessary(
+            session = session,
             status = status
         )
-        return completedAuthorizeAttempt to status
+        return completedSession to status
     }
 }
 

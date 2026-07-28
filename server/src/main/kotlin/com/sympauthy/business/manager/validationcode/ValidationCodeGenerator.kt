@@ -5,7 +5,7 @@ import com.sympauthy.business.mapper.ValidationCodeMapper
 import com.sympauthy.business.model.code.ValidationCode
 import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.code.ValidationCodeReason
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
+import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.ValidationCodeConfig
@@ -50,7 +50,7 @@ open class ValidationCodeGenerator(
     @Transactional
     open suspend fun generateValidationCode(
         user: User,
-        authorizeAttempt: AuthorizeAttempt,
+        session: InteractiveFlowSession,
         media: ValidationCodeMedia,
         reasons: List<ValidationCodeReason>
     ): ValidationCode {
@@ -60,7 +60,7 @@ open class ValidationCodeGenerator(
         val creationDate = now()
         val expirationDate = getExpirationDate(
             creationDate = creationDate,
-            authorizeAttempt = authorizeAttempt
+            session = session
         )
         val resendDate = getResendDate(creationDate)
 
@@ -71,7 +71,7 @@ open class ValidationCodeGenerator(
                     userId = user.id,
                     media = media.name,
                     reasons = reasons.map(ValidationCodeReason::name).toTypedArray(),
-                    attemptId = authorizeAttempt.id,
+                    sessionId = session.id,
                     creationDate = creationDate,
                     expirationDate = expirationDate,
                     resendDate = resendDate
@@ -100,15 +100,15 @@ open class ValidationCodeGenerator(
      * Return the expiration date for a newly created validation code at [creationDate].
      *
      * It is the minimum between the [ValidationCodeConfig.expiration] delay in the server configuration.
-     * and the [AuthorizeAttempt.expirationDate] of the provided [authorizeAttempt].
+     * and the [InteractiveFlowSession.expirationDate] of the provided [session].
      */
     internal fun getExpirationDate(
-        authorizeAttempt: AuthorizeAttempt,
+        session: InteractiveFlowSession,
         creationDate: LocalDateTime
     ): LocalDateTime {
         val expiration = advancedConfig.orThrow().validationCode.expiration
         return min(
-            authorizeAttempt.expirationDate,
+            session.expirationDate,
             creationDate.plus(expiration)
         )
     }

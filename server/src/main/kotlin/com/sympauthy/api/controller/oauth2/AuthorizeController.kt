@@ -171,7 +171,7 @@ The authorization server includes this value unmodified in the ID Token.
         uncheckedCodeChallengeMethod: String?,
         uncheckedInvitationToken: String?
     ): HttpResponse<*> {
-        val (authorizeAttempt, flow) = webAuthorizationFlowManager.startAuthorizationWith(
+        val (session, flow) = webAuthorizationFlowManager.startAuthorizationWith(
             uncheckedClientId = uncheckedClientId,
             uncheckedClientState = uncheckedClientState,
             uncheckedClientNonce = uncheckedClientNonce,
@@ -181,9 +181,9 @@ The authorization server includes this value unmodified in the ID Token.
             uncheckedCodeChallengeMethod = uncheckedCodeChallengeMethod,
             uncheckedInvitationToken = uncheckedInvitationToken
         )
-        val status = webAuthorizationFlowManager.getStatus(authorizeAttempt)
+        val status = webAuthorizationFlowManager.getStatus(session)
         val redirectUri = webFlowRedirectBuilder.getRedirectUri(
-            authorizeAttempt = authorizeAttempt,
+            session = session,
             flow = flow,
             status = status
         )

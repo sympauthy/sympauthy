@@ -7,5 +7,5 @@ import java.util.*
 interface AuthorizationCodeRepository : CoroutineCrudRepository<AuthorizationCodeEntity, UUID> {
     suspend fun deleteByCode(code: String)
 
-    suspend fun deleteByAttemptIdIn(attemptIds: List<UUID>): Int
+    suspend fun deleteBySessionIdIn(sessionIds: List<UUID>): Int
 }

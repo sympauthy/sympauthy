@@ -61,11 +61,11 @@ Result containing either:
         authentication: Authentication,
         media: ValidationCodeMedia,
     ): ClaimsValidationFlowResource =
-        webAuthorizationFlowControllerUtil.fetchOnGoingAttemptWithUserThenRunAndRedirect(
+        webAuthorizationFlowControllerUtil.fetchOnGoingSessionWithUserThenRunAndRedirect(
             authentication.stateOrNull,
-            run = { authorizeAttempt, _, user ->
+            run = { session, _, user ->
                 claimValidationManager.getOrSendValidationCode(
-                    authorizeAttempt = authorizeAttempt,
+                    session = session,
                     user = user,
                     media = media,
                 )
@@ -93,15 +93,15 @@ Result containing either:
         authentication: Authentication,
         @Body inputResource: ClaimValidationInputResource
     ): SimpleFlowResource =
-        webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenUpdateAndRedirect(
+        webAuthorizationFlowControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect(
             state = authentication.stateOrNull,
-            update = { authorizeAttempt, _ ->
+            update = { session, _ ->
                 claimValidationManager.validateClaimsByCode(
-                    authorizeAttempt = authorizeAttempt,
+                    session = session,
                     media = ValidationCodeMedia.valueOf(inputResource.media),
                     code = inputResource.code
                 )
-                authorizeAttempt
+                session
             },
             mapRedirectUriToResource = { redirectUri -> SimpleFlowResource(redirectUri.toString()) }
         )
@@ -125,13 +125,13 @@ This authorization server will not send new validation code in the following cas
         authentication: Authentication,
         @Body inputResource: ResendClaimsValidationInputResource
     ): ResendClaimsValidationCodeResultResource =
-        webAuthorizationFlowControllerUtil.fetchOnGoingAttemptWithUserThenRun(
+        webAuthorizationFlowControllerUtil.fetchOnGoingSessionWithUserThenRun(
             state = authentication.stateOrNull,
-            run = { authorizeAttempt, _, user ->
+            run = { session, _, user ->
                 val media = getMedia(inputResource.media)
 
                 val result = claimValidationManager.resendValidationCode(
-                    authorizeAttempt = authorizeAttempt,
+                    session = session,
                     user = user,
                     media = media
                 )

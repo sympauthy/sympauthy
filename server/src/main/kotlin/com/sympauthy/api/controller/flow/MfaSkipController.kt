@@ -44,10 +44,10 @@ one enrolled method. The MFA step is marked as resolved so the flow does not pro
     suspend fun skipMfa(
         authentication: Authentication
     ): HttpResponse<*> =
-        webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenUpdateAndRedirect(
+        webAuthorizationFlowControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect(
             state = authentication.stateOrNull,
-            update = { authorizeAttempt, _ ->
-                mfaManager.skipMfa(authorizeAttempt)
+            update = { session, _ ->
+                mfaManager.skipMfa(session)
             },
             mapRedirectUriToResource = { redirectUri -> HttpResponse.seeOther<Any>(redirectUri) }
         )

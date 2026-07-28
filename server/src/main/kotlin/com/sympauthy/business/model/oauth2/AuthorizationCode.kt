@@ -5,7 +5,7 @@ import java.time.LocalDateTime
 import java.util.*
 
 data class AuthorizationCode(
-    val attemptId: UUID,
+    val sessionId: UUID,
     val code: String,
     val creationDate: LocalDateTime,
     override val expirationDate: LocalDateTime

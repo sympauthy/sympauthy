@@ -4,7 +4,7 @@ import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
-import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
+import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
@@ -25,26 +25,26 @@ class RefreshTokenGenerator(
 ) {
 
     /**
-     * Generate a new refresh token using the information stored in a [authorizeAttempt].
+     * Generate a new refresh token using the information stored in the session's [oauth2] request record.
      * Or return null if the refresh token is disabled by the [authConfig].
      */
     suspend fun generateRefreshToken(
-        authorizeAttempt: CompletedAuthorizeAttempt,
+        oauth2: InteractiveFlowSessionOAuth2,
         userId: UUID,
         tokenAudience: String,
         dpopJkt: String? = null
     ) = generateRefreshToken(
         userId = userId,
-        clientId = authorizeAttempt.clientId,
+        clientId = oauth2.clientId,
         tokenAudience = tokenAudience,
-        grantedScopes = authorizeAttempt.grantedScopes,
-        grantedAt = authorizeAttempt.grantedAt,
-        grantedBy = authorizeAttempt.grantedBy.name,
-        consentedScopes = authorizeAttempt.consentedScopes,
-        consentedAt = authorizeAttempt.consentedAt,
-        consentedBy = authorizeAttempt.consentedBy.name,
+        grantedScopes = oauth2.grantedScopes ?: emptyList(),
+        grantedAt = oauth2.grantedAt,
+        grantedBy = oauth2.grantedBy?.name,
+        consentedScopes = oauth2.consentedScopes ?: emptyList(),
+        consentedAt = oauth2.consentedAt,
+        consentedBy = oauth2.consentedBy?.name,
         clientScopes = emptyList(),
-        authorizeAttemptId = authorizeAttempt.id,
+        sessionId = oauth2.sessionId,
         grantType = "authorization_code",
         dpopJkt = dpopJkt
     )
@@ -67,7 +67,7 @@ class RefreshTokenGenerator(
         consentedAt = refreshToken.consentedAt,
         consentedBy = refreshToken.consentedBy?.name,
         clientScopes = refreshToken.clientScopes,
-        authorizeAttemptId = refreshToken.authorizeAttemptId,
+        sessionId = refreshToken.sessionId,
         grantType = "refresh_token",
         dpopJkt = dpopJkt
     )
@@ -83,7 +83,7 @@ class RefreshTokenGenerator(
         consentedAt: java.time.LocalDateTime?,
         consentedBy: String?,
         clientScopes: List<String>,
-        authorizeAttemptId: UUID?,
+        sessionId: UUID?,
         grantType: String,
         dpopJkt: String? = null
     ): EncodedAuthenticationToken? {
@@ -105,7 +105,7 @@ class RefreshTokenGenerator(
             consentedAt = consentedAt,
             consentedBy = consentedBy,
             clientScopes = clientScopes.toTypedArray(),
-            authorizeAttemptId = authorizeAttemptId,
+            sessionId = sessionId,
             grantType = grantType,
             dpopJkt = dpopJkt,
             issueDate = issueDate,

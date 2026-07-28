@@ -3,12 +3,12 @@ package com.sympauthy.api.controller.flow
 import com.sympauthy.api.mapper.flow.FlowErrorResourceMapper
 import com.sympauthy.api.resource.flow.FlowErrorResource
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
-import com.sympauthy.business.manager.auth.FailedVerifyEncodedStateResult
-import com.sympauthy.business.manager.auth.SuccessVerifyEncodedStateResult
+import com.sympauthy.business.manager.flow.FailedVerifyEncodedStateResult
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
+import com.sympauthy.business.manager.flow.SuccessVerifyEncodedStateResult
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowManager
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowRedirectUriBuilder
-import com.sympauthy.business.model.oauth2.FailedAuthorizeAttempt
+import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
 import com.sympauthy.util.orDefault
@@ -24,7 +24,7 @@ import jakarta.inject.Inject
 @Secured(HAS_STATE)
 @Controller("/api/v1/flow/errors")
 class ErrorController(
-    @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
+    @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
     @Inject private val redirectUriBuilder: WebAuthorizationFlowRedirectUriBuilder,
     @Inject private val flowErrorResourceMapper: FlowErrorResourceMapper,
@@ -49,29 +49,29 @@ Result containing either:
         request: HttpRequest<*>,
         authentication: Authentication
     ): FlowErrorResource {
-        val verifyResult = authorizeAttemptManager.verifyEncodedInternalState(authentication.stateOrNull)
+        val verifyResult = sessionManager.verifyEncodedInternalState(authentication.stateOrNull)
 
         return when (verifyResult) {
             is SuccessVerifyEncodedStateResult -> {
-                when (verifyResult.authorizeAttempt) {
-                    is FailedAuthorizeAttempt -> {
+                when (val session = verifyResult.session) {
+                    is FailedInteractiveFlowSession -> {
                         val exception = BusinessException(
                             recoverable = false,
-                            detailsId = verifyResult.authorizeAttempt.errorDetailsId,
-                            descriptionId = verifyResult.authorizeAttempt.errorDescriptionId,
+                            detailsId = session.errorDetailsId,
+                            descriptionId = session.errorDescriptionId,
                         )
                         flowErrorResourceMapper.toResource(exception, request.locale.orDefault())
                     }
 
                     else -> {
                         val flow = webAuthorizationFlowManager.findById(
-                            verifyResult.authorizeAttempt.authorizationFlowId
+                            session.flowId
                         )
-                        val (potentiallyCompletedAuthorizeAttempt, status) = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
-                            authorizeAttempt = verifyResult.authorizeAttempt,
+                        val (potentiallyCompletedSession, status) = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
+                            session = session,
                         )
                         val redirectUri = redirectUriBuilder.getRedirectUri(
-                            authorizeAttempt = potentiallyCompletedAuthorizeAttempt,
+                            session = potentiallyCompletedSession,
                             flow = flow,
                             status = status
                         )

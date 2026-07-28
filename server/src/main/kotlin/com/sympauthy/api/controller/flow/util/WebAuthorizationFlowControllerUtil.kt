@@ -2,15 +2,15 @@ package com.sympauthy.api.controller.flow.util
 
 import com.sympauthy.api.exception.httpExceptionOf
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
-import com.sympauthy.business.manager.auth.FailedVerifyEncodedStateResult
-import com.sympauthy.business.manager.auth.SuccessVerifyEncodedStateResult
+import com.sympauthy.business.manager.flow.FailedVerifyEncodedStateResult
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
+import com.sympauthy.business.manager.flow.SuccessVerifyEncodedStateResult
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowManager
 import com.sympauthy.business.manager.flow.WebAuthorizationFlowRedirectUriBuilder
 import com.sympauthy.business.manager.user.UserManager
+import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.WebAuthorizationFlow
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
-import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.user.User
 import io.micronaut.http.HttpStatus
 import io.micronaut.security.authentication.Authentication
@@ -22,51 +22,51 @@ import java.net.URI
  * Utility class for controller providing APIs for web authorization flows.
  *
  * It provides utility methods for controller to retrieve the following:
- * - the [OnGoingAuthorizeAttempt] associated to the state in the [Authentication].
- * - the [User] associated to the [OnGoingAuthorizeAttempt].
- * - the [WebAuthorizationFlow] associated to the [OnGoingAuthorizeAttempt].
+ * - the [OnGoingInteractiveFlowSession] associated to the state in the [Authentication].
+ * - the [User] associated to the [OnGoingInteractiveFlowSession].
+ * - the [WebAuthorizationFlow] associated to the [OnGoingInteractiveFlowSession].
  */
 @Singleton
 class WebAuthorizationFlowControllerUtil(
-    @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
+    @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val userManager: UserManager,
     @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
     @Inject private val redirectUriBuilder: WebAuthorizationFlowRedirectUriBuilder
 ) {
 
     /**
-     * Call the [run] function with the [OnGoingAuthorizeAttempt] and [WebAuthorizationFlow] associated to the [state].
+     * Call the [run] function with the [OnGoingInteractiveFlowSession] and [WebAuthorizationFlow] associated to the [state].
      * Then run and return the result of the [run] function.
      */
-    suspend fun <Resource> fetchOnGoingAttemptThenRun(
+    suspend fun <Resource> fetchOnGoingSessionThenRun(
         state: String?,
-        run: suspend (OnGoingAuthorizeAttempt, WebAuthorizationFlow) -> Resource
+        run: suspend (OnGoingInteractiveFlowSession, WebAuthorizationFlow) -> Resource
     ): Resource {
-        val authorizeAttempt = fetchAuthorizeAttempt(state)
-        val flow = webAuthorizationFlowManager.findById(authorizeAttempt.authorizationFlowId)
-        val onGoingAuthorizeAttempt = (authorizeAttempt as? OnGoingAuthorizeAttempt) ?: throw httpExceptionOf(
+        val session = fetchSession(state)
+        val flow = webAuthorizationFlowManager.findById(session.flowId)
+        val onGoingSession = (session as? OnGoingInteractiveFlowSession) ?: throw httpExceptionOf(
             status = HttpStatus.BAD_REQUEST,
             detailsId = "ctrl.flow.not_ongoing",
         )
-        return run(onGoingAuthorizeAttempt, flow)
+        return run(onGoingSession, flow)
     }
 
     /**
-     * Call the [run] function with the [OnGoingAuthorizeAttempt] and [WebAuthorizationFlow] associated to the [state].
+     * Call the [run] function with the [OnGoingInteractiveFlowSession] and [WebAuthorizationFlow] associated to the [state].
      * Then run and return the result of the [run] function.
      */
-    suspend fun <Resource> fetchOnGoingAttemptWithUserThenRun(
+    suspend fun <Resource> fetchOnGoingSessionWithUserThenRun(
         state: String?,
-        run: suspend (OnGoingAuthorizeAttempt, WebAuthorizationFlow, User) -> Resource
+        run: suspend (OnGoingInteractiveFlowSession, WebAuthorizationFlow, User) -> Resource
     ): Resource {
-        return fetchOnGoingAttemptThenRun(state) { onGoingAuthorizeAttempt, flow ->
-            val user = userManager.findById(onGoingAuthorizeAttempt.userId)
-            run(onGoingAuthorizeAttempt, flow, user)
+        return fetchOnGoingSessionThenRun(state) { onGoingSession, flow ->
+            val user = userManager.findById(onGoingSession.userId)
+            run(onGoingSession, flow, user)
         }
     }
 
     /**
-     * Call the [run] function with the [OnGoingAuthorizeAttempt] and [WebAuthorizationFlow] associated to the [state].
+     * Call the [run] function with the [OnGoingInteractiveFlowSession] and [WebAuthorizationFlow] associated to the [state].
      * Then run and return the result of:
      * - [mapRedirectUriToResource] if the end-user is expected to be redirected to a different step.
      * - [mapResultToResource] if the end-user is expected to perform an action to complete the step.
@@ -78,31 +78,31 @@ class WebAuthorizationFlowControllerUtil(
      *
      * [BusinessException] thrown by the [run] function will be caught and handled differently:
      * - if recoverable, the [BusinessException] will be simply thrown to be handled by the exception handler.
-     * - if unrecoverable, the [AuthorizeAttempt] will be marked as failed and the end-user will be redirected to the error page.
+     * - if unrecoverable, the [InteractiveFlowSession] will be marked as failed and the end-user will be redirected to the error page.
      */
-    suspend fun <Result, FlowResource> fetchOnGoingAttemptThenRunAndRedirect(
+    suspend fun <Result, FlowResource> fetchOnGoingSessionThenRunAndRedirect(
         state: String?,
-        run: suspend (OnGoingAuthorizeAttempt, WebAuthorizationFlow) -> Result?,
+        run: suspend (OnGoingInteractiveFlowSession, WebAuthorizationFlow) -> Result?,
         mapRedirectUriToResource: suspend (URI) -> FlowResource,
         mapResultToResource: (suspend (Result) -> FlowResource)? = null
     ): FlowResource {
-        val authorizeAttempt = fetchAuthorizeAttempt(state)
-        val onGoingAuthorizeAttempt = authorizeAttempt as? OnGoingAuthorizeAttempt
+        val session = fetchSession(state)
+        val onGoingSession = session as? OnGoingInteractiveFlowSession
 
         val flow = try {
-            webAuthorizationFlowManager.findById(authorizeAttempt.authorizationFlowId)
+            webAuthorizationFlowManager.findById(session.flowId)
         } catch (_: BusinessException) {
             // Redirect to the error page of the default flow since the information on the exact flow is missing.
             val redirectUri = redirectUriBuilder.getErrorUri(
-                authorizeAttempt = authorizeAttempt,
+                session = session,
                 flow = webAuthorizationFlowManager.getDefaultWebAuthorizationFlow(),
             )
             return mapRedirectUriToResource(redirectUri)
         }
 
-        val (runResult, runException) = if (onGoingAuthorizeAttempt != null) {
+        val (runResult, runException) = if (onGoingSession != null) {
             try {
-                run(onGoingAuthorizeAttempt, flow) to null
+                run(onGoingSession, flow) to null
             } catch (e: BusinessException) {
                 null to e
             }
@@ -110,19 +110,19 @@ class WebAuthorizationFlowControllerUtil(
             null to null
         }
 
-        val afterExceptionHandlingAuthorizeAttempt = handleException(
-            authorizeAttempt = authorizeAttempt,
+        val afterExceptionHandlingSession = handleException(
+            session = session,
             exception = runException
         )
 
         return if (runResult != null && mapResultToResource != null) {
             mapResultToResource(runResult)
         } else {
-            val (afterCompleteAuthorizeAttempt, status) = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
-                authorizeAttempt = afterExceptionHandlingAuthorizeAttempt,
+            val (afterCompleteSession, status) = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
+                session = afterExceptionHandlingSession,
             )
             val redirectUri = redirectUriBuilder.getRedirectUri(
-                authorizeAttempt = afterCompleteAuthorizeAttempt,
+                session = afterCompleteSession,
                 flow = flow,
                 status = status
             )
@@ -131,7 +131,7 @@ class WebAuthorizationFlowControllerUtil(
     }
 
     /**
-     * Call the [run] function with the [OnGoingAuthorizeAttempt], [WebAuthorizationFlow] and [User] associated to the [state].
+     * Call the [run] function with the [OnGoingInteractiveFlowSession], [WebAuthorizationFlow] and [User] associated to the [state].
      * Then run and return the result of:
      * - [mapResultToResource] if the [User] is expected to perform an action to complete the step.
      * - [mapRedirectUriToResource] if the [User] is expected to be redirected to a different step.
@@ -143,29 +143,29 @@ class WebAuthorizationFlowControllerUtil(
      *
      * [BusinessException] thrown by the [run] function will be caught and handled differently:
      * - if recoverable, the [BusinessException] will be simply thrown to be handled by the exception handler.
-     * - if unrecoverable, the [AuthorizeAttempt] will be marked as failed and the end-user will be redirected to the error page.
+     * - if unrecoverable, the [InteractiveFlowSession] will be marked as failed and the end-user will be redirected to the error page.
      */
-    suspend fun <Result, FlowResource> fetchOnGoingAttemptWithUserThenRunAndRedirect(
+    suspend fun <Result, FlowResource> fetchOnGoingSessionWithUserThenRunAndRedirect(
         state: String?,
-        run: suspend (OnGoingAuthorizeAttempt, WebAuthorizationFlow, User) -> Result?,
+        run: suspend (OnGoingInteractiveFlowSession, WebAuthorizationFlow, User) -> Result?,
         mapRedirectUriToResource: suspend (URI) -> FlowResource,
         mapResultToResource: (suspend (Result) -> FlowResource)? = null,
     ): FlowResource {
-        val authorizeAttempt = fetchAuthorizeAttempt(state)
+        val session = fetchSession(state)
         val flow = try {
-            webAuthorizationFlowManager.findById(authorizeAttempt.authorizationFlowId)
+            webAuthorizationFlowManager.findById(session.flowId)
         } catch (_: BusinessException) {
             // Redirect to the error page of the default flow since the information on the exact flow is missing.
             val redirectUri = redirectUriBuilder.getErrorUri(
-                authorizeAttempt = authorizeAttempt,
+                session = session,
                 flow = webAuthorizationFlowManager.getDefaultWebAuthorizationFlow(),
             )
             return mapRedirectUriToResource(redirectUri)
         }
 
-        val onGoingAuthorizeAttempt = authorizeAttempt as? OnGoingAuthorizeAttempt
+        val onGoingSession = session as? OnGoingInteractiveFlowSession
         val user = try {
-            userManager.findByIdOrNull(onGoingAuthorizeAttempt?.userId)
+            userManager.findByIdOrNull(onGoingSession?.userId)
         } catch (_: BusinessException) {
             // If the user is missing for the operation, we let the [getStatusAndCompleteIfNecessary] and
             // [getRedirectUri] methods redirect the user to the proper step.
@@ -173,9 +173,9 @@ class WebAuthorizationFlowControllerUtil(
             null
         }
 
-        val (runResult, runException) = if (onGoingAuthorizeAttempt != null && user != null) {
+        val (runResult, runException) = if (onGoingSession != null && user != null) {
             try {
-                run(onGoingAuthorizeAttempt, flow, user) to null
+                run(onGoingSession, flow, user) to null
             } catch (e: BusinessException) {
                 null to e
             }
@@ -183,19 +183,19 @@ class WebAuthorizationFlowControllerUtil(
             null to null
         }
 
-        val afterExceptionHandlingAuthorizeAttempt = handleException(
-            authorizeAttempt = authorizeAttempt,
+        val afterExceptionHandlingSession = handleException(
+            session = session,
             exception = runException
         )
 
         return if (runResult != null && mapResultToResource != null) {
             mapResultToResource(runResult)
         } else {
-            val (afterCompleteAuthorizeAttempt, status) = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
-                authorizeAttempt = afterExceptionHandlingAuthorizeAttempt,
+            val (afterCompleteSession, status) = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
+                session = afterExceptionHandlingSession,
             )
             val redirectUri = redirectUriBuilder.getRedirectUri(
-                authorizeAttempt = afterCompleteAuthorizeAttempt,
+                session = afterCompleteSession,
                 flow = flow,
                 status = status
             )
@@ -204,57 +204,57 @@ class WebAuthorizationFlowControllerUtil(
     }
 
     /**
-     * Call the [update] function with the [OnGoingAuthorizeAttempt] and [WebAuthorizationFlow] associated to the [state].
+     * Call the [update] function with the [OnGoingInteractiveFlowSession] and [WebAuthorizationFlow] associated to the [state].
      * Return the result of [mapRedirectUriToResource] containing the URI where the end-user must be redirected to
      * continue the authorization flow.
      *
      * [BusinessException] thrown by the [update] function will be caught and handled differently:
      * - if recoverable, the [BusinessException] will be presented as BAD_REQUEST with
-     * - if unrecoverable, the [AuthorizeAttempt] will be marked as failed and the end-user will be redirected to the error page.
+     * - if unrecoverable, the [InteractiveFlowSession] will be marked as failed and the end-user will be redirected to the error page.
      *
      * This method is intended to be used by POST operation handling information provided by the end-user to complete
      * a step of the authorization flow. (ex. providing its login and password to sign in).
      */
-    suspend fun <FlowResource> fetchOnGoingAttemptThenUpdateAndRedirect(
+    suspend fun <FlowResource> fetchOnGoingSessionThenUpdateAndRedirect(
         state: String?,
-        update: suspend (OnGoingAuthorizeAttempt, WebAuthorizationFlow) -> AuthorizeAttempt,
+        update: suspend (OnGoingInteractiveFlowSession, WebAuthorizationFlow) -> InteractiveFlowSession,
         mapRedirectUriToResource: suspend (URI) -> FlowResource,
     ): FlowResource {
-        val authorizeAttempt = fetchAuthorizeAttempt(state)
+        val session = fetchSession(state)
 
         val flow = try {
-            webAuthorizationFlowManager.findById(authorizeAttempt.authorizationFlowId)
+            webAuthorizationFlowManager.findById(session.flowId)
         } catch (_: BusinessException) {
             // Redirect to the error page of the default flow since the information on the exact flow is missing.
             val redirectUri = redirectUriBuilder.getErrorUri(
-                authorizeAttempt = authorizeAttempt,
+                session = session,
                 flow = webAuthorizationFlowManager.getDefaultWebAuthorizationFlow(),
             )
             return mapRedirectUriToResource(redirectUri)
         }
 
-        var afterUpdateAuthorizeAttempt = authorizeAttempt
-        val onGoingAuthorizeAttempt = authorizeAttempt as? OnGoingAuthorizeAttempt
+        var afterUpdateSession = session
+        val onGoingSession = session as? OnGoingInteractiveFlowSession
 
-        val updateException = if (onGoingAuthorizeAttempt != null) {
+        val updateException = if (onGoingSession != null) {
             try {
-                afterUpdateAuthorizeAttempt = update(onGoingAuthorizeAttempt, flow)
+                afterUpdateSession = update(onGoingSession, flow)
                 null
             } catch (e: BusinessException) {
                 e
             }
         } else null
 
-        val afterExceptionHandlingAuthorizeAttempt = handleException(
-            authorizeAttempt = afterUpdateAuthorizeAttempt,
+        val afterExceptionHandlingSession = handleException(
+            session = afterUpdateSession,
             exception = updateException
         )
 
-        val (afterCompleteAuthorizeAttempt, status) = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
-            authorizeAttempt = afterExceptionHandlingAuthorizeAttempt,
+        val (afterCompleteSession, status) = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
+            session = afterExceptionHandlingSession,
         )
         val redirectUri = redirectUriBuilder.getRedirectUri(
-            authorizeAttempt = afterCompleteAuthorizeAttempt,
+            session = afterCompleteSession,
             flow = flow,
             status = status
         )
@@ -262,39 +262,39 @@ class WebAuthorizationFlowControllerUtil(
     }
 
     /**
-     * Call the [update] function with the [OnGoingAuthorizeAttempt], [WebAuthorizationFlow] and [User] associated to the [state].
+     * Call the [update] function with the [OnGoingInteractiveFlowSession], [WebAuthorizationFlow] and [User] associated to the [state].
      * Return the result of [mapRedirectUriToResource] containing the URI where the end-user must be redirected to
      * continue the authorization flow.
      *
      * [BusinessException] thrown by the [update] function will be caught and handled differently:
      * - if recoverable, the [BusinessException] will be presented as BAD_REQUEST with
-     * - if unrecoverable, the [AuthorizeAttempt] will be marked as failed and the end-user will be redirected to the error page.
+     * - if unrecoverable, the [InteractiveFlowSession] will be marked as failed and the end-user will be redirected to the error page.
      *
      * This method is intended to be used by POST operation handling information provided by the end-user to complete
      * a step of the authorization flow. (ex. providing its login and password to sign in).
      */
-    suspend fun <FlowResource> fetchOnGoingAttemptWithUserThenUpdateAndRedirect(
+    suspend fun <FlowResource> fetchOnGoingSessionWithUserThenUpdateAndRedirect(
         state: String?,
-        update: suspend (OnGoingAuthorizeAttempt, WebAuthorizationFlow, User) -> AuthorizeAttempt,
+        update: suspend (OnGoingInteractiveFlowSession, WebAuthorizationFlow, User) -> InteractiveFlowSession,
         mapRedirectUriToResource: suspend (URI) -> FlowResource,
     ): FlowResource {
-        val authorizeAttempt = fetchAuthorizeAttempt(state)
+        val session = fetchSession(state)
 
         val flow = try {
-            webAuthorizationFlowManager.findById(authorizeAttempt.authorizationFlowId)
+            webAuthorizationFlowManager.findById(session.flowId)
         } catch (_: BusinessException) {
             // Redirect to the error page of the default flow since the information on the exact flow is missing.
             val redirectUri = redirectUriBuilder.getErrorUri(
-                authorizeAttempt = authorizeAttempt,
+                session = session,
                 flow = webAuthorizationFlowManager.getDefaultWebAuthorizationFlow(),
             )
             return mapRedirectUriToResource(redirectUri)
         }
 
-        var afterUpdateAuthorizeAttempt = authorizeAttempt
-        val onGoingAuthorizeAttempt = authorizeAttempt as? OnGoingAuthorizeAttempt
+        var afterUpdateSession = session
+        val onGoingSession = session as? OnGoingInteractiveFlowSession
         val user = try {
-            userManager.findByIdOrNull(onGoingAuthorizeAttempt?.userId)
+            userManager.findByIdOrNull(onGoingSession?.userId)
         } catch (_: BusinessException) {
             // If the user is missing for the operation, we let the getStatusAndCompleteIfNecessary and
             // getRedirectUri methods redirect the user to the proper step.
@@ -302,25 +302,25 @@ class WebAuthorizationFlowControllerUtil(
             null
         }
 
-        val updateException = if (onGoingAuthorizeAttempt != null && user != null) {
+        val updateException = if (onGoingSession != null && user != null) {
             try {
-                afterUpdateAuthorizeAttempt = update(onGoingAuthorizeAttempt, flow, user)
+                afterUpdateSession = update(onGoingSession, flow, user)
                 null
             } catch (e: BusinessException) {
                 e
             }
         } else null
 
-        val afterExceptionHandlingAuthorizeAttempt = handleException(
-            authorizeAttempt = afterUpdateAuthorizeAttempt,
+        val afterExceptionHandlingSession = handleException(
+            session = afterUpdateSession,
             exception = updateException
         )
 
-        val (afterCompleteAuthorizeAttempt, status) = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
-            authorizeAttempt = afterExceptionHandlingAuthorizeAttempt,
+        val (afterCompleteSession, status) = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
+            session = afterExceptionHandlingSession,
         )
         val redirectUri = redirectUriBuilder.getRedirectUri(
-            authorizeAttempt = afterCompleteAuthorizeAttempt,
+            session = afterCompleteSession,
             flow = flow,
             status = status
         )
@@ -328,16 +328,15 @@ class WebAuthorizationFlowControllerUtil(
     }
 
     /**
-     * Fetches and validates the authorization attempt associated with the given [state].
+     * Fetches and validates the interactive flow session associated with the given [state].
      *
-     * If the state is valid and corresponds to an authorization attempt, the associated
-     * [AuthorizeAttempt] is returned. Otherwise, an exception is thrown to indicate an error
-     * during the validation process.
+     * If the state is valid and corresponds to a session, the associated [InteractiveFlowSession] is
+     * returned. Otherwise, an exception is thrown to indicate an error during the validation process.
      */
-    internal suspend fun fetchAuthorizeAttempt(state: String?): AuthorizeAttempt {
-        val verifyResult = authorizeAttemptManager.verifyEncodedInternalState(state)
+    internal suspend fun fetchSession(state: String?): InteractiveFlowSession {
+        val verifyResult = sessionManager.verifyEncodedInternalState(state)
         return when (verifyResult) {
-            is SuccessVerifyEncodedStateResult -> verifyResult.authorizeAttempt
+            is SuccessVerifyEncodedStateResult -> verifyResult.session
             is FailedVerifyEncodedStateResult -> {
                 // We cannot redirect the user to a proper error page, we throw to let the error handler still
                 // respond with an error but without a redirect uri.
@@ -354,27 +353,27 @@ class WebAuthorizationFlowControllerUtil(
      * Handles a business exception that occurred during the business logic of the authorization flow.
      *
      * If the exception is recoverable, it is thrown to be handled by the caller.
-     * If the exception is not recoverable and the authorize attempt is ongoing, the attempt is marked as failed
+     * If the exception is not recoverable and the session is ongoing, the session is marked as failed
      * with the specific error.
      *
-     * The [authorizeAttempt] is just returned if the exception is null. Or returns the [authorizeAttempt] updated
-     * by the [AuthorizeAttemptManager.markAsFailedIfNotRecoverable] method.
+     * The [session] is just returned if the exception is null. Or returns the [session] updated
+     * by the [InteractiveFlowSessionManager.markAsFailedIfNotRecoverable] method.
      */
     internal suspend fun handleException(
-        authorizeAttempt: AuthorizeAttempt,
+        session: InteractiveFlowSession,
         exception: BusinessException?
-    ): AuthorizeAttempt {
+    ): InteractiveFlowSession {
         if (exception == null) {
-            return authorizeAttempt
+            return session
         }
         if (exception.recoverable) {
             throw exception
         }
-        return if (authorizeAttempt is OnGoingAuthorizeAttempt) {
-            authorizeAttemptManager.markAsFailedIfNotRecoverable(
-                authorizeAttempt = authorizeAttempt,
+        return if (session is OnGoingInteractiveFlowSession) {
+            sessionManager.markAsFailedIfNotRecoverable(
+                session = session,
                 error = exception
             )
-        } else authorizeAttempt
+        } else session
     }
 }

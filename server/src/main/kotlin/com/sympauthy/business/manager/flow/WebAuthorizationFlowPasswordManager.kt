@@ -3,15 +3,14 @@ package com.sympauthy.business.manager.flow
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.password.PasswordManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.UserMapper
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
-import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
+import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
@@ -37,7 +36,8 @@ import kotlin.jvm.optionals.getOrNull
  */
 @Singleton
 open class WebAuthorizationFlowPasswordManager(
-    @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
+    @Inject private val sessionManager: InteractiveFlowSessionManager,
+    @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val collectedClaimRepository: CollectedClaimRepository,
@@ -83,14 +83,14 @@ open class WebAuthorizationFlowPasswordManager(
     }
 
     /**
-     * Sign in the end-user using a [login] and a [password] and associate the [AuthorizeAttempt] with the [User]
-     * associated to the [login]. Finally, return the updated [OnGoingAuthorizeAttempt].
+     * Sign in the end-user using a [login] and a [password] and associate the [InteractiveFlowSession] with the [User]
+     * associated to the [login]. Finally, return the updated session.
      */
     suspend fun signInWithPassword(
-        authorizeAttempt: OnGoingAuthorizeAttempt,
+        session: OnGoingInteractiveFlowSession,
         login: String?,
         password: String?
-    ): AuthorizeAttempt {
+    ): InteractiveFlowSession {
         if (!signInEnabled) {
             throw internalBusinessExceptionOf("flow.password.sign_in.disabled")
         }
@@ -117,13 +117,13 @@ open class WebAuthorizationFlowPasswordManager(
             )
         }
 
-        // Update the authorize attempt with the id of the user so they can retrieve their access token.
-        val updatedAuthorizeAttempt = authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, user.id)
+        // Update the session with the id of the user so they can retrieve their access token.
+        val updatedSession = sessionManager.setAuthenticatedUserId(session, user.id)
 
         // Call complete on the authorization flow in case there is no more step to complete.
-        val status = webAuthorizationFlowManager.getStatus(updatedAuthorizeAttempt)
+        val status = webAuthorizationFlowManager.getStatus(updatedSession)
         return webAuthorizationFlowManager.completeIfNecessary(
-            authorizeAttempt = updatedAuthorizeAttempt,
+            session = updatedSession,
             status = status
         )
     }
@@ -133,11 +133,11 @@ open class WebAuthorizationFlowPasswordManager(
      */
     @Transactional
     open suspend fun signUpWithClaimsAndPassword(
-        authorizeAttempt: OnGoingAuthorizeAttempt,
+        session: OnGoingInteractiveFlowSession,
         unfilteredUpdates: List<CollectedClaimUpdate>,
         password: String
-    ): AuthorizeAttempt {
-        webAuthorizationFlowManager.checkSignUpAllowed(authorizeAttempt, recoverable = true)
+    ): InteractiveFlowSession {
+        webAuthorizationFlowManager.checkSignUpAllowed(session, recoverable = true)
 
         val claimUpdateMap = claimManager.listIdentifierClaims().associateWith { claim ->
             unfilteredUpdates.firstOrNull { it.claim == claim }
@@ -156,15 +156,16 @@ open class WebAuthorizationFlowPasswordManager(
         passwordManager.createPassword(user, password)
 
         // Apply invitation claims and consume the invitation
-        invitationManager.applyInvitationClaimsAndConsume(authorizeAttempt.invitationId, user.id)
+        val invitationId = oauth2Manager.fetchOAuth2(session).invitationId
+        invitationManager.applyInvitationClaimsAndConsume(invitationId, user.id)
 
-        // Update the authorize attempt with the id of the user so they can retrieve their access token.
-        val updatedAuthorizeAttempt = authorizeAttemptManager.setAuthenticatedUserId(authorizeAttempt, user.id)
+        // Update the session with the id of the user so they can retrieve their access token.
+        val updatedSession = sessionManager.setAuthenticatedUserId(session, user.id)
 
         // Call complete on the authorization flow in case there is no more step to complete.
-        val status = webAuthorizationFlowManager.getStatus(updatedAuthorizeAttempt)
+        val status = webAuthorizationFlowManager.getStatus(updatedSession)
         return webAuthorizationFlowManager.completeIfNecessary(
-            authorizeAttempt = updatedAuthorizeAttempt,
+            session = updatedSession,
             status = status,
         )
     }
