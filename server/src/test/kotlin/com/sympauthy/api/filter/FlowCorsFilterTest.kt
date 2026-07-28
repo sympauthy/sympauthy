@@ -15,12 +15,12 @@ class FlowCorsFilterTest : AbstractFlowIntegrationTest() {
     private val allowedOrigin = "http://localhost:18080"
     private val unknownOrigin = "http://evil.example.com"
 
-    private val getPath = "/api/v1/flow/configuration"
-    private val postPath = "/api/v1/flow/signin"
+    // Both the GET (configuration) and POST (sign-in) endpoints live on SignInController.
+    private val path = "/api/v1/flow/sign-in"
 
     @Test
     fun `OPTIONS preflight with allowed origin returns 200 with full CORS headers`() {
-        val request = HttpRequest.OPTIONS<Any>(postPath)
+        val request = HttpRequest.OPTIONS<Any>(path)
             .header(HttpHeaders.ORIGIN, allowedOrigin)
             .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, HttpMethod.POST)
 
@@ -35,7 +35,7 @@ class FlowCorsFilterTest : AbstractFlowIntegrationTest() {
 
     @Test
     fun `OPTIONS preflight with unknown origin returns 200 without CORS headers`() {
-        val request = HttpRequest.OPTIONS<Any>(postPath)
+        val request = HttpRequest.OPTIONS<Any>(path)
             .header(HttpHeaders.ORIGIN, unknownOrigin)
             .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, HttpMethod.POST)
 
@@ -47,7 +47,7 @@ class FlowCorsFilterTest : AbstractFlowIntegrationTest() {
 
     @Test
     fun `GET with allowed origin appends CORS headers to response`() {
-        val response = exchange(HttpRequest.GET<Any>(getPath).header(HttpHeaders.ORIGIN, allowedOrigin))
+        val response = exchange(HttpRequest.GET<Any>(path).header(HttpHeaders.ORIGIN, allowedOrigin))
 
         assertEquals(allowedOrigin, response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN])
         assertTrue(response.headers.getAll(HttpHeaders.VARY).any { HttpHeaders.ORIGIN in it })
@@ -55,14 +55,14 @@ class FlowCorsFilterTest : AbstractFlowIntegrationTest() {
 
     @Test
     fun `GET with unknown origin does not append CORS headers to response`() {
-        val response = exchange(HttpRequest.GET<Any>(getPath).header(HttpHeaders.ORIGIN, unknownOrigin))
+        val response = exchange(HttpRequest.GET<Any>(path).header(HttpHeaders.ORIGIN, unknownOrigin))
 
         assertNull(response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN])
     }
 
     @Test
     fun `GET without Origin header does not append CORS headers to response`() {
-        val response = exchange(HttpRequest.GET<Any>(getPath))
+        val response = exchange(HttpRequest.GET<Any>(path))
 
         assertNull(response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN])
     }

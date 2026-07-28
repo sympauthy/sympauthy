@@ -392,6 +392,19 @@ class WebAuthorizationFlowManager(
     }
 
     /**
+     * Return true if sign-up is allowed for the audience of the client that initiated the [authorizeAttempt].
+     *
+     * Sign-up is allowed when the audience enables open registration, or when it enables invitation-based
+     * registration and an invitation is bound to the attempt. Non-throwing counterpart of [checkSignUpAllowed].
+     */
+    suspend fun isSignUpAllowed(
+        authorizeAttempt: OnGoingAuthorizeAttempt
+    ): Boolean {
+        val audience = clientManager.findClientById(authorizeAttempt.clientId).audience
+        return audience.signUpEnabled || (audience.invitationEnabled && authorizeAttempt.invitationId != null)
+    }
+
+    /**
      * Check that sign-up is allowed for the audience of the client that initiated the [authorizeAttempt].
      *
      * Throws a [BusinessException] if:
@@ -405,9 +418,11 @@ class WebAuthorizationFlowManager(
         authorizeAttempt: OnGoingAuthorizeAttempt,
         recoverable: Boolean
     ) {
-        val client = clientManager.findClientById(authorizeAttempt.clientId)
-        val audience = client.audience
-
+        if (isSignUpAllowed(authorizeAttempt)) {
+            return
+        }
+        // Not allowed: pick the precise error. Re-reads the audience only on the rejection path.
+        val audience = clientManager.findClientById(authorizeAttempt.clientId).audience
         if (!audience.signUpEnabled && !audience.invitationEnabled) {
             throw BusinessException(
                 recoverable = recoverable,
@@ -415,14 +430,11 @@ class WebAuthorizationFlowManager(
                 descriptionId = "description.flow.sign_up.disabled"
             )
         }
-
-        if (!audience.signUpEnabled && audience.invitationEnabled && authorizeAttempt.invitationId == null) {
-            throw BusinessException(
-                recoverable = recoverable,
-                detailsId = "flow.sign_up.invitation_required",
-                descriptionId = "description.flow.sign_up.invitation_required"
-            )
-        }
+        throw BusinessException(
+            recoverable = recoverable,
+            detailsId = "flow.sign_up.invitation_required",
+            descriptionId = "description.flow.sign_up.invitation_required"
+        )
     }
 
     suspend fun getStatusAndCompleteIfNecessary(
