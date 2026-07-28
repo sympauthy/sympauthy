@@ -1,4 +1,7 @@
-package com.sympauthy.business.manager.flow
+package com.sympauthy.business.manager.flow.auth
+
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 
 import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
 import com.sympauthy.business.model.code.ValidationCodeMedia
@@ -6,8 +9,8 @@ import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
-import com.sympauthy.business.model.flow.WebAuthorizationFlow
-import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
+import com.sympauthy.business.model.flow.InteractiveFlow
+import com.sympauthy.business.model.flow.InteractiveFlowStatus
 import com.sympauthy.business.model.oauth2.AuthorizationCode
 import com.sympauthy.config.model.UrlsConfig
 import io.mockk.coEvery
@@ -25,7 +28,7 @@ import java.net.URI
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
-class WebAuthorizationFlowRedirectUriBuilderTest {
+class InteractiveAuthFlowSessionRedirectUriBuilderTest {
 
     @MockK
     lateinit var sessionManager: InteractiveFlowSessionManager
@@ -41,16 +44,16 @@ class WebAuthorizationFlowRedirectUriBuilderTest {
 
     @SpyK
     @InjectMockKs
-    lateinit var uriBuilder: WebAuthorizationFlowRedirectUriBuilder
+    lateinit var uriBuilder: InteractiveAuthFlowSessionRedirectUriBuilder
 
     @Test
     fun `getRedirectUri - Redirect to collect claims step of the authorization flow if a claim is missing`() = runTest {
         val rawCollectClaimsUri = URI.create("https://www.example.com/collect-claims")
         val session = mockk<OnGoingInteractiveFlowSession>()
-        val flow = mockk<WebAuthorizationFlow> {
+        val flow = mockk<InteractiveFlow> {
             every { collectClaimsUri } returns rawCollectClaimsUri
         }
-        val flowResult = WebAuthorizationFlowStatus(
+        val flowResult = InteractiveFlowStatus(
             missingUser = false,
             missingRequiredClaims = true,
             missingMediaForClaimValidation = emptyList()
@@ -72,11 +75,11 @@ class WebAuthorizationFlowRedirectUriBuilderTest {
         runTest {
             val rawValidateCodeUri = URI.create("https://www.example.com/code")
             val session = mockk<OnGoingInteractiveFlowSession>()
-            val flow = mockk<WebAuthorizationFlow> {
+            val flow = mockk<InteractiveFlow> {
                 every { validateClaimsUri } returns rawValidateCodeUri
             }
             val missingMedia = ValidationCodeMedia.EMAIL
-            val flowResult = WebAuthorizationFlowStatus(
+            val flowResult = InteractiveFlowStatus(
                 missingUser = false,
                 missingRequiredClaims = false,
                 missingMediaForClaimValidation = listOf(missingMedia)
@@ -100,8 +103,8 @@ class WebAuthorizationFlowRedirectUriBuilderTest {
     fun `getRedirectUri - Redirect to client if flow is complete`() = runTest {
         val rawClientUri = URI.create("https://www.example.com/callback")
         val session = mockk<CompletedInteractiveFlowSession>()
-        val flow = mockk<WebAuthorizationFlow>()
-        val flowResult = WebAuthorizationFlowStatus(
+        val flow = mockk<InteractiveFlow>()
+        val flowResult = InteractiveFlowStatus(
             missingUser = false,
             missingRequiredClaims = false,
             missingMediaForClaimValidation = emptyList()

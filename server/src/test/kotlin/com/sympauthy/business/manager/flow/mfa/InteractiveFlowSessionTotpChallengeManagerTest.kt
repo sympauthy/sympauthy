@@ -21,7 +21,7 @@ import java.util.*
 
 @Suppress("unused")
 @ExtendWith(MockKExtension::class)
-class WebAuthorizationFlowTotpChallengeManagerTest {
+class InteractiveFlowSessionTotpChallengeManagerTest {
 
     @MockK
     lateinit var totpManager: TotpManager
@@ -30,7 +30,7 @@ class WebAuthorizationFlowTotpChallengeManagerTest {
     lateinit var sessionManager: InteractiveFlowSessionManager
 
     @InjectMockKs
-    lateinit var manager: WebAuthorizationFlowTotpChallengeManager
+    lateinit var manager: InteractiveFlowSessionTotpChallengeManager
 
     private val userId = UUID.randomUUID()
     private val user = mockk<User> { every { id } returns userId }

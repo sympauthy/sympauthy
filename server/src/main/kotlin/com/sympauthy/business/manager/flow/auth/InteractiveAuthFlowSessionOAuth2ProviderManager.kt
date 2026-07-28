@@ -1,4 +1,8 @@
-package com.sympauthy.business.manager.flow
+package com.sympauthy.business.manager.flow.auth
+
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionProviderManager
 
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_CALLBACK_ENDPOINT
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_ENDPOINTS
@@ -13,7 +17,7 @@ import com.sympauthy.business.manager.user.CreateOrAssociateResult
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
-import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
+import com.sympauthy.business.model.flow.InteractiveFlowStatus
 import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.business.model.provider.Provider
 import com.sympauthy.business.model.provider.config.ProviderAuthConfig
@@ -40,7 +44,7 @@ import java.util.*
  * using an OAuth 2 or OIDC provider.
  */
 @Singleton
-open class WebAuthorizationFlowOAuth2ProviderManager(
+open class InteractiveAuthFlowSessionOAuth2ProviderManager(
     @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
     @Inject private val providerManager: InteractiveFlowSessionProviderManager,
@@ -50,7 +54,7 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
     @Inject private val providerConfigManager: ProviderManager,
     @Inject private val providerClaimsManager: ProviderClaimsManager,
     @Inject private val providerClaimsResolver: ProviderClaimsResolver,
-    @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
+    @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
     @Inject private val tokenEndpointClient: TokenEndpointClient,
     @Inject private val userManager: UserManager,
     @Inject private val uncheckedAuthConfig: AuthConfig,
@@ -126,7 +130,7 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
         authorizeCode: String?,
         providerError: String? = null,
         providerErrorDescription: String? = null
-    ): Pair<InteractiveFlowSession, WebAuthorizationFlowStatus> {
+    ): Pair<InteractiveFlowSession, InteractiveFlowStatus> {
         // Check if the provider returned an error instead of a code.
         if (!providerError.isNullOrBlank()) {
             throw businessExceptionOf(
@@ -165,7 +169,7 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
         )
 
         val userId = if (existingUserInfo == null) {
-            webAuthorizationFlowManager.checkSignUpAllowed(session, recoverable = false)
+            interactiveAuthFlowSessionManager.checkSignUpAllowed(session, recoverable = false)
             val result = createOrAssociateUserWithProviderUserInfo(provider, rawUserInfo)
             val invitationId = oauth2Manager.fetchOAuth2(session).invitationId
             invitationManager.applyInvitationClaimsAndConsume(invitationId, result.user.id)
@@ -176,7 +180,7 @@ open class WebAuthorizationFlowOAuth2ProviderManager(
         }
         val updatedSession = sessionManager.setAuthenticatedUserId(session, userId)
 
-        return webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
+        return interactiveAuthFlowSessionManager.getStatusAndCompleteIfNecessary(
             session = updatedSession
         )
     }

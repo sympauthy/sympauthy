@@ -2,11 +2,11 @@ package com.sympauthy.business.manager.flow.mfa
 
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
-import com.sympauthy.business.manager.flow.WebAuthorizationFlowRedirectUriBuilder
+import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionRedirectUriBuilder
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
-import com.sympauthy.business.model.flow.WebAuthorizationFlow
+import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.config.model.orThrow
@@ -26,11 +26,11 @@ data class MfaMethodSelection(
 data class AvailableMfaMethod(val name: String, val uri: URI)
 
 @Singleton
-class WebAuthorizationFlowMfaManager(
+class InteractiveFlowSessionMfaManager(
     @Inject private val uncheckedMfaConfig: MfaConfig,
     @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val totpManager: TotpManager,
-    @Inject private val redirectUriBuilder: WebAuthorizationFlowRedirectUriBuilder
+    @Inject private val redirectUriBuilder: InteractiveAuthFlowSessionRedirectUriBuilder
 ) {
 
     /**
@@ -47,7 +47,7 @@ class WebAuthorizationFlowMfaManager(
     suspend fun getMfaResult(
         session: InteractiveFlowSession,
         user: User,
-        flow: WebAuthorizationFlow,
+        flow: InteractiveFlow,
         skipEndpointPath: String
     ): MfaRoutingResult {
         val mfaConfig = uncheckedMfaConfig.orThrow()

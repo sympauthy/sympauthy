@@ -6,8 +6,8 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.flow.FailedVerifyEncodedStateResult
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.SuccessVerifyEncodedStateResult
-import com.sympauthy.business.manager.flow.WebAuthorizationFlowManager
-import com.sympauthy.business.manager.flow.WebAuthorizationFlowRedirectUriBuilder
+import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
+import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionRedirectUriBuilder
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
@@ -25,8 +25,8 @@ import jakarta.inject.Inject
 @Controller("/api/v1/flow/errors")
 class ErrorController(
     @Inject private val sessionManager: InteractiveFlowSessionManager,
-    @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
-    @Inject private val redirectUriBuilder: WebAuthorizationFlowRedirectUriBuilder,
+    @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
+    @Inject private val redirectUriBuilder: InteractiveAuthFlowSessionRedirectUriBuilder,
     @Inject private val flowErrorResourceMapper: FlowErrorResourceMapper,
 ) {
 
@@ -64,10 +64,10 @@ Result containing either:
                     }
 
                     else -> {
-                        val flow = webAuthorizationFlowManager.findById(
+                        val flow = interactiveAuthFlowSessionManager.findById(
                             session.flowId
                         )
-                        val (potentiallyCompletedSession, status) = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
+                        val (potentiallyCompletedSession, status) = interactiveAuthFlowSessionManager.getStatusAndCompleteIfNecessary(
                             session = session,
                         )
                         val redirectUri = redirectUriBuilder.getRedirectUri(

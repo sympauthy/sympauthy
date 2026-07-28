@@ -1,4 +1,7 @@
-package com.sympauthy.business.manager.flow
+package com.sympauthy.business.manager.flow.auth
+
+import com.sympauthy.business.manager.flow.AuthorizationFlowManager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
@@ -14,8 +17,8 @@ import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.NonInteractiveAuthorizationFlow
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
-import com.sympauthy.business.model.flow.WebAuthorizationFlow
-import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
+import com.sympauthy.business.model.flow.InteractiveFlow
+import com.sympauthy.business.model.flow.InteractiveFlowStatus
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.config.model.ClientTemplate
@@ -38,7 +41,7 @@ import java.net.URI
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
-class WebAuthorizationFlowManagerTest {
+class InteractiveAuthFlowSessionManagerTest {
 
     @MockK
     lateinit var authorizationFlowManager: AuthorizationFlowManager
@@ -53,7 +56,7 @@ class WebAuthorizationFlowManagerTest {
     lateinit var consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager
 
     @MockK
-    lateinit var claimValidationManager: WebAuthorizationFlowClaimValidationManager
+    lateinit var claimValidationManager: InteractiveAuthFlowSessionClaimValidationManager
 
     @MockK
     lateinit var clientManager: ClientManager
@@ -73,12 +76,12 @@ class WebAuthorizationFlowManagerTest {
 
     @SpyK
     @InjectMockKs
-    lateinit var manager: WebAuthorizationFlowManager
+    lateinit var manager: InteractiveAuthFlowSessionManager
 
     @Test
-    fun `findByIdOrNull - Returns WebAuthorizationFlow when found`() {
+    fun `findByIdOrNull - Returns InteractiveFlow when found`() {
         val flowId = "test-flow-id"
-        val webFlow = mockk<WebAuthorizationFlow>()
+        val webFlow = mockk<InteractiveFlow>()
 
         every { authorizationFlowManager.findByIdOrNull(flowId) } returns webFlow
 
@@ -106,7 +109,7 @@ class WebAuthorizationFlowManagerTest {
     }
 
     @Test
-    fun `findByIdOrNull - Returns null when flow is not a WebAuthorizationFlow`() {
+    fun `findByIdOrNull - Returns null when flow is not a InteractiveFlow`() {
         val flowId = "non-web-flow-id"
         val nonWebFlow = mockk<NonInteractiveAuthorizationFlow>()
 
@@ -118,9 +121,9 @@ class WebAuthorizationFlowManagerTest {
     }
 
     @Test
-    fun `findById - Returns WebAuthorizationFlow when found`() {
+    fun `findById - Returns InteractiveFlow when found`() {
         val flowId = "test-flow-id"
-        val webFlow = mockk<WebAuthorizationFlow>()
+        val webFlow = mockk<InteractiveFlow>()
 
         every { authorizationFlowManager.findByIdOrNull(flowId) } returns webFlow
 
@@ -130,7 +133,7 @@ class WebAuthorizationFlowManagerTest {
     }
 
     @Test
-    fun `findById - Throws BusinessException when flow is not found or not a WebAuthorizationFlow`() {
+    fun `findById - Throws BusinessException when flow is not found or not a InteractiveFlow`() {
         val flowId = "non-existent-flow-id"
 
         every { authorizationFlowManager.findByIdOrNull(flowId) } returns null
@@ -270,7 +273,7 @@ class WebAuthorizationFlowManagerTest {
     fun `getStatusAndCompleteIfNecessary - Complete`() = runTest {
         val session = mockk<OnGoingInteractiveFlowSession>()
         val completedSession = mockk<CompletedInteractiveFlowSession>()
-        val status = mockk<WebAuthorizationFlowStatus> {
+        val status = mockk<InteractiveFlowStatus> {
             every { complete } returns true
         }
 
@@ -340,12 +343,12 @@ class WebAuthorizationFlowManagerTest {
         assertEquals("authorize.pkce.missing_code_challenge", error!!.detailsId)
     }
 
-    // --- getDefaultWebAuthorizationFlow tests ---
+    // --- getDefaultInteractiveFlow tests ---
 
     @Test
-    fun `getDefaultWebAuthorizationFlow - Returns template flow when default template has a WebAuthorizationFlow`() =
+    fun `getDefaultInteractiveFlow - Returns template flow when default template has a InteractiveFlow`() =
         runTest {
-            val templateFlow = mockk<WebAuthorizationFlow>()
+            val templateFlow = mockk<InteractiveFlow>()
             val template = ClientTemplate(
                 id = "default",
                 audienceId = null,
@@ -358,39 +361,39 @@ class WebAuthorizationFlowManagerTest {
                 authorizationWebhook = null
             )
             val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
-            val realManager = WebAuthorizationFlowManager(
+            val realManager = InteractiveAuthFlowSessionManager(
                 authorizationFlowManager, oauth2Manager, collectedClaimManager,
                 consentAwareCollectedClaimManager, claimValidationManager, clientManager,
                 invitationManager, scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
             )
 
-            val result = realManager.getDefaultWebAuthorizationFlow()
+            val result = realManager.getDefaultInteractiveFlow()
 
             assertSame(templateFlow, result)
         }
 
     @Test
-    fun `getDefaultWebAuthorizationFlow - Falls back to hardcoded flow when no default template`() = runTest {
-        val hardcodedFlow = mockk<WebAuthorizationFlow>()
-        every { authorizationFlowManager.defaultWebAuthorizationFlow } returns hardcodedFlow
+    fun `getDefaultInteractiveFlow - Falls back to hardcoded flow when no default template`() = runTest {
+        val hardcodedFlow = mockk<InteractiveFlow>()
+        every { authorizationFlowManager.defaultInteractiveFlow } returns hardcodedFlow
         val templatesConfig = EnabledClientTemplatesConfig(emptyMap())
-        val realManager = WebAuthorizationFlowManager(
+        val realManager = InteractiveAuthFlowSessionManager(
             authorizationFlowManager, oauth2Manager, collectedClaimManager,
             consentAwareCollectedClaimManager, claimValidationManager, clientManager,
             invitationManager, scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
         )
 
-        val result = realManager.getDefaultWebAuthorizationFlow()
+        val result = realManager.getDefaultInteractiveFlow()
 
         assertSame(hardcodedFlow, result)
     }
 
     @Test
-    fun `getDefaultWebAuthorizationFlow - Falls back to hardcoded flow when template flow is not WebAuthorizationFlow`() =
+    fun `getDefaultInteractiveFlow - Falls back to hardcoded flow when template flow is not InteractiveFlow`() =
         runTest {
             val nonInteractiveFlow = mockk<NonInteractiveAuthorizationFlow>()
-            val hardcodedFlow = mockk<WebAuthorizationFlow>()
-            every { authorizationFlowManager.defaultWebAuthorizationFlow } returns hardcodedFlow
+            val hardcodedFlow = mockk<InteractiveFlow>()
+            every { authorizationFlowManager.defaultInteractiveFlow } returns hardcodedFlow
             val template = ClientTemplate(
                 id = "default",
                 audienceId = null,
@@ -403,22 +406,22 @@ class WebAuthorizationFlowManagerTest {
                 authorizationWebhook = null
             )
             val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
-            val realManager = WebAuthorizationFlowManager(
+            val realManager = InteractiveAuthFlowSessionManager(
                 authorizationFlowManager, oauth2Manager, collectedClaimManager,
                 consentAwareCollectedClaimManager, claimValidationManager, clientManager,
                 invitationManager, scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
             )
 
-            val result = realManager.getDefaultWebAuthorizationFlow()
+            val result = realManager.getDefaultInteractiveFlow()
 
             assertSame(hardcodedFlow, result)
         }
 
     @Test
-    fun `getDefaultWebAuthorizationFlow - Falls back to hardcoded flow when template has no authorizationFlow`() =
+    fun `getDefaultInteractiveFlow - Falls back to hardcoded flow when template has no authorizationFlow`() =
         runTest {
-            val hardcodedFlow = mockk<WebAuthorizationFlow>()
-            every { authorizationFlowManager.defaultWebAuthorizationFlow } returns hardcodedFlow
+            val hardcodedFlow = mockk<InteractiveFlow>()
+            every { authorizationFlowManager.defaultInteractiveFlow } returns hardcodedFlow
             val template = ClientTemplate(
                 id = "default",
                 audienceId = null,
@@ -431,23 +434,23 @@ class WebAuthorizationFlowManagerTest {
                 authorizationWebhook = null
             )
             val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
-            val realManager = WebAuthorizationFlowManager(
+            val realManager = InteractiveAuthFlowSessionManager(
                 authorizationFlowManager, oauth2Manager, collectedClaimManager,
                 consentAwareCollectedClaimManager, claimValidationManager, clientManager,
                 invitationManager, scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
             )
 
-            val result = realManager.getDefaultWebAuthorizationFlow()
+            val result = realManager.getDefaultInteractiveFlow()
 
             assertSame(hardcodedFlow, result)
         }
 
     // --- startAuthorizationWith tests ---
 
-    private val defaultFlow = mockk<WebAuthorizationFlow>()
+    private val defaultFlow = mockk<InteractiveFlow>()
 
     private fun setupDefaultFlow() {
-        coEvery { manager.getDefaultWebAuthorizationFlow() } returns defaultFlow
+        coEvery { manager.getDefaultInteractiveFlow() } returns defaultFlow
     }
 
     private fun setupValidClient(
@@ -533,7 +536,7 @@ class WebAuthorizationFlowManagerTest {
         }
         setupDefaultFlow()
         setupValidClient(client)
-        val flowSlot = slot<WebAuthorizationFlow>()
+        val flowSlot = slot<InteractiveFlow>()
         coEvery {
             oauth2Manager.startOAuth2Session(
                 client = any(),

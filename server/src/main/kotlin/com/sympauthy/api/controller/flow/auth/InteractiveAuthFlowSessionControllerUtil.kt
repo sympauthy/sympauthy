@@ -1,16 +1,16 @@
-package com.sympauthy.api.controller.flow.util
+package com.sympauthy.api.controller.flow.auth
 
 import com.sympauthy.api.exception.httpExceptionOf
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.flow.FailedVerifyEncodedStateResult
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.SuccessVerifyEncodedStateResult
-import com.sympauthy.business.manager.flow.WebAuthorizationFlowManager
-import com.sympauthy.business.manager.flow.WebAuthorizationFlowRedirectUriBuilder
+import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
+import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionRedirectUriBuilder
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
-import com.sympauthy.business.model.flow.WebAuthorizationFlow
+import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.business.model.user.User
 import io.micronaut.http.HttpStatus
 import io.micronaut.security.authentication.Authentication
@@ -24,26 +24,26 @@ import java.net.URI
  * It provides utility methods for controller to retrieve the following:
  * - the [OnGoingInteractiveFlowSession] associated to the state in the [Authentication].
  * - the [User] associated to the [OnGoingInteractiveFlowSession].
- * - the [WebAuthorizationFlow] associated to the [OnGoingInteractiveFlowSession].
+ * - the [InteractiveFlow] associated to the [OnGoingInteractiveFlowSession].
  */
 @Singleton
-class WebAuthorizationFlowControllerUtil(
+class InteractiveAuthFlowSessionControllerUtil(
     @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val userManager: UserManager,
-    @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
-    @Inject private val redirectUriBuilder: WebAuthorizationFlowRedirectUriBuilder
+    @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
+    @Inject private val redirectUriBuilder: InteractiveAuthFlowSessionRedirectUriBuilder
 ) {
 
     /**
-     * Call the [run] function with the [OnGoingInteractiveFlowSession] and [WebAuthorizationFlow] associated to the [state].
+     * Call the [run] function with the [OnGoingInteractiveFlowSession] and [InteractiveFlow] associated to the [state].
      * Then run and return the result of the [run] function.
      */
     suspend fun <Resource> fetchOnGoingSessionThenRun(
         state: String?,
-        run: suspend (OnGoingInteractiveFlowSession, WebAuthorizationFlow) -> Resource
+        run: suspend (OnGoingInteractiveFlowSession, InteractiveFlow) -> Resource
     ): Resource {
         val session = fetchSession(state)
-        val flow = webAuthorizationFlowManager.findById(session.flowId)
+        val flow = interactiveAuthFlowSessionManager.findById(session.flowId)
         val onGoingSession = (session as? OnGoingInteractiveFlowSession) ?: throw httpExceptionOf(
             status = HttpStatus.BAD_REQUEST,
             detailsId = "ctrl.flow.not_ongoing",
@@ -52,12 +52,12 @@ class WebAuthorizationFlowControllerUtil(
     }
 
     /**
-     * Call the [run] function with the [OnGoingInteractiveFlowSession] and [WebAuthorizationFlow] associated to the [state].
+     * Call the [run] function with the [OnGoingInteractiveFlowSession] and [InteractiveFlow] associated to the [state].
      * Then run and return the result of the [run] function.
      */
     suspend fun <Resource> fetchOnGoingSessionWithUserThenRun(
         state: String?,
-        run: suspend (OnGoingInteractiveFlowSession, WebAuthorizationFlow, User) -> Resource
+        run: suspend (OnGoingInteractiveFlowSession, InteractiveFlow, User) -> Resource
     ): Resource {
         return fetchOnGoingSessionThenRun(state) { onGoingSession, flow ->
             val user = userManager.findById(onGoingSession.userId)
@@ -66,7 +66,7 @@ class WebAuthorizationFlowControllerUtil(
     }
 
     /**
-     * Call the [run] function with the [OnGoingInteractiveFlowSession] and [WebAuthorizationFlow] associated to the [state].
+     * Call the [run] function with the [OnGoingInteractiveFlowSession] and [InteractiveFlow] associated to the [state].
      * Then run and return the result of:
      * - [mapRedirectUriToResource] if the end-user is expected to be redirected to a different step.
      * - [mapResultToResource] if the end-user is expected to perform an action to complete the step.
@@ -82,7 +82,7 @@ class WebAuthorizationFlowControllerUtil(
      */
     suspend fun <Result, FlowResource> fetchOnGoingSessionThenRunAndRedirect(
         state: String?,
-        run: suspend (OnGoingInteractiveFlowSession, WebAuthorizationFlow) -> Result?,
+        run: suspend (OnGoingInteractiveFlowSession, InteractiveFlow) -> Result?,
         mapRedirectUriToResource: suspend (URI) -> FlowResource,
         mapResultToResource: (suspend (Result) -> FlowResource)? = null
     ): FlowResource {
@@ -90,12 +90,12 @@ class WebAuthorizationFlowControllerUtil(
         val onGoingSession = session as? OnGoingInteractiveFlowSession
 
         val flow = try {
-            webAuthorizationFlowManager.findById(session.flowId)
+            interactiveAuthFlowSessionManager.findById(session.flowId)
         } catch (_: BusinessException) {
             // Redirect to the error page of the default flow since the information on the exact flow is missing.
             val redirectUri = redirectUriBuilder.getErrorUri(
                 session = session,
-                flow = webAuthorizationFlowManager.getDefaultWebAuthorizationFlow(),
+                flow = interactiveAuthFlowSessionManager.getDefaultInteractiveFlow(),
             )
             return mapRedirectUriToResource(redirectUri)
         }
@@ -118,7 +118,7 @@ class WebAuthorizationFlowControllerUtil(
         return if (runResult != null && mapResultToResource != null) {
             mapResultToResource(runResult)
         } else {
-            val (afterCompleteSession, status) = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
+            val (afterCompleteSession, status) = interactiveAuthFlowSessionManager.getStatusAndCompleteIfNecessary(
                 session = afterExceptionHandlingSession,
             )
             val redirectUri = redirectUriBuilder.getRedirectUri(
@@ -131,7 +131,7 @@ class WebAuthorizationFlowControllerUtil(
     }
 
     /**
-     * Call the [run] function with the [OnGoingInteractiveFlowSession], [WebAuthorizationFlow] and [User] associated to the [state].
+     * Call the [run] function with the [OnGoingInteractiveFlowSession], [InteractiveFlow] and [User] associated to the [state].
      * Then run and return the result of:
      * - [mapResultToResource] if the [User] is expected to perform an action to complete the step.
      * - [mapRedirectUriToResource] if the [User] is expected to be redirected to a different step.
@@ -147,18 +147,18 @@ class WebAuthorizationFlowControllerUtil(
      */
     suspend fun <Result, FlowResource> fetchOnGoingSessionWithUserThenRunAndRedirect(
         state: String?,
-        run: suspend (OnGoingInteractiveFlowSession, WebAuthorizationFlow, User) -> Result?,
+        run: suspend (OnGoingInteractiveFlowSession, InteractiveFlow, User) -> Result?,
         mapRedirectUriToResource: suspend (URI) -> FlowResource,
         mapResultToResource: (suspend (Result) -> FlowResource)? = null,
     ): FlowResource {
         val session = fetchSession(state)
         val flow = try {
-            webAuthorizationFlowManager.findById(session.flowId)
+            interactiveAuthFlowSessionManager.findById(session.flowId)
         } catch (_: BusinessException) {
             // Redirect to the error page of the default flow since the information on the exact flow is missing.
             val redirectUri = redirectUriBuilder.getErrorUri(
                 session = session,
-                flow = webAuthorizationFlowManager.getDefaultWebAuthorizationFlow(),
+                flow = interactiveAuthFlowSessionManager.getDefaultInteractiveFlow(),
             )
             return mapRedirectUriToResource(redirectUri)
         }
@@ -191,7 +191,7 @@ class WebAuthorizationFlowControllerUtil(
         return if (runResult != null && mapResultToResource != null) {
             mapResultToResource(runResult)
         } else {
-            val (afterCompleteSession, status) = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
+            val (afterCompleteSession, status) = interactiveAuthFlowSessionManager.getStatusAndCompleteIfNecessary(
                 session = afterExceptionHandlingSession,
             )
             val redirectUri = redirectUriBuilder.getRedirectUri(
@@ -204,7 +204,7 @@ class WebAuthorizationFlowControllerUtil(
     }
 
     /**
-     * Call the [update] function with the [OnGoingInteractiveFlowSession] and [WebAuthorizationFlow] associated to the [state].
+     * Call the [update] function with the [OnGoingInteractiveFlowSession] and [InteractiveFlow] associated to the [state].
      * Return the result of [mapRedirectUriToResource] containing the URI where the end-user must be redirected to
      * continue the authorization flow.
      *
@@ -217,18 +217,18 @@ class WebAuthorizationFlowControllerUtil(
      */
     suspend fun <FlowResource> fetchOnGoingSessionThenUpdateAndRedirect(
         state: String?,
-        update: suspend (OnGoingInteractiveFlowSession, WebAuthorizationFlow) -> InteractiveFlowSession,
+        update: suspend (OnGoingInteractiveFlowSession, InteractiveFlow) -> InteractiveFlowSession,
         mapRedirectUriToResource: suspend (URI) -> FlowResource,
     ): FlowResource {
         val session = fetchSession(state)
 
         val flow = try {
-            webAuthorizationFlowManager.findById(session.flowId)
+            interactiveAuthFlowSessionManager.findById(session.flowId)
         } catch (_: BusinessException) {
             // Redirect to the error page of the default flow since the information on the exact flow is missing.
             val redirectUri = redirectUriBuilder.getErrorUri(
                 session = session,
-                flow = webAuthorizationFlowManager.getDefaultWebAuthorizationFlow(),
+                flow = interactiveAuthFlowSessionManager.getDefaultInteractiveFlow(),
             )
             return mapRedirectUriToResource(redirectUri)
         }
@@ -250,7 +250,7 @@ class WebAuthorizationFlowControllerUtil(
             exception = updateException
         )
 
-        val (afterCompleteSession, status) = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
+        val (afterCompleteSession, status) = interactiveAuthFlowSessionManager.getStatusAndCompleteIfNecessary(
             session = afterExceptionHandlingSession,
         )
         val redirectUri = redirectUriBuilder.getRedirectUri(
@@ -262,7 +262,7 @@ class WebAuthorizationFlowControllerUtil(
     }
 
     /**
-     * Call the [update] function with the [OnGoingInteractiveFlowSession], [WebAuthorizationFlow] and [User] associated to the [state].
+     * Call the [update] function with the [OnGoingInteractiveFlowSession], [InteractiveFlow] and [User] associated to the [state].
      * Return the result of [mapRedirectUriToResource] containing the URI where the end-user must be redirected to
      * continue the authorization flow.
      *
@@ -275,18 +275,18 @@ class WebAuthorizationFlowControllerUtil(
      */
     suspend fun <FlowResource> fetchOnGoingSessionWithUserThenUpdateAndRedirect(
         state: String?,
-        update: suspend (OnGoingInteractiveFlowSession, WebAuthorizationFlow, User) -> InteractiveFlowSession,
+        update: suspend (OnGoingInteractiveFlowSession, InteractiveFlow, User) -> InteractiveFlowSession,
         mapRedirectUriToResource: suspend (URI) -> FlowResource,
     ): FlowResource {
         val session = fetchSession(state)
 
         val flow = try {
-            webAuthorizationFlowManager.findById(session.flowId)
+            interactiveAuthFlowSessionManager.findById(session.flowId)
         } catch (_: BusinessException) {
             // Redirect to the error page of the default flow since the information on the exact flow is missing.
             val redirectUri = redirectUriBuilder.getErrorUri(
                 session = session,
-                flow = webAuthorizationFlowManager.getDefaultWebAuthorizationFlow(),
+                flow = interactiveAuthFlowSessionManager.getDefaultInteractiveFlow(),
             )
             return mapRedirectUriToResource(redirectUri)
         }
@@ -316,7 +316,7 @@ class WebAuthorizationFlowControllerUtil(
             exception = updateException
         )
 
-        val (afterCompleteSession, status) = webAuthorizationFlowManager.getStatusAndCompleteIfNecessary(
+        val (afterCompleteSession, status) = interactiveAuthFlowSessionManager.getStatusAndCompleteIfNecessary(
             session = afterExceptionHandlingSession,
         )
         val redirectUri = redirectUriBuilder.getRedirectUri(

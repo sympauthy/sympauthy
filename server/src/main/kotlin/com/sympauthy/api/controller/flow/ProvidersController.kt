@@ -1,8 +1,8 @@
 package com.sympauthy.api.controller.flow
 
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_ENDPOINTS
-import com.sympauthy.api.controller.flow.util.WebAuthorizationFlowControllerUtil
-import com.sympauthy.business.manager.flow.WebAuthorizationFlowOAuth2ProviderManager
+import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
+import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionOAuth2ProviderManager
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
 import io.micronaut.http.HttpResponse
@@ -19,8 +19,8 @@ import jakarta.inject.Inject
 @Secured(HAS_STATE)
 @Controller(FLOW_PROVIDER_ENDPOINTS)
 class ProvidersController(
-    @Inject private val webAuthorizationFlowOAuth2ProviderManager: WebAuthorizationFlowOAuth2ProviderManager,
-    @Inject private val webAuthorizationFlowControllerUtil: WebAuthorizationFlowControllerUtil
+    @Inject private val interactiveAuthFlowSessionOAuth2ProviderManager: InteractiveAuthFlowSessionOAuth2ProviderManager,
+    @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
 ) {
 
     @Operation(
@@ -43,10 +43,10 @@ defined in ```urls.flow.error``` configuration.
         authentication: Authentication,
         providerId: String
     ): HttpResponse<*> =
-        webAuthorizationFlowControllerUtil.fetchOnGoingSessionThenRunAndRedirect(
+        interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenRunAndRedirect(
             state = authentication.stateOrNull,
             run = { session, _ ->
-                webAuthorizationFlowOAuth2ProviderManager.authorizeWithProvider(
+                interactiveAuthFlowSessionOAuth2ProviderManager.authorizeWithProvider(
                     session,
                     providerId = providerId
                 )
@@ -81,10 +81,10 @@ Redirection to either:
         @QueryValue("state") state: String?,
         @QueryValue("error") error: String?,
         @QueryValue("error_description") errorDescription: String?
-    ) = webAuthorizationFlowControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect(
+    ) = interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect(
         state = state,
         update = { session, _ ->
-            val (updatedSession, _) = webAuthorizationFlowOAuth2ProviderManager.signInOrSignUpUsingProvider(
+            val (updatedSession, _) = interactiveAuthFlowSessionOAuth2ProviderManager.signInOrSignUpUsingProvider(
                 session = session,
                 providerId = providerId,
                 authorizeCode = code,

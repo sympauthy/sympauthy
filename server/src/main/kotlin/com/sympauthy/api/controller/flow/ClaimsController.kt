@@ -1,6 +1,6 @@
 package com.sympauthy.api.controller.flow
 
-import com.sympauthy.api.controller.flow.util.WebAuthorizationFlowControllerUtil
+import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.mapper.CollectedClaimUpdateMapper
 import com.sympauthy.api.mapper.flow.ClaimsResourceMapper
 import com.sympauthy.api.resource.flow.ClaimInputResource
@@ -33,7 +33,7 @@ class ClaimsController(
     @Inject private val providerClaimsManager: ProviderClaimsManager,
     @Inject private val claimsMapper: ClaimsResourceMapper,
     @Inject private val collectedClaimUpdateMapper: CollectedClaimUpdateMapper,
-    @Inject private val webAuthorizationFlowControllerUtil: WebAuthorizationFlowControllerUtil,
+    @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil,
 ) {
 
     @Operation(
@@ -56,7 +56,7 @@ must be redirected to continue the authorization flow.
         httpRequest: HttpRequest<*>
     ): ClaimsFlowResource {
         val locale = httpRequest.locale.orDefault()
-        return webAuthorizationFlowControllerUtil.fetchOnGoingSessionThenRunAndRedirect(
+        return interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenRunAndRedirect(
             state = authentication.stateOrNull,
             run = { session, _ ->
                 val collectableClaims = consentAwareClaimManager.listCollectableClaimsBySession(session)
@@ -102,7 +102,7 @@ but they chose not to provide a value.
         authentication: Authentication,
         @Body inputResource: ClaimInputResource
     ): SimpleFlowResource =
-        webAuthorizationFlowControllerUtil.fetchOnGoingSessionWithUserThenUpdateAndRedirect(
+        interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionWithUserThenUpdateAndRedirect(
             state = authentication.stateOrNull,
             update = { session, _, user ->
                 consentAwareCollectedClaimManager.updateByUser(

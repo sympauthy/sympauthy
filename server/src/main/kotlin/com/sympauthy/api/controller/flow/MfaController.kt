@@ -1,12 +1,12 @@
 package com.sympauthy.api.controller.flow
 
 import com.sympauthy.api.controller.flow.MfaSkipController.Companion.MFA_SKIP_ENDPOINT
-import com.sympauthy.api.controller.flow.util.WebAuthorizationFlowControllerUtil
+import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.resource.flow.MfaFlowResource
 import com.sympauthy.api.resource.flow.MfaMethodResource
 import com.sympauthy.business.manager.flow.mfa.MfaAutoRedirect
 import com.sympauthy.business.manager.flow.mfa.MfaMethodSelection
-import com.sympauthy.business.manager.flow.mfa.WebAuthorizationFlowMfaManager
+import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaManager
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
 import io.micronaut.http.annotation.Controller
@@ -20,8 +20,8 @@ import jakarta.inject.Inject
 @Secured(HAS_STATE)
 @Controller("/api/v1/flow/mfa")
 class MfaController(
-    @Inject private val mfaManager: WebAuthorizationFlowMfaManager,
-    @Inject private val webAuthorizationFlowControllerUtil: WebAuthorizationFlowControllerUtil
+    @Inject private val mfaManager: InteractiveFlowSessionMfaManager,
+    @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
 ) {
 
     @Operation(
@@ -50,7 +50,7 @@ Returns one of two response shapes depending on the situation:
     suspend fun getMfaRedirect(
         authentication: Authentication
     ): MfaFlowResource =
-        webAuthorizationFlowControllerUtil.fetchOnGoingSessionWithUserThenRun(
+        interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionWithUserThenRun(
             state = authentication.stateOrNull,
             run = { session, flow, user ->
                 when (val result = mfaManager.getMfaResult(session, user, flow, MFA_SKIP_ENDPOINT)) {

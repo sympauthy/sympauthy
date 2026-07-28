@@ -1,4 +1,7 @@
-package com.sympauthy.business.manager.flow
+package com.sympauthy.business.manager.flow.auth
+
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
@@ -6,8 +9,8 @@ import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
-import com.sympauthy.business.model.flow.WebAuthorizationFlow
-import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
+import com.sympauthy.business.model.flow.InteractiveFlow
+import com.sympauthy.business.model.flow.InteractiveFlowStatus
 import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.config.model.getUri
 import com.sympauthy.config.model.orThrow
@@ -21,7 +24,7 @@ import java.net.URI
  * authentication & authorization through a web authorization flow.
  */
 @Singleton
-class WebAuthorizationFlowRedirectUriBuilder(
+class InteractiveAuthFlowSessionRedirectUriBuilder(
     @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
     @Inject private val authorizationCodeManager: AuthorizationCodeManager,
@@ -33,7 +36,7 @@ class WebAuthorizationFlowRedirectUriBuilder(
      */
     suspend fun getSignInRedirectUri(
         session: InteractiveFlowSession,
-        flow: WebAuthorizationFlow
+        flow: InteractiveFlow
     ): URI {
         return appendStateToUri(
             session = session,
@@ -47,7 +50,7 @@ class WebAuthorizationFlowRedirectUriBuilder(
      */
     suspend fun getSignUpRedirectUri(
         session: InteractiveFlowSession,
-        flow: WebAuthorizationFlow
+        flow: InteractiveFlow
     ): URI? {
         val uri = flow.signUpUri ?: return null
         return appendStateToUri(
@@ -61,8 +64,8 @@ class WebAuthorizationFlowRedirectUriBuilder(
      */
     suspend fun getRedirectUri(
         session: InteractiveFlowSession,
-        flow: WebAuthorizationFlow,
-        status: WebAuthorizationFlowStatus
+        flow: InteractiveFlow,
+        status: InteractiveFlowStatus
     ): URI = when (session) {
         is CompletedInteractiveFlowSession -> getRedirectUriToClient(session)
         is FailedInteractiveFlowSession -> getErrorUri(session, flow)
@@ -106,7 +109,7 @@ class WebAuthorizationFlowRedirectUriBuilder(
      */
     suspend fun getErrorUri(
         session: InteractiveFlowSession,
-        flow: WebAuthorizationFlow
+        flow: InteractiveFlow
     ): URI {
         return appendStateToUri(
             session = session,
@@ -119,8 +122,8 @@ class WebAuthorizationFlowRedirectUriBuilder(
      */
     suspend fun getRedirectUriToClaimValidation(
         session: InteractiveFlowSession,
-        flow: WebAuthorizationFlow,
-        result: WebAuthorizationFlowStatus,
+        flow: InteractiveFlow,
+        result: InteractiveFlowStatus,
     ): URI {
         val uri = flow.validateClaimsUri.let(UriBuilder::of)
             .apply {
@@ -155,7 +158,7 @@ class WebAuthorizationFlowRedirectUriBuilder(
      */
     suspend fun getMfaTotpEnrollUri(
         session: InteractiveFlowSession,
-        flow: WebAuthorizationFlow
+        flow: InteractiveFlow
     ): URI {
         val uri = flow.mfaTotpEnrollUri ?: throw internalBusinessExceptionOf("flow.mfa.totp.enroll_uri.missing")
         return appendStateToUri(session, uri)
@@ -167,7 +170,7 @@ class WebAuthorizationFlowRedirectUriBuilder(
      */
     suspend fun getMfaTotpChallengeUri(
         session: InteractiveFlowSession,
-        flow: WebAuthorizationFlow
+        flow: InteractiveFlow
     ): URI {
         val uri = flow.mfaTotpChallengeUri ?: throw internalBusinessExceptionOf("flow.mfa.totp.challenge_uri.missing")
         return appendStateToUri(session, uri)

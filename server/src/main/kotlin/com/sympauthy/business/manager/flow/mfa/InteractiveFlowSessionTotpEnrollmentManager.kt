@@ -15,7 +15,7 @@ import jakarta.inject.Singleton
 import java.net.URI
 
 @Singleton
-class WebAuthorizationFlowTotpEnrollmentManager(
+class InteractiveFlowSessionTotpEnrollmentManager(
     @Inject private val totpManager: TotpManager,
     @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,

@@ -14,7 +14,7 @@ import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
-import com.sympauthy.business.model.flow.WebAuthorizationFlow
+import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.config.model.AuthorizationFlowsConfig
 import com.sympauthy.config.model.FeaturesConfig
 import com.sympauthy.config.model.UrlsConfig
@@ -44,12 +44,12 @@ class AuthorizationFlowManager(
     /**
      * Note: The default web authentication flow is hardcoded since it is bundled with this authorization server.
      */
-    val defaultWebAuthorizationFlow: WebAuthorizationFlow by lazy {
+    val defaultInteractiveFlow: InteractiveFlow by lazy {
         val rootUri = uncheckedUrlsConfig.orThrow().root
             .let(UriBuilder::of)
             .path(USER_FLOW_ENDPOINT)
             .build()
-        WebAuthorizationFlow(
+        InteractiveFlow(
             id = DEFAULT_WEB_AUTHORIZATION_FLOW_ID,
             signInUri = UriBuilder.of(rootUri).path("sign-in").build(),
             signUpUri = UriBuilder.of(rootUri).path("sign-up").build(),
@@ -67,7 +67,7 @@ class AuthorizationFlowManager(
      */
     fun findByIdOrNull(id: String): AuthorizationFlow? {
         if (id == DEFAULT_WEB_AUTHORIZATION_FLOW_ID) {
-            return defaultWebAuthorizationFlow
+            return defaultInteractiveFlow
         }
         return authorizationFlowsConfig.orThrow().flows
             .firstOrNull { it.id == id }

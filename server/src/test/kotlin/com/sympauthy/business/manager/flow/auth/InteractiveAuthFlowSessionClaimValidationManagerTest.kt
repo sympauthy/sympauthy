@@ -1,4 +1,6 @@
-package com.sympauthy.business.manager.flow
+package com.sympauthy.business.manager.flow.auth
+
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
@@ -29,7 +31,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
-class WebAuthorizationFlowClaimValidationManagerTest {
+class InteractiveAuthFlowSessionClaimValidationManagerTest {
 
     @MockK
     lateinit var claimManager: ClaimManager
@@ -48,7 +50,7 @@ class WebAuthorizationFlowClaimValidationManagerTest {
 
     @SpyK
     @InjectMockKs
-    lateinit var manager: WebAuthorizationFlowClaimValidationManager
+    lateinit var manager: InteractiveAuthFlowSessionClaimValidationManager
 
     @Test
     fun `getUnfilteredReasonsToSendValidationCode - Verify email from identity claims`() {

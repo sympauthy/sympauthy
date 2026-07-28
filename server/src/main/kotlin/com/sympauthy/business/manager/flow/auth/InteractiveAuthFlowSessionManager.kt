@@ -1,4 +1,7 @@
-package com.sympauthy.business.manager.flow
+package com.sympauthy.business.manager.flow.auth
+
+import com.sympauthy.business.manager.flow.AuthorizationFlowManager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
@@ -14,8 +17,8 @@ import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
-import com.sympauthy.business.model.flow.WebAuthorizationFlow
-import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
+import com.sympauthy.business.model.flow.InteractiveFlow
+import com.sympauthy.business.model.flow.InteractiveFlowStatus
 import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.config.model.ClientTemplatesConfig
@@ -39,12 +42,12 @@ import java.net.URISyntaxException
  * - verifying the state of an [InteractiveFlowSession].
  */
 @Singleton
-class WebAuthorizationFlowManager(
+class InteractiveAuthFlowSessionManager(
     @Inject private val authorizationFlowManager: AuthorizationFlowManager,
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
-    @Inject private val claimValidationManager: WebAuthorizationFlowClaimValidationManager,
+    @Inject private val claimValidationManager: InteractiveAuthFlowSessionClaimValidationManager,
     @Inject private val clientManager: ClientManager,
     @Inject private val invitationManager: InvitationManager,
     @Inject private val scopeManager: ScopeManager,
@@ -53,34 +56,34 @@ class WebAuthorizationFlowManager(
 ) {
 
     /**
-     * Return the default [WebAuthorizationFlow].
+     * Return the default [InteractiveFlow].
      *
      * First checks the default client template for an authorization flow, then falls back
      * to the hardcoded default web authorization flow.
      */
-    suspend fun getDefaultWebAuthorizationFlow(): WebAuthorizationFlow {
+    suspend fun getDefaultInteractiveFlow(): InteractiveFlow {
         val templateFlow = uncheckedClientTemplatesConfig.orThrow()
             .templates[DEFAULT]?.authorizationFlow
-        if (templateFlow is WebAuthorizationFlow) {
+        if (templateFlow is InteractiveFlow) {
             return templateFlow
         }
-        return authorizationFlowManager.defaultWebAuthorizationFlow
+        return authorizationFlowManager.defaultInteractiveFlow
     }
 
     /**
-     * Return the [WebAuthorizationFlow] identified by [id].
-     * Return null if not found or if not of type [WebAuthorizationFlow].
+     * Return the [InteractiveFlow] identified by [id].
+     * Return null if not found or if not of type [InteractiveFlow].
      */
-    fun findByIdOrNull(id: String?): WebAuthorizationFlow? {
+    fun findByIdOrNull(id: String?): InteractiveFlow? {
         val authorizationFlow = id?.let(authorizationFlowManager::findByIdOrNull)
-        return authorizationFlow as? WebAuthorizationFlow
+        return authorizationFlow as? InteractiveFlow
     }
 
     /**
-     * Return the [WebAuthorizationFlow] identified by [id].
+     * Return the [InteractiveFlow] identified by [id].
      * Otherwise, throw an unrecoverable [BusinessException] with detailsId ```flow.web.invalid_flow```.
      */
-    fun findById(id: String?): WebAuthorizationFlow {
+    fun findById(id: String?): InteractiveFlow {
         return findByIdOrNull(id) ?: throw businessExceptionOf(
             detailsId = "flow.web.invalid_flow",
             "flowId" to (id ?: "null")
@@ -111,7 +114,7 @@ class WebAuthorizationFlowManager(
         uncheckedCodeChallenge: String? = null,
         uncheckedCodeChallengeMethod: String? = null,
         uncheckedInvitationToken: String? = null
-    ): Pair<InteractiveFlowSession, WebAuthorizationFlow> {
+    ): Pair<InteractiveFlowSession, InteractiveFlow> {
         val (client, clientException) = try {
             val client = clientManager.parseRequestedClient(uncheckedClientId)
             if (!client.supportsGrantType(GrantType.AUTHORIZATION_CODE)) {
@@ -127,7 +130,7 @@ class WebAuthorizationFlowManager(
         }
 
         val authorizationFlowId = client?.authorizationFlow?.id
-        val defaultFlow = getDefaultWebAuthorizationFlow()
+        val defaultFlow = getDefaultInteractiveFlow()
         val (flow, flowException) = if (authorizationFlowId != null) {
             try {
                 findById(authorizationFlowId) to null
@@ -321,7 +324,7 @@ class WebAuthorizationFlowManager(
      */
     suspend fun getStatus(
         session: InteractiveFlowSession
-    ): WebAuthorizationFlowStatus {
+    ): InteractiveFlowStatus {
         return when (session) {
             is FailedInteractiveFlowSession -> getStatusForFailedSession()
             is CompletedInteractiveFlowSession -> getStatusForCompletedSession()
@@ -332,8 +335,8 @@ class WebAuthorizationFlowManager(
     /**
      * Return the status of a session whose authorization flow has failed.
      */
-    internal fun getStatusForFailedSession(): WebAuthorizationFlowStatus {
-        return WebAuthorizationFlowStatus(failed = true)
+    internal fun getStatusForFailedSession(): InteractiveFlowStatus {
+        return InteractiveFlowStatus(failed = true)
     }
 
     /**
@@ -341,7 +344,7 @@ class WebAuthorizationFlowManager(
      */
     internal suspend fun getStatusForOnGoingSession(
         session: OnGoingInteractiveFlowSession
-    ): WebAuthorizationFlowStatus {
+    ): InteractiveFlowStatus {
         val consentedScopes = oauth2Manager.fetchOAuth2(session).consentedScopes ?: emptyList()
         val identifierClaims = session.userId?.let {
             collectedClaimManager.findIdentifierByUserId(it)
@@ -362,7 +365,7 @@ class WebAuthorizationFlowManager(
             .map(ValidationCodeReason::media)
             .distinct()
 
-        return WebAuthorizationFlowStatus(
+        return InteractiveFlowStatus(
             identifierClaims = identifierClaims,
             consentedClaims = consentedClaims,
             missingUser = missingUser,
@@ -375,8 +378,8 @@ class WebAuthorizationFlowManager(
     /**
      * Return the status of a session if the end-user has completed the authorization flow.
      */
-    internal fun getStatusForCompletedSession(): WebAuthorizationFlowStatus {
-        return WebAuthorizationFlowStatus()
+    internal fun getStatusForCompletedSession(): InteractiveFlowStatus {
+        return InteractiveFlowStatus()
     }
 
     /**
@@ -385,7 +388,7 @@ class WebAuthorizationFlowManager(
      */
     suspend fun completeIfNecessary(
         session: InteractiveFlowSession,
-        status: WebAuthorizationFlowStatus
+        status: InteractiveFlowStatus
     ): InteractiveFlowSession {
         return if (status.complete) {
             authorizationFlowManager.completeAuthorization(
@@ -443,7 +446,7 @@ class WebAuthorizationFlowManager(
 
     suspend fun getStatusAndCompleteIfNecessary(
         session: InteractiveFlowSession
-    ): Pair<InteractiveFlowSession, WebAuthorizationFlowStatus> {
+    ): Pair<InteractiveFlowSession, InteractiveFlowStatus> {
         val status = getStatus(session)
         val completedSession = completeIfNecessary(
             session = session,

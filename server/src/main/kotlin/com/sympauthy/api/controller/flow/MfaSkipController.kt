@@ -1,8 +1,8 @@
 package com.sympauthy.api.controller.flow
 
 import com.sympauthy.api.controller.flow.MfaSkipController.Companion.MFA_SKIP_ENDPOINT
-import com.sympauthy.api.controller.flow.util.WebAuthorizationFlowControllerUtil
-import com.sympauthy.business.manager.flow.mfa.WebAuthorizationFlowMfaManager
+import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
+import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaManager
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
 import io.micronaut.http.HttpResponse
@@ -17,8 +17,8 @@ import jakarta.inject.Inject
 @Secured(HAS_STATE)
 @Controller(MFA_SKIP_ENDPOINT)
 class MfaSkipController(
-    @Inject private val mfaManager: WebAuthorizationFlowMfaManager,
-    @Inject private val webAuthorizationFlowControllerUtil: WebAuthorizationFlowControllerUtil
+    @Inject private val mfaManager: InteractiveFlowSessionMfaManager,
+    @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
 ) {
 
     companion object {
@@ -44,7 +44,7 @@ one enrolled method. The MFA step is marked as resolved so the flow does not pro
     suspend fun skipMfa(
         authentication: Authentication
     ): HttpResponse<*> =
-        webAuthorizationFlowControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect(
+        interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect(
             state = authentication.stateOrNull,
             update = { session, _ ->
                 mfaManager.skipMfa(session)

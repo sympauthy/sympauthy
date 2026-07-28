@@ -1,4 +1,8 @@
-package com.sympauthy.business.manager.flow
+package com.sympauthy.business.manager.flow.auth
+
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionProviderManager
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClaimManager
@@ -32,7 +36,7 @@ import java.time.LocalDateTime
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
-class WebAuthorizationFlowOAuth2ProviderManagerTest {
+class InteractiveAuthFlowSessionOAuth2ProviderManagerTest {
 
     @MockK
     lateinit var sessionManager: InteractiveFlowSessionManager
@@ -62,7 +66,7 @@ class WebAuthorizationFlowOAuth2ProviderManagerTest {
     lateinit var providerClaimsResolver: ProviderClaimsResolver
 
     @MockK
-    lateinit var webAuthorizationFlowManager: WebAuthorizationFlowManager
+    lateinit var interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager
 
     @MockK
     lateinit var tokenEndpointClient: TokenEndpointClient
@@ -77,7 +81,7 @@ class WebAuthorizationFlowOAuth2ProviderManagerTest {
     lateinit var uncheckedUrlsConfig: UrlsConfig
 
     @InjectMockKs
-    lateinit var manager: WebAuthorizationFlowOAuth2ProviderManager
+    lateinit var manager: InteractiveAuthFlowSessionOAuth2ProviderManager
 
     private fun createProvider(): EnabledProvider {
         return EnabledProvider(

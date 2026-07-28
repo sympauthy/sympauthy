@@ -2,7 +2,7 @@ package com.sympauthy.config.validation
 
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.flow.AuthorizationFlowType
-import com.sympauthy.business.model.flow.WebAuthorizationFlow
+import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.EnabledMfaConfig
@@ -37,7 +37,7 @@ class AuthorizationFlowsConfigValidator(
     private fun validateWebFlow(
         ctx: ConfigParsingContext,
         parsed: ParsedAuthorizationFlow
-    ): WebAuthorizationFlow? {
+    ): InteractiveFlow? {
         val subCtx = ctx.child()
         val configKeyPrefix = "$AUTHORIZATION_FLOWS_KEY.${parsed.id}"
 
@@ -79,7 +79,7 @@ class AuthorizationFlowsConfigValidator(
             return null
         }
 
-        return WebAuthorizationFlow(
+        return InteractiveFlow(
             id = parsed.id,
             signInUri = signInUri,
             signUpUri = signUpUri,

@@ -1,4 +1,6 @@
-package com.sympauthy.business.manager.flow
+package com.sympauthy.business.manager.flow.auth
+
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
@@ -23,7 +25,7 @@ import jakarta.transaction.Transactional
  * Component in charge of validating the claim collected during a web authorization flow.
  */
 @Singleton
-open class WebAuthorizationFlowClaimValidationManager(
+open class InteractiveAuthFlowSessionClaimValidationManager(
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,

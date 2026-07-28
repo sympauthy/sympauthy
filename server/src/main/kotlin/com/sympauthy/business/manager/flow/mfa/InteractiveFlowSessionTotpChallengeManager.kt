@@ -10,7 +10,7 @@ import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
 @Singleton
-class WebAuthorizationFlowTotpChallengeManager(
+class InteractiveFlowSessionTotpChallengeManager(
     @Inject private val totpManager: TotpManager,
     @Inject private val sessionManager: InteractiveFlowSessionManager
 ) {

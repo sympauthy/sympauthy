@@ -2,10 +2,10 @@ package com.sympauthy.business.manager.flow.mfa
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
-import com.sympauthy.business.manager.flow.WebAuthorizationFlowRedirectUriBuilder
+import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionRedirectUriBuilder
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
-import com.sympauthy.business.model.flow.WebAuthorizationFlow
+import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.business.model.mfa.TotpEnrollment
 import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.EnabledMfaConfig
@@ -26,7 +26,7 @@ import java.util.*
 
 @Suppress("unused")
 @ExtendWith(MockKExtension::class)
-class WebAuthorizationFlowMfaManagerTest {
+class InteractiveFlowSessionMfaManagerTest {
 
     @MockK
     lateinit var sessionManager: InteractiveFlowSessionManager
@@ -35,15 +35,15 @@ class WebAuthorizationFlowMfaManagerTest {
     lateinit var totpManager: TotpManager
 
     @MockK
-    lateinit var redirectUriBuilder: WebAuthorizationFlowRedirectUriBuilder
+    lateinit var redirectUriBuilder: InteractiveAuthFlowSessionRedirectUriBuilder
 
     private val userId = UUID.randomUUID()
     private val user = mockk<User> { every { id } returns userId }
     private val session = mockk<OnGoingInteractiveFlowSession>()
-    private val flow = mockk<WebAuthorizationFlow>()
+    private val flow = mockk<InteractiveFlow>()
     private val skipEndpointPath = "/api/v1/flow/mfa/skip"
 
-    private fun managerWith(mfaConfig: MfaConfig) = WebAuthorizationFlowMfaManager(
+    private fun managerWith(mfaConfig: MfaConfig) = InteractiveFlowSessionMfaManager(
         uncheckedMfaConfig = mfaConfig,
         sessionManager = sessionManager,
         totpManager = totpManager,

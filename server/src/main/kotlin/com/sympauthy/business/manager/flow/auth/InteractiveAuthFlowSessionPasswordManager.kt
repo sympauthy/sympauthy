@@ -1,4 +1,7 @@
-package com.sympauthy.business.manager.flow
+package com.sympauthy.business.manager.flow.auth
+
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
@@ -35,7 +38,7 @@ import kotlin.jvm.optionals.getOrNull
  * may not be part of the scopes requested by the client.
  */
 @Singleton
-open class WebAuthorizationFlowPasswordManager(
+open class InteractiveAuthFlowSessionPasswordManager(
     @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
     @Inject private val claimManager: ClaimManager,
@@ -43,7 +46,7 @@ open class WebAuthorizationFlowPasswordManager(
     @Inject private val collectedClaimRepository: CollectedClaimRepository,
     @Inject private val invitationManager: InvitationManager,
     @Inject private val passwordManager: PasswordManager,
-    @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
+    @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
     @Inject private val userManager: UserManager,
     @Inject private val userRepository: UserRepository,
     @Inject private val claimValueMapper: ClaimValueMapper,
@@ -121,8 +124,8 @@ open class WebAuthorizationFlowPasswordManager(
         val updatedSession = sessionManager.setAuthenticatedUserId(session, user.id)
 
         // Call complete on the authorization flow in case there is no more step to complete.
-        val status = webAuthorizationFlowManager.getStatus(updatedSession)
-        return webAuthorizationFlowManager.completeIfNecessary(
+        val status = interactiveAuthFlowSessionManager.getStatus(updatedSession)
+        return interactiveAuthFlowSessionManager.completeIfNecessary(
             session = updatedSession,
             status = status
         )
@@ -137,7 +140,7 @@ open class WebAuthorizationFlowPasswordManager(
         unfilteredUpdates: List<CollectedClaimUpdate>,
         password: String
     ): InteractiveFlowSession {
-        webAuthorizationFlowManager.checkSignUpAllowed(session, recoverable = true)
+        interactiveAuthFlowSessionManager.checkSignUpAllowed(session, recoverable = true)
 
         val claimUpdateMap = claimManager.listIdentifierClaims().associateWith { claim ->
             unfilteredUpdates.firstOrNull { it.claim == claim }
@@ -163,8 +166,8 @@ open class WebAuthorizationFlowPasswordManager(
         val updatedSession = sessionManager.setAuthenticatedUserId(session, user.id)
 
         // Call complete on the authorization flow in case there is no more step to complete.
-        val status = webAuthorizationFlowManager.getStatus(updatedSession)
-        return webAuthorizationFlowManager.completeIfNecessary(
+        val status = interactiveAuthFlowSessionManager.getStatus(updatedSession)
+        return interactiveAuthFlowSessionManager.completeIfNecessary(
             session = updatedSession,
             status = status,
         )

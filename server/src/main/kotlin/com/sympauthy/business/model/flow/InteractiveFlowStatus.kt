@@ -6,7 +6,7 @@ import com.sympauthy.business.model.user.CollectedClaim
 /**
  * Summary of the current status of an authorization attempt going through a web authorization flow.
  */
-data class WebAuthorizationFlowStatus(
+data class InteractiveFlowStatus(
     /**
      * List of claims that identify the end-user (e.g. email, phone number).
      */
