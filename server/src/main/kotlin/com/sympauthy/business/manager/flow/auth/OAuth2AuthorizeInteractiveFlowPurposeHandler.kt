@@ -17,6 +17,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.InteractiveFlowStepResult
 import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.auth.OAuth2AuthorizeInteractiveFlowStatus
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.config.model.FeaturesConfig
@@ -58,12 +59,14 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
     }
 
     private suspend fun resolveOnGoingStep(session: OnGoingInteractiveFlowSession): InteractiveFlowStepResult {
-        val status = computeStatus(session)
+        // Fetch the OAuth2 record once and thread it into the status computation and the sign-in/up branch.
+        val oauth2 = oauth2Manager.fetchOAuth2(session)
+        val status = computeStatus(session, oauth2)
         return when {
-            status.missingUser -> {
-                val invitationId = oauth2Manager.fetchOAuth2(session).invitationId
-                InteractiveFlowStepResult(session, if (invitationId != null) InteractiveFlowStep.SignUp else InteractiveFlowStep.SignIn)
-            }
+            status.missingUser -> InteractiveFlowStepResult(
+                session,
+                if (oauth2.invitationId != null) InteractiveFlowStep.SignUp else InteractiveFlowStep.SignIn
+            )
 
             status.missingMfa -> InteractiveFlowStepResult(session, InteractiveFlowStep.Mfa)
 
@@ -85,9 +88,14 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
 
     /**
      * Compute the flow progress of the ongoing [session] from the collected claims, consent, and MFA state.
+     *
+     * Takes the already-fetched [oauth2] record (rather than re-fetching it) so the caller loads it once.
      */
-    internal suspend fun computeStatus(session: OnGoingInteractiveFlowSession): OAuth2AuthorizeInteractiveFlowStatus {
-        val consentedScopes = oauth2Manager.fetchOAuth2(session).consentedScopes ?: emptyList()
+    internal suspend fun computeStatus(
+        session: OnGoingInteractiveFlowSession,
+        oauth2: InteractiveFlowSessionOAuth2
+    ): OAuth2AuthorizeInteractiveFlowStatus {
+        val consentedScopes = oauth2.consentedScopes ?: emptyList()
         val identifierClaims = session.userId?.let {
             collectedClaimManager.findIdentifierByUserId(it)
         } ?: emptyList()
@@ -108,8 +116,6 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
             .distinct()
 
         return OAuth2AuthorizeInteractiveFlowStatus(
-            identifierClaims = identifierClaims,
-            consentedClaims = consentedClaims,
             missingUser = missingUser,
             missingMfa = missingMfa,
             missingRequiredClaims = missingRequiredClaims,

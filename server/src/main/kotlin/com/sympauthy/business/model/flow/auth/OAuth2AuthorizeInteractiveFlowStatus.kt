@@ -1,7 +1,6 @@
 package com.sympauthy.business.model.flow.auth
 
 import com.sympauthy.business.model.code.ValidationCodeMedia
-import com.sympauthy.business.model.user.CollectedClaim
 
 /**
  * Summary of the current progress of an ongoing OAuth2 authorization flow session.
@@ -11,14 +10,6 @@ import com.sympauthy.business.model.user.CollectedClaim
  * next step; exclusive to the OAuth2 authorize purpose.
  */
 data class OAuth2AuthorizeInteractiveFlowStatus(
-    /**
-     * List of claims that identify the end-user (e.g. email, phone number).
-     */
-    val identifierClaims: List<CollectedClaim> = emptyList(),
-    /**
-     * List of claims filtered by the scopes the end-user has consented to.
-     */
-    val consentedClaims: List<CollectedClaim> = emptyList(),
     /**
      * True if no user has been authenticated for this flow yet.
      */
