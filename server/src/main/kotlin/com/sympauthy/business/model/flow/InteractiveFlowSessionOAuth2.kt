@@ -8,7 +8,7 @@ import java.util.*
 
 /**
  * The client's OAuth2 request context attached to an [InteractiveFlowSession] whose
- * [InteractiveFlowSession.type] is [InteractiveFlowSessionType.OAUTH2].
+ * [InteractiveFlowSession.purpose] is [FlowPurpose.OAUTH2_AUTHORIZE].
  *
  * Holds the parameters the client provided to the authorize endpoint, plus the consent and grant
  * decisions taken during the flow. Keyed by [sessionId] and fetched via

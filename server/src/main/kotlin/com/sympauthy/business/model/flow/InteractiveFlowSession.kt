@@ -26,7 +26,7 @@ sealed class InteractiveFlowSession(
     /**
      * The purpose this session serves.
      */
-    val type: InteractiveFlowSessionType,
+    val purpose: FlowPurpose,
 
     /**
      * The identifier of the interactive flow the user is going through.
@@ -42,7 +42,7 @@ sealed class InteractiveFlowSession(
  */
 class OnGoingInteractiveFlowSession(
     id: UUID,
-    type: InteractiveFlowSessionType,
+    purpose: FlowPurpose,
     flowId: String?,
     expirationDate: LocalDateTime,
 
@@ -64,7 +64,7 @@ class OnGoingInteractiveFlowSession(
     val mfaPassedDate: LocalDateTime? = null,
 ) : InteractiveFlowSession(
     id = id,
-    type = type,
+    purpose = purpose,
     flowId = flowId,
     expirationDate = expirationDate
 ) {
@@ -78,7 +78,7 @@ class OnGoingInteractiveFlowSession(
         mfaPassedDate: LocalDateTime? = null,
     ) = OnGoingInteractiveFlowSession(
         id = this.id,
-        type = this.type,
+        purpose = this.purpose,
         flowId = this.flowId,
         expirationDate = this.expirationDate,
         sessionDate = this.sessionDate,
@@ -95,7 +95,7 @@ class OnGoingInteractiveFlowSession(
  */
 class CompletedInteractiveFlowSession(
     id: UUID,
-    type: InteractiveFlowSessionType,
+    purpose: FlowPurpose,
     flowId: String?,
     expirationDate: LocalDateTime,
 
@@ -121,7 +121,7 @@ class CompletedInteractiveFlowSession(
     val completeDate: LocalDateTime,
 ) : InteractiveFlowSession(
     id = id,
-    type = type,
+    purpose = purpose,
     flowId = flowId,
     expirationDate = expirationDate
 )
@@ -131,7 +131,7 @@ class CompletedInteractiveFlowSession(
  */
 class FailedInteractiveFlowSession(
     id: UUID,
-    type: InteractiveFlowSessionType,
+    purpose: FlowPurpose,
     flowId: String?,
     expirationDate: LocalDateTime,
 
@@ -158,7 +158,7 @@ class FailedInteractiveFlowSession(
     val errorDate: LocalDateTime,
 ) : InteractiveFlowSession(
     id = id,
-    type = type,
+    purpose = purpose,
     flowId = flowId,
     expirationDate = expirationDate
 )

@@ -49,13 +49,13 @@ class InteractiveFlowSessionManager(
      * to persist an attached record atomically with the session).
      */
     suspend fun newSession(
-        type: InteractiveFlowSessionType,
+        purpose: FlowPurpose,
         flow: AuthorizationFlow? = null,
         error: BusinessException? = null
     ): InteractiveFlowSession {
         val now = LocalDateTime.now()
         val entity = InteractiveFlowSessionEntity(
-            type = type.name,
+            purpose = purpose.name,
             flowId = flow?.id,
             sessionDate = now,
             expirationDate = now.plus(uncheckedAuthConfig.orThrow().authorizationCode.expiration),
@@ -168,7 +168,7 @@ class InteractiveFlowSessionManager(
         )
         return FailedInteractiveFlowSession(
             id = session.id,
-            type = session.type,
+            purpose = session.purpose,
             flowId = session.flowId,
             errorDate = errorDate,
             errorDetailsId = error.detailsId,
@@ -197,7 +197,7 @@ class InteractiveFlowSessionManager(
         )
         return CompletedInteractiveFlowSession(
             id = session.id,
-            type = session.type,
+            purpose = session.purpose,
             flowId = session.flowId,
             expirationDate = session.expirationDate,
             sessionDate = session.sessionDate,

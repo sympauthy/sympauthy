@@ -12,7 +12,7 @@ import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
-import com.sympauthy.business.model.flow.InteractiveFlowSessionType
+import com.sympauthy.business.model.flow.FlowPurpose
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.user.CollectedClaim
@@ -100,7 +100,7 @@ class AuthorizationFlowManagerTest {
         val client = mockClient()
         val failedSession = FailedInteractiveFlowSession(
             id = UUID.randomUUID(),
-            type = InteractiveFlowSessionType.OAUTH2,
+            purpose = FlowPurpose.OAUTH2_AUTHORIZE,
             flowId = "flow-id",
             expirationDate = LocalDateTime.now().plusHours(1),
             errorDetailsId = "some.error",
@@ -372,7 +372,7 @@ class AuthorizationFlowManagerTest {
     ): OnGoingInteractiveFlowSession {
         return OnGoingInteractiveFlowSession(
             id = UUID.randomUUID(),
-            type = InteractiveFlowSessionType.OAUTH2,
+            purpose = FlowPurpose.OAUTH2_AUTHORIZE,
             flowId = "flow-id",
             expirationDate = LocalDateTime.now().plusHours(1),
             sessionDate = LocalDateTime.now(),
@@ -386,7 +386,7 @@ class AuthorizationFlowManagerTest {
         val now = LocalDateTime.now()
         return CompletedInteractiveFlowSession(
             id = UUID.randomUUID(),
-            type = InteractiveFlowSessionType.OAUTH2,
+            purpose = FlowPurpose.OAUTH2_AUTHORIZE,
             flowId = "flow-id",
             expirationDate = expirationDate,
             sessionDate = now,
