@@ -7,24 +7,17 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
-import com.sympauthy.business.manager.user.CollectedClaimManager
-import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
-import com.sympauthy.business.model.code.ValidationCodeReason
-import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
-import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
-import com.sympauthy.business.model.flow.InteractiveFlowStatus
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.config.model.ClientTemplatesConfig
-import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.config.properties.ClientTemplateConfigurationProperties.Companion.DEFAULT
 import jakarta.inject.Inject
@@ -47,13 +40,9 @@ import java.net.URISyntaxException
 class InteractiveAuthFlowSessionManager(
     @Inject private val authorizationFlowManager: AuthorizationFlowManager,
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
-    @Inject private val collectedClaimManager: CollectedClaimManager,
-    @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
-    @Inject private val claimValidationManager: InteractiveAuthFlowSessionClaimValidationManager,
     @Inject private val clientManager: ClientManager,
     @Inject private val invitationManager: InvitationManager,
     @Inject private val scopeManager: ScopeManager,
-    @Inject private val uncheckedMfaConfig: MfaConfig,
     @Inject private val uncheckedClientTemplatesConfig: Flow<ClientTemplatesConfig>
 ) {
 
@@ -322,84 +311,6 @@ class InteractiveAuthFlowSessionManager(
     }
 
     /**
-     * Return the status of the [session] if the end-user is going through an interactive auth flow.
-     */
-    suspend fun getStatus(
-        session: InteractiveFlowSession
-    ): InteractiveFlowStatus {
-        return when (session) {
-            is FailedInteractiveFlowSession -> getStatusForFailedSession()
-            is CompletedInteractiveFlowSession -> getStatusForCompletedSession()
-            is OnGoingInteractiveFlowSession -> getStatusForOnGoingSession(session)
-        }
-    }
-
-    /**
-     * Return the status of a session whose authorization flow has failed.
-     */
-    internal fun getStatusForFailedSession(): InteractiveFlowStatus {
-        return InteractiveFlowStatus(failed = true)
-    }
-
-    /**
-     * Return the status of the [session] if the end-user is going through an interactive auth flow.
-     */
-    internal suspend fun getStatusForOnGoingSession(
-        session: OnGoingInteractiveFlowSession
-    ): InteractiveFlowStatus {
-        val consentedScopes = oauth2Manager.fetchOAuth2(session).consentedScopes ?: emptyList()
-        val identifierClaims = session.userId?.let {
-            collectedClaimManager.findIdentifierByUserId(it)
-        } ?: emptyList()
-        val consentedClaims = session.userId?.let {
-            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(it, consentedScopes)
-        } ?: emptyList()
-        val missingUser = session.userId == null
-        val missingMfa = uncheckedMfaConfig.orThrow().enabled && !session.mfaPassed
-        val allClaims = (identifierClaims + consentedClaims).distinctBy { it.claim.id }
-        val missingRequiredClaims = !consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(
-            allClaims, consentedScopes
-        )
-        val missingMediaForClaimValidation = claimValidationManager.getReasonsToSendValidationCode(
-            identifierClaims = identifierClaims,
-            consentedClaims = consentedClaims
-        )
-            .map(ValidationCodeReason::media)
-            .distinct()
-
-        return InteractiveFlowStatus(
-            identifierClaims = identifierClaims,
-            consentedClaims = consentedClaims,
-            missingUser = missingUser,
-            missingMfa = missingMfa,
-            missingRequiredClaims = missingRequiredClaims,
-            missingMediaForClaimValidation = missingMediaForClaimValidation
-        )
-    }
-
-    /**
-     * Return the status of a session if the end-user has completed the authorization flow.
-     */
-    internal fun getStatusForCompletedSession(): InteractiveFlowStatus {
-        return InteractiveFlowStatus()
-    }
-
-    /**
-     * Completes the authorization flow by calling [AuthorizationFlowManager.completeAuthorization]
-     * if the [status] indicates that the flow is complete. Then return the updated [InteractiveFlowSession].
-     */
-    suspend fun completeIfNecessary(
-        session: InteractiveFlowSession,
-        status: InteractiveFlowStatus
-    ): InteractiveFlowSession {
-        return if (status.complete) {
-            authorizationFlowManager.completeAuthorization(
-                session = session
-            )
-        } else session
-    }
-
-    /**
      * Return true if sign-up is allowed for the audience of the client that initiated the [session].
      *
      * Sign-up is allowed when the audience enables open registration, or when it enables invitation-based
@@ -452,17 +363,6 @@ class InteractiveAuthFlowSessionManager(
             detailsId = "flow.sign_up.invitation_required",
             descriptionId = "description.flow.sign_up.invitation_required"
         )
-    }
-
-    suspend fun getStatusAndCompleteIfNecessary(
-        session: InteractiveFlowSession
-    ): Pair<InteractiveFlowSession, InteractiveFlowStatus> {
-        val status = getStatus(session)
-        val completedSession = completeIfNecessary(
-            session = session,
-            status = status
-        )
-        return completedSession to status
     }
 }
 

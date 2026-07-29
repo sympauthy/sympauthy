@@ -4,7 +4,7 @@ import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.user.CollectedClaim
 
 /**
- * Summary of the current status of an interactive flow session.
+ * Summary of the current progress of an ongoing interactive flow session.
  */
 data class InteractiveFlowStatus(
     /**
@@ -15,10 +15,6 @@ data class InteractiveFlowStatus(
      * List of claims filtered by the scopes the end-user has consented to.
      */
     val consentedClaims: List<CollectedClaim> = emptyList(),
-    /**
-     * True if the interactive flow session failed.
-     */
-    val failed: Boolean = false,
     /**
      * True if no user has been authenticated for this flow yet.
      */
@@ -35,15 +31,4 @@ data class InteractiveFlowStatus(
      * True if MFA is required for this flow and the end-user has not yet completed the MFA step.
      */
     val missingMfa: Boolean = false,
-) {
-
-    /**
-     * True if the authorization is complete and the user can be redirected to the client.
-     */
-    val complete: Boolean = listOf(
-        missingUser,
-        missingRequiredClaims,
-        missingMediaForClaimValidation.isNotEmpty(),
-        missingMfa,
-    ).none { it }
-}
+)

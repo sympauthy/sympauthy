@@ -8,23 +8,16 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.invitation.InvitationManager
-import com.sympauthy.business.manager.user.CollectedClaimManager
-import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.code.ValidationCodeReason
-import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.NonInteractiveAuthorizationFlow
-import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlow
-import com.sympauthy.business.model.flow.InteractiveFlowStatus
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.config.model.ClientTemplate
 import com.sympauthy.config.model.ClientTemplatesConfig
 import com.sympauthy.config.model.EnabledClientTemplatesConfig
-import com.sympauthy.config.model.EnabledMfaConfig
 import io.mockk.*
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
@@ -50,15 +43,6 @@ class InteractiveAuthFlowSessionManagerTest {
     lateinit var oauth2Manager: InteractiveFlowSessionOAuth2Manager
 
     @MockK
-    lateinit var collectedClaimManager: CollectedClaimManager
-
-    @MockK
-    lateinit var consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager
-
-    @MockK
-    lateinit var claimValidationManager: InteractiveAuthFlowSessionClaimValidationManager
-
-    @MockK
     lateinit var clientManager: ClientManager
 
     @MockK
@@ -66,9 +50,6 @@ class InteractiveAuthFlowSessionManagerTest {
 
     @MockK
     lateinit var scopeManager: ScopeManager
-
-    @MockK
-    lateinit var uncheckedMfaConfig: EnabledMfaConfig
 
     var uncheckedClientTemplatesConfig: Flow<ClientTemplatesConfig> = flowOf(
         EnabledClientTemplatesConfig(emptyMap())
@@ -146,148 +127,6 @@ class InteractiveAuthFlowSessionManagerTest {
         assertFalse(exception.recoverable)
     }
 
-    @Test
-    fun `getStatusForOnGoingSession - Non complete if missing claims`() = runTest {
-        val userId = UUID.randomUUID()
-        val consentedScopes = listOf("openid", "profile")
-        val session = mockk<OnGoingInteractiveFlowSession> {
-            every { this@mockk.userId } returns userId
-            every { mfaPassed } returns false
-        }
-        every { uncheckedMfaConfig.enabled } returns false
-        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2With(consentedScopes = consentedScopes)
-        coEvery {
-            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
-                userId,
-                consentedScopes
-            )
-        } returns emptyList()
-        every {
-            consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(
-                any(),
-                consentedScopes
-            )
-        } returns false
-        coEvery { collectedClaimManager.findIdentifierByUserId(any()) } returns emptyList()
-        every { claimValidationManager.getReasonsToSendValidationCode(any(), any()) } returns emptyList()
-
-        val result = manager.getStatusForOnGoingSession(session)
-
-        assertTrue(result.missingRequiredClaims)
-    }
-
-    @Test
-    fun `getStatusForOnGoingSession - Non complete if missing validation`() = runTest {
-        val userId = UUID.randomUUID()
-        val consentedScopes = listOf("openid", "profile")
-        val session = mockk<OnGoingInteractiveFlowSession> {
-            every { this@mockk.userId } returns userId
-            every { mfaPassed } returns false
-        }
-        every { uncheckedMfaConfig.enabled } returns false
-        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2With(consentedScopes = consentedScopes)
-        coEvery {
-            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
-                userId,
-                consentedScopes
-            )
-        } returns emptyList()
-        every {
-            consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(
-                any(),
-                consentedScopes
-            )
-        } returns true
-        coEvery { collectedClaimManager.findIdentifierByUserId(any()) } returns emptyList()
-        every { claimValidationManager.getReasonsToSendValidationCode(any(), any()) } returns listOf(
-            ValidationCodeReason.EMAIL_CLAIM,
-        )
-
-        val result = manager.getStatusForOnGoingSession(session)
-
-        assertTrue(result.missingMediaForClaimValidation.isNotEmpty())
-    }
-
-    @Test
-    fun `getStatusForOnGoingSession - Missing MFA when user has not passed MFA and MFA is enabled`() =
-        runTest {
-            val userId = UUID.randomUUID()
-            val consentedScopes = listOf("openid", "profile")
-            val session = mockk<OnGoingInteractiveFlowSession> {
-                every { this@mockk.userId } returns userId
-                every { mfaPassed } returns false
-            }
-            every { uncheckedMfaConfig.enabled } returns true
-            coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2With(consentedScopes = consentedScopes)
-            coEvery {
-                consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
-                    userId,
-                    consentedScopes
-                )
-            } returns emptyList()
-            every {
-                consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(
-                    any(),
-                    consentedScopes
-                )
-            } returns true
-            coEvery { collectedClaimManager.findIdentifierByUserId(any()) } returns emptyList()
-            every { claimValidationManager.getReasonsToSendValidationCode(any(), any()) } returns emptyList()
-
-            val result = manager.getStatusForOnGoingSession(session)
-
-            assertTrue(result.missingMfa)
-        }
-
-    @Test
-    fun `getStatusForOnGoingSession - Not missing MFA when user has already passed MFA`() = runTest {
-        val userId = UUID.randomUUID()
-        val consentedScopes = listOf("openid", "profile")
-        val session = mockk<OnGoingInteractiveFlowSession> {
-            every { this@mockk.userId } returns userId
-            every { mfaPassed } returns true
-        }
-        every { uncheckedMfaConfig.enabled } returns true
-        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2With(consentedScopes = consentedScopes)
-        coEvery {
-            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
-                userId,
-                consentedScopes
-            )
-        } returns emptyList()
-        every {
-            consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(
-                any(),
-                consentedScopes
-            )
-        } returns true
-        coEvery { collectedClaimManager.findIdentifierByUserId(any()) } returns emptyList()
-        every { claimValidationManager.getReasonsToSendValidationCode(any(), any()) } returns emptyList()
-
-        val result = manager.getStatusForOnGoingSession(session)
-
-        assertFalse(result.missingMfa)
-    }
-
-    @Test
-    fun `getStatusAndCompleteIfNecessary - Complete`() = runTest {
-        val session = mockk<OnGoingInteractiveFlowSession>()
-        val completedSession = mockk<CompletedInteractiveFlowSession>()
-        val status = mockk<InteractiveFlowStatus> {
-            every { complete } returns true
-        }
-
-        coEvery { manager.getStatus(session) } returns status
-        coEvery {
-            authorizationFlowManager.completeAuthorization(session)
-        } returns completedSession
-
-        val result = manager.getStatusAndCompleteIfNecessary(session)
-
-        assertSame(completedSession, result.first)
-        assertTrue(result.second.complete)
-    }
-
     // --- PKCE parseCodeChallenge tests ---
 
     @Test
@@ -362,9 +201,8 @@ class InteractiveAuthFlowSessionManagerTest {
             )
             val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
             val realManager = InteractiveAuthFlowSessionManager(
-                authorizationFlowManager, oauth2Manager, collectedClaimManager,
-                consentAwareCollectedClaimManager, claimValidationManager, clientManager,
-                invitationManager, scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
+                authorizationFlowManager, oauth2Manager, clientManager,
+                invitationManager, scopeManager, flowOf(templatesConfig)
             )
 
             val result = realManager.getDefaultInteractiveFlow()
@@ -378,9 +216,8 @@ class InteractiveAuthFlowSessionManagerTest {
         every { authorizationFlowManager.defaultInteractiveFlow } returns hardcodedFlow
         val templatesConfig = EnabledClientTemplatesConfig(emptyMap())
         val realManager = InteractiveAuthFlowSessionManager(
-            authorizationFlowManager, oauth2Manager, collectedClaimManager,
-            consentAwareCollectedClaimManager, claimValidationManager, clientManager,
-            invitationManager, scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
+            authorizationFlowManager, oauth2Manager, clientManager,
+            invitationManager, scopeManager, flowOf(templatesConfig)
         )
 
         val result = realManager.getDefaultInteractiveFlow()
@@ -407,9 +244,8 @@ class InteractiveAuthFlowSessionManagerTest {
             )
             val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
             val realManager = InteractiveAuthFlowSessionManager(
-                authorizationFlowManager, oauth2Manager, collectedClaimManager,
-                consentAwareCollectedClaimManager, claimValidationManager, clientManager,
-                invitationManager, scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
+                authorizationFlowManager, oauth2Manager, clientManager,
+                invitationManager, scopeManager, flowOf(templatesConfig)
             )
 
             val result = realManager.getDefaultInteractiveFlow()
@@ -435,9 +271,8 @@ class InteractiveAuthFlowSessionManagerTest {
             )
             val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
             val realManager = InteractiveAuthFlowSessionManager(
-                authorizationFlowManager, oauth2Manager, collectedClaimManager,
-                consentAwareCollectedClaimManager, claimValidationManager, clientManager,
-                invitationManager, scopeManager, uncheckedMfaConfig, flowOf(templatesConfig)
+                authorizationFlowManager, oauth2Manager, clientManager,
+                invitationManager, scopeManager, flowOf(templatesConfig)
             )
 
             val result = realManager.getDefaultInteractiveFlow()
