@@ -79,7 +79,7 @@ class AuthorizationFlowManagerTest {
         val client = mockClient()
 
         val exception = assertThrows<BusinessException> {
-            manager.checkCanIssueToken(null, client)
+            manager.checkCanIssueToken(null, null, client)
         }
         assertEquals("token.expired", exception.detailsId)
     }
@@ -90,7 +90,7 @@ class AuthorizationFlowManagerTest {
         val onGoingSession = createOnGoingSession(userId = UUID.randomUUID())
 
         val exception = assertThrows<BusinessException> {
-            manager.checkCanIssueToken(onGoingSession, client)
+            manager.checkCanIssueToken(onGoingSession, null, client)
         }
         assertEquals("token.expired", exception.detailsId)
     }
@@ -108,20 +108,32 @@ class AuthorizationFlowManagerTest {
         )
 
         val exception = assertThrows<BusinessException> {
-            manager.checkCanIssueToken(failedSession, client)
+            manager.checkCanIssueToken(failedSession, null, client)
         }
         assertEquals("token.expired", exception.detailsId)
     }
 
     @Test
     fun `checkCanIssueToken - Throws when session is expired`() = runTest {
-        val client = mockClient()
+        val client = mockClient("test-client")
         val completedSession = createCompletedSession(
             expirationDate = LocalDateTime.now().minusMinutes(1)
         )
+        val oauth2 = oauth2Of(sessionId = completedSession.id, clientId = "test-client")
 
         val exception = assertThrows<BusinessException> {
-            manager.checkCanIssueToken(completedSession, client)
+            manager.checkCanIssueToken(completedSession, oauth2, client)
+        }
+        assertEquals("token.expired", exception.detailsId)
+    }
+
+    @Test
+    fun `checkCanIssueToken - Throws when oauth2 record is missing`() = runTest {
+        val client = mockClient("test-client")
+        val completedSession = createCompletedSession()
+
+        val exception = assertThrows<BusinessException> {
+            manager.checkCanIssueToken(completedSession, null, client)
         }
         assertEquals("token.expired", exception.detailsId)
     }
@@ -130,29 +142,24 @@ class AuthorizationFlowManagerTest {
     fun `checkCanIssueToken - Throws when client does not match`() = runTest {
         val client = mockClient("other-client")
         val completedSession = createCompletedSession()
-        coEvery { oauth2Manager.fetchOAuth2(completedSession) } returns oauth2Of(
-            sessionId = completedSession.id,
-            clientId = "test-client"
-        )
+        val oauth2 = oauth2Of(sessionId = completedSession.id, clientId = "test-client")
 
         val exception = assertThrows<BusinessException> {
-            manager.checkCanIssueToken(completedSession, client)
+            manager.checkCanIssueToken(completedSession, oauth2, client)
         }
         assertEquals("token.mismatching_client", exception.detailsId)
     }
 
     @Test
-    fun `checkCanIssueToken - Returns completed session when valid`() = runTest {
+    fun `checkCanIssueToken - Returns completed session and oauth2 when valid`() = runTest {
         val client = mockClient("test-client")
         val completedSession = createCompletedSession()
-        coEvery { oauth2Manager.fetchOAuth2(completedSession) } returns oauth2Of(
-            sessionId = completedSession.id,
-            clientId = "test-client"
-        )
+        val oauth2 = oauth2Of(sessionId = completedSession.id, clientId = "test-client")
 
-        val result = manager.checkCanIssueToken(completedSession, client)
+        val (resultSession, resultOAuth2) = manager.checkCanIssueToken(completedSession, oauth2, client)
 
-        assertSame(completedSession, result)
+        assertSame(completedSession, resultSession)
+        assertSame(oauth2, resultOAuth2)
     }
 
     // --- completeAuthorization tests ---

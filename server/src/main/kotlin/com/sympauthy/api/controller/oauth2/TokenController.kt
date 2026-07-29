@@ -248,13 +248,13 @@ Client authentication is supported via:
         }
 
         val session = sessionManager.findByCodeOrNull(code)
-        val completedSession = try {
-            authorizeFlowManager.checkCanIssueToken(session, client)
+        val oauth2 = session?.let { oauth2Manager.fetchOAuth2OrNull(it) }
+        val (completedSession, completedOAuth2) = try {
+            authorizeFlowManager.checkCanIssueToken(session, oauth2, client)
         } catch (e: BusinessException) {
             throw e.toOAuth2Exception(INVALID_GRANT)
         }
-        val oauth2 = oauth2Manager.fetchOAuth2(completedSession)
-        if (oauth2.redirectUri != redirectUri) {
+        if (completedOAuth2.redirectUri != redirectUri) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token.non_matching_redirect_uri")
         }
 
@@ -262,8 +262,8 @@ Client authentication is supported via:
         try {
             pkceManager.verifyCodeVerifier(
                 codeVerifier = codeVerifier,
-                codeChallenge = oauth2.codeChallenge,
-                codeChallengeMethod = oauth2.codeChallengeMethod
+                codeChallenge = completedOAuth2.codeChallenge,
+                codeChallengeMethod = completedOAuth2.codeChallengeMethod
             )
         } catch (e: BusinessException) {
             throw e.toOAuth2Exception(INVALID_GRANT)

@@ -309,8 +309,8 @@ class TokenControllerTest {
             clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
         } returns mockClient()
         coEvery { sessionManager.findByCodeOrNull("the-code") } returns session
-        coEvery { authorizeFlowManager.checkCanIssueToken(session, any()) } returns session
-        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
+        coEvery { authorizeFlowManager.checkCanIssueToken(session, oauth2, any()) } returns (session to oauth2)
+        coEvery { oauth2Manager.fetchOAuth2OrNull(session) } returns oauth2
 
         val exception = assertThrows<OAuth2Exception> {
             controller.getTokens(
@@ -341,8 +341,8 @@ class TokenControllerTest {
             clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
         } returns mockClient()
         coEvery { sessionManager.findByCodeOrNull("the-code") } returns session
-        coEvery { authorizeFlowManager.checkCanIssueToken(session, any()) } returns session
-        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
+        coEvery { authorizeFlowManager.checkCanIssueToken(session, oauth2, any()) } returns (session to oauth2)
+        coEvery { oauth2Manager.fetchOAuth2OrNull(session) } returns oauth2
         every {
             pkceManager.verifyCodeVerifier("wrong-verifier", "stored-challenge", CodeChallengeMethod.S256)
         } throws businessExceptionOf(detailsId = "token.pkce.invalid_code_verifier")
@@ -380,8 +380,8 @@ class TokenControllerTest {
             clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
         } returns mockClient()
         coEvery { sessionManager.findByCodeOrNull("the-code") } returns session
-        coEvery { authorizeFlowManager.checkCanIssueToken(session, any()) } returns session
-        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
+        coEvery { authorizeFlowManager.checkCanIssueToken(session, oauth2, any()) } returns (session to oauth2)
+        coEvery { oauth2Manager.fetchOAuth2OrNull(session) } returns oauth2
         every { pkceManager.verifyCodeVerifier(null, null, null) } just runs
         coEvery { tokenManager.generateTokens(session, any(), dpopJkt = null) } returns GenerateTokenResult(
             accessToken = accessToken,
