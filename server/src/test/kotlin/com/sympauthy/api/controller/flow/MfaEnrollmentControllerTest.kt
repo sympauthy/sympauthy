@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.flow
 
+import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.resource.flow.MfaEnrollmentInputResource
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
@@ -46,6 +47,9 @@ class MfaEnrollmentControllerTest {
 
     @MockK
     lateinit var sessionManager: InteractiveFlowSessionManager
+
+    @MockK
+    lateinit var interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
 
     @InjectMockKs
     lateinit var controller: MfaEnrollmentController

@@ -8,7 +8,7 @@ import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.flow.InteractiveFlowPurposeHandler
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
-import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaManager
+import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.code.ValidationCodeReason
@@ -20,6 +20,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.auth.OAuth2AuthorizeInteractiveFlowStatus
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.config.model.FeaturesConfig
+import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.config.model.orThrow
 import jakarta.inject.Inject
 import jakarta.inject.Provider
@@ -43,7 +44,8 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
     @Inject private val claimValidationManager: InteractiveAuthFlowSessionClaimValidationManager,
     @Inject private val scopeGrantingManager: UserScopeGrantingManager,
     @Inject private val consentManager: ConsentManager,
-    @Inject private val mfaManager: InteractiveFlowSessionMfaManager,
+    @Inject private val uncheckedMfaConfig: MfaConfig,
+    @Inject private val totpManager: TotpManager,
     @Inject private val uncheckedFeaturesConfig: FeaturesConfig,
     @Inject private val clientManagerProvider: Provider<ClientManager>,
 ) : InteractiveFlowPurposeHandler {
@@ -83,12 +85,34 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
             it == InteractiveFlowPurpose.MFA_ENROLLMENT || it == InteractiveFlowPurpose.MFA_CHALLENGE
         }
         if (!hasMfaPurpose) {
-            val mfaPurpose = mfaManager.selectRequiredMfaPurpose(session)
+            val mfaPurpose = requiredMfaPurpose(session)
             if (mfaPurpose != null) {
                 return InteractiveFlowPurposeStepResult.Resolved(sessionManager.appendPurpose(session, mfaPurpose))
             }
         }
         return InteractiveFlowPurposeStepResult.Resolved(session)
+    }
+
+    /**
+     * Return the MFA purpose this OAuth2 session must go through before it can complete, or null when no MFA
+     * step is required. Evaluated only when MFA is enabled (TOTP configured):
+     * - the user is already enrolled -> [InteractiveFlowPurpose.MFA_CHALLENGE] (takes precedence over required)
+     * - the user signed up during this session -> [InteractiveFlowPurpose.MFA_ENROLLMENT] (skippable iff MFA
+     *   is not required)
+     * - MFA is required and the user is not enrolled -> [InteractiveFlowPurpose.MFA_ENROLLMENT] (forced)
+     * - otherwise (sign-in, not enrolled, not required) -> null
+     */
+    internal suspend fun requiredMfaPurpose(session: OnGoingInteractiveFlowSession): InteractiveFlowPurpose? {
+        val mfaConfig = uncheckedMfaConfig.orThrow()
+        if (!mfaConfig.enabled) return null
+        val userId = session.userId ?: return null
+        val enrolled = totpManager.findConfirmedEnrollments(userId).isNotEmpty()
+        return when {
+            enrolled -> InteractiveFlowPurpose.MFA_CHALLENGE
+            session.signedUp -> InteractiveFlowPurpose.MFA_ENROLLMENT
+            mfaConfig.required -> InteractiveFlowPurpose.MFA_ENROLLMENT
+            else -> null
+        }
     }
 
     /**

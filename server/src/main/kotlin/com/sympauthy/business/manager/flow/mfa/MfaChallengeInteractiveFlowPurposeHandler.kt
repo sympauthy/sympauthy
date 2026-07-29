@@ -13,8 +13,12 @@ import jakarta.inject.Singleton
 /**
  * [InteractiveFlowPurposeHandler] for [InteractiveFlowPurpose.MFA_CHALLENGE].
  *
- * Drives the end-user through a TOTP challenge with an already-enrolled authenticator. The purpose resolves
- * once the end-user has passed the MFA step for the session — set when a valid TOTP code is submitted.
+ * Drives the end-user through a challenge with an already-enrolled MFA method. The purpose resolves once the
+ * end-user has passed the MFA step for the session — set when a valid TOTP code is submitted.
+ *
+ * While not resolved, it presents the challenge method-selection step
+ * ([InteractiveFlowStep.MfaSelectionForChallenge]); that page lets the end-user choose which enrolled method
+ * to challenge, auto-redirecting to the method's challenge step when a single method is enrolled.
  *
  * This purpose is only ever appended to another purpose that requires MFA and whose user is enrolled; it is
  * therefore never a session's initiating purpose. [complete] is implemented for interface completeness.
@@ -30,7 +34,7 @@ class MfaChallengeInteractiveFlowPurposeHandler(
         return if (session.mfaPassed) {
             InteractiveFlowPurposeStepResult.Resolved(session)
         } else {
-            InteractiveFlowPurposeStepResult.Pending(session, InteractiveFlowStep.MfaTotpChallenge)
+            InteractiveFlowPurposeStepResult.Pending(session, InteractiveFlowStep.MfaSelectionForChallenge)
         }
     }
 

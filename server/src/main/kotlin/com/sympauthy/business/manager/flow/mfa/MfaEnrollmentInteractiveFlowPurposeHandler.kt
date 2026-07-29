@@ -13,12 +13,14 @@ import jakarta.inject.Singleton
 /**
  * [InteractiveFlowPurposeHandler] for [InteractiveFlowPurpose.MFA_ENROLLMENT].
  *
- * Drives the end-user through enrolling a TOTP authenticator. The purpose resolves once the end-user has
- * passed the MFA step for the session — set when the enrollment is confirmed (which doubles as passing the
- * challenge) or, when enrollment is optional, when it is skipped.
+ * Drives the end-user through enrolling an MFA method. The purpose resolves once the end-user has passed the
+ * MFA step for the session — set when the enrollment is confirmed (which doubles as passing the challenge)
+ * or, when enrollment is optional, when it is skipped.
  *
- * Which enrolled-vs-challenge purpose is required is decided when the purpose is appended (see the OAuth2
- * authorize handler), so this handler only ever presents the enrollment step.
+ * While not resolved, it presents the enrollment method-selection step
+ * ([InteractiveFlowStep.MfaSelectionForEnrollment]); that page lets the end-user choose the method to enroll
+ * (and skip when optional), auto-redirecting to the method's enrollment step when there is a single method and
+ * no skip.
  *
  * When this is the session's initiating purpose (a standalone, client-initiated enrollment), completing it
  * marks the session complete; the caller is then handed back at the API boundary.
@@ -34,7 +36,7 @@ class MfaEnrollmentInteractiveFlowPurposeHandler(
         return if (session.mfaPassed) {
             InteractiveFlowPurposeStepResult.Resolved(session)
         } else {
-            InteractiveFlowPurposeStepResult.Pending(session, InteractiveFlowStep.MfaTotpEnroll)
+            InteractiveFlowPurposeStepResult.Pending(session, InteractiveFlowStep.MfaSelectionForEnrollment)
         }
     }
 

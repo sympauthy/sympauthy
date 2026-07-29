@@ -50,15 +50,28 @@ class AuthorizationFlowsConfigValidator(
         val collectClaimsUri = resolveUri(rootUri, parsed.collectClaimsUri)
         val validateClaimsUri = resolveUri(rootUri, parsed.validateClaimsUri)
         val errorUri = resolveUri(rootUri, parsed.errorUri)
-        val mfaUri = parsed.mfaUri?.let { resolveUri(rootUri, it) }
+        val mfaSelectionForEnrollmentUri = parsed.mfaSelectionForEnrollmentUri?.let { resolveUri(rootUri, it) }
+        val mfaSelectionForChallengeUri = parsed.mfaSelectionForChallengeUri?.let { resolveUri(rootUri, it) }
         val mfaTotpEnrollUri = parsed.mfaTotpEnrollUri?.let { resolveUri(rootUri, it) }
         val mfaTotpChallengeUri = parsed.mfaTotpChallengeUri?.let { resolveUri(rootUri, it) }
 
-        // MFA cross-reference validation.
+        // MFA cross-reference validation: both selection pages are needed whenever MFA is enabled, since a
+        // sign-up can lead to enrollment (even when optional) and a sign-in of an enrolled user to a challenge.
         val mfaConfig = uncheckedMfaConfig as? EnabledMfaConfig
-        if (mfaConfig?.required == true && mfaUri == null) {
+        if (mfaConfig?.totp == true && mfaSelectionForEnrollmentUri == null) {
             subCtx.addError(
-                configExceptionOf("$configKeyPrefix.mfa", "config.flow.mfa.missing")
+                configExceptionOf(
+                    "$configKeyPrefix.mfa-selection-for-enrollment",
+                    "config.flow.mfa.selection_for_enrollment.missing"
+                )
+            )
+        }
+        if (mfaConfig?.totp == true && mfaSelectionForChallengeUri == null) {
+            subCtx.addError(
+                configExceptionOf(
+                    "$configKeyPrefix.mfa-selection-for-challenge",
+                    "config.flow.mfa.selection_for_challenge.missing"
+                )
             )
         }
         if (mfaConfig?.totp == true && mfaTotpEnrollUri == null) {
@@ -86,7 +99,8 @@ class AuthorizationFlowsConfigValidator(
             collectClaimsUri = collectClaimsUri,
             validateClaimsUri = validateClaimsUri,
             errorUri = errorUri,
-            mfaUri = mfaUri,
+            mfaSelectionForEnrollmentUri = mfaSelectionForEnrollmentUri,
+            mfaSelectionForChallengeUri = mfaSelectionForChallengeUri,
             mfaTotpEnrollUri = mfaTotpEnrollUri,
             mfaTotpChallengeUri = mfaTotpChallengeUri
         )

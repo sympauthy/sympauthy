@@ -28,13 +28,13 @@ class MfaChallengeInteractiveFlowPurposeHandlerTest {
     lateinit var handler: MfaChallengeInteractiveFlowPurposeHandler
 
     @Test
-    fun `getNextStep - Returns Pending MfaTotpChallenge when MFA not yet passed`() = runTest {
+    fun `getNextStep - Returns Pending MfaSelectionForChallenge when MFA not yet passed`() = runTest {
         val session = mockk<OnGoingInteractiveFlowSession> { every { mfaPassed } returns false }
 
         val result = handler.getNextStep(session)
 
         val pending = assertInstanceOf(InteractiveFlowPurposeStepResult.Pending::class.java, result)
-        assertEquals(InteractiveFlowStep.MfaTotpChallenge, pending.step)
+        assertEquals(InteractiveFlowStep.MfaSelectionForChallenge, pending.step)
     }
 
     @Test

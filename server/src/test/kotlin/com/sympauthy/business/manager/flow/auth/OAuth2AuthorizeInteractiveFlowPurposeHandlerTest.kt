@@ -7,7 +7,7 @@ import com.sympauthy.business.manager.auth.UserScopeGrantingManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
-import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaManager
+import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
@@ -27,6 +27,7 @@ import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.config.model.EnabledFeaturesConfig
+import com.sympauthy.config.model.EnabledMfaConfig
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -39,6 +40,7 @@ import jakarta.inject.Provider
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -72,7 +74,10 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     lateinit var consentManager: ConsentManager
 
     @MockK
-    lateinit var mfaManager: InteractiveFlowSessionMfaManager
+    lateinit var uncheckedMfaConfig: EnabledMfaConfig
+
+    @MockK
+    lateinit var totpManager: TotpManager
 
     @MockK
     lateinit var uncheckedFeaturesConfig: EnabledFeaturesConfig
@@ -137,7 +142,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         }
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2Of()
         coEvery { handler.computeStatus(session, any()) } returns OAuth2AuthorizeInteractiveFlowStatus()
-        coEvery { mfaManager.selectRequiredMfaPurpose(session) } returns null
+        coEvery { handler.requiredMfaPurpose(session) } returns null
 
         val result = handler.getNextStep(session)
 
@@ -153,7 +158,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         val appended = mockk<OnGoingInteractiveFlowSession>()
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2Of()
         coEvery { handler.computeStatus(session, any()) } returns OAuth2AuthorizeInteractiveFlowStatus()
-        coEvery { mfaManager.selectRequiredMfaPurpose(session) } returns InteractiveFlowPurpose.MFA_CHALLENGE
+        coEvery { handler.requiredMfaPurpose(session) } returns InteractiveFlowPurpose.MFA_CHALLENGE
         coEvery {
             sessionManager.appendPurpose(session, InteractiveFlowPurpose.MFA_CHALLENGE)
         } returns appended
@@ -166,8 +171,8 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
 
     @Test
     fun `getNextStep - Own steps satisfied does not re-append when an MFA purpose is already present`() = runTest {
-        // selectRequiredMfaPurpose / appendPurpose are left unstubbed: reaching the assertion proves the
-        // handler never consulted them because an MFA purpose is already in the list.
+        // requiredMfaPurpose / appendPurpose are left unstubbed: reaching the assertion proves the handler
+        // never consulted them because an MFA purpose is already in the list.
         val session = mockk<OnGoingInteractiveFlowSession> {
             every { purposes } returns listOf(
                 InteractiveFlowPurpose.OAUTH2_AUTHORIZE,
@@ -181,6 +186,67 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
 
         assertInstanceOf(InteractiveFlowPurposeStepResult.Resolved::class.java, result)
         assertSame(session, result.session)
+    }
+
+    // --- requiredMfaPurpose ---
+
+    @Test
+    fun `requiredMfaPurpose - Returns null when MFA is disabled`() = runTest {
+        val session = mockk<OnGoingInteractiveFlowSession>()
+        every { uncheckedMfaConfig.enabled } returns false
+
+        assertNull(handler.requiredMfaPurpose(session))
+    }
+
+    @Test
+    fun `requiredMfaPurpose - Returns MFA_CHALLENGE when the user is enrolled`() = runTest {
+        val userId = UUID.randomUUID()
+        val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
+        every { uncheckedMfaConfig.enabled } returns true
+        coEvery { totpManager.findConfirmedEnrollments(userId) } returns listOf(mockk())
+
+        assertEquals(InteractiveFlowPurpose.MFA_CHALLENGE, handler.requiredMfaPurpose(session))
+    }
+
+    @Test
+    fun `requiredMfaPurpose - Returns MFA_ENROLLMENT on sign-up when not enrolled`() = runTest {
+        val userId = UUID.randomUUID()
+        val session = mockk<OnGoingInteractiveFlowSession> {
+            every { this@mockk.userId } returns userId
+            every { signedUp } returns true
+        }
+        every { uncheckedMfaConfig.enabled } returns true
+        coEvery { totpManager.findConfirmedEnrollments(userId) } returns emptyList()
+
+        assertEquals(InteractiveFlowPurpose.MFA_ENROLLMENT, handler.requiredMfaPurpose(session))
+    }
+
+    @Test
+    fun `requiredMfaPurpose - Returns MFA_ENROLLMENT on sign-in when required and not enrolled`() = runTest {
+        val userId = UUID.randomUUID()
+        val session = mockk<OnGoingInteractiveFlowSession> {
+            every { this@mockk.userId } returns userId
+            every { signedUp } returns false
+        }
+        every { uncheckedMfaConfig.enabled } returns true
+        every { uncheckedMfaConfig.required } returns true
+        coEvery { totpManager.findConfirmedEnrollments(userId) } returns emptyList()
+
+        assertEquals(InteractiveFlowPurpose.MFA_ENROLLMENT, handler.requiredMfaPurpose(session))
+    }
+
+    @Test
+    fun `requiredMfaPurpose - Returns null on sign-in when not enrolled and not required`() = runTest {
+        val userId = UUID.randomUUID()
+        val session = mockk<OnGoingInteractiveFlowSession> {
+            every { this@mockk.userId } returns userId
+            every { signedUp } returns false
+        }
+        every { uncheckedMfaConfig.enabled } returns true
+        every { uncheckedMfaConfig.required } returns false
+        coEvery { totpManager.findConfirmedEnrollments(userId) } returns emptyList()
+
+        assertNull(handler.requiredMfaPurpose(session))
     }
 
     // --- complete effect ---

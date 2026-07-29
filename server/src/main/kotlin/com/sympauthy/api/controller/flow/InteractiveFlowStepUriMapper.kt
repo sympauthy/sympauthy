@@ -48,9 +48,15 @@ class InteractiveFlowStepUriMapper(
         InteractiveFlowStep.SignIn -> appendState(session, flow.signInUri)
         // Fall back to the sign-in page when the flow configures no sign-up page (web transport concern).
         InteractiveFlowStep.SignUp -> appendState(session, flow.signUpUri ?: flow.signInUri)
-        InteractiveFlowStep.Mfa -> appendState(
+        InteractiveFlowStep.MfaSelectionForEnrollment -> appendState(
             session,
-            flow.mfaUri ?: throw internalBusinessExceptionOf("flow.mfa.uri.missing")
+            flow.mfaSelectionForEnrollmentUri
+                ?: throw internalBusinessExceptionOf("flow.mfa.selection_for_enrollment_uri.missing")
+        )
+        InteractiveFlowStep.MfaSelectionForChallenge -> appendState(
+            session,
+            flow.mfaSelectionForChallengeUri
+                ?: throw internalBusinessExceptionOf("flow.mfa.selection_for_challenge_uri.missing")
         )
         InteractiveFlowStep.MfaTotpEnroll -> appendState(
             session,

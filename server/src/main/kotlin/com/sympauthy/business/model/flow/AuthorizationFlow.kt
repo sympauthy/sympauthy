@@ -59,12 +59,19 @@ class InteractiveFlow(
      */
     val errorUri: URI,
     /**
-     * [URI] of the MFA router page.
-     * The end-user is redirected here when MFA is required. That page calls GET /api/v1/flow/mfa
-     * to determine which MFA sub-step to present next (enrollment or challenge).
+     * [URI] of the MFA enrollment method-selection page.
+     * The end-user is redirected here when they must enroll an MFA method. That page calls
+     * GET /api/v1/flow/mfa to choose the method to enroll (and skip when optional).
      * Null if MFA is not configured for this flow.
      */
-    val mfaUri: URI? = null,
+    val mfaSelectionForEnrollmentUri: URI? = null,
+    /**
+     * [URI] of the MFA challenge method-selection page.
+     * The end-user is redirected here when they must challenge an enrolled MFA method. That page calls
+     * GET /api/v1/flow/mfa/challenge to choose the enrolled method to challenge.
+     * Null if MFA is not configured for this flow.
+     */
+    val mfaSelectionForChallengeUri: URI? = null,
     /**
      * [URI] of the page allowing the user to enroll a TOTP authenticator app.
      * Null if MFA via TOTP is not configured for this flow.

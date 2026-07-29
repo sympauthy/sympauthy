@@ -95,12 +95,12 @@ class InteractiveFlowEngineTest {
         every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns handler
         coEvery { handler.getNextStep(session) } returnsMany listOf(
             InteractiveFlowPurposeStepResult.Resolved(session),
-            InteractiveFlowPurposeStepResult.Pending(session, InteractiveFlowStep.Mfa)
+            InteractiveFlowPurposeStepResult.Pending(session, InteractiveFlowStep.MfaSelectionForEnrollment)
         )
 
         val result = engine.getCurrentStep(session)
 
-        assertEquals(InteractiveFlowStep.Mfa, result.step)
+        assertEquals(InteractiveFlowStep.MfaSelectionForEnrollment, result.step)
     }
 
     @Test
@@ -114,12 +114,12 @@ class InteractiveFlowEngineTest {
         every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns handler
         coEvery { handler.getNextStep(initial) } returns InteractiveFlowPurposeStepResult.Resolved(grown)
         coEvery { handler.getNextStep(grown) } returns
-            InteractiveFlowPurposeStepResult.Pending(grown, InteractiveFlowStep.Mfa)
+            InteractiveFlowPurposeStepResult.Pending(grown, InteractiveFlowStep.MfaSelectionForEnrollment)
 
         val result = engine.getCurrentStep(initial)
 
         assertSame(grown, result.session)
-        assertEquals(InteractiveFlowStep.Mfa, result.step)
+        assertEquals(InteractiveFlowStep.MfaSelectionForEnrollment, result.step)
     }
 
     @Test
