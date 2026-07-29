@@ -4,8 +4,10 @@ import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaEnrollmentManager
 import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.business.model.flow.InteractiveFlowSession
@@ -29,6 +31,7 @@ import java.net.URI
 class InteractiveFlowStepUriMapper(
     @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
+    @Inject private val mfaEnrollmentManager: InteractiveFlowSessionMfaEnrollmentManager,
     @Inject private val authorizationCodeManager: AuthorizationCodeManager,
     @Inject private val uncheckedUrlsConfig: UrlsConfig
 ) {
@@ -60,10 +63,34 @@ class InteractiveFlowStepUriMapper(
         InteractiveFlowStep.CollectClaims -> appendState(session, flow.collectClaimsUri)
         is InteractiveFlowStep.ValidateClaims -> appendState(session, buildValidateClaimsUri(flow, step.media))
         InteractiveFlowStep.Error -> appendState(session, flow.errorUri)
-        InteractiveFlowStep.Complete -> buildClientRedirectUri(
+        InteractiveFlowStep.Complete -> buildCompletionRedirectUri(
             session as? CompletedInteractiveFlowSession
                 ?: throw internalBusinessExceptionOf("flow.redirect.unhandled_status")
         )
+    }
+
+    /**
+     * Route a completed [session] to the URI where the end-user must be handed back, based on the purpose
+     * that initiated the session — issuing an authorization code to the client for an OAuth2 authorization,
+     * or returning to the caller-provided URI for a standalone MFA enrollment.
+     */
+    private suspend fun buildCompletionRedirectUri(session: CompletedInteractiveFlowSession): URI =
+        when (session.initiatingPurpose) {
+            InteractiveFlowPurpose.OAUTH2_AUTHORIZE -> buildClientRedirectUri(session)
+            InteractiveFlowPurpose.MFA_ENROLLMENT -> buildMfaEnrollmentReturnUri(session)
+            else -> throw internalBusinessExceptionOf(
+                "flow.redirect.unhandled_purpose",
+                "purpose" to session.initiatingPurpose.name
+            )
+        }
+
+    /**
+     * Return the caller-provided URI to redirect the end-user to once a standalone MFA enrollment completes.
+     * The URI was validated against the initiating client's registered redirect URIs when the enrollment
+     * started.
+     */
+    private suspend fun buildMfaEnrollmentReturnUri(session: CompletedInteractiveFlowSession): URI {
+        return URI.create(mfaEnrollmentManager.fetchMfaEnrollment(session).returnUri)
     }
 
     /**

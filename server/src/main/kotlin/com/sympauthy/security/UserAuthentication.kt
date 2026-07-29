@@ -64,3 +64,9 @@ val Authentication.userId: UUID
     get() = this.userAuthentication.authenticationToken.userId
         ?: throw httpExceptionOf(FORBIDDEN, "authentication.no_user", "description.authentication.no_user")
 
+/**
+ * The identifier of the client the access token authenticating this request was issued for.
+ */
+val Authentication.clientId: String
+    get() = this.userAuthentication.authenticationToken.clientId
+
