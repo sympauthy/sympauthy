@@ -1,6 +1,6 @@
 package com.sympauthy.business.manager.flow.auth
 
-import com.sympauthy.business.manager.flow.InteractiveFlowPurposeRegistry
+import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionProviderManager
@@ -55,7 +55,7 @@ open class InteractiveAuthFlowSessionOAuth2ProviderManager(
     @Inject private val providerClaimsManager: ProviderClaimsManager,
     @Inject private val providerClaimsResolver: ProviderClaimsResolver,
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
-    @Inject private val purposeRegistry: InteractiveFlowPurposeRegistry,
+    @Inject private val engine: InteractiveFlowEngine,
     @Inject private val tokenEndpointClient: TokenEndpointClient,
     @Inject private val userManager: UserManager,
     @Inject private val uncheckedAuthConfig: AuthConfig,
@@ -184,7 +184,7 @@ open class InteractiveAuthFlowSessionOAuth2ProviderManager(
         val updatedSession = sessionManager.setAuthenticatedUserId(session, userId)
 
         // Complete the flow if the end-user has no more step to go through.
-        return purposeRegistry.completeIfNecessary(updatedSession)
+        return engine.completeIfNecessary(updatedSession)
     }
 
     /**

@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.flow
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionMapper
+import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.config.model.AuthConfig
@@ -19,6 +20,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import java.time.LocalDateTime
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
@@ -125,5 +127,32 @@ class InteractiveFlowSessionManagerTest {
         assertTrue(result is SuccessVerifyEncodedStateResult)
         result as SuccessVerifyEncodedStateResult
         assertSame(session, result.session)
+    }
+
+    @Test
+    fun `appendPurpose - Persists the extended purpose list and returns the updated session`() = runTest {
+        val sessionId = UUID.randomUUID()
+        val session = OnGoingInteractiveFlowSession(
+            id = sessionId,
+            purposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE),
+            flowId = "flow-id",
+            expirationDate = LocalDateTime.now().plusHours(1),
+            sessionDate = LocalDateTime.now(),
+            userId = null,
+        )
+        // Stub with the exact expected persisted names so reaching the assertion proves the right list was saved.
+        coEvery {
+            sessionRepository.updatePurposes(
+                sessionId,
+                listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE.name, InteractiveFlowPurpose.OAUTH2_AUTHORIZE.name)
+            )
+        } returns Unit
+
+        val result = interactiveFlowSessionManager.appendPurpose(session, InteractiveFlowPurpose.OAUTH2_AUTHORIZE)
+
+        assertEquals(
+            listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, InteractiveFlowPurpose.OAUTH2_AUTHORIZE),
+            result.purposes
+        )
     }
 }

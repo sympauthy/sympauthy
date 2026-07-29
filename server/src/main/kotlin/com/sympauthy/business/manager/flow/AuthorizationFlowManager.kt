@@ -80,7 +80,7 @@ class AuthorizationFlowManager(
         if (session !is CompletedInteractiveFlowSession) {
             throw businessExceptionOf("token.expired")
         }
-        if (session.purpose != InteractiveFlowPurpose.OAUTH2_AUTHORIZE) {
+        if (session.initiatingPurpose != InteractiveFlowPurpose.OAUTH2_AUTHORIZE) {
             throw businessExceptionOf("token.expired")
         }
         if (session.expired) {

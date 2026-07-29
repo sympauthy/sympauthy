@@ -26,6 +26,8 @@ interface InteractiveFlowSessionRepository : CoroutineCrudRepository<Interactive
     )
     suspend fun findExpired(): List<InteractiveFlowSessionEntity>
 
+    suspend fun updatePurposes(@Id id: UUID, purposes: List<String>)
+
     suspend fun updateUserId(@Id id: UUID, userId: UUID)
 
     suspend fun updateMfaPassedDate(@Id id: UUID, mfaPassedDate: LocalDateTime)

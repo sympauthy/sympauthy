@@ -49,13 +49,13 @@ class InteractiveFlowSessionManager(
      * to persist an attached record atomically with the session).
      */
     suspend fun newSession(
-        purpose: InteractiveFlowPurpose,
+        purposes: List<InteractiveFlowPurpose>,
         flow: AuthorizationFlow? = null,
         error: BusinessException? = null
     ): InteractiveFlowSession {
         val now = LocalDateTime.now()
         val entity = InteractiveFlowSessionEntity(
-            purpose = purpose.name,
+            purposes = purposes.map(InteractiveFlowPurpose::name),
             flowId = flow?.id,
             sessionDate = now,
             expirationDate = now.plus(uncheckedAuthConfig.orThrow().authorizationCode.expiration),
@@ -149,6 +149,25 @@ class InteractiveFlowSessionManager(
     }
 
     /**
+     * Append [purpose] to the ordered list of purposes of the [session], persist it, and return the updated
+     * session.
+     *
+     * Used by a purpose handler that, as it resolves, needs a follow-up purpose to run before the session
+     * completes (e.g. the OAuth2 authorize purpose appending an MFA purpose).
+     */
+    suspend fun appendPurpose(
+        session: OnGoingInteractiveFlowSession,
+        purpose: InteractiveFlowPurpose
+    ): OnGoingInteractiveFlowSession {
+        val purposes = session.purposes + purpose
+        sessionRepository.updatePurposes(
+            id = session.id,
+            purposes = purposes.map(InteractiveFlowPurpose::name)
+        )
+        return session.copy(purposes = purposes)
+    }
+
+    /**
      * Set and save the error if it is non-recoverable to prevent further usage of the [session].
      * Do nothing if the [error] is recoverable.
      */
@@ -168,7 +187,7 @@ class InteractiveFlowSessionManager(
         )
         return FailedInteractiveFlowSession(
             id = session.id,
-            purpose = session.purpose,
+            purposes = session.purposes,
             flowId = session.flowId,
             errorDate = errorDate,
             errorDetailsId = error.detailsId,
@@ -197,7 +216,7 @@ class InteractiveFlowSessionManager(
         )
         return CompletedInteractiveFlowSession(
             id = session.id,
-            purpose = session.purpose,
+            purposes = session.purposes,
             flowId = session.flowId,
             expirationDate = session.expirationDate,
             sessionDate = session.sessionDate,

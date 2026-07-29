@@ -59,7 +59,7 @@ open class InteractiveFlowSessionOAuth2Manager(
         error: BusinessException? = null
     ): InteractiveFlowSession {
         val now = LocalDateTime.now()
-        val session = sessionManager.newSession(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, flow, error)
+        val session = sessionManager.newSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE), flow, error)
 
         // When no error, auto-consent consentable scopes at creation time.
         val consentableScopes = if (error == null) {
@@ -107,10 +107,10 @@ open class InteractiveFlowSessionOAuth2Manager(
      * — asking for the OAuth2 request record of a non-OAuth2 session is a programming error.
      */
     suspend fun fetchOAuth2OrNull(session: InteractiveFlowSession): InteractiveFlowSessionOAuth2? {
-        if (session.purpose != InteractiveFlowPurpose.OAUTH2_AUTHORIZE) {
+        if (session.initiatingPurpose != InteractiveFlowPurpose.OAUTH2_AUTHORIZE) {
             throw internalBusinessExceptionOf(
                 "auth.interactive_flow_session.oauth2.wrong_type",
-                "type" to session.purpose.name
+                "type" to session.initiatingPurpose.name
             )
         }
         return oauth2Repository.findBySessionId(session.id)

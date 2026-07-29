@@ -24,9 +24,14 @@ sealed class InteractiveFlowSession(
     val id: UUID,
 
     /**
-     * The purpose this session serves.
+     * The ordered list of purposes this session serves.
+     *
+     * The engine drives them in order: the first purpose is the one that initiated the session and owns the
+     * terminal handoff (e.g. issuing an authorization code); further purposes are appended by a purpose as it
+     * resolves (e.g. the OAuth2 authorize purpose appending an MFA purpose) and must all resolve before the
+     * session completes.
      */
-    val purpose: InteractiveFlowPurpose,
+    val purposes: List<InteractiveFlowPurpose>,
 
     /**
      * The identifier of the interactive flow the user is going through.
@@ -35,14 +40,20 @@ sealed class InteractiveFlowSession(
     val flowId: String?,
 
     override val expirationDate: LocalDateTime
-) : Expirable
+) : Expirable {
+
+    /**
+     * The purpose that initiated the session and owns its terminal handoff.
+     */
+    val initiatingPurpose: InteractiveFlowPurpose get() = purposes.first()
+}
 
 /**
  * Represents an interactive flow session that is ongoing.
  */
 class OnGoingInteractiveFlowSession(
     id: UUID,
-    purpose: InteractiveFlowPurpose,
+    purposes: List<InteractiveFlowPurpose>,
     flowId: String?,
     expirationDate: LocalDateTime,
 
@@ -64,7 +75,7 @@ class OnGoingInteractiveFlowSession(
     val mfaPassedDate: LocalDateTime? = null,
 ) : InteractiveFlowSession(
     id = id,
-    purpose = purpose,
+    purposes = purposes,
     flowId = flowId,
     expirationDate = expirationDate
 ) {
@@ -74,11 +85,12 @@ class OnGoingInteractiveFlowSession(
     val mfaPassed: Boolean get() = mfaPassedDate != null
 
     fun copy(
+        purposes: List<InteractiveFlowPurpose>? = null,
         userId: UUID? = null,
         mfaPassedDate: LocalDateTime? = null,
     ) = OnGoingInteractiveFlowSession(
         id = this.id,
-        purpose = this.purpose,
+        purposes = purposes ?: this.purposes,
         flowId = this.flowId,
         expirationDate = this.expirationDate,
         sessionDate = this.sessionDate,
@@ -95,7 +107,7 @@ class OnGoingInteractiveFlowSession(
  */
 class CompletedInteractiveFlowSession(
     id: UUID,
-    purpose: InteractiveFlowPurpose,
+    purposes: List<InteractiveFlowPurpose>,
     flowId: String?,
     expirationDate: LocalDateTime,
 
@@ -121,7 +133,7 @@ class CompletedInteractiveFlowSession(
     val completeDate: LocalDateTime,
 ) : InteractiveFlowSession(
     id = id,
-    purpose = purpose,
+    purposes = purposes,
     flowId = flowId,
     expirationDate = expirationDate
 )
@@ -131,7 +143,7 @@ class CompletedInteractiveFlowSession(
  */
 class FailedInteractiveFlowSession(
     id: UUID,
-    purpose: InteractiveFlowPurpose,
+    purposes: List<InteractiveFlowPurpose>,
     flowId: String?,
     expirationDate: LocalDateTime,
 
@@ -158,7 +170,7 @@ class FailedInteractiveFlowSession(
     val errorDate: LocalDateTime,
 ) : InteractiveFlowSession(
     id = id,
-    purpose = purpose,
+    purposes = purposes,
     flowId = flowId,
     expirationDate = expirationDate
 )

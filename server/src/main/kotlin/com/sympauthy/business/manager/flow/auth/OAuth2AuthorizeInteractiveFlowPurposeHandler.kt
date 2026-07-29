@@ -11,11 +11,9 @@ import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.code.ValidationCodeReason
-import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
-import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
+import com.sympauthy.business.model.flow.InteractiveFlowPurposeStepResult
 import com.sympauthy.business.model.flow.InteractiveFlowStep
-import com.sympauthy.business.model.flow.InteractiveFlowStepResult
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.auth.OAuth2AuthorizeInteractiveFlowStatus
@@ -52,37 +50,28 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
 
     override val purpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE
 
-    override suspend fun getCurrentStep(session: InteractiveFlowSession): InteractiveFlowStepResult = when (session) {
-        is FailedInteractiveFlowSession -> InteractiveFlowStepResult(session, InteractiveFlowStep.Error)
-        is CompletedInteractiveFlowSession -> InteractiveFlowStepResult(session, InteractiveFlowStep.Complete)
-        is OnGoingInteractiveFlowSession -> resolveOnGoingStep(session)
-    }
-
-    private suspend fun resolveOnGoingStep(session: OnGoingInteractiveFlowSession): InteractiveFlowStepResult {
+    override suspend fun getNextStep(session: OnGoingInteractiveFlowSession): InteractiveFlowPurposeStepResult {
         // Fetch the OAuth2 record once and thread it into the status computation and the sign-in/up branch.
         val oauth2 = oauth2Manager.fetchOAuth2(session)
         val status = computeStatus(session, oauth2)
         return when {
-            status.missingUser -> InteractiveFlowStepResult(
+            status.missingUser -> InteractiveFlowPurposeStepResult.Pending(
                 session,
                 if (oauth2.invitationId != null) InteractiveFlowStep.SignUp else InteractiveFlowStep.SignIn
             )
 
-            status.missingMfa -> InteractiveFlowStepResult(session, InteractiveFlowStep.Mfa)
+            status.missingMfa -> InteractiveFlowPurposeStepResult.Pending(session, InteractiveFlowStep.Mfa)
 
-            status.missingRequiredClaims -> InteractiveFlowStepResult(session, InteractiveFlowStep.CollectClaims)
+            status.missingRequiredClaims ->
+                InteractiveFlowPurposeStepResult.Pending(session, InteractiveFlowStep.CollectClaims)
 
-            status.missingMediaForClaimValidation.isNotEmpty() -> InteractiveFlowStepResult(
+            status.missingMediaForClaimValidation.isNotEmpty() -> InteractiveFlowPurposeStepResult.Pending(
                 session,
                 InteractiveFlowStep.ValidateClaims(status.missingMediaForClaimValidation.first())
             )
 
-            // Every required step is satisfied: complete the flow and route on the completion outcome.
-            else -> when (val completed = complete(session)) {
-                is CompletedInteractiveFlowSession -> InteractiveFlowStepResult(completed, InteractiveFlowStep.Complete)
-                is FailedInteractiveFlowSession -> InteractiveFlowStepResult(completed, InteractiveFlowStep.Error)
-                is OnGoingInteractiveFlowSession -> throw internalBusinessExceptionOf("flow.redirect.unhandled_status")
-            }
+            // Every step this purpose requires is satisfied.
+            else -> InteractiveFlowPurposeStepResult.Resolved(session)
         }
     }
 
@@ -133,7 +122,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
      * user authorized for the client. If an active consent already exists for this user+client pair, it is
      * revoked and replaced.
      */
-    internal suspend fun complete(session: OnGoingInteractiveFlowSession): InteractiveFlowSession {
+    override suspend fun complete(session: OnGoingInteractiveFlowSession): InteractiveFlowSession {
         val featuresConfig = uncheckedFeaturesConfig.orThrow()
 
         // Fetch all collected claims regardless of consent so the granting manager can access them all.

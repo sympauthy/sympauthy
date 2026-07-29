@@ -4,7 +4,7 @@ import com.sympauthy.api.mapper.flow.FlowErrorResourceMapper
 import com.sympauthy.api.resource.flow.FlowErrorResource
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.flow.FailedVerifyEncodedStateResult
-import com.sympauthy.business.manager.flow.InteractiveFlowPurposeRegistry
+import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.SuccessVerifyEncodedStateResult
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
@@ -26,7 +26,7 @@ import jakarta.inject.Inject
 class ErrorController(
     @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
-    @Inject private val purposeRegistry: InteractiveFlowPurposeRegistry,
+    @Inject private val engine: InteractiveFlowEngine,
     @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
     @Inject private val flowErrorResourceMapper: FlowErrorResourceMapper,
 ) {
@@ -68,7 +68,7 @@ Result containing either:
                         val flow = interactiveAuthFlowSessionManager.findById(
                             session.flowId
                         )
-                        val (steppedSession, step) = purposeRegistry.getForSession(session).getCurrentStep(session)
+                        val (steppedSession, step) = engine.getCurrentStep(session)
                         val redirectUri = stepUriMapper.toRedirectUri(
                             session = steppedSession,
                             flow = flow,
