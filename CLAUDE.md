@@ -167,6 +167,12 @@ they are kept generic. Distinct from the sealed base `AuthorizationFlow` (+ `Non
   is read only on the ongoing/completed path, where the record always exists.
 - OAuth2 fields (clientId, scopes, consent, grant, PKCE) and provider fields are **fetched via the managers**, never
   read off the session object.
+- **Pass the required subpart alongside the session to avoid refetching.** When a manager method needs an attached
+  record (OAuth2 / provider) that the caller already holds — or that a validation step just fetched — accept it as a
+  (possibly nullable) parameter and validate it there, rather than each method re-fetching it. Example:
+  `checkCanIssueToken(session, oauth2, client)` validates the nullable OAuth2 record and returns it non-null, and
+  `generateTokens(session, oauth2, client)` takes that record so the token endpoint reads it once. Keep the fetch at
+  the top of a request/flow and thread the record downward.
 
 ## Libraries
 
