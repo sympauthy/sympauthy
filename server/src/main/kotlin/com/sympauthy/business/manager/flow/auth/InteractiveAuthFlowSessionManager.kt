@@ -10,15 +10,17 @@ import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.manager.invitation.InvitationManager
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.code.ValidationCodeReason
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
-import com.sympauthy.business.model.flow.InteractiveFlowSession
-import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlow
+import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.InteractiveFlowStatus
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.config.model.ClientTemplatesConfig
@@ -408,6 +410,10 @@ class InteractiveAuthFlowSessionManager(
     ): Boolean {
         val oauth2 = oauth2Manager.fetchOAuth2(session)
         val audience = clientManager.findClientById(oauth2.clientId).audience
+        return isSignUpAllowed(audience, oauth2)
+    }
+
+    private fun isSignUpAllowed(audience: Audience, oauth2: InteractiveFlowSessionOAuth2): Boolean {
         return audience.signUpEnabled || (audience.invitationEnabled && oauth2.invitationId != null)
     }
 
@@ -425,11 +431,12 @@ class InteractiveAuthFlowSessionManager(
         session: OnGoingInteractiveFlowSession,
         recoverable: Boolean
     ) {
-        if (isSignUpAllowed(session)) {
+        // Fetch the OAuth2 record and resolve the audience once, reused for the check and the error below.
+        val oauth2 = oauth2Manager.fetchOAuth2(session)
+        val audience = clientManager.findClientById(oauth2.clientId).audience
+        if (isSignUpAllowed(audience, oauth2)) {
             return
         }
-        // Not allowed: pick the precise error. Re-reads the audience only on the rejection path.
-        val audience = clientManager.findClientById(oauth2Manager.fetchOAuth2(session).clientId).audience
         if (!audience.signUpEnabled && !audience.invitationEnabled) {
             throw BusinessException(
                 recoverable = recoverable,

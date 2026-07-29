@@ -148,7 +148,9 @@ open class InteractiveAuthFlowSessionOAuth2ProviderManager(
         }
 
         // Verify the provider ID in the callback matches the one stored during the authorization redirect.
-        val storedProviderId = providerManager.fetchProviderOrNull(session)?.providerId
+        // Fetch the provider record once and reuse it for the nonce reconstruction below.
+        val sessionProvider = providerManager.fetchProviderOrNull(session)
+        val storedProviderId = sessionProvider?.providerId
         if (storedProviderId != null && storedProviderId != providerId) {
             throw businessExceptionOf(
                 "flow.web_oauth2_provider.provider_mismatch",
@@ -160,7 +162,7 @@ open class InteractiveAuthFlowSessionOAuth2ProviderManager(
         val provider = providerConfigManager.findByIdAndCheckEnabled(providerId)
 
         val tokens = fetchTokens(provider, provider.auth, authorizeCode)
-        val expectedNonce = providerManager.buildProviderNonceOrNull(session)
+        val expectedNonce = providerManager.buildProviderNonceOrNull(sessionProvider)
         val rawUserInfo = providerClaimsResolver.resolveClaims(provider, tokens, expectedNonce)
 
         val existingUserInfo = providerClaimsManager.findByProviderAndSubject(

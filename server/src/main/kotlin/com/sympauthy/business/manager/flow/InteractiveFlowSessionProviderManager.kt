@@ -63,12 +63,15 @@ class InteractiveFlowSessionProviderManager(
     }
 
     /**
-     * Reconstruct the full provider nonce JWT from the session's stored jti.
-     * Returns null if the session has no provider nonce.
+     * Reconstruct the full provider nonce JWT from the [provider] record's stored jti.
+     * Returns null if there is no [provider] record or it carries no nonce jti.
+     *
+     * Takes the already-fetched record (rather than re-fetching by session) so a caller that also needs the
+     * provider record for other checks fetches it once.
      */
-    suspend fun buildProviderNonceOrNull(session: InteractiveFlowSession): String? {
-        val jti = providerRepository.findBySessionId(session.id)?.providerNonceJsonWebTokenId ?: return null
-        return buildProviderNonce(session.id, jti)
+    suspend fun buildProviderNonceOrNull(provider: InteractiveFlowSessionProvider?): String? {
+        val jti = provider?.providerNonceJsonWebTokenId ?: return null
+        return buildProviderNonce(provider.sessionId, jti)
     }
 
     private suspend fun buildProviderNonce(sessionId: UUID, jti: UUID): String {
