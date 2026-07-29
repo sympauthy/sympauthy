@@ -21,6 +21,7 @@ import jakarta.inject.Inject
 @Controller("/api/v1/flow/mfa")
 class MfaController(
     @Inject private val mfaManager: InteractiveFlowSessionMfaManager,
+    @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
     @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
 ) {
 
@@ -53,13 +54,20 @@ Returns one of two response shapes depending on the situation:
         interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionWithUserThenRun(
             state = authentication.stateOrNull,
             run = { session, flow, user ->
-                when (val result = mfaManager.getMfaResult(session, user, flow, MFA_SKIP_ENDPOINT)) {
-                    is MfaAutoRedirect -> MfaFlowResource(redirectUrl = result.uri.toString())
+                when (val result = mfaManager.getMfaResult(user)) {
+                    is MfaAutoRedirect -> MfaFlowResource(
+                        redirectUrl = stepUriMapper.toRedirectUri(session, flow, result.step).toString()
+                    )
                     is MfaMethodSelection -> MfaFlowResource(
                         methods = result.methods.map {
-                            MfaMethodResource(method = it.name, redirectUrl = it.uri.toString())
+                            MfaMethodResource(
+                                method = it.name,
+                                redirectUrl = stepUriMapper.toRedirectUri(session, flow, it.step).toString()
+                            )
                         },
-                        skipRedirectUrl = result.skipUri?.toString()
+                        skipRedirectUrl = if (result.skippable) {
+                            stepUriMapper.getMfaSkipUri(session, MFA_SKIP_ENDPOINT).toString()
+                        } else null
                     )
                 }
             }

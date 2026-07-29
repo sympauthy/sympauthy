@@ -4,10 +4,10 @@ import com.sympauthy.api.mapper.flow.FlowErrorResourceMapper
 import com.sympauthy.api.resource.flow.FlowErrorResource
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.flow.FailedVerifyEncodedStateResult
+import com.sympauthy.business.manager.flow.InteractiveFlowPurposeRegistry
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.SuccessVerifyEncodedStateResult
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
-import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionRedirectUriBuilder
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
@@ -26,7 +26,8 @@ import jakarta.inject.Inject
 class ErrorController(
     @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
-    @Inject private val redirectUriBuilder: InteractiveAuthFlowSessionRedirectUriBuilder,
+    @Inject private val purposeRegistry: InteractiveFlowPurposeRegistry,
+    @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
     @Inject private val flowErrorResourceMapper: FlowErrorResourceMapper,
 ) {
 
@@ -67,13 +68,11 @@ Result containing either:
                         val flow = interactiveAuthFlowSessionManager.findById(
                             session.flowId
                         )
-                        val (potentiallyCompletedSession, status) = interactiveAuthFlowSessionManager.getStatusAndCompleteIfNecessary(
-                            session = session,
-                        )
-                        val redirectUri = redirectUriBuilder.getRedirectUri(
-                            session = potentiallyCompletedSession,
+                        val (steppedSession, step) = purposeRegistry.getForSession(session).getCurrentStep(session)
+                        val redirectUri = stepUriMapper.toRedirectUri(
+                            session = steppedSession,
                             flow = flow,
-                            status = status
+                            step = step
                         )
                         flowErrorResourceMapper.toResource(redirectUri)
                     }

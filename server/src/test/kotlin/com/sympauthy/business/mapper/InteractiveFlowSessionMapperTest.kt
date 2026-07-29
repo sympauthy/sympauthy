@@ -3,7 +3,7 @@ package com.sympauthy.business.mapper
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
-import com.sympauthy.business.model.flow.InteractiveFlowSessionType
+import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import org.junit.jupiter.api.Assertions.*
@@ -140,7 +140,7 @@ class InteractiveFlowSessionMapperTest {
 
     private fun entity(
         id: UUID? = UUID.randomUUID(),
-        type: InteractiveFlowSessionType = InteractiveFlowSessionType.OAUTH2,
+        purpose: InteractiveFlowPurpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE,
         flowId: String? = "flow",
         sessionDate: LocalDateTime = LocalDateTime.now().minusMinutes(2),
         expirationDate: LocalDateTime = LocalDateTime.now().plusMinutes(10),
@@ -153,7 +153,7 @@ class InteractiveFlowSessionMapperTest {
         errorValues: Map<String, String>? = null,
     ): InteractiveFlowSessionEntity {
         return InteractiveFlowSessionEntity(
-            type = type.name,
+            purpose = purpose.name,
             sessionDate = sessionDate,
             flowId = flowId,
             expirationDate = expirationDate,

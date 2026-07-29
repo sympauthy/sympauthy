@@ -11,7 +11,6 @@ import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionPasswordManager
-import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionRedirectUriBuilder
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.security.SecurityRule.HAS_STATE
@@ -37,7 +36,7 @@ class SignUpController(
     @Inject private val passwordFlowManager: InteractiveAuthFlowSessionPasswordManager,
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
-    @Inject private val redirectUriBuilder: InteractiveAuthFlowSessionRedirectUriBuilder,
+    @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
     @Inject private val collectedClaimUpdateMapper: CollectedClaimUpdateMapper,
     @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil,
     @Inject @param:DisplayMessages private val displayMessageSource: MessageSource
@@ -76,7 +75,7 @@ on-going flow. All URLs it contains already include the state query param.
 
     /**
      * The sign-up step applies while no user is associated to the [session] yet and sign-up is allowed for
-     * the audience of the client. When it does not apply, [InteractiveAuthFlowSessionRedirectUriBuilder] redirects an
+     * the audience of the client. When it does not apply, [OAuth2AuthorizeInteractiveFlowPurposeHandler] redirects an
      * unauthenticated end-user with no invitation to the sign-in page.
      */
     private suspend fun signUpApplies(
@@ -108,7 +107,7 @@ on-going flow. All URLs it contains already include the state query param.
             )
         }
         val signInRedirectUrl = if (oauth2Manager.fetchOAuth2(session).invitationId == null) {
-            redirectUriBuilder.getSignInRedirectUri(session, flow).toString()
+            stepUriMapper.getSignInRedirectUri(session, flow).toString()
         } else null
         return SignUpFlowResource(
             password = password,

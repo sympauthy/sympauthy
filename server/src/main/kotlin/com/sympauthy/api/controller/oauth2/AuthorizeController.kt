@@ -1,9 +1,10 @@
 package com.sympauthy.api.controller.oauth2
 
 import com.sympauthy.api.controller.oauth2.AuthorizeController.Companion.OAUTH2_AUTHORIZE_ENDPOINT
+import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
 import com.sympauthy.api.exception.oauth2ExceptionOf
+import com.sympauthy.business.manager.flow.InteractiveFlowPurposeRegistry
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
-import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionRedirectUriBuilder
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.UNSUPPORTED_RESPONSE_TYPE
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.annotation.Controller
@@ -22,7 +23,8 @@ import jakarta.inject.Inject
 @Secured(IS_ANONYMOUS)
 open class AuthorizeController(
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
-    @Inject private val redirectUriBuilder: InteractiveAuthFlowSessionRedirectUriBuilder
+    @Inject private val purposeRegistry: InteractiveFlowPurposeRegistry,
+    @Inject private val stepUriMapper: InteractiveFlowStepUriMapper
 ) {
 
     @Operation(
@@ -181,11 +183,11 @@ The authorization server includes this value unmodified in the ID Token.
             uncheckedCodeChallengeMethod = uncheckedCodeChallengeMethod,
             uncheckedInvitationToken = uncheckedInvitationToken
         )
-        val status = interactiveAuthFlowSessionManager.getStatus(session)
-        val redirectUri = redirectUriBuilder.getRedirectUri(
-            session = session,
+        val (steppedSession, step) = purposeRegistry.getForSession(session).getCurrentStep(session)
+        val redirectUri = stepUriMapper.toRedirectUri(
+            session = steppedSession,
             flow = flow,
-            status = status
+            step = step
         )
         return HttpResponse.seeOther<Any>(redirectUri)
     }

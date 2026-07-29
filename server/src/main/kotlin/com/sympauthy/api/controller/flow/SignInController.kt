@@ -12,7 +12,6 @@ import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionPasswordManager
-import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionRedirectUriBuilder
 import com.sympauthy.business.manager.provider.ProviderManager
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
@@ -42,7 +41,7 @@ class SignInController(
     @Inject private val providerManager: ProviderManager,
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
-    @Inject private val redirectUriBuilder: InteractiveAuthFlowSessionRedirectUriBuilder,
+    @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
     @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil,
     @Inject private val uncheckedUrlsConfig: UrlsConfig
 ) {
@@ -77,7 +76,7 @@ on-going flow. All URLs it contains already include the state query param.
     /**
      * The sign-in step applies while no user is associated to the [session] yet, unless the flow is an
      * invitation flow with a sign-up page (in which case the end-user must be redirected to sign-up).
-     * The predicate mirrors [InteractiveAuthFlowSessionRedirectUriBuilder] so a not-applicable step never redirects to itself.
+     * The predicate mirrors [OAuth2AuthorizeInteractiveFlowPurposeHandler] so a not-applicable step never redirects to itself.
      */
     private suspend fun signInApplies(
         session: OnGoingInteractiveFlowSession,
@@ -106,7 +105,7 @@ on-going flow. All URLs it contains already include the state query param.
         val signUpRedirectUrl = if (
             interactiveAuthFlowSessionManager.isSignUpAllowed(session) && flow.signUpUri != null
         ) {
-            redirectUriBuilder.getSignUpRedirectUri(session, flow)?.toString()
+            stepUriMapper.getSignUpRedirectUri(session, flow)?.toString()
         } else null
         return SignInFlowResource(
             password = password,
@@ -124,7 +123,7 @@ on-going flow. All URLs it contains already include the state query param.
             FLOW_PROVIDER_ENDPOINTS + FLOW_PROVIDER_AUTHORIZE_ENDPOINT,
             "providerId" to provider.id
         )
-        val authorizeUrl = redirectUriBuilder.appendStateToUri(session, authorizeUri)
+        val authorizeUrl = stepUriMapper.appendState(session, authorizeUri)
         return ProviderResource(
             id = provider.id,
             name = provider.name,

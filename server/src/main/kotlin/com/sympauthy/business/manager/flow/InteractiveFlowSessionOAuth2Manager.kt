@@ -9,7 +9,7 @@ import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
-import com.sympauthy.business.model.flow.InteractiveFlowSessionType
+import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
@@ -59,7 +59,7 @@ open class InteractiveFlowSessionOAuth2Manager(
         error: BusinessException? = null
     ): InteractiveFlowSession {
         val now = LocalDateTime.now()
-        val session = sessionManager.newSession(InteractiveFlowSessionType.OAUTH2, flow, error)
+        val session = sessionManager.newSession(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, flow, error)
 
         // When no error, auto-consent consentable scopes at creation time.
         val consentableScopes = if (error == null) {
@@ -103,14 +103,14 @@ open class InteractiveFlowSessionOAuth2Manager(
      * Return the [InteractiveFlowSessionOAuth2] record attached to the [session], or null if the session
      * has no attached OAuth2 record.
      *
-     * Throws an internal [BusinessException] if the [session]'s type is not [InteractiveFlowSessionType.OAUTH2]
+     * Throws an internal [BusinessException] if the [session]'s purpose is not [InteractiveFlowPurpose.OAUTH2_AUTHORIZE]
      * — asking for the OAuth2 request record of a non-OAuth2 session is a programming error.
      */
     suspend fun fetchOAuth2OrNull(session: InteractiveFlowSession): InteractiveFlowSessionOAuth2? {
-        if (session.type != InteractiveFlowSessionType.OAUTH2) {
+        if (session.purpose != InteractiveFlowPurpose.OAUTH2_AUTHORIZE) {
             throw internalBusinessExceptionOf(
                 "auth.interactive_flow_session.oauth2.wrong_type",
-                "type" to session.type.name
+                "type" to session.purpose.name
             )
         }
         return oauth2Repository.findBySessionId(session.id)

@@ -2,35 +2,31 @@ package com.sympauthy.business.manager.flow.mfa
 
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
-import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionRedirectUriBuilder
 import com.sympauthy.business.manager.mfa.TotpManager
-import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
-import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.config.model.orThrow
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import java.net.URI
 
 sealed class MfaRoutingResult
 
-data class MfaAutoRedirect(val uri: URI) : MfaRoutingResult()
+data class MfaAutoRedirect(val step: InteractiveFlowStep) : MfaRoutingResult()
 
 data class MfaMethodSelection(
     val methods: List<AvailableMfaMethod>,
-    val skipUri: URI?
+    val skippable: Boolean
 ) : MfaRoutingResult()
 
-data class AvailableMfaMethod(val name: String, val uri: URI)
+data class AvailableMfaMethod(val name: String, val step: InteractiveFlowStep)
 
 @Singleton
 class InteractiveFlowSessionMfaManager(
     @Inject private val uncheckedMfaConfig: MfaConfig,
     @Inject private val sessionManager: InteractiveFlowSessionManager,
-    @Inject private val totpManager: TotpManager,
-    @Inject private val redirectUriBuilder: InteractiveAuthFlowSessionRedirectUriBuilder
+    @Inject private val totpManager: TotpManager
 ) {
 
     /**
@@ -45,10 +41,7 @@ class InteractiveFlowSessionMfaManager(
      * | false    | 0                | Method selection: all methods as enrollment offers + skip |
      */
     suspend fun getMfaResult(
-        session: InteractiveFlowSession,
-        user: User,
-        flow: InteractiveFlow,
-        skipEndpointPath: String
+        user: User
     ): MfaRoutingResult {
         val mfaConfig = uncheckedMfaConfig.orThrow()
         val enrollments = totpManager.findConfirmedEnrollments(user.id)
@@ -56,34 +49,28 @@ class InteractiveFlowSessionMfaManager(
         return when {
             // User is enrolled in exactly one method — go straight to its challenge.
             enrollments.size == 1 ->
-                MfaAutoRedirect(redirectUriBuilder.getMfaTotpChallengeUri(session, flow))
+                MfaAutoRedirect(InteractiveFlowStep.MfaTotpChallenge)
 
             // User is enrolled in multiple methods (future) — let them pick, but no skip.
             enrollments.size > 1 ->
                 MfaMethodSelection(
                     methods = listOf(
-                        AvailableMfaMethod(
-                            name = "TOTP",
-                            uri = redirectUriBuilder.getMfaTotpChallengeUri(session, flow)
-                        )
+                        AvailableMfaMethod(name = "TOTP", step = InteractiveFlowStep.MfaTotpChallenge)
                     ),
-                    skipUri = null
+                    skippable = false
                 )
 
             // Not enrolled + required — force enrollment in the only available method.
             mfaConfig.required ->
-                MfaAutoRedirect(redirectUriBuilder.getMfaTotpEnrollUri(session, flow))
+                MfaAutoRedirect(InteractiveFlowStep.MfaTotpEnroll)
 
             // Not enrolled + optional — offer enrollment with the option to skip.
             else ->
                 MfaMethodSelection(
                     methods = listOf(
-                        AvailableMfaMethod(
-                            name = "TOTP",
-                            uri = redirectUriBuilder.getMfaTotpEnrollUri(session, flow)
-                        )
+                        AvailableMfaMethod(name = "TOTP", step = InteractiveFlowStep.MfaTotpEnroll)
                     ),
-                    skipUri = redirectUriBuilder.getMfaSkipUri(session, skipEndpointPath)
+                    skippable = true
                 )
         }
     }

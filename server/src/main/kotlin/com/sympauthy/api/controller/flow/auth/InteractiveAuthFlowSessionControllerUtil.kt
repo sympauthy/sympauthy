@@ -1,12 +1,13 @@
 package com.sympauthy.api.controller.flow.auth
 
+import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
 import com.sympauthy.api.exception.httpExceptionOf
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.flow.FailedVerifyEncodedStateResult
+import com.sympauthy.business.manager.flow.InteractiveFlowPurposeRegistry
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.SuccessVerifyEncodedStateResult
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
-import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionRedirectUriBuilder
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
@@ -31,8 +32,22 @@ class InteractiveAuthFlowSessionControllerUtil(
     @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val userManager: UserManager,
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
-    @Inject private val redirectUriBuilder: InteractiveAuthFlowSessionRedirectUriBuilder
+    @Inject private val purposeRegistry: InteractiveFlowPurposeRegistry,
+    @Inject private val stepUriMapper: InteractiveFlowStepUriMapper
 ) {
+
+    /**
+     * Resolve the current [com.sympauthy.business.model.flow.InteractiveFlowStep] of the [session] (running
+     * any completion transition), then map it to the [URI] where the end-user must be redirected within the
+     * [flow].
+     */
+    private suspend fun redirectToCurrentStep(
+        session: InteractiveFlowSession,
+        flow: InteractiveFlow
+    ): URI {
+        val (steppedSession, step) = purposeRegistry.getForSession(session).getCurrentStep(session)
+        return stepUriMapper.toRedirectUri(steppedSession, flow, step)
+    }
 
     /**
      * Call the [run] function with the [OnGoingInteractiveFlowSession] and [InteractiveFlow] associated to the [state].
@@ -93,7 +108,7 @@ class InteractiveAuthFlowSessionControllerUtil(
             interactiveAuthFlowSessionManager.findById(session.flowId)
         } catch (_: BusinessException) {
             // Redirect to the error page of the default flow since the information on the exact flow is missing.
-            val redirectUri = redirectUriBuilder.getErrorUri(
+            val redirectUri = stepUriMapper.getErrorUri(
                 session = session,
                 flow = interactiveAuthFlowSessionManager.getDefaultInteractiveFlow(),
             )
@@ -118,14 +133,7 @@ class InteractiveAuthFlowSessionControllerUtil(
         return if (runResult != null && mapResultToResource != null) {
             mapResultToResource(runResult)
         } else {
-            val (afterCompleteSession, status) = interactiveAuthFlowSessionManager.getStatusAndCompleteIfNecessary(
-                session = afterExceptionHandlingSession,
-            )
-            val redirectUri = redirectUriBuilder.getRedirectUri(
-                session = afterCompleteSession,
-                flow = flow,
-                status = status
-            )
+            val redirectUri = redirectToCurrentStep(afterExceptionHandlingSession, flow)
             mapRedirectUriToResource(redirectUri)
         }
     }
@@ -156,7 +164,7 @@ class InteractiveAuthFlowSessionControllerUtil(
             interactiveAuthFlowSessionManager.findById(session.flowId)
         } catch (_: BusinessException) {
             // Redirect to the error page of the default flow since the information on the exact flow is missing.
-            val redirectUri = redirectUriBuilder.getErrorUri(
+            val redirectUri = stepUriMapper.getErrorUri(
                 session = session,
                 flow = interactiveAuthFlowSessionManager.getDefaultInteractiveFlow(),
             )
@@ -167,8 +175,8 @@ class InteractiveAuthFlowSessionControllerUtil(
         val user = try {
             userManager.findByIdOrNull(onGoingSession?.userId)
         } catch (_: BusinessException) {
-            // If the user is missing for the operation, we let the [getStatusAndCompleteIfNecessary] and
-            // [getRedirectUri] methods redirect the user to the proper step.
+            // If the user is missing for the operation, we let the step engine redirect the user to the
+            // proper step.
             // ex. the end-user is trying to access the claims validation step before signing in.
             null
         }
@@ -191,14 +199,7 @@ class InteractiveAuthFlowSessionControllerUtil(
         return if (runResult != null && mapResultToResource != null) {
             mapResultToResource(runResult)
         } else {
-            val (afterCompleteSession, status) = interactiveAuthFlowSessionManager.getStatusAndCompleteIfNecessary(
-                session = afterExceptionHandlingSession,
-            )
-            val redirectUri = redirectUriBuilder.getRedirectUri(
-                session = afterCompleteSession,
-                flow = flow,
-                status = status
-            )
+            val redirectUri = redirectToCurrentStep(afterExceptionHandlingSession, flow)
             mapRedirectUriToResource(redirectUri)
         }
     }
@@ -226,7 +227,7 @@ class InteractiveAuthFlowSessionControllerUtil(
             interactiveAuthFlowSessionManager.findById(session.flowId)
         } catch (_: BusinessException) {
             // Redirect to the error page of the default flow since the information on the exact flow is missing.
-            val redirectUri = redirectUriBuilder.getErrorUri(
+            val redirectUri = stepUriMapper.getErrorUri(
                 session = session,
                 flow = interactiveAuthFlowSessionManager.getDefaultInteractiveFlow(),
             )
@@ -250,14 +251,7 @@ class InteractiveAuthFlowSessionControllerUtil(
             exception = updateException
         )
 
-        val (afterCompleteSession, status) = interactiveAuthFlowSessionManager.getStatusAndCompleteIfNecessary(
-            session = afterExceptionHandlingSession,
-        )
-        val redirectUri = redirectUriBuilder.getRedirectUri(
-            session = afterCompleteSession,
-            flow = flow,
-            status = status
-        )
+        val redirectUri = redirectToCurrentStep(afterExceptionHandlingSession, flow)
         return mapRedirectUriToResource(redirectUri)
     }
 
@@ -284,7 +278,7 @@ class InteractiveAuthFlowSessionControllerUtil(
             interactiveAuthFlowSessionManager.findById(session.flowId)
         } catch (_: BusinessException) {
             // Redirect to the error page of the default flow since the information on the exact flow is missing.
-            val redirectUri = redirectUriBuilder.getErrorUri(
+            val redirectUri = stepUriMapper.getErrorUri(
                 session = session,
                 flow = interactiveAuthFlowSessionManager.getDefaultInteractiveFlow(),
             )
@@ -296,8 +290,8 @@ class InteractiveAuthFlowSessionControllerUtil(
         val user = try {
             userManager.findByIdOrNull(onGoingSession?.userId)
         } catch (_: BusinessException) {
-            // If the user is missing for the operation, we let the getStatusAndCompleteIfNecessary and
-            // getRedirectUri methods redirect the user to the proper step.
+            // If the user is missing for the operation, we let the step engine redirect the user to the
+            // proper step.
             // ex. the end-user is trying to access the claims validation step before signing in.
             null
         }
@@ -316,14 +310,7 @@ class InteractiveAuthFlowSessionControllerUtil(
             exception = updateException
         )
 
-        val (afterCompleteSession, status) = interactiveAuthFlowSessionManager.getStatusAndCompleteIfNecessary(
-            session = afterExceptionHandlingSession,
-        )
-        val redirectUri = redirectUriBuilder.getRedirectUri(
-            session = afterCompleteSession,
-            flow = flow,
-            status = status
-        )
+        val redirectUri = redirectToCurrentStep(afterExceptionHandlingSession, flow)
         return mapRedirectUriToResource(redirectUri)
     }
 
