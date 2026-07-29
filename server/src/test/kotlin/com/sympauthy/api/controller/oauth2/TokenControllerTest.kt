@@ -329,6 +329,65 @@ class TokenControllerTest {
     }
 
     @Test
+    fun `getTokensUsingAuthorizationCode - Throws invalid_grant when session is not found`() = runTest {
+        val request = mockRequestWithoutAuth()
+        coEvery {
+            clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
+        } returns mockClient()
+        coEvery { sessionManager.findByCodeOrNull("the-code") } returns null
+        // No OAuth2 record is fetched when there is no session; checkCanIssueToken rejects the null session.
+        coEvery {
+            authorizeFlowManager.checkCanIssueToken(null, null, any())
+        } throws businessExceptionOf("token.expired")
+
+        val exception = assertThrows<OAuth2Exception> {
+            controller.getTokens(
+                request = request,
+                grantType = "authorization_code",
+                code = "the-code",
+                redirectUri = "https://example.com/callback",
+                refreshToken = null,
+                scope = null,
+                clientId = "client",
+                clientSecret = "secret",
+                codeVerifier = null
+            )
+        }
+        assertEquals(INVALID_GRANT, exception.errorCode)
+        assertEquals("token.expired", exception.detailsId)
+    }
+
+    @Test
+    fun `getTokensUsingAuthorizationCode - Throws invalid_grant when oauth2 record is missing`() = runTest {
+        val request = mockRequestWithoutAuth()
+        val session = mockk<CompletedInteractiveFlowSession>()
+        coEvery {
+            clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
+        } returns mockClient()
+        coEvery { sessionManager.findByCodeOrNull("the-code") } returns session
+        coEvery { oauth2Manager.fetchOAuth2OrNull(session) } returns null
+        coEvery {
+            authorizeFlowManager.checkCanIssueToken(session, null, any())
+        } throws businessExceptionOf("token.expired")
+
+        val exception = assertThrows<OAuth2Exception> {
+            controller.getTokens(
+                request = request,
+                grantType = "authorization_code",
+                code = "the-code",
+                redirectUri = "https://example.com/callback",
+                refreshToken = null,
+                scope = null,
+                clientId = "client",
+                clientSecret = "secret",
+                codeVerifier = null
+            )
+        }
+        assertEquals(INVALID_GRANT, exception.errorCode)
+        assertEquals("token.expired", exception.detailsId)
+    }
+
+    @Test
     fun `getTokensUsingAuthorizationCode - Throws when PKCE verification fails`() = runTest {
         val request = mockRequestWithoutAuth()
         val session = mockk<CompletedInteractiveFlowSession>()
