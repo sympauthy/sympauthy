@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.flow
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.mapper.InteractiveFlowSessionOAuth2Mapper
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.AuthorizationFlow
@@ -89,6 +90,8 @@ open class InteractiveFlowSessionOAuth2Manager(
     /**
      * Return the [InteractiveFlowSessionOAuth2] record attached to the [session], or throw an unrecoverable
      * [BusinessException] if the session has no attached OAuth2 record.
+     *
+     * Throws an internal [BusinessException] if the [session] is not an OAuth2 session (see [fetchOAuth2OrNull]).
      */
     suspend fun fetchOAuth2(session: InteractiveFlowSession): InteractiveFlowSessionOAuth2 {
         return fetchOAuth2OrNull(session) ?: throw businessExceptionOf(
@@ -99,8 +102,17 @@ open class InteractiveFlowSessionOAuth2Manager(
     /**
      * Return the [InteractiveFlowSessionOAuth2] record attached to the [session], or null if the session
      * has no attached OAuth2 record.
+     *
+     * Throws an internal [BusinessException] if the [session]'s type is not [InteractiveFlowSessionType.OAUTH2]
+     * — asking for the OAuth2 request record of a non-OAuth2 session is a programming error.
      */
     suspend fun fetchOAuth2OrNull(session: InteractiveFlowSession): InteractiveFlowSessionOAuth2? {
+        if (session.type != InteractiveFlowSessionType.OAUTH2) {
+            throw internalBusinessExceptionOf(
+                "auth.interactive_flow_session.oauth2.wrong_type",
+                "type" to session.type.name
+            )
+        }
         return oauth2Repository.findBySessionId(session.id)
             ?.let(oauth2Mapper::toInteractiveFlowSessionOAuth2)
     }
