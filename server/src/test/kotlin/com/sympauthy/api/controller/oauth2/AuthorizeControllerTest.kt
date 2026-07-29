@@ -1,11 +1,14 @@
 package com.sympauthy.api.controller.oauth2
 
+import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
 import com.sympauthy.api.exception.OAuth2Exception
+import com.sympauthy.business.manager.flow.InteractiveFlowPurposeHandler
+import com.sympauthy.business.manager.flow.InteractiveFlowPurposeRegistry
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
-import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionRedirectUriBuilder
-import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlow
-import com.sympauthy.business.model.flow.InteractiveFlowStatus
+import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowStep
+import com.sympauthy.business.model.flow.InteractiveFlowStepResult
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.UNSUPPORTED_RESPONSE_TYPE
 import io.micronaut.http.HttpStatus
 import io.mockk.coEvery
@@ -28,7 +31,10 @@ class AuthorizeControllerTest {
     lateinit var interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager
 
     @MockK
-    lateinit var redirectUriBuilder: InteractiveAuthFlowSessionRedirectUriBuilder
+    lateinit var purposeRegistry: InteractiveFlowPurposeRegistry
+
+    @MockK
+    lateinit var stepUriMapper: InteractiveFlowStepUriMapper
 
     @InjectMockKs
     lateinit var controller: AuthorizeController
@@ -136,7 +142,6 @@ class AuthorizeControllerTest {
     fun `authorize - Returns 303 redirect to sign-in URI on valid code request`() = runTest {
         val session = mockk<InteractiveFlowSession>()
         val flow = mockk<InteractiveFlow>()
-        val status = mockk<InteractiveFlowStatus>()
         val signInUri = URI("https://auth.example.com/sign-in?state=abc")
 
         coEvery {
@@ -152,15 +157,7 @@ class AuthorizeControllerTest {
             )
         } returns (session to flow)
 
-        coEvery { interactiveAuthFlowSessionManager.getStatus(session) } returns status
-
-        coEvery {
-            redirectUriBuilder.getRedirectUri(
-                session = session,
-                flow = flow,
-                status = status
-            )
-        } returns signInUri
+        stubCurrentStep(session, flow, InteractiveFlowStep.SignIn, signInUri)
 
         val result = controller.authorize(
             responseType = "code",
@@ -182,7 +179,6 @@ class AuthorizeControllerTest {
     fun `authorize - Passes all query parameters to startAuthorizationWith`() = runTest {
         val session = mockk<InteractiveFlowSession>()
         val flow = mockk<InteractiveFlow>()
-        val status = mockk<InteractiveFlowStatus>()
         val signInUri = URI("https://auth.example.com/sign-in?state=abc")
 
         coEvery {
@@ -197,11 +193,7 @@ class AuthorizeControllerTest {
             )
         } returns (session to flow)
 
-        coEvery { interactiveAuthFlowSessionManager.getStatus(session) } returns status
-
-        coEvery {
-            redirectUriBuilder.getRedirectUri(session, flow, status)
-        } returns signInUri
+        stubCurrentStep(session, flow, InteractiveFlowStep.SignIn, signInUri)
 
         controller.authorize(
             responseType = "code",
@@ -232,7 +224,6 @@ class AuthorizeControllerTest {
     fun `authorize - Passes null for absent optional parameters`() = runTest {
         val session = mockk<InteractiveFlowSession>()
         val flow = mockk<InteractiveFlow>()
-        val status = mockk<InteractiveFlowStatus>()
         val signInUri = URI("https://auth.example.com/sign-in?state=abc")
 
         coEvery {
@@ -248,11 +239,7 @@ class AuthorizeControllerTest {
             )
         } returns (session to flow)
 
-        coEvery { interactiveAuthFlowSessionManager.getStatus(session) } returns status
-
-        coEvery {
-            redirectUriBuilder.getRedirectUri(session, flow, status)
-        } returns signInUri
+        stubCurrentStep(session, flow, InteractiveFlowStep.SignIn, signInUri)
 
         controller.authorize(
             responseType = "code",
@@ -278,5 +265,17 @@ class AuthorizeControllerTest {
                 uncheckedInvitationToken = null
             )
         }
+    }
+
+    private fun stubCurrentStep(
+        session: InteractiveFlowSession,
+        flow: InteractiveFlow,
+        step: InteractiveFlowStep,
+        redirectUri: URI
+    ) {
+        val handler = mockk<InteractiveFlowPurposeHandler>()
+        coEvery { purposeRegistry.getForSession(session) } returns handler
+        coEvery { handler.getCurrentStep(session) } returns InteractiveFlowStepResult(session, step)
+        coEvery { stepUriMapper.toRedirectUri(session, flow, step) } returns redirectUri
     }
 }

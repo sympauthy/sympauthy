@@ -84,14 +84,13 @@ Redirection to either:
     ) = interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect(
         state = state,
         update = { session, _ ->
-            val (updatedSession, _) = interactiveAuthFlowSessionOAuth2ProviderManager.signInOrSignUpUsingProvider(
+            interactiveAuthFlowSessionOAuth2ProviderManager.signInOrSignUpUsingProvider(
                 session = session,
                 providerId = providerId,
                 authorizeCode = code,
                 providerError = error,
                 providerErrorDescription = errorDescription
             )
-            updatedSession
         },
         mapRedirectUriToResource = { redirectUri -> HttpResponse.seeOther<Any>(redirectUri) }
     )
