@@ -1,6 +1,6 @@
-package com.sympauthy.api.controller.flow
+package com.sympauthy.api.controller.client
 
-import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
+import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
 import com.sympauthy.api.resource.flow.MfaEnrollmentInputResource
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
@@ -28,7 +28,7 @@ import java.net.URI
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
-class MfaEnrollmentControllerTest {
+class ClientMfaEnrollmentControllerTest {
 
     @MockK
     lateinit var interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager
@@ -48,11 +48,8 @@ class MfaEnrollmentControllerTest {
     @MockK
     lateinit var sessionManager: InteractiveFlowSessionManager
 
-    @MockK
-    lateinit var interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
-
     @InjectMockKs
-    lateinit var controller: MfaEnrollmentController
+    lateinit var controller: ClientMfaEnrollmentController
 
     @Test
     fun `startEnrollment - Validates the return URI, starts the session, and returns the state and redirect URL`() =
@@ -68,7 +65,7 @@ class MfaEnrollmentControllerTest {
             val flow = mockk<InteractiveFlow>()
             val session = mockk<OnGoingInteractiveFlowSession>()
             val steppedSession = mockk<OnGoingInteractiveFlowSession>()
-            val enrollUri = URI.create("https://auth.example.com/flow/mfa/totp/enroll?state=abc")
+            val enrollUri = URI.create("https://auth.example.com/flow/mfa?state=abc")
 
             coEvery { clientManager.findClientById("client-id") } returns client
             every {
@@ -77,9 +74,9 @@ class MfaEnrollmentControllerTest {
             coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
             coEvery { mfaEnrollmentManager.startMfaEnrollmentSession(userId, returnUri, flow) } returns session
             coEvery { engine.getCurrentStep(session) } returns
-                InteractiveFlowStepResult(steppedSession, InteractiveFlowStep.MfaTotpEnroll)
+                InteractiveFlowStepResult(steppedSession, InteractiveFlowStep.MfaSelectionForEnrollment)
             coEvery {
-                stepUriMapper.toRedirectUri(steppedSession, flow, InteractiveFlowStep.MfaTotpEnroll)
+                stepUriMapper.toRedirectUri(steppedSession, flow, InteractiveFlowStep.MfaSelectionForEnrollment)
             } returns enrollUri
             coEvery { sessionManager.encodeState(steppedSession) } returns "encoded-state"
 
