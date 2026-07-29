@@ -13,6 +13,7 @@ import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.code.ValidationCodeMedia
+import com.sympauthy.business.model.code.ValidationCodeReason
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
@@ -36,7 +37,9 @@ import io.mockk.mockk
 import jakarta.inject.Provider
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertSame
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
@@ -259,7 +262,73 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         assertSame(completedSession, result)
     }
 
+    // --- computeStatus (status computation used by getCurrentStep) ---
+
+    @Test
+    fun `computeStatus - Missing required claims when not all are collected`() = runTest {
+        val userId = UUID.randomUUID()
+        val session = onGoingSessionMock(userId, mfaPassed = false)
+        stubClaimsAndMfa(session, userId, mfaEnabled = false, allRequiredCollected = false)
+
+        assertTrue(handler.computeStatus(session).missingRequiredClaims)
+    }
+
+    @Test
+    fun `computeStatus - Missing validation media when a claim needs validation`() = runTest {
+        val userId = UUID.randomUUID()
+        val session = onGoingSessionMock(userId, mfaPassed = false)
+        stubClaimsAndMfa(
+            session, userId, mfaEnabled = false, allRequiredCollected = true,
+            reasons = listOf(ValidationCodeReason.EMAIL_CLAIM)
+        )
+
+        assertTrue(handler.computeStatus(session).missingMediaForClaimValidation.isNotEmpty())
+    }
+
+    @Test
+    fun `computeStatus - Missing MFA when enabled and not passed`() = runTest {
+        val userId = UUID.randomUUID()
+        val session = onGoingSessionMock(userId, mfaPassed = false)
+        stubClaimsAndMfa(session, userId, mfaEnabled = true, allRequiredCollected = true)
+
+        assertTrue(handler.computeStatus(session).missingMfa)
+    }
+
+    @Test
+    fun `computeStatus - Not missing MFA when already passed`() = runTest {
+        val userId = UUID.randomUUID()
+        val session = onGoingSessionMock(userId, mfaPassed = true)
+        stubClaimsAndMfa(session, userId, mfaEnabled = true, allRequiredCollected = true)
+
+        assertFalse(handler.computeStatus(session).missingMfa)
+    }
+
     // --- helpers ---
+
+    private fun onGoingSessionMock(userId: UUID, mfaPassed: Boolean) = mockk<OnGoingInteractiveFlowSession> {
+        every { this@mockk.userId } returns userId
+        every { this@mockk.mfaPassed } returns mfaPassed
+    }
+
+    private fun stubClaimsAndMfa(
+        session: OnGoingInteractiveFlowSession,
+        userId: UUID,
+        mfaEnabled: Boolean,
+        allRequiredCollected: Boolean,
+        reasons: List<ValidationCodeReason> = emptyList()
+    ) {
+        val consentedScopes = listOf("openid", "profile")
+        every { uncheckedMfaConfig.enabled } returns mfaEnabled
+        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2Of(consentedScopes = consentedScopes)
+        coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns emptyList()
+        coEvery {
+            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes)
+        } returns emptyList()
+        every {
+            consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(any(), consentedScopes)
+        } returns allRequiredCollected
+        every { claimValidationManager.getReasonsToSendValidationCode(any(), any()) } returns reasons
+    }
 
     private fun oauth2Of(
         clientId: String = "client-id",
