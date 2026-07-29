@@ -7,6 +7,7 @@ import com.sympauthy.business.manager.auth.UserScopeGrantingManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
@@ -26,7 +27,6 @@ import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.config.model.EnabledFeaturesConfig
-import com.sympauthy.config.model.EnabledMfaConfig
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -38,7 +38,6 @@ import io.mockk.mockk
 import jakarta.inject.Provider
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -73,7 +72,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     lateinit var consentManager: ConsentManager
 
     @MockK
-    lateinit var uncheckedMfaConfig: EnabledMfaConfig
+    lateinit var mfaManager: InteractiveFlowSessionMfaManager
 
     @MockK
     lateinit var uncheckedFeaturesConfig: EnabledFeaturesConfig
@@ -109,15 +108,6 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     }
 
     @Test
-    fun `getNextStep - Missing MFA returns Pending Mfa`() = runTest {
-        val session = mockk<OnGoingInteractiveFlowSession>()
-        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2Of()
-        coEvery { handler.computeStatus(session, any()) } returns OAuth2AuthorizeInteractiveFlowStatus(missingMfa = true)
-
-        assertEquals(InteractiveFlowStep.Mfa, pendingStep(handler.getNextStep(session)))
-    }
-
-    @Test
     fun `getNextStep - Missing required claims returns Pending CollectClaims`() = runTest {
         val session = mockk<OnGoingInteractiveFlowSession>()
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2Of()
@@ -141,8 +131,49 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     }
 
     @Test
-    fun `getNextStep - All steps satisfied returns Resolved`() = runTest {
-        val session = mockk<OnGoingInteractiveFlowSession>()
+    fun `getNextStep - Own steps satisfied and no MFA required resolves without appending`() = runTest {
+        val session = mockk<OnGoingInteractiveFlowSession> {
+            every { purposes } returns listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE)
+        }
+        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2Of()
+        coEvery { handler.computeStatus(session, any()) } returns OAuth2AuthorizeInteractiveFlowStatus()
+        coEvery { mfaManager.selectRequiredMfaPurpose(session) } returns null
+
+        val result = handler.getNextStep(session)
+
+        assertInstanceOf(InteractiveFlowPurposeStepResult.Resolved::class.java, result)
+        assertSame(session, result.session)
+    }
+
+    @Test
+    fun `getNextStep - Own steps satisfied appends the required MFA purpose and resolves`() = runTest {
+        val session = mockk<OnGoingInteractiveFlowSession> {
+            every { purposes } returns listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE)
+        }
+        val appended = mockk<OnGoingInteractiveFlowSession>()
+        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2Of()
+        coEvery { handler.computeStatus(session, any()) } returns OAuth2AuthorizeInteractiveFlowStatus()
+        coEvery { mfaManager.selectRequiredMfaPurpose(session) } returns InteractiveFlowPurpose.MFA_CHALLENGE
+        coEvery {
+            sessionManager.appendPurpose(session, InteractiveFlowPurpose.MFA_CHALLENGE)
+        } returns appended
+
+        val result = handler.getNextStep(session)
+
+        assertInstanceOf(InteractiveFlowPurposeStepResult.Resolved::class.java, result)
+        assertSame(appended, result.session)
+    }
+
+    @Test
+    fun `getNextStep - Own steps satisfied does not re-append when an MFA purpose is already present`() = runTest {
+        // selectRequiredMfaPurpose / appendPurpose are left unstubbed: reaching the assertion proves the
+        // handler never consulted them because an MFA purpose is already in the list.
+        val session = mockk<OnGoingInteractiveFlowSession> {
+            every { purposes } returns listOf(
+                InteractiveFlowPurpose.OAUTH2_AUTHORIZE,
+                InteractiveFlowPurpose.MFA_CHALLENGE
+            )
+        }
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2Of()
         coEvery { handler.computeStatus(session, any()) } returns OAuth2AuthorizeInteractiveFlowStatus()
 
@@ -231,8 +262,8 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     @Test
     fun `computeStatus - Missing required claims when not all are collected`() = runTest {
         val userId = UUID.randomUUID()
-        val session = onGoingSessionMock(userId, mfaPassed = false)
-        val oauth2 = stubClaimsAndMfa(session, userId, mfaEnabled = false, allRequiredCollected = false)
+        val session = onGoingSessionMock(userId)
+        val oauth2 = stubClaims(session, userId, allRequiredCollected = false)
 
         assertTrue(handler.computeStatus(session, oauth2).missingRequiredClaims)
     }
@@ -240,31 +271,13 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     @Test
     fun `computeStatus - Missing validation media when a claim needs validation`() = runTest {
         val userId = UUID.randomUUID()
-        val session = onGoingSessionMock(userId, mfaPassed = false)
-        val oauth2 = stubClaimsAndMfa(
-            session, userId, mfaEnabled = false, allRequiredCollected = true,
+        val session = onGoingSessionMock(userId)
+        val oauth2 = stubClaims(
+            session, userId, allRequiredCollected = true,
             reasons = listOf(ValidationCodeReason.EMAIL_CLAIM)
         )
 
         assertTrue(handler.computeStatus(session, oauth2).missingMediaForClaimValidation.isNotEmpty())
-    }
-
-    @Test
-    fun `computeStatus - Missing MFA when enabled and not passed`() = runTest {
-        val userId = UUID.randomUUID()
-        val session = onGoingSessionMock(userId, mfaPassed = false)
-        val oauth2 = stubClaimsAndMfa(session, userId, mfaEnabled = true, allRequiredCollected = true)
-
-        assertTrue(handler.computeStatus(session, oauth2).missingMfa)
-    }
-
-    @Test
-    fun `computeStatus - Not missing MFA when already passed`() = runTest {
-        val userId = UUID.randomUUID()
-        val session = onGoingSessionMock(userId, mfaPassed = true)
-        val oauth2 = stubClaimsAndMfa(session, userId, mfaEnabled = true, allRequiredCollected = true)
-
-        assertFalse(handler.computeStatus(session, oauth2).missingMfa)
     }
 
     // --- helpers ---
@@ -273,20 +286,17 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         return assertInstanceOf(InteractiveFlowPurposeStepResult.Pending::class.java, result).step
     }
 
-    private fun onGoingSessionMock(userId: UUID, mfaPassed: Boolean) = mockk<OnGoingInteractiveFlowSession> {
+    private fun onGoingSessionMock(userId: UUID) = mockk<OnGoingInteractiveFlowSession> {
         every { this@mockk.userId } returns userId
-        every { this@mockk.mfaPassed } returns mfaPassed
     }
 
-    private fun stubClaimsAndMfa(
+    private fun stubClaims(
         session: OnGoingInteractiveFlowSession,
         userId: UUID,
-        mfaEnabled: Boolean,
         allRequiredCollected: Boolean,
         reasons: List<ValidationCodeReason> = emptyList()
     ): InteractiveFlowSessionOAuth2 {
         val consentedScopes = listOf("openid", "profile")
-        every { uncheckedMfaConfig.enabled } returns mfaEnabled
         coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns emptyList()
         coEvery {
             consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes)

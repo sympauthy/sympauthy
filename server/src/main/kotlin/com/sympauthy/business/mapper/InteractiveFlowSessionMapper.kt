@@ -34,6 +34,7 @@ abstract class InteractiveFlowSessionMapper {
             expirationDate = entity.expirationDate,
             sessionDate = entity.sessionDate,
             userId = entity.userId,
+            signedUp = entity.signedUp,
             mfaPassedDate = entity.mfaPassedDate,
         )
     }
@@ -46,6 +47,7 @@ abstract class InteractiveFlowSessionMapper {
             expirationDate = entity.expirationDate,
             sessionDate = entity.sessionDate,
             userId = entity.userId ?: throw invalidBusinessException("userId"),
+            signedUp = entity.signedUp,
             mfaPassedDate = entity.mfaPassedDate,
             completeDate = entity.completeDate ?: throw invalidBusinessException("completeDate"),
         )

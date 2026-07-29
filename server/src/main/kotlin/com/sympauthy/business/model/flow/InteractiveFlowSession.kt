@@ -69,6 +69,12 @@ class OnGoingInteractiveFlowSession(
     val userId: UUID?,
 
     /**
+     * True if the user was created (signed up) during this session, false if an existing user signed in.
+     * Meaningful only once the user has been identified.
+     */
+    val signedUp: Boolean = false,
+
+    /**
      * When the end-user successfully completed the MFA step for this session.
      * Null if MFA has not been completed yet.
      */
@@ -87,6 +93,7 @@ class OnGoingInteractiveFlowSession(
     fun copy(
         purposes: List<InteractiveFlowPurpose>? = null,
         userId: UUID? = null,
+        signedUp: Boolean? = null,
         mfaPassedDate: LocalDateTime? = null,
     ) = OnGoingInteractiveFlowSession(
         id = this.id,
@@ -95,6 +102,7 @@ class OnGoingInteractiveFlowSession(
         expirationDate = this.expirationDate,
         sessionDate = this.sessionDate,
         userId = userId ?: this.userId,
+        signedUp = signedUp ?: this.signedUp,
         mfaPassedDate = mfaPassedDate ?: this.mfaPassedDate,
     )
 }
@@ -120,6 +128,11 @@ class CompletedInteractiveFlowSession(
      * The identifier of the user that has been authenticated during this session.
      */
     val userId: UUID,
+
+    /**
+     * True if the user was created (signed up) during this session, false if an existing user signed in.
+     */
+    val signedUp: Boolean = false,
 
     /**
      * When the end-user successfully completed the MFA step for this session.

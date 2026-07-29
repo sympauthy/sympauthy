@@ -21,6 +21,7 @@ class InteractiveFlowSessionEntity(
 
     // User identification
     val userId: UUID? = null,
+    val signedUp: Boolean = false,
 
     // MFA
     val mfaPassedDate: LocalDateTime? = null,

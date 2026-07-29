@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.flow.mfa
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.mfa.TotpManager
+import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.User
@@ -72,6 +73,31 @@ class InteractiveFlowSessionMfaManager(
                     ),
                     skippable = true
                 )
+        }
+    }
+
+    /**
+     * Return the MFA purpose that must run for [session] before it can complete, or null when no MFA step is
+     * required.
+     *
+     * Used by a purpose (e.g. OAuth2 authorize) to append the right MFA purpose once the user is known.
+     * Evaluated only when MFA is enabled (TOTP configured):
+     * - the user is already enrolled -> [InteractiveFlowPurpose.MFA_CHALLENGE] (takes precedence over required)
+     * - the user signed up during this session -> [InteractiveFlowPurpose.MFA_ENROLLMENT] (skippable iff MFA
+     *   is not required, enforced by [skipMfa])
+     * - MFA is required and the user is not enrolled -> [InteractiveFlowPurpose.MFA_ENROLLMENT] (forced)
+     * - otherwise (sign-in, not enrolled, not required) -> null
+     */
+    suspend fun selectRequiredMfaPurpose(session: OnGoingInteractiveFlowSession): InteractiveFlowPurpose? {
+        val mfaConfig = uncheckedMfaConfig.orThrow()
+        if (!mfaConfig.enabled) return null
+        val userId = session.userId ?: return null
+        val enrolled = totpManager.findConfirmedEnrollments(userId).isNotEmpty()
+        return when {
+            enrolled -> InteractiveFlowPurpose.MFA_CHALLENGE
+            session.signedUp -> InteractiveFlowPurpose.MFA_ENROLLMENT
+            mfaConfig.required -> InteractiveFlowPurpose.MFA_ENROLLMENT
+            else -> null
         }
     }
 

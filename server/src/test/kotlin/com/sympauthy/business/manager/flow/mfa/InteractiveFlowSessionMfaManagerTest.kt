@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.flow.mfa
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.mfa.TotpManager
+import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.mfa.TotpEnrollment
@@ -95,6 +96,54 @@ class InteractiveFlowSessionMfaManagerTest {
         val result = manager.getMfaResult(user)
 
         assertEquals(MfaAutoRedirect(InteractiveFlowStep.MfaTotpChallenge), result)
+    }
+
+    // --- selectRequiredMfaPurpose ---
+
+    @Test
+    fun `selectRequiredMfaPurpose - Returns null when MFA is disabled`() = runTest {
+        val manager = managerWith(EnabledMfaConfig(totp = false, required = false))
+
+        assertNull(manager.selectRequiredMfaPurpose(session))
+    }
+
+    @Test
+    fun `selectRequiredMfaPurpose - Returns MFA_CHALLENGE when the user is enrolled`() = runTest {
+        val manager = managerWith(EnabledMfaConfig(totp = true, required = false))
+        every { session.userId } returns userId
+        coEvery { totpManager.findConfirmedEnrollments(userId) } returns listOf(mockk())
+
+        assertEquals(InteractiveFlowPurpose.MFA_CHALLENGE, manager.selectRequiredMfaPurpose(session))
+    }
+
+    @Test
+    fun `selectRequiredMfaPurpose - Returns MFA_ENROLLMENT on sign-up when not enrolled`() = runTest {
+        val manager = managerWith(EnabledMfaConfig(totp = true, required = false))
+        every { session.userId } returns userId
+        every { session.signedUp } returns true
+        coEvery { totpManager.findConfirmedEnrollments(userId) } returns emptyList()
+
+        assertEquals(InteractiveFlowPurpose.MFA_ENROLLMENT, manager.selectRequiredMfaPurpose(session))
+    }
+
+    @Test
+    fun `selectRequiredMfaPurpose - Returns MFA_ENROLLMENT on sign-in when required and not enrolled`() = runTest {
+        val manager = managerWith(EnabledMfaConfig(totp = true, required = true))
+        every { session.userId } returns userId
+        every { session.signedUp } returns false
+        coEvery { totpManager.findConfirmedEnrollments(userId) } returns emptyList()
+
+        assertEquals(InteractiveFlowPurpose.MFA_ENROLLMENT, manager.selectRequiredMfaPurpose(session))
+    }
+
+    @Test
+    fun `selectRequiredMfaPurpose - Returns null on sign-in when not enrolled and not required`() = runTest {
+        val manager = managerWith(EnabledMfaConfig(totp = true, required = false))
+        every { session.userId } returns userId
+        every { session.signedUp } returns false
+        coEvery { totpManager.findConfirmedEnrollments(userId) } returns emptyList()
+
+        assertNull(manager.selectRequiredMfaPurpose(session))
     }
 
     // --- skipMfa ---

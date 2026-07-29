@@ -8,6 +8,7 @@ import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.flow.InteractiveFlowPurposeHandler
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.code.ValidationCodeReason
@@ -19,7 +20,6 @@ import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.auth.OAuth2AuthorizeInteractiveFlowStatus
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.config.model.FeaturesConfig
-import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.config.model.orThrow
 import jakarta.inject.Inject
 import jakarta.inject.Provider
@@ -43,7 +43,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
     @Inject private val claimValidationManager: InteractiveAuthFlowSessionClaimValidationManager,
     @Inject private val scopeGrantingManager: UserScopeGrantingManager,
     @Inject private val consentManager: ConsentManager,
-    @Inject private val uncheckedMfaConfig: MfaConfig,
+    @Inject private val mfaManager: InteractiveFlowSessionMfaManager,
     @Inject private val uncheckedFeaturesConfig: FeaturesConfig,
     @Inject private val clientManagerProvider: Provider<ClientManager>,
 ) : InteractiveFlowPurposeHandler {
@@ -60,8 +60,6 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
                 if (oauth2.invitationId != null) InteractiveFlowStep.SignUp else InteractiveFlowStep.SignIn
             )
 
-            status.missingMfa -> InteractiveFlowPurposeStepResult.Pending(session, InteractiveFlowStep.Mfa)
-
             status.missingRequiredClaims ->
                 InteractiveFlowPurposeStepResult.Pending(session, InteractiveFlowStep.CollectClaims)
 
@@ -70,15 +68,34 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
                 InteractiveFlowStep.ValidateClaims(status.missingMediaForClaimValidation.first())
             )
 
-            // Every step this purpose requires is satisfied.
-            else -> InteractiveFlowPurposeStepResult.Resolved(session)
+            // Every step this purpose requires is satisfied; append the MFA purpose (if any) so it runs as
+            // the final gate before the authorization code is issued, then resolve.
+            else -> resolveWithMfa(session)
         }
     }
 
     /**
-     * Compute the flow progress of the ongoing [session] from the collected claims, consent, and MFA state.
+     * Resolve this purpose, first appending the MFA purpose the [session] requires — unless one is already
+     * present — so MFA is the last thing the end-user goes through before the flow completes.
+     */
+    private suspend fun resolveWithMfa(session: OnGoingInteractiveFlowSession): InteractiveFlowPurposeStepResult {
+        val hasMfaPurpose = session.purposes.any {
+            it == InteractiveFlowPurpose.MFA_ENROLLMENT || it == InteractiveFlowPurpose.MFA_CHALLENGE
+        }
+        if (!hasMfaPurpose) {
+            val mfaPurpose = mfaManager.selectRequiredMfaPurpose(session)
+            if (mfaPurpose != null) {
+                return InteractiveFlowPurposeStepResult.Resolved(sessionManager.appendPurpose(session, mfaPurpose))
+            }
+        }
+        return InteractiveFlowPurposeStepResult.Resolved(session)
+    }
+
+    /**
+     * Compute the flow progress of the ongoing [session] from the collected claims and consent.
      *
      * Takes the already-fetched [oauth2] record (rather than re-fetching it) so the caller loads it once.
+     * MFA is not part of this status: it is a separate purpose appended once the user's own steps are done.
      */
     internal suspend fun computeStatus(
         session: OnGoingInteractiveFlowSession,
@@ -92,7 +109,6 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
             consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(it, consentedScopes)
         } ?: emptyList()
         val missingUser = session.userId == null
-        val missingMfa = uncheckedMfaConfig.orThrow().enabled && !session.mfaPassed
         val allClaims = (identifierClaims + consentedClaims).distinctBy { it.claim.id }
         val missingRequiredClaims = !consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(
             allClaims, consentedScopes
@@ -106,7 +122,6 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
 
         return OAuth2AuthorizeInteractiveFlowStatus(
             missingUser = missingUser,
-            missingMfa = missingMfa,
             missingRequiredClaims = missingRequiredClaims,
             missingMediaForClaimValidation = missingMediaForClaimValidation
         )

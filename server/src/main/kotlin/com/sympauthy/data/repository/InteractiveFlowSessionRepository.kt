@@ -28,7 +28,7 @@ interface InteractiveFlowSessionRepository : CoroutineCrudRepository<Interactive
 
     suspend fun updatePurposes(@Id id: UUID, purposes: List<String>)
 
-    suspend fun updateUserId(@Id id: UUID, userId: UUID)
+    suspend fun updateUserId(@Id id: UUID, userId: UUID, signedUp: Boolean)
 
     suspend fun updateMfaPassedDate(@Id id: UUID, mfaPassedDate: LocalDateTime)
 

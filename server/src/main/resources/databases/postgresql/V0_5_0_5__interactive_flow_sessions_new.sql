@@ -7,6 +7,7 @@ CREATE TABLE interactive_flow_sessions
     expiration_date      timestamp NOT NULL,
 
     user_id              uuid,
+    signed_up            boolean   NOT NULL DEFAULT false,
 
     mfa_passed_date      timestamp,
 

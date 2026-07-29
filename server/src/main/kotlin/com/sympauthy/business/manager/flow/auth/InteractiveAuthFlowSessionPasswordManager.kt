@@ -161,7 +161,7 @@ open class InteractiveAuthFlowSessionPasswordManager(
         invitationManager.applyInvitationClaimsAndConsume(oauth2.invitationId, user.id)
 
         // Update the session with the id of the user so they can retrieve their access token.
-        val updatedSession = sessionManager.setAuthenticatedUserId(session, user.id)
+        val updatedSession = sessionManager.setAuthenticatedUserId(session, user.id, signedUp = true)
 
         // Complete the flow if the end-user has no more step to go through.
         return engine.completeIfNecessary(updatedSession)

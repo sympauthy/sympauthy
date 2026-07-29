@@ -119,17 +119,23 @@ class InteractiveFlowSessionManager(
 
     /**
      * Associate the user that has been authenticated to its [InteractiveFlowSession].
+     *
+     * [signedUp] records whether the user was created (signed up) during this session, so a later step (e.g.
+     * the MFA-purpose selection) can branch on sign-up vs sign-in.
      */
     suspend fun setAuthenticatedUserId(
         session: OnGoingInteractiveFlowSession,
-        userId: UUID
+        userId: UUID,
+        signedUp: Boolean = false
     ): OnGoingInteractiveFlowSession {
         sessionRepository.updateUserId(
             id = session.id,
-            userId = userId
+            userId = userId,
+            signedUp = signedUp
         )
         return session.copy(
-            userId = userId
+            userId = userId,
+            signedUp = signedUp
         )
     }
 
@@ -221,6 +227,7 @@ class InteractiveFlowSessionManager(
             expirationDate = session.expirationDate,
             sessionDate = session.sessionDate,
             userId = userId,
+            signedUp = session.signedUp,
             mfaPassedDate = session.mfaPassedDate,
             completeDate = completeDate
         )

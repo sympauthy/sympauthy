@@ -171,17 +171,18 @@ open class InteractiveAuthFlowSessionOAuth2ProviderManager(
             subject = rawUserInfo.subject
         )
 
-        val userId = if (existingUserInfo == null) {
+        val (userId, signedUp) = if (existingUserInfo == null) {
             val oauth2 = oauth2Manager.fetchOAuth2(session)
             interactiveAuthFlowSessionManager.checkSignUpAllowed(oauth2, recoverable = false)
             val result = createOrAssociateUserWithProviderUserInfo(provider, rawUserInfo)
             invitationManager.applyInvitationClaimsAndConsume(oauth2.invitationId, result.user.id)
-            result.user.id
+            // `created` is false when the provider was merged into an existing account (sign-in, not sign-up).
+            result.user.id to result.created
         } else {
             providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo)
-            existingUserInfo.userId
+            existingUserInfo.userId to false
         }
-        val updatedSession = sessionManager.setAuthenticatedUserId(session, userId)
+        val updatedSession = sessionManager.setAuthenticatedUserId(session, userId, signedUp = signedUp)
 
         // Complete the flow if the end-user has no more step to go through.
         return engine.completeIfNecessary(updatedSession)
