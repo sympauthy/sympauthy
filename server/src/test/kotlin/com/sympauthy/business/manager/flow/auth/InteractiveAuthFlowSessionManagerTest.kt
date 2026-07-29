@@ -1086,19 +1086,12 @@ class InteractiveAuthFlowSessionManagerTest {
 
     // --- checkSignUpAllowed ---
 
-    private fun createSession(): OnGoingInteractiveFlowSession = mockk()
-
-    private fun mockOAuth2AndClient(
-        session: OnGoingInteractiveFlowSession,
+    private fun oauth2AndClient(
         clientId: String = "test-client",
         invitationId: UUID? = null,
         signUpEnabled: Boolean = true,
         invitationEnabled: Boolean = false
-    ) {
-        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2With(
-            clientId = clientId,
-            invitationId = invitationId
-        )
+    ): InteractiveFlowSessionOAuth2 {
         val audience = Audience(
             id = "test-audience",
             tokenAudience = "test-audience",
@@ -1109,68 +1102,62 @@ class InteractiveAuthFlowSessionManagerTest {
             every { this@mockk.audience } returns audience
         }
         coEvery { clientManager.findClientById(clientId) } returns client
+        return oauth2With(clientId = clientId, invitationId = invitationId)
     }
 
     @Test
     fun `checkSignUpAllowed - Succeeds when sign-up is enabled`() = runTest {
-        val session = createSession()
-        mockOAuth2AndClient(session, signUpEnabled = true, invitationEnabled = false)
-        manager.checkSignUpAllowed(session, recoverable = true)
+        val oauth2 = oauth2AndClient(signUpEnabled = true, invitationEnabled = false)
+        manager.checkSignUpAllowed(oauth2, recoverable = true)
     }
 
     @Test
     fun `checkSignUpAllowed - Succeeds when both sign-up and invitation enabled without invitation`() = runTest {
-        val session = createSession()
-        mockOAuth2AndClient(session, invitationId = null, signUpEnabled = true, invitationEnabled = true)
-        manager.checkSignUpAllowed(session, recoverable = true)
+        val oauth2 = oauth2AndClient(invitationId = null, signUpEnabled = true, invitationEnabled = true)
+        manager.checkSignUpAllowed(oauth2, recoverable = true)
     }
 
     @Test
     fun `checkSignUpAllowed - Succeeds when invitation required and invitation is bound`() = runTest {
-        val session = createSession()
-        mockOAuth2AndClient(
-            session,
+        val oauth2 = oauth2AndClient(
             invitationId = UUID.randomUUID(),
             signUpEnabled = false,
             invitationEnabled = true
         )
-        manager.checkSignUpAllowed(session, recoverable = false)
+        manager.checkSignUpAllowed(oauth2, recoverable = false)
     }
 
     @Test
     fun `checkSignUpAllowed - Throws when both sign-up and invitation are disabled`() = runTest {
-        val session = createSession()
-        mockOAuth2AndClient(session, signUpEnabled = false, invitationEnabled = false)
+        val oauth2 = oauth2AndClient(signUpEnabled = false, invitationEnabled = false)
 
         val exception = assertThrows<BusinessException> {
-            manager.checkSignUpAllowed(session, recoverable = true)
+            manager.checkSignUpAllowed(oauth2, recoverable = true)
         }
         assertEquals("flow.sign_up.disabled", exception.detailsId)
     }
 
     @Test
     fun `checkSignUpAllowed - Throws when invitation required but not bound`() = runTest {
-        val session = createSession()
-        mockOAuth2AndClient(session, invitationId = null, signUpEnabled = false, invitationEnabled = true)
+        val oauth2 = oauth2AndClient(invitationId = null, signUpEnabled = false, invitationEnabled = true)
 
         val exception = assertThrows<BusinessException> {
-            manager.checkSignUpAllowed(session, recoverable = false)
+            manager.checkSignUpAllowed(oauth2, recoverable = false)
         }
         assertEquals("flow.sign_up.invitation_required", exception.detailsId)
     }
 
     @Test
     fun `checkSignUpAllowed - Respects recoverable flag`() = runTest {
-        val session = createSession()
-        mockOAuth2AndClient(session, signUpEnabled = false, invitationEnabled = false)
+        val oauth2 = oauth2AndClient(signUpEnabled = false, invitationEnabled = false)
 
         val recoverableException = assertThrows<BusinessException> {
-            manager.checkSignUpAllowed(session, recoverable = true)
+            manager.checkSignUpAllowed(oauth2, recoverable = true)
         }
         assertTrue(recoverableException.recoverable)
 
         val nonRecoverableException = assertThrows<BusinessException> {
-            manager.checkSignUpAllowed(session, recoverable = false)
+            manager.checkSignUpAllowed(oauth2, recoverable = false)
         }
         assertFalse(nonRecoverableException.recoverable)
     }

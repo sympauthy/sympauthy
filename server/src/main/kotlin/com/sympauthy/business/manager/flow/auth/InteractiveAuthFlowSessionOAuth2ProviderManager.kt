@@ -171,10 +171,10 @@ open class InteractiveAuthFlowSessionOAuth2ProviderManager(
         )
 
         val userId = if (existingUserInfo == null) {
-            interactiveAuthFlowSessionManager.checkSignUpAllowed(session, recoverable = false)
+            val oauth2 = oauth2Manager.fetchOAuth2(session)
+            interactiveAuthFlowSessionManager.checkSignUpAllowed(oauth2, recoverable = false)
             val result = createOrAssociateUserWithProviderUserInfo(provider, rawUserInfo)
-            val invitationId = oauth2Manager.fetchOAuth2(session).invitationId
-            invitationManager.applyInvitationClaimsAndConsume(invitationId, result.user.id)
+            invitationManager.applyInvitationClaimsAndConsume(oauth2.invitationId, result.user.id)
             result.user.id
         } else {
             providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo)

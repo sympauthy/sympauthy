@@ -418,21 +418,24 @@ class InteractiveAuthFlowSessionManager(
     }
 
     /**
-     * Check that sign-up is allowed for the audience of the client that initiated the [session].
+     * Check that sign-up is allowed for the audience of the client that initiated the session's [oauth2]
+     * request.
      *
      * Throws a [BusinessException] if:
      * - Both `signUpEnabled` and `invitationEnabled` are false on the audience.
-     * - `signUpEnabled` is false and `invitationEnabled` is true but no invitation is bound to the session.
+     * - `signUpEnabled` is false and `invitationEnabled` is true but no invitation is bound to the request.
+     *
+     * Takes the already-fetched [oauth2] record (rather than the session) so a caller that also needs it —
+     * e.g. for the invitation id — fetches it once.
      *
      * @param recoverable Whether the thrown exception should be recoverable (true for password sign-up
      *   where the user can retry, false for provider sign-up where the flow is non-interactive).
      */
     suspend fun checkSignUpAllowed(
-        session: OnGoingInteractiveFlowSession,
+        oauth2: InteractiveFlowSessionOAuth2,
         recoverable: Boolean
     ) {
-        // Fetch the OAuth2 record and resolve the audience once, reused for the check and the error below.
-        val oauth2 = oauth2Manager.fetchOAuth2(session)
+        // Resolve the audience once, reused for the check and the error below.
         val audience = clientManager.findClientById(oauth2.clientId).audience
         if (isSignUpAllowed(audience, oauth2)) {
             return

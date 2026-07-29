@@ -140,7 +140,8 @@ open class InteractiveAuthFlowSessionPasswordManager(
         unfilteredUpdates: List<CollectedClaimUpdate>,
         password: String
     ): InteractiveFlowSession {
-        interactiveAuthFlowSessionManager.checkSignUpAllowed(session, recoverable = true)
+        val oauth2 = oauth2Manager.fetchOAuth2(session)
+        interactiveAuthFlowSessionManager.checkSignUpAllowed(oauth2, recoverable = true)
 
         val claimUpdateMap = claimManager.listIdentifierClaims().associateWith { claim ->
             unfilteredUpdates.firstOrNull { it.claim == claim }
@@ -159,8 +160,7 @@ open class InteractiveAuthFlowSessionPasswordManager(
         passwordManager.createPassword(user, password)
 
         // Apply invitation claims and consume the invitation
-        val invitationId = oauth2Manager.fetchOAuth2(session).invitationId
-        invitationManager.applyInvitationClaimsAndConsume(invitationId, user.id)
+        invitationManager.applyInvitationClaimsAndConsume(oauth2.invitationId, user.id)
 
         // Update the session with the id of the user so they can retrieve their access token.
         val updatedSession = sessionManager.setAuthenticatedUserId(session, user.id)
