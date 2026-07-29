@@ -9,11 +9,12 @@ import com.sympauthy.business.manager.jwt.JwtManager.Companion.REFRESH_KEY
 import com.sympauthy.business.mapper.AuthenticationTokenMapper
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
+import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
-import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.data.repository.AuthenticationTokenRepository
@@ -76,28 +77,29 @@ class TokenManagerTest {
 
     @Test
     fun `generateTokens - Throws if session is expired`() = runTest {
-        val attempt = mockk<CompletedAuthorizeAttempt>()
+        val session = mockk<CompletedInteractiveFlowSession>()
         val client = mockk<Client>()
-        every { attempt.expired } returns true
+        every { session.expired } returns true
         assertThrows<OAuth2Exception> {
-            tokenManager.generateTokens(attempt, client)
+            tokenManager.generateTokens(session, mockk<InteractiveFlowSessionOAuth2>(), client)
         }
     }
 
     @Test
     fun `generateTokens - Generate all tokens`() = runTest {
         val userId = UUID.randomUUID()
-        val authorizedAttempt = mockk<CompletedAuthorizeAttempt>()
+        val session = mockk<CompletedInteractiveFlowSession>()
+        val oauth2 = mockk<InteractiveFlowSessionOAuth2>()
         val client = mockClientWithGrantTypes(*GrantType.entries.toTypedArray())
         val accessToken = mockk<EncodedAuthenticationToken>()
         val refreshToken = mockk<EncodedAuthenticationToken>()
         val idToken = mockk<EncodedAuthenticationToken>()
 
-        every { authorizedAttempt.expired } returns false
-        every { authorizedAttempt.userId } returns userId
+        every { session.expired } returns false
+        every { session.userId } returns userId
         coEvery {
             accessTokenGenerator.generateAccessToken(
-                authorizedAttempt,
+                oauth2,
                 userId,
                 tokenAudience = any(),
                 dpopJkt = null
@@ -105,15 +107,15 @@ class TokenManagerTest {
         } returns accessToken
         coEvery {
             refreshTokenGenerator.generateRefreshToken(
-                authorizedAttempt,
+                oauth2,
                 userId,
                 tokenAudience = any(),
                 dpopJkt = null
             )
         } returns refreshToken
-        coEvery { idTokenGenerator.generateIdToken(authorizedAttempt, userId, accessToken) } returns idToken
+        coEvery { idTokenGenerator.generateIdToken(oauth2, userId, accessToken) } returns idToken
 
-        val result = tokenManager.generateTokens(authorizedAttempt, client)
+        val result = tokenManager.generateTokens(session, oauth2, client)
 
         assertSame(accessToken, result.accessToken)
         assertSame(refreshToken, result.refreshToken)
@@ -418,7 +420,7 @@ class TokenManagerTest {
         tokenManager.revokeTokenByEncodedToken(client, "token", null)
 
         coVerify(exactly = 0) { tokenRepository.updateRevokedAt(any(), any(), any(), any()) }
-        coVerify(exactly = 0) { tokenRepository.updateRevokedAtByAuthorizeAttemptId(any(), any(), any(), any()) }
+        coVerify(exactly = 0) { tokenRepository.updateRevokedAtBySessionId(any(), any(), any(), any()) }
     }
 
     @Test
@@ -448,7 +450,7 @@ class TokenManagerTest {
     fun `revokeTokenByEncodedToken - Cascades revocation for refresh token when hint is refresh_token`() = runTest {
         val clientId = "client-a"
         val tokenId = UUID.randomUUID()
-        val attemptId = UUID.randomUUID()
+        val sessionId = UUID.randomUUID()
         val client = mockk<Client>()
         val decodedToken = DecodedJwt(id = tokenId.toString(), subject = null, keyId = null)
         val token = mockk<AuthenticationToken>()
@@ -459,14 +461,14 @@ class TokenManagerTest {
         every { token.clientId } returns clientId
         every { token.type } returns REFRESH
         every { token.id } returns tokenId
-        every { token.authorizeAttemptId } returns attemptId
-        coEvery { tokenRepository.updateRevokedAtByAuthorizeAttemptId(attemptId, any(), "CLIENT", null) } returns Unit
+        every { token.sessionId } returns sessionId
+        coEvery { tokenRepository.updateRevokedAtBySessionId(sessionId, any(), "CLIENT", null) } returns Unit
         coEvery { tokenRepository.updateRevokedAtByActorTokenId(tokenId, any(), "CLIENT", null) } returns 0
 
         tokenManager.revokeTokenByEncodedToken(client, "token", "refresh_token")
 
         coVerify(exactly = 0) { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, any()) }
-        coVerify(exactly = 1) { tokenRepository.updateRevokedAtByAuthorizeAttemptId(attemptId, any(), "CLIENT", null) }
+        coVerify(exactly = 1) { tokenRepository.updateRevokedAtBySessionId(sessionId, any(), "CLIENT", null) }
         coVerify(exactly = 0) { tokenRepository.updateRevokedAt(any(), any(), any(), any()) }
     }
 
@@ -663,7 +665,7 @@ class TokenManagerTest {
     fun `revokeTokenByEncodedToken - Uses refresh key when no hint and kid is REFRESH_KEY`() = runTest {
         val clientId = "client-a"
         val tokenId = UUID.randomUUID()
-        val attemptId = UUID.randomUUID()
+        val sessionId = UUID.randomUUID()
         val client = mockk<Client>()
         val decodedToken = DecodedJwt(id = tokenId.toString(), subject = null, keyId = null)
         val token = mockk<AuthenticationToken>()
@@ -675,14 +677,14 @@ class TokenManagerTest {
         every { token.clientId } returns clientId
         every { token.type } returns REFRESH
         every { token.id } returns tokenId
-        every { token.authorizeAttemptId } returns attemptId
-        coEvery { tokenRepository.updateRevokedAtByAuthorizeAttemptId(attemptId, any(), "CLIENT", null) } returns Unit
+        every { token.sessionId } returns sessionId
+        coEvery { tokenRepository.updateRevokedAtBySessionId(sessionId, any(), "CLIENT", null) } returns Unit
         coEvery { tokenRepository.updateRevokedAtByActorTokenId(tokenId, any(), "CLIENT", null) } returns 0
 
         tokenManager.revokeTokenByEncodedToken(client, "token", null)
 
         coVerify(exactly = 0) { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, any()) }
-        coVerify(exactly = 1) { tokenRepository.updateRevokedAtByAuthorizeAttemptId(attemptId, any(), "CLIENT", null) }
+        coVerify(exactly = 1) { tokenRepository.updateRevokedAtBySessionId(sessionId, any(), "CLIENT", null) }
     }
 
     @Test

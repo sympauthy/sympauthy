@@ -1,9 +1,9 @@
 package com.sympauthy.api.controller.flow
 
-import com.sympauthy.api.controller.flow.util.WebAuthorizationFlowControllerUtil
+import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.resource.flow.SimpleFlowResource
 import com.sympauthy.api.resource.flow.TotpChallengeInputResource
-import com.sympauthy.business.manager.flow.mfa.WebAuthorizationFlowTotpChallengeManager
+import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionTotpChallengeManager
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
 import io.micronaut.http.annotation.Body
@@ -18,8 +18,8 @@ import jakarta.inject.Inject
 @Secured(HAS_STATE)
 @Controller("/api/v1/flow/mfa/totp")
 class TotpChallengeController(
-    @Inject private val challengeManager: WebAuthorizationFlowTotpChallengeManager,
-    @Inject private val webAuthorizationFlowControllerUtil: WebAuthorizationFlowControllerUtil
+    @Inject private val challengeManager: InteractiveFlowSessionTotpChallengeManager,
+    @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
 ) {
 
     @Operation(
@@ -47,10 +47,10 @@ On failure, a recoverable 4xx error is returned so the end-user can retry with t
         authentication: Authentication,
         @Body inputResource: TotpChallengeInputResource
     ): SimpleFlowResource =
-        webAuthorizationFlowControllerUtil.fetchOnGoingAttemptWithUserThenUpdateAndRedirect(
+        interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionWithUserThenUpdateAndRedirect(
             state = authentication.stateOrNull,
-            update = { authorizeAttempt, _, user ->
-                challengeManager.validateTotpChallenge(authorizeAttempt, user, inputResource.code)
+            update = { session, _, user ->
+                challengeManager.validateTotpChallenge(session, user, inputResource.code)
             },
             mapRedirectUriToResource = { redirectUri -> SimpleFlowResource(redirectUri.toString()) }
         )

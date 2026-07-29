@@ -5,6 +5,7 @@ import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
+import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.ClaimGroup
@@ -32,20 +33,21 @@ class IdTokenGenerator(
     private val logger = loggerForClass()
 
     /**
-     * Generate a new id token containing user info accessible according to the scopes granted in [authorizeAttempt].
-     * Only claims the end-user has consented to share with the client are included.
+     * Generate a new id token containing user info accessible according to the scopes granted in the
+     * session's [oauth2] request record. Only claims the end-user has consented to share with the client
+     * are included.
      */
     suspend fun generateIdToken(
-        authorizeAttempt: CompletedAuthorizeAttempt,
+        oauth2: InteractiveFlowSessionOAuth2,
         userId: UUID,
         accessToken: EncodedAuthenticationToken
     ) = generateIdToken(
         userId = userId,
-        authorizeAttemptId = authorizeAttempt.id,
-        clientId = authorizeAttempt.clientId,
-        grantedScopes = authorizeAttempt.grantedScopes,
-        consentedScopes = authorizeAttempt.consentedScopes,
-        nonce = authorizeAttempt.nonce,
+        sessionId = oauth2.sessionId,
+        clientId = oauth2.clientId,
+        grantedScopes = oauth2.grantedScopes ?: emptyList(),
+        consentedScopes = oauth2.consentedScopes ?: emptyList(),
+        nonce = oauth2.nonce,
         accessToken = accessToken,
         grantType = "authorization_code"
     )
@@ -62,7 +64,7 @@ class IdTokenGenerator(
         clientId = refreshToken.clientId,
         grantedScopes = refreshToken.grantedScopes,
         consentedScopes = refreshToken.consentedScopes,
-        authorizeAttemptId = refreshToken.authorizeAttemptId,
+        sessionId = refreshToken.sessionId,
         accessToken = accessToken,
         grantType = "refresh_token"
     )
@@ -72,7 +74,7 @@ class IdTokenGenerator(
         clientId: String,
         grantedScopes: List<String>,
         consentedScopes: List<String>,
-        authorizeAttemptId: UUID?,
+        sessionId: UUID?,
         accessToken: EncodedAuthenticationToken,
         nonce: String? = null,
         grantType: String
@@ -98,7 +100,7 @@ class IdTokenGenerator(
             grantedScopes = grantedScopes.toTypedArray(),
             consentedScopes = consentedScopes.toTypedArray(),
             clientScopes = emptyArray(),
-            authorizeAttemptId = authorizeAttemptId,
+            sessionId = sessionId,
             grantType = grantType,
             issueDate = issueDate,
             expirationDate = expirationDate

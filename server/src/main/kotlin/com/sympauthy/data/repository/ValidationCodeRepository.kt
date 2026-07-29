@@ -6,11 +6,11 @@ import java.util.*
 
 interface ValidationCodeRepository : CoroutineCrudRepository<ValidationCodeEntity, UUID> {
 
-    suspend fun findByAttemptId(attemptId: UUID): List<ValidationCodeEntity>
+    suspend fun findBySessionId(sessionId: UUID): List<ValidationCodeEntity>
 
-    suspend fun findByAttemptIdAndMedia(attemptId: UUID, media: String): List<ValidationCodeEntity>
+    suspend fun findBySessionIdAndMedia(sessionId: UUID, media: String): List<ValidationCodeEntity>
 
     suspend fun deleteByIds(ids: List<UUID>)
 
-    suspend fun deleteByAttemptIdIn(attemptIds: List<UUID>): Int
+    suspend fun deleteBySessionIdIn(sessionIds: List<UUID>): Int
 }

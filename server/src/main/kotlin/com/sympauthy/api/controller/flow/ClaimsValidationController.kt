@@ -1,9 +1,9 @@
 package com.sympauthy.api.controller.flow
 
-import com.sympauthy.api.controller.flow.util.WebAuthorizationFlowControllerUtil
+import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.mapper.flow.ClaimsValidationFlowResultResourceMapper
 import com.sympauthy.api.resource.flow.*
-import com.sympauthy.business.manager.flow.WebAuthorizationFlowClaimValidationManager
+import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionClaimValidationManager
 import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
@@ -20,8 +20,8 @@ import jakarta.inject.Inject
 @Secured(HAS_STATE)
 @Controller("/api/v1/flow/claims/validation")
 class ClaimsValidationController(
-    @Inject private val claimValidationManager: WebAuthorizationFlowClaimValidationManager,
-    @Inject private val webAuthorizationFlowControllerUtil: WebAuthorizationFlowControllerUtil,
+    @Inject private val claimValidationManager: InteractiveAuthFlowSessionClaimValidationManager,
+    @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil,
     @Inject private val resourceMapper: ClaimsValidationFlowResultResourceMapper
 ) {
 
@@ -61,11 +61,11 @@ Result containing either:
         authentication: Authentication,
         media: ValidationCodeMedia,
     ): ClaimsValidationFlowResource =
-        webAuthorizationFlowControllerUtil.fetchOnGoingAttemptWithUserThenRunAndRedirect(
+        interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionWithUserThenRunAndRedirect(
             authentication.stateOrNull,
-            run = { authorizeAttempt, _, user ->
+            run = { session, _, user ->
                 claimValidationManager.getOrSendValidationCode(
-                    authorizeAttempt = authorizeAttempt,
+                    session = session,
                     user = user,
                     media = media,
                 )
@@ -93,15 +93,15 @@ Result containing either:
         authentication: Authentication,
         @Body inputResource: ClaimValidationInputResource
     ): SimpleFlowResource =
-        webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenUpdateAndRedirect(
+        interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect(
             state = authentication.stateOrNull,
-            update = { authorizeAttempt, _ ->
+            update = { session, _ ->
                 claimValidationManager.validateClaimsByCode(
-                    authorizeAttempt = authorizeAttempt,
+                    session = session,
                     media = ValidationCodeMedia.valueOf(inputResource.media),
                     code = inputResource.code
                 )
-                authorizeAttempt
+                session
             },
             mapRedirectUriToResource = { redirectUri -> SimpleFlowResource(redirectUri.toString()) }
         )
@@ -125,13 +125,13 @@ This authorization server will not send new validation code in the following cas
         authentication: Authentication,
         @Body inputResource: ResendClaimsValidationInputResource
     ): ResendClaimsValidationCodeResultResource =
-        webAuthorizationFlowControllerUtil.fetchOnGoingAttemptWithUserThenRun(
+        interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionWithUserThenRun(
             state = authentication.stateOrNull,
-            run = { authorizeAttempt, _, user ->
+            run = { session, _, user ->
                 val media = getMedia(inputResource.media)
 
                 val result = claimValidationManager.resendValidationCode(
-                    authorizeAttempt = authorizeAttempt,
+                    session = session,
                     user = user,
                     media = media
                 )

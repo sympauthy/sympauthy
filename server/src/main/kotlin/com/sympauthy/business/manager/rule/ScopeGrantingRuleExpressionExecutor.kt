@@ -8,7 +8,6 @@ import com.sympauthy.business.manager.expression.ClaimFunction
 import com.sympauthy.business.manager.expression.ClaimIsVerifiedFunction
 import com.sympauthy.business.manager.expression.ClientFunction
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
 import com.sympauthy.business.model.user.CollectedClaim
 import jakarta.inject.Singleton
 import java.util.Map.entry
@@ -55,10 +54,9 @@ class ScopeGrantingRuleExpressionExecutor {
 
     /**
      * Return the [ExpressionConfiguration] with the custom functions configured with
-     * the information relative to the [authorizeAttempt] for user scope granting rules.
+     * the [collectedClaims] for user scope granting rules.
      */
     suspend fun getConfiguration(
-        authorizeAttempt: AuthorizeAttempt,
         collectedClaims: List<CollectedClaim>
     ): ExpressionConfiguration {
         return defaultConfiguration.value

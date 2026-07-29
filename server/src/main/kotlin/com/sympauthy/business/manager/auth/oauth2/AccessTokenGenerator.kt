@@ -5,7 +5,7 @@ import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
-import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
+import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
@@ -26,25 +26,25 @@ class AccessTokenGenerator(
 ) {
 
     /**
-     * Generate a new access token using the information stored in a [authorizeAttempt].
+     * Generate a new access token using the information stored in the session's [oauth2] request record.
      */
     suspend fun generateAccessToken(
-        authorizeAttempt: CompletedAuthorizeAttempt,
+        oauth2: InteractiveFlowSessionOAuth2,
         userId: UUID,
         tokenAudience: String,
         dpopJkt: String? = null
     ) = generateAccessToken(
         userId = userId,
-        clientId = authorizeAttempt.clientId,
+        clientId = oauth2.clientId,
         tokenAudience = tokenAudience,
-        grantedScopes = authorizeAttempt.grantedScopes,
-        grantedAt = authorizeAttempt.grantedAt,
-        grantedBy = authorizeAttempt.grantedBy.name,
-        consentedScopes = authorizeAttempt.consentedScopes,
-        consentedAt = authorizeAttempt.consentedAt,
-        consentedBy = authorizeAttempt.consentedBy.name,
+        grantedScopes = oauth2.grantedScopes ?: emptyList(),
+        grantedAt = oauth2.grantedAt,
+        grantedBy = oauth2.grantedBy?.name,
+        consentedScopes = oauth2.consentedScopes ?: emptyList(),
+        consentedAt = oauth2.consentedAt,
+        consentedBy = oauth2.consentedBy?.name,
         clientScopes = emptyList(),
-        authorizeAttemptId = authorizeAttempt.id,
+        sessionId = oauth2.sessionId,
         grantType = "authorization_code",
         dpopJkt = dpopJkt
     )
@@ -67,7 +67,7 @@ class AccessTokenGenerator(
         consentedAt = refreshToken.consentedAt,
         consentedBy = refreshToken.consentedBy?.name,
         clientScopes = refreshToken.clientScopes,
-        authorizeAttemptId = refreshToken.authorizeAttemptId,
+        sessionId = refreshToken.sessionId,
         grantType = "refresh_token",
         dpopJkt = dpopJkt
     )
@@ -97,7 +97,7 @@ class AccessTokenGenerator(
             consentedAt = null,
             consentedBy = null,
             clientScopes = emptyList(),
-            authorizeAttemptId = null,
+            sessionId = null,
             grantType = GrantType.TOKEN_EXCHANGE.value,
             dpopJkt = dpopJkt,
             actorClientId = actorToken.clientId,
@@ -126,7 +126,7 @@ class AccessTokenGenerator(
             consentedAt = null,
             consentedBy = null,
             clientScopes = clientScopes,
-            authorizeAttemptId = null,
+            sessionId = null,
             grantType = "client_credentials",
             dpopJkt = dpopJkt
         )
@@ -143,7 +143,7 @@ class AccessTokenGenerator(
         consentedAt: java.time.LocalDateTime?,
         consentedBy: String?,
         clientScopes: List<String>,
-        authorizeAttemptId: UUID?,
+        sessionId: UUID?,
         grantType: String,
         dpopJkt: String? = null,
         /**
@@ -172,7 +172,7 @@ class AccessTokenGenerator(
             consentedAt = consentedAt,
             consentedBy = consentedBy,
             clientScopes = clientScopes.toTypedArray(),
-            authorizeAttemptId = authorizeAttemptId,
+            sessionId = sessionId,
             grantType = grantType,
             dpopJkt = dpopJkt,
             actorTokenId = actorTokenId,

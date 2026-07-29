@@ -4,7 +4,7 @@ CREATE TABLE validation_codes
     code            text      NOT NULL,
 
     user_id         uuid      NOT NULL,
-    attempt_id      uuid      NOT NULL,
+    session_id      uuid      NOT NULL,
     media           text      NOT NULL,
     reasons         text[]    NOT NULL,
 
@@ -14,9 +14,9 @@ CREATE TABLE validation_codes
     expiration_date timestamp NOT NULL,
 
     PRIMARY KEY (id),
-    UNIQUE (attempt_id, code),
+    UNIQUE (session_id, code),
     FOREIGN KEY (user_id) REFERENCES users (id),
-    FOREIGN KEY (attempt_id) REFERENCES authorize_attempts (id)
+    FOREIGN KEY (session_id) REFERENCES interactive_flow_sessions (id)
 );
 
-CREATE INDEX validation_codes__attempt_id ON validation_codes (attempt_id) WHERE attempt_id IS NOT NULL;
+CREATE INDEX validation_codes__session_id ON validation_codes (session_id) WHERE session_id IS NOT NULL;

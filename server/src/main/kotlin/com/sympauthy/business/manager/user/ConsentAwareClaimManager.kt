@@ -1,10 +1,11 @@
 package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
-import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
-import com.sympauthy.business.model.oauth2.FailedAuthorizeAttempt
-import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
+import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.claim.Claim
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -23,27 +24,24 @@ import jakarta.inject.Singleton
 @Singleton
 class ConsentAwareClaimManager(
     @Inject private val claimManager: ClaimManager,
+    @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
 ) {
 
     /**
      * Return the list of [Claim] that should be presented to the end-user for collection
-     * during the authorization flow associated to the [authorizeAttempt].
+     * during the authorization flow associated to the [session].
      *
      * This excludes:
      * - Claims that are not user-inputted (generated or client-managed).
      * - Identifier claims (e.g. email used for sign-in), which require separate validation.
      * - Claims outside the end-user's consented scopes.
      */
-    fun listCollectableClaimsByAttempt(authorizeAttempt: AuthorizeAttempt): List<Claim> {
-        return when (authorizeAttempt) {
-            is FailedAuthorizeAttempt -> emptyList()
-            is OnGoingAuthorizeAttempt -> {
-                val consentedScopes = authorizeAttempt.consentedScopes ?: return emptyList()
+    suspend fun listCollectableClaimsBySession(session: InteractiveFlowSession): List<Claim> {
+        return when (session) {
+            is FailedInteractiveFlowSession -> emptyList()
+            is OnGoingInteractiveFlowSession, is CompletedInteractiveFlowSession -> {
+                val consentedScopes = oauth2Manager.fetchOAuth2(session).consentedScopes ?: return emptyList()
                 listCollectableClaimsWithScopes(consentedScopes)
-            }
-
-            is CompletedAuthorizeAttempt -> {
-                listCollectableClaimsWithScopes(authorizeAttempt.consentedScopes)
             }
         }
     }

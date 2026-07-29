@@ -106,14 +106,14 @@ Multi-module Gradle project (root + `server`). All source code is in `server/src
 
 - **Naming conventions for protocols** — Use `OAuth2` (not `Oauth2`) and `OpenIdConnect` (not `Oidc` or `OpenId`) in
   class names, method names, and packages. Examples: `ProviderOAuth2Config`,
-  `WebAuthorizationFlowOAuth2ProviderManager`, `OpenIdConnectDiscoveryClient`, `ProviderOpenIdConnectConfig`. The YAML
-  config key `oidc` is kept as shorthand for user-facing configuration.
+  `InteractiveAuthFlowSessionOAuth2ProviderManager`, `OpenIdConnectDiscoveryClient`, `ProviderOpenIdConnectConfig`. The
+  YAML config key `oidc` is kept as shorthand for user-facing configuration.
 - **Nullable methods use `OrNull` suffix** — e.g., `findByCodeOrNull()` returns `T?`
 - **All async operations prefer `suspend` functions** — no callbacks or reactive streams. Wrap blocking third-party
   calls (e.g. Nimbus `JWKSourceBuilder`) in `withContext(Dispatchers.IO)`.
 - **Prefer DB storage over JWT embedding for transient flow state** — Store nonces, provider IDs, verifiers in the
-  database (e.g. `authorize_attempts` table). Keep only the minimal identifying data (e.g. a UUID) and reconstruct the
-  full value at runtime when needed.
+  database (e.g. the `interactive_flow_session_oauth2` / `interactive_flow_session_provider` tables). Keep only the
+  minimal identifying data (e.g. a UUID / jti) and reconstruct the full value at runtime when needed.
 - **MapStruct mappers** — See [Libraries](#libraries). New `*Impl` classes must be registered in
   `META-INF/native-image/.../reflect-config.json` for native image support
 
@@ -122,6 +122,57 @@ Multi-module Gradle project (root + `server`). All source code is in `server/src
 Scopes use a sealed class hierarchy (`Scope` → `ConsentableUserScope`, `GrantableUserScope`, `ClientScope`). Consentable
 scopes come from user consent, grantable scopes from rules/auto-grant, client scopes are for `client_credentials` flows
 only.
+
+### Interactive Flow Session
+
+The interactive end-user flow is a **purpose-agnostic engine** built around the sealed `InteractiveFlowSession`
+primitive (`business/model/flow/`, subtypes `OnGoing`/`Completed`/`Failed`, `Expirable`). This replaced the old
+`AuthorizeAttempt`. The session carries only **flow-generic state** (id, `type`, `flowId`, `sessionDate`,
+`expirationDate`, `userId`, MFA, terminal status). Each concern-specific piece of state lives in its **own record keyed
+by `session_id`**, fetched on demand via its manager — never carried on the session:
+
+- **`InteractiveFlowSessionOAuth2`** — the client's OAuth2 request context (clientId, redirectUri, requestedScopes,
+  PKCE, nonce, invitation) + consent/grant. Fetched via `InteractiveFlowSessionOAuth2Manager.fetchOAuth2(session)`.
+- **`InteractiveFlowSessionProvider`** — third-party-provider authorization state (providerId + OIDC nonce jti).
+  Fetched via `InteractiveFlowSessionProviderManager.fetchProviderOrNull(session)`.
+
+**Three managers, split by concern** (`business/manager/flow/`):
+
+- `InteractiveFlowSessionManager` — session lifecycle + the signed `state` JWT
+  (`encodeState` / `verifyEncodedInternalState`, subject = session id). Owns `VerifyEncodedStateResult`.
+- `InteractiveFlowSessionOAuth2Manager` — `@Transactional open suspend startOAuth2Session` creates the session + its
+  OAuth2 record in one transaction; also fetch / consent / grant / replay checks.
+- `InteractiveFlowSessionProviderManager` — `setProvider` upsert, fetch, nonce reconstruction.
+
+**Package split (engine vs consumer):**
+
+- `business.manager.flow` — the **generic engine**: the `InteractiveFlowSession*` managers above +
+  `InteractiveFlowSessionCleaner` + the generic `AuthorizationFlowManager`.
+- `business.manager.flow.mfa` — **generic flow steps** (MFA is a step of the session, not auth-specific):
+  `InteractiveFlowSessionMfaManager`, `InteractiveFlowSession{TotpChallenge,TotpEnrollment}Manager`.
+- `business.manager.flow.auth` — the **OAuth2 / web-authorization consumer** of the engine, named
+  `InteractiveAuthFlowSession*`: `Manager`, `RedirectUriBuilder`, `PasswordManager`, `OAuth2ProviderManager`,
+  `ClaimValidationManager`; its controller helper `InteractiveAuthFlowSessionControllerUtil` lives in
+  `api.controller.flow.auth`.
+
+**Model naming** (`business/model/flow/`): `InteractiveFlow` / `InteractiveFlowStatus` are the generic interactive-flow
+definition (step URIs) + status — an interactive flow may host authorization, reset-password, or other feature steps, so
+they are kept generic. Distinct from the sealed base `AuthorizationFlow` (+ `NonInteractiveAuthorizationFlow`).
+
+**Conventions to preserve:**
+
+- Every table that references a session uses the `session_id` column / `sessionId` field — `authentication_tokens`
+  (not a DB FK), `authorization_codes`, `validation_codes`, plus the two attached-record tables.
+- A **failed** session never fetches an OAuth2 record — the failed path uses only `id` + `flowId` (→ error page); OAuth2
+  is read only on the ongoing/completed path, where the record always exists.
+- OAuth2 fields (clientId, scopes, consent, grant, PKCE) and provider fields are **fetched via the managers**, never
+  read off the session object.
+- **Pass the required subpart alongside the session to avoid refetching.** When a manager method needs an attached
+  record (OAuth2 / provider) that the caller already holds — or that a validation step just fetched — accept it as a
+  (possibly nullable) parameter and validate it there, rather than each method re-fetching it. Example:
+  `checkCanIssueToken(session, oauth2, client)` validates the nullable OAuth2 record and returns it non-null, and
+  `generateTokens(session, oauth2, client)` takes that record so the token endpoint reads it once. Keep the fetch at
+  the top of a request/flow and thread the record downward.
 
 ## Libraries
 

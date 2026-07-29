@@ -36,9 +36,9 @@ abstract class AuthenticationTokenMapper {
                         "grantType" to token.grantType
                     )
                 }
-                if (token.authorizeAttemptId != null) {
+                if (token.sessionId != null) {
                     throw internalBusinessExceptionOf(
-                        "mapper.authentication_token.client_credentials.invalid_authorize_attempt_id",
+                        "mapper.authentication_token.client_credentials.invalid_session_id",
                         "grantType" to token.grantType
                     )
                 }
@@ -53,9 +53,9 @@ abstract class AuthenticationTokenMapper {
                         "grantType" to token.grantType
                     )
                 }
-                if (token.authorizeAttemptId != null) {
+                if (token.sessionId != null) {
                     throw internalBusinessExceptionOf(
-                        "mapper.authentication_token.token_exchange.invalid_authorize_attempt_id",
+                        "mapper.authentication_token.token_exchange.invalid_session_id",
                         "grantType" to token.grantType
                     )
                 }
@@ -75,9 +75,9 @@ abstract class AuthenticationTokenMapper {
                         "grantType" to token.grantType
                     )
                 }
-                if (token.authorizeAttemptId == null) {
+                if (token.sessionId == null) {
                     throw internalBusinessExceptionOf(
-                        "mapper.authentication_token.missing_authorize_attempt_id",
+                        "mapper.authentication_token.missing_session_id",
                         "grantType" to token.grantType
                     )
                 }

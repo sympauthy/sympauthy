@@ -7,7 +7,6 @@ import com.sympauthy.api.exception.toOAuth2Exception
 import com.sympauthy.api.resource.oauth2.TokenResource
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ScopeManager
-import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.ClientScopeGrantingManager
 import com.sympauthy.business.manager.auth.oauth2.AccessTokenGenerator
 import com.sympauthy.business.manager.auth.oauth2.DpopManager
@@ -15,6 +14,8 @@ import com.sympauthy.business.manager.auth.oauth2.PkceManager
 import com.sympauthy.business.manager.auth.oauth2.TokenExchangeManager
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
 import com.sympauthy.business.manager.flow.AuthorizationFlowManager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
@@ -44,7 +45,8 @@ import java.time.ZoneOffset
 
 @Controller(OAUTH2_TOKEN_ENDPOINT)
 class TokenController(
-    @Inject private val authorizeAttemptManager: AuthorizeAttemptManager,
+    @Inject private val sessionManager: InteractiveFlowSessionManager,
+    @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
     @Inject private val authorizeFlowManager: AuthorizationFlowManager,
     @Inject private val tokenManager: TokenManager,
     @Inject private val accessTokenGenerator: AccessTokenGenerator,
@@ -245,13 +247,14 @@ Client authentication is supported via:
             throw oauth2ExceptionOf(INVALID_GRANT, "token.missing_param", "param" to CODE_PARAM)
         }
 
-        val attempt = authorizeAttemptManager.findByCodeOrNull(code)
-        val completedAttempt = try {
-            authorizeFlowManager.checkCanIssueToken(attempt, client)
+        val session = sessionManager.findByCodeOrNull(code)
+        val oauth2 = session?.let { oauth2Manager.fetchOAuth2OrNull(it) }
+        val (completedSession, completedOAuth2) = try {
+            authorizeFlowManager.checkCanIssueToken(session, oauth2, client)
         } catch (e: BusinessException) {
             throw e.toOAuth2Exception(INVALID_GRANT)
         }
-        if (completedAttempt.redirectUri != redirectUri) {
+        if (completedOAuth2.redirectUri != redirectUri) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token.non_matching_redirect_uri")
         }
 
@@ -259,14 +262,14 @@ Client authentication is supported via:
         try {
             pkceManager.verifyCodeVerifier(
                 codeVerifier = codeVerifier,
-                codeChallenge = completedAttempt.codeChallenge,
-                codeChallengeMethod = completedAttempt.codeChallengeMethod
+                codeChallenge = completedOAuth2.codeChallenge,
+                codeChallengeMethod = completedOAuth2.codeChallengeMethod
             )
         } catch (e: BusinessException) {
             throw e.toOAuth2Exception(INVALID_GRANT)
         }
 
-        val tokens = tokenManager.generateTokens(completedAttempt, client, dpopJkt = dpopProof?.jkt)
+        val tokens = tokenManager.generateTokens(completedSession, completedOAuth2, client, dpopJkt = dpopProof?.jkt)
         val tokenType = if (dpopProof != null) TOKEN_TYPE_DPOP else TOKEN_TYPE_BEARER
 
         return TokenResource(

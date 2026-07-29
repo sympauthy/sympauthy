@@ -15,9 +15,6 @@ class BusinessMapperFactory {
     fun authorizationCodeMapper() = Mappers.getMapper(AuthorizationCodeMapper::class.java)
 
     @Singleton
-    fun authorizeAttemptMapper() = Mappers.getMapper(AuthorizeAttemptMapper::class.java)
-
-    @Singleton
     fun collectedUserInfoMapper(
         claimManager: ClaimManager,
         claimValueMapper: ClaimValueMapper
@@ -63,4 +60,13 @@ class BusinessMapperFactory {
 
     @Singleton
     fun validationCodeMapper() = Mappers.getMapper(ValidationCodeMapper::class.java)
+
+    @Singleton
+    fun interactiveFlowSessionMapper() = Mappers.getMapper(InteractiveFlowSessionMapper::class.java)
+
+    @Singleton
+    fun interactiveFlowSessionOAuth2Mapper() = Mappers.getMapper(InteractiveFlowSessionOAuth2Mapper::class.java)
+
+    @Singleton
+    fun interactiveFlowSessionProviderMapper() = Mappers.getMapper(InteractiveFlowSessionProviderMapper::class.java)
 }

@@ -9,10 +9,11 @@ import com.sympauthy.business.manager.jwt.JwtManager.Companion.REFRESH_KEY
 import com.sympauthy.business.mapper.AuthenticationTokenMapper
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
+import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
-import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
@@ -87,23 +88,24 @@ open class TokenManager(
      * Always generates an access token and an ID token. A refresh token is only generated if the [client] supports
      * the [GrantType.REFRESH_TOKEN] grant type.
      *
-     * @throws OAuth2Exception if the [authorizeAttempt] has expired.
+     * @throws OAuth2Exception if the [session] has expired.
      */
     @Transactional
     open suspend fun generateTokens(
-        authorizeAttempt: CompletedAuthorizeAttempt,
+        session: CompletedInteractiveFlowSession,
+        oauth2: InteractiveFlowSessionOAuth2,
         client: Client,
         dpopJkt: String? = null
     ): GenerateTokenResult = coroutineScope {
-        if (authorizeAttempt.expired) {
+        if (session.expired) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token.expired", "description.oauth2.expired")
         }
 
         val tokenAudience = client.audience.tokenAudience
         val deferredAccessToken = async {
             accessTokenGenerator.generateAccessToken(
-                authorizeAttempt,
-                authorizeAttempt.userId,
+                oauth2,
+                session.userId,
                 tokenAudience,
                 dpopJkt = dpopJkt
             )
@@ -111,8 +113,8 @@ open class TokenManager(
         val deferredRefreshToken = if (client.supportsGrantType(GrantType.REFRESH_TOKEN)) {
             async {
                 refreshTokenGenerator.generateRefreshToken(
-                    authorizeAttempt,
-                    authorizeAttempt.userId,
+                    oauth2,
+                    session.userId,
                     tokenAudience,
                     dpopJkt = dpopJkt
                 )
@@ -122,8 +124,8 @@ open class TokenManager(
         val accessToken = deferredAccessToken.await()
         val deferredIdToken = async {
             idTokenGenerator.generateIdToken(
-                authorizeAttempt = authorizeAttempt,
-                userId = authorizeAttempt.userId,
+                oauth2 = oauth2,
+                userId = session.userId,
                 accessToken = accessToken
             )
         }
@@ -208,7 +210,7 @@ open class TokenManager(
      * Per RFC 7009, this method does not throw if the token is invalid, expired, already revoked, or not found.
      * Only tokens owned by [client] are revoked.
      *
-     * If the token is a refresh token, all tokens associated to the same session ([AuthenticationToken.authorizeAttemptId])
+     * If the token is a refresh token, all tokens associated to the same session ([AuthenticationToken.sessionId])
      * are revoked as well (cascading revocation).
      */
     @Transactional
@@ -237,9 +239,9 @@ open class TokenManager(
         if (token.clientId != client.id) return
 
         val now = LocalDateTime.now()
-        if (token.type == REFRESH && token.authorizeAttemptId != null) {
-            tokenRepository.updateRevokedAtByAuthorizeAttemptId(
-                authorizeAttemptId = token.authorizeAttemptId,
+        if (token.type == REFRESH && token.sessionId != null) {
+            tokenRepository.updateRevokedAtBySessionId(
+                sessionId = token.sessionId,
                 revokedAt = now,
                 revokedBy = TokenRevokedBy.CLIENT.name,
                 revokedById = null

@@ -1,11 +1,11 @@
 package com.sympauthy.api.controller.oauth2
 
 import com.sympauthy.api.exception.OAuth2Exception
-import com.sympauthy.business.manager.flow.WebAuthorizationFlowManager
-import com.sympauthy.business.manager.flow.WebAuthorizationFlowRedirectUriBuilder
-import com.sympauthy.business.model.flow.WebAuthorizationFlow
-import com.sympauthy.business.model.flow.WebAuthorizationFlowStatus
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
+import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
+import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionRedirectUriBuilder
+import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlow
+import com.sympauthy.business.model.flow.InteractiveFlowStatus
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.UNSUPPORTED_RESPONSE_TYPE
 import io.micronaut.http.HttpStatus
 import io.mockk.coEvery
@@ -25,10 +25,10 @@ import java.net.URI
 class AuthorizeControllerTest {
 
     @MockK
-    lateinit var webAuthorizationFlowManager: WebAuthorizationFlowManager
+    lateinit var interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager
 
     @MockK
-    lateinit var webFlowRedirectBuilder: WebAuthorizationFlowRedirectUriBuilder
+    lateinit var redirectUriBuilder: InteractiveAuthFlowSessionRedirectUriBuilder
 
     @InjectMockKs
     lateinit var controller: AuthorizeController
@@ -134,13 +134,13 @@ class AuthorizeControllerTest {
 
     @Test
     fun `authorize - Returns 303 redirect to sign-in URI on valid code request`() = runTest {
-        val authorizeAttempt = mockk<AuthorizeAttempt>()
-        val flow = mockk<WebAuthorizationFlow>()
-        val status = mockk<WebAuthorizationFlowStatus>()
+        val session = mockk<InteractiveFlowSession>()
+        val flow = mockk<InteractiveFlow>()
+        val status = mockk<InteractiveFlowStatus>()
         val signInUri = URI("https://auth.example.com/sign-in?state=abc")
 
         coEvery {
-            webAuthorizationFlowManager.startAuthorizationWith(
+            interactiveAuthFlowSessionManager.startAuthorizationWith(
                 uncheckedClientId = "client",
                 uncheckedClientState = "my-state",
                 uncheckedClientNonce = null,
@@ -150,13 +150,13 @@ class AuthorizeControllerTest {
                 uncheckedCodeChallengeMethod = null,
                 uncheckedInvitationToken = null
             )
-        } returns (authorizeAttempt to flow)
+        } returns (session to flow)
 
-        coEvery { webAuthorizationFlowManager.getStatus(authorizeAttempt) } returns status
+        coEvery { interactiveAuthFlowSessionManager.getStatus(session) } returns status
 
         coEvery {
-            webFlowRedirectBuilder.getRedirectUri(
-                authorizeAttempt = authorizeAttempt,
+            redirectUriBuilder.getRedirectUri(
+                session = session,
                 flow = flow,
                 status = status
             )
@@ -180,13 +180,13 @@ class AuthorizeControllerTest {
 
     @Test
     fun `authorize - Passes all query parameters to startAuthorizationWith`() = runTest {
-        val authorizeAttempt = mockk<AuthorizeAttempt>()
-        val flow = mockk<WebAuthorizationFlow>()
-        val status = mockk<WebAuthorizationFlowStatus>()
+        val session = mockk<InteractiveFlowSession>()
+        val flow = mockk<InteractiveFlow>()
+        val status = mockk<InteractiveFlowStatus>()
         val signInUri = URI("https://auth.example.com/sign-in?state=abc")
 
         coEvery {
-            webAuthorizationFlowManager.startAuthorizationWith(
+            interactiveAuthFlowSessionManager.startAuthorizationWith(
                 uncheckedClientId = "my-client",
                 uncheckedClientState = "my-state",
                 uncheckedClientNonce = "my-nonce",
@@ -195,12 +195,12 @@ class AuthorizeControllerTest {
                 uncheckedCodeChallenge = "challenge123",
                 uncheckedCodeChallengeMethod = "S256"
             )
-        } returns (authorizeAttempt to flow)
+        } returns (session to flow)
 
-        coEvery { webAuthorizationFlowManager.getStatus(authorizeAttempt) } returns status
+        coEvery { interactiveAuthFlowSessionManager.getStatus(session) } returns status
 
         coEvery {
-            webFlowRedirectBuilder.getRedirectUri(authorizeAttempt, flow, status)
+            redirectUriBuilder.getRedirectUri(session, flow, status)
         } returns signInUri
 
         controller.authorize(
@@ -216,7 +216,7 @@ class AuthorizeControllerTest {
         )
 
         coVerify(exactly = 1) {
-            webAuthorizationFlowManager.startAuthorizationWith(
+            interactiveAuthFlowSessionManager.startAuthorizationWith(
                 uncheckedClientId = "my-client",
                 uncheckedClientState = "my-state",
                 uncheckedClientNonce = "my-nonce",
@@ -230,13 +230,13 @@ class AuthorizeControllerTest {
 
     @Test
     fun `authorize - Passes null for absent optional parameters`() = runTest {
-        val authorizeAttempt = mockk<AuthorizeAttempt>()
-        val flow = mockk<WebAuthorizationFlow>()
-        val status = mockk<WebAuthorizationFlowStatus>()
+        val session = mockk<InteractiveFlowSession>()
+        val flow = mockk<InteractiveFlow>()
+        val status = mockk<InteractiveFlowStatus>()
         val signInUri = URI("https://auth.example.com/sign-in?state=abc")
 
         coEvery {
-            webAuthorizationFlowManager.startAuthorizationWith(
+            interactiveAuthFlowSessionManager.startAuthorizationWith(
                 uncheckedClientId = "client",
                 uncheckedClientState = null,
                 uncheckedClientNonce = null,
@@ -246,12 +246,12 @@ class AuthorizeControllerTest {
                 uncheckedCodeChallengeMethod = null,
                 uncheckedInvitationToken = null
             )
-        } returns (authorizeAttempt to flow)
+        } returns (session to flow)
 
-        coEvery { webAuthorizationFlowManager.getStatus(authorizeAttempt) } returns status
+        coEvery { interactiveAuthFlowSessionManager.getStatus(session) } returns status
 
         coEvery {
-            webFlowRedirectBuilder.getRedirectUri(authorizeAttempt, flow, status)
+            redirectUriBuilder.getRedirectUri(session, flow, status)
         } returns signInUri
 
         controller.authorize(
@@ -267,7 +267,7 @@ class AuthorizeControllerTest {
         )
 
         coVerify(exactly = 1) {
-            webAuthorizationFlowManager.startAuthorizationWith(
+            interactiveAuthFlowSessionManager.startAuthorizationWith(
                 uncheckedClientId = "client",
                 uncheckedClientState = null,
                 uncheckedClientNonce = null,

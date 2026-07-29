@@ -6,8 +6,8 @@ import com.sympauthy.business.model.code.ValidationCode
 import com.sympauthy.business.model.code.ValidationCodeMedia.EMAIL
 import com.sympauthy.business.model.code.ValidationCodeReason.EMAIL_CLAIM
 import com.sympauthy.business.model.code.ValidationCodeReason.PHONE_NUMBER_CLAIM
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
-import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
+import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.Claim
@@ -132,7 +132,7 @@ class ValidationCodeManagerTest {
             val user = mockk<User> {
                 every { id } returns mockUserId
             }
-            val authorizeAttempt = mockk<OnGoingAuthorizeAttempt> {
+            val session = mockk<OnGoingInteractiveFlowSession> {
                 every { userId } returns mockUserId
             }
             val collectedClaim = mockk<CollectedClaim> {
@@ -159,7 +159,7 @@ class ValidationCodeManagerTest {
             coEvery {
                 validationCodeGenerator.generateValidationCode(
                     user = user,
-                    authorizeAttempt = authorizeAttempt,
+                    session = session,
                     media = EMAIL,
                     reasons = listOf(reason)
                 )
@@ -174,7 +174,7 @@ class ValidationCodeManagerTest {
 
             val result = manager.queueRequiredValidationCodes(
                 user = user,
-                authorizeAttempt = authorizeAttempt,
+                session = session,
                 collectedClaims = listOf(collectedClaim),
                 reasons = listOf(reason)
             )
@@ -184,10 +184,10 @@ class ValidationCodeManagerTest {
         }
 
     @Test
-    fun `findCodeForReasonsDuringAttempt - Does not return non-matching reasons or expired`() = runTest {
-        val authorizeAttemptId = UUID.randomUUID()
-        val authorizeAttempt = mockk<AuthorizeAttempt> {
-            every { id } returns authorizeAttemptId
+    fun `findCodeForReasonsDuringSession - Does not return non-matching reasons or expired`() = runTest {
+        val sessionId = UUID.randomUUID()
+        val session = mockk<InteractiveFlowSession> {
+            every { id } returns sessionId
         }
         val expiredEntity = mockk<ValidationCodeEntity>()
         val nonMatchingEntity = mockk<ValidationCodeEntity>()
@@ -205,15 +205,15 @@ class ValidationCodeManagerTest {
             every { expired } returns false
         }
 
-        coEvery { validationCodeRepository.findByAttemptId(authorizeAttemptId) } returns listOf(
+        coEvery { validationCodeRepository.findBySessionId(sessionId) } returns listOf(
             expiredEntity, nonMatchingEntity, matchingEntity
         )
         every { validationCodeMapper.toValidationCode(expiredEntity) } returns expiredCode
         every { validationCodeMapper.toValidationCode(matchingEntity) } returns matchingCode
         every { validationCodeMapper.toValidationCode(nonMatchingEntity) } returns nonMatchingCode
 
-        val result = manager.findCodeForReasonsDuringAttempt(
-            authorizeAttempt = authorizeAttempt,
+        val result = manager.findCodeForReasonsDuringSession(
+            session = session,
             reasons = listOf(EMAIL_CLAIM),
             includesExpired = false
         )
@@ -223,10 +223,10 @@ class ValidationCodeManagerTest {
     }
 
     @Test
-    fun `findCodeForReasonsDuringAttempt - Does not return non-matching reasons`() = runTest {
-        val authorizeAttemptId = UUID.randomUUID()
-        val authorizeAttempt = mockk<AuthorizeAttempt> {
-            every { id } returns authorizeAttemptId
+    fun `findCodeForReasonsDuringSession - Does not return non-matching reasons`() = runTest {
+        val sessionId = UUID.randomUUID()
+        val session = mockk<InteractiveFlowSession> {
+            every { id } returns sessionId
         }
         val expiredEntity = mockk<ValidationCodeEntity>()
         val nonMatchingEntity = mockk<ValidationCodeEntity>()
@@ -244,15 +244,15 @@ class ValidationCodeManagerTest {
             every { expired } returns false
         }
 
-        coEvery { validationCodeRepository.findByAttemptId(authorizeAttemptId) } returns listOf(
+        coEvery { validationCodeRepository.findBySessionId(sessionId) } returns listOf(
             expiredEntity, nonMatchingEntity, matchingEntity
         )
         every { validationCodeMapper.toValidationCode(expiredEntity) } returns expiredCode
         every { validationCodeMapper.toValidationCode(matchingEntity) } returns matchingCode
         every { validationCodeMapper.toValidationCode(nonMatchingEntity) } returns nonMatchingCode
 
-        val result = manager.findCodeForReasonsDuringAttempt(
-            authorizeAttempt = authorizeAttempt,
+        val result = manager.findCodeForReasonsDuringSession(
+            session = session,
             reasons = listOf(EMAIL_CLAIM),
             includesExpired = true
         )
@@ -263,10 +263,10 @@ class ValidationCodeManagerTest {
     }
 
     @Test
-    fun `findCodeForReasonsDuringAttempt - Does not include expired`() = runTest {
-        val authorizeAttemptId = UUID.randomUUID()
-        val authorizeAttempt = mockk<AuthorizeAttempt> {
-            every { id } returns authorizeAttemptId
+    fun `findCodeForReasonsDuringSession - Does not include expired`() = runTest {
+        val sessionId = UUID.randomUUID()
+        val session = mockk<InteractiveFlowSession> {
+            every { id } returns sessionId
         }
         val media = EMAIL
         val validCodeEntity = mockk<ValidationCodeEntity>()
@@ -278,14 +278,14 @@ class ValidationCodeManagerTest {
             every { expired } returns true
         }
 
-        coEvery { validationCodeRepository.findByAttemptIdAndMedia(authorizeAttemptId, media.name) } returns listOf(
+        coEvery { validationCodeRepository.findBySessionIdAndMedia(sessionId, media.name) } returns listOf(
             validCodeEntity, expiredCodeEntity
         )
         every { validationCodeMapper.toValidationCode(validCodeEntity) } returns validCode
         every { validationCodeMapper.toValidationCode(expiredCodeEntity) } returns expiredCode
 
-        val result = manager.findCodeSentByMediaDuringAttempt(
-            authorizeAttempt = authorizeAttempt,
+        val result = manager.findCodeSentByMediaDuringSession(
+            session = session,
             media = media,
             includesExpired = false,
         )
@@ -300,20 +300,20 @@ class ValidationCodeManagerTest {
         val user = mockk<User> {
             every { id } returns mockUserId
         }
-        val mockAttemptId = UUID.randomUUID()
-        val attempt = mockk<OnGoingAuthorizeAttempt> {
-            every { id } returns mockAttemptId
+        val mockSessionId = UUID.randomUUID()
+        val session = mockk<OnGoingInteractiveFlowSession> {
+            every { id } returns mockSessionId
             every { userId } returns mockUserId
         }
         val validationCode = mockk<ValidationCode> {
-            every { attemptId } returns mockAttemptId
+            every { sessionId } returns mockSessionId
         }
 
         every { manager.canBeRefreshed(validationCode) } returns false
 
         val result = manager.refreshAndQueueValidationCode(
             user = user,
-            authorizeAttempt = attempt,
+            session = session,
             collectedClaims = emptyList(),
             validationCode = validationCode,
         )

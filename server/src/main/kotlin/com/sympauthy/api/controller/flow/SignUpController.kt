@@ -1,6 +1,6 @@
 package com.sympauthy.api.controller.flow
 
-import com.sympauthy.api.controller.flow.util.WebAuthorizationFlowControllerUtil
+import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.mapper.CollectedClaimUpdateMapper
 import com.sympauthy.api.resource.flow.CollectableClaimResource
 import com.sympauthy.api.resource.flow.PasswordResource
@@ -8,11 +8,12 @@ import com.sympauthy.api.resource.flow.SignUpFlowResource
 import com.sympauthy.api.resource.flow.SignUpInputResource
 import com.sympauthy.api.resource.flow.SimpleFlowResource
 import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.flow.WebAuthorizationFlowManager
-import com.sympauthy.business.manager.flow.WebAuthorizationFlowPasswordManager
-import com.sympauthy.business.manager.flow.WebAuthorizationFlowRedirectUriBuilder
-import com.sympauthy.business.model.flow.WebAuthorizationFlow
-import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
+import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionPasswordManager
+import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionRedirectUriBuilder
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
 import com.sympauthy.server.DisplayMessages
@@ -33,11 +34,12 @@ import java.util.Locale
 @Controller("/api/v1/flow/sign-up")
 class SignUpController(
     @Inject private val claimManager: ClaimManager,
-    @Inject private val passwordFlowManager: WebAuthorizationFlowPasswordManager,
-    @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
-    @Inject private val redirectUriBuilder: WebAuthorizationFlowRedirectUriBuilder,
+    @Inject private val passwordFlowManager: InteractiveAuthFlowSessionPasswordManager,
+    @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
+    @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
+    @Inject private val redirectUriBuilder: InteractiveAuthFlowSessionRedirectUriBuilder,
     @Inject private val collectedClaimUpdateMapper: CollectedClaimUpdateMapper,
-    @Inject private val webAuthorizationFlowControllerUtil: WebAuthorizationFlowControllerUtil,
+    @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil,
     @Inject @param:DisplayMessages private val displayMessageSource: MessageSource
 ) {
 
@@ -58,11 +60,11 @@ on-going flow. All URLs it contains already include the state query param.
         httpRequest: HttpRequest<*>
     ): SignUpFlowResource {
         val locale = httpRequest.locale.orDefault()
-        return webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenRunAndRedirect(
+        return interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenRunAndRedirect(
             state = authentication.stateOrNull,
-            run = { authorizeAttempt, flow ->
-                if (signUpApplies(authorizeAttempt)) {
-                    buildSignUpConfiguration(authorizeAttempt, flow, locale)
+            run = { session, flow ->
+                if (signUpApplies(session)) {
+                    buildSignUpConfiguration(session, flow, locale)
                 } else {
                     null
                 }
@@ -73,22 +75,22 @@ on-going flow. All URLs it contains already include the state query param.
     }
 
     /**
-     * The sign-up step applies while no user is associated to the [authorizeAttempt] yet and sign-up is allowed for
-     * the audience of the client. When it does not apply, [WebAuthorizationFlowRedirectUriBuilder] redirects an
+     * The sign-up step applies while no user is associated to the [session] yet and sign-up is allowed for
+     * the audience of the client. When it does not apply, [InteractiveAuthFlowSessionRedirectUriBuilder] redirects an
      * unauthenticated end-user with no invitation to the sign-in page.
      */
     private suspend fun signUpApplies(
-        authorizeAttempt: OnGoingAuthorizeAttempt
+        session: OnGoingInteractiveFlowSession
     ): Boolean {
-        if (authorizeAttempt.userId != null) {
+        if (session.userId != null) {
             return false
         }
-        return webAuthorizationFlowManager.isSignUpAllowed(authorizeAttempt)
+        return interactiveAuthFlowSessionManager.isSignUpAllowed(session)
     }
 
     private suspend fun buildSignUpConfiguration(
-        authorizeAttempt: OnGoingAuthorizeAttempt,
-        flow: WebAuthorizationFlow,
+        session: OnGoingInteractiveFlowSession,
+        flow: InteractiveFlow,
         locale: Locale
     ): SignUpFlowResource {
         val password = if (passwordFlowManager.signUpEnabled) {
@@ -105,8 +107,8 @@ on-going flow. All URLs it contains already include the state query param.
                 type = claim.dataType.name.lowercase()
             )
         }
-        val signInRedirectUrl = if (authorizeAttempt.invitationId == null) {
-            redirectUriBuilder.getSignInRedirectUri(authorizeAttempt, flow).toString()
+        val signInRedirectUrl = if (oauth2Manager.fetchOAuth2(session).invitationId == null) {
+            redirectUriBuilder.getSignInRedirectUri(session, flow).toString()
         } else null
         return SignUpFlowResource(
             password = password,
@@ -126,12 +128,12 @@ Initiate the creation of an account of a end-user with a password.
         authentication: Authentication,
         @Body inputResource: SignUpInputResource
     ): SimpleFlowResource =
-        webAuthorizationFlowControllerUtil.fetchOnGoingAttemptThenUpdateAndRedirect(
+        interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect(
             state = authentication.stateOrNull,
-            update = { authorizeAttempt, _ ->
+            update = { session, _ ->
                 val updates = collectedClaimUpdateMapper.toUpdates(inputResource.claims)
                 passwordFlowManager.signUpWithClaimsAndPassword(
-                    authorizeAttempt = authorizeAttempt,
+                    session = session,
                     unfilteredUpdates = updates,
                     password = inputResource.password
                 )

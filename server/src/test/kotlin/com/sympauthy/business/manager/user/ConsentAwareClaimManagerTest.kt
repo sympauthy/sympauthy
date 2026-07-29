@@ -1,19 +1,24 @@
 package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
-import com.sympauthy.business.model.oauth2.FailedAuthorizeAttempt
-import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
+import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.claim.Claim
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import java.util.*
 
 @ExtendWith(MockKExtension::class)
 class ConsentAwareClaimManagerTest {
@@ -21,9 +26,20 @@ class ConsentAwareClaimManagerTest {
     @MockK
     lateinit var claimManager: ClaimManager
 
+    @MockK
+    lateinit var oauth2Manager: InteractiveFlowSessionOAuth2Manager
+
     @SpyK
     @InjectMockKs
     lateinit var manager: ConsentAwareClaimManager
+
+    private fun oauth2(consentedScopes: List<String>?) = InteractiveFlowSessionOAuth2(
+        sessionId = UUID.randomUUID(),
+        clientId = "test-client",
+        redirectUri = "https://example.com/callback",
+        requestedScopes = emptyList(),
+        consentedScopes = consentedScopes
+    )
 
     @Test
     fun `listCollectableClaimsWithScopes - Return claims writable by user within consented scopes`() {
@@ -81,54 +97,53 @@ class ConsentAwareClaimManagerTest {
     }
 
     @Test
-    fun `listCollectableClaimsByAttempt - Return empty list for FailedAuthorizeAttempt`() {
-        val attempt = mockk<FailedAuthorizeAttempt>()
+    fun `listCollectableClaimsBySession - Return empty list for FailedInteractiveFlowSession`() = runTest {
+        val session = mockk<FailedInteractiveFlowSession>()
 
-        val result = manager.listCollectableClaimsByAttempt(attempt)
-
-        assertTrue(result.isEmpty())
-    }
-
-    @Test
-    fun `listCollectableClaimsByAttempt - Return empty list for OnGoingAuthorizeAttempt with no consentedScopes`() {
-        val attempt = mockk<OnGoingAuthorizeAttempt> {
-            every { consentedScopes } returns null
-        }
-
-        val result = manager.listCollectableClaimsByAttempt(attempt)
+        val result = manager.listCollectableClaimsBySession(session)
 
         assertTrue(result.isEmpty())
     }
 
     @Test
-    fun `listCollectableClaimsByAttempt - Return claims for OnGoingAuthorizeAttempt with consentedScopes`() {
-        val consentedScopes = listOf("scope1")
-        val claim1 = mockk<Claim>()
+    fun `listCollectableClaimsBySession - Return empty list for OnGoingInteractiveFlowSession with no consentedScopes`() =
+        runTest {
+            val session = mockk<OnGoingInteractiveFlowSession>()
+            coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2(consentedScopes = null)
 
-        val attempt = mockk<OnGoingAuthorizeAttempt> {
-            every { this@mockk.consentedScopes } returns consentedScopes
+            val result = manager.listCollectableClaimsBySession(session)
+
+            assertTrue(result.isEmpty())
         }
-
-        every { manager.listCollectableClaimsWithScopes(consentedScopes) } returns listOf(claim1)
-
-        val result = manager.listCollectableClaimsByAttempt(attempt)
-
-        assertEquals(1, result.size)
-        assertSame(claim1, result[0])
-    }
 
     @Test
-    fun `listCollectableClaimsByAttempt - Return claims for CompletedAuthorizeAttempt`() {
+    fun `listCollectableClaimsBySession - Return claims for OnGoingInteractiveFlowSession with consentedScopes`() =
+        runTest {
+            val consentedScopes = listOf("scope1")
+            val claim1 = mockk<Claim>()
+
+            val session = mockk<OnGoingInteractiveFlowSession>()
+            coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2(consentedScopes = consentedScopes)
+
+            every { manager.listCollectableClaimsWithScopes(consentedScopes) } returns listOf(claim1)
+
+            val result = manager.listCollectableClaimsBySession(session)
+
+            assertEquals(1, result.size)
+            assertSame(claim1, result[0])
+        }
+
+    @Test
+    fun `listCollectableClaimsBySession - Return claims for CompletedInteractiveFlowSession`() = runTest {
         val consentedScopes = listOf("scope1")
         val claim1 = mockk<Claim>()
 
-        val attempt = mockk<CompletedAuthorizeAttempt> {
-            every { this@mockk.consentedScopes } returns consentedScopes
-        }
+        val session = mockk<CompletedInteractiveFlowSession>()
+        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2(consentedScopes = consentedScopes)
 
         every { manager.listCollectableClaimsWithScopes(consentedScopes) } returns listOf(claim1)
 
-        val result = manager.listCollectableClaimsByAttempt(attempt)
+        val result = manager.listCollectableClaimsBySession(session)
 
         assertEquals(1, result.size)
         assertSame(claim1, result[0])

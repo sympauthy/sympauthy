@@ -11,7 +11,7 @@ CREATE TABLE authentication_tokens
     consented_at         timestamp,
     consented_by         text,
     client_scopes        text[]    NOT NULL DEFAULT '{}',
-    authorize_attempt_id uuid,
+    session_id           uuid,
     grant_type           text      NOT NULL,
 
     dpop_jkt             text,

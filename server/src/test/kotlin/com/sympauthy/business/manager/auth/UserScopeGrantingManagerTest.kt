@@ -1,11 +1,13 @@
 package com.sympauthy.business.manager.auth
 
 import com.sympauthy.business.manager.ScopeManager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.rule.ScopeGrantingRuleManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
+import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.GrantableUserScope
-import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.config.model.EnabledFeaturesConfig
@@ -20,6 +22,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import java.util.*
 import kotlin.test.assertEquals
 
 @ExtendWith(MockKExtension::class)
@@ -35,6 +38,9 @@ class UserScopeGrantingManagerTest {
     lateinit var scopeGrantingRuleManager: ScopeGrantingRuleManager
 
     @MockK
+    lateinit var oauth2Manager: InteractiveFlowSessionOAuth2Manager
+
+    @MockK
     lateinit var featuresConfig: EnabledFeaturesConfig
 
     @SpyK
@@ -43,8 +49,13 @@ class UserScopeGrantingManagerTest {
 
     @Test
     fun `grantScopes - apply methods returned by getScopeGrantingMethods`() = runBlocking {
-        val authorizeAttempt = mockk<OnGoingAuthorizeAttempt>()
-        every { authorizeAttempt.requestedScopes } returns listOf("grantedScope1", "declinedScope1", "declinedScope2")
+        val session = mockk<OnGoingInteractiveFlowSession>()
+        coEvery { oauth2Manager.fetchOAuth2(session) } returns InteractiveFlowSessionOAuth2(
+            sessionId = UUID.randomUUID(),
+            clientId = "test-client",
+            redirectUri = "https://example.com/callback",
+            requestedScopes = listOf("grantedScope1", "declinedScope1", "declinedScope2")
+        )
 
         val grantedScope1 = GrantableUserScope("grantedScope1", discoverable = false)
         val declinedScope1 = GrantableUserScope("declinedScope1", discoverable = false)
@@ -54,14 +65,14 @@ class UserScopeGrantingManagerTest {
         coEvery { scopeManager.findOrThrow("declinedScope1") } returns declinedScope1
         coEvery { scopeManager.findOrThrow("declinedScope2") } returns declinedScope2
 
-        val method1: suspend (authorizeAttempt: AuthorizeAttempt, requestedScopes: List<Scope>, collectedClaims: List<CollectedClaim>) -> ScopeGrantingMethodResult =
+        val method1: suspend (session: InteractiveFlowSession, requestedScopes: List<Scope>, collectedClaims: List<CollectedClaim>) -> ScopeGrantingMethodResult =
             { _, _, _ ->
                 ScopeGrantingMethodResult(
                     grantedScopes = listOf(grantedScope1),
                     declinedScopes = listOf(declinedScope1)
                 )
             }
-        val declineAllMethod: suspend (authorizeAttempt: AuthorizeAttempt, requestedScopes: List<Scope>, collectedClaims: List<CollectedClaim>) -> ScopeGrantingMethodResult =
+        val declineAllMethod: suspend (session: InteractiveFlowSession, requestedScopes: List<Scope>, collectedClaims: List<CollectedClaim>) -> ScopeGrantingMethodResult =
             { _, requestedScopes, _ ->
                 ScopeGrantingMethodResult(
                     grantedScopes = emptyList(),
@@ -72,7 +83,7 @@ class UserScopeGrantingManagerTest {
         every { scopeGrantingManager.getScopeGrantingMethods() } returns listOf(method1, declineAllMethod)
 
         val result = scopeGrantingManager.grantScopes(
-            authorizeAttempt = authorizeAttempt,
+            session = session,
             allClaims = emptyList()
         )
 
@@ -105,7 +116,7 @@ class UserScopeGrantingManagerTest {
         every { featuresConfig.grantUnhandledScopes } returns false
 
         val result = scopeGrantingManager.applyDefaultBehavior(
-            authorizeAttempt = mockk(),
+            session = mockk(),
             requestedScopes = listOf(scope),
         )
 
@@ -119,7 +130,7 @@ class UserScopeGrantingManagerTest {
         every { featuresConfig.grantUnhandledScopes } returns true
 
         val result = scopeGrantingManager.applyDefaultBehavior(
-            authorizeAttempt = mockk(),
+            session = mockk(),
             requestedScopes = listOf(scope),
         )
 

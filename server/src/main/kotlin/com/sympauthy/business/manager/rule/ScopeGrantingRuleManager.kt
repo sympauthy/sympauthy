@@ -4,7 +4,7 @@ import com.ezylang.evalex.config.ExpressionConfiguration
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
+import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.rule.ScopeGrantingRule
@@ -40,11 +40,11 @@ class ScopeGrantingRuleManager(
      * determine which of the [requestedScopes] are granted.
      */
     suspend fun applyUserScopeGrantingRules(
-        authorizeAttempt: AuthorizeAttempt,
+        @Suppress("UNUSED_PARAMETER") session: InteractiveFlowSession,
         requestedScopes: List<Scope>,
         collectedClaims: List<CollectedClaim>,
     ): ScopeGrantingMethodResult {
-        val configuration = scopeGrantingRuleExpressionExecutor.getConfiguration(authorizeAttempt, collectedClaims)
+        val configuration = scopeGrantingRuleExpressionExecutor.getConfiguration(collectedClaims)
         val results = findApplicableScopeGrantingRulesAccordingToScopes(
             rules = listUserScopeGrantingRules(),
             requestedScopes = requestedScopes

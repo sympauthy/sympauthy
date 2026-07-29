@@ -1,7 +1,7 @@
 package com.sympauthy.api.filter
 
 import com.sympauthy.business.manager.flow.AuthorizationFlowManager
-import com.sympauthy.business.model.flow.WebAuthorizationFlow
+import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.config.model.AuthorizationFlowsConfig
 import com.sympauthy.config.model.EnabledAuthorizationFlowsConfig
 import io.micronaut.core.order.Ordered
@@ -26,7 +26,7 @@ import kotlin.jvm.optionals.getOrNull
  *
  * ## Allowed origins
  * At first use the filter collects the origin (`scheme://host:port`) from every URI declared across
- * all [WebAuthorizationFlow] instances — both the default bundled flow and user-configured flows —
+ * all [InteractiveFlow] instances — both the default bundled flow and user-configured flows —
  * covering `signInUri`, `collectClaimsUri`, `validateClaimsUri`, and `errorUri`. The result is
  * cached as an immutable set for the lifetime of the application.
  * If no flows are configured the set is empty and no CORS headers are ever added (fail-secure).
@@ -62,20 +62,20 @@ class FlowCorsFilter(
 
         // Default bundled flow (same server, but include for completeness)
         try {
-            origins += extractOrigins(authorizationFlowManager.defaultWebAuthorizationFlow)
+            origins += extractOrigins(authorizationFlowManager.defaultInteractiveFlow)
         } catch (_: Exception) {
         }
 
         // User-configured flows
         (authorizationFlowsConfig as? EnabledAuthorizationFlowsConfig)
             ?.flows
-            ?.filterIsInstance<WebAuthorizationFlow>()
+            ?.filterIsInstance<InteractiveFlow>()
             ?.forEach { origins += extractOrigins(it) }
 
         return origins
     }
 
-    private fun extractOrigins(flow: WebAuthorizationFlow): Set<String> =
+    private fun extractOrigins(flow: InteractiveFlow): Set<String> =
         setOf(flow.signInUri, flow.collectClaimsUri, flow.validateClaimsUri, flow.errorUri)
             .map { uri ->
                 buildString {

@@ -1,10 +1,10 @@
 package com.sympauthy.api.controller.flow
 
-import com.sympauthy.api.controller.flow.util.WebAuthorizationFlowControllerUtil
+import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.resource.flow.SimpleFlowResource
 import com.sympauthy.api.resource.flow.TotpEnrollDataFlowResource
 import com.sympauthy.api.resource.flow.TotpEnrollInputResource
-import com.sympauthy.business.manager.flow.mfa.WebAuthorizationFlowTotpEnrollmentManager
+import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionTotpEnrollmentManager
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
 import io.micronaut.http.annotation.Body
@@ -20,8 +20,8 @@ import jakarta.inject.Inject
 @Secured(HAS_STATE)
 @Controller("/api/v1/flow/mfa/totp/enroll")
 class TotpEnrollmentController(
-    @Inject private val enrollmentManager: WebAuthorizationFlowTotpEnrollmentManager,
-    @Inject private val webAuthorizationFlowControllerUtil: WebAuthorizationFlowControllerUtil
+    @Inject private val enrollmentManager: InteractiveFlowSessionTotpEnrollmentManager,
+    @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
 ) {
 
     @Operation(
@@ -44,7 +44,7 @@ Any previously unconfirmed enrollment for the user is discarded and replaced wit
     suspend fun getEnrollmentData(
         authentication: Authentication
     ): TotpEnrollDataFlowResource =
-        webAuthorizationFlowControllerUtil.fetchOnGoingAttemptWithUserThenRun(
+        interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionWithUserThenRun(
             state = authentication.stateOrNull,
             run = { _, _, user ->
                 val data = enrollmentManager.getEnrollmentData(user)
@@ -77,10 +77,10 @@ On failure, a recoverable 4xx error is returned so the end-user can retry with t
         authentication: Authentication,
         @Body inputResource: TotpEnrollInputResource
     ): SimpleFlowResource =
-        webAuthorizationFlowControllerUtil.fetchOnGoingAttemptWithUserThenUpdateAndRedirect(
+        interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionWithUserThenUpdateAndRedirect(
             state = authentication.stateOrNull,
-            update = { authorizeAttempt, _, user ->
-                enrollmentManager.confirmEnrollment(authorizeAttempt, user, inputResource.code.orEmpty())
+            update = { session, _, user ->
+                enrollmentManager.confirmEnrollment(session, user, inputResource.code.orEmpty())
             },
             mapRedirectUriToResource = { redirectUri -> SimpleFlowResource(redirectUri.toString()) }
         )

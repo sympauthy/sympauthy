@@ -1,10 +1,11 @@
 package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.model.oauth2.AuthorizeAttempt
-import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
-import com.sympauthy.business.model.oauth2.FailedAuthorizeAttempt
-import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
+import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
@@ -24,7 +25,8 @@ import java.util.*
 open class ConsentAwareCollectedClaimManager(
     @Inject private val claimManager: ClaimManager,
     @Inject private val consentAwareClaimManager: ConsentAwareClaimManager,
-    @Inject private val collectedClaimManager: CollectedClaimManager
+    @Inject private val collectedClaimManager: CollectedClaimManager,
+    @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager
 ) {
 
     /**
@@ -71,30 +73,31 @@ open class ConsentAwareCollectedClaimManager(
     }
 
     /**
-     * Return the list of [CollectedClaim] collected from the end-user associated to the [authorizeAttempt].
+     * Return the list of [CollectedClaim] collected from the end-user associated to the [session].
      *
-     * Only the claims that are readable according to the consentedScopes of the [authorizeAttempt] will be returned.
-     * No client scopes are passed since authorize attempts operate in the user consent context only.
+     * Only the claims that are readable according to the consented scopes of the session's OAuth2 record will
+     * be returned. No client scopes are passed since interactive flow sessions operate in the user consent
+     * context only.
      */
-    suspend fun findByAttempt(
-        authorizeAttempt: AuthorizeAttempt
+    suspend fun findBySession(
+        session: InteractiveFlowSession
     ): List<CollectedClaim> {
-        return when (authorizeAttempt) {
-            is FailedAuthorizeAttempt -> emptyList()
-            is OnGoingAuthorizeAttempt -> {
-                if (authorizeAttempt.userId == null || authorizeAttempt.consentedScopes == null) {
-                    return emptyList()
-                }
+        return when (session) {
+            is FailedInteractiveFlowSession -> emptyList()
+            is OnGoingInteractiveFlowSession -> {
+                val userId = session.userId ?: return emptyList()
+                val consentedScopes = oauth2Manager.fetchOAuth2(session).consentedScopes ?: return emptyList()
                 findByUserIdAndReadableByClient(
-                    userId = authorizeAttempt.userId,
-                    consentedScopes = authorizeAttempt.consentedScopes
+                    userId = userId,
+                    consentedScopes = consentedScopes
                 )
             }
 
-            is CompletedAuthorizeAttempt -> {
+            is CompletedInteractiveFlowSession -> {
+                val consentedScopes = oauth2Manager.fetchOAuth2(session).consentedScopes ?: return emptyList()
                 findByUserIdAndReadableByClient(
-                    userId = authorizeAttempt.userId,
-                    consentedScopes = authorizeAttempt.consentedScopes
+                    userId = session.userId,
+                    consentedScopes = consentedScopes
                 )
             }
         }

@@ -25,7 +25,7 @@ class NonInteractiveAuthorizationFlow(id: String) : AuthorizationFlow(id)
  *
  * Contains where the end-user must be redirected to go through the different step of the authorization flow.
  */
-class WebAuthorizationFlow(
+class InteractiveFlow(
     id: String,
     /**
      * [URI] of the page allowing the user either to:

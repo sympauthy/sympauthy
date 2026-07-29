@@ -5,18 +5,20 @@ import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ScopeManager
-import com.sympauthy.business.manager.auth.AuthorizeAttemptManager
 import com.sympauthy.business.manager.auth.ClientGrantScopesResult
 import com.sympauthy.business.manager.auth.ClientScopeGrantingManager
 import com.sympauthy.business.manager.auth.oauth2.*
 import com.sympauthy.business.manager.flow.AuthorizationFlowManager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
-import com.sympauthy.business.model.oauth2.CompletedAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
@@ -41,7 +43,10 @@ import java.util.*
 class TokenControllerTest {
 
     @MockK
-    lateinit var authorizeAttemptManager: AuthorizeAttemptManager
+    lateinit var sessionManager: InteractiveFlowSessionManager
+
+    @MockK
+    lateinit var oauth2Manager: InteractiveFlowSessionOAuth2Manager
 
     @MockK
     lateinit var authorizeFlowManager: AuthorizationFlowManager
@@ -294,7 +299,8 @@ class TokenControllerTest {
     @Test
     fun `getTokensUsingAuthorizationCode - Throws when redirect_uri does not match`() = runTest {
         val request = mockRequestWithoutAuth()
-        val completedAttempt = mockk<CompletedAuthorizeAttempt> {
+        val session = mockk<CompletedInteractiveFlowSession>()
+        val oauth2 = mockk<InteractiveFlowSessionOAuth2> {
             every { redirectUri } returns "https://example.com/callback"
             every { codeChallenge } returns null
             every { codeChallengeMethod } returns null
@@ -302,8 +308,9 @@ class TokenControllerTest {
         coEvery {
             clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
         } returns mockClient()
-        coEvery { authorizeAttemptManager.findByCodeOrNull("the-code") } returns completedAttempt
-        coEvery { authorizeFlowManager.checkCanIssueToken(completedAttempt, any()) } returns completedAttempt
+        coEvery { sessionManager.findByCodeOrNull("the-code") } returns session
+        coEvery { authorizeFlowManager.checkCanIssueToken(session, oauth2, any()) } returns (session to oauth2)
+        coEvery { oauth2Manager.fetchOAuth2OrNull(session) } returns oauth2
 
         val exception = assertThrows<OAuth2Exception> {
             controller.getTokens(
@@ -322,9 +329,69 @@ class TokenControllerTest {
     }
 
     @Test
+    fun `getTokensUsingAuthorizationCode - Throws invalid_grant when session is not found`() = runTest {
+        val request = mockRequestWithoutAuth()
+        coEvery {
+            clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
+        } returns mockClient()
+        coEvery { sessionManager.findByCodeOrNull("the-code") } returns null
+        // No OAuth2 record is fetched when there is no session; checkCanIssueToken rejects the null session.
+        coEvery {
+            authorizeFlowManager.checkCanIssueToken(null, null, any())
+        } throws businessExceptionOf("token.expired")
+
+        val exception = assertThrows<OAuth2Exception> {
+            controller.getTokens(
+                request = request,
+                grantType = "authorization_code",
+                code = "the-code",
+                redirectUri = "https://example.com/callback",
+                refreshToken = null,
+                scope = null,
+                clientId = "client",
+                clientSecret = "secret",
+                codeVerifier = null
+            )
+        }
+        assertEquals(INVALID_GRANT, exception.errorCode)
+        assertEquals("token.expired", exception.detailsId)
+    }
+
+    @Test
+    fun `getTokensUsingAuthorizationCode - Throws invalid_grant when oauth2 record is missing`() = runTest {
+        val request = mockRequestWithoutAuth()
+        val session = mockk<CompletedInteractiveFlowSession>()
+        coEvery {
+            clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
+        } returns mockClient()
+        coEvery { sessionManager.findByCodeOrNull("the-code") } returns session
+        coEvery { oauth2Manager.fetchOAuth2OrNull(session) } returns null
+        coEvery {
+            authorizeFlowManager.checkCanIssueToken(session, null, any())
+        } throws businessExceptionOf("token.expired")
+
+        val exception = assertThrows<OAuth2Exception> {
+            controller.getTokens(
+                request = request,
+                grantType = "authorization_code",
+                code = "the-code",
+                redirectUri = "https://example.com/callback",
+                refreshToken = null,
+                scope = null,
+                clientId = "client",
+                clientSecret = "secret",
+                codeVerifier = null
+            )
+        }
+        assertEquals(INVALID_GRANT, exception.errorCode)
+        assertEquals("token.expired", exception.detailsId)
+    }
+
+    @Test
     fun `getTokensUsingAuthorizationCode - Throws when PKCE verification fails`() = runTest {
         val request = mockRequestWithoutAuth()
-        val completedAttempt = mockk<CompletedAuthorizeAttempt> {
+        val session = mockk<CompletedInteractiveFlowSession>()
+        val oauth2 = mockk<InteractiveFlowSessionOAuth2> {
             every { redirectUri } returns "https://example.com/callback"
             every { codeChallenge } returns "stored-challenge"
             every { codeChallengeMethod } returns CodeChallengeMethod.S256
@@ -332,8 +399,9 @@ class TokenControllerTest {
         coEvery {
             clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
         } returns mockClient()
-        coEvery { authorizeAttemptManager.findByCodeOrNull("the-code") } returns completedAttempt
-        coEvery { authorizeFlowManager.checkCanIssueToken(completedAttempt, any()) } returns completedAttempt
+        coEvery { sessionManager.findByCodeOrNull("the-code") } returns session
+        coEvery { authorizeFlowManager.checkCanIssueToken(session, oauth2, any()) } returns (session to oauth2)
+        coEvery { oauth2Manager.fetchOAuth2OrNull(session) } returns oauth2
         every {
             pkceManager.verifyCodeVerifier("wrong-verifier", "stored-challenge", CodeChallengeMethod.S256)
         } throws businessExceptionOf(detailsId = "token.pkce.invalid_code_verifier")
@@ -361,7 +429,8 @@ class TokenControllerTest {
         val accessToken = mockEncodedToken("access-jwt", listOf("openid"))
         val refreshToken = mockEncodedToken("refresh-jwt", type = REFRESH)
         val idToken = mockEncodedToken("id-jwt")
-        val completedAttempt = mockk<CompletedAuthorizeAttempt> {
+        val session = mockk<CompletedInteractiveFlowSession>()
+        val oauth2 = mockk<InteractiveFlowSessionOAuth2> {
             every { redirectUri } returns "https://example.com/callback"
             every { codeChallenge } returns null
             every { codeChallengeMethod } returns null
@@ -369,10 +438,11 @@ class TokenControllerTest {
         coEvery {
             clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
         } returns mockClient()
-        coEvery { authorizeAttemptManager.findByCodeOrNull("the-code") } returns completedAttempt
-        coEvery { authorizeFlowManager.checkCanIssueToken(completedAttempt, any()) } returns completedAttempt
+        coEvery { sessionManager.findByCodeOrNull("the-code") } returns session
+        coEvery { authorizeFlowManager.checkCanIssueToken(session, oauth2, any()) } returns (session to oauth2)
+        coEvery { oauth2Manager.fetchOAuth2OrNull(session) } returns oauth2
         every { pkceManager.verifyCodeVerifier(null, null, null) } just runs
-        coEvery { tokenManager.generateTokens(completedAttempt, any(), dpopJkt = null) } returns GenerateTokenResult(
+        coEvery { tokenManager.generateTokens(session, oauth2, any(), dpopJkt = null) } returns GenerateTokenResult(
             accessToken = accessToken,
             refreshToken = refreshToken,
             idToken = idToken

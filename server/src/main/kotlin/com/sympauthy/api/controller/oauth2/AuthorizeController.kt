@@ -2,8 +2,8 @@ package com.sympauthy.api.controller.oauth2
 
 import com.sympauthy.api.controller.oauth2.AuthorizeController.Companion.OAUTH2_AUTHORIZE_ENDPOINT
 import com.sympauthy.api.exception.oauth2ExceptionOf
-import com.sympauthy.business.manager.flow.WebAuthorizationFlowManager
-import com.sympauthy.business.manager.flow.WebAuthorizationFlowRedirectUriBuilder
+import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
+import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionRedirectUriBuilder
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.UNSUPPORTED_RESPONSE_TYPE
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.annotation.Controller
@@ -21,8 +21,8 @@ import jakarta.inject.Inject
 @Controller(OAUTH2_AUTHORIZE_ENDPOINT)
 @Secured(IS_ANONYMOUS)
 open class AuthorizeController(
-    @Inject private val webAuthorizationFlowManager: WebAuthorizationFlowManager,
-    @Inject private val webFlowRedirectBuilder: WebAuthorizationFlowRedirectUriBuilder
+    @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
+    @Inject private val redirectUriBuilder: InteractiveAuthFlowSessionRedirectUriBuilder
 ) {
 
     @Operation(
@@ -171,7 +171,7 @@ The authorization server includes this value unmodified in the ID Token.
         uncheckedCodeChallengeMethod: String?,
         uncheckedInvitationToken: String?
     ): HttpResponse<*> {
-        val (authorizeAttempt, flow) = webAuthorizationFlowManager.startAuthorizationWith(
+        val (session, flow) = interactiveAuthFlowSessionManager.startAuthorizationWith(
             uncheckedClientId = uncheckedClientId,
             uncheckedClientState = uncheckedClientState,
             uncheckedClientNonce = uncheckedClientNonce,
@@ -181,9 +181,9 @@ The authorization server includes this value unmodified in the ID Token.
             uncheckedCodeChallengeMethod = uncheckedCodeChallengeMethod,
             uncheckedInvitationToken = uncheckedInvitationToken
         )
-        val status = webAuthorizationFlowManager.getStatus(authorizeAttempt)
-        val redirectUri = webFlowRedirectBuilder.getRedirectUri(
-            authorizeAttempt = authorizeAttempt,
+        val status = interactiveAuthFlowSessionManager.getStatus(session)
+        val redirectUri = redirectUriBuilder.getRedirectUri(
+            session = session,
             flow = flow,
             status = status
         )

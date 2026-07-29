@@ -3,12 +3,14 @@ package com.sympauthy.business.manager.auth
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.model.client.AuthorizationWebhook
 import com.sympauthy.business.model.client.AuthorizationWebhookOnFailure
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
+import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.GrantableUserScope
-import com.sympauthy.business.model.oauth2.OnGoingAuthorizeAttempt
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.client.authorization.webhook.AuthorizationWebhookClient
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookRequest
@@ -40,6 +42,9 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
     @MockK
     lateinit var authorizationWebhookClient: AuthorizationWebhookClient
 
+    @MockK
+    lateinit var oauth2Manager: InteractiveFlowSessionOAuth2Manager
+
     lateinit var manager: AuthorizationWebhookUserScopeGrantingManager
 
     @BeforeEach
@@ -47,21 +52,27 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
         manager = AuthorizationWebhookUserScopeGrantingManager(
             clientManagerProvider = { clientManager },
             scopeManager = scopeManager,
-            authorizationWebhookClient = authorizationWebhookClient
+            authorizationWebhookClient = authorizationWebhookClient,
+            oauth2Manager = oauth2Manager
         )
     }
 
     private val scope1 = GrantableUserScope("scope1", discoverable = false)
     private val scope2 = GrantableUserScope("scope2", discoverable = false)
 
-    private fun mockAuthorizeAttempt(
+    private fun mockSession(
         clientId: String = "test-client",
         userId: UUID = UUID.randomUUID()
-    ): OnGoingAuthorizeAttempt {
-        val attempt = mockk<OnGoingAuthorizeAttempt>()
-        every { attempt.clientId } returns clientId
-        every { attempt.userId } returns userId
-        return attempt
+    ): OnGoingInteractiveFlowSession {
+        val session = mockk<OnGoingInteractiveFlowSession>()
+        every { session.userId } returns userId
+        coEvery { oauth2Manager.fetchOAuth2(session) } returns InteractiveFlowSessionOAuth2(
+            sessionId = UUID.randomUUID(),
+            clientId = clientId,
+            redirectUri = "https://example.com/callback",
+            requestedScopes = emptyList()
+        )
+        return session
     }
 
     private fun mockClient(
@@ -92,12 +103,12 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
 
     @Test
     fun `applyAuthorizationWebhookScopeGranting - returns empty result when no webhook configured`() = runTest {
-        val attempt = mockAuthorizeAttempt()
+        val session = mockSession()
         val client = mockClient()
         coEvery { clientManager.findClientById("test-client") } returns client
 
         val result = manager.applyAuthorizationWebhookScopeGranting(
-            attempt, listOf(scope1, scope2), emptyList()
+            session, listOf(scope1, scope2), emptyList()
         )
 
         assertTrue(result.grantedScopes.isEmpty())
@@ -106,7 +117,7 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
 
     @Test
     fun `applyAuthorizationWebhookScopeGranting - grants and denies scopes based on webhook response`() = runTest {
-        val attempt = mockAuthorizeAttempt()
+        val session = mockSession()
         val client = mockClient(authorizationWebhook = mockWebhookConfig())
         coEvery { clientManager.findClientById("test-client") } returns client
         coEvery {
@@ -118,7 +129,7 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
         )
 
         val result = manager.applyAuthorizationWebhookScopeGranting(
-            attempt, listOf(scope1, scope2), emptyList()
+            session, listOf(scope1, scope2), emptyList()
         )
 
         assertEquals(listOf(scope1), result.grantedScopes)
@@ -127,7 +138,7 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
 
     @Test
     fun `applyAuthorizationWebhookScopeGranting - unspecified scopes in response default to deny`() = runTest {
-        val attempt = mockAuthorizeAttempt()
+        val session = mockSession()
         val client = mockClient(authorizationWebhook = mockWebhookConfig())
         coEvery { clientManager.findClientById("test-client") } returns client
         coEvery {
@@ -139,7 +150,7 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
         )
 
         val result = manager.applyAuthorizationWebhookScopeGranting(
-            attempt, listOf(scope1, scope2), emptyList()
+            session, listOf(scope1, scope2), emptyList()
         )
 
         assertEquals(listOf(scope1), result.grantedScopes)
@@ -149,7 +160,7 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
     @Test
     fun `applyAuthorizationWebhookScopeGranting - declines all scopes on failure when onFailure is DENY_ALL`() =
         runTest {
-            val attempt = mockAuthorizeAttempt()
+            val session = mockSession()
             val client = mockClient(
                 authorizationWebhook = mockWebhookConfig(onFailure = AuthorizationWebhookOnFailure.DENY_ALL)
             )
@@ -159,7 +170,7 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
             } returns AuthorizationWebhookResult.Failure(message = "Connection refused")
 
             val result = manager.applyAuthorizationWebhookScopeGranting(
-                attempt, listOf(scope1, scope2), emptyList()
+                session, listOf(scope1, scope2), emptyList()
             )
 
             assertTrue(result.grantedScopes.isEmpty())
@@ -169,7 +180,7 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
     @Test
     fun `applyAuthorizationWebhookScopeGranting - returns empty result on failure when onFailure is FALLBACK_TO_RULES`() =
         runTest {
-            val attempt = mockAuthorizeAttempt()
+            val session = mockSession()
             val client = mockClient(
                 authorizationWebhook = mockWebhookConfig(onFailure = AuthorizationWebhookOnFailure.FALLBACK_TO_RULES)
             )
@@ -179,7 +190,7 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
             } returns AuthorizationWebhookResult.Failure(message = "Connection refused")
 
             val result = manager.applyAuthorizationWebhookScopeGranting(
-                attempt, listOf(scope1, scope2), emptyList()
+                session, listOf(scope1, scope2), emptyList()
             )
 
             assertTrue(result.grantedScopes.isEmpty())
@@ -189,7 +200,7 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
     @Test
     fun `applyAuthorizationWebhookScopeGranting - grants additional scopes within allowed-scopes`() = runTest {
         val extraScope = GrantableUserScope("extra-scope", discoverable = false)
-        val attempt = mockAuthorizeAttempt()
+        val session = mockSession()
         val client = mockClient(
             authorizationWebhook = mockWebhookConfig(),
             allowedScopes = setOf(scope1, scope2, extraScope)
@@ -205,7 +216,7 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
         )
 
         val result = manager.applyAuthorizationWebhookScopeGranting(
-            attempt, listOf(scope1), emptyList()
+            session, listOf(scope1), emptyList()
         )
 
         assertEquals(listOf(scope1, extraScope), result.grantedScopes)
@@ -214,7 +225,7 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
     @Test
     fun `applyAuthorizationWebhookScopeGranting - does not grant scopes outside allowed-scopes`() = runTest {
         val extraScope = GrantableUserScope("extra-scope", discoverable = false)
-        val attempt = mockAuthorizeAttempt()
+        val session = mockSession()
         val client = mockClient(
             authorizationWebhook = mockWebhookConfig(),
             allowedScopes = setOf(scope1)
@@ -230,7 +241,7 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
         )
 
         val result = manager.applyAuthorizationWebhookScopeGranting(
-            attempt, listOf(scope1), emptyList()
+            session, listOf(scope1), emptyList()
         )
 
         assertEquals(listOf(scope1), result.grantedScopes)
