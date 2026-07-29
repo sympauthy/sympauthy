@@ -1,4 +1,4 @@
-package com.sympauthy.api.controller.flow.auth
+package com.sympauthy.api.controller.flow
 
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
@@ -18,7 +18,7 @@ import jakarta.inject.Singleton
 import java.net.URI
 
 /**
- * Web transport of the interactive auth flow: maps an abstract [InteractiveFlowStep] produced by the flow's purpose
+ * Web transport of the interactive flow: maps an abstract [InteractiveFlowStep] produced by the flow's purpose
  * handler to the concrete [URI] where the end-user must be redirected, using the flow's configured page
  * URIs ([InteractiveFlow]).
  *
@@ -26,7 +26,7 @@ import java.net.URI
  * different transport (e.g. a native client not relying on URLs) would provide its own mapper.
  */
 @Singleton
-class InteractiveAuthFlowStepUriMapper(
+class InteractiveFlowStepUriMapper(
     @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
     @Inject private val authorizationCodeManager: AuthorizationCodeManager,

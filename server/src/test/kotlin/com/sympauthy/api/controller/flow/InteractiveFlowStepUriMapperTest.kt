@@ -1,4 +1,4 @@
-package com.sympauthy.api.controller.flow.auth
+package com.sympauthy.api.controller.flow
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
@@ -29,7 +29,7 @@ import java.net.URI
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
-class InteractiveAuthFlowStepUriMapperTest {
+class InteractiveFlowStepUriMapperTest {
 
     @MockK
     lateinit var sessionManager: InteractiveFlowSessionManager
@@ -45,7 +45,7 @@ class InteractiveAuthFlowStepUriMapperTest {
 
     @SpyK
     @InjectMockKs
-    lateinit var mapper: InteractiveAuthFlowStepUriMapper
+    lateinit var mapper: InteractiveFlowStepUriMapper
 
     @Test
     fun `toRedirectUri - CollectClaims maps to collectClaimsUri with state appended`() = runTest {
