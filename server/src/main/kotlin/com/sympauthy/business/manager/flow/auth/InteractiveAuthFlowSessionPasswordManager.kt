@@ -125,8 +125,8 @@ open class InteractiveAuthFlowSessionPasswordManager(
         // Update the session with the id of the user so they can retrieve their access token.
         val updatedSession = sessionManager.setAuthenticatedUserId(session, user.id)
 
-        // Advance the flow: this completes it if the end-user has no more step to go through.
-        return purposeRegistry.getForSession(updatedSession).getCurrentStep(updatedSession).session
+        // Complete the flow if the end-user has no more step to go through.
+        return purposeRegistry.completeIfNecessary(updatedSession)
     }
 
     /**
@@ -163,8 +163,8 @@ open class InteractiveAuthFlowSessionPasswordManager(
         // Update the session with the id of the user so they can retrieve their access token.
         val updatedSession = sessionManager.setAuthenticatedUserId(session, user.id)
 
-        // Advance the flow: this completes it if the end-user has no more step to go through.
-        return purposeRegistry.getForSession(updatedSession).getCurrentStep(updatedSession).session
+        // Complete the flow if the end-user has no more step to go through.
+        return purposeRegistry.completeIfNecessary(updatedSession)
     }
 
     /**

@@ -1,10 +1,15 @@
 package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
+import com.sympauthy.business.model.flow.InteractiveFlowStep
+import com.sympauthy.business.model.flow.InteractiveFlowStepResult
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
@@ -36,5 +41,20 @@ class InteractiveFlowPurposeRegistryTest {
             registry.getForSession(session)
         }
         assertEquals("flow.purpose.unsupported", exception.detailsId)
+    }
+
+    @Test
+    fun `completeIfNecessary - Returns the session resolved by the handler's getCurrentStep`() = runTest {
+        val session = mockk<OnGoingInteractiveFlowSession> {
+            every { purpose } returns InteractiveFlowPurpose.OAUTH2_AUTHORIZE
+        }
+        val completed = mockk<CompletedInteractiveFlowSession>()
+        val handler = mockk<InteractiveFlowPurposeHandler> {
+            every { purpose } returns InteractiveFlowPurpose.OAUTH2_AUTHORIZE
+            coEvery { getCurrentStep(session) } returns InteractiveFlowStepResult(completed, InteractiveFlowStep.Complete)
+        }
+        val registry = InteractiveFlowPurposeRegistry(listOf(handler))
+
+        assertSame(completed, registry.completeIfNecessary(session))
     }
 }

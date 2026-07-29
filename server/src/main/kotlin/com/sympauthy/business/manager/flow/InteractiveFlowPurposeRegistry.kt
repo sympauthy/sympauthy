@@ -27,4 +27,16 @@ class InteractiveFlowPurposeRegistry(
                 "purpose" to session.purpose.name
             )
     }
+
+    /**
+     * Complete the [session] if the end-user has no remaining step to go through, and return the resulting
+     * session — the completed session when it just finished, or [session] unchanged otherwise.
+     *
+     * Convenience over [getForSession] + [InteractiveFlowPurposeHandler.getCurrentStep] for callers that
+     * only need to advance the flow and do not care about the next step (e.g. after authenticating the
+     * user). Use `getForSession(session).getCurrentStep(session)` directly when the step itself is needed.
+     */
+    suspend fun completeIfNecessary(session: InteractiveFlowSession): InteractiveFlowSession {
+        return getForSession(session).getCurrentStep(session).session
+    }
 }

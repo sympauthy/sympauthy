@@ -183,8 +183,8 @@ open class InteractiveAuthFlowSessionOAuth2ProviderManager(
         }
         val updatedSession = sessionManager.setAuthenticatedUserId(session, userId)
 
-        // Advance the flow: this completes it if the end-user has no more step to go through.
-        return purposeRegistry.getForSession(updatedSession).getCurrentStep(updatedSession).session
+        // Complete the flow if the end-user has no more step to go through.
+        return purposeRegistry.completeIfNecessary(updatedSession)
     }
 
     /**
