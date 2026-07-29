@@ -3,7 +3,6 @@ package com.sympauthy.business.manager.auth.oauth2
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.manager.consent.ConsentManager
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.REFRESH_KEY
@@ -11,6 +10,7 @@ import com.sympauthy.business.mapper.AuthenticationTokenMapper
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
@@ -37,7 +37,6 @@ open class TokenManager(
     @Inject private val idTokenGenerator: IdTokenGenerator,
     @Inject private val consentManager: ConsentManager,
     @Inject private val actorTokenValidator: ActorTokenValidator,
-    @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
     @Inject private val tokenRepository: AuthenticationTokenRepository,
     @Inject private val tokenMapper: AuthenticationTokenMapper
 ) {
@@ -94,6 +93,7 @@ open class TokenManager(
     @Transactional
     open suspend fun generateTokens(
         session: CompletedInteractiveFlowSession,
+        oauth2: InteractiveFlowSessionOAuth2,
         client: Client,
         dpopJkt: String? = null
     ): GenerateTokenResult = coroutineScope {
@@ -101,7 +101,6 @@ open class TokenManager(
             throw oauth2ExceptionOf(INVALID_GRANT, "token.expired", "description.oauth2.expired")
         }
 
-        val oauth2 = oauth2Manager.fetchOAuth2(session)
         val tokenAudience = client.audience.tokenAudience
         val deferredAccessToken = async {
             accessTokenGenerator.generateAccessToken(

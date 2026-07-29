@@ -3,7 +3,6 @@ package com.sympauthy.business.manager.auth.oauth2
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.manager.consent.ConsentManager
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.REFRESH_KEY
@@ -60,9 +59,6 @@ class TokenManagerTest {
     lateinit var actorTokenValidator: ActorTokenValidator
 
     @MockK
-    lateinit var oauth2Manager: InteractiveFlowSessionOAuth2Manager
-
-    @MockK
     lateinit var tokenRepository: AuthenticationTokenRepository
 
     @MockK
@@ -85,7 +81,7 @@ class TokenManagerTest {
         val client = mockk<Client>()
         every { session.expired } returns true
         assertThrows<OAuth2Exception> {
-            tokenManager.generateTokens(session, client)
+            tokenManager.generateTokens(session, mockk<InteractiveFlowSessionOAuth2>(), client)
         }
     }
 
@@ -101,7 +97,6 @@ class TokenManagerTest {
 
         every { session.expired } returns false
         every { session.userId } returns userId
-        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
         coEvery {
             accessTokenGenerator.generateAccessToken(
                 oauth2,
@@ -120,7 +115,7 @@ class TokenManagerTest {
         } returns refreshToken
         coEvery { idTokenGenerator.generateIdToken(oauth2, userId, accessToken) } returns idToken
 
-        val result = tokenManager.generateTokens(session, client)
+        val result = tokenManager.generateTokens(session, oauth2, client)
 
         assertSame(accessToken, result.accessToken)
         assertSame(refreshToken, result.refreshToken)

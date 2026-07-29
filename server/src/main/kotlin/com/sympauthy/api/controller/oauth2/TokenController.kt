@@ -269,7 +269,7 @@ Client authentication is supported via:
             throw e.toOAuth2Exception(INVALID_GRANT)
         }
 
-        val tokens = tokenManager.generateTokens(completedSession, client, dpopJkt = dpopProof?.jkt)
+        val tokens = tokenManager.generateTokens(completedSession, completedOAuth2, client, dpopJkt = dpopProof?.jkt)
         val tokenType = if (dpopProof != null) TOKEN_TYPE_DPOP else TOKEN_TYPE_BEARER
 
         return TokenResource(

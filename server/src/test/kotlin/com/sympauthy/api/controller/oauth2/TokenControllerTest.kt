@@ -383,7 +383,7 @@ class TokenControllerTest {
         coEvery { authorizeFlowManager.checkCanIssueToken(session, oauth2, any()) } returns (session to oauth2)
         coEvery { oauth2Manager.fetchOAuth2OrNull(session) } returns oauth2
         every { pkceManager.verifyCodeVerifier(null, null, null) } just runs
-        coEvery { tokenManager.generateTokens(session, any(), dpopJkt = null) } returns GenerateTokenResult(
+        coEvery { tokenManager.generateTokens(session, oauth2, any(), dpopJkt = null) } returns GenerateTokenResult(
             accessToken = accessToken,
             refreshToken = refreshToken,
             idToken = idToken
