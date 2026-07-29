@@ -15,7 +15,7 @@ import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
-import com.sympauthy.business.model.flow.FlowPurpose
+import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.config.model.AuthorizationFlowsConfig
 import com.sympauthy.config.model.FeaturesConfig
@@ -95,7 +95,7 @@ class AuthorizationFlowManager(
         if (session !is CompletedInteractiveFlowSession) {
             throw businessExceptionOf("token.expired")
         }
-        if (session.purpose != FlowPurpose.OAUTH2_AUTHORIZE) {
+        if (session.purpose != InteractiveFlowPurpose.OAUTH2_AUTHORIZE) {
             throw businessExceptionOf("token.expired")
         }
         if (session.expired) {

@@ -26,7 +26,7 @@ sealed class InteractiveFlowSession(
     /**
      * The purpose this session serves.
      */
-    val purpose: FlowPurpose,
+    val purpose: InteractiveFlowPurpose,
 
     /**
      * The identifier of the interactive flow the user is going through.
@@ -42,7 +42,7 @@ sealed class InteractiveFlowSession(
  */
 class OnGoingInteractiveFlowSession(
     id: UUID,
-    purpose: FlowPurpose,
+    purpose: InteractiveFlowPurpose,
     flowId: String?,
     expirationDate: LocalDateTime,
 
@@ -95,7 +95,7 @@ class OnGoingInteractiveFlowSession(
  */
 class CompletedInteractiveFlowSession(
     id: UUID,
-    purpose: FlowPurpose,
+    purpose: InteractiveFlowPurpose,
     flowId: String?,
     expirationDate: LocalDateTime,
 
@@ -131,7 +131,7 @@ class CompletedInteractiveFlowSession(
  */
 class FailedInteractiveFlowSession(
     id: UUID,
-    purpose: FlowPurpose,
+    purpose: InteractiveFlowPurpose,
     flowId: String?,
     expirationDate: LocalDateTime,
 

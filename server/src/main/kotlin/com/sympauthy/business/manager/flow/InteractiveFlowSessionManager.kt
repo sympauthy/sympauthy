@@ -49,7 +49,7 @@ class InteractiveFlowSessionManager(
      * to persist an attached record atomically with the session).
      */
     suspend fun newSession(
-        purpose: FlowPurpose,
+        purpose: InteractiveFlowPurpose,
         flow: AuthorizationFlow? = null,
         error: BusinessException? = null
     ): InteractiveFlowSession {
