@@ -21,10 +21,6 @@ import jakarta.inject.Inject
  * Controller owning the MFA enrollment steps of an interactive flow (secured by the session state):
  * - the enrollment method-selection step (choose the method to enroll, and skip when optional).
  * - skipping an optional enrollment offered during a flow.
- *
- * A standalone, client-initiated enrollment is started through the client API
- * ([com.sympauthy.api.controller.client.ClientMfaEnrollmentController]); its subsequent steps are then driven
- * here.
  */
 @Secured(HAS_STATE)
 @Controller(MfaEnrollmentController.MFA_ENROLLMENT_ENDPOINT)
