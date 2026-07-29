@@ -18,7 +18,7 @@ import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
-import com.sympauthy.business.model.flow.InteractiveFlowStatus
+import com.sympauthy.business.model.flow.auth.OAuth2AuthorizeInteractiveFlowStatus
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.ConsentedBy
@@ -111,7 +111,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     @Test
     fun `getCurrentStep - Missing user without invitation maps to SignIn`() = runTest {
         val session = mockk<OnGoingInteractiveFlowSession>()
-        coEvery { handler.computeStatus(session) } returns InteractiveFlowStatus(missingUser = true)
+        coEvery { handler.computeStatus(session) } returns OAuth2AuthorizeInteractiveFlowStatus(missingUser = true)
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2Of(invitationId = null)
 
         val result = handler.getCurrentStep(session)
@@ -122,7 +122,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     @Test
     fun `getCurrentStep - Missing user with invitation maps to SignUp`() = runTest {
         val session = mockk<OnGoingInteractiveFlowSession>()
-        coEvery { handler.computeStatus(session) } returns InteractiveFlowStatus(missingUser = true)
+        coEvery { handler.computeStatus(session) } returns OAuth2AuthorizeInteractiveFlowStatus(missingUser = true)
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2Of(invitationId = UUID.randomUUID())
 
         val result = handler.getCurrentStep(session)
@@ -133,7 +133,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     @Test
     fun `getCurrentStep - Missing MFA maps to Mfa`() = runTest {
         val session = mockk<OnGoingInteractiveFlowSession>()
-        coEvery { handler.computeStatus(session) } returns InteractiveFlowStatus(missingMfa = true)
+        coEvery { handler.computeStatus(session) } returns OAuth2AuthorizeInteractiveFlowStatus(missingMfa = true)
 
         val result = handler.getCurrentStep(session)
 
@@ -143,7 +143,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     @Test
     fun `getCurrentStep - Missing required claims maps to CollectClaims`() = runTest {
         val session = mockk<OnGoingInteractiveFlowSession>()
-        coEvery { handler.computeStatus(session) } returns InteractiveFlowStatus(missingRequiredClaims = true)
+        coEvery { handler.computeStatus(session) } returns OAuth2AuthorizeInteractiveFlowStatus(missingRequiredClaims = true)
 
         val result = handler.getCurrentStep(session)
 
@@ -153,7 +153,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     @Test
     fun `getCurrentStep - Missing validation media maps to ValidateClaims with the first media`() = runTest {
         val session = mockk<OnGoingInteractiveFlowSession>()
-        coEvery { handler.computeStatus(session) } returns InteractiveFlowStatus(
+        coEvery { handler.computeStatus(session) } returns OAuth2AuthorizeInteractiveFlowStatus(
             missingMediaForClaimValidation = listOf(ValidationCodeMedia.EMAIL)
         )
 
@@ -166,7 +166,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     fun `getCurrentStep - All steps satisfied completes and maps to Complete`() = runTest {
         val session = mockk<OnGoingInteractiveFlowSession>()
         val completed = mockk<CompletedInteractiveFlowSession>()
-        coEvery { handler.computeStatus(session) } returns InteractiveFlowStatus()
+        coEvery { handler.computeStatus(session) } returns OAuth2AuthorizeInteractiveFlowStatus()
         coEvery { handler.complete(session) } returns completed
 
         val result = handler.getCurrentStep(session)
@@ -179,7 +179,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     fun `getCurrentStep - Completion failing maps to Error`() = runTest {
         val session = mockk<OnGoingInteractiveFlowSession>()
         val failed = mockk<FailedInteractiveFlowSession>()
-        coEvery { handler.computeStatus(session) } returns InteractiveFlowStatus()
+        coEvery { handler.computeStatus(session) } returns OAuth2AuthorizeInteractiveFlowStatus()
         coEvery { handler.complete(session) } returns failed
 
         val result = handler.getCurrentStep(session)

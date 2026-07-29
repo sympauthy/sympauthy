@@ -1,12 +1,16 @@
-package com.sympauthy.business.model.flow
+package com.sympauthy.business.model.flow.auth
 
 import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.user.CollectedClaim
 
 /**
- * Summary of the current progress of an ongoing interactive flow session.
+ * Summary of the current progress of an ongoing OAuth2 authorization flow session.
+ *
+ * Computed internally by
+ * [com.sympauthy.business.manager.flow.auth.OAuth2AuthorizeInteractiveFlowPurposeHandler] to decide the
+ * next step; exclusive to the OAuth2 authorize purpose.
  */
-data class InteractiveFlowStatus(
+data class OAuth2AuthorizeInteractiveFlowStatus(
     /**
      * List of claims that identify the end-user (e.g. email, phone number).
      */

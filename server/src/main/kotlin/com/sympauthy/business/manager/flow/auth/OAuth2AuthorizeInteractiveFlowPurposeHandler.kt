@@ -17,7 +17,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.InteractiveFlowStepResult
 import com.sympauthy.business.model.flow.InteractiveFlowSession
-import com.sympauthy.business.model.flow.InteractiveFlowStatus
+import com.sympauthy.business.model.flow.auth.OAuth2AuthorizeInteractiveFlowStatus
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.config.model.FeaturesConfig
 import com.sympauthy.config.model.MfaConfig
@@ -86,7 +86,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
     /**
      * Compute the flow progress of the ongoing [session] from the collected claims, consent, and MFA state.
      */
-    internal suspend fun computeStatus(session: OnGoingInteractiveFlowSession): InteractiveFlowStatus {
+    internal suspend fun computeStatus(session: OnGoingInteractiveFlowSession): OAuth2AuthorizeInteractiveFlowStatus {
         val consentedScopes = oauth2Manager.fetchOAuth2(session).consentedScopes ?: emptyList()
         val identifierClaims = session.userId?.let {
             collectedClaimManager.findIdentifierByUserId(it)
@@ -107,7 +107,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
             .map(ValidationCodeReason::media)
             .distinct()
 
-        return InteractiveFlowStatus(
+        return OAuth2AuthorizeInteractiveFlowStatus(
             identifierClaims = identifierClaims,
             consentedClaims = consentedClaims,
             missingUser = missingUser,
