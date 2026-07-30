@@ -2,7 +2,7 @@ package com.sympauthy.api.controller.flow
 
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.mapper.CollectedClaimUpdateMapper
-import com.sympauthy.api.resource.flow.CollectableClaimResource
+import com.sympauthy.api.mapper.flow.CollectableClaimResourceMapper
 import com.sympauthy.api.resource.flow.PasswordResource
 import com.sympauthy.api.resource.flow.SignUpFlowResource
 import com.sympauthy.api.resource.flow.SignUpInputResource
@@ -15,9 +15,7 @@ import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
-import com.sympauthy.server.DisplayMessages
 import com.sympauthy.util.orDefault
-import io.micronaut.context.MessageSource
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.annotation.Body
 import io.micronaut.http.annotation.Controller
@@ -38,8 +36,8 @@ class SignUpController(
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
     @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
     @Inject private val collectedClaimUpdateMapper: CollectedClaimUpdateMapper,
-    @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil,
-    @Inject @param:DisplayMessages private val displayMessageSource: MessageSource
+    @Inject private val collectableClaimResourceMapper: CollectableClaimResourceMapper,
+    @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
 ) {
 
     @Operation(
@@ -94,24 +92,16 @@ on-going flow. All URLs it contains already include the state query param.
     ): SignUpFlowResource {
         val password = if (passwordFlowManager.signUpEnabled) {
             PasswordResource(
-                identifierClaims = claimManager.listIdentifierClaims().map { it.id }
+                identifierClaims = collectableClaimResourceMapper.toResources(
+                    claimManager.listIdentifierClaims(), locale
+                )
             )
         } else null
-        val claims = claimManager.listCollectableClaims().map { claim ->
-            CollectableClaimResource(
-                id = claim.id,
-                required = claim.required,
-                name = displayMessageSource.getMessage("claims.${claim.id}.name", claim.id, locale),
-                group = claim.group?.name?.lowercase(),
-                type = claim.dataType.name.lowercase()
-            )
-        }
         val signInRedirectUrl = if (oauth2Manager.fetchOAuth2(session).invitationId == null) {
             stepUriMapper.getSignInRedirectUri(session, flow).toString()
         } else null
         return SignUpFlowResource(
             password = password,
-            claims = claims,
             signInRedirectUrl = signInRedirectUrl
         )
     }
@@ -119,6 +109,8 @@ on-going flow. All URLs it contains already include the state query param.
     @Operation(
         description = """
 Initiate the creation of an account of a end-user with a password.
+
+Only identifier claims are saved on the created account. Any other claim present in the request is discarded.
         """,
         tags = ["flow"]
     )

@@ -13,8 +13,11 @@ If null or not present, the associated password authentication method is disable
 data class PasswordResource(
     @get:Schema(
         name = "identifier_claims",
-        description = "List of claims that uniquely identify a user. Used as login for sign-in and as required claims for sign-up."
+        description = """
+List of claims that uniquely identify a user. Used as login during sign-in and as the required claims collected
+during sign-up.
+        """
     )
     @get:JsonProperty("identifier_claims")
-    val identifierClaims: List<String>,
+    val identifierClaims: List<CollectableClaimResource>,
 )

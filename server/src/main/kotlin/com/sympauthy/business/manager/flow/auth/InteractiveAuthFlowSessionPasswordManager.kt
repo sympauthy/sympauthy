@@ -131,6 +131,9 @@ open class InteractiveAuthFlowSessionPasswordManager(
 
     /**
      * Create a new user with the provided claims([unfilteredUpdates]) and [password].
+     *
+     * Only identifier claims are saved on the created account. Any other claim present in [unfilteredUpdates] is
+     * discarded.
      */
     @Transactional
     open suspend fun signUpWithClaimsAndPassword(

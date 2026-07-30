@@ -45,7 +45,7 @@ belongs in each class's KDoc, not the tree.
 ## Running
 
 ```bash
-export GITHUB_ACTOR=<your-github-username>
+export GITHUB_ACTOR=$(gh api user --jq .login)
 export GITHUB_TOKEN=$(gh auth token)
 
 # Runs feature + security scenarios against H2 and PostgreSQL.
@@ -70,7 +70,11 @@ GraalVM toolchain and builds in seconds:
 # 1. Build a JVM Docker image from the current code (Micronaut tags it `server:latest`).
 ./gradlew :server:dockerBuild
 
-# 2. Run the suite against it.
+# 2. Authenticate to GitHub Packages so the testcontainers-sympauthy library resolves.
+export GITHUB_ACTOR=$(gh api user --jq .login)
+export GITHUB_TOKEN=$(gh auth token)
+
+# 3. Run the suite against it.
 ./gradlew :integration-tests:integrationTest -Dsympauthy.image=server:latest
 ```
 
