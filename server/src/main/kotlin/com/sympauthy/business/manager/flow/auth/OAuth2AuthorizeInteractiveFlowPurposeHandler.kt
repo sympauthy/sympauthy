@@ -6,19 +6,17 @@ import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.auth.UserScopeGrantingManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.flow.InteractiveFlowPurposeHandler
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.code.ValidationCodeReason
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
-import com.sympauthy.business.model.flow.InteractiveFlowPurposeStepResult
 import com.sympauthy.business.model.flow.InteractiveFlowStep
-import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.auth.OAuth2AuthorizeInteractiveFlowStatus
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.flow.TerminalEffectResult
 import com.sympauthy.config.model.FeaturesConfig
 import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.config.model.orThrow
@@ -30,14 +28,14 @@ import jakarta.inject.Singleton
  * [InteractiveFlowPurposeHandler] for the OAuth2 / OpenID Connect authorization flow initiated at
  * `/api/oauth2/authorize`.
  *
- * Owns the step state machine (which page the end-user must go through next, expressed as an abstract
- * [InteractiveFlowStep]) and the completion effect (grant the requested scopes, record the consent, and mark the
- * session complete — or fail it when no scope can be granted and the client may not be accessed without
- * one). Producing the concrete redirect URL from a [InteractiveFlowStep] is left to the API boundary.
+ * Owns the step logic (which page the end-user must go through next, expressed as an abstract
+ * [InteractiveFlowStep]), the MFA purpose it requires before the flow can complete, and the completion effect
+ * (grant the requested scopes and record the consent — or fail when no scope can be granted and the client may
+ * not be accessed without one). Producing the concrete redirect URL from a [InteractiveFlowStep] is left to the
+ * API boundary; every session mutation is left to the engine.
  */
 @Singleton
 class OAuth2AuthorizeInteractiveFlowPurposeHandler(
-    @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
@@ -52,45 +50,33 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
 
     override val purpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE
 
-    override suspend fun getNextStep(session: OnGoingInteractiveFlowSession): InteractiveFlowPurposeStepResult {
+    override suspend fun nextStepOrNull(session: OnGoingInteractiveFlowSession): InteractiveFlowStep? {
         // Fetch the OAuth2 record once and thread it into the status computation and the sign-in/up branch.
         val oauth2 = oauth2Manager.fetchOAuth2(session)
         val status = computeStatus(session, oauth2)
         return when {
-            status.missingUser -> InteractiveFlowPurposeStepResult.Pending(
-                session,
+            status.missingUser ->
                 if (oauth2.invitationId != null) InteractiveFlowStep.SignUp else InteractiveFlowStep.SignIn
-            )
 
-            status.missingRequiredClaims ->
-                InteractiveFlowPurposeStepResult.Pending(session, InteractiveFlowStep.CollectClaims)
+            status.missingRequiredClaims -> InteractiveFlowStep.CollectClaims
 
-            status.missingMediaForClaimValidation.isNotEmpty() -> InteractiveFlowPurposeStepResult.Pending(
-                session,
+            status.missingMediaForClaimValidation.isNotEmpty() ->
                 InteractiveFlowStep.ValidateClaims(status.missingMediaForClaimValidation.first())
-            )
 
-            // Every step this purpose requires is satisfied; append the MFA purpose (if any) so it runs as
-            // the final gate before the authorization code is issued, then resolve.
-            else -> resolveWithMfa(session)
+            else -> null
         }
     }
 
     /**
-     * Resolve this purpose, first appending the MFA purpose the [session] requires — unless one is already
-     * present — so MFA is the last thing the end-user goes through before the flow completes.
+     * The MFA purpose this OAuth2 session must go through before it can complete, so MFA runs as the final gate
+     * before the authorization code is issued. Empty once an MFA purpose is already present.
      */
-    private suspend fun resolveWithMfa(session: OnGoingInteractiveFlowSession): InteractiveFlowPurposeStepResult {
+    override suspend fun followUpPurposes(session: OnGoingInteractiveFlowSession): List<InteractiveFlowPurpose> {
         val hasMfaPurpose = session.purposes.any {
             it == InteractiveFlowPurpose.MFA_ENROLLMENT || it == InteractiveFlowPurpose.MFA_CHALLENGE
         }
-        if (!hasMfaPurpose) {
-            val mfaPurpose = requiredMfaPurpose(session)
-            if (mfaPurpose != null) {
-                return InteractiveFlowPurposeStepResult.Resolved(sessionManager.appendPurpose(session, mfaPurpose))
-            }
-        }
-        return InteractiveFlowPurposeStepResult.Resolved(session)
+        if (hasMfaPurpose) return emptyList()
+        return listOfNotNull(requiredMfaPurpose(session))
     }
 
     /**
@@ -119,7 +105,8 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
      * Compute the flow progress of the ongoing [session] from the collected claims and consent.
      *
      * Takes the already-fetched [oauth2] record (rather than re-fetching it) so the caller loads it once.
-     * MFA is not part of this status: it is a separate purpose appended once the user's own steps are done.
+     * MFA is not part of this status: it is a separate purpose the OAuth2 purpose requires once its own steps
+     * are done.
      */
     internal suspend fun computeStatus(
         session: OnGoingInteractiveFlowSession,
@@ -152,16 +139,17 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
     }
 
     /**
-     * Complete the authorization flow for the ongoing [session] and return the completed session.
+     * Grant the requested scopes for the ongoing [session] and record the consent.
      *
-     * If the allowAccessToClientWithoutScope flag is false and no scope has been granted, the session is
-     * marked as failed and the end-user is not allowed to continue to the client.
+     * If the allowAccessToClientWithoutScope flag is false and no scope has been granted, returns
+     * [TerminalEffectResult.Fail] so the engine fails the session and the end-user is not allowed to continue
+     * to the client.
      *
-     * On success, a [com.sympauthy.business.model.oauth2.Consent] is persisted recording which scopes the
-     * user authorized for the client. If an active consent already exists for this user+client pair, it is
-     * revoked and replaced.
+     * On success, a [com.sympauthy.business.model.oauth2.Consent] is persisted recording which scopes the user
+     * authorized for the client. If an active consent already exists for this user+client pair, it is revoked
+     * and replaced.
      */
-    override suspend fun complete(session: OnGoingInteractiveFlowSession): InteractiveFlowSession {
+    override suspend fun applyTerminalEffect(session: OnGoingInteractiveFlowSession): TerminalEffectResult {
         val featuresConfig = uncheckedFeaturesConfig.orThrow()
 
         // Fetch all collected claims regardless of consent so the granting manager can access them all.
@@ -182,27 +170,24 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
 
         val hasAnyScope = !oauth2.grantedScopes.isNullOrEmpty() ||
                 !oauth2.consentedScopes.isNullOrEmpty()
-        return if (!hasAnyScope && !featuresConfig.allowAccessToClientWithoutScope) {
-            // Mark the session as failed since no scope have been granted and the end-user is not allowed to
-            // continue to the client in this state.
-            sessionManager.markAsFailedIfNotRecoverable(
-                session = session,
-                error = BusinessException(
+        if (!hasAnyScope && !featuresConfig.allowAccessToClientWithoutScope) {
+            // No scope has been granted and the end-user is not allowed to continue to the client in this state.
+            return TerminalEffectResult.Fail(
+                BusinessException(
                     recoverable = false,
                     detailsId = "flow.authorization_flow.complete.no_scope",
                     descriptionId = "description.flow.unauthorized_to_access_client",
                 )
             )
-        } else {
-            val completedSession = sessionManager.makePurposeAsComplete(session, purpose)
-            val client = clientManagerProvider.get().findClientById(oauth2.clientId)
-            consentManager.saveConsent(
-                userId = userId,
-                audienceId = client.audience.id,
-                clientId = oauth2.clientId,
-                scopes = oauth2.consentedScopes ?: emptyList()
-            )
-            completedSession
         }
+
+        val client = clientManagerProvider.get().findClientById(oauth2.clientId)
+        consentManager.saveConsent(
+            userId = userId,
+            audienceId = client.audience.id,
+            clientId = oauth2.clientId,
+            scopes = oauth2.consentedScopes ?: emptyList()
+        )
+        return TerminalEffectResult.Proceed
     }
 }

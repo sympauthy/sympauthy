@@ -1,11 +1,12 @@
 package com.sympauthy.business.manager.flow
 
+import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
-import com.sympauthy.business.model.flow.InteractiveFlowPurposeStepResult
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.flow.TerminalEffectResult
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -19,65 +20,128 @@ import java.util.*
 class InteractiveFlowEngineTest {
 
     private val purposeRegistry = mockk<InteractiveFlowPurposeRegistry>()
-    private val engine = InteractiveFlowEngine(purposeRegistry)
+    private val sessionManager = mockk<InteractiveFlowSessionManager>()
+    private val engine = InteractiveFlowEngine(purposeRegistry, sessionManager)
 
     @Test
-    fun `getNextStep - Failed session maps to Error`() = runTest {
+    fun `advance - Failed session maps to Error`() = runTest {
         val session = failedSession()
 
-        val result = engine.getNextStep(session)
+        val result = engine.advance(session)
 
         assertSame(session, result.session)
         assertEquals(InteractiveFlowStep.Error, result.step)
     }
 
     @Test
-    fun `getNextStep - Completed session maps to Complete`() = runTest {
+    fun `advance - Completed session maps to Complete`() = runTest {
         val session = completedSession()
 
-        val result = engine.getNextStep(session)
+        val result = engine.advance(session)
 
         assertSame(session, result.session)
         assertEquals(InteractiveFlowStep.Complete, result.step)
     }
 
     @Test
-    fun `getNextStep - Pending purpose yields its step`() = runTest {
+    fun `advance - A purpose that still needs a step yields it`() = runTest {
         val session = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE))
         val handler = mockk<InteractiveFlowPurposeHandler>()
         every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns handler
-        coEvery { handler.getNextStep(session) } returns
-            InteractiveFlowPurposeStepResult.Pending(session, InteractiveFlowStep.SignIn)
+        coEvery { handler.nextStepOrNull(session) } returns InteractiveFlowStep.SignIn
 
-        val result = engine.getNextStep(session)
+        val result = engine.advance(session)
 
         assertSame(session, result.session)
         assertEquals(InteractiveFlowStep.SignIn, result.step)
     }
 
     @Test
-    fun `getNextStep - All purposes resolved runs complete and maps Completed to Complete`() = runTest {
+    fun `advance - All purposes resolved runs the terminal effect and completes the session`() = runTest {
         val session = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE))
         val completed = completedSession()
         val handler = mockk<InteractiveFlowPurposeHandler>()
         every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns handler
-        coEvery { handler.getNextStep(session) } returns InteractiveFlowPurposeStepResult.Resolved(session)
-        coEvery { handler.complete(session) } returns completed
+        coEvery { handler.nextStepOrNull(session) } returns null
+        coEvery { handler.followUpPurposes(session) } returns emptyList()
+        coEvery { handler.applyTerminalEffect(session) } returns TerminalEffectResult.Proceed
+        coEvery { sessionManager.makePurposeAsComplete(session, InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns completed
 
-        val result = engine.getNextStep(session)
+        val result = engine.advance(session)
 
         assertSame(completed, result.session)
         assertEquals(InteractiveFlowStep.Complete, result.step)
     }
 
     @Test
-    fun `getNextStep - Completes each purpose in order until the last yields a completed session`() = runTest {
-        // Both purposes resolved: each purpose is completed in order; the first hands off a still-ongoing
+    fun `advance - A failing terminal effect fails the session and maps to Error`() = runTest {
+        val session = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE))
+        val error = mockk<BusinessException>()
+        val failed = failedSession()
+        val handler = mockk<InteractiveFlowPurposeHandler>()
+        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns handler
+        coEvery { handler.nextStepOrNull(session) } returns null
+        coEvery { handler.followUpPurposes(session) } returns emptyList()
+        coEvery { handler.applyTerminalEffect(session) } returns TerminalEffectResult.Fail(error)
+        coEvery { sessionManager.markAsFailedIfNotRecoverable(session, error) } returns failed
+
+        val result = engine.advance(session)
+
+        assertSame(failed, result.session)
+        assertEquals(InteractiveFlowStep.Error, result.step)
+    }
+
+    @Test
+    fun `advance - Appends a follow-up purpose then visits it`() = runTest {
+        // The first purpose resolves and declares a follow-up; the engine appends it and the walk visits it.
+        val session = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE))
+        val grown = onGoingSession(
+            listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, InteractiveFlowPurpose.MFA_CHALLENGE)
+        )
+        val oauth2Handler = mockk<InteractiveFlowPurposeHandler>()
+        val mfaHandler = mockk<InteractiveFlowPurposeHandler>()
+        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns oauth2Handler
+        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.MFA_CHALLENGE) } returns mfaHandler
+        coEvery { oauth2Handler.nextStepOrNull(session) } returns null
+        coEvery { oauth2Handler.followUpPurposes(session) } returns listOf(InteractiveFlowPurpose.MFA_CHALLENGE)
+        coEvery {
+            sessionManager.appendPurpose(session, InteractiveFlowPurpose.MFA_CHALLENGE)
+        } returns grown
+        coEvery { mfaHandler.nextStepOrNull(grown) } returns InteractiveFlowStep.MfaSelectionForChallenge
+
+        val result = engine.advance(session)
+
+        assertSame(grown, result.session)
+        assertEquals(InteractiveFlowStep.MfaSelectionForChallenge, result.step)
+    }
+
+    @Test
+    fun `advance - Does not re-append a follow-up purpose already present`() = runTest {
+        // The follow-up is already on the session, so no append happens; the walk moves on to it.
+        val session = onGoingSession(
+            listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, InteractiveFlowPurpose.MFA_CHALLENGE)
+        )
+        val oauth2Handler = mockk<InteractiveFlowPurposeHandler>()
+        val mfaHandler = mockk<InteractiveFlowPurposeHandler>()
+        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns oauth2Handler
+        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.MFA_CHALLENGE) } returns mfaHandler
+        coEvery { oauth2Handler.nextStepOrNull(session) } returns null
+        coEvery { oauth2Handler.followUpPurposes(session) } returns listOf(InteractiveFlowPurpose.MFA_CHALLENGE)
+        coEvery { mfaHandler.nextStepOrNull(session) } returns InteractiveFlowStep.MfaSelectionForChallenge
+
+        val result = engine.advance(session)
+
+        assertEquals(InteractiveFlowStep.MfaSelectionForChallenge, result.step)
+    }
+
+    @Test
+    fun `advance - Completes each purpose in order until the last yields a completed session`() = runTest {
+        // Both purposes are resolved: each terminal effect runs in order, the first hands off a still-ongoing
         // session, the second completes it.
         val session = onGoingSession(
             listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, InteractiveFlowPurpose.MFA_CHALLENGE)
         )
-        val afterFirstComplete = onGoingSession(
+        val afterFirst = onGoingSession(
             listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, InteractiveFlowPurpose.MFA_CHALLENGE)
         )
         val completed = completedSession()
@@ -85,77 +149,35 @@ class InteractiveFlowEngineTest {
         val mfaHandler = mockk<InteractiveFlowPurposeHandler>()
         every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns oauth2Handler
         every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.MFA_CHALLENGE) } returns mfaHandler
-        coEvery { oauth2Handler.getNextStep(session) } returns InteractiveFlowPurposeStepResult.Resolved(session)
-        coEvery { mfaHandler.getNextStep(session) } returns InteractiveFlowPurposeStepResult.Resolved(session)
-        coEvery { oauth2Handler.complete(session) } returns afterFirstComplete
-        coEvery { mfaHandler.complete(afterFirstComplete) } returns completed
+        coEvery { oauth2Handler.nextStepOrNull(session) } returns null
+        coEvery { oauth2Handler.followUpPurposes(session) } returns emptyList()
+        coEvery { mfaHandler.nextStepOrNull(session) } returns null
+        coEvery { mfaHandler.followUpPurposes(session) } returns emptyList()
+        coEvery { oauth2Handler.applyTerminalEffect(session) } returns TerminalEffectResult.Proceed
+        coEvery {
+            sessionManager.makePurposeAsComplete(session, InteractiveFlowPurpose.OAUTH2_AUTHORIZE)
+        } returns afterFirst
+        coEvery { mfaHandler.applyTerminalEffect(afterFirst) } returns TerminalEffectResult.Proceed
+        coEvery {
+            sessionManager.makePurposeAsComplete(afterFirst, InteractiveFlowPurpose.MFA_CHALLENGE)
+        } returns completed
 
-        val result = engine.getNextStep(session)
+        val result = engine.advance(session)
 
         assertSame(completed, result.session)
         assertEquals(InteractiveFlowStep.Complete, result.step)
     }
 
     @Test
-    fun `getNextStep - A complete returning Failed maps to Error`() = runTest {
-        val session = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE))
-        val failed = failedSession()
-        val handler = mockk<InteractiveFlowPurposeHandler>()
-        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns handler
-        coEvery { handler.getNextStep(session) } returns InteractiveFlowPurposeStepResult.Resolved(session)
-        coEvery { handler.complete(session) } returns failed
-
-        val result = engine.getNextStep(session)
-
-        assertSame(failed, result.session)
-        assertEquals(InteractiveFlowStep.Error, result.step)
-    }
-
-    @Test
-    fun `getNextStep - Walks to the next purpose once the first resolves`() = runTest {
-        // Two purposes in the list: the first resolves, the second is pending and yields the step.
-        val session = onGoingSession(
-            listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, InteractiveFlowPurpose.OAUTH2_AUTHORIZE)
-        )
-        val handler = mockk<InteractiveFlowPurposeHandler>()
-        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns handler
-        coEvery { handler.getNextStep(session) } returnsMany listOf(
-            InteractiveFlowPurposeStepResult.Resolved(session),
-            InteractiveFlowPurposeStepResult.Pending(session, InteractiveFlowStep.MfaSelectionForEnrollment)
-        )
-
-        val result = engine.getNextStep(session)
-
-        assertEquals(InteractiveFlowStep.MfaSelectionForEnrollment, result.step)
-    }
-
-    @Test
-    fun `getNextStep - Visits a purpose appended while resolving`() = runTest {
-        // The first purpose resolves into a session that grew by one purpose; that appended purpose is visited.
-        val initial = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE))
-        val grown = onGoingSession(
-            listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, InteractiveFlowPurpose.OAUTH2_AUTHORIZE)
-        )
-        val handler = mockk<InteractiveFlowPurposeHandler>()
-        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns handler
-        coEvery { handler.getNextStep(initial) } returns InteractiveFlowPurposeStepResult.Resolved(grown)
-        coEvery { handler.getNextStep(grown) } returns
-            InteractiveFlowPurposeStepResult.Pending(grown, InteractiveFlowStep.MfaSelectionForEnrollment)
-
-        val result = engine.getNextStep(initial)
-
-        assertSame(grown, result.session)
-        assertEquals(InteractiveFlowStep.MfaSelectionForEnrollment, result.step)
-    }
-
-    @Test
-    fun `completeIfNecessary - Returns the session resolved by getNextStep`() = runTest {
+    fun `completeIfNecessary - Returns the session advanced by advance`() = runTest {
         val session = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE))
         val completed = completedSession()
         val handler = mockk<InteractiveFlowPurposeHandler>()
         every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns handler
-        coEvery { handler.getNextStep(session) } returns InteractiveFlowPurposeStepResult.Resolved(session)
-        coEvery { handler.complete(session) } returns completed
+        coEvery { handler.nextStepOrNull(session) } returns null
+        coEvery { handler.followUpPurposes(session) } returns emptyList()
+        coEvery { handler.applyTerminalEffect(session) } returns TerminalEffectResult.Proceed
+        coEvery { sessionManager.makePurposeAsComplete(session, InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns completed
 
         assertSame(completed, engine.completeIfNecessary(session))
     }

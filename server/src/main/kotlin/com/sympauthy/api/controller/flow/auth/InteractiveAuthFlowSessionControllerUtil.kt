@@ -45,7 +45,7 @@ class InteractiveAuthFlowSessionControllerUtil(
         session: InteractiveFlowSession,
         flow: InteractiveFlow
     ): URI {
-        val (steppedSession, step) = engine.getNextStep(session)
+        val (steppedSession, step) = engine.advance(session)
         return stepUriMapper.toRedirectUri(steppedSession, flow, step)
     }
 

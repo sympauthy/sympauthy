@@ -272,7 +272,7 @@ class AuthorizeControllerTest {
         step: InteractiveFlowStep,
         redirectUri: URI
     ) {
-        coEvery { engine.getNextStep(session) } returns InteractiveFlowStepResult(session, step)
+        coEvery { engine.advance(session) } returns InteractiveFlowStepResult(session, step)
         coEvery { stepUriMapper.toRedirectUri(session, flow, step) } returns redirectUri
     }
 }

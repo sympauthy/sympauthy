@@ -1,19 +1,19 @@
 package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
-import com.sympauthy.business.model.flow.InteractiveFlowPurposeStepResult
-import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.flow.TerminalEffectResult
 
 /**
- * Owns the step state machine and the completion behaviour of a single [purpose] of an interactive flow
- * session.
+ * Owns the step logic and completion behaviour of a single [purpose] of an interactive flow session.
  *
  * There is one implementation per [InteractiveFlowPurpose]; the one responsible for a purpose is resolved via
- * [InteractiveFlowPurposeRegistry]. A session may carry several purposes, sequenced by [InteractiveFlowEngine]:
- * the handler is the authority on "given this session, what does the end-user do next for my purpose" —
- * expressed as an abstract, transport-agnostic step — and, when it is the session's initiating purpose, on
- * what completing the whole flow means.
+ * [InteractiveFlowPurposeRegistry]. A session may carry several purposes, sequenced by [InteractiveFlowEngine].
+ *
+ * A handler only ever reads the session and describes what its purpose needs — it never mutates or persists the
+ * session. Appending purposes, marking a purpose complete, completing or failing the session is the engine's
+ * sole responsibility, driven by the answers below.
  */
 interface InteractiveFlowPurposeHandler {
 
@@ -23,24 +23,31 @@ interface InteractiveFlowPurposeHandler {
     val purpose: InteractiveFlowPurpose
 
     /**
-     * Compute the next step this purpose requires on the ongoing [session], or report the purpose
-     * [InteractiveFlowPurposeStepResult.Resolved] once every step it requires is satisfied.
+     * The next step this purpose requires the end-user to go through on the ongoing [session], or null once
+     * every step it requires is satisfied (the purpose is resolved).
      *
-     * As the effect of resolving, a handler may append follow-up purposes to the session (e.g. the OAuth2
-     * authorize purpose appending an MFA purpose); the mutated session is returned in the result.
-     *
-     * The step is abstract: mapping it to a concrete redirect (web) or another transport happens at the API
-     * boundary.
+     * A pure query: the step is abstract, and mapping it to a concrete redirect (web) or another transport
+     * happens at the API boundary.
      */
-    suspend fun getNextStep(session: OnGoingInteractiveFlowSession): InteractiveFlowPurposeStepResult
+    suspend fun nextStepOrNull(session: OnGoingInteractiveFlowSession): InteractiveFlowStep?
 
     /**
-     * Run the terminal handoff of this [purpose] on the ongoing [session] — its purpose-specific completion
-     * effect, then marking [purpose] complete on the session.
+     * The follow-up purposes that must run once this purpose is resolved (e.g. the OAuth2 authorize purpose
+     * requiring an MFA purpose before the flow can complete), evaluated against the ongoing [session].
      *
-     * Called by [InteractiveFlowEngine] once every purpose has resolved, for each purpose of the session in
-     * order. It returns the still-ongoing session while other purposes remain to complete, and the completed
-     * (or failed) session once this was the last outstanding purpose.
+     * The engine appends any of these not already present. Returning purposes already on the session is
+     * harmless; the default is none.
      */
-    suspend fun complete(session: OnGoingInteractiveFlowSession): InteractiveFlowSession
+    suspend fun followUpPurposes(session: OnGoingInteractiveFlowSession): List<InteractiveFlowPurpose> = emptyList()
+
+    /**
+     * Run this purpose's own terminal effect on the ongoing [session] — its concern-specific completion work
+     * (e.g. the OAuth2 purpose granting scopes and recording consent).
+     *
+     * Called by [InteractiveFlowEngine] once every purpose has resolved, for each purpose in order, before the
+     * engine marks the purpose complete. [TerminalEffectResult.Fail] tells the engine to fail the session
+     * instead. The default is a no-op ([TerminalEffectResult.Proceed]) for purposes with no terminal effect.
+     */
+    suspend fun applyTerminalEffect(session: OnGoingInteractiveFlowSession): TerminalEffectResult =
+        TerminalEffectResult.Proceed
 }

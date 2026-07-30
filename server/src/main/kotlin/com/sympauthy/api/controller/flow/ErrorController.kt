@@ -68,7 +68,7 @@ Result containing either:
                         val flow = interactiveAuthFlowSessionManager.findById(
                             session.flowId
                         )
-                        val (steppedSession, step) = engine.getNextStep(session)
+                        val (steppedSession, step) = engine.advance(session)
                         val redirectUri = stepUriMapper.toRedirectUri(
                             session = steppedSession,
                             flow = flow,

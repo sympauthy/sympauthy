@@ -183,7 +183,7 @@ The authorization server includes this value unmodified in the ID Token.
             uncheckedCodeChallengeMethod = uncheckedCodeChallengeMethod,
             uncheckedInvitationToken = uncheckedInvitationToken
         )
-        val (steppedSession, step) = engine.getNextStep(session)
+        val (steppedSession, step) = engine.advance(session)
         val redirectUri = stepUriMapper.toRedirectUri(
             session = steppedSession,
             flow = flow,
