@@ -194,10 +194,10 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
                 )
             )
         } else {
-            val completedSession = sessionManager.markAsComplete(session)
+            val completedSession = sessionManager.makePurposeAsComplete(session, purpose)
             val client = clientManagerProvider.get().findClientById(oauth2.clientId)
             consentManager.saveConsent(
-                userId = completedSession.userId,
+                userId = userId,
                 audienceId = client.audience.id,
                 clientId = oauth2.clientId,
                 scopes = oauth2.consentedScopes ?: emptyList()

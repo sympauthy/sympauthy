@@ -75,6 +75,14 @@ class OnGoingInteractiveFlowSession(
     val signedUp: Boolean = false,
 
     /**
+     * The purposes of this session that have already been completed.
+     *
+     * A session's purposes are completed one at a time (each purpose's handler completes its own purpose as
+     * the engine hands off); the session as a whole completes only once this covers every entry of [purposes].
+     */
+    val completedPurposes: List<InteractiveFlowPurpose> = emptyList(),
+
+    /**
      * When the end-user successfully completed the MFA step for this session.
      * Null if MFA has not been completed yet.
      */
@@ -92,6 +100,7 @@ class OnGoingInteractiveFlowSession(
 
     fun copy(
         purposes: List<InteractiveFlowPurpose>? = null,
+        completedPurposes: List<InteractiveFlowPurpose>? = null,
         userId: UUID? = null,
         signedUp: Boolean? = null,
         mfaPassedDate: LocalDateTime? = null,
@@ -103,6 +112,7 @@ class OnGoingInteractiveFlowSession(
         sessionDate = this.sessionDate,
         userId = userId ?: this.userId,
         signedUp = signedUp ?: this.signedUp,
+        completedPurposes = completedPurposes ?: this.completedPurposes,
         mfaPassedDate = mfaPassedDate ?: this.mfaPassedDate,
     )
 }
@@ -133,6 +143,12 @@ class CompletedInteractiveFlowSession(
      * True if the user was created (signed up) during this session, false if an existing user signed in.
      */
     val signedUp: Boolean = false,
+
+    /**
+     * The purposes of this session that have been completed. For a completed session this covers every entry
+     * of [purposes].
+     */
+    val completedPurposes: List<InteractiveFlowPurpose> = emptyList(),
 
     /**
      * When the end-user successfully completed the MFA step for this session.

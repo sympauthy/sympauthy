@@ -154,7 +154,7 @@ class InteractiveFlowSessionMapperTest {
         errorValues: Map<String, String>? = null,
     ): InteractiveFlowSessionEntity {
         return InteractiveFlowSessionEntity(
-            purposes = listOf(purpose.name),
+            purposes = arrayOf(purpose.name),
             sessionDate = sessionDate,
             flowId = flowId,
             expirationDate = expirationDate,

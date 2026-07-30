@@ -258,15 +258,15 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         val grantedScopeObjects = listOf(mockkScope("read"))
         val onGoingSession = createOnGoingSession(userId = userId)
         val oauth2AfterGranted = oauth2Of(clientId = clientId, grantedScopes = listOf("read"))
-        val completedSession = mockk<CompletedInteractiveFlowSession> {
-            every { this@mockk.userId } returns userId
-        }
+        val completedSession = mockk<CompletedInteractiveFlowSession>()
 
         every { uncheckedFeaturesConfig.allowAccessToClientWithoutScope } returns false
         coEvery { collectedClaimManager.findByUserId(userId) } returns emptyList()
         coEvery { scopeGrantingManager.grantScopes(onGoingSession, emptyList()) } returns grantScopesResultOf(grantedScopeObjects)
         coEvery { oauth2Manager.setGrantedScopes(onGoingSession, grantedScopeObjects, any()) } returns oauth2AfterGranted
-        coEvery { sessionManager.markAsComplete(onGoingSession) } returns completedSession
+        coEvery {
+            sessionManager.makePurposeAsComplete(onGoingSession, InteractiveFlowPurpose.OAUTH2_AUTHORIZE)
+        } returns completedSession
         coEvery { clientManager.findClientById(clientId) } returns mockClient(clientId)
         coEvery { consentManager.saveConsent(userId, any(), clientId, any()) } returns mockk()
 
@@ -306,15 +306,15 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         val clientId = "client-id"
         val onGoingSession = createOnGoingSession(userId = userId)
         val oauth2AfterGranted = oauth2Of(clientId = clientId, grantedScopes = emptyList(), consentedScopes = emptyList())
-        val completedSession = mockk<CompletedInteractiveFlowSession> {
-            every { this@mockk.userId } returns userId
-        }
+        val completedSession = mockk<CompletedInteractiveFlowSession>()
 
         every { uncheckedFeaturesConfig.allowAccessToClientWithoutScope } returns true
         coEvery { collectedClaimManager.findByUserId(userId) } returns emptyList()
         coEvery { scopeGrantingManager.grantScopes(onGoingSession, emptyList()) } returns grantScopesResultOf(emptyList())
         coEvery { oauth2Manager.setGrantedScopes(onGoingSession, emptyList(), any()) } returns oauth2AfterGranted
-        coEvery { sessionManager.markAsComplete(onGoingSession) } returns completedSession
+        coEvery {
+            sessionManager.makePurposeAsComplete(onGoingSession, InteractiveFlowPurpose.OAUTH2_AUTHORIZE)
+        } returns completedSession
         coEvery { clientManager.findClientById(clientId) } returns mockClient(clientId)
         coEvery { consentManager.saveConsent(userId, any(), clientId, any()) } returns mockk()
 

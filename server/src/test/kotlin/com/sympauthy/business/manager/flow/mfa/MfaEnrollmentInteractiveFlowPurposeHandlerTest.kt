@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.flow.mfa
 
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowPurposeStepResult
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
@@ -48,10 +49,12 @@ class MfaEnrollmentInteractiveFlowPurposeHandlerTest {
     }
 
     @Test
-    fun `complete - Marks the session complete`() = runTest {
+    fun `complete - Marks the enrollment purpose complete`() = runTest {
         val session = mockk<OnGoingInteractiveFlowSession>()
         val completed = mockk<CompletedInteractiveFlowSession>()
-        coEvery { sessionManager.markAsComplete(session) } returns completed
+        coEvery {
+            sessionManager.makePurposeAsComplete(session, InteractiveFlowPurpose.MFA_ENROLLMENT)
+        } returns completed
 
         assertSame(completed, handler.complete(session))
     }

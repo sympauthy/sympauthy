@@ -35,11 +35,12 @@ interface InteractiveFlowPurposeHandler {
     suspend fun getNextStep(session: OnGoingInteractiveFlowSession): InteractiveFlowPurposeStepResult
 
     /**
-     * Run the terminal handoff of a session whose initiating purpose is [purpose] and whose every purpose has
-     * resolved, transitioning the ongoing [session] to completed (or failed).
+     * Run the terminal handoff of this [purpose] on the ongoing [session] — its purpose-specific completion
+     * effect, then marking [purpose] complete on the session.
      *
-     * Called by [InteractiveFlowEngine] only for the session's initiating purpose, and only once every
-     * purpose has resolved.
+     * Called by [InteractiveFlowEngine] once every purpose has resolved, for each purpose of the session in
+     * order. It returns the still-ongoing session while other purposes remain to complete, and the completed
+     * (or failed) session once this was the last outstanding purpose.
      */
     suspend fun complete(session: OnGoingInteractiveFlowSession): InteractiveFlowSession
 }

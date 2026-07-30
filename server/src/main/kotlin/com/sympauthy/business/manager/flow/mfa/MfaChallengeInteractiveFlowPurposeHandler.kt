@@ -21,7 +21,8 @@ import jakarta.inject.Singleton
  * to challenge, auto-redirecting to the method's challenge step when a single method is enrolled.
  *
  * This purpose is only ever appended to another purpose that requires MFA and whose user is enrolled; it is
- * therefore never a session's initiating purpose. [complete] is implemented for interface completeness.
+ * therefore never a session's initiating purpose. Completing it marks the challenge purpose complete, which —
+ * as the last outstanding purpose — completes the session.
  */
 @Singleton
 class MfaChallengeInteractiveFlowPurposeHandler(
@@ -39,6 +40,6 @@ class MfaChallengeInteractiveFlowPurposeHandler(
     }
 
     override suspend fun complete(session: OnGoingInteractiveFlowSession): InteractiveFlowSession {
-        return sessionManager.markAsComplete(session)
+        return sessionManager.makePurposeAsComplete(session, purpose)
     }
 }

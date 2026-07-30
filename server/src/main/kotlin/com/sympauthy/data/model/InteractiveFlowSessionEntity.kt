@@ -13,8 +13,7 @@ import java.util.*
 @MappedEntity("interactive_flow_sessions")
 class InteractiveFlowSessionEntity(
     // Session metadata
-    @MappedProperty(type = DataType.JSON)
-    val purposes: List<String>,
+    val purposes: Array<String>,
     val sessionDate: LocalDateTime,
     val flowId: String? = null,
     val expirationDate: LocalDateTime,
@@ -27,6 +26,7 @@ class InteractiveFlowSessionEntity(
     val mfaPassedDate: LocalDateTime? = null,
 
     // Completion
+    val completedPurposes: Array<String> = emptyArray(),
     val completeDate: LocalDateTime? = null,
 
     // Error

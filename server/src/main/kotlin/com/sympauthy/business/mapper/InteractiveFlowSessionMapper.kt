@@ -35,6 +35,7 @@ abstract class InteractiveFlowSessionMapper {
             sessionDate = entity.sessionDate,
             userId = entity.userId,
             signedUp = entity.signedUp,
+            completedPurposes = entity.completedPurposes.map(InteractiveFlowPurpose::valueOf),
             mfaPassedDate = entity.mfaPassedDate,
         )
     }
@@ -48,6 +49,7 @@ abstract class InteractiveFlowSessionMapper {
             sessionDate = entity.sessionDate,
             userId = entity.userId ?: throw invalidBusinessException("userId"),
             signedUp = entity.signedUp,
+            completedPurposes = entity.completedPurposes.map(InteractiveFlowPurpose::valueOf),
             mfaPassedDate = entity.mfaPassedDate,
             completeDate = entity.completeDate ?: throw invalidBusinessException("completeDate"),
         )

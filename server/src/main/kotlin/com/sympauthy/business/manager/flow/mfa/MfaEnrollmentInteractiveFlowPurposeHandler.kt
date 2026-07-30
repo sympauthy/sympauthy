@@ -41,6 +41,6 @@ class MfaEnrollmentInteractiveFlowPurposeHandler(
     }
 
     override suspend fun complete(session: OnGoingInteractiveFlowSession): InteractiveFlowSession {
-        return sessionManager.markAsComplete(session)
+        return sessionManager.makePurposeAsComplete(session, purpose)
     }
 }

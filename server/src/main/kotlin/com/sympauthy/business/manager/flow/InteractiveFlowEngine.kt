@@ -17,9 +17,10 @@ import jakarta.inject.Singleton
  *
  * The engine drives the purposes in order: it asks each [InteractiveFlowPurposeHandler], in turn, for the
  * next step of its purpose; the first purpose that is still pending yields the step to present. Once every
- * purpose has resolved, the initiating purpose's terminal handoff runs, transitioning the session to
- * completed (or failed). The engine is the sole authority on cross-purpose sequencing; each handler only
- * knows about its own purpose.
+ * purpose has resolved, each purpose's terminal handoff runs, in order, marking its own purpose complete; the
+ * session transitions to completed once the last outstanding purpose is completed (or to failed if any handoff
+ * fails). The engine is the sole authority on cross-purpose sequencing; each handler only knows about its own
+ * purpose.
  */
 @Singleton
 class InteractiveFlowEngine(
@@ -69,12 +70,22 @@ class InteractiveFlowEngine(
             }
         }
 
-        // Every purpose has resolved: run the initiating purpose's terminal handoff and route on its outcome.
-        val initiatingHandler = purposeRegistry.getForPurpose(current.initiatingPurpose)
-        return when (val completed = initiatingHandler.complete(current)) {
-            is CompletedInteractiveFlowSession -> InteractiveFlowStepResult(completed, InteractiveFlowStep.Complete)
-            is FailedInteractiveFlowSession -> InteractiveFlowStepResult(completed, InteractiveFlowStep.Error)
-            is OnGoingInteractiveFlowSession -> throw internalBusinessExceptionOf("flow.redirect.unhandled_status")
+        // Every purpose has resolved: hand each purpose to its handler, in order, to run its terminal effect
+        // and mark its own purpose complete. The session becomes completed once the last outstanding purpose
+        // is completed; a handoff may instead fail the session.
+        return completePurposes(current)
+    }
+
+    private suspend fun completePurposes(session: OnGoingInteractiveFlowSession): InteractiveFlowStepResult {
+        var current = session
+        for (purpose in session.purposes) {
+            when (val completed = purposeRegistry.getForPurpose(purpose).complete(current)) {
+                is CompletedInteractiveFlowSession -> return InteractiveFlowStepResult(completed, InteractiveFlowStep.Complete)
+                is FailedInteractiveFlowSession -> return InteractiveFlowStepResult(completed, InteractiveFlowStep.Error)
+                is OnGoingInteractiveFlowSession -> current = completed
+            }
         }
+        // Completing the last purpose must have produced a completed (or failed) session.
+        throw internalBusinessExceptionOf("flow.redirect.unhandled_status")
     }
 }
