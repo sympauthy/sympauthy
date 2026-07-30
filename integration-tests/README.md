@@ -63,23 +63,26 @@ toolchain. Run a single scenario class with Gradle's test filter:
 ### Testing a specific image
 
 Point the tests at any SympAuthy image with `-Dsympauthy.image=<ref>` (or the `SYMPAUTHY_IMAGE` env
-var). This is how CI validates the current commit: it builds the native binary, packages it as
-`sympauthy:it`, and runs the suite against that image. To reproduce locally (requires a GraalVM
-toolchain able to run `nativeCompile`):
+var). To validate the current commit locally, build a **JVM image** from the working tree — it needs no
+GraalVM toolchain and builds in seconds:
 
 ```bash
-# 1. Native build needs the frontend resource dirs to exist (empty is fine — the flow driver hits the
-#    JSON API, not the UI).
-mkdir -p server/src/main/resources/sympauthy-flow server/src/main/resources/sympauthy-admin
+# 1. Build a JVM Docker image from the current code (Micronaut tags it `server:latest`).
+./gradlew :server:dockerBuild
 
-# 2. Build the native binary and package it as a Docker image using the release Dockerfile.
-./gradlew :server:nativeCompile
-cp server/build/native/nativeCompile/server .github/docker/sympauthy
-docker build -t sympauthy:it .github/docker
-
-# 3. Run the suite against it.
-./gradlew :integration-tests:integrationTest -Dsympauthy.image=sympauthy:it
+# 2. Run the suite against it.
+./gradlew :integration-tests:integrationTest -Dsympauthy.image=server:latest
 ```
+
+> **JVM image vs. native image — mind the gap.** The default nightly image, and the `sympauthy:it`
+> image CI builds from each commit, are **GraalVM native images**; the `server:latest` image above runs
+> the same code on the **JVM**. They share all the application logic, so the JVM image is the fast way to
+> iterate on an integration test locally — but they are *not* the same runtime, and a scenario can pass
+> on one while failing on the other. Native compilation is closed-world: it strips anything not provably
+> reachable, so reflection, resource loading, dynamic proxies and serialization only work when declared
+> in the native metadata (`reflect-config.json` / `resource-config.json` — e.g. every MapStruct `*Impl`).
+> Missing metadata throws only at native runtime; on the JVM, which reflects freely, the same code just
+> works. Treat a green JVM run as necessary but not sufficient — CI's native run is the source of truth.
 
 ## Adding a scenario
 

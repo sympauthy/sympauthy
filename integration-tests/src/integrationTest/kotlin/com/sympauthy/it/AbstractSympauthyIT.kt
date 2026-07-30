@@ -119,16 +119,49 @@ abstract class AbstractSympauthyIT {
         database.createFixture().use { fixture ->
             InteractiveFlowRegistry.forClient(client).withScopes("openid").use { registry ->
                 newContainer(fixture, registry, extraConfig).use { sympauthy ->
-                    sympauthy.start()
-                    try {
-                        block(sympauthy, registry)
-                    } catch (failure: Throwable) {
-                        System.err.println("=== SYMPAUTHY CONTAINER LOGS ===")
-                        System.err.println(runCatching { sympauthy.logs }.getOrElse { "(logs unavailable: $it)" })
-                        throw failure
-                    }
+                    runStarted(sympauthy, registry, block)
                 }
             }
+        }
+    }
+
+    /**
+     * Starts a caller-configured container against [database], runs [block], and always tears down —
+     * dumping the container logs on failure like [withContainer]. Use this when a scenario must configure
+     * the container itself (the admin environment, an admin client, bootstrap invitations, a non-default
+     * claim set) rather than the shared [config]/public-client setup [withContainer] provides. [build]
+     * receives the created [DatabaseFixture] and the registry (whose client is [client]) and must return the
+     * fully configured, not-yet-started container — typically
+     * `fixture.applyTo(SympauthyContainer(SympauthyImage.resolve()).…)`.
+     */
+    protected fun withCustomContainer(
+        database: Database,
+        client: Client = Client.publicClient(clientId),
+        build: (DatabaseFixture, InteractiveFlowRegistry) -> SympauthyContainer,
+        block: (SympauthyContainer, InteractiveFlowRegistry) -> Unit,
+    ) {
+        database.createFixture().use { fixture ->
+            InteractiveFlowRegistry.forClient(client).use { registry ->
+                build(fixture, registry).use { sympauthy ->
+                    runStarted(sympauthy, registry, block)
+                }
+            }
+        }
+    }
+
+    /** Starts [sympauthy], runs [block], and dumps the container logs to stderr on any failure. */
+    private fun runStarted(
+        sympauthy: SympauthyContainer,
+        registry: InteractiveFlowRegistry,
+        block: (SympauthyContainer, InteractiveFlowRegistry) -> Unit,
+    ) {
+        sympauthy.start()
+        try {
+            block(sympauthy, registry)
+        } catch (failure: Throwable) {
+            System.err.println("=== SYMPAUTHY CONTAINER LOGS ===")
+            System.err.println(runCatching { sympauthy.logs }.getOrElse { "(logs unavailable: $it)" })
+            throw failure
         }
     }
 
