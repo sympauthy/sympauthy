@@ -9,7 +9,7 @@ import io.swagger.v3.oas.annotations.media.Schema
 Everything the custom UI needs to render the sign-up step of the authorization flow.
 
 This resource returns either:
-- the configuration of the sign-up step (```password```, ```open_registration```, ```invitation```, ```claims```, ```sign_in_redirect_url```).
+- the configuration of the sign-up step (```password```, ```open_registration```, ```invitation```, ```sign_in_redirect_url```).
 - a ```redirect_url``` where the end-user must be redirected to continue the flow. When set, all other fields are null.
 
 Every URL contained in this resource already includes the ```state``` query param.
@@ -21,10 +21,6 @@ data class SignUpFlowResource(
         description = "Configuration of the password authentication. Null if sign-up by password is disabled."
     )
     val password: PasswordResource? = null,
-    @get:Schema(
-        description = "List of identifier claims collected by the authorization server during sign-up."
-    )
-    val claims: List<CollectableClaimResource>? = null,
     @get:Schema(
         name = "sign_in_redirect_url",
         description = """

@@ -3,6 +3,7 @@ package com.sympauthy.api.controller.flow
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_AUTHORIZE_ENDPOINT
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_ENDPOINTS
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
+import com.sympauthy.api.mapper.flow.CollectableClaimResourceMapper
 import com.sympauthy.api.resource.flow.PasswordResource
 import com.sympauthy.api.resource.flow.ProviderResource
 import com.sympauthy.api.resource.flow.SignInFlowResource
@@ -23,6 +24,8 @@ import com.sympauthy.config.model.getUri
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
+import com.sympauthy.util.orDefault
+import io.micronaut.http.HttpRequest
 import io.micronaut.http.annotation.Body
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
@@ -32,6 +35,7 @@ import io.micronaut.security.authentication.Authentication
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import jakarta.inject.Inject
+import java.util.Locale
 
 @Controller("/api/v1/flow/sign-in")
 @Secured(HAS_STATE)
@@ -42,6 +46,7 @@ class SignInController(
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
     @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
+    @Inject private val collectableClaimResourceMapper: CollectableClaimResourceMapper,
     @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil,
     @Inject private val uncheckedUrlsConfig: UrlsConfig
 ) {
@@ -59,19 +64,23 @@ on-going flow. All URLs it contains already include the state query param.
     )
     @Get
     suspend fun getSignInConfiguration(
-        authentication: Authentication
-    ): SignInFlowResource = interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenRunAndRedirect(
-        state = authentication.stateOrNull,
-        run = { session, flow ->
-            if (signInApplies(session, flow)) {
-                buildSignInConfiguration(session, flow)
-            } else {
-                null
-            }
-        },
-        mapResultToResource = { it },
-        mapRedirectUriToResource = { SignInFlowResource(redirectUrl = it.toString()) }
-    )
+        authentication: Authentication,
+        httpRequest: HttpRequest<*>
+    ): SignInFlowResource {
+        val locale = httpRequest.locale.orDefault()
+        return interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenRunAndRedirect(
+            state = authentication.stateOrNull,
+            run = { session, flow ->
+                if (signInApplies(session, flow)) {
+                    buildSignInConfiguration(session, flow, locale)
+                } else {
+                    null
+                }
+            },
+            mapResultToResource = { it },
+            mapRedirectUriToResource = { SignInFlowResource(redirectUrl = it.toString()) }
+        )
+    }
 
     /**
      * The sign-in step applies while no user is associated to the [session] yet, unless the flow is an
@@ -91,12 +100,15 @@ on-going flow. All URLs it contains already include the state query param.
 
     private suspend fun buildSignInConfiguration(
         session: OnGoingInteractiveFlowSession,
-        flow: InteractiveFlow
+        flow: InteractiveFlow,
+        locale: Locale
     ): SignInFlowResource {
         val urlsConfig = uncheckedUrlsConfig.orThrow()
         val password = if (passwordFlowManager.signInEnabled) {
             PasswordResource(
-                identifierClaims = claimManager.listIdentifierClaims().map { it.id }
+                identifierClaims = collectableClaimResourceMapper.toResources(
+                    claimManager.listIdentifierClaims(), locale
+                )
             )
         } else null
         val providers = providerManager.listEnabledProviders()

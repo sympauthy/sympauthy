@@ -14,10 +14,10 @@ data class PasswordResource(
     @get:Schema(
         name = "identifier_claims",
         description = """
-List of claims that uniquely identify a user, usable as login for sign-in.
-Only set for the sign-in step; during sign-up the identifier claims are exposed in the ```claims``` field instead.
+List of claims that uniquely identify a user. Used as login during sign-in and as the required claims collected
+during sign-up.
         """
     )
     @get:JsonProperty("identifier_claims")
-    val identifierClaims: List<String>? = null,
+    val identifierClaims: List<CollectableClaimResource>,
 )
