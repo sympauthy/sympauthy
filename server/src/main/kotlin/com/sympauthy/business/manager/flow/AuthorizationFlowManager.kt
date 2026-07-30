@@ -40,7 +40,8 @@ class AuthorizationFlowManager(
             id = DEFAULT_WEB_AUTHORIZATION_FLOW_ID,
             signInUri = UriBuilder.of(rootUri).path("sign-in").build(),
             signUpUri = UriBuilder.of(rootUri).path("sign-up").build(),
-            mfaUri = UriBuilder.of(rootUri).path("mfa").build(),
+            mfaSelectionForEnrollmentUri = UriBuilder.of(rootUri).path("mfa/enrollment").build(),
+            mfaSelectionForChallengeUri = UriBuilder.of(rootUri).path("mfa/challenge").build(),
             mfaTotpChallengeUri = UriBuilder.of(rootUri).path("mfa/totp").build(),
             mfaTotpEnrollUri = UriBuilder.of(rootUri).path("mfa/totp/enroll").build(),
             collectClaimsUri = UriBuilder.of(rootUri).path("claims/edit").build(),
@@ -80,7 +81,7 @@ class AuthorizationFlowManager(
         if (session !is CompletedInteractiveFlowSession) {
             throw businessExceptionOf("token.expired")
         }
-        if (session.purpose != InteractiveFlowPurpose.OAUTH2_AUTHORIZE) {
+        if (session.initiatingPurpose != InteractiveFlowPurpose.OAUTH2_AUTHORIZE) {
             throw businessExceptionOf("token.expired")
         }
         if (session.expired) {

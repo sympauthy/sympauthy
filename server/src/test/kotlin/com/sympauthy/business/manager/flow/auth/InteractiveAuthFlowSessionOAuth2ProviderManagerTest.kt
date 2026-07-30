@@ -1,6 +1,6 @@
 package com.sympauthy.business.manager.flow.auth
 
-import com.sympauthy.business.manager.flow.InteractiveFlowPurposeRegistry
+import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionProviderManager
@@ -70,7 +70,7 @@ class InteractiveAuthFlowSessionOAuth2ProviderManagerTest {
     lateinit var interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager
 
     @MockK
-    lateinit var purposeRegistry: InteractiveFlowPurposeRegistry
+    lateinit var engine: InteractiveFlowEngine
 
     @MockK
     lateinit var tokenEndpointClient: TokenEndpointClient

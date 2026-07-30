@@ -22,8 +22,4 @@ data class OAuth2AuthorizeInteractiveFlowStatus(
      * List of media we must send a validation code too according to the claims collected from the end-user.
      */
     val missingMediaForClaimValidation: List<ValidationCodeMedia> = emptyList(),
-    /**
-     * True if MFA is required for this flow and the end-user has not yet completed the MFA step.
-     */
-    val missingMfa: Boolean = false,
 )

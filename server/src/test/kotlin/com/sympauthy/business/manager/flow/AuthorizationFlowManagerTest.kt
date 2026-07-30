@@ -67,7 +67,7 @@ class AuthorizationFlowManagerTest {
         val client = mockClient()
         val failedSession = FailedInteractiveFlowSession(
             id = UUID.randomUUID(),
-            purpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE,
+            purposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE),
             flowId = "flow-id",
             expirationDate = LocalDateTime.now().plusHours(1),
             errorDetailsId = "some.error",
@@ -143,7 +143,7 @@ class AuthorizationFlowManagerTest {
     ): OnGoingInteractiveFlowSession {
         return OnGoingInteractiveFlowSession(
             id = UUID.randomUUID(),
-            purpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE,
+            purposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE),
             flowId = "flow-id",
             expirationDate = LocalDateTime.now().plusHours(1),
             sessionDate = LocalDateTime.now(),
@@ -157,7 +157,7 @@ class AuthorizationFlowManagerTest {
         val now = LocalDateTime.now()
         return CompletedInteractiveFlowSession(
             id = UUID.randomUUID(),
-            purpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE,
+            purposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE),
             flowId = "flow-id",
             expirationDate = expirationDate,
             sessionDate = now,

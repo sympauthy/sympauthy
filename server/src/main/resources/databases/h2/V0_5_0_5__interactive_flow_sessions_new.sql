@@ -1,15 +1,17 @@
 CREATE TABLE interactive_flow_sessions
 (
     id                   uuid      NOT NULL DEFAULT random_uuid(),
-    purpose              text      NOT NULL,
+    purposes             text array NOT NULL,
     session_date         timestamp NOT NULL,
     flow_id              text,
     expiration_date      timestamp NOT NULL,
 
     user_id              uuid,
+    signed_up            boolean   NOT NULL DEFAULT false,
 
     mfa_passed_date      timestamp,
 
+    completed_purposes   text array NOT NULL DEFAULT ARRAY[],
     complete_date        timestamp,
 
     error_date           timestamp,

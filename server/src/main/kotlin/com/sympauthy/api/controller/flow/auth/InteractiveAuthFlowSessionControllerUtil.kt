@@ -4,7 +4,7 @@ import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
 import com.sympauthy.api.exception.httpExceptionOf
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.flow.FailedVerifyEncodedStateResult
-import com.sympauthy.business.manager.flow.InteractiveFlowPurposeRegistry
+import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.SuccessVerifyEncodedStateResult
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
@@ -32,7 +32,7 @@ class InteractiveAuthFlowSessionControllerUtil(
     @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val userManager: UserManager,
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
-    @Inject private val purposeRegistry: InteractiveFlowPurposeRegistry,
+    @Inject private val engine: InteractiveFlowEngine,
     @Inject private val stepUriMapper: InteractiveFlowStepUriMapper
 ) {
 
@@ -45,7 +45,7 @@ class InteractiveAuthFlowSessionControllerUtil(
         session: InteractiveFlowSession,
         flow: InteractiveFlow
     ): URI {
-        val (steppedSession, step) = purposeRegistry.getForSession(session).getCurrentStep(session)
+        val (steppedSession, step) = engine.advance(session)
         return stepUriMapper.toRedirectUri(steppedSession, flow, step)
     }
 

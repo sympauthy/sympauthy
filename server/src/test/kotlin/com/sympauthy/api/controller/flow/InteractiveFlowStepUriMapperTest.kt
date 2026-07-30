@@ -4,10 +4,13 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaEnrollmentManager
 import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlow
+import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowSessionMfaEnrollment
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
@@ -36,6 +39,9 @@ class InteractiveFlowStepUriMapperTest {
 
     @MockK
     lateinit var oauth2Manager: InteractiveFlowSessionOAuth2Manager
+
+    @MockK
+    lateinit var mfaEnrollmentManager: InteractiveFlowSessionMfaEnrollmentManager
 
     @MockK
     lateinit var authorizationCodeManager: AuthorizationCodeManager
@@ -92,7 +98,9 @@ class InteractiveFlowStepUriMapperTest {
 
     @Test
     fun `toRedirectUri - Complete generates a code and redirects to the client without internal state`() = runTest {
-        val session = mockk<CompletedInteractiveFlowSession>()
+        val session = mockk<CompletedInteractiveFlowSession> {
+            every { initiatingPurpose } returns InteractiveFlowPurpose.OAUTH2_AUTHORIZE
+        }
         val oauth2 = InteractiveFlowSessionOAuth2(
             sessionId = UUID.randomUUID(),
             clientId = "test-client",
@@ -107,6 +115,21 @@ class InteractiveFlowStepUriMapperTest {
         val result = mapper.toRedirectUri(session, mockk(), InteractiveFlowStep.Complete)
 
         assertEquals("https://www.example.com?state=clientState&code=authorizationCode", result.toString())
+    }
+
+    @Test
+    fun `toRedirectUri - Complete for a standalone MFA enrollment redirects to the return URI`() = runTest {
+        val session = mockk<CompletedInteractiveFlowSession> {
+            every { initiatingPurpose } returns InteractiveFlowPurpose.MFA_ENROLLMENT
+        }
+        coEvery { mfaEnrollmentManager.fetchMfaEnrollment(session) } returns InteractiveFlowSessionMfaEnrollment(
+            sessionId = UUID.randomUUID(),
+            returnUri = "https://client.example.com/enrolled"
+        )
+
+        val result = mapper.toRedirectUri(session, mockk(), InteractiveFlowStep.Complete)
+
+        assertEquals("https://client.example.com/enrolled", result.toString())
     }
 
     @Test

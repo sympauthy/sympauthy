@@ -24,9 +24,14 @@ sealed class InteractiveFlowSession(
     val id: UUID,
 
     /**
-     * The purpose this session serves.
+     * The ordered list of purposes this session serves.
+     *
+     * The engine drives them in order: the first purpose is the one that initiated the session and owns the
+     * terminal handoff (e.g. issuing an authorization code); further purposes are appended by a purpose as it
+     * resolves (e.g. the OAuth2 authorize purpose appending an MFA purpose) and must all resolve before the
+     * session completes.
      */
-    val purpose: InteractiveFlowPurpose,
+    val purposes: List<InteractiveFlowPurpose>,
 
     /**
      * The identifier of the interactive flow the user is going through.
@@ -35,14 +40,20 @@ sealed class InteractiveFlowSession(
     val flowId: String?,
 
     override val expirationDate: LocalDateTime
-) : Expirable
+) : Expirable {
+
+    /**
+     * The purpose that initiated the session and owns its terminal handoff.
+     */
+    val initiatingPurpose: InteractiveFlowPurpose get() = purposes.first()
+}
 
 /**
  * Represents an interactive flow session that is ongoing.
  */
 class OnGoingInteractiveFlowSession(
     id: UUID,
-    purpose: InteractiveFlowPurpose,
+    purposes: List<InteractiveFlowPurpose>,
     flowId: String?,
     expirationDate: LocalDateTime,
 
@@ -58,13 +69,27 @@ class OnGoingInteractiveFlowSession(
     val userId: UUID?,
 
     /**
+     * True if the user was created (signed up) during this session, false if an existing user signed in.
+     * Meaningful only once the user has been identified.
+     */
+    val signedUp: Boolean = false,
+
+    /**
+     * The purposes of this session that have already been completed.
+     *
+     * A session's purposes are completed one at a time (each purpose's handler completes its own purpose as
+     * the engine hands off); the session as a whole completes only once this covers every entry of [purposes].
+     */
+    val completedPurposes: List<InteractiveFlowPurpose> = emptyList(),
+
+    /**
      * When the end-user successfully completed the MFA step for this session.
      * Null if MFA has not been completed yet.
      */
     val mfaPassedDate: LocalDateTime? = null,
 ) : InteractiveFlowSession(
     id = id,
-    purpose = purpose,
+    purposes = purposes,
     flowId = flowId,
     expirationDate = expirationDate
 ) {
@@ -74,15 +99,20 @@ class OnGoingInteractiveFlowSession(
     val mfaPassed: Boolean get() = mfaPassedDate != null
 
     fun copy(
+        purposes: List<InteractiveFlowPurpose>? = null,
+        completedPurposes: List<InteractiveFlowPurpose>? = null,
         userId: UUID? = null,
+        signedUp: Boolean? = null,
         mfaPassedDate: LocalDateTime? = null,
     ) = OnGoingInteractiveFlowSession(
         id = this.id,
-        purpose = this.purpose,
+        purposes = purposes ?: this.purposes,
         flowId = this.flowId,
         expirationDate = this.expirationDate,
         sessionDate = this.sessionDate,
         userId = userId ?: this.userId,
+        signedUp = signedUp ?: this.signedUp,
+        completedPurposes = completedPurposes ?: this.completedPurposes,
         mfaPassedDate = mfaPassedDate ?: this.mfaPassedDate,
     )
 }
@@ -95,7 +125,7 @@ class OnGoingInteractiveFlowSession(
  */
 class CompletedInteractiveFlowSession(
     id: UUID,
-    purpose: InteractiveFlowPurpose,
+    purposes: List<InteractiveFlowPurpose>,
     flowId: String?,
     expirationDate: LocalDateTime,
 
@@ -110,6 +140,17 @@ class CompletedInteractiveFlowSession(
     val userId: UUID,
 
     /**
+     * True if the user was created (signed up) during this session, false if an existing user signed in.
+     */
+    val signedUp: Boolean = false,
+
+    /**
+     * The purposes of this session that have been completed. For a completed session this covers every entry
+     * of [purposes].
+     */
+    val completedPurposes: List<InteractiveFlowPurpose> = emptyList(),
+
+    /**
      * When the end-user successfully completed the MFA step for this session.
      * Null if MFA has not been completed.
      */
@@ -121,7 +162,7 @@ class CompletedInteractiveFlowSession(
     val completeDate: LocalDateTime,
 ) : InteractiveFlowSession(
     id = id,
-    purpose = purpose,
+    purposes = purposes,
     flowId = flowId,
     expirationDate = expirationDate
 )
@@ -131,7 +172,7 @@ class CompletedInteractiveFlowSession(
  */
 class FailedInteractiveFlowSession(
     id: UUID,
-    purpose: InteractiveFlowPurpose,
+    purposes: List<InteractiveFlowPurpose>,
     flowId: String?,
     expirationDate: LocalDateTime,
 
@@ -158,7 +199,7 @@ class FailedInteractiveFlowSession(
     val errorDate: LocalDateTime,
 ) : InteractiveFlowSession(
     id = id,
-    purpose = purpose,
+    purposes = purposes,
     flowId = flowId,
     expirationDate = expirationDate
 )

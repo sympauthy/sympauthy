@@ -17,7 +17,8 @@ data class ParsedAuthorizationFlow(
     val collectClaimsUri: URI?,
     val validateClaimsUri: URI?,
     val errorUri: URI?,
-    val mfaUri: URI?,
+    val mfaSelectionForEnrollmentUri: URI?,
+    val mfaSelectionForChallengeUri: URI?,
     val mfaTotpEnrollUri: URI?,
     val mfaTotpChallengeUri: URI?
 )
@@ -79,9 +80,20 @@ class AuthorizationFlowsConfigParser(
         val errorUri = ctx.parse {
             parser.getUriOrThrow(properties, "$configKeyPrefix.error", AuthorizationFlowConfigurationProperties::error)
         }
-        val mfaUri = properties.mfa?.let {
+        val mfaSelectionForEnrollmentUri = properties.mfaSelectionForEnrollment?.let {
             ctx.parse {
-                parser.getUriOrThrow(properties, "$configKeyPrefix.mfa", AuthorizationFlowConfigurationProperties::mfa)
+                parser.getUriOrThrow(
+                    properties, "$configKeyPrefix.mfa-selection-for-enrollment",
+                    AuthorizationFlowConfigurationProperties::mfaSelectionForEnrollment
+                )
+            }
+        }
+        val mfaSelectionForChallengeUri = properties.mfaSelectionForChallenge?.let {
+            ctx.parse {
+                parser.getUriOrThrow(
+                    properties, "$configKeyPrefix.mfa-selection-for-challenge",
+                    AuthorizationFlowConfigurationProperties::mfaSelectionForChallenge
+                )
             }
         }
         val mfaTotpEnrollUri = properties.mfaTotpEnroll?.let {
@@ -109,7 +121,8 @@ class AuthorizationFlowsConfigParser(
             collectClaimsUri = collectClaimsUri,
             validateClaimsUri = validateClaimsUri,
             errorUri = errorUri,
-            mfaUri = mfaUri,
+            mfaSelectionForEnrollmentUri = mfaSelectionForEnrollmentUri,
+            mfaSelectionForChallengeUri = mfaSelectionForChallengeUri,
             mfaTotpEnrollUri = mfaTotpEnrollUri,
             mfaTotpChallengeUri = mfaTotpChallengeUri
         )

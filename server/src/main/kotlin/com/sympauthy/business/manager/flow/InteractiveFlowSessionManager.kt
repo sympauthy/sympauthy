@@ -49,13 +49,13 @@ class InteractiveFlowSessionManager(
      * to persist an attached record atomically with the session).
      */
     suspend fun newSession(
-        purpose: InteractiveFlowPurpose,
+        purposes: List<InteractiveFlowPurpose>,
         flow: AuthorizationFlow? = null,
         error: BusinessException? = null
     ): InteractiveFlowSession {
         val now = LocalDateTime.now()
         val entity = InteractiveFlowSessionEntity(
-            purpose = purpose.name,
+            purposes = purposes.map(InteractiveFlowPurpose::name).toTypedArray(),
             flowId = flow?.id,
             sessionDate = now,
             expirationDate = now.plus(uncheckedAuthConfig.orThrow().authorizationCode.expiration),
@@ -119,17 +119,23 @@ class InteractiveFlowSessionManager(
 
     /**
      * Associate the user that has been authenticated to its [InteractiveFlowSession].
+     *
+     * [signedUp] records whether the user was created (signed up) during this session, so a later step (e.g.
+     * the MFA-purpose selection) can branch on sign-up vs sign-in.
      */
     suspend fun setAuthenticatedUserId(
         session: OnGoingInteractiveFlowSession,
-        userId: UUID
+        userId: UUID,
+        signedUp: Boolean = false
     ): OnGoingInteractiveFlowSession {
         sessionRepository.updateUserId(
             id = session.id,
-            userId = userId
+            userId = userId,
+            signedUp = signedUp
         )
         return session.copy(
-            userId = userId
+            userId = userId,
+            signedUp = signedUp
         )
     }
 
@@ -146,6 +152,25 @@ class InteractiveFlowSessionManager(
             mfaPassedDate = mfaPassedDate
         )
         return session.copy(mfaPassedDate = mfaPassedDate)
+    }
+
+    /**
+     * Append [purpose] to the ordered list of purposes of the [session], persist it, and return the updated
+     * session.
+     *
+     * Used by a purpose handler that, as it resolves, needs a follow-up purpose to run before the session
+     * completes (e.g. the OAuth2 authorize purpose appending an MFA purpose).
+     */
+    suspend fun appendPurpose(
+        session: OnGoingInteractiveFlowSession,
+        purpose: InteractiveFlowPurpose
+    ): OnGoingInteractiveFlowSession {
+        val purposes = session.purposes + purpose
+        sessionRepository.updatePurposes(
+            id = session.id,
+            purposes = purposes.map(InteractiveFlowPurpose::name)
+        )
+        return session.copy(purposes = purposes)
     }
 
     /**
@@ -168,7 +193,7 @@ class InteractiveFlowSessionManager(
         )
         return FailedInteractiveFlowSession(
             id = session.id,
-            purpose = session.purpose,
+            purposes = session.purposes,
             flowId = session.flowId,
             errorDate = errorDate,
             errorDetailsId = error.detailsId,
@@ -179,17 +204,34 @@ class InteractiveFlowSessionManager(
     }
 
     /**
-     * Set and save the completion date of the [session] and return the completed session.
+     * Record [purpose] as completed on the [session], persist the updated completed-purpose list, and return
+     * the resulting session.
      *
-     * The presence of the concern-specific completion invariants (e.g. consent / grant for an OAuth2
-     * session) is enforced by the matching manager when the attached record is read.
+     * The whole session completes — its completion date is persisted and a [CompletedInteractiveFlowSession]
+     * is returned — only once every purpose the session carries has been completed. Until then the still
+     * [OnGoingInteractiveFlowSession] is returned with [purpose] added to its completed purposes.
+     *
+     * Marking an already-completed [purpose] is a no-op on the list. The presence of the concern-specific
+     * completion invariants (e.g. consent / grant for an OAuth2 session) is enforced by the matching manager
+     * when the attached record is read.
      */
-    suspend fun markAsComplete(
-        session: OnGoingInteractiveFlowSession
-    ): CompletedInteractiveFlowSession {
+    suspend fun makePurposeAsComplete(
+        session: OnGoingInteractiveFlowSession,
+        purpose: InteractiveFlowPurpose
+    ): InteractiveFlowSession {
         val userId = session.userId ?: throw businessExceptionOf(
             "auth.interactive_flow_session.complete.missing_user"
         )
+        val completedPurposes = (session.completedPurposes + purpose).distinct()
+        sessionRepository.updateCompletedPurposes(
+            id = session.id,
+            completedPurposes = completedPurposes.map(InteractiveFlowPurpose::name)
+        )
+
+        if (!session.purposes.all { it in completedPurposes }) {
+            return session.copy(completedPurposes = completedPurposes)
+        }
+
         val completeDate = LocalDateTime.now()
         sessionRepository.updateCompleteDate(
             id = session.id,
@@ -197,11 +239,13 @@ class InteractiveFlowSessionManager(
         )
         return CompletedInteractiveFlowSession(
             id = session.id,
-            purpose = session.purpose,
+            purposes = session.purposes,
             flowId = session.flowId,
             expirationDate = session.expirationDate,
             sessionDate = session.sessionDate,
             userId = userId,
+            signedUp = session.signedUp,
+            completedPurposes = completedPurposes,
             mfaPassedDate = session.mfaPassedDate,
             completeDate = completeDate
         )

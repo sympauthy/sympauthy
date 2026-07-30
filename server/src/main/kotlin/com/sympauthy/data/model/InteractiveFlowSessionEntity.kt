@@ -13,18 +13,20 @@ import java.util.*
 @MappedEntity("interactive_flow_sessions")
 class InteractiveFlowSessionEntity(
     // Session metadata
-    val purpose: String,
+    val purposes: Array<String>,
     val sessionDate: LocalDateTime,
     val flowId: String? = null,
     val expirationDate: LocalDateTime,
 
     // User identification
     val userId: UUID? = null,
+    val signedUp: Boolean = false,
 
     // MFA
     val mfaPassedDate: LocalDateTime? = null,
 
     // Completion
+    val completedPurposes: Array<String> = emptyArray(),
     val completeDate: LocalDateTime? = null,
 
     // Error

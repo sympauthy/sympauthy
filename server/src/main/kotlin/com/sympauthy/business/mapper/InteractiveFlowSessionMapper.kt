@@ -29,11 +29,13 @@ abstract class InteractiveFlowSessionMapper {
     fun toOnGoingInteractiveFlowSession(entity: InteractiveFlowSessionEntity): OnGoingInteractiveFlowSession {
         return OnGoingInteractiveFlowSession(
             id = entity.id ?: throw invalidBusinessException("id"),
-            purpose = InteractiveFlowPurpose.valueOf(entity.purpose),
+            purposes = entity.purposes.map(InteractiveFlowPurpose::valueOf),
             flowId = entity.flowId,
             expirationDate = entity.expirationDate,
             sessionDate = entity.sessionDate,
             userId = entity.userId,
+            signedUp = entity.signedUp,
+            completedPurposes = entity.completedPurposes.map(InteractiveFlowPurpose::valueOf),
             mfaPassedDate = entity.mfaPassedDate,
         )
     }
@@ -41,11 +43,13 @@ abstract class InteractiveFlowSessionMapper {
     fun toCompletedInteractiveFlowSession(entity: InteractiveFlowSessionEntity): CompletedInteractiveFlowSession {
         return CompletedInteractiveFlowSession(
             id = entity.id ?: throw invalidBusinessException("id"),
-            purpose = InteractiveFlowPurpose.valueOf(entity.purpose),
+            purposes = entity.purposes.map(InteractiveFlowPurpose::valueOf),
             flowId = entity.flowId,
             expirationDate = entity.expirationDate,
             sessionDate = entity.sessionDate,
             userId = entity.userId ?: throw invalidBusinessException("userId"),
+            signedUp = entity.signedUp,
+            completedPurposes = entity.completedPurposes.map(InteractiveFlowPurpose::valueOf),
             mfaPassedDate = entity.mfaPassedDate,
             completeDate = entity.completeDate ?: throw invalidBusinessException("completeDate"),
         )
@@ -54,7 +58,7 @@ abstract class InteractiveFlowSessionMapper {
     fun toFailedInteractiveFlowSession(entity: InteractiveFlowSessionEntity): FailedInteractiveFlowSession {
         return FailedInteractiveFlowSession(
             id = entity.id ?: throw invalidBusinessException("id"),
-            purpose = InteractiveFlowPurpose.valueOf(entity.purpose),
+            purposes = entity.purposes.map(InteractiveFlowPurpose::valueOf),
             flowId = entity.flowId,
             expirationDate = entity.expirationDate,
             errorDetailsId = entity.errorDetailsId ?: throw invalidBusinessException("errorDetailsId"),
@@ -67,7 +71,7 @@ abstract class InteractiveFlowSessionMapper {
     fun toExpiredInteractiveFlowSession(entity: InteractiveFlowSessionEntity): FailedInteractiveFlowSession {
         return FailedInteractiveFlowSession(
             id = entity.id ?: throw invalidBusinessException("id"),
-            purpose = InteractiveFlowPurpose.valueOf(entity.purpose),
+            purposes = entity.purposes.map(InteractiveFlowPurpose::valueOf),
             flowId = entity.flowId,
             errorDetailsId = "auth.interactive_flow_session.validate.expired",
             errorDescriptionId = "description.oauth2.expired",

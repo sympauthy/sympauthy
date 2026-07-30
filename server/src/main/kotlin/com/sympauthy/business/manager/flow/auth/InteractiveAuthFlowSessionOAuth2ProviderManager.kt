@@ -1,6 +1,6 @@
 package com.sympauthy.business.manager.flow.auth
 
-import com.sympauthy.business.manager.flow.InteractiveFlowPurposeRegistry
+import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionProviderManager
@@ -55,7 +55,7 @@ open class InteractiveAuthFlowSessionOAuth2ProviderManager(
     @Inject private val providerClaimsManager: ProviderClaimsManager,
     @Inject private val providerClaimsResolver: ProviderClaimsResolver,
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
-    @Inject private val purposeRegistry: InteractiveFlowPurposeRegistry,
+    @Inject private val engine: InteractiveFlowEngine,
     @Inject private val tokenEndpointClient: TokenEndpointClient,
     @Inject private val userManager: UserManager,
     @Inject private val uncheckedAuthConfig: AuthConfig,
@@ -171,20 +171,21 @@ open class InteractiveAuthFlowSessionOAuth2ProviderManager(
             subject = rawUserInfo.subject
         )
 
-        val userId = if (existingUserInfo == null) {
+        val (userId, signedUp) = if (existingUserInfo == null) {
             val oauth2 = oauth2Manager.fetchOAuth2(session)
             interactiveAuthFlowSessionManager.checkSignUpAllowed(oauth2, recoverable = false)
             val result = createOrAssociateUserWithProviderUserInfo(provider, rawUserInfo)
             invitationManager.applyInvitationClaimsAndConsume(oauth2.invitationId, result.user.id)
-            result.user.id
+            // `created` is false when the provider was merged into an existing account (sign-in, not sign-up).
+            result.user.id to result.created
         } else {
             providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo)
-            existingUserInfo.userId
+            existingUserInfo.userId to false
         }
-        val updatedSession = sessionManager.setAuthenticatedUserId(session, userId)
+        val updatedSession = sessionManager.setAuthenticatedUserId(session, userId, signedUp = signedUp)
 
         // Complete the flow if the end-user has no more step to go through.
-        return purposeRegistry.completeIfNecessary(updatedSession)
+        return engine.completeIfNecessary(updatedSession)
     }
 
     /**

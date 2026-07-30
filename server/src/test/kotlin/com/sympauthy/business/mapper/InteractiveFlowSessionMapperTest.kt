@@ -96,6 +96,7 @@ class InteractiveFlowSessionMapperTest {
         assertTrue(session is OnGoingInteractiveFlowSession)
         session as OnGoingInteractiveFlowSession
         assertEquals(id, session.id)
+        assertEquals(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE), session.purposes)
         assertEquals(userId, session.userId)
         assertEquals(mfaPassedDate, session.mfaPassedDate)
     }
@@ -153,7 +154,7 @@ class InteractiveFlowSessionMapperTest {
         errorValues: Map<String, String>? = null,
     ): InteractiveFlowSessionEntity {
         return InteractiveFlowSessionEntity(
-            purpose = purpose.name,
+            purposes = arrayOf(purpose.name),
             sessionDate = sessionDate,
             flowId = flowId,
             expirationDate = expirationDate,

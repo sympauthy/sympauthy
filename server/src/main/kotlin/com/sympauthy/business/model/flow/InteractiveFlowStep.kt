@@ -21,9 +21,17 @@ sealed interface InteractiveFlowStep {
     data object SignUp : InteractiveFlowStep
 
     /**
-     * The end-user must go through multi-factor authentication (method selection / routing).
+     * The end-user must choose which multi-factor authentication method to enroll (and may skip when the
+     * enrollment is optional). The selection page auto-redirects to the method's enrollment step when there is
+     * a single method to enroll and no skip is offered.
      */
-    data object Mfa : InteractiveFlowStep
+    data object MfaSelectionForEnrollment : InteractiveFlowStep
+
+    /**
+     * The end-user must choose which enrolled multi-factor authentication method to challenge. The selection
+     * page auto-redirects to the method's challenge step when a single method is enrolled.
+     */
+    data object MfaSelectionForChallenge : InteractiveFlowStep
 
     /**
      * The end-user must enroll a TOTP authenticator.
