@@ -93,11 +93,9 @@ on-going flow. All URLs it contains already include the state query param.
         locale: Locale
     ): SignUpFlowResource {
         val password = if (passwordFlowManager.signUpEnabled) {
-            PasswordResource(
-                identifierClaims = claimManager.listIdentifierClaims().map { it.id }
-            )
+            PasswordResource()
         } else null
-        val claims = claimManager.listCollectableClaims().map { claim ->
+        val claims = claimManager.listIdentifierClaims().map { claim ->
             CollectableClaimResource(
                 id = claim.id,
                 required = claim.required,
@@ -119,6 +117,8 @@ on-going flow. All URLs it contains already include the state query param.
     @Operation(
         description = """
 Initiate the creation of an account of a end-user with a password.
+
+Only identifier claims are saved on the created account. Any other claim present in the request is discarded.
         """,
         tags = ["flow"]
     )

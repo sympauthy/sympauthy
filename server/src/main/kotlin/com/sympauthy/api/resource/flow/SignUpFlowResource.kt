@@ -22,7 +22,7 @@ data class SignUpFlowResource(
     )
     val password: PasswordResource? = null,
     @get:Schema(
-        description = "List of claims collectable by the authorization server during sign-up."
+        description = "List of identifier claims collected by the authorization server during sign-up."
     )
     val claims: List<CollectableClaimResource>? = null,
     @get:Schema(
