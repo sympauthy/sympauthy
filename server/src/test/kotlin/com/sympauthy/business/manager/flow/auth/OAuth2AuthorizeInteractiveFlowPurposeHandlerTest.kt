@@ -323,7 +323,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         assertSame(completedSession, result)
     }
 
-    // --- computeStatus (status computation used by getCurrentStep) ---
+    // --- computeStatus (status computation used by getNextStep) ---
 
     @Test
     fun `computeStatus - Missing required claims when not all are collected`() = runTest {

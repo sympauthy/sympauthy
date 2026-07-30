@@ -22,41 +22,41 @@ class InteractiveFlowEngineTest {
     private val engine = InteractiveFlowEngine(purposeRegistry)
 
     @Test
-    fun `getCurrentStep - Failed session maps to Error`() = runTest {
+    fun `getNextStep - Failed session maps to Error`() = runTest {
         val session = failedSession()
 
-        val result = engine.getCurrentStep(session)
+        val result = engine.getNextStep(session)
 
         assertSame(session, result.session)
         assertEquals(InteractiveFlowStep.Error, result.step)
     }
 
     @Test
-    fun `getCurrentStep - Completed session maps to Complete`() = runTest {
+    fun `getNextStep - Completed session maps to Complete`() = runTest {
         val session = completedSession()
 
-        val result = engine.getCurrentStep(session)
+        val result = engine.getNextStep(session)
 
         assertSame(session, result.session)
         assertEquals(InteractiveFlowStep.Complete, result.step)
     }
 
     @Test
-    fun `getCurrentStep - Pending purpose yields its step`() = runTest {
+    fun `getNextStep - Pending purpose yields its step`() = runTest {
         val session = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE))
         val handler = mockk<InteractiveFlowPurposeHandler>()
         every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns handler
         coEvery { handler.getNextStep(session) } returns
             InteractiveFlowPurposeStepResult.Pending(session, InteractiveFlowStep.SignIn)
 
-        val result = engine.getCurrentStep(session)
+        val result = engine.getNextStep(session)
 
         assertSame(session, result.session)
         assertEquals(InteractiveFlowStep.SignIn, result.step)
     }
 
     @Test
-    fun `getCurrentStep - All purposes resolved runs the initiating complete and maps Completed to Complete`() = runTest {
+    fun `getNextStep - All purposes resolved runs the initiating complete and maps Completed to Complete`() = runTest {
         val session = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE))
         val completed = completedSession()
         val handler = mockk<InteractiveFlowPurposeHandler>()
@@ -64,14 +64,14 @@ class InteractiveFlowEngineTest {
         coEvery { handler.getNextStep(session) } returns InteractiveFlowPurposeStepResult.Resolved(session)
         coEvery { handler.complete(session) } returns completed
 
-        val result = engine.getCurrentStep(session)
+        val result = engine.getNextStep(session)
 
         assertSame(completed, result.session)
         assertEquals(InteractiveFlowStep.Complete, result.step)
     }
 
     @Test
-    fun `getCurrentStep - Initiating complete returning Failed maps to Error`() = runTest {
+    fun `getNextStep - Initiating complete returning Failed maps to Error`() = runTest {
         val session = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE))
         val failed = failedSession()
         val handler = mockk<InteractiveFlowPurposeHandler>()
@@ -79,14 +79,14 @@ class InteractiveFlowEngineTest {
         coEvery { handler.getNextStep(session) } returns InteractiveFlowPurposeStepResult.Resolved(session)
         coEvery { handler.complete(session) } returns failed
 
-        val result = engine.getCurrentStep(session)
+        val result = engine.getNextStep(session)
 
         assertSame(failed, result.session)
         assertEquals(InteractiveFlowStep.Error, result.step)
     }
 
     @Test
-    fun `getCurrentStep - Walks to the next purpose once the first resolves`() = runTest {
+    fun `getNextStep - Walks to the next purpose once the first resolves`() = runTest {
         // Two purposes in the list: the first resolves, the second is pending and yields the step.
         val session = onGoingSession(
             listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, InteractiveFlowPurpose.OAUTH2_AUTHORIZE)
@@ -98,13 +98,13 @@ class InteractiveFlowEngineTest {
             InteractiveFlowPurposeStepResult.Pending(session, InteractiveFlowStep.MfaSelectionForEnrollment)
         )
 
-        val result = engine.getCurrentStep(session)
+        val result = engine.getNextStep(session)
 
         assertEquals(InteractiveFlowStep.MfaSelectionForEnrollment, result.step)
     }
 
     @Test
-    fun `getCurrentStep - Visits a purpose appended while resolving`() = runTest {
+    fun `getNextStep - Visits a purpose appended while resolving`() = runTest {
         // The first purpose resolves into a session that grew by one purpose; that appended purpose is visited.
         val initial = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE))
         val grown = onGoingSession(
@@ -116,14 +116,14 @@ class InteractiveFlowEngineTest {
         coEvery { handler.getNextStep(grown) } returns
             InteractiveFlowPurposeStepResult.Pending(grown, InteractiveFlowStep.MfaSelectionForEnrollment)
 
-        val result = engine.getCurrentStep(initial)
+        val result = engine.getNextStep(initial)
 
         assertSame(grown, result.session)
         assertEquals(InteractiveFlowStep.MfaSelectionForEnrollment, result.step)
     }
 
     @Test
-    fun `completeIfNecessary - Returns the session resolved by getCurrentStep`() = runTest {
+    fun `completeIfNecessary - Returns the session resolved by getNextStep`() = runTest {
         val session = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE))
         val completed = completedSession()
         val handler = mockk<InteractiveFlowPurposeHandler>()

@@ -34,7 +34,7 @@ class InteractiveFlowEngine(
      * [InteractiveFlowStep.Error] and a completed one to [InteractiveFlowStep.Complete], without re-running
      * any effect.
      */
-    suspend fun getCurrentStep(session: InteractiveFlowSession): InteractiveFlowStepResult = when (session) {
+    suspend fun getNextStep(session: InteractiveFlowSession): InteractiveFlowStepResult = when (session) {
         is FailedInteractiveFlowSession -> InteractiveFlowStepResult(session, InteractiveFlowStep.Error)
         is CompletedInteractiveFlowSession -> InteractiveFlowStepResult(session, InteractiveFlowStep.Complete)
         is OnGoingInteractiveFlowSession -> resolveOnGoing(session)
@@ -44,11 +44,11 @@ class InteractiveFlowEngine(
      * Complete the [session] if the end-user has no remaining step to go through, and return the resulting
      * session — the completed session when it just finished, or [session] unchanged otherwise.
      *
-     * Convenience over [getCurrentStep] for callers that only need to advance the flow and do not care about
+     * Convenience over [getNextStep] for callers that only need to advance the flow and do not care about
      * the next step (e.g. after authenticating the user).
      */
     suspend fun completeIfNecessary(session: InteractiveFlowSession): InteractiveFlowSession {
-        return getCurrentStep(session).session
+        return getNextStep(session).session
     }
 
     private suspend fun resolveOnGoing(session: OnGoingInteractiveFlowSession): InteractiveFlowStepResult {
