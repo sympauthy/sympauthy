@@ -2,8 +2,10 @@ package com.sympauthy.business.manager.flow.mfa
 
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
+import com.sympauthy.business.manager.flow.confirm.InteractiveFlowSessionConfirmManager
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.model.flow.AuthorizationFlow
+import com.sympauthy.business.model.flow.ConfirmActionType
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.InteractiveFlowStep
@@ -30,6 +32,7 @@ open class InteractiveFlowSessionMfaEnrollmentManager(
     @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val uncheckedMfaConfig: MfaConfig,
     @Inject private val totpManager: TotpManager,
+    @Inject private val confirmManager: InteractiveFlowSessionConfirmManager,
 ) {
 
     /**
@@ -96,6 +99,11 @@ open class InteractiveFlowSessionMfaEnrollmentManager(
      * [InteractiveFlowRedirectType.PLAIN] redirect) and the optional [cancelUri] they are redirected back to if
      * they cancel, in a single transaction.
      *
+     * The enrollment is client-initiated, so the session is gated by an [InteractiveFlowPurpose.CONFIRM] step
+     * prepended in front of [InteractiveFlowPurpose.MFA_ENROLLMENT]: the end-user must explicitly approve the
+     * enrollment [initiatingClientId] requested before it begins. The confirm parameter is stored on the
+     * session's confirm record in the same transaction.
+     *
      * The [returnUri] and [cancelUri] must have been validated (e.g. against the initiating client's registered
      * redirect URIs) by the caller before reaching here.
      */
@@ -104,16 +112,23 @@ open class InteractiveFlowSessionMfaEnrollmentManager(
         userId: UUID,
         returnUri: URI,
         flow: AuthorizationFlow,
+        initiatingClientId: String,
         cancelUri: URI? = null,
     ): OnGoingInteractiveFlowSession {
         val session = sessionManager.newSession(
-            purposes = listOf(InteractiveFlowPurpose.MFA_ENROLLMENT),
+            purposes = listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.MFA_ENROLLMENT),
             flow = flow,
             successRedirectUri = returnUri,
             redirectType = InteractiveFlowRedirectType.PLAIN,
             cancelRedirectUri = cancelUri,
         ) as? OnGoingInteractiveFlowSession
             ?: throw internalBusinessExceptionOf("flow.mfa.enrollment.start.not_ongoing")
-        return sessionManager.setAuthenticatedUserId(session, userId)
+        val sessionWithUser = sessionManager.setAuthenticatedUserId(session, userId)
+        confirmManager.setConfirm(
+            session = sessionWithUser,
+            action = ConfirmActionType.ENROLL_MFA,
+            clientId = initiatingClientId
+        )
+        return sessionWithUser
     }
 }

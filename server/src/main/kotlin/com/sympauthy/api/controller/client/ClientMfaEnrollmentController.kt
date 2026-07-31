@@ -114,6 +114,7 @@ end-user's browser to. Once enrollment completes, the end-user is redirected to 
             userId = userId,
             returnUri = returnUri,
             flow = flow,
+            initiatingClientId = client.id,
             cancelUri = cancelUri
         )
 
