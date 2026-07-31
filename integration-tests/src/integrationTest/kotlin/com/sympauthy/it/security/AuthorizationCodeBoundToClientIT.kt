@@ -49,7 +49,7 @@ class AuthorizationCodeBoundToClientIT : AbstractSympauthyIT() {
 
             // Redeem the code as a *different* registered client than the one it was issued to.
             val response = httpPostForm(
-                discovery(sympauthy)["token_endpoint"] as String,
+                discovery(sympauthy).tokenEndpoint,
                 mapOf(
                     "grant_type" to "authorization_code",
                     "code" to code,

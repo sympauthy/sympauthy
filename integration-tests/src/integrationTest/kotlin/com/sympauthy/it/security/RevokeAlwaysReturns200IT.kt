@@ -39,7 +39,7 @@ class RevokeAlwaysReturns200IT : AbstractSympauthyIT() {
 
         withContainer(database, confidentialClient) { sympauthy, _ ->
             val response = httpPostForm(
-                discovery(sympauthy)["revocation_endpoint"] as String,
+                discovery(sympauthy).revocationEndpoint!!,
                 mapOf("token" to "this-token-does-not-exist"),
                 headers = mapOf("Authorization" to basicAuth(CLIENT_ID, CLIENT_SECRET)),
             )

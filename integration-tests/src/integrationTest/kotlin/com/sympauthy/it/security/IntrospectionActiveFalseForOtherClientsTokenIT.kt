@@ -50,7 +50,7 @@ class IntrospectionActiveFalseForOtherClientsTokenIT : AbstractSympauthyIT() {
 
             // Introspect it while authenticated as a *different* client.
             val response = httpPostForm(
-                discovery(sympauthy)["introspection_endpoint"] as String,
+                discovery(sympauthy).introspectionEndpoint!!,
                 mapOf("token" to foreignAccessToken),
                 headers = mapOf("Authorization" to basicAuth(OTHER_CLIENT_ID, OTHER_CLIENT_SECRET)),
             )
