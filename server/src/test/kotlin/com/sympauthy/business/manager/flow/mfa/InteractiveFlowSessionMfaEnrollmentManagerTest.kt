@@ -3,17 +3,13 @@ package com.sympauthy.business.manager.flow.mfa
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.mfa.TotpManager
-import com.sympauthy.business.mapper.InteractiveFlowSessionMfaEnrollmentMapper
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
-import com.sympauthy.business.model.flow.InteractiveFlowSession
-import com.sympauthy.business.model.flow.InteractiveFlowSessionMfaEnrollment
+import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.config.model.EnabledMfaConfig
 import com.sympauthy.config.model.MfaConfig
-import com.sympauthy.data.model.InteractiveFlowSessionMfaEnrollmentEntity
-import com.sympauthy.data.repository.InteractiveFlowSessionMfaEnrollmentRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -38,12 +34,6 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
     lateinit var sessionManager: InteractiveFlowSessionManager
 
     @MockK
-    lateinit var mfaEnrollmentRepository: InteractiveFlowSessionMfaEnrollmentRepository
-
-    @MockK
-    lateinit var mfaEnrollmentMapper: InteractiveFlowSessionMfaEnrollmentMapper
-
-    @MockK
     lateinit var totpManager: TotpManager
 
     private val userId = UUID.randomUUID()
@@ -51,8 +41,6 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
 
     private fun managerWith(mfaConfig: MfaConfig) = InteractiveFlowSessionMfaEnrollmentManager(
         sessionManager = sessionManager,
-        mfaEnrollmentRepository = mfaEnrollmentRepository,
-        mfaEnrollmentMapper = mfaEnrollmentMapper,
         uncheckedMfaConfig = mfaConfig,
         totpManager = totpManager
     )
@@ -60,55 +48,53 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
     private val optionalMfa = EnabledMfaConfig(totp = true, required = false)
     private val requiredMfa = EnabledMfaConfig(totp = true, required = true)
 
-    // --- startMfaEnrollmentSession / fetch ---
+    // --- startMfaEnrollmentSession ---
 
     @Test
-    fun `startMfaEnrollmentSession - Creates the session, sets the user, and saves the return URI`() = runTest {
+    fun `startMfaEnrollmentSession - Creates a PLAIN session with the return and cancel URIs, and sets the user`() = runTest {
         val manager = managerWith(optionalMfa)
-        val sessionId = UUID.randomUUID()
         val returnUri = URI.create("https://client.example.com/enrolled")
+        val cancelUri = URI.create("https://client.example.com/cancelled")
         val flow = mockk<AuthorizationFlow>()
         val newSession = mockk<OnGoingInteractiveFlowSession>()
-        val withUser = mockk<OnGoingInteractiveFlowSession> { every { id } returns sessionId }
-        val expectedEntity = InteractiveFlowSessionMfaEnrollmentEntity(
-            sessionId = sessionId,
-            returnUri = returnUri.toString()
-        )
+        val withUser = mockk<OnGoingInteractiveFlowSession>()
         coEvery {
-            sessionManager.newSession(listOf(InteractiveFlowPurpose.MFA_ENROLLMENT), flow)
+            sessionManager.newSession(
+                purposes = listOf(InteractiveFlowPurpose.MFA_ENROLLMENT),
+                flow = flow,
+                successRedirectUri = returnUri,
+                redirectType = InteractiveFlowRedirectType.PLAIN,
+                cancelRedirectUri = cancelUri,
+            )
         } returns newSession
         coEvery { sessionManager.setAuthenticatedUserId(newSession, userId) } returns withUser
-        coEvery { mfaEnrollmentRepository.save(expectedEntity) } returnsArgument 0
 
-        val result = manager.startMfaEnrollmentSession(userId, returnUri, flow)
+        val result = manager.startMfaEnrollmentSession(userId, returnUri, flow, cancelUri)
 
         assertSame(withUser, result)
     }
 
     @Test
-    fun `fetchMfaEnrollmentOrNull - Returns the mapped record when present`() = runTest {
+    fun `startMfaEnrollmentSession - Passes a null cancel URI through when none is provided`() = runTest {
         val manager = managerWith(optionalMfa)
-        val sessionId = UUID.randomUUID()
-        val session = mockk<InteractiveFlowSession> { every { id } returns sessionId }
-        val entity = InteractiveFlowSessionMfaEnrollmentEntity(sessionId, "https://client.example.com/done")
-        val record = InteractiveFlowSessionMfaEnrollment(sessionId, "https://client.example.com/done")
-        coEvery { mfaEnrollmentRepository.findBySessionId(sessionId) } returns entity
-        every { mfaEnrollmentMapper.toInteractiveFlowSessionMfaEnrollment(entity) } returns record
+        val returnUri = URI.create("https://client.example.com/enrolled")
+        val flow = mockk<AuthorizationFlow>()
+        val newSession = mockk<OnGoingInteractiveFlowSession>()
+        val withUser = mockk<OnGoingInteractiveFlowSession>()
+        coEvery {
+            sessionManager.newSession(
+                purposes = listOf(InteractiveFlowPurpose.MFA_ENROLLMENT),
+                flow = flow,
+                successRedirectUri = returnUri,
+                redirectType = InteractiveFlowRedirectType.PLAIN,
+                cancelRedirectUri = null,
+            )
+        } returns newSession
+        coEvery { sessionManager.setAuthenticatedUserId(newSession, userId) } returns withUser
 
-        assertSame(record, manager.fetchMfaEnrollmentOrNull(session))
-    }
+        val result = manager.startMfaEnrollmentSession(userId, returnUri, flow)
 
-    @Test
-    fun `fetchMfaEnrollment - Throws when no record is attached`() = runTest {
-        val manager = managerWith(optionalMfa)
-        val sessionId = UUID.randomUUID()
-        val session = mockk<InteractiveFlowSession> { every { id } returns sessionId }
-        coEvery { mfaEnrollmentRepository.findBySessionId(sessionId) } returns null
-
-        val exception = assertThrows<BusinessException> {
-            manager.fetchMfaEnrollment(session)
-        }
-        assertEquals("flow.mfa.enrollment.missing", exception.detailsId)
+        assertSame(withUser, result)
     }
 
     // --- getEnrollmentRoutingResult ---

@@ -5,6 +5,7 @@ import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionMapper
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
+import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.config.model.AuthConfig
@@ -21,7 +22,9 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
+import java.net.URI
 import java.time.LocalDateTime
 import java.util.*
 
@@ -188,6 +191,7 @@ class InteractiveFlowSessionManagerTest {
     fun `makePurposeAsComplete - Completes the session once every purpose is complete`() = runTest {
         val sessionId = UUID.randomUUID()
         val userId = UUID.randomUUID()
+        val redirectUri = URI.create("https://client.example.com/callback")
         val session = OnGoingInteractiveFlowSession(
             id = sessionId,
             purposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, InteractiveFlowPurpose.MFA_CHALLENGE),
@@ -196,6 +200,9 @@ class InteractiveFlowSessionManagerTest {
             expirationDate = LocalDateTime.now().plusHours(1),
             sessionDate = LocalDateTime.now(),
             userId = userId,
+            successRedirectUri = redirectUri,
+            redirectType = InteractiveFlowRedirectType.AUTHORIZATION_CODE,
+            cancelRedirectUri = redirectUri,
         )
         coEvery {
             sessionRepository.updateCompletedPurposes(
@@ -216,5 +223,55 @@ class InteractiveFlowSessionManagerTest {
             listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, InteractiveFlowPurpose.MFA_CHALLENGE),
             result.completedPurposes
         )
+        assertEquals(redirectUri, result.successRedirectUri)
+        assertEquals(InteractiveFlowRedirectType.AUTHORIZATION_CODE, result.redirectType)
+    }
+
+    @Test
+    fun `markAsCancelled - Persists the cancel date and returns a cancelled session`() = runTest {
+        val sessionId = UUID.randomUUID()
+        val userId = UUID.randomUUID()
+        val redirectUri = URI.create("https://client.example.com/callback")
+        val session = OnGoingInteractiveFlowSession(
+            id = sessionId,
+            purposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE),
+            flowId = "flow-id",
+            expirationDate = LocalDateTime.now().plusHours(1),
+            sessionDate = LocalDateTime.now(),
+            userId = userId,
+            successRedirectUri = redirectUri,
+            redirectType = InteractiveFlowRedirectType.AUTHORIZATION_CODE,
+            cancelRedirectUri = redirectUri,
+        )
+        coEvery { sessionRepository.updateCancelDate(sessionId, any()) } returns Unit
+
+        val result = interactiveFlowSessionManager.markAsCancelled(session)
+
+        assertEquals(sessionId, result.id)
+        assertEquals(userId, result.userId)
+        assertEquals(InteractiveFlowRedirectType.AUTHORIZATION_CODE, result.redirectType)
+        assertEquals(redirectUri, result.cancelRedirectUri)
+    }
+
+    @Test
+    fun `markAsCancelled - Throws a recoverable error for a PLAIN session with no cancel target`() = runTest {
+        val session = OnGoingInteractiveFlowSession(
+            id = UUID.randomUUID(),
+            purposes = listOf(InteractiveFlowPurpose.MFA_ENROLLMENT),
+            flowId = "flow-id",
+            expirationDate = LocalDateTime.now().plusHours(1),
+            sessionDate = LocalDateTime.now(),
+            userId = UUID.randomUUID(),
+            successRedirectUri = URI.create("https://client.example.com/enrolled"),
+            redirectType = InteractiveFlowRedirectType.PLAIN,
+            cancelRedirectUri = null,
+        )
+
+        val exception = assertThrows<com.sympauthy.business.exception.BusinessException> {
+            interactiveFlowSessionManager.markAsCancelled(session)
+        }
+        assertEquals("auth.interactive_flow_session.cancel.no_cancel_target", exception.detailsId)
+        assertTrue(exception.recoverable)
+        coVerify(exactly = 0) { sessionRepository.updateCancelDate(any(), any()) }
     }
 }

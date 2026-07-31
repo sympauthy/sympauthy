@@ -117,6 +117,51 @@ class ClientMfaEnrollmentControllerTest {
         }
 
     @Test
+    fun `startEnrollment - Validates and forwards the optional cancel URI`() = runTest {
+        val userId = UUID.randomUUID()
+        val authentication = clientAuthentication("client-id")
+        val client = mockk<Client>()
+        val userToken = mockk<AuthenticationToken> {
+            every { this@mockk.userId } returns userId
+        }
+        val returnUri = URI.create("https://client.example.com/done")
+        val cancelUri = URI.create("https://client.example.com/cancelled")
+        val flow = mockk<InteractiveFlow>()
+        val session = mockk<OnGoingInteractiveFlowSession>()
+        val steppedSession = mockk<OnGoingInteractiveFlowSession>()
+        val enrollUri = URI.create("https://auth.example.com/flow/mfa/enrollment?state=abc")
+
+        coEvery { clientManager.findClientById("client-id") } returns client
+        coEvery { tokenManager.introspectToken(client, "user-access-token", "access_token") } returns userToken
+        every {
+            interactiveAuthFlowSessionManager.parseRequestedRedirectUri(client, "https://client.example.com/done")
+        } returns returnUri
+        every {
+            interactiveAuthFlowSessionManager.parseRequestedRedirectUri(client, "https://client.example.com/cancelled")
+        } returns cancelUri
+        coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
+        // The stub only matches (and thus drives the redirect) when the validated cancel URI is threaded through.
+        coEvery { mfaEnrollmentManager.startMfaEnrollmentSession(userId, returnUri, flow, cancelUri) } returns session
+        coEvery { engine.advance(session) } returns
+            InteractiveFlowStepResult(steppedSession, InteractiveFlowStep.MfaSelectionForEnrollment)
+        coEvery {
+            stepUriMapper.toRedirectUri(steppedSession, flow, InteractiveFlowStep.MfaSelectionForEnrollment)
+        } returns enrollUri
+        coEvery { sessionManager.encodeState(steppedSession) } returns "encoded-state"
+
+        val result = controller(EnabledMfaConfig(totp = true, required = false)).startEnrollment(
+            authentication,
+            ClientMfaEnrollmentInputResource(
+                accessToken = "user-access-token",
+                returnUri = "https://client.example.com/done",
+                cancelUri = "https://client.example.com/cancelled"
+            )
+        )
+
+        assertEquals(enrollUri.toString(), result.redirectUrl)
+    }
+
+    @Test
     fun `startEnrollment - Fails with mfa_disabled and starts no session when MFA is disabled`() = runTest {
         val authentication = clientAuthentication("client-id")
 
