@@ -21,7 +21,6 @@ import io.micronaut.http.annotation.QueryValue
 import io.micronaut.security.annotation.Secured
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
-import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
@@ -49,44 +48,6 @@ class AdminUserController(
                 "Claim values can be included in the response by specifying the 'claims' parameter. " +
                 "Dynamic query parameters matching claim identifiers are treated as exact-match filters.",
         tags = ["admin"],
-        parameters = [
-            Parameter(
-                name = "page",
-                description = "Zero-indexed page number.",
-                schema = Schema(type = "integer", defaultValue = "0")
-            ),
-            Parameter(
-                name = "size",
-                description = "Number of results per page.",
-                schema = Schema(type = "integer", defaultValue = "20")
-            ),
-            Parameter(
-                name = "status",
-                description = "Filter by user status (e.g. enabled, disabled).",
-                schema = Schema(type = "string")
-            ),
-            Parameter(
-                name = "claims",
-                description = "Comma-separated list of claim IDs to include in the response. " +
-                        "Absent: all enabled claims. Empty string: no claims. Example: email,name.",
-                schema = Schema(type = "string")
-            ),
-            Parameter(
-                name = "q",
-                description = "Partial case-insensitive text search across all enabled claim values.",
-                schema = Schema(type = "string")
-            ),
-            Parameter(
-                name = "sort",
-                description = "Property to sort by: created_at, status, or a claim identifier.",
-                schema = Schema(type = "string", defaultValue = "created_at")
-            ),
-            Parameter(
-                name = "order",
-                description = "Sort direction: asc or desc.",
-                schema = Schema(type = "string", defaultValue = "asc")
-            )
-        ],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of users."),
             ApiResponse(responseCode = "400", description = "Invalid claim ID, status, or sort property."),
@@ -100,13 +61,18 @@ class AdminUserController(
     @Get
     suspend fun listUsers(
         request: HttpRequest<*>,
-        @QueryValue page: Int?,
-        @QueryValue size: Int?,
-        @QueryValue status: String?,
-        @QueryValue claims: String?,
-        @QueryValue q: String?,
-        @QueryValue sort: String?,
-        @QueryValue order: String?
+        @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
+        @QueryValue @Parameter(description = "Number of results per page.") size: Int?,
+        @QueryValue @Parameter(description = "Filter by user status (e.g. enabled, disabled).") status: String?,
+        @QueryValue @Parameter(
+            description = "Comma-separated list of claim IDs to include in the response. " +
+                    "Absent: all enabled claims. Empty string: no claims. Example: email,name."
+        ) claims: String?,
+        @QueryValue @Parameter(
+            description = "Partial case-insensitive text search across all enabled claim values."
+        ) q: String?,
+        @QueryValue @Parameter(description = "Property to sort by: created_at, status, or a claim identifier.") sort: String?,
+        @QueryValue @Parameter(description = "Sort direction: asc or desc.") order: String?
     ): AdminUserListResource {
         val (page, size) = resolvePageParams(page, size)
 
@@ -149,13 +115,6 @@ class AdminUserController(
     @Operation(
         description = "Retrieve details for a specific user by their identifier.",
         tags = ["admin"],
-        parameters = [
-            Parameter(
-                name = "id",
-                description = "Unique identifier of the user.",
-                schema = Schema(type = "string", format = "uuid")
-            )
-        ],
         responses = [
             ApiResponse(responseCode = "200", description = "User details."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
@@ -168,7 +127,7 @@ class AdminUserController(
     )
     @Get("/{id}")
     suspend fun getUser(
-        @PathVariable id: UUID
+        @PathVariable @Parameter(description = "Unique identifier of the user.") id: UUID
     ): AdminUserDetailResource {
         val user = userManager.findByIdOrNull(id).orNotFound()
         val identifierClaims = collectedClaimManager.findIdentifierByUserId(user.id)

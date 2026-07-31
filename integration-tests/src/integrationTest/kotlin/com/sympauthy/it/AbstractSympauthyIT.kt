@@ -9,13 +9,16 @@ import com.nimbusds.jose.jwk.gen.ECKeyGenerator
 import com.nimbusds.jose.jwk.source.JWKSourceBuilder
 import com.nimbusds.jose.proc.JWSVerificationKeySelector
 import com.nimbusds.jose.proc.SecurityContext
-import com.nimbusds.jose.util.JSONObjectUtils
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import com.nimbusds.jwt.proc.DefaultJWTProcessor
+import com.sympauthy.api.client.api.OpeniddiscoveryApi
+import com.sympauthy.api.client.model.OpenIdConfigurationResource
+import com.sympauthy.it.client.BearerTokenHolder
 import com.sympauthy.testcontainers.Client
 import com.sympauthy.testcontainers.SympauthyContainer
 import com.sympauthy.testcontainers.flow.InteractiveFlowRegistry
+import io.micronaut.context.ApplicationContext
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -165,23 +168,42 @@ abstract class AbstractSympauthyIT {
         }
     }
 
+    // --- Generated OpenAPI client -------------------------------------------------------------------
+
+    /**
+     * Runs [block] with a Micronaut [ApplicationContext] hosting the OpenAPI client generated from the
+     * server's contract, wired to the running [sympauthy] container (the `@Client("sympauthy")` service
+     * URL is bound to the container's mapped address). When [token] is non-null it is attached as a bearer
+     * token to every client request (see `BearerTokenClientFilter`). The context is closed on exit.
+     *
+     * Obtain the typed API beans inside the block, e.g. `ctx.getBean(AdminApi::class.java)`; their methods
+     * return `reactor.core.publisher.Mono`, so call `.block()` to get the deserialized resource.
+     */
+    protected fun <T> withApiClient(
+        sympauthy: SympauthyContainer,
+        token: String? = null,
+        block: (ApplicationContext) -> T,
+    ): T = ApplicationContext.run(
+        mapOf("micronaut.http.services.sympauthy.url" to sympauthy.baseUrl),
+    ).use { ctx ->
+        ctx.getBean(BearerTokenHolder::class.java).token = token
+        block(ctx)
+    }
+
     // --- HTTP / JWT helpers -------------------------------------------------------------------------
 
-    /** The parsed OpenID Connect discovery document served by [sympauthy]. */
-    protected fun discovery(sympauthy: SympauthyContainer): Map<String, Any?> {
-        val response = httpGet(sympauthy.openIdConfigurationUrl, followRedirects = true)
-        check(response.statusCode() == 200) {
-            "discovery returned HTTP ${response.statusCode()}: ${response.body()}"
-        }
-        return JSONObjectUtils.parse(response.body())
-    }
+    /** The OpenID Connect discovery document served by [sympauthy], read through the generated client. */
+    protected fun discovery(sympauthy: SympauthyContainer): OpenIdConfigurationResource =
+        withApiClient(sympauthy) { ctx ->
+            ctx.getBean(OpeniddiscoveryApi::class.java).getConfiguration().block()
+        } ?: error("discovery endpoint returned an empty body")
 
     /**
      * Verifies [idToken] is genuinely signed by the key set [sympauthy] advertises at its `jwks_uri`,
      * returning the validated claims. Throws if the signature does not verify against the JWKS.
      */
     protected fun verifyIdTokenSignature(sympauthy: SympauthyContainer, idToken: String): JWTClaimsSet {
-        val jwksUri = URI.create(discovery(sympauthy)["jwks_uri"] as String).toURL()
+        val jwksUri = URI.create(discovery(sympauthy).jwksUri).toURL()
         val signedJwt = SignedJWT.parse(idToken)
         val jwkSource = JWKSourceBuilder.create<SecurityContext>(jwksUri).build()
         val processor = DefaultJWTProcessor<SecurityContext>().apply {
@@ -212,7 +234,7 @@ abstract class AbstractSympauthyIT {
         )
         overrides.forEach { (key, value) -> if (value == null) params.remove(key) else params[key] = value }
         val query = params.entries.joinToString("&") { (key, value) -> "${encode(key)}=${encode(value)}" }
-        return "${discovery(sympauthy)["authorization_endpoint"]}?$query"
+        return "${discovery(sympauthy).authorizationEndpoint}?$query"
     }
 
     protected fun httpGet(

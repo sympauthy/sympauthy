@@ -42,9 +42,9 @@ class RevokedTokenBecomesInactiveIT : AbstractSympauthyIT() {
 
         withContainer(database, confidentialClient) { sympauthy, _ ->
             val discovery = discovery(sympauthy)
-            val tokenEndpoint = discovery["token_endpoint"] as String
-            val introspectionEndpoint = discovery["introspection_endpoint"] as String
-            val revocationEndpoint = discovery["revocation_endpoint"] as String
+            val tokenEndpoint = discovery.tokenEndpoint
+            val introspectionEndpoint = discovery.introspectionEndpoint!!
+            val revocationEndpoint = discovery.revocationEndpoint!!
             val auth = mapOf("Authorization" to basicAuth(CLIENT_ID, CLIENT_SECRET))
 
             // Issue a token via client_credentials.

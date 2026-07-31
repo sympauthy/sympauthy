@@ -56,3 +56,5 @@ kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
 kotlin-allopen = { id = "org.jetbrains.kotlin.plugin.allopen", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 micronaut-application = { id = "io.micronaut.application", version.ref = "micronaut-plugin" }
+micronaut-minimal-library = { id = "io.micronaut.minimal.library", version.ref = "micronaut-plugin" }
+micronaut-openapi = { id = "io.micronaut.openapi", version.ref = "micronaut-plugin" }

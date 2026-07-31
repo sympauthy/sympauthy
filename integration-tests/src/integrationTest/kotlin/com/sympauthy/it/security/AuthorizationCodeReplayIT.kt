@@ -42,7 +42,7 @@ class AuthorizationCodeReplayIT : AbstractSympauthyIT() {
 
             // Replaying the very same code must now be denied.
             val replay = httpPostForm(
-                discovery(sympauthy)["token_endpoint"] as String,
+                discovery(sympauthy).tokenEndpoint,
                 mapOf(
                     "grant_type" to "authorization_code",
                     "code" to code,

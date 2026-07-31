@@ -42,7 +42,7 @@ class RefreshTokenRevocationCascadesIT : AbstractSympauthyIT() {
             val refreshToken = checkNotNull(tokens.refreshToken()) { "refresh-enabled should yield a refresh token" }
 
             val discovery = discovery(sympauthy)
-            val introspectionEndpoint = discovery["introspection_endpoint"] as String
+            val introspectionEndpoint = discovery.introspectionEndpoint!!
             val auth = mapOf("Authorization" to basicAuth(registry.clientId(), checkNotNull(registry.clientSecret())))
 
             // The access token is active before revocation.
@@ -54,7 +54,7 @@ class RefreshTokenRevocationCascadesIT : AbstractSympauthyIT() {
 
             // Revoke the *refresh* token.
             val revoke = httpPostForm(
-                discovery["revocation_endpoint"] as String,
+                discovery.revocationEndpoint!!,
                 mapOf("token" to refreshToken, "token_type_hint" to "refresh_token"),
                 auth,
             )

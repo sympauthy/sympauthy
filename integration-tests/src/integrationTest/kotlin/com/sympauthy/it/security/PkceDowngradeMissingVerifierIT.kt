@@ -36,7 +36,7 @@ class PkceDowngradeMissingVerifierIT : AbstractSympauthyIT() {
             val code = checkNotNull(result.code()) { "expected an authorization code from sign-up" }
 
             val response = httpPostForm(
-                discovery(sympauthy)["token_endpoint"] as String,
+                discovery(sympauthy).tokenEndpoint,
                 mapOf(
                     "grant_type" to "authorization_code",
                     "code" to code,

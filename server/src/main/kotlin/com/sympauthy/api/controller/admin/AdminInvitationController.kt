@@ -17,7 +17,6 @@ import io.micronaut.http.annotation.*
 import io.micronaut.security.annotation.Secured
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
-import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
@@ -63,28 +62,6 @@ class AdminInvitationController(
     @Operation(
         description = "Retrieve a paginated list of invitations, optionally filtered by audience.",
         tags = ["admin"],
-        parameters = [
-            Parameter(
-                name = "audience_id",
-                description = "Filter by audience identifier.",
-                schema = Schema(type = "string")
-            ),
-            Parameter(
-                name = "status",
-                description = "Filter by invitation status.",
-                schema = Schema(type = "string", allowableValues = ["pending", "consumed", "revoked", "expired"])
-            ),
-            Parameter(
-                name = "page",
-                description = "Zero-indexed page number.",
-                schema = Schema(type = "integer", defaultValue = "0")
-            ),
-            Parameter(
-                name = "size",
-                description = "Number of results per page.",
-                schema = Schema(type = "integer", defaultValue = "20")
-            )
-        ],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of invitations."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
@@ -98,10 +75,10 @@ class AdminInvitationController(
     @Secured(ADMIN_INVITATIONS_READ)
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.INVITATIONS_READ])
     suspend fun listInvitations(
-        @QueryValue("audience_id") audienceId: String?,
-        @QueryValue status: String?,
-        @QueryValue page: Int?,
-        @QueryValue size: Int?
+        @QueryValue("audience_id") @Parameter(description = "Filter by audience identifier.") audienceId: String?,
+        @QueryValue @Parameter(description = "Filter by invitation status.") status: String?,
+        @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
+        @QueryValue @Parameter(description = "Number of results per page.") size: Int?
     ): AdminInvitationListResource {
         val (resolvedPage, resolvedSize) = resolvePageParams(page, size)
         val allInvitations = if (audienceId != null) {
@@ -129,13 +106,6 @@ class AdminInvitationController(
     @Operation(
         description = "Retrieve a single invitation by its identifier.",
         tags = ["admin"],
-        parameters = [
-            Parameter(
-                name = "invitationId",
-                description = "Unique identifier of the invitation.",
-                schema = Schema(type = "string", format = "uuid")
-            )
-        ],
         responses = [
             ApiResponse(responseCode = "200", description = "Invitation details."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
@@ -150,7 +120,7 @@ class AdminInvitationController(
     @Secured(ADMIN_INVITATIONS_READ)
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.INVITATIONS_READ])
     suspend fun getInvitation(
-        @PathVariable invitationId: UUID
+        @PathVariable @Parameter(description = "Unique identifier of the invitation.") invitationId: UUID
     ): AdminInvitationResource {
         val invitation = invitationManager.findByIdOrNull(invitationId).orNotFound()
         return invitationMapper.toResource(invitation)
@@ -159,13 +129,6 @@ class AdminInvitationController(
     @Operation(
         description = "Revoke a pending invitation.",
         tags = ["admin"],
-        parameters = [
-            Parameter(
-                name = "invitationId",
-                description = "Unique identifier of the invitation to revoke.",
-                schema = Schema(type = "string", format = "uuid")
-            )
-        ],
         responses = [
             ApiResponse(responseCode = "200", description = "Invitation revoked."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
@@ -180,7 +143,7 @@ class AdminInvitationController(
     @Secured(ADMIN_INVITATIONS_WRITE)
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.INVITATIONS_WRITE])
     suspend fun revokeInvitation(
-        @PathVariable invitationId: UUID
+        @PathVariable @Parameter(description = "Unique identifier of the invitation to revoke.") invitationId: UUID
     ): AdminInvitationResource {
         val invitation = invitationManager.revokeInvitation(invitationId)
         return invitationMapper.toResource(invitation)

@@ -1,6 +1,6 @@
 package com.sympauthy.it.feature
 
-import com.nimbusds.jose.util.JSONObjectUtils
+import com.sympauthy.api.client.api.AdminApi
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
 import com.sympauthy.it.SympauthyImage
@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import java.util.UUID
 
 /**
  * Feature scenario — **sign up while collecting every standard OpenID claim, then verify each stored value.**
@@ -78,18 +79,18 @@ class SignUpWithAllOpenIdClaimFeatureIT : AbstractSympauthyIT() {
             val userId = verifyIdTokenSignature(sympauthy, idToken).subject
 
             // Read every collected claim back through the admin API using the token the flow just issued.
-            val response = httpGet(
-                "${sympauthy.baseUrl}/api/v1/admin/users/$userId/claims?size=100",
-                headers = mapOf("Authorization" to "Bearer ${tokens.accessToken()}"),
-            )
-            assertEquals(
-                200, response.statusCode(),
-                "admin claims API should authorize the granted token: ${response.body()}",
-            )
+            // This call goes through the typed client generated from the server's OpenAPI contract: the
+            // endpoint path (`/api/v1/admin/users/{userId}/claims`) and the request/response models are the
+            // ones the server declares, not hand-copied here — a non-2xx response throws instead of needing
+            // an explicit status assertion.
+            val claimList = withApiClient(sympauthy, token = tokens.accessToken()) { ctx ->
+                ctx.getBean(AdminApi::class.java)
+                    .listUserClaims(UUID.fromString(userId), size = 100)
+                    .block()
+            }
+            requireNotNull(claimList) { "admin claims API returned an empty body" }
 
-            val values = (JSONObjectUtils.parse(response.body())["claims"] as List<*>)
-                .filterIsInstance<Map<String, Any?>>()
-                .associate { it["claim_id"] as String to it["value"] }
+            val values = claimList.claims.associate { it.claimId to it.value }
 
             EXPECTED.forEach { (id, value) ->
                 assertEquals(value, values[id], "claim '$id' read back through the admin user API")

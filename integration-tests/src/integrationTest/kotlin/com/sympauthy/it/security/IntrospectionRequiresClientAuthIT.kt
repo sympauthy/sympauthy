@@ -30,7 +30,7 @@ class IntrospectionRequiresClientAuthIT : AbstractSympauthyIT() {
     fun introspectionRequiresClientAuthentication(database: Database) {
         withContainer(database) { sympauthy, _ ->
             val response = httpPostForm(
-                discovery(sympauthy)["introspection_endpoint"] as String,
+                discovery(sympauthy).introspectionEndpoint!!,
                 mapOf("token" to "any-token-value"),
                 // Deliberately no Authorization header and no client_id/client_secret in the body.
             )

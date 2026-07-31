@@ -28,7 +28,7 @@ class UserInfoRejectsInvalidBearerIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun userInfoRejectsMissingOrInvalidBearer(database: Database) {
         withContainer(database) { sympauthy, _ ->
-            val userInfoEndpoint = discovery(sympauthy)["userinfo_endpoint"] as String
+            val userInfoEndpoint = discovery(sympauthy).userinfoEndpoint!!
 
             val noToken = httpGet(userInfoEndpoint)
             assertEquals(401, noToken.statusCode(), "userinfo must require a bearer token, body=${noToken.body()}")

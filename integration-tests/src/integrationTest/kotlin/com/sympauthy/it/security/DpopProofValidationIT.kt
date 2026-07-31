@@ -31,7 +31,7 @@ class DpopProofValidationIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun tokenEndpointRejectsInvalidDpopProofs(database: Database) {
         withContainer(database) { sympauthy, registry ->
-            val tokenEndpoint = discovery(sympauthy)["token_endpoint"] as String
+            val tokenEndpoint = discovery(sympauthy).tokenEndpoint
             // The DPoP proof is validated before the grant, so the rest of the request is immaterial.
             val baseForm = mapOf(
                 "grant_type" to "authorization_code",

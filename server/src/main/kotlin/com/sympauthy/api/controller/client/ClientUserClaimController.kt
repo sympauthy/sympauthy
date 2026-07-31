@@ -20,7 +20,6 @@ import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
-import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
@@ -41,13 +40,6 @@ class ClientUserClaimController(
     @Operation(
         description = "Retrieve claims for a user (only those the user has consented to share, plus custom claims).",
         tags = ["client"],
-        parameters = [
-            Parameter(
-                name = "userId",
-                description = "Unique identifier of the user.",
-                schema = Schema(type = "string", format = "uuid")
-            )
-        ],
         responses = [
             ApiResponse(responseCode = "200", description = "User claims."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
@@ -63,7 +55,7 @@ class ClientUserClaimController(
     @SecurityRequirement(name = "client", scopes = [BuiltInClientScopeId.USERS_CLAIMS_READ])
     suspend fun getUserClaims(
         authentication: Authentication,
-        @PathVariable userId: UUID
+        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID
     ): ClientUserClaimResource {
         val clientAuth = authentication.clientAuthentication
         val client = clientManager.findClientById(clientAuth.clientId)
@@ -81,13 +73,6 @@ class ClientUserClaimController(
     @Operation(
         description = "Update custom claims for a user. Only claims prefixed with 'custom_' can be modified.",
         tags = ["client"],
-        parameters = [
-            Parameter(
-                name = "userId",
-                description = "Unique identifier of the user.",
-                schema = Schema(type = "string", format = "uuid")
-            )
-        ],
         responses = [
             ApiResponse(responseCode = "200", description = "Updated user claims."),
             ApiResponse(
@@ -107,7 +92,7 @@ class ClientUserClaimController(
     @SecurityRequirement(name = "client", scopes = [BuiltInClientScopeId.USERS_CLAIMS_WRITE])
     suspend fun updateUserClaims(
         authentication: Authentication,
-        @PathVariable userId: UUID,
+        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
         @Body body: Map<String, Any?>
     ): ClientUserClaimResource {
         val clientAuth = authentication.clientAuthentication

@@ -31,7 +31,7 @@ class TokenEndpointRejectsUnknownCodeIT : AbstractSympauthyIT() {
     fun tokenEndpointRejectsUnknownCodeWithInvalidGrant(database: Database) {
         withContainer(database) { sympauthy, registry ->
             val response = httpPostForm(
-                discovery(sympauthy)["token_endpoint"] as String,
+                discovery(sympauthy).tokenEndpoint,
                 mapOf(
                     "grant_type" to "authorization_code",
                     "code" to "this-code-was-never-issued",

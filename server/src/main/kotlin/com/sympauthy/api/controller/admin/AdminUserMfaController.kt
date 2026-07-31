@@ -16,7 +16,6 @@ import io.micronaut.http.annotation.*
 import io.micronaut.security.annotation.Secured
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
-import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
@@ -32,23 +31,6 @@ class AdminUserMfaController(
     @Operation(
         description = "Retrieve a paginated list of registered MFA methods for a given user.",
         tags = ["admin"],
-        parameters = [
-            Parameter(
-                name = "userId",
-                description = "Unique identifier of the user.",
-                schema = Schema(type = "string", format = "uuid")
-            ),
-            Parameter(
-                name = "page",
-                description = "Zero-indexed page number.",
-                schema = Schema(type = "integer", defaultValue = "0")
-            ),
-            Parameter(
-                name = "size",
-                description = "Number of results per page.",
-                schema = Schema(type = "integer", defaultValue = "20")
-            )
-        ],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of MFA methods."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
@@ -63,9 +45,9 @@ class AdminUserMfaController(
     @Secured(ADMIN_USERS_READ)
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.USERS_READ])
     suspend fun listMfaMethods(
-        @PathVariable userId: UUID,
-        @QueryValue page: Int?,
-        @QueryValue size: Int?
+        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
+        @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
+        @QueryValue @Parameter(description = "Number of results per page.") size: Int?
     ): AdminUserMfaMethodListResource {
         userManager.findByIdOrNull(userId).orNotFound()
         val (page, size) = resolvePageParams(page, size)
@@ -86,18 +68,6 @@ class AdminUserMfaController(
         description = "Revoke a specific MFA method registered by a user. " +
                 "The user will need to re-enroll on their next sign-in if MFA is required.",
         tags = ["admin"],
-        parameters = [
-            Parameter(
-                name = "userId",
-                description = "Unique identifier of the user.",
-                schema = Schema(type = "string", format = "uuid")
-            ),
-            Parameter(
-                name = "mfaId",
-                description = "Unique identifier of the MFA registration to revoke.",
-                schema = Schema(type = "string", format = "uuid")
-            )
-        ],
         responses = [
             ApiResponse(responseCode = "200", description = "MFA method revoked successfully."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
@@ -112,8 +82,8 @@ class AdminUserMfaController(
     @Secured(ADMIN_USERS_WRITE)
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.USERS_WRITE])
     suspend fun revokeMfaMethod(
-        @PathVariable userId: UUID,
-        @PathVariable mfaId: UUID
+        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
+        @PathVariable @Parameter(description = "Unique identifier of the MFA registration to revoke.") mfaId: UUID
     ): AdminUserMfaRevokeResource {
         userManager.findByIdOrNull(userId).orNotFound()
         val enrollment = totpManager.findConfirmedEnrollmentOrNull(mfaId).orNotFound()

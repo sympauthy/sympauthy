@@ -16,7 +16,6 @@ import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
-import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
@@ -33,13 +32,6 @@ class AdminUserLogoutController(
     @Operation(
         description = "Force logout a user by revoking all their tokens across all clients.",
         tags = ["admin"],
-        parameters = [
-            Parameter(
-                name = "userId",
-                description = "Unique identifier of the user.",
-                schema = Schema(type = "string", format = "uuid")
-            )
-        ],
         responses = [
             ApiResponse(responseCode = "200", description = "Tokens revoked successfully."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
@@ -53,7 +45,7 @@ class AdminUserLogoutController(
     @Post
     @Secured(ADMIN_CONSENT_WRITE)
     suspend fun forceLogout(
-        @PathVariable userId: UUID,
+        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
         authentication: Authentication
     ): AdminForceLogoutResource {
         userManager.findByIdOrNull(userId).orNotFound()
@@ -72,18 +64,6 @@ class AdminUserLogoutController(
     @Operation(
         description = "Force logout a user from a specific client by revoking their tokens for that client.",
         tags = ["admin"],
-        parameters = [
-            Parameter(
-                name = "userId",
-                description = "Unique identifier of the user.",
-                schema = Schema(type = "string", format = "uuid")
-            ),
-            Parameter(
-                name = "clientId",
-                description = "Identifier of the client.",
-                schema = Schema(type = "string")
-            )
-        ],
         responses = [
             ApiResponse(responseCode = "200", description = "Tokens revoked successfully."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
@@ -97,8 +77,8 @@ class AdminUserLogoutController(
     @Post("/{clientId}")
     @Secured(ADMIN_CONSENT_WRITE)
     suspend fun forceClientLogout(
-        @PathVariable userId: UUID,
-        @PathVariable clientId: String,
+        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
+        @PathVariable @Parameter(description = "Identifier of the client.") clientId: String,
         authentication: Authentication
     ): AdminForceLogoutResource {
         userManager.findByIdOrNull(userId).orNotFound()
