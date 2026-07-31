@@ -93,7 +93,9 @@ import jakarta.inject.Singleton
                     scopes = [
                         OAuthScope(name = BuiltInClientScopeId.USERS_READ),
                         OAuthScope(name = BuiltInClientScopeId.USERS_CLAIMS_READ),
-                        OAuthScope(name = BuiltInClientScopeId.USERS_CLAIMS_WRITE)
+                        OAuthScope(name = BuiltInClientScopeId.USERS_CLAIMS_WRITE),
+                        OAuthScope(name = BuiltInClientScopeId.USERS_MFA_READ),
+                        OAuthScope(name = BuiltInClientScopeId.USERS_MFA_WRITE)
                     ]
                 )
             )
