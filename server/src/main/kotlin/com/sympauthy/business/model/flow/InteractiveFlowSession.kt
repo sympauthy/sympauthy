@@ -45,8 +45,12 @@ sealed class InteractiveFlowSession(
 
     /**
      * The purpose that initiated the session and owns its terminal handoff.
+     *
+     * [InteractiveFlowPurpose.CONFIRM] is a gate prepended in front of the initiating purpose, so it is
+     * skipped here: the initiating purpose is the first non-[InteractiveFlowPurpose.CONFIRM] purpose.
      */
-    val initiatingPurpose: InteractiveFlowPurpose get() = purposes.first()
+    val initiatingPurpose: InteractiveFlowPurpose
+        get() = purposes.first { it != InteractiveFlowPurpose.CONFIRM }
 }
 
 /**

@@ -47,6 +47,7 @@ class AuthorizationFlowsConfigValidator(
 
         val signInUri = resolveUri(rootUri, parsed.signInUri)
         val signUpUri = parsed.signUpUri?.let { resolveUri(rootUri, it) }
+        val confirmUri = parsed.confirmUri?.let { resolveUri(rootUri, it) }
         val collectClaimsUri = resolveUri(rootUri, parsed.collectClaimsUri)
         val validateClaimsUri = resolveUri(rootUri, parsed.validateClaimsUri)
         val errorUri = resolveUri(rootUri, parsed.errorUri)
@@ -96,6 +97,7 @@ class AuthorizationFlowsConfigValidator(
             id = parsed.id,
             signInUri = signInUri,
             signUpUri = signUpUri,
+            confirmUri = confirmUri,
             collectClaimsUri = collectClaimsUri,
             validateClaimsUri = validateClaimsUri,
             errorUri = errorUri,

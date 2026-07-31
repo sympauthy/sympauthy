@@ -14,6 +14,7 @@ data class ParsedAuthorizationFlow(
     val rootUri: URI?,
     val signInUri: URI?,
     val signUpUri: URI?,
+    val confirmUri: URI?,
     val collectClaimsUri: URI?,
     val validateClaimsUri: URI?,
     val errorUri: URI?,
@@ -62,6 +63,14 @@ class AuthorizationFlowsConfigParser(
                 parser.getUriOrThrow(
                     properties, "$configKeyPrefix.sign-up",
                     AuthorizationFlowConfigurationProperties::signUp
+                )
+            }
+        }
+        val confirmUri = properties.confirm?.let {
+            ctx.parse {
+                parser.getUriOrThrow(
+                    properties, "$configKeyPrefix.confirm",
+                    AuthorizationFlowConfigurationProperties::confirm
                 )
             }
         }
@@ -118,6 +127,7 @@ class AuthorizationFlowsConfigParser(
             rootUri = rootUri,
             signInUri = signInUri,
             signUpUri = signUpUri,
+            confirmUri = confirmUri,
             collectClaimsUri = collectClaimsUri,
             validateClaimsUri = validateClaimsUri,
             errorUri = errorUri,

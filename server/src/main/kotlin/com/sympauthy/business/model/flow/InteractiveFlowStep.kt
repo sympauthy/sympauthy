@@ -21,6 +21,13 @@ sealed interface InteractiveFlowStep {
     data object SignUp : InteractiveFlowStep
 
     /**
+     * The end-user must explicitly approve (confirm) an action a client initiated on their behalf before the
+     * flow proceeds. The confirmation page describes the action and the initiating party from the session's
+     * attached confirm record.
+     */
+    data object Confirm : InteractiveFlowStep
+
+    /**
      * The end-user must choose which multi-factor authentication method to enroll (and may skip when the
      * enrollment is optional). The selection page auto-redirects to the method's enrollment step when there is
      * a single method to enroll and no skip is offered.

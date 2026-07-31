@@ -47,6 +47,7 @@ class AuthorizationFlowManager(
             collectClaimsUri = UriBuilder.of(rootUri).path("claims/edit").build(),
             validateClaimsUri = UriBuilder.of(rootUri).path("claims/validate").build(),
             errorUri = UriBuilder.of(rootUri).path("error").build(),
+            confirmUri = UriBuilder.of(rootUri).path("confirm").build(),
         )
     }
 

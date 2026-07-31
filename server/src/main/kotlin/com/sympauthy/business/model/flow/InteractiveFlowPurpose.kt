@@ -8,6 +8,15 @@ package com.sympauthy.business.model.flow
  */
 enum class InteractiveFlowPurpose {
     /**
+     * A gate the signed-in end-user must clear before the rest of the session runs: they must explicitly
+     * approve an action a client (or an administrator) initiated on their behalf. Prepended in front of the
+     * initiating purpose (e.g. [MFA_ENROLLMENT]) so it is driven first; it owns no terminal handoff and is
+     * never a session's [InteractiveFlowSession.initiatingPurpose]. What is being confirmed is described by
+     * the session's attached confirm record ([InteractiveFlowSessionConfirm]).
+     */
+    CONFIRM,
+
+    /**
      * The session backs the OAuth2 / OpenID Connect authorization flow initiated by a client at
      * `/api/oauth2/authorize`.
      */
