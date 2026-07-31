@@ -17,7 +17,6 @@ import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
-import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
@@ -33,23 +32,6 @@ class AdminConsentController(
     @Operation(
         description = "Retrieve a paginated list of active consents for a given user.",
         tags = ["admin"],
-        parameters = [
-            Parameter(
-                name = "userId",
-                description = "Unique identifier of the user.",
-                schema = Schema(type = "string", format = "uuid")
-            ),
-            Parameter(
-                name = "page",
-                description = "Zero-indexed page number.",
-                schema = Schema(type = "integer", defaultValue = "0")
-            ),
-            Parameter(
-                name = "size",
-                description = "Number of results per page.",
-                schema = Schema(type = "integer", defaultValue = "20")
-            )
-        ],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of consents."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
@@ -64,9 +46,9 @@ class AdminConsentController(
     @Secured(ADMIN_CONSENT_READ)
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.CONSENT_READ])
     suspend fun listConsents(
-        @PathVariable userId: UUID,
-        @QueryValue page: Int?,
-        @QueryValue size: Int?
+        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
+        @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
+        @QueryValue @Parameter(description = "Number of results per page.") size: Int?
     ): AdminConsentListResource {
         userManager.findByIdOrNull(userId).orNotFound()
         val (page, size) = resolvePageParams(page, size)
@@ -87,18 +69,6 @@ class AdminConsentController(
         description = "Revoke the active consent for a given user and audience. " +
                 "This also revokes all refresh tokens issued for this user+audience pair.",
         tags = ["admin"],
-        parameters = [
-            Parameter(
-                name = "userId",
-                description = "Unique identifier of the user.",
-                schema = Schema(type = "string", format = "uuid")
-            ),
-            Parameter(
-                name = "audienceId",
-                description = "Identifier of the audience.",
-                schema = Schema(type = "string")
-            )
-        ],
         responses = [
             ApiResponse(responseCode = "204", description = "Consent revoked successfully."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
@@ -114,8 +84,8 @@ class AdminConsentController(
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.CONSENT_WRITE])
     @Status(HttpStatus.NO_CONTENT)
     suspend fun revokeConsent(
-        @PathVariable userId: UUID,
-        @PathVariable audienceId: String,
+        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
+        @PathVariable @Parameter(description = "Identifier of the audience.") audienceId: String,
         authentication: Authentication
     ) {
         val consent = consentManager.findActiveConsentByAudienceOrNull(userId, audienceId).orNotFound()

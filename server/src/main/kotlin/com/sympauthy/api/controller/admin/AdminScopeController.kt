@@ -12,7 +12,6 @@ import io.micronaut.http.annotation.QueryValue
 import io.micronaut.security.annotation.Secured
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
-import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
@@ -28,28 +27,6 @@ class AdminScopeController(
     @Operation(
         description = "Retrieve all configured scopes (consentable, grantable, client). Since scopes are defined in configuration, this endpoint exposes them as read-only resources.",
         tags = ["admin"],
-        parameters = [
-            Parameter(
-                name = "page",
-                description = "Zero-indexed page number.",
-                schema = Schema(type = "integer", defaultValue = "0")
-            ),
-            Parameter(
-                name = "size",
-                description = "Number of results per page.",
-                schema = Schema(type = "integer", defaultValue = "20")
-            ),
-            Parameter(
-                name = "type",
-                description = "Filter by scope type.",
-                schema = Schema(type = "string", allowableValues = ["consentable", "grantable", "client"])
-            ),
-            Parameter(
-                name = "enabled",
-                description = "Filter by enabled status.",
-                schema = Schema(type = "boolean")
-            )
-        ],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of scopes."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
@@ -61,10 +38,10 @@ class AdminScopeController(
     )
     @Get
     suspend fun listScopes(
-        @QueryValue page: Int?,
-        @QueryValue size: Int?,
-        @QueryValue type: String?,
-        @QueryValue enabled: Boolean?
+        @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
+        @QueryValue @Parameter(description = "Number of results per page.") size: Int?,
+        @QueryValue @Parameter(description = "Filter by scope type.") type: String?,
+        @QueryValue @Parameter(description = "Filter by enabled status.") enabled: Boolean?
     ): AdminScopeListResource {
         val (page, size) = resolvePageParams(page, size)
         val scopes = scopeManager.listScopes()

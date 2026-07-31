@@ -13,9 +13,11 @@ import com.nimbusds.jose.util.JSONObjectUtils
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import com.nimbusds.jwt.proc.DefaultJWTProcessor
+import com.sympauthy.it.client.BearerTokenHolder
 import com.sympauthy.testcontainers.Client
 import com.sympauthy.testcontainers.SympauthyContainer
 import com.sympauthy.testcontainers.flow.InteractiveFlowRegistry
+import io.micronaut.context.ApplicationContext
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -163,6 +165,28 @@ abstract class AbstractSympauthyIT {
             System.err.println(runCatching { sympauthy.logs }.getOrElse { "(logs unavailable: $it)" })
             throw failure
         }
+    }
+
+    // --- Generated OpenAPI client -------------------------------------------------------------------
+
+    /**
+     * Runs [block] with a Micronaut [ApplicationContext] hosting the OpenAPI client generated from the
+     * server's contract, wired to the running [sympauthy] container (the `@Client("sympauthy")` service
+     * URL is bound to the container's mapped address). When [token] is non-null it is attached as a bearer
+     * token to every client request (see `BearerTokenClientFilter`). The context is closed on exit.
+     *
+     * Obtain the typed API beans inside the block, e.g. `ctx.getBean(AdminApi::class.java)`; their methods
+     * return `reactor.core.publisher.Mono`, so call `.block()` to get the deserialized resource.
+     */
+    protected fun <T> withApiClient(
+        sympauthy: SympauthyContainer,
+        token: String? = null,
+        block: (ApplicationContext) -> T,
+    ): T = ApplicationContext.run(
+        mapOf("micronaut.http.services.sympauthy.url" to sympauthy.baseUrl),
+    ).use { ctx ->
+        ctx.getBean(BearerTokenHolder::class.java).token = token
+        block(ctx)
     }
 
     // --- HTTP / JWT helpers -------------------------------------------------------------------------

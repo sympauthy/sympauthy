@@ -20,7 +20,6 @@ import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
-import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
@@ -73,18 +72,6 @@ class ClientInvitationController(
     @Operation(
         description = "Retrieve a paginated list of invitations created by this client.",
         tags = ["client"],
-        parameters = [
-            Parameter(
-                name = "page",
-                description = "Zero-indexed page number.",
-                schema = Schema(type = "integer", defaultValue = "0")
-            ),
-            Parameter(
-                name = "size",
-                description = "Number of results per page.",
-                schema = Schema(type = "integer", defaultValue = "20")
-            )
-        ],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of invitations."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
@@ -99,8 +86,8 @@ class ClientInvitationController(
     @SecurityRequirement(name = "client", scopes = [BuiltInClientScopeId.INVITATIONS_READ])
     suspend fun listInvitations(
         authentication: Authentication,
-        @QueryValue page: Int?,
-        @QueryValue size: Int?
+        @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
+        @QueryValue @Parameter(description = "Number of results per page.") size: Int?
     ): ClientInvitationListResource {
         val clientAuth = authentication.clientAuthentication
         val (resolvedPage, resolvedSize) = resolvePageParams(page, size)
@@ -120,13 +107,6 @@ class ClientInvitationController(
     @Operation(
         description = "Retrieve a single invitation created by this client.",
         tags = ["client"],
-        parameters = [
-            Parameter(
-                name = "invitationId",
-                description = "Unique identifier of the invitation.",
-                schema = Schema(type = "string", format = "uuid")
-            )
-        ],
         responses = [
             ApiResponse(responseCode = "200", description = "Invitation details."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
@@ -142,7 +122,7 @@ class ClientInvitationController(
     @SecurityRequirement(name = "client", scopes = [BuiltInClientScopeId.INVITATIONS_READ])
     suspend fun getInvitation(
         authentication: Authentication,
-        @PathVariable invitationId: UUID
+        @PathVariable @Parameter(description = "Unique identifier of the invitation.") invitationId: UUID
     ): ClientInvitationResource {
         val clientAuth = authentication.clientAuthentication
         val invitation = invitationManager.findByIdOrNull(invitationId)
@@ -154,13 +134,6 @@ class ClientInvitationController(
     @Operation(
         description = "Revoke a pending invitation created by this client.",
         tags = ["client"],
-        parameters = [
-            Parameter(
-                name = "invitationId",
-                description = "Unique identifier of the invitation to revoke.",
-                schema = Schema(type = "string", format = "uuid")
-            )
-        ],
         responses = [
             ApiResponse(responseCode = "200", description = "Invitation revoked."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
@@ -176,7 +149,7 @@ class ClientInvitationController(
     @SecurityRequirement(name = "client", scopes = [BuiltInClientScopeId.INVITATIONS_WRITE])
     suspend fun revokeInvitation(
         authentication: Authentication,
-        @PathVariable invitationId: UUID
+        @PathVariable @Parameter(description = "Unique identifier of the invitation to revoke.") invitationId: UUID
     ): ClientInvitationResource {
         val clientAuth = authentication.clientAuthentication
         invitationManager.findByIdOrNull(invitationId)

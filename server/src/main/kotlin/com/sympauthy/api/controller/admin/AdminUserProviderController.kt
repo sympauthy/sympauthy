@@ -14,7 +14,6 @@ import io.micronaut.http.annotation.*
 import io.micronaut.security.annotation.Secured
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
-import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
@@ -29,23 +28,6 @@ class AdminUserProviderController(
     @Operation(
         description = "Retrieve a paginated list of external identity providers linked to a user.",
         tags = ["admin"],
-        parameters = [
-            Parameter(
-                name = "userId",
-                description = "Unique identifier of the user.",
-                schema = Schema(type = "string", format = "uuid")
-            ),
-            Parameter(
-                name = "page",
-                description = "Zero-indexed page number.",
-                schema = Schema(type = "integer", defaultValue = "0")
-            ),
-            Parameter(
-                name = "size",
-                description = "Number of results per page.",
-                schema = Schema(type = "integer", defaultValue = "20")
-            )
-        ],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of linked providers."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
@@ -60,9 +42,9 @@ class AdminUserProviderController(
     @Secured(ADMIN_USERS_READ)
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.USERS_READ])
     suspend fun listProviders(
-        @PathVariable userId: UUID,
-        @QueryValue page: Int?,
-        @QueryValue size: Int?
+        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
+        @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
+        @QueryValue @Parameter(description = "Number of results per page.") size: Int?
     ): AdminUserProviderListResource {
         userManager.findByIdOrNull(userId).orNotFound()
         val (page, size) = resolvePageParams(page, size)
@@ -88,18 +70,6 @@ class AdminUserProviderController(
     @Operation(
         description = "Remove the link between a user and an external identity provider.",
         tags = ["admin"],
-        parameters = [
-            Parameter(
-                name = "userId",
-                description = "Unique identifier of the user.",
-                schema = Schema(type = "string", format = "uuid")
-            ),
-            Parameter(
-                name = "providerId",
-                description = "Identifier of the provider to unlink.",
-                schema = Schema(type = "string")
-            )
-        ],
         responses = [
             ApiResponse(responseCode = "200", description = "Provider unlinked successfully."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
@@ -117,8 +87,8 @@ class AdminUserProviderController(
     @Secured(ADMIN_USERS_WRITE)
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.USERS_WRITE])
     suspend fun unlinkProvider(
-        @PathVariable userId: UUID,
-        @PathVariable providerId: String
+        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
+        @PathVariable @Parameter(description = "Identifier of the provider to unlink.") providerId: String
     ): AdminUserProviderUnlinkResource {
         userManager.findByIdOrNull(userId).orNotFound()
         providerClaimsManager.findByUserIdAndProviderIdOrNull(userId, providerId).orNotFound()

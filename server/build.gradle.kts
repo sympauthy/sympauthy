@@ -200,3 +200,35 @@ tasks {
         }
     }
 }
+
+// --- OpenAPI contract sharing -------------------------------------------------------------------
+// micronaut-openapi generates the HTTP contract as part of `kspKotlin`, writing it under
+// build/generated/ksp/main/resources/META-INF/swagger/sympauthy-<info.version>.yml (the file name
+// tracks the OpenAPI `info.version`, not the project version). Republish it at a stable, versionless
+// path (build/openapi/openapi.yml) and expose it as a consumable Gradle artifact so a downstream module
+// — the integration-tests OpenAPI client generator — consumes a single source of truth and regenerates
+// whenever the contract changes.
+val syncOpenApiSpec by tasks.registering(Sync::class) {
+    description = "Publishes the generated OpenAPI spec to build/openapi/openapi.yml for downstream consumers."
+    group = "openapi"
+    dependsOn(tasks.named("kspKotlin"))
+    from(layout.buildDirectory.dir("generated/ksp/main/resources/META-INF/swagger")) {
+        include("*.yml")
+        rename(".+\\.yml", "openapi.yml")
+    }
+    into(layout.buildDirectory.dir("openapi"))
+}
+
+// A consumable-only configuration carrying the published spec, wired to build via syncOpenApiSpec. The
+// integration-tests module depends on `project(":server", configuration = "openApiSpec")` to obtain the
+// contract with a proper task dependency (no reaching into another project's build directory by path).
+val openApiSpec: Configuration by configurations.creating {
+    isCanBeConsumed = true
+    isCanBeResolved = false
+}
+
+artifacts {
+    add(openApiSpec.name, layout.buildDirectory.file("openapi/openapi.yml")) {
+        builtBy(syncOpenApiSpec)
+    }
+}

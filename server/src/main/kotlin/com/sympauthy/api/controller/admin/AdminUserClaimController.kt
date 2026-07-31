@@ -39,53 +39,6 @@ class AdminUserClaimController(
     @Operation(
         description = "Retrieve a paginated list of claims for a given user, with metadata and filtering.",
         tags = ["admin"],
-        parameters = [
-            Parameter(
-                name = "userId",
-                description = "Unique identifier of the user.",
-                schema = Schema(type = "string", format = "uuid")
-            ),
-            Parameter(
-                name = "page",
-                description = "Zero-indexed page number.",
-                schema = Schema(type = "integer", defaultValue = "0")
-            ),
-            Parameter(
-                name = "size",
-                description = "Number of results per page.",
-                schema = Schema(type = "integer", defaultValue = "20")
-            ),
-            Parameter(
-                name = "claim_id",
-                description = "Filter by specific claim identifier.",
-                schema = Schema(type = "string")
-            ),
-            Parameter(
-                name = "identifier",
-                description = "Filter by whether the claim is an identifier claim.",
-                schema = Schema(type = "boolean")
-            ),
-            Parameter(
-                name = "required",
-                description = "Filter by whether the claim is required.",
-                schema = Schema(type = "boolean")
-            ),
-            Parameter(
-                name = "collected",
-                description = "Filter by whether the claim has been collected.",
-                schema = Schema(type = "boolean")
-            ),
-            Parameter(
-                name = "verified",
-                description = "Filter by whether the claim has been verified.",
-                schema = Schema(type = "boolean")
-            ),
-            Parameter(
-                name = "origin",
-                description = "Filter by claim origin.",
-                schema = Schema(type = "string", allowableValues = ["openid", "custom"])
-            )
-        ],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of user claims."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
@@ -99,15 +52,15 @@ class AdminUserClaimController(
     @Get
     @Secured(ADMIN_USERS_READ)
     suspend fun listUserClaims(
-        @PathVariable userId: UUID,
-        @QueryValue page: Int?,
-        @QueryValue size: Int?,
-        @QueryValue("claim_id") claimId: String?,
-        @QueryValue identifier: Boolean?,
-        @QueryValue required: Boolean?,
-        @QueryValue collected: Boolean?,
-        @QueryValue verified: Boolean?,
-        @QueryValue origin: String?
+        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
+        @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
+        @QueryValue @Parameter(description = "Number of results per page.") size: Int?,
+        @QueryValue("claim_id") @Parameter(description = "Filter by specific claim identifier.") claimId: String?,
+        @QueryValue @Parameter(description = "Filter by whether the claim is an identifier claim.") identifier: Boolean?,
+        @QueryValue @Parameter(description = "Filter by whether the claim is required.") required: Boolean?,
+        @QueryValue @Parameter(description = "Filter by whether the claim has been collected.") collected: Boolean?,
+        @QueryValue @Parameter(description = "Filter by whether the claim has been verified.") verified: Boolean?,
+        @QueryValue @Parameter(description = "Filter by claim origin.") origin: String?
     ): AdminUserClaimListResource {
         userManager.findByIdOrNull(userId).orNotFound()
         val (resolvedPage, resolvedSize) = resolvePageParams(page, size)

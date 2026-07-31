@@ -19,7 +19,6 @@ import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
-import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
@@ -37,28 +36,6 @@ class ClientUserController(
     @Operation(
         description = "Retrieve a paginated list of end-users who have granted scopes to the requesting client.",
         tags = ["client"],
-        parameters = [
-            Parameter(
-                name = "page",
-                description = "Zero-indexed page number.",
-                schema = Schema(type = "integer", defaultValue = "0")
-            ),
-            Parameter(
-                name = "size",
-                description = "Number of results per page.",
-                schema = Schema(type = "integer", defaultValue = "20")
-            ),
-            Parameter(
-                name = "provider_id",
-                description = "Filter users linked to a specific provider.",
-                schema = Schema(type = "string")
-            ),
-            Parameter(
-                name = "subject",
-                description = "Filter by provider subject ID. Must be used together with provider_id.",
-                schema = Schema(type = "string")
-            )
-        ],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of users."),
             ApiResponse(responseCode = "400", description = "Invalid query parameters."),
@@ -72,10 +49,10 @@ class ClientUserController(
     @Get
     suspend fun listUsers(
         authentication: Authentication,
-        @QueryValue page: Int?,
-        @QueryValue size: Int?,
-        @QueryValue("provider_id") providerId: String?,
-        @QueryValue subject: String?
+        @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
+        @QueryValue @Parameter(description = "Number of results per page.") size: Int?,
+        @QueryValue("provider_id") @Parameter(description = "Filter users linked to a specific provider.") providerId: String?,
+        @QueryValue @Parameter(description = "Filter by provider subject ID. Must be used together with provider_id.") subject: String?
     ): ClientUserListResource {
         if (subject != null && providerId == null) {
             throw businessExceptionOf("client.subject_without_provider")
@@ -103,13 +80,6 @@ class ClientUserController(
     @Operation(
         description = "Retrieve basic information about a specific user's authorization status.",
         tags = ["client"],
-        parameters = [
-            Parameter(
-                name = "userId",
-                description = "Unique identifier of the user.",
-                schema = Schema(type = "string", format = "uuid")
-            )
-        ],
         responses = [
             ApiResponse(responseCode = "200", description = "User information."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
@@ -123,7 +93,7 @@ class ClientUserController(
     @Get("/{userId}")
     suspend fun getUser(
         authentication: Authentication,
-        @PathVariable userId: UUID
+        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID
     ): ClientUserResource {
         val clientAuth = authentication.clientAuthentication
         val client = clientManager.findClientById(clientAuth.clientId)

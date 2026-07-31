@@ -4,6 +4,8 @@ plugins {
     alias(libs.plugins.kotlin.allopen) apply false
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.micronaut.application) apply false
+    alias(libs.plugins.micronaut.minimal.library) apply false
+    alias(libs.plugins.micronaut.openapi) apply false
 }
 
 allprojects {

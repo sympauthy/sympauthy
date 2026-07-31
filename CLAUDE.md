@@ -54,6 +54,14 @@ Multi-module Gradle project (root + `server`). All source code is in `server/src
   2.1 [forbids 307 redirects](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1#name-http-307-redirect)
   because they cause the browser to resubmit the POST body (including credentials) to the redirect target. Always use *
   *303 See Other** (`HttpResponse.seeOther()`) which forces a GET on the redirect target.
+- **Document endpoint parameters inline, never in `@Operation(parameters = [...])`** — put a
+  `@Parameter(description = "…")` directly on each `@QueryValue`/`@PathVariable`/`@Header` method argument and let
+  Micronaut derive the schema from the Kotlin type. Do **not** list parameters in a method-level
+  `@Operation(parameters = [Parameter(name = "…", schema = Schema(...))])` block: when an `@Operation`-level
+  `@Parameter` name matches a bound method argument, micronaut-openapi keeps the description but **drops the schema**,
+  emitting a typeless parameter in the generated OpenAPI spec (which then fails the OpenAPI client generation in
+  `integration-tests`). Type, `required` (from nullability) and `format` (e.g. `uuid` from `UUID`) are all inferred
+  from the argument, so the inline `@Parameter` only needs the human-readable `description`.
 
 #### Config (com.sympauthy.config)
 
