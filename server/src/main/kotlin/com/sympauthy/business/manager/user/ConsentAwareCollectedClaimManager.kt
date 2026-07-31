@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.model.flow.CancelledInteractiveFlowSession
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSession
@@ -83,7 +84,7 @@ open class ConsentAwareCollectedClaimManager(
         session: InteractiveFlowSession
     ): List<CollectedClaim> {
         return when (session) {
-            is FailedInteractiveFlowSession -> emptyList()
+            is FailedInteractiveFlowSession, is CancelledInteractiveFlowSession -> emptyList()
             is OnGoingInteractiveFlowSession -> {
                 val userId = session.userId ?: return emptyList()
                 val consentedScopes = oauth2Manager.fetchOAuth2(session).consentedScopes ?: return emptyList()

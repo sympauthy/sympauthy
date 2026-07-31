@@ -7,6 +7,7 @@ import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.mapper.InteractiveFlowSessionOAuth2Mapper
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.AuthorizationFlow
+import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
@@ -59,7 +60,16 @@ open class InteractiveFlowSessionOAuth2Manager(
         error: BusinessException? = null
     ): InteractiveFlowSession {
         val now = LocalDateTime.now()
-        val session = sessionManager.newSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE), flow, error)
+        // The client redirect URI is both the success target (an authorization code is appended) and the
+        // cancel target (the OAuth2 error=access_denied response is returned there).
+        val session = sessionManager.newSession(
+            purposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE),
+            flow = flow,
+            successRedirectUri = redirectUri,
+            redirectType = InteractiveFlowRedirectType.AUTHORIZATION_CODE,
+            cancelRedirectUri = redirectUri,
+            error = error,
+        )
 
         // When no error, auto-consent consentable scopes at creation time.
         val consentableScopes = if (error == null) {

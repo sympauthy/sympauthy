@@ -3,17 +3,13 @@ package com.sympauthy.business.manager.flow.mfa
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.mfa.TotpManager
-import com.sympauthy.business.mapper.InteractiveFlowSessionMfaEnrollmentMapper
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
-import com.sympauthy.business.model.flow.InteractiveFlowSession
-import com.sympauthy.business.model.flow.InteractiveFlowSessionMfaEnrollment
+import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.config.model.orThrow
-import com.sympauthy.data.model.InteractiveFlowSessionMfaEnrollmentEntity
-import com.sympauthy.data.repository.InteractiveFlowSessionMfaEnrollmentRepository
 import jakarta.transaction.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -24,16 +20,14 @@ import java.util.*
  * Manager owning the MFA **enrollment** purpose end to end. It provides methods to:
  * - route the enrollment method-selection step (choose a method to enroll, with a skip when optional).
  * - start an [InteractiveFlowPurpose.MFA_ENROLLMENT] session for an already-authenticated user (standalone,
- *   client-initiated enrollment), storing the URI to return them to on completion.
- * - fetch the enrollment record of a session (used to build the completion redirect).
+ *   client-initiated enrollment), storing on the session the URI to return them to on completion and the
+ *   optional URI to return them to on cancellation.
  *
  * The challenge purpose is owned by [InteractiveFlowSessionMfaChallengeManager]; the two are kept isolated.
  */
 @Singleton
 open class InteractiveFlowSessionMfaEnrollmentManager(
     @Inject private val sessionManager: InteractiveFlowSessionManager,
-    @Inject private val mfaEnrollmentRepository: InteractiveFlowSessionMfaEnrollmentRepository,
-    @Inject private val mfaEnrollmentMapper: InteractiveFlowSessionMfaEnrollmentMapper,
     @Inject private val uncheckedMfaConfig: MfaConfig,
     @Inject private val totpManager: TotpManager,
 ) {
@@ -97,47 +91,29 @@ open class InteractiveFlowSessionMfaEnrollmentManager(
     }
 
     /**
-     * Start a standalone MFA enrollment [InteractiveFlowSession] for the [userId] within the [flow],
-     * attaching the [returnUri] the end-user is redirected back to once the enrollment completes, in a single
-     * transaction.
+     * Start a standalone MFA enrollment [InteractiveFlowSession] for the [userId] within the [flow], storing on
+     * the session the [returnUri] the end-user is redirected back to once the enrollment completes (as a
+     * [InteractiveFlowRedirectType.PLAIN] redirect) and the optional [cancelUri] they are redirected back to if
+     * they cancel, in a single transaction.
      *
-     * The [returnUri] must have been validated (e.g. against the initiating client's registered redirect
-     * URIs) by the caller before reaching here.
+     * The [returnUri] and [cancelUri] must have been validated (e.g. against the initiating client's registered
+     * redirect URIs) by the caller before reaching here.
      */
     @Transactional
     open suspend fun startMfaEnrollmentSession(
         userId: UUID,
         returnUri: URI,
-        flow: AuthorizationFlow
+        flow: AuthorizationFlow,
+        cancelUri: URI? = null,
     ): OnGoingInteractiveFlowSession {
-        val session = sessionManager.newSession(listOf(InteractiveFlowPurpose.MFA_ENROLLMENT), flow)
-                as? OnGoingInteractiveFlowSession
+        val session = sessionManager.newSession(
+            purposes = listOf(InteractiveFlowPurpose.MFA_ENROLLMENT),
+            flow = flow,
+            successRedirectUri = returnUri,
+            redirectType = InteractiveFlowRedirectType.PLAIN,
+            cancelRedirectUri = cancelUri,
+        ) as? OnGoingInteractiveFlowSession
             ?: throw internalBusinessExceptionOf("flow.mfa.enrollment.start.not_ongoing")
-        val withUser = sessionManager.setAuthenticatedUserId(session, userId)
-        mfaEnrollmentRepository.save(
-            InteractiveFlowSessionMfaEnrollmentEntity(
-                sessionId = withUser.id,
-                returnUri = returnUri.toString()
-            )
-        )
-        return withUser
-    }
-
-    /**
-     * Return the [InteractiveFlowSessionMfaEnrollment] record attached to the [session], or null if it is
-     * not a standalone MFA enrollment session.
-     */
-    suspend fun fetchMfaEnrollmentOrNull(session: InteractiveFlowSession): InteractiveFlowSessionMfaEnrollment? {
-        return mfaEnrollmentRepository.findBySessionId(session.id)
-            ?.let(mfaEnrollmentMapper::toInteractiveFlowSessionMfaEnrollment)
-    }
-
-    /**
-     * Return the [InteractiveFlowSessionMfaEnrollment] record attached to the [session], or throw an
-     * unrecoverable [com.sympauthy.business.exception.BusinessException] if there is none.
-     */
-    suspend fun fetchMfaEnrollment(session: InteractiveFlowSession): InteractiveFlowSessionMfaEnrollment {
-        return fetchMfaEnrollmentOrNull(session)
-            ?: throw internalBusinessExceptionOf("flow.mfa.enrollment.missing")
+        return sessionManager.setAuthenticatedUserId(session, userId)
     }
 }

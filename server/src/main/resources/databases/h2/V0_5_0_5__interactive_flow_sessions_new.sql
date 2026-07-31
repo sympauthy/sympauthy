@@ -11,8 +11,14 @@ CREATE TABLE interactive_flow_sessions
 
     mfa_passed_date      timestamp,
 
+    success_redirect_uri text,
+    redirect_type        text,
+    cancel_redirect_uri  text,
+
     completed_purposes   text array NOT NULL DEFAULT ARRAY[],
     complete_date        timestamp,
+
+    cancel_date          timestamp,
 
     error_date           timestamp,
     error_details_id     text,

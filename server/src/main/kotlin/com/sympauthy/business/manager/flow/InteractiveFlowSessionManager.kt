@@ -2,6 +2,8 @@ package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.exception.internalBusinessExceptionOf
+import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionMapper
@@ -13,6 +15,7 @@ import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import java.net.URI
 import java.time.LocalDateTime
 import java.util.*
 
@@ -51,6 +54,9 @@ class InteractiveFlowSessionManager(
     suspend fun newSession(
         purposes: List<InteractiveFlowPurpose>,
         flow: AuthorizationFlow? = null,
+        successRedirectUri: URI? = null,
+        redirectType: InteractiveFlowRedirectType? = null,
+        cancelRedirectUri: URI? = null,
         error: BusinessException? = null
     ): InteractiveFlowSession {
         val now = LocalDateTime.now()
@@ -59,6 +65,10 @@ class InteractiveFlowSessionManager(
             flowId = flow?.id,
             sessionDate = now,
             expirationDate = now.plus(uncheckedAuthConfig.orThrow().authorizationCode.expiration),
+
+            successRedirectUri = successRedirectUri?.toString(),
+            redirectType = redirectType?.name,
+            cancelRedirectUri = cancelRedirectUri?.toString(),
 
             errorDate = error?.let { now },
             errorDetailsId = error?.detailsId,
@@ -204,6 +214,46 @@ class InteractiveFlowSessionManager(
     }
 
     /**
+     * Mark the [session] as cancelled by the end-user, persist the cancellation date, and return the resulting
+     * [CancelledInteractiveFlowSession].
+     *
+     * A [InteractiveFlowRedirectType.PLAIN] session with no cancellation URI has nowhere to hand the user back
+     * to: this throws a recoverable [BusinessException] before transitioning, so the flow stays ongoing and the
+     * caller gets a bad request rather than an un-buildable redirect. (An
+     * [InteractiveFlowRedirectType.AUTHORIZATION_CODE] session always cancels back to the client redirect URI
+     * with the OAuth2 `error=access_denied` response.)
+     */
+    suspend fun markAsCancelled(
+        session: OnGoingInteractiveFlowSession
+    ): CancelledInteractiveFlowSession {
+        val redirectType = session.redirectType
+            ?: throw internalBusinessExceptionOf("auth.interactive_flow_session.cancel.missing_redirect")
+        if (redirectType == InteractiveFlowRedirectType.PLAIN && session.cancelRedirectUri == null) {
+            throw recoverableBusinessExceptionOf(
+                "auth.interactive_flow_session.cancel.no_cancel_target",
+                "description.auth.interactive_flow_session.cancel.no_cancel_target"
+            )
+        }
+
+        val cancelDate = LocalDateTime.now()
+        sessionRepository.updateCancelDate(
+            id = session.id,
+            cancelDate = cancelDate
+        )
+        return CancelledInteractiveFlowSession(
+            id = session.id,
+            purposes = session.purposes,
+            flowId = session.flowId,
+            expirationDate = session.expirationDate,
+            userId = session.userId,
+            redirectType = redirectType,
+            successRedirectUri = session.successRedirectUri,
+            cancelRedirectUri = session.cancelRedirectUri,
+            cancelDate = cancelDate,
+        )
+    }
+
+    /**
      * Record [purpose] as completed on the [session], persist the updated completed-purpose list, and return
      * the resulting session.
      *
@@ -247,7 +297,12 @@ class InteractiveFlowSessionManager(
             signedUp = session.signedUp,
             completedPurposes = completedPurposes,
             mfaPassedDate = session.mfaPassedDate,
-            completeDate = completeDate
+            completeDate = completeDate,
+            successRedirectUri = session.successRedirectUri
+                ?: throw internalBusinessExceptionOf("auth.interactive_flow_session.complete.missing_redirect"),
+            redirectType = session.redirectType
+                ?: throw internalBusinessExceptionOf("auth.interactive_flow_session.complete.missing_redirect"),
+            cancelRedirectUri = session.cancelRedirectUri,
         )
     }
 
@@ -263,6 +318,7 @@ class InteractiveFlowSessionManager(
         return when (session) {
             is OnGoingInteractiveFlowSession -> session.userId?.let { userManager.findByIdOrNull(it) }
             is CompletedInteractiveFlowSession -> userManager.findByIdOrNull(session.userId)
+            is CancelledInteractiveFlowSession -> session.userId?.let { userManager.findByIdOrNull(it) }
             is FailedInteractiveFlowSession -> null
         }
     }
