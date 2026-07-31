@@ -105,6 +105,8 @@ class InteractiveFlowEngine(
                     is CompletedInteractiveFlowSession -> return InteractiveFlowStepResult(next, InteractiveFlowStep.Complete)
                     is OnGoingInteractiveFlowSession -> current = next
                     is FailedInteractiveFlowSession -> return InteractiveFlowStepResult(next, InteractiveFlowStep.Error)
+                    // makePurposeAsComplete only ever completes or leaves the session ongoing.
+                    is CancelledInteractiveFlowSession -> throw internalBusinessExceptionOf("flow.redirect.unhandled_status")
                 }
             }
         }

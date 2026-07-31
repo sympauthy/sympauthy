@@ -22,5 +22,14 @@ Must be one of the calling client's registered redirect URIs.
         """
     )
     @get:JsonProperty("return_uri")
-    val returnUri: String?
+    val returnUri: String?,
+    @get:Schema(
+        description = """
+Optional URI the end-user is returned to if they cancel the MFA enrollment.
+When provided, must be one of the calling client's registered redirect URIs. When omitted, the enrollment
+offers no cancellation.
+        """
+    )
+    @get:JsonProperty("cancel_uri")
+    val cancelUri: String? = null
 )
