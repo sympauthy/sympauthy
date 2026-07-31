@@ -99,12 +99,13 @@ open class InteractiveFlowSessionMfaEnrollmentManager(
      * [InteractiveFlowRedirectType.PLAIN] redirect) and the optional [cancelUri] they are redirected back to if
      * they cancel, in a single transaction.
      *
-     * The enrollment is client-initiated, so the session is gated by an [InteractiveFlowPurpose.CONFIRM] step
+     * The enrollment is initiated on the end-user's behalf — by a client, or by an administrator when
+     * [initiatingClientId] is null — so the session is gated by an [InteractiveFlowPurpose.CONFIRM] step
      * prepended in front of [InteractiveFlowPurpose.MFA_ENROLLMENT]: the end-user must explicitly approve the
-     * enrollment [initiatingClientId] requested before it begins. The confirm parameter is stored on the
-     * session's confirm record in the same transaction.
+     * enrollment before it begins. The confirm parameter — including [initiatingClientId] (null for an
+     * administrator) — is stored on the session's confirm record in the same transaction.
      *
-     * The [returnUri] and [cancelUri] must have been validated (e.g. against the initiating client's registered
+     * The [returnUri] and [cancelUri] must have been validated (e.g. against the named client's registered
      * redirect URIs) by the caller before reaching here.
      */
     @Transactional
@@ -112,7 +113,7 @@ open class InteractiveFlowSessionMfaEnrollmentManager(
         userId: UUID,
         returnUri: URI,
         flow: AuthorizationFlow,
-        initiatingClientId: String,
+        initiatingClientId: String?,
         cancelUri: URI? = null,
     ): OnGoingInteractiveFlowSession {
         val session = sessionManager.newSession(

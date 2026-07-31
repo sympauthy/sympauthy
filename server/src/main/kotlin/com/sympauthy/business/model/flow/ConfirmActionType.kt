@@ -9,8 +9,8 @@ package com.sympauthy.business.model.flow
  */
 enum class ConfirmActionType {
     /**
-     * The end-user is asked to approve enrolling a multi-factor authentication method, on behalf of a client
-     * that initiated the enrollment through the standalone MFA-enrollment endpoint.
+     * The end-user is asked to approve enrolling a multi-factor authentication method, initiated on their
+     * behalf through a standalone MFA-enrollment endpoint by a client or by an administrator.
      */
     ENROLL_MFA
 }
