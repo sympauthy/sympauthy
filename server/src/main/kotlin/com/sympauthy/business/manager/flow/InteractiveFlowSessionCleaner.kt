@@ -2,7 +2,6 @@ package com.sympauthy.business.manager.flow
 
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.repository.AuthorizationCodeRepository
-import com.sympauthy.data.repository.InteractiveFlowSessionMfaEnrollmentRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionOAuth2Repository
 import com.sympauthy.data.repository.InteractiveFlowSessionProviderRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
@@ -22,7 +21,6 @@ open class InteractiveFlowSessionCleaner(
     @Inject private val sessionRepository: InteractiveFlowSessionRepository,
     @Inject private val oauth2Repository: InteractiveFlowSessionOAuth2Repository,
     @Inject private val providerRepository: InteractiveFlowSessionProviderRepository,
-    @Inject private val mfaEnrollmentRepository: InteractiveFlowSessionMfaEnrollmentRepository,
     @Inject private val validationCodeRepository: ValidationCodeRepository,
     @Inject private val authorizationCodeRepository: AuthorizationCodeRepository,
 ) {
@@ -45,15 +43,11 @@ open class InteractiveFlowSessionCleaner(
         val deferredProviderCount = async {
             providerRepository.deleteBySessionIdIn(expiredSessionIds)
         }
-        val deferredMfaEnrollmentCount = async {
-            mfaEnrollmentRepository.deleteBySessionIdIn(expiredSessionIds)
-        }
 
         val authorizationCodesCount = deferredAuthorizationCodesCount.await()
         val validationCodesCount = deferredValidationCodesCount.await()
         deferredOAuth2Count.await()
         deferredProviderCount.await()
-        deferredMfaEnrollmentCount.await()
 
         val sessionsCount = sessionRepository.deleteByIds(expiredSessionIds)
 

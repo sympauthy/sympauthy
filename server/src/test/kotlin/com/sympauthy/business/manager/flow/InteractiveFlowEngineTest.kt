@@ -1,12 +1,15 @@
 package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.model.flow.CancelledInteractiveFlowSession
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
+import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.TerminalEffectResult
+import java.net.URI
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -41,6 +44,16 @@ class InteractiveFlowEngineTest {
 
         assertSame(session, result.session)
         assertEquals(InteractiveFlowStep.Complete, result.step)
+    }
+
+    @Test
+    fun `advance - Cancelled session maps to Cancel`() = runTest {
+        val session = cancelledSession()
+
+        val result = engine.advance(session)
+
+        assertSame(session, result.session)
+        assertEquals(InteractiveFlowStep.Cancel, result.step)
     }
 
     @Test
@@ -199,6 +212,20 @@ class InteractiveFlowEngineTest {
         sessionDate = LocalDateTime.now(),
         userId = UUID.randomUUID(),
         completeDate = LocalDateTime.now(),
+        successRedirectUri = URI.create("https://client.example.com/callback"),
+        redirectType = InteractiveFlowRedirectType.AUTHORIZATION_CODE,
+    )
+
+    private fun cancelledSession() = CancelledInteractiveFlowSession(
+        id = UUID.randomUUID(),
+        purposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE),
+        flowId = "flow-id",
+        expirationDate = LocalDateTime.now().plusHours(1),
+        userId = UUID.randomUUID(),
+        redirectType = InteractiveFlowRedirectType.AUTHORIZATION_CODE,
+        successRedirectUri = URI.create("https://client.example.com/callback"),
+        cancelRedirectUri = URI.create("https://client.example.com/callback"),
+        cancelDate = LocalDateTime.now(),
     )
 
     private fun failedSession() = FailedInteractiveFlowSession(

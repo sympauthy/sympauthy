@@ -1,6 +1,7 @@
 package com.sympauthy.business.model.flow
 
 import com.sympauthy.business.model.Expirable
+import java.net.URI
 import java.time.LocalDateTime
 import java.util.*
 
@@ -87,6 +88,30 @@ class OnGoingInteractiveFlowSession(
      * Null if MFA has not been completed yet.
      */
     val mfaPassedDate: LocalDateTime? = null,
+
+    /**
+     * The URI the end-user is handed back to once the session completes. How it is decorated is driven by
+     * [redirectType] (an authorization code is appended for [InteractiveFlowRedirectType.AUTHORIZATION_CODE],
+     * nothing for [InteractiveFlowRedirectType.PLAIN]).
+     *
+     * Null while the session is still being set up, or when the initiating request failed validation and has
+     * no usable redirect target.
+     */
+    val successRedirectUri: URI? = null,
+
+    /**
+     * How the end-user must be handed back to the initiator on a terminal status. Null until the session's
+     * redirect target has been set.
+     */
+    val redirectType: InteractiveFlowRedirectType? = null,
+
+    /**
+     * The URI the end-user is handed back to when they cancel the session. For an
+     * [InteractiveFlowRedirectType.AUTHORIZATION_CODE] session this is the client redirect URI (the OAuth2
+     * `error=access_denied` response is returned there); for a [InteractiveFlowRedirectType.PLAIN] session
+     * this is a caller-provided cancel URI, and may be null when the flow does not offer cancellation.
+     */
+    val cancelRedirectUri: URI? = null,
 ) : InteractiveFlowSession(
     id = id,
     purposes = purposes,
@@ -114,6 +139,9 @@ class OnGoingInteractiveFlowSession(
         signedUp = signedUp ?: this.signedUp,
         completedPurposes = completedPurposes ?: this.completedPurposes,
         mfaPassedDate = mfaPassedDate ?: this.mfaPassedDate,
+        successRedirectUri = this.successRedirectUri,
+        redirectType = this.redirectType,
+        cancelRedirectUri = this.cancelRedirectUri,
     )
 }
 
@@ -160,6 +188,24 @@ class CompletedInteractiveFlowSession(
      * When the user has completed the interactive flow.
      */
     val completeDate: LocalDateTime,
+
+    /**
+     * The URI the end-user must be handed back to now the session has completed. Decorated according to
+     * [redirectType].
+     */
+    val successRedirectUri: URI,
+
+    /**
+     * How the end-user must be handed back to the initiator: an authorization code is appended for
+     * [InteractiveFlowRedirectType.AUTHORIZATION_CODE], nothing for [InteractiveFlowRedirectType.PLAIN].
+     */
+    val redirectType: InteractiveFlowRedirectType,
+
+    /**
+     * The URI the end-user would have been handed back to had they cancelled the session. Carried for
+     * symmetry; may be null when the flow does not offer cancellation.
+     */
+    val cancelRedirectUri: URI? = null,
 ) : InteractiveFlowSession(
     id = id,
     purposes = purposes,
@@ -197,6 +243,54 @@ class FailedInteractiveFlowSession(
      * When the interactive flow failed.
      */
     val errorDate: LocalDateTime,
+) : InteractiveFlowSession(
+    id = id,
+    purposes = purposes,
+    flowId = flowId,
+    expirationDate = expirationDate
+)
+
+/**
+ * Represents an interactive flow session the end-user cancelled.
+ *
+ * Distinct from a [FailedInteractiveFlowSession]: a failed session routes the end-user to the flow's error
+ * page, whereas a cancelled session hands the end-user back to the flow's initiator on the cancellation
+ * redirect (the OAuth2 `error=access_denied` response, or a caller-provided cancel URI).
+ */
+class CancelledInteractiveFlowSession(
+    id: UUID,
+    purposes: List<InteractiveFlowPurpose>,
+    flowId: String?,
+    expirationDate: LocalDateTime,
+
+    /**
+     * The identifier of the user that had been authenticated when the session was cancelled.
+     * Null when the user cancelled before identifying themselves (e.g. at the sign-in step).
+     */
+    val userId: UUID?,
+
+    /**
+     * How the end-user must be handed back to the initiator on cancellation.
+     */
+    val redirectType: InteractiveFlowRedirectType,
+
+    /**
+     * The URI the end-user was handed back to on completion had the session succeeded. Carried for symmetry;
+     * null when the initiating request had no usable redirect target.
+     */
+    val successRedirectUri: URI?,
+
+    /**
+     * The URI the end-user is handed back to on cancellation. For [InteractiveFlowRedirectType.PLAIN] this is
+     * the caller-provided cancel URI; for [InteractiveFlowRedirectType.AUTHORIZATION_CODE] this is the client
+     * redirect URI where the OAuth2 `error=access_denied` response is returned.
+     */
+    val cancelRedirectUri: URI?,
+
+    /**
+     * When the end-user cancelled the interactive flow.
+     */
+    val cancelDate: LocalDateTime,
 ) : InteractiveFlowSession(
     id = id,
     purposes = purposes,

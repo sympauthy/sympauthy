@@ -1,15 +1,18 @@
 package com.sympauthy.business.mapper
 
 import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.model.flow.CancelledInteractiveFlowSession
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
+import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mapstruct.factory.Mappers
+import java.net.URI
 import java.time.LocalDateTime
 import java.util.*
 
@@ -69,6 +72,8 @@ class InteractiveFlowSessionMapperTest {
             id = id,
             userId = userId,
             completeDate = completeDate,
+            successRedirectUri = "https://client.example.com/callback",
+            redirectType = InteractiveFlowRedirectType.AUTHORIZATION_CODE.name,
         )
 
         val session = mapper.toInteractiveFlowSession(entity)
@@ -78,6 +83,32 @@ class InteractiveFlowSessionMapperTest {
         assertEquals(id, session.id)
         assertEquals(userId, session.userId)
         assertEquals(completeDate, session.completeDate)
+        assertEquals(URI.create("https://client.example.com/callback"), session.successRedirectUri)
+        assertEquals(InteractiveFlowRedirectType.AUTHORIZATION_CODE, session.redirectType)
+    }
+
+    @Test
+    fun `toInteractiveFlowSession - maps to Cancelled when cancelDate is not null`() {
+        val id = UUID.randomUUID()
+        val userId = UUID.randomUUID()
+        val cancelDate = LocalDateTime.now()
+        val entity = entity(
+            id = id,
+            userId = userId,
+            redirectType = InteractiveFlowRedirectType.PLAIN.name,
+            cancelRedirectUri = "https://client.example.com/cancelled",
+            cancelDate = cancelDate,
+        )
+
+        val session = mapper.toInteractiveFlowSession(entity)
+
+        assertTrue(session is CancelledInteractiveFlowSession)
+        session as CancelledInteractiveFlowSession
+        assertEquals(id, session.id)
+        assertEquals(userId, session.userId)
+        assertEquals(cancelDate, session.cancelDate)
+        assertEquals(InteractiveFlowRedirectType.PLAIN, session.redirectType)
+        assertEquals(URI.create("https://client.example.com/cancelled"), session.cancelRedirectUri)
     }
 
     @Test
@@ -147,7 +178,11 @@ class InteractiveFlowSessionMapperTest {
         expirationDate: LocalDateTime = LocalDateTime.now().plusMinutes(10),
         userId: UUID? = null,
         mfaPassedDate: LocalDateTime? = null,
+        successRedirectUri: String? = null,
+        redirectType: String? = null,
+        cancelRedirectUri: String? = null,
         completeDate: LocalDateTime? = null,
+        cancelDate: LocalDateTime? = null,
         errorDate: LocalDateTime? = null,
         errorDetailsId: String? = null,
         errorDescriptionId: String? = null,
@@ -160,7 +195,11 @@ class InteractiveFlowSessionMapperTest {
             expirationDate = expirationDate,
             userId = userId,
             mfaPassedDate = mfaPassedDate,
+            successRedirectUri = successRedirectUri,
+            redirectType = redirectType,
+            cancelRedirectUri = cancelRedirectUri,
             completeDate = completeDate,
+            cancelDate = cancelDate,
             errorDate = errorDate,
             errorDetailsId = errorDetailsId,
             errorDescriptionId = errorDescriptionId,

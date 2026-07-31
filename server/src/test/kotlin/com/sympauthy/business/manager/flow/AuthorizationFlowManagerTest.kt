@@ -6,6 +6,7 @@ import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
+import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.ConsentedBy
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import java.time.LocalDateTime
+import java.net.URI
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
@@ -162,7 +164,9 @@ class AuthorizationFlowManagerTest {
             expirationDate = expirationDate,
             sessionDate = now,
             userId = UUID.randomUUID(),
-            completeDate = now
+            completeDate = now,
+            successRedirectUri = URI.create("https://client.example.com/callback"),
+            redirectType = InteractiveFlowRedirectType.AUTHORIZATION_CODE,
         )
     }
 

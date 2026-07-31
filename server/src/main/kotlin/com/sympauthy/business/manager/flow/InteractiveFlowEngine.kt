@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.exception.internalBusinessExceptionOf
+import com.sympauthy.business.model.flow.CancelledInteractiveFlowSession
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSession
@@ -33,12 +34,13 @@ class InteractiveFlowEngine(
      * completion mutation it entails, and return it together with the possibly-transitioned session.
      *
      * The call is idempotent for a session that is already terminal: a failed session maps to
-     * [InteractiveFlowStep.Error] and a completed one to [InteractiveFlowStep.Complete], without re-running
-     * any effect.
+     * [InteractiveFlowStep.Error], a completed one to [InteractiveFlowStep.Complete] and a cancelled one to
+     * [InteractiveFlowStep.Cancel], without re-running any effect.
      */
     suspend fun advance(session: InteractiveFlowSession): InteractiveFlowStepResult = when (session) {
         is FailedInteractiveFlowSession -> InteractiveFlowStepResult(session, InteractiveFlowStep.Error)
         is CompletedInteractiveFlowSession -> InteractiveFlowStepResult(session, InteractiveFlowStep.Complete)
+        is CancelledInteractiveFlowSession -> InteractiveFlowStepResult(session, InteractiveFlowStep.Cancel)
         is OnGoingInteractiveFlowSession -> advanceOnGoing(session)
     }
 
@@ -103,6 +105,8 @@ class InteractiveFlowEngine(
                     is CompletedInteractiveFlowSession -> return InteractiveFlowStepResult(next, InteractiveFlowStep.Complete)
                     is OnGoingInteractiveFlowSession -> current = next
                     is FailedInteractiveFlowSession -> return InteractiveFlowStepResult(next, InteractiveFlowStep.Error)
+                    // makePurposeAsComplete only ever completes or leaves the session ongoing.
+                    is CancelledInteractiveFlowSession -> throw internalBusinessExceptionOf("flow.redirect.unhandled_status")
                 }
             }
         }

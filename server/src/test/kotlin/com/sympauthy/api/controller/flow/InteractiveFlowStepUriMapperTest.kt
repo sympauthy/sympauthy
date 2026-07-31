@@ -4,19 +4,19 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
-import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaEnrollmentManager
 import com.sympauthy.business.model.code.ValidationCodeMedia
+import com.sympauthy.business.model.flow.CancelledInteractiveFlowSession
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlow
-import com.sympauthy.business.model.flow.InteractiveFlowPurpose
+import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.InteractiveFlowSession
-import com.sympauthy.business.model.flow.InteractiveFlowSessionMfaEnrollment
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.AuthorizationCode
 import com.sympauthy.config.model.UrlsConfig
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
@@ -39,9 +39,6 @@ class InteractiveFlowStepUriMapperTest {
 
     @MockK
     lateinit var oauth2Manager: InteractiveFlowSessionOAuth2Manager
-
-    @MockK
-    lateinit var mfaEnrollmentManager: InteractiveFlowSessionMfaEnrollmentManager
 
     @MockK
     lateinit var authorizationCodeManager: AuthorizationCodeManager
@@ -97,9 +94,10 @@ class InteractiveFlowStepUriMapperTest {
     }
 
     @Test
-    fun `toRedirectUri - Complete generates a code and redirects to the client without internal state`() = runTest {
+    fun `toRedirectUri - Complete for AUTHORIZATION_CODE generates a code and redirects to the client without internal state`() = runTest {
         val session = mockk<CompletedInteractiveFlowSession> {
-            every { initiatingPurpose } returns InteractiveFlowPurpose.OAUTH2_AUTHORIZE
+            every { redirectType } returns InteractiveFlowRedirectType.AUTHORIZATION_CODE
+            every { successRedirectUri } returns URI.create("https://www.example.com")
         }
         val oauth2 = InteractiveFlowSessionOAuth2(
             sessionId = UUID.randomUUID(),
@@ -118,18 +116,16 @@ class InteractiveFlowStepUriMapperTest {
     }
 
     @Test
-    fun `toRedirectUri - Complete for a standalone MFA enrollment redirects to the return URI`() = runTest {
+    fun `toRedirectUri - Complete for PLAIN redirects to the success URI verbatim`() = runTest {
         val session = mockk<CompletedInteractiveFlowSession> {
-            every { initiatingPurpose } returns InteractiveFlowPurpose.MFA_ENROLLMENT
+            every { redirectType } returns InteractiveFlowRedirectType.PLAIN
+            every { successRedirectUri } returns URI.create("https://client.example.com/enrolled")
         }
-        coEvery { mfaEnrollmentManager.fetchMfaEnrollment(session) } returns InteractiveFlowSessionMfaEnrollment(
-            sessionId = UUID.randomUUID(),
-            returnUri = "https://client.example.com/enrolled"
-        )
 
         val result = mapper.toRedirectUri(session, mockk(), InteractiveFlowStep.Complete)
 
         assertEquals("https://client.example.com/enrolled", result.toString())
+        coVerify(exactly = 0) { authorizationCodeManager.generateCode(any()) }
     }
 
     @Test
@@ -138,6 +134,49 @@ class InteractiveFlowStepUriMapperTest {
 
         val exception = assertThrows<BusinessException> {
             mapper.toRedirectUri(session, mockk(), InteractiveFlowStep.Complete)
+        }
+        assertEquals("flow.redirect.unhandled_status", exception.detailsId)
+    }
+
+    @Test
+    fun `toRedirectUri - Cancel for AUTHORIZATION_CODE returns the OAuth2 access_denied response without a code`() = runTest {
+        val session = mockk<CancelledInteractiveFlowSession> {
+            every { redirectType } returns InteractiveFlowRedirectType.AUTHORIZATION_CODE
+            every { cancelRedirectUri } returns URI.create("https://www.example.com")
+        }
+        val oauth2 = InteractiveFlowSessionOAuth2(
+            sessionId = UUID.randomUUID(),
+            clientId = "test-client",
+            redirectUri = "https://www.example.com",
+            requestedScopes = emptyList(),
+            state = "clientState"
+        )
+        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
+
+        val result = mapper.toRedirectUri(session, mockk(), InteractiveFlowStep.Cancel)
+
+        assertEquals("https://www.example.com?error=access_denied&state=clientState", result.toString())
+        coVerify(exactly = 0) { authorizationCodeManager.generateCode(any()) }
+    }
+
+    @Test
+    fun `toRedirectUri - Cancel for PLAIN redirects to the cancel URI verbatim`() = runTest {
+        val session = mockk<CancelledInteractiveFlowSession> {
+            every { redirectType } returns InteractiveFlowRedirectType.PLAIN
+            every { cancelRedirectUri } returns URI.create("https://client.example.com/cancelled")
+        }
+
+        val result = mapper.toRedirectUri(session, mockk(), InteractiveFlowStep.Cancel)
+
+        assertEquals("https://client.example.com/cancelled", result.toString())
+    }
+
+    @Test
+    fun `toRedirectUri - Cancel throws when the session is not cancelled`() = runTest {
+        val session = mockk<OnGoingInteractiveFlowSession>()
+
+        val exception = assertThrows<BusinessException> {
+            mapper.toRedirectUri(session, mockk(), InteractiveFlowStep.Cancel)
         }
         assertEquals("flow.redirect.unhandled_status", exception.detailsId)
     }

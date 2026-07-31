@@ -103,14 +103,18 @@ end-user's browser to. Once enrollment completes, the end-user is redirected to 
                 "description.client.mfa.enrollment.invalid_access_token"
             )
 
-        // Validate the return URI against the calling client's registered redirect URIs to avoid open redirects.
+        // Validate the return URI (and the optional cancel URI) against the calling client's registered
+        // redirect URIs to avoid open redirects.
         val returnUri = interactiveAuthFlowSessionManager.parseRequestedRedirectUri(client, resource.returnUri)
+        val cancelUri = resource.cancelUri
+            ?.let { interactiveAuthFlowSessionManager.parseRequestedRedirectUri(client, it) }
 
         val flow = interactiveAuthFlowSessionManager.getDefaultInteractiveFlow()
         val session = mfaEnrollmentManager.startMfaEnrollmentSession(
             userId = userId,
             returnUri = returnUri,
-            flow = flow
+            flow = flow,
+            cancelUri = cancelUri
         )
 
         val (steppedSession, step) = engine.advance(session)

@@ -44,5 +44,7 @@ interface InteractiveFlowSessionRepository : CoroutineCrudRepository<Interactive
 
     suspend fun updateCompleteDate(@Id id: UUID, completeDate: LocalDateTime?)
 
+    suspend fun updateCancelDate(@Id id: UUID, cancelDate: LocalDateTime)
+
     suspend fun deleteByIds(ids: List<UUID>): Int
 }

@@ -6,6 +6,7 @@ import com.sympauthy.business.mapper.config.ToBusinessMapperConfig
 import com.sympauthy.business.model.flow.*
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import org.mapstruct.Mapper
+import java.net.URI
 import java.time.LocalDateTime
 
 /**
@@ -14,6 +15,7 @@ import java.time.LocalDateTime
  * to map to:
  * - [FailedInteractiveFlowSession] if the [InteractiveFlowSessionEntity.errorDate] is not null, or if the
  *   session has expired.
+ * - [CancelledInteractiveFlowSession] if the [InteractiveFlowSessionEntity.cancelDate] is not null.
  * - [CompletedInteractiveFlowSession] if the [InteractiveFlowSessionEntity.completeDate] is not null.
  * - [OnGoingInteractiveFlowSession] otherwise.
  *
@@ -37,6 +39,9 @@ abstract class InteractiveFlowSessionMapper {
             signedUp = entity.signedUp,
             completedPurposes = entity.completedPurposes.map(InteractiveFlowPurpose::valueOf),
             mfaPassedDate = entity.mfaPassedDate,
+            successRedirectUri = entity.successRedirectUri?.let(URI::create),
+            redirectType = entity.redirectType?.let(InteractiveFlowRedirectType::valueOf),
+            cancelRedirectUri = entity.cancelRedirectUri?.let(URI::create),
         )
     }
 
@@ -52,6 +57,26 @@ abstract class InteractiveFlowSessionMapper {
             completedPurposes = entity.completedPurposes.map(InteractiveFlowPurpose::valueOf),
             mfaPassedDate = entity.mfaPassedDate,
             completeDate = entity.completeDate ?: throw invalidBusinessException("completeDate"),
+            successRedirectUri = entity.successRedirectUri?.let(URI::create)
+                ?: throw invalidBusinessException("successRedirectUri"),
+            redirectType = entity.redirectType?.let(InteractiveFlowRedirectType::valueOf)
+                ?: throw invalidBusinessException("redirectType"),
+            cancelRedirectUri = entity.cancelRedirectUri?.let(URI::create),
+        )
+    }
+
+    fun toCancelledInteractiveFlowSession(entity: InteractiveFlowSessionEntity): CancelledInteractiveFlowSession {
+        return CancelledInteractiveFlowSession(
+            id = entity.id ?: throw invalidBusinessException("id"),
+            purposes = entity.purposes.map(InteractiveFlowPurpose::valueOf),
+            flowId = entity.flowId,
+            expirationDate = entity.expirationDate,
+            userId = entity.userId,
+            redirectType = entity.redirectType?.let(InteractiveFlowRedirectType::valueOf)
+                ?: throw invalidBusinessException("redirectType"),
+            successRedirectUri = entity.successRedirectUri?.let(URI::create),
+            cancelRedirectUri = entity.cancelRedirectUri?.let(URI::create),
+            cancelDate = entity.cancelDate ?: throw invalidBusinessException("cancelDate"),
         )
     }
 
@@ -85,6 +110,7 @@ abstract class InteractiveFlowSessionMapper {
         return when {
             entity.errorDate != null -> toFailedInteractiveFlowSession(entity)
             entity.expirationDate.isBefore(LocalDateTime.now()) -> toExpiredInteractiveFlowSession(entity)
+            entity.cancelDate != null -> toCancelledInteractiveFlowSession(entity)
             entity.completeDate != null -> toCompletedInteractiveFlowSession(entity)
             else -> toOnGoingInteractiveFlowSession(entity)
         }
