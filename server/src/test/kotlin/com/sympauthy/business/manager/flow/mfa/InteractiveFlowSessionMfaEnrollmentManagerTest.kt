@@ -2,8 +2,10 @@ package com.sympauthy.business.manager.flow.mfa
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
+import com.sympauthy.business.manager.flow.confirm.InteractiveFlowSessionConfirmManager
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.model.flow.AuthorizationFlow
+import com.sympauthy.business.model.flow.ConfirmActionType
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.InteractiveFlowStep
@@ -36,13 +38,18 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
     @MockK
     lateinit var totpManager: TotpManager
 
+    @MockK
+    lateinit var confirmManager: InteractiveFlowSessionConfirmManager
+
     private val userId = UUID.randomUUID()
+    private val clientId = "client-x"
     private val session = mockk<OnGoingInteractiveFlowSession>()
 
     private fun managerWith(mfaConfig: MfaConfig) = InteractiveFlowSessionMfaEnrollmentManager(
         sessionManager = sessionManager,
         uncheckedMfaConfig = mfaConfig,
-        totpManager = totpManager
+        totpManager = totpManager,
+        confirmManager = confirmManager
     )
 
     private val optionalMfa = EnabledMfaConfig(totp = true, required = false)
@@ -60,7 +67,7 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
         val withUser = mockk<OnGoingInteractiveFlowSession>()
         coEvery {
             sessionManager.newSession(
-                purposes = listOf(InteractiveFlowPurpose.MFA_ENROLLMENT),
+                purposes = listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.MFA_ENROLLMENT),
                 flow = flow,
                 successRedirectUri = returnUri,
                 redirectType = InteractiveFlowRedirectType.PLAIN,
@@ -68,10 +75,14 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
             )
         } returns newSession
         coEvery { sessionManager.setAuthenticatedUserId(newSession, userId) } returns withUser
+        coEvery {
+            confirmManager.setConfirm(withUser, ConfirmActionType.ENROLL_MFA, clientId)
+        } returns mockk()
 
-        val result = manager.startMfaEnrollmentSession(userId, returnUri, flow, cancelUri)
+        val result = manager.startMfaEnrollmentSession(userId, returnUri, flow, clientId, cancelUri)
 
         assertSame(withUser, result)
+        coVerify { confirmManager.setConfirm(withUser, ConfirmActionType.ENROLL_MFA, clientId) }
     }
 
     @Test
@@ -83,7 +94,7 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
         val withUser = mockk<OnGoingInteractiveFlowSession>()
         coEvery {
             sessionManager.newSession(
-                purposes = listOf(InteractiveFlowPurpose.MFA_ENROLLMENT),
+                purposes = listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.MFA_ENROLLMENT),
                 flow = flow,
                 successRedirectUri = returnUri,
                 redirectType = InteractiveFlowRedirectType.PLAIN,
@@ -91,8 +102,11 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
             )
         } returns newSession
         coEvery { sessionManager.setAuthenticatedUserId(newSession, userId) } returns withUser
+        coEvery {
+            confirmManager.setConfirm(withUser, ConfirmActionType.ENROLL_MFA, clientId)
+        } returns mockk()
 
-        val result = manager.startMfaEnrollmentSession(userId, returnUri, flow)
+        val result = manager.startMfaEnrollmentSession(userId, returnUri, flow, clientId)
 
         assertSame(withUser, result)
     }

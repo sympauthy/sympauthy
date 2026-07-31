@@ -66,6 +66,10 @@ class InteractiveFlowStepUriMapper(
             session,
             flow.mfaTotpChallengeUri ?: throw internalBusinessExceptionOf("flow.mfa.totp.challenge_uri.missing")
         )
+        InteractiveFlowStep.Confirm -> appendState(
+            session,
+            flow.confirmUri ?: throw internalBusinessExceptionOf("flow.confirm.uri.missing")
+        )
         InteractiveFlowStep.CollectClaims -> appendState(session, flow.collectClaimsUri)
         is InteractiveFlowStep.ValidateClaims -> appendState(session, buildValidateClaimsUri(flow, step.media))
         InteractiveFlowStep.Error -> appendState(session, flow.errorUri)

@@ -21,6 +21,9 @@ class AuthorizationFlowConfigurationProperties(
     // Properties for sign-up (optional; only required when sign-up or invitation is enabled)
     var signUp: String? = null
 
+    // Property for the confirm page (optional; only required when a confirm-gated flow is configured)
+    var confirm: String? = null
+
     // Properties for MFA steps (optional; only required when MFA is enabled)
     var mfaSelectionForEnrollment: String? = null
     var mfaSelectionForChallenge: String? = null

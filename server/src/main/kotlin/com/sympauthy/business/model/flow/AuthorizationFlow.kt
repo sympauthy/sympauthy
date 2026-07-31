@@ -59,6 +59,14 @@ class InteractiveFlow(
      */
     val errorUri: URI,
     /**
+     * [URI] of the page asking the end-user to confirm an action a client initiated on their behalf.
+     * The end-user is redirected here when the session carries a [InteractiveFlowPurpose.CONFIRM] gate. That
+     * page calls GET /api/v1/flow/confirm to describe the action and the initiating party, then confirms or
+     * cancels the flow.
+     * Null if no confirm-gated flow is configured for this flow.
+     */
+    val confirmUri: URI? = null,
+    /**
      * [URI] of the MFA enrollment method-selection page.
      * The end-user is redirected here when they must enroll an MFA method. That page calls
      * GET /api/v1/flow/mfa to choose the method to enroll (and skip when optional).

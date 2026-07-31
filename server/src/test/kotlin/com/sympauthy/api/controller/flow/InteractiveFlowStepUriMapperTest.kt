@@ -63,6 +63,29 @@ class InteractiveFlowStepUriMapperTest {
     }
 
     @Test
+    fun `toRedirectUri - Confirm maps to confirmUri with state appended`() = runTest {
+        val uri = URI.create("https://www.example.com/confirm")
+        val session = mockk<OnGoingInteractiveFlowSession>()
+        val flow = mockk<InteractiveFlow> { every { confirmUri } returns uri }
+        coEvery { mapper.appendState(session, uri) } returns uri
+
+        val result = mapper.toRedirectUri(session, flow, InteractiveFlowStep.Confirm)
+
+        assertEquals(uri, result)
+    }
+
+    @Test
+    fun `toRedirectUri - Confirm throws when the flow has no confirm page`() = runTest {
+        val session = mockk<OnGoingInteractiveFlowSession>()
+        val flow = mockk<InteractiveFlow> { every { confirmUri } returns null }
+
+        val exception = assertThrows<BusinessException> {
+            mapper.toRedirectUri(session, flow, InteractiveFlowStep.Confirm)
+        }
+        assertEquals("flow.confirm.uri.missing", exception.detailsId)
+    }
+
+    @Test
     fun `toRedirectUri - SignUp falls back to signInUri when the flow has no sign-up page`() = runTest {
         val signInUri = URI.create("https://www.example.com/sign-in")
         val session = mockk<OnGoingInteractiveFlowSession>()
