@@ -111,6 +111,34 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
         assertSame(withUser, result)
     }
 
+    @Test
+    fun `startMfaEnrollmentSession - Stores a null client id on the confirm record for an admin-initiated enrollment`() =
+        runTest {
+            val manager = managerWith(optionalMfa)
+            val returnUri = URI.create("https://client.example.com/enrolled")
+            val flow = mockk<AuthorizationFlow>()
+            val newSession = mockk<OnGoingInteractiveFlowSession>()
+            val withUser = mockk<OnGoingInteractiveFlowSession>()
+            coEvery {
+                sessionManager.newSession(
+                    purposes = listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.MFA_ENROLLMENT),
+                    flow = flow,
+                    successRedirectUri = returnUri,
+                    redirectType = InteractiveFlowRedirectType.PLAIN,
+                    cancelRedirectUri = null,
+                )
+            } returns newSession
+            coEvery { sessionManager.setAuthenticatedUserId(newSession, userId) } returns withUser
+            // Admin-initiated: the confirm record must carry a null client id (rendered as "an administrator").
+            coEvery {
+                confirmManager.setConfirm(withUser, ConfirmActionType.ENROLL_MFA, null)
+            } returns mockk()
+
+            val result = manager.startMfaEnrollmentSession(userId, returnUri, flow, initiatingClientId = null)
+
+            assertSame(withUser, result)
+        }
+
     // --- getEnrollmentRoutingResult ---
 
     @Test

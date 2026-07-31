@@ -1,14 +1,24 @@
 package com.sympauthy.api.controller.admin
 
+import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
 import com.sympauthy.api.exception.httpExceptionOf
 import com.sympauthy.api.mapper.admin.AdminUserMfaMethodResourceMapper
+import com.sympauthy.api.resource.admin.AdminUserMfaEnrollmentInputResource
+import com.sympauthy.api.resource.admin.AdminUserMfaEnrollmentResource
 import com.sympauthy.api.resource.admin.AdminUserMfaMethodListResource
 import com.sympauthy.api.resource.admin.AdminUserMfaRevokeResource
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.api.util.resolvePageParams
+import com.sympauthy.business.exception.recoverableBusinessExceptionOf
+import com.sympauthy.business.manager.ClientManager
+import com.sympauthy.business.manager.flow.InteractiveFlowEngine
+import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
+import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaEnrollmentManager
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
+import com.sympauthy.config.model.EnabledMfaConfig
+import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.security.SecurityRule.ADMIN_USERS_READ
 import com.sympauthy.security.SecurityRule.ADMIN_USERS_WRITE
 import io.micronaut.http.HttpStatus.NOT_FOUND
@@ -25,7 +35,13 @@ import java.util.*
 class AdminUserMfaController(
     @Inject private val userManager: UserManager,
     @Inject private val totpManager: TotpManager,
-    @Inject private val mfaMapper: AdminUserMfaMethodResourceMapper
+    @Inject private val mfaMapper: AdminUserMfaMethodResourceMapper,
+    @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
+    @Inject private val clientManager: ClientManager,
+    @Inject private val mfaEnrollmentManager: InteractiveFlowSessionMfaEnrollmentManager,
+    @Inject private val engine: InteractiveFlowEngine,
+    @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
+    @Inject private val uncheckedMfaConfig: MfaConfig,
 ) {
 
     @Operation(
@@ -95,6 +111,77 @@ class AdminUserMfaController(
             userId = userId,
             mfaId = mfaId,
             revoked = true
+        )
+    }
+
+    @Operation(
+        description = "Start an on-demand MFA enrollment for a given user, initiated by an administrator. " +
+                "Validates that the user and the named client exist and that the return (and optional cancel) " +
+                "URI are registered redirect URIs of that client, then creates an enrollment session gated by a " +
+                "confirmation the end-user must approve (shown as initiated by an administrator). Returns the " +
+                "redirect_url to hand or send to the user; once enrollment completes they are redirected to " +
+                "return_uri.",
+        tags = ["admin"],
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "The enrollment session was started.",
+                useReturnTypeSchema = true
+            ),
+            ApiResponse(
+                responseCode = "400",
+                description = "Invalid return or cancel URI, or MFA is not enabled on this server."
+            ),
+            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(
+                responseCode = "403",
+                description = "The access token does not include the required scope: admin:users:write."
+            ),
+            ApiResponse(responseCode = "404", description = "No user or client found with the given identifier.")
+        ]
+    )
+    @Post("/enrollment")
+    @Secured(ADMIN_USERS_WRITE)
+    @SecurityRequirement(name = "admin", scopes = [AdminScopeId.USERS_WRITE])
+    suspend fun startEnrollment(
+        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
+        @Body resource: AdminUserMfaEnrollmentInputResource
+    ): AdminUserMfaEnrollmentResource {
+        // Fail fast (before creating any session) when MFA is not enabled on this server.
+        if ((uncheckedMfaConfig as? EnabledMfaConfig)?.enabled != true) {
+            throw recoverableBusinessExceptionOf(
+                "admin.users.mfa.enrollment.mfa_disabled",
+                "description.admin.users.mfa.enrollment.mfa_disabled"
+            )
+        }
+
+        // Both the target user and the named client must exist.
+        userManager.findByIdOrNull(userId).orNotFound()
+        val client = resource.clientId
+            ?.let { clientManager.findClientByIdOrNull(it) }
+            .orNotFound()
+
+        // Validate the return URI (and the optional cancel URI) against the named client's registered
+        // redirect URIs to avoid open redirects.
+        val returnUri = interactiveAuthFlowSessionManager.parseRequestedRedirectUri(client, resource.returnUri)
+        val cancelUri = resource.cancelUri
+            ?.let { interactiveAuthFlowSessionManager.parseRequestedRedirectUri(client, it) }
+
+        // Admin-initiated: pass a null client id so the confirmation shows "an administrator".
+        val flow = interactiveAuthFlowSessionManager.getDefaultInteractiveFlow()
+        val session = mfaEnrollmentManager.startMfaEnrollmentSession(
+            userId = userId,
+            returnUri = returnUri,
+            flow = flow,
+            initiatingClientId = null,
+            cancelUri = cancelUri
+        )
+
+        // The resulting redirect URI already carries the signed state as a query parameter.
+        val (steppedSession, step) = engine.advance(session)
+        val redirectUri = stepUriMapper.toRedirectUri(steppedSession, flow, step)
+        return AdminUserMfaEnrollmentResource(
+            redirectUrl = redirectUri.toString()
         )
     }
 }

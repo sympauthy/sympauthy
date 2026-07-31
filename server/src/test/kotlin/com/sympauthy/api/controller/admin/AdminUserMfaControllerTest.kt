@@ -1,17 +1,31 @@
 package com.sympauthy.api.controller.admin
 
+import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
 import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.mapper.admin.AdminUserMfaMethodResourceMapper
+import com.sympauthy.api.resource.admin.AdminUserMfaEnrollmentInputResource
 import com.sympauthy.api.resource.admin.AdminUserMfaMethodResource
+import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.manager.ClientManager
+import com.sympauthy.business.manager.flow.InteractiveFlowEngine
+import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
+import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaEnrollmentManager
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.manager.user.UserManager
+import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.flow.InteractiveFlow
+import com.sympauthy.business.model.flow.InteractiveFlowStep
+import com.sympauthy.business.model.flow.InteractiveFlowStepResult
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.mfa.TotpEnrollment
 import com.sympauthy.business.model.user.User
+import com.sympauthy.config.model.DisabledMfaConfig
+import com.sympauthy.config.model.EnabledMfaConfig
+import com.sympauthy.config.model.MfaConfig
 import io.micronaut.http.HttpStatus
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
-import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
@@ -21,6 +35,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
+import java.net.URI
 import java.time.LocalDateTime
 import java.util.*
 
@@ -36,8 +51,34 @@ class AdminUserMfaControllerTest {
     @MockK
     lateinit var mfaMapper: AdminUserMfaMethodResourceMapper
 
-    @InjectMockKs
-    lateinit var controller: AdminUserMfaController
+    @MockK
+    lateinit var interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager
+
+    @MockK
+    lateinit var clientManager: ClientManager
+
+    @MockK
+    lateinit var mfaEnrollmentManager: InteractiveFlowSessionMfaEnrollmentManager
+
+    @MockK
+    lateinit var engine: InteractiveFlowEngine
+
+    @MockK
+    lateinit var stepUriMapper: InteractiveFlowStepUriMapper
+
+    private fun controller(
+        mfaConfig: MfaConfig = EnabledMfaConfig(totp = true, required = false)
+    ) = AdminUserMfaController(
+        userManager = userManager,
+        totpManager = totpManager,
+        mfaMapper = mfaMapper,
+        interactiveAuthFlowSessionManager = interactiveAuthFlowSessionManager,
+        clientManager = clientManager,
+        mfaEnrollmentManager = mfaEnrollmentManager,
+        engine = engine,
+        stepUriMapper = stepUriMapper,
+        uncheckedMfaConfig = mfaConfig,
+    )
 
     private val userId: UUID = UUID.randomUUID()
     private val mfaId: UUID = UUID.randomUUID()
@@ -68,7 +109,7 @@ class AdminUserMfaControllerTest {
         coEvery { totpManager.findConfirmedEnrollments(userId) } returns listOf(enrollment)
         every { mfaMapper.toResource(enrollment) } returns resource
 
-        val result = controller.listMfaMethods(userId, null, null)
+        val result = controller().listMfaMethods(userId, null, null)
 
         assertEquals(1, result.mfaMethods.size)
         assertEquals(mfaId, result.mfaMethods[0].mfaId)
@@ -83,7 +124,7 @@ class AdminUserMfaControllerTest {
         coEvery { userManager.findByIdOrNull(userId) } returns null
 
         val exception = assertThrows<LocalizedHttpException> {
-            controller.listMfaMethods(userId, null, null)
+            controller().listMfaMethods(userId, null, null)
         }
 
         assertEquals(HttpStatus.NOT_FOUND, exception.status)
@@ -94,7 +135,7 @@ class AdminUserMfaControllerTest {
         coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
         coEvery { totpManager.findConfirmedEnrollments(userId) } returns emptyList()
 
-        val result = controller.listMfaMethods(userId, null, null)
+        val result = controller().listMfaMethods(userId, null, null)
 
         assertTrue(result.mfaMethods.isEmpty())
         assertEquals(0, result.total)
@@ -108,7 +149,7 @@ class AdminUserMfaControllerTest {
         coEvery { totpManager.findConfirmedEnrollments(userId) } returns enrollments
         enrollments.forEachIndexed { i, e -> every { mfaMapper.toResource(e) } returns resources[i] }
 
-        val result = controller.listMfaMethods(userId, 1, 2)
+        val result = controller().listMfaMethods(userId, 1, 2)
 
         assertEquals(1, result.mfaMethods.size)
         assertEquals(1, result.page)
@@ -123,7 +164,7 @@ class AdminUserMfaControllerTest {
         coEvery { totpManager.findConfirmedEnrollmentOrNull(mfaId) } returns enrollment
         coEvery { totpManager.deleteEnrollment(enrollment) } returns Unit
 
-        val result = controller.revokeMfaMethod(userId, mfaId)
+        val result = controller().revokeMfaMethod(userId, mfaId)
 
         assertEquals(userId, result.userId)
         assertEquals(mfaId, result.mfaId)
@@ -136,7 +177,7 @@ class AdminUserMfaControllerTest {
         coEvery { userManager.findByIdOrNull(userId) } returns null
 
         val exception = assertThrows<LocalizedHttpException> {
-            controller.revokeMfaMethod(userId, mfaId)
+            controller().revokeMfaMethod(userId, mfaId)
         }
 
         assertEquals(HttpStatus.NOT_FOUND, exception.status)
@@ -148,7 +189,7 @@ class AdminUserMfaControllerTest {
         coEvery { totpManager.findConfirmedEnrollmentOrNull(mfaId) } returns null
 
         val exception = assertThrows<LocalizedHttpException> {
-            controller.revokeMfaMethod(userId, mfaId)
+            controller().revokeMfaMethod(userId, mfaId)
         }
 
         assertEquals(HttpStatus.NOT_FOUND, exception.status)
@@ -162,9 +203,147 @@ class AdminUserMfaControllerTest {
         coEvery { totpManager.findConfirmedEnrollmentOrNull(mfaId) } returns enrollment
 
         val exception = assertThrows<LocalizedHttpException> {
-            controller.revokeMfaMethod(userId, mfaId)
+            controller().revokeMfaMethod(userId, mfaId)
         }
 
         assertEquals(HttpStatus.NOT_FOUND, exception.status)
+    }
+
+    @Test
+    fun `startEnrollment - Validates user, client and return URI, starts an admin-initiated session and returns the link`() =
+        runTest {
+            val client = mockk<Client>()
+            val returnUri = URI.create("https://client.example.com/done")
+            val flow = mockk<InteractiveFlow>()
+            val session = mockk<OnGoingInteractiveFlowSession>()
+            val steppedSession = mockk<OnGoingInteractiveFlowSession>()
+            val redirectUri = URI.create("https://auth.example.com/flow/confirm?state=abc")
+
+            coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
+            coEvery { clientManager.findClientByIdOrNull("client-id") } returns client
+            every {
+                interactiveAuthFlowSessionManager.parseRequestedRedirectUri(client, "https://client.example.com/done")
+            } returns returnUri
+            coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
+            // Admin-initiated: the initiating client id must be null (rendered as "an administrator"). Keying
+            // the stub on null means the test only reaches the assertion when the controller passes null.
+            coEvery {
+                mfaEnrollmentManager.startMfaEnrollmentSession(userId, returnUri, flow, null, null)
+            } returns session
+            coEvery { engine.advance(session) } returns
+                InteractiveFlowStepResult(steppedSession, InteractiveFlowStep.Confirm)
+            coEvery {
+                stepUriMapper.toRedirectUri(steppedSession, flow, InteractiveFlowStep.Confirm)
+            } returns redirectUri
+
+            val result = controller().startEnrollment(
+                userId,
+                AdminUserMfaEnrollmentInputResource(
+                    clientId = "client-id",
+                    returnUri = "https://client.example.com/done"
+                )
+            )
+
+            assertEquals(redirectUri.toString(), result.redirectUrl)
+        }
+
+    @Test
+    fun `startEnrollment - Validates and forwards the optional cancel URI`() = runTest {
+        val client = mockk<Client>()
+        val returnUri = URI.create("https://client.example.com/done")
+        val cancelUri = URI.create("https://client.example.com/cancelled")
+        val flow = mockk<InteractiveFlow>()
+        val session = mockk<OnGoingInteractiveFlowSession>()
+        val steppedSession = mockk<OnGoingInteractiveFlowSession>()
+        val redirectUri = URI.create("https://auth.example.com/flow/confirm?state=abc")
+
+        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
+        coEvery { clientManager.findClientByIdOrNull("client-id") } returns client
+        every {
+            interactiveAuthFlowSessionManager.parseRequestedRedirectUri(client, "https://client.example.com/done")
+        } returns returnUri
+        every {
+            interactiveAuthFlowSessionManager.parseRequestedRedirectUri(client, "https://client.example.com/cancelled")
+        } returns cancelUri
+        coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
+        // The stub only matches (and thus drives the redirect) when the validated cancel URI is threaded through.
+        coEvery {
+            mfaEnrollmentManager.startMfaEnrollmentSession(userId, returnUri, flow, null, cancelUri)
+        } returns session
+        coEvery { engine.advance(session) } returns
+            InteractiveFlowStepResult(steppedSession, InteractiveFlowStep.Confirm)
+        coEvery {
+            stepUriMapper.toRedirectUri(steppedSession, flow, InteractiveFlowStep.Confirm)
+        } returns redirectUri
+
+        val result = controller().startEnrollment(
+            userId,
+            AdminUserMfaEnrollmentInputResource(
+                clientId = "client-id",
+                returnUri = "https://client.example.com/done",
+                cancelUri = "https://client.example.com/cancelled"
+            )
+        )
+
+        assertEquals(redirectUri.toString(), result.redirectUrl)
+    }
+
+    @Test
+    fun `startEnrollment - Fails with mfa_disabled and starts no session when MFA is disabled`() = runTest {
+        val exception = assertThrows<BusinessException> {
+            controller(mockk<DisabledMfaConfig>()).startEnrollment(
+                userId,
+                AdminUserMfaEnrollmentInputResource(
+                    clientId = "client-id",
+                    returnUri = "https://client.example.com/done"
+                )
+            )
+        }
+
+        assertEquals("admin.users.mfa.enrollment.mfa_disabled", exception.detailsId)
+        coVerify(exactly = 0) {
+            mfaEnrollmentManager.startMfaEnrollmentSession(any(), any(), any(), any(), any())
+        }
+    }
+
+    @Test
+    fun `startEnrollment - Returns 404 when user not found`() = runTest {
+        coEvery { userManager.findByIdOrNull(userId) } returns null
+
+        val exception = assertThrows<LocalizedHttpException> {
+            controller().startEnrollment(
+                userId,
+                AdminUserMfaEnrollmentInputResource(
+                    clientId = "client-id",
+                    returnUri = "https://client.example.com/done"
+                )
+            )
+        }
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.status)
+        coVerify(exactly = 0) {
+            mfaEnrollmentManager.startMfaEnrollmentSession(any(), any(), any(), any(), any())
+        }
+    }
+
+    @Test
+    fun `startEnrollment - Returns 404 when client not found`() = runTest {
+        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
+        coEvery { clientManager.findClientByIdOrNull("client-id") } returns null
+
+        val exception = assertThrows<LocalizedHttpException> {
+            controller().startEnrollment(
+                userId,
+                AdminUserMfaEnrollmentInputResource(
+                    clientId = "client-id",
+                    returnUri = "https://client.example.com/done"
+                )
+            )
+        }
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.status)
+        coVerify(exactly = 0) {
+            mfaEnrollmentManager.startMfaEnrollmentSession(any(), any(), any(), any(), any())
+        }
     }
 }
