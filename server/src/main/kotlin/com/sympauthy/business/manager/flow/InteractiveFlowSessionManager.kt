@@ -254,34 +254,40 @@ class InteractiveFlowSessionManager(
     }
 
     /**
-     * Record [purpose] as completed on the [session], persist the updated completed-purpose list, and return
-     * the resulting session.
+     * Record [purpose] as completed on the ongoing [session] as the engine hands off to the next purpose,
+     * persist the updated completed-purpose list, and return the still-[OnGoingInteractiveFlowSession].
      *
-     * The whole session completes — its completion date is persisted and a [CompletedInteractiveFlowSession]
-     * is returned — only once every purpose the session carries has been completed. Until then the still
-     * [OnGoingInteractiveFlowSession] is returned with [purpose] added to its completed purposes.
-     *
-     * Marking an already-completed [purpose] is a no-op on the list. The presence of the concern-specific
-     * completion invariants (e.g. consent / grant for an OAuth2 session) is enforced by the matching manager
-     * when the attached record is read.
+     * This is pure progress bookkeeping: it never transitions the session to completed — that is
+     * [markAsCompleted], run by the engine once every purpose has resolved and its terminal effect applied.
+     * Marking an already-completed [purpose] is a no-op on the list.
      */
-    suspend fun makePurposeAsComplete(
+    suspend fun markPurposeAsCompleted(
         session: OnGoingInteractiveFlowSession,
         purpose: InteractiveFlowPurpose
-    ): InteractiveFlowSession {
-        val userId = session.userId ?: throw businessExceptionOf(
-            "auth.interactive_flow_session.complete.missing_user"
-        )
+    ): OnGoingInteractiveFlowSession {
         val completedPurposes = (session.completedPurposes + purpose).distinct()
         sessionRepository.updateCompletedPurposes(
             id = session.id,
             completedPurposes = completedPurposes.map(InteractiveFlowPurpose::name)
         )
+        return session.copy(completedPurposes = completedPurposes)
+    }
 
-        if (!session.purposes.all { it in completedPurposes }) {
-            return session.copy(completedPurposes = completedPurposes)
-        }
-
+    /**
+     * Transition the ongoing [session] to completed: persist the completion date and return the resulting
+     * [CompletedInteractiveFlowSession].
+     *
+     * Called by the engine once every purpose the session carries has resolved (and been marked complete via
+     * [markPurposeAsCompleted]) and its terminal effect applied. The concern-specific completion invariants
+     * (e.g. consent / grant for an OAuth2 session) are enforced by the matching purpose's terminal effect,
+     * run before this transition.
+     */
+    suspend fun markAsCompleted(
+        session: OnGoingInteractiveFlowSession
+    ): CompletedInteractiveFlowSession {
+        val userId = session.userId ?: throw businessExceptionOf(
+            "auth.interactive_flow_session.complete.missing_user"
+        )
         val completeDate = LocalDateTime.now()
         sessionRepository.updateCompleteDate(
             id = session.id,
@@ -295,7 +301,7 @@ class InteractiveFlowSessionManager(
             sessionDate = session.sessionDate,
             userId = userId,
             signedUp = session.signedUp,
-            completedPurposes = completedPurposes,
+            completedPurposes = session.completedPurposes,
             mfaPassedDate = session.mfaPassedDate,
             completeDate = completeDate,
             successRedirectUri = session.successRedirectUri
