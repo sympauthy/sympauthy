@@ -32,6 +32,40 @@ MICRONAUT_CONFIG_FILES=$(pwd)/config/application.yml MICRONAUT_ENVIRONMENTS=defa
 MICRONAUT_CONFIG_FILES=$(pwd)/config/application.yml MICRONAUT_ENVIRONMENTS=default,admin ./server/build/native/nativeCompile/server
 ```
 
+### Integration tests (`:integration-tests`)
+
+The `:integration-tests` module boots the SympAuthy image as a Docker container and drives it over real
+HTTP, against both databases (H2 + PostgreSQL). It runs **only** via the `integrationTest` task (never in
+`build` / `check` / `test`). To validate the **current working tree**, build a JVM image and point the
+tests at it (the default nightly image is stale and lacks your changes):
+
+```bash
+# 1. Build a JVM Docker image from the working tree (Micronaut tags it `server:latest`).
+#    Seconds, no GraalVM toolchain needed — always rebuild after code changes.
+./gradlew :server:dockerBuild
+
+# 2. Authenticate to GitHub Packages (testcontainers-sympauthy lives there; needs a read:packages token).
+#    The gh CLI token works.
+export GITHUB_ACTOR=$(gh api user --jq .login)
+export GITHUB_TOKEN=$(gh auth token)
+
+# 3. Run the full suite (feature + security, H2 + PostgreSQL) against the freshly built image.
+./gradlew :integration-tests:integrationTest -Dsympauthy.image=server:latest
+
+# Run a single scenario
+./gradlew :integration-tests:integrationTest -Dsympauthy.image=server:latest --tests '*AuthorizationCodeFeatureIT'
+```
+
+- **Requires** Docker (host-reachable daemon) and JDK 25.
+- **JVM image ≠ CI native image.** `server:latest` runs the code on the JVM; CI (and the nightly image)
+  use a GraalVM **native** image, whose closed-world reflection only works when declared in the native
+  metadata (`reflect-config.json` / `resource-config.json` — e.g. every MapStruct `*Impl`). A green JVM
+  run is **necessary but not sufficient** — the native run in CI is the source of truth.
+- Changing the shape of any flow-config response resource (`SignInFlowResource`, `SignUpFlowResource`,
+  `PasswordResource`, `CollectableClaimResource`, `ProviderResource`) is a **wire-format break** that
+  requires bumping `testcontainers-sympauthy` (`gradle/libs.versions.toml`) in lockstep. See
+  `integration-tests/README.md`.
+
 ## Architecture
 
 Multi-module Gradle project (root + `server`). All source code is in `server/src/main/kotlin/com/sympauthy/`.

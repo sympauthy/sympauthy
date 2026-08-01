@@ -3,7 +3,6 @@ package com.sympauthy.business.manager.flow
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionMapper
-import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
@@ -162,11 +161,11 @@ class InteractiveFlowSessionManagerTest {
     }
 
     @Test
-    fun `makePurposeAsComplete - Records the purpose and stays ongoing while purposes remain`() = runTest {
+    fun `markPurposeAsCompleted - Records the purpose and stays ongoing without completing the session`() = runTest {
         val sessionId = UUID.randomUUID()
         val session = OnGoingInteractiveFlowSession(
             id = sessionId,
-            purposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, InteractiveFlowPurpose.MFA_CHALLENGE),
+            purposes = listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.MFA_ENROLLMENT),
             flowId = "flow-id",
             expirationDate = LocalDateTime.now().plusHours(1),
             sessionDate = LocalDateTime.now(),
@@ -174,28 +173,50 @@ class InteractiveFlowSessionManagerTest {
         )
         // Stub with the exact expected persisted names so reaching the assertion proves the right list was saved.
         coEvery {
-            sessionRepository.updateCompletedPurposes(sessionId, listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE.name))
+            sessionRepository.updateCompletedPurposes(sessionId, listOf(InteractiveFlowPurpose.CONFIRM.name))
         } returns Unit
 
-        val result = interactiveFlowSessionManager.makePurposeAsComplete(
-            session, InteractiveFlowPurpose.OAUTH2_AUTHORIZE
+        val result = interactiveFlowSessionManager.markPurposeAsCompleted(
+            session, InteractiveFlowPurpose.CONFIRM
         )
 
-        assertTrue(result is OnGoingInteractiveFlowSession)
-        result as OnGoingInteractiveFlowSession
-        assertEquals(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE), result.completedPurposes)
+        assertEquals(listOf(InteractiveFlowPurpose.CONFIRM), result.completedPurposes)
+        // Bookkeeping only: the session must not be completed even though a purpose was recorded.
         coVerify(exactly = 0) { sessionRepository.updateCompleteDate(any(), any()) }
     }
 
     @Test
-    fun `makePurposeAsComplete - Completes the session once every purpose is complete`() = runTest {
+    fun `markPurposeAsCompleted - Recording an already-completed purpose is a no-op on the list`() = runTest {
+        val sessionId = UUID.randomUUID()
+        val session = OnGoingInteractiveFlowSession(
+            id = sessionId,
+            purposes = listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.MFA_ENROLLMENT),
+            completedPurposes = listOf(InteractiveFlowPurpose.CONFIRM),
+            flowId = "flow-id",
+            expirationDate = LocalDateTime.now().plusHours(1),
+            sessionDate = LocalDateTime.now(),
+            userId = UUID.randomUUID(),
+        )
+        coEvery {
+            sessionRepository.updateCompletedPurposes(sessionId, listOf(InteractiveFlowPurpose.CONFIRM.name))
+        } returns Unit
+
+        val result = interactiveFlowSessionManager.markPurposeAsCompleted(
+            session, InteractiveFlowPurpose.CONFIRM
+        )
+
+        assertEquals(listOf(InteractiveFlowPurpose.CONFIRM), result.completedPurposes)
+    }
+
+    @Test
+    fun `markAsCompleted - Persists the complete date and returns a completed session`() = runTest {
         val sessionId = UUID.randomUUID()
         val userId = UUID.randomUUID()
         val redirectUri = URI.create("https://client.example.com/callback")
         val session = OnGoingInteractiveFlowSession(
             id = sessionId,
             purposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, InteractiveFlowPurpose.MFA_CHALLENGE),
-            completedPurposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE),
+            completedPurposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, InteractiveFlowPurpose.MFA_CHALLENGE),
             flowId = "flow-id",
             expirationDate = LocalDateTime.now().plusHours(1),
             sessionDate = LocalDateTime.now(),
@@ -204,20 +225,10 @@ class InteractiveFlowSessionManagerTest {
             redirectType = InteractiveFlowRedirectType.AUTHORIZATION_CODE,
             cancelRedirectUri = redirectUri,
         )
-        coEvery {
-            sessionRepository.updateCompletedPurposes(
-                sessionId,
-                listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE.name, InteractiveFlowPurpose.MFA_CHALLENGE.name)
-            )
-        } returns Unit
         coEvery { sessionRepository.updateCompleteDate(sessionId, any()) } returns Unit
 
-        val result = interactiveFlowSessionManager.makePurposeAsComplete(
-            session, InteractiveFlowPurpose.MFA_CHALLENGE
-        )
+        val result = interactiveFlowSessionManager.markAsCompleted(session)
 
-        assertTrue(result is CompletedInteractiveFlowSession)
-        result as CompletedInteractiveFlowSession
         assertEquals(userId, result.userId)
         assertEquals(
             listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, InteractiveFlowPurpose.MFA_CHALLENGE),

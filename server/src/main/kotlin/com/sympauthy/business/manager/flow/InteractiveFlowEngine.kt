@@ -1,6 +1,5 @@
 package com.sympauthy.business.manager.flow
 
-import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.model.flow.CancelledInteractiveFlowSession
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
@@ -18,10 +17,11 @@ import jakarta.inject.Singleton
  *
  * The engine drives the purposes in order: it asks each [InteractiveFlowPurposeHandler], in turn, for the next
  * step of its purpose; the first purpose that still needs a step yields the step to present. As a purpose
- * resolves, the engine appends the follow-up purposes it declares. Once every purpose has resolved, the engine
- * runs each purpose's terminal effect and marks it complete, transitioning the session to completed (or
- * failed). The engine is the sole owner of every session mutation — appending, completing, failing — while the
- * handlers only read the session and describe what their purpose needs.
+ * resolves, the engine marks it complete and appends the follow-up purposes it declares — so completion is
+ * recorded one purpose at a time as the engine hands off, even while later purposes still need steps. Once
+ * every purpose has resolved, the engine runs each purpose's terminal effect and transitions the session to
+ * completed (or failed). The engine is the sole owner of every session mutation — appending, completing,
+ * failing — while the handlers only read the session and describe what their purpose needs.
  */
 @Singleton
 class InteractiveFlowEngine(
@@ -61,10 +61,15 @@ class InteractiveFlowEngine(
         var current = session
         var index = 0
         while (index < current.purposes.size) {
-            val handler = purposeRegistry.getForPurpose(current.purposes[index])
+            val purpose = current.purposes[index]
+            val handler = purposeRegistry.getForPurpose(purpose)
             handler.nextStepOrNull(current)?.let { step ->
                 return InteractiveFlowStepResult(current, step)
             }
+            // The purpose has resolved: mark it complete as the engine hands off, then append the follow-up
+            // purposes it declares. Completion is recorded one purpose at a time, even when a later purpose
+            // still yields a step and the session as a whole is not yet complete.
+            current = sessionManager.markPurposeAsCompleted(current, purpose)
             current = appendFollowUps(current, handler)
             index++
         }
@@ -89,28 +94,26 @@ class InteractiveFlowEngine(
     }
 
     /**
-     * Every purpose has resolved: run each purpose's terminal effect and mark it complete, in order. The
-     * session becomes completed once the last outstanding purpose is completed; a failing effect fails it.
+     * Every purpose has resolved and been marked complete: run each purpose's terminal effect in order, then
+     * transition the session to completed. A failing terminal effect fails the session instead.
+     *
+     * Terminal effects run only here — once every purpose (e.g. the final MFA gate) has resolved — so a
+     * purpose's concern-specific completion work (e.g. the OAuth2 purpose granting scopes and recording
+     * consent) is committed only when the whole flow is about to succeed.
      */
     private suspend fun complete(session: OnGoingInteractiveFlowSession): InteractiveFlowStepResult {
-        var current = session
         for (purpose in session.purposes) {
-            when (val effect = purposeRegistry.getForPurpose(purpose).applyTerminalEffect(current)) {
-                is TerminalEffectResult.Fail -> return InteractiveFlowStepResult(
-                    sessionManager.markAsFailedIfNotRecoverable(current, effect.error),
+            val effect = purposeRegistry.getForPurpose(purpose).applyTerminalEffect(session)
+            if (effect is TerminalEffectResult.Fail) {
+                return InteractiveFlowStepResult(
+                    sessionManager.markAsFailedIfNotRecoverable(session, effect.error),
                     InteractiveFlowStep.Error
                 )
-
-                TerminalEffectResult.Proceed -> when (val next = sessionManager.makePurposeAsComplete(current, purpose)) {
-                    is CompletedInteractiveFlowSession -> return InteractiveFlowStepResult(next, InteractiveFlowStep.Complete)
-                    is OnGoingInteractiveFlowSession -> current = next
-                    is FailedInteractiveFlowSession -> return InteractiveFlowStepResult(next, InteractiveFlowStep.Error)
-                    // makePurposeAsComplete only ever completes or leaves the session ongoing.
-                    is CancelledInteractiveFlowSession -> throw internalBusinessExceptionOf("flow.redirect.unhandled_status")
-                }
             }
         }
-        // Completing the last purpose must have produced a completed (or failed) session.
-        throw internalBusinessExceptionOf("flow.redirect.unhandled_status")
+        return InteractiveFlowStepResult(
+            sessionManager.markAsCompleted(session),
+            InteractiveFlowStep.Complete
+        )
     }
 }
