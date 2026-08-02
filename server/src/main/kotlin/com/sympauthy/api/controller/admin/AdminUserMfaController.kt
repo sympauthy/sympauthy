@@ -11,6 +11,7 @@ import com.sympauthy.api.util.orNotFound
 import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClientManager
+import com.sympauthy.business.manager.client.ClientRedirectUriManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
 import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaEnrollmentManager
@@ -37,6 +38,7 @@ class AdminUserMfaController(
     @Inject private val totpManager: TotpManager,
     @Inject private val mfaMapper: AdminUserMfaMethodResourceMapper,
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
+    @Inject private val clientRedirectUriManager: ClientRedirectUriManager,
     @Inject private val clientManager: ClientManager,
     @Inject private val mfaEnrollmentManager: InteractiveFlowSessionMfaEnrollmentManager,
     @Inject private val engine: InteractiveFlowEngine,
@@ -162,10 +164,11 @@ class AdminUserMfaController(
             .orNotFound()
 
         // Validate the return URI (and the optional cancel URI) against the named client's registered
-        // redirect URIs to avoid open redirects.
-        val returnUri = interactiveAuthFlowSessionManager.parseRequestedRedirectUri(client, resource.returnUri)
+        // redirect URIs to avoid open redirects. recoverable = true: a bad URI is a bad request from the
+        // calling administrator (400), not a server error.
+        val returnUri = clientRedirectUriManager.parseRequestedRedirectUri(client, resource.returnUri, recoverable = true)
         val cancelUri = resource.cancelUri
-            ?.let { interactiveAuthFlowSessionManager.parseRequestedRedirectUri(client, it) }
+            ?.let { clientRedirectUriManager.parseRequestedRedirectUri(client, it, recoverable = true) }
 
         // Admin-initiated: pass a null client id so the confirmation shows "an administrator".
         val flow = interactiveAuthFlowSessionManager.getDefaultInteractiveFlow()

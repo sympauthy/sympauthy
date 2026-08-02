@@ -16,16 +16,20 @@ src/integrationTest/kotlin/com/sympauthy/it/
 ├── SympauthyImage.kt       # resolves the image under test (system property → env var → nightly default)
 ├── Database.kt             # database matrix: H2 and a PostgreSQL companion container
 ├── AbstractSympauthyIT.kt  # shared config, container lifecycle, HTTP/JWKS/PKCE helpers
-├── feature/                # one class per user-facing flow, tagged "feature"
+├── feature/                # one class per feature (happy + rejection paths), tagged "feature"
 │   └── AuthorizationCodeFeatureIT.kt         # authorization-code + PKCE flow yields signed tokens
 └── security/               # one class per risk scenario, tagged "security"
     ├── Authorize303SeeOtherIT.kt             # authorize redirects with 303, never 307
     └── TokenEndpointRejectsUnknownCodeIT.kt  # unknown authorization code is rejected with invalid_grant
 ```
 
-**One scenario per class.** Each `*IT` class covers a single feature or risk and carries a class-level
-KDoc of *what* it exercises and, for security, *why it matters*. The test is a `@ParameterizedTest`
-over `@EnumSource(Database::class)`, so it runs once per database, and is tagged `feature` / `security`.
+**One class per feature or risk.** Each `*IT` class covers a single feature or security risk and carries
+a class-level KDoc of *what* it exercises and, for security, *why it matters*. A feature's happy path and
+its rejection/negative paths (bad input, missing scope, a disabled feature, a cross-client token, …) live
+**together** in that one class as separate methods — they exercise the same endpoint, so keeping them in
+one place keeps the feature's behaviour together; reserve a *new* class for a genuinely distinct feature
+or risk. Every test is a `@ParameterizedTest` over `@EnumSource(Database::class)`, so it runs once per
+database, and is tagged `feature` / `security`.
 
 **Comment convention.** The one-line descriptions in this tree are terse labels — a **lowercase,
 present-tense phrase with no trailing period** — stating a file's responsibility or the behaviour a
@@ -95,8 +99,18 @@ export GITHUB_TOKEN=$(gh auth token)
    section, specification, or GitHub issue it comes from. Tag it `@Tag("feature")` or
    `@Tag("security")` and make the test a `@ParameterizedTest @EnumSource(Database::class)`.
 2. Use `withContainer(database) { sympauthy, registry -> … }` to get a started container plus the mock
-   flow frontend; it tears everything down and dumps container logs on failure.
-3. Drive OAuth flows with `registry.newFlow()…run().exchange()`, or hit endpoints directly with the
-   `httpGet` / `httpPostForm` / `discovery` / `verifyIdTokenSignature` helpers.
+   flow frontend; it tears everything down and dumps container logs on failure. Use `withCustomContainer`
+   when a scenario must configure the container itself (a confidential client, a feature toggle, a
+   non-default claim set), or `withStartedContainer` for setups needing more than the single registry it
+   manages (e.g. a second client with its own mock frontend).
+3. Drive interactive OAuth flows with `registry.newFlow()…run().exchange()`. To call an endpoint, prefer
+   the **generated OpenAPI client** over raw HTTP:
+   `withApiClient(sympauthy, token) { ctx -> ctx.getBean(SomeApi::class.java).someOperation(…).block() }`
+   drives the server through the typed `@Client` beans generated from its contract (the same source of
+   truth as the request/response models). For a rejected call, read the status/body from the thrown
+   `HttpClientResponseException` **inside** the `withApiClient` block — the response buffer is released
+   once the context closes. Reach for the raw `httpGet` / `httpPostForm` helpers only when a scenario must
+   send something the typed client cannot express (a malformed/forged request, or an assertion on
+   redirect/`Location` or header behaviour). `discovery` / `verifyIdTokenSignature` remain available.
 
 On failure, the SympAuthy container's logs are printed to stderr to make CI diagnostics actionable.

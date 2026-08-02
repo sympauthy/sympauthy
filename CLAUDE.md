@@ -65,6 +65,18 @@ export GITHUB_TOKEN=$(gh auth token)
   `PasswordResource`, `CollectableClaimResource`, `ProviderResource`) is a **wire-format break** that
   requires bumping `testcontainers-sympauthy` (`gradle/libs.versions.toml`) in lockstep. See
   `integration-tests/README.md`.
+- **One `*IT` class per feature/risk — happy + negative paths together.** A feature's happy path and its
+  rejection/negative scenarios (bad input, missing scope, disabled feature, cross-client token, …) go in
+  the **same** `*IT` class as separate `@ParameterizedTest` methods — they exercise one endpoint, so its
+  behaviour stays in one place. Only a genuinely distinct feature or security risk gets a new class. Do
+  **not** propose a separate class per negative case of the same endpoint.
+- **Drive endpoints through the generated OpenAPI client, not raw HTTP.** Call the server via the typed
+  `@Client` beans generated from its contract:
+  `withApiClient(sympauthy, token) { ctx -> ctx.getBean(XxxApi::class.java).op(...).block() }`. Read a
+  rejected call's status/body from the thrown `HttpClientResponseException` **inside** the `withApiClient`
+  block (the response buffer is released once the context closes). Reach for the raw `httpGet` /
+  `httpPostForm` helpers only when a scenario must send something the typed client cannot express — a
+  malformed/forged request, or an assertion on redirect/`Location` / header behaviour.
 
 ## Architecture
 
