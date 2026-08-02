@@ -15,6 +15,7 @@ import com.nimbusds.jwt.proc.DefaultJWTProcessor
 import com.sympauthy.api.client.api.OpeniddiscoveryApi
 import com.sympauthy.api.client.model.OpenIdConfigurationResource
 import com.sympauthy.it.client.BearerTokenHolder
+import com.sympauthy.it.client.FlowHttpClient
 import com.sympauthy.testcontainers.Client
 import com.sympauthy.testcontainers.SympauthyContainer
 import com.sympauthy.testcontainers.client.TokenClient
@@ -257,6 +258,21 @@ abstract class AbstractSympauthyIT {
         block(ctx)
     }
 
+    /**
+     * Runs [block] with a [FlowHttpClient] bound to [sympauthy] that does **not** follow redirects, so a
+     * scenario can read the `/authorize` `303` `Location` (which carries the signed internal state) and
+     * drive the state-secured flow endpoints (`/api/v1/flow/cancel`). The hosting context is closed on exit.
+     */
+    protected fun <T> withFlowClient(
+        sympauthy: SympauthyContainer,
+        block: (FlowHttpClient) -> T,
+    ): T = ApplicationContext.run(
+        mapOf(
+            "micronaut.http.services.sympauthy.url" to sympauthy.baseUrl,
+            "micronaut.http.services.sympauthy.follow-redirects" to false,
+        ),
+    ).use { ctx -> block(ctx.getBean(FlowHttpClient::class.java)) }
+
     // --- HTTP / JWT helpers -------------------------------------------------------------------------
 
     /** The OpenID Connect discovery document served by [sympauthy], read through the generated client. */
@@ -385,6 +401,21 @@ abstract class AbstractSympauthyIT {
 
     protected fun encode(value: String): String =
         java.net.URLEncoder.encode(value, StandardCharsets.UTF_8)
+
+    /** The value of query parameter [name] in [url] (decoded), or null if absent. */
+    protected fun queryParam(url: String, name: String): String? = queryParams(url)[name]
+
+    /** The decoded query parameters of [url], in order. */
+    protected fun queryParams(url: String): Map<String, String> {
+        val query = URI.create(url).rawQuery ?: return emptyMap()
+        return query.split("&").filter { it.isNotEmpty() }.associate { pair ->
+            val separator = pair.indexOf('=')
+            val key = if (separator < 0) pair else pair.substring(0, separator)
+            val value = if (separator < 0) "" else pair.substring(separator + 1)
+            java.net.URLDecoder.decode(key, StandardCharsets.UTF_8) to
+                java.net.URLDecoder.decode(value, StandardCharsets.UTF_8)
+        }
+    }
 
     /** A PKCE verifier/challenge pair (S256), matching what a public client must send. */
     protected fun generatePkce(): Pkce {
