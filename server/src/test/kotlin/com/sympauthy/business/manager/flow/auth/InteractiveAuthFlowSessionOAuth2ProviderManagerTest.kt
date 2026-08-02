@@ -4,6 +4,7 @@ import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionProviderManager
+import com.sympauthy.business.manager.flow.reauth.InteractiveFlowSessionReauthenticationManager
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClaimManager
@@ -13,9 +14,15 @@ import com.sympauthy.business.manager.provider.ProviderClaimsResolver
 import com.sympauthy.business.manager.provider.ProviderManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
+import com.sympauthy.business.model.flow.InteractiveFlowPurpose
+import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowSessionProvider
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.provider.EnabledProvider
+import com.sympauthy.business.model.provider.ProviderUserInfo
 import com.sympauthy.business.model.provider.config.ProviderOAuth2Config
 import com.sympauthy.business.model.provider.config.ProviderUserInfoConfig
+import com.sympauthy.business.model.provider.oauth2.ProviderOAuth2Tokens
 import com.sympauthy.business.model.user.RawProviderClaims
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
@@ -27,6 +34,7 @@ import com.sympauthy.config.model.UrlsConfig
 import io.mockk.*
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
+import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
@@ -47,6 +55,9 @@ class InteractiveAuthFlowSessionOAuth2ProviderManagerTest {
 
     @MockK
     lateinit var providerManager: InteractiveFlowSessionProviderManager
+
+    @MockK
+    lateinit var reauthenticationManager: InteractiveFlowSessionReauthenticationManager
 
     @MockK
     lateinit var claimManager: ClaimManager
@@ -84,6 +95,7 @@ class InteractiveAuthFlowSessionOAuth2ProviderManagerTest {
     @MockK
     lateinit var uncheckedUrlsConfig: UrlsConfig
 
+    @SpyK
     @InjectMockKs
     lateinit var manager: InteractiveAuthFlowSessionOAuth2ProviderManager
 
@@ -349,4 +361,90 @@ class InteractiveAuthFlowSessionOAuth2ProviderManagerTest {
         assertEquals("user.create_with_provider.existing_user", exception.detailsId)
         coVerify(exactly = 0) { userManager.createUser() }
     }
+
+    // --- authorizeWithProvider (re-authentication guard) ---
+
+    @Test
+    fun `authorizeWithProvider - Re-authentication rejects a provider not linked to the session user`() = runTest {
+        val userId = UUID.randomUUID()
+        val provider = createProvider()
+        val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
+        coEvery { providerConfigManager.findByIdAndCheckEnabled(provider.id) } returns provider
+        coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.REAUTHENTICATION
+        coEvery { providerClaimsManager.findByUserIdAndProviderIdOrNull(userId, provider.id) } returns null
+
+        val exception = assertThrows<BusinessException> {
+            manager.authorizeWithProvider(session, provider.id)
+        }
+
+        assertEquals("flow.reauthentication.provider_not_linked", exception.detailsId)
+        assertTrue(exception.recoverable)
+        coVerify(exactly = 0) { providerManager.setProvider(any(), any(), any()) }
+    }
+
+    // --- signInOrSignUpUsingProvider (re-authentication branch) ---
+
+    /**
+     * Stub the provider callback chain (token exchange, claim resolution, stored-subject lookup) up to the
+     * point where the re-authentication branch is evaluated. fetchTokens is final, stubbed on the spy manager.
+     */
+    private fun stubProviderCallbackChain(
+        session: OnGoingInteractiveFlowSession,
+        provider: EnabledProvider,
+        subject: String,
+        existingUserInfo: ProviderUserInfo?
+    ): RawProviderClaims {
+        val sessionProvider = mockk<InteractiveFlowSessionProvider> { every { providerId } returns provider.id }
+        val tokens = mockk<ProviderOAuth2Tokens>()
+        val rawUserInfo = RawProviderClaims(subject = subject, email = "user@example.com")
+        coEvery { providerManager.fetchProviderOrNull(session) } returns sessionProvider
+        coEvery { providerConfigManager.findByIdAndCheckEnabled(provider.id) } returns provider
+        coEvery { manager.fetchTokens(provider, provider.auth, "code") } returns tokens
+        coEvery { providerManager.buildProviderNonceOrNull(sessionProvider) } returns null
+        coEvery { providerClaimsResolver.resolveClaims(provider, tokens, null) } returns rawUserInfo
+        coEvery { providerClaimsManager.findByProviderAndSubject(provider, subject) } returns existingUserInfo
+        return rawUserInfo
+    }
+
+    @Test
+    fun `signInOrSignUpUsingProvider - Re-authentication confirms the linked provider account without establishing identity`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val provider = createProvider()
+            val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
+            val existingUserInfo = mockk<ProviderUserInfo> { every { this@mockk.userId } returns userId }
+            val rawUserInfo = stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo)
+            val advanced = mockk<InteractiveFlowSession>()
+            coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.REAUTHENTICATION
+            coJustRun { providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo) }
+            coEvery { reauthenticationManager.markPrimaryCredentialProven(session) } returns mockk()
+            coEvery { engine.completeIfNecessary(session) } returns advanced
+
+            val result = manager.signInOrSignUpUsingProvider(session, provider.id, authorizeCode = "code")
+
+            assertSame(advanced, result)
+            coVerify { reauthenticationManager.markPrimaryCredentialProven(session) }
+            coVerify(exactly = 0) { sessionManager.setAuthenticatedUserId(any(), any(), any()) }
+        }
+
+    @Test
+    fun `signInOrSignUpUsingProvider - Re-authentication rejects a provider account linked to a different user`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val provider = createProvider()
+            val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
+            val existingUserInfo = mockk<ProviderUserInfo> { every { this@mockk.userId } returns UUID.randomUUID() }
+            stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo)
+            coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.REAUTHENTICATION
+
+            val exception = assertThrows<BusinessException> {
+                manager.signInOrSignUpUsingProvider(session, provider.id, authorizeCode = "code")
+            }
+
+            assertEquals("flow.reauthentication.provider_not_linked", exception.detailsId)
+            assertTrue(exception.recoverable)
+            coVerify(exactly = 0) { reauthenticationManager.markPrimaryCredentialProven(any()) }
+            coVerify(exactly = 0) { sessionManager.setAuthenticatedUserId(any(), any(), any()) }
+            coVerify(exactly = 0) { providerClaimsManager.refreshUserInfo(any(), any()) }
+        }
 }

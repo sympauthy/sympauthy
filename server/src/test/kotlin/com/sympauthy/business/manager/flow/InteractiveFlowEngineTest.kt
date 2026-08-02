@@ -16,6 +16,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 import java.time.LocalDateTime
@@ -236,6 +237,45 @@ class InteractiveFlowEngineTest {
             oauth2Handler.applyTerminalEffect(afterSecond)
             mfaHandler.applyTerminalEffect(afterSecond)
         }
+    }
+
+    @Test
+    fun `currentPurposeOrNull - Returns the first purpose that still needs a step`() = runTest {
+        // CONFIRM has resolved (null step) but REAUTHENTICATION still needs the sign-in step.
+        val session = onGoingSession(
+            listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.REAUTHENTICATION)
+        )
+        val confirmHandler = mockk<InteractiveFlowPurposeHandler>()
+        val reauthHandler = mockk<InteractiveFlowPurposeHandler>()
+        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.CONFIRM) } returns confirmHandler
+        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.REAUTHENTICATION) } returns reauthHandler
+        coEvery { confirmHandler.nextStepOrNull(session) } returns null
+        coEvery { reauthHandler.nextStepOrNull(session) } returns InteractiveFlowStep.SignIn
+
+        assertEquals(InteractiveFlowPurpose.REAUTHENTICATION, engine.currentPurposeOrNull(session))
+    }
+
+    @Test
+    fun `currentPurposeOrNull - Stops at the earliest unresolved purpose`() = runTest {
+        // The first purpose already yields a step, so later handlers are never consulted.
+        val session = onGoingSession(
+            listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.REAUTHENTICATION)
+        )
+        val confirmHandler = mockk<InteractiveFlowPurposeHandler>()
+        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.CONFIRM) } returns confirmHandler
+        coEvery { confirmHandler.nextStepOrNull(session) } returns InteractiveFlowStep.Confirm
+
+        assertEquals(InteractiveFlowPurpose.CONFIRM, engine.currentPurposeOrNull(session))
+    }
+
+    @Test
+    fun `currentPurposeOrNull - Returns null when every purpose has resolved`() = runTest {
+        val session = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE))
+        val handler = mockk<InteractiveFlowPurposeHandler>()
+        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns handler
+        coEvery { handler.nextStepOrNull(session) } returns null
+
+        assertNull(engine.currentPurposeOrNull(session))
     }
 
     @Test
