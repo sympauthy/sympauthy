@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.flow
 import com.sympauthy.business.model.flow.CancelledInteractiveFlowSession
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.InteractiveFlowStepResult
@@ -53,6 +54,21 @@ class InteractiveFlowEngine(
      */
     suspend fun completeIfNecessary(session: InteractiveFlowSession): InteractiveFlowSession {
         return advance(session).session
+    }
+
+    /**
+     * Return the purpose currently driving [session] — the first purpose (in order) whose handler still needs a
+     * step — or null when every purpose has resolved.
+     *
+     * Read-only counterpart of the [advanceOnGoing] walk: it never mutates the session, so a caller can branch
+     * on which purpose is active without advancing the flow. Used by the sign-in paths to switch between
+     * establishing identity (e.g. [InteractiveFlowPurpose.OAUTH2_AUTHORIZE]) and confirming the already-fixed
+     * user ([InteractiveFlowPurpose.REAUTHENTICATION]).
+     */
+    suspend fun currentPurposeOrNull(session: OnGoingInteractiveFlowSession): InteractiveFlowPurpose? {
+        return session.purposes.firstOrNull { purpose ->
+            purposeRegistry.getForPurpose(purpose).nextStepOrNull(session) != null
+        }
     }
 
     private suspend fun advanceOnGoing(session: OnGoingInteractiveFlowSession): InteractiveFlowStepResult {
