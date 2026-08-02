@@ -152,6 +152,15 @@
     ]
   },
   {
+    "name": "com.sympauthy.business.mapper.InteractiveFlowSessionReauthenticationMapperImpl",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
     "name": "com.sympauthy.business.mapper.ConsentMapperImpl",
     "methods": [
       {

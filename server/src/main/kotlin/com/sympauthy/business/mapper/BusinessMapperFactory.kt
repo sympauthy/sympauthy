@@ -72,4 +72,8 @@ class BusinessMapperFactory {
 
     @Singleton
     fun interactiveFlowSessionConfirmMapper() = Mappers.getMapper(InteractiveFlowSessionConfirmMapper::class.java)
+
+    @Singleton
+    fun interactiveFlowSessionReauthenticationMapper() =
+        Mappers.getMapper(InteractiveFlowSessionReauthenticationMapper::class.java)
 }
