@@ -5,6 +5,7 @@ import com.sympauthy.api.resource.client.ClientMfaEnrollmentInputResource
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
+import com.sympauthy.business.manager.client.ClientRedirectUriManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
@@ -40,6 +41,9 @@ class ClientMfaEnrollmentControllerTest {
     lateinit var interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager
 
     @MockK
+    lateinit var clientRedirectUriManager: ClientRedirectUriManager
+
+    @MockK
     lateinit var clientManager: ClientManager
 
     @MockK
@@ -59,6 +63,7 @@ class ClientMfaEnrollmentControllerTest {
 
     private fun controller(mfaConfig: MfaConfig) = ClientMfaEnrollmentController(
         interactiveAuthFlowSessionManager = interactiveAuthFlowSessionManager,
+        clientRedirectUriManager = clientRedirectUriManager,
         clientManager = clientManager,
         tokenManager = tokenManager,
         mfaEnrollmentManager = mfaEnrollmentManager,
@@ -94,7 +99,7 @@ class ClientMfaEnrollmentControllerTest {
             every { client.id } returns "client-id"
             coEvery { tokenManager.introspectToken(client, "user-access-token", "access_token") } returns userToken
             every {
-                interactiveAuthFlowSessionManager.parseRequestedRedirectUri(client, "https://client.example.com/done")
+                clientRedirectUriManager.parseRequestedRedirectUri(client, "https://client.example.com/done", recoverable = true)
             } returns returnUri
             coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
             coEvery {
@@ -138,10 +143,10 @@ class ClientMfaEnrollmentControllerTest {
         every { client.id } returns "client-id"
         coEvery { tokenManager.introspectToken(client, "user-access-token", "access_token") } returns userToken
         every {
-            interactiveAuthFlowSessionManager.parseRequestedRedirectUri(client, "https://client.example.com/done")
+            clientRedirectUriManager.parseRequestedRedirectUri(client, "https://client.example.com/done", recoverable = true)
         } returns returnUri
         every {
-            interactiveAuthFlowSessionManager.parseRequestedRedirectUri(client, "https://client.example.com/cancelled")
+            clientRedirectUriManager.parseRequestedRedirectUri(client, "https://client.example.com/cancelled", recoverable = true)
         } returns cancelUri
         coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
         // The stub only matches (and thus drives the redirect) when the validated cancel URI is threaded through.

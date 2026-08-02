@@ -6,6 +6,7 @@ import com.sympauthy.api.resource.client.ClientMfaEnrollmentResource
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
+import com.sympauthy.business.manager.client.ClientRedirectUriManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
@@ -43,6 +44,7 @@ import jakarta.inject.Inject
 @Controller(ClientMfaEnrollmentController.CLIENT_MFA_ENROLLMENT_ENDPOINT)
 class ClientMfaEnrollmentController(
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
+    @Inject private val clientRedirectUriManager: ClientRedirectUriManager,
     @Inject private val clientManager: ClientManager,
     @Inject private val tokenManager: TokenManager,
     @Inject private val mfaEnrollmentManager: InteractiveFlowSessionMfaEnrollmentManager,
@@ -104,10 +106,11 @@ end-user's browser to. Once enrollment completes, the end-user is redirected to 
             )
 
         // Validate the return URI (and the optional cancel URI) against the calling client's registered
-        // redirect URIs to avoid open redirects.
-        val returnUri = interactiveAuthFlowSessionManager.parseRequestedRedirectUri(client, resource.returnUri)
+        // redirect URIs to avoid open redirects. recoverable = true: a bad URI is a bad request from the
+        // calling client (400), not a server error.
+        val returnUri = clientRedirectUriManager.parseRequestedRedirectUri(client, resource.returnUri, recoverable = true)
         val cancelUri = resource.cancelUri
-            ?.let { interactiveAuthFlowSessionManager.parseRequestedRedirectUri(client, it) }
+            ?.let { clientRedirectUriManager.parseRequestedRedirectUri(client, it, recoverable = true) }
 
         val flow = interactiveAuthFlowSessionManager.getDefaultInteractiveFlow()
         val session = mfaEnrollmentManager.startMfaEnrollmentSession(

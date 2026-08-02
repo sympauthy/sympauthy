@@ -7,6 +7,7 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
+import com.sympauthy.business.manager.client.ClientRedirectUriManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
@@ -23,8 +24,6 @@ import com.sympauthy.config.properties.ClientTemplateConfigurationProperties.Com
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.flow.Flow
-import java.net.URI
-import java.net.URISyntaxException
 
 /**
  * Manager providing utility methods supporting the lifecycle of interactive auth flows described in the
@@ -43,6 +42,7 @@ class InteractiveAuthFlowSessionManager(
     @Inject private val clientManager: ClientManager,
     @Inject private val invitationManager: InvitationManager,
     @Inject private val scopeManager: ScopeManager,
+    @Inject private val clientRedirectUriManager: ClientRedirectUriManager,
     @Inject private val uncheckedClientTemplatesConfig: Flow<ClientTemplatesConfig>
 ) {
 
@@ -147,9 +147,10 @@ class InteractiveAuthFlowSessionManager(
 
         val (redirectUri, redirectUriException) = if (client != null) {
             try {
-                parseRequestedRedirectUri(
+                clientRedirectUriManager.parseRequestedRedirectUri(
                     client = client,
-                    uncheckedRedirectUri = uncheckedRedirectUri
+                    uncheckedRedirectUri = uncheckedRedirectUri,
+                    recoverable = false
                 ) to null
             } catch (e: BusinessException) {
                 null to e
@@ -233,81 +234,6 @@ class InteractiveAuthFlowSessionManager(
         }
 
         return Triple(uncheckedCodeChallenge, method, null)
-    }
-
-    /**
-     * Parses and validates the requested redirect URI provided by the end-user in the authorization request.
-     *
-     * This method ensures that the provided redirect URI is valid and authorized for the given [client].
-     * If the provided URI is null, it may default to a pre-configured value, based on the client's settings.
-     */
-    fun parseRequestedRedirectUri(
-        client: Client,
-        uncheckedRedirectUri: String?
-    ): URI {
-        if (uncheckedRedirectUri.isNullOrBlank()) {
-            throw BusinessException(
-                recoverable = false,
-                detailsId = "flow.web.parse_requested_redirect_uri.missing",
-                descriptionId = "description.flow.web.parse_requested_redirect_uri.missing"
-            )
-        }
-        val redirectURI = try {
-            URI(uncheckedRedirectUri)
-        } catch (e: URISyntaxException) {
-            throw BusinessException(
-                recoverable = false,
-                detailsId = "flow.web.parse_requested_redirect_uri.invalid",
-                descriptionId = "description.flow.web.parse_requested_redirect_uri.invalid",
-                values = mapOf("redirect_uri" to uncheckedRedirectUri, "message" to (e.message ?: ""))
-            )
-        }
-
-        if (!matchesAllowedRedirectUri(uncheckedRedirectUri, client.allowedRedirectUris)) {
-            throw BusinessException(
-                recoverable = false,
-                detailsId = "flow.web.parse_requested_redirect_uri.not_allowed",
-                descriptionId = "description.flow.web.parse_requested_redirect_uri.not_allowed",
-                values = mapOf("redirect_uri" to uncheckedRedirectUri)
-            )
-        }
-        return redirectURI
-    }
-
-    /**
-     * Check if [requestedUri] matches any of the [allowedUris] using exact string matching
-     * per OAuth 2.1 (section 7.5.3), with loopback port flexibility per RFC 8252.
-     *
-     * Loopback flexibility: for redirect URIs using `127.0.0.1` or `::1` with `http`/`https`,
-     * the port is ignored during matching. This does NOT apply to `localhost`.
-     */
-    internal fun matchesAllowedRedirectUri(requestedUri: String, allowedUris: List<String>): Boolean {
-        // 1. Exact string match (OAuth 2.1 compliance)
-        if (allowedUris.contains(requestedUri)) return true
-
-        // 2. Loopback port flexibility (RFC 8252)
-        val parsedRequested = try {
-            URI(requestedUri)
-        } catch (_: URISyntaxException) {
-            return false
-        }
-        val requestedScheme = parsedRequested.scheme ?: return false
-        if (requestedScheme != "http" && requestedScheme != "https") return false
-        val requestedHost = parsedRequested.host ?: return false
-        if (requestedHost != "127.0.0.1" && requestedHost != "[::1]") return false
-
-        return allowedUris.any { allowedUri ->
-            val parsedAllowed = try {
-                URI(allowedUri)
-            } catch (_: URISyntaxException) {
-                return@any false
-            }
-            parsedAllowed.scheme == requestedScheme &&
-                    parsedAllowed.host == requestedHost &&
-                    parsedAllowed.path == parsedRequested.path &&
-                    parsedAllowed.query == parsedRequested.query &&
-                    parsedAllowed.fragment == parsedRequested.fragment
-        }
     }
 
     /**

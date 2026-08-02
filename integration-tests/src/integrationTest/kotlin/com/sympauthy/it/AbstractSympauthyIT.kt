@@ -17,6 +17,7 @@ import com.sympauthy.api.client.model.OpenIdConfigurationResource
 import com.sympauthy.it.client.BearerTokenHolder
 import com.sympauthy.testcontainers.Client
 import com.sympauthy.testcontainers.SympauthyContainer
+import com.sympauthy.testcontainers.client.TokenClient
 import com.sympauthy.testcontainers.flow.InteractiveFlowRegistry
 import io.micronaut.context.ApplicationContext
 import java.net.URI
@@ -75,6 +76,64 @@ abstract class AbstractSympauthyIT {
             "claims" to mapOf("email" to mapOf("enabled" to true)),
             "clients" to mapOf(registry.clientId() to clientConfig),
         )
+    }
+
+    // --- On-demand MFA-enrollment support ----------------------------------------------------------
+
+    /** The `return_uri` a standalone MFA-enrollment flow redirects the end-user to on success. */
+    protected fun mfaEnrollmentReturnUri(registry: InteractiveFlowRegistry): String =
+        "${registry.frontendUrl()}/mfa-return"
+
+    /** The `cancel_uri` a standalone MFA-enrollment flow redirects the end-user to on cancellation. */
+    protected fun mfaEnrollmentCancelUri(registry: InteractiveFlowRegistry): String =
+        "${registry.frontendUrl()}/mfa-cancel"
+
+    /**
+     * The full server configuration for the on-demand MFA-enrollment client API: password auth, a
+     * confidential client that owns [registry]'s flow and is allowed both the `authorization_code` grant
+     * (to obtain an end-user access token) and the `client_credentials` grant carrying `users:mfa:write`
+     * (to call the enrollment endpoint), with the return/cancel URIs registered as redirect URIs. Pass
+     * [mfaEnabled] = false to boot with MFA off (to prove the endpoint refuses enrollment).
+     *
+     * `features.grant-unhandled-scopes` lets the `client_credentials` grant actually hand out
+     * `users:mfa:write` (there is no dedicated scope-granting rule), and `templates.clients.default` points
+     * the standalone flow's pages at the mock frontend rather than the built-in flow pages under `<root>/flow`.
+     */
+    protected fun mfaEnrollmentConfig(
+        registry: InteractiveFlowRegistry,
+        mfaEnabled: Boolean = true,
+    ): Map<String, Any> {
+        val secret = registry.clientSecret()
+            ?: error("on-demand MFA enrollment requires a confidential client (client_credentials grant)")
+        val config = linkedMapOf<String, Any>(
+            "auth" to mapOf(
+                "by-password" to mapOf("enabled" to true),
+                "identifier-claims" to listOf("email"),
+            ),
+            "claims" to mapOf("email" to mapOf("enabled" to true)),
+            "features" to mapOf("grant-unhandled-scopes" to true),
+            "templates" to mapOf(
+                "clients" to mapOf("default" to mapOf("authorization-flow" to registry.flowId())),
+            ),
+            "clients" to mapOf(
+                registry.clientId() to mapOf(
+                    "secret" to secret,
+                    "authorizationFlow" to registry.flowId(),
+                    "allowed-grant-types" to listOf("authorization_code", "client_credentials"),
+                    "allowed-scopes" to listOf("openid", "users:mfa:write"),
+                    "default-scopes" to listOf("openid"),
+                    "allowed-redirect-uris" to listOf(
+                        registry.redirectUri(),
+                        mfaEnrollmentReturnUri(registry),
+                        mfaEnrollmentCancelUri(registry),
+                    ),
+                ),
+            ),
+        )
+        if (mfaEnabled) {
+            config["mfa"] = mapOf("required" to false, "totp" to mapOf("enabled" to true))
+        }
+        return config
     }
 
     /** A configured, not-yet-started container backed by [fixture] and wired to [registry]. */
@@ -157,10 +216,18 @@ abstract class AbstractSympauthyIT {
         sympauthy: SympauthyContainer,
         registry: InteractiveFlowRegistry,
         block: (SympauthyContainer, InteractiveFlowRegistry) -> Unit,
-    ) {
+    ) = withStartedContainer(sympauthy) { block(it, registry) }
+
+    /**
+     * Starts [sympauthy] (already fully configured and wired to any number of registries), runs [block],
+     * and dumps the container logs to stderr on any failure. The caller owns the container and registry
+     * lifecycles (typically via `.use {}`). Use this for scenarios that need more than the single registry
+     * [withCustomContainer] manages — e.g. a second client with its own mock frontend.
+     */
+    protected fun withStartedContainer(sympauthy: SympauthyContainer, block: (SympauthyContainer) -> Unit) {
         sympauthy.start()
         try {
-            block(sympauthy, registry)
+            block(sympauthy)
         } catch (failure: Throwable) {
             System.err.println("=== SYMPAUTHY CONTAINER LOGS ===")
             System.err.println(runCatching { sympauthy.logs }.getOrElse { "(logs unavailable: $it)" })
@@ -197,6 +264,18 @@ abstract class AbstractSympauthyIT {
         withApiClient(sympauthy) { ctx ->
             ctx.getBean(OpeniddiscoveryApi::class.java).getConfiguration().block()
         } ?: error("discovery endpoint returned an empty body")
+
+    /**
+     * Mints a `client_credentials` access token for [registry]'s (confidential) client carrying [scopes],
+     * via the library's [TokenClient]. Used to authenticate a client against the client-API endpoints.
+     */
+    protected fun clientCredentialsToken(
+        sympauthy: SympauthyContainer,
+        registry: InteractiveFlowRegistry,
+        vararg scopes: String,
+    ): String = TokenClient(discovery(sympauthy).tokenEndpoint, HttpClient.newHttpClient(), registry.client())
+        .clientCredentials(*scopes)
+        .accessToken()
 
     /**
      * Verifies [idToken] is genuinely signed by the key set [sympauthy] advertises at its `jwks_uri`,

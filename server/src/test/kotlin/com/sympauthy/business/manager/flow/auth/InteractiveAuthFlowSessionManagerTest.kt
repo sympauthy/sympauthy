@@ -7,6 +7,7 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
+import com.sympauthy.business.manager.client.ClientRedirectUriManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
@@ -50,6 +51,9 @@ class InteractiveAuthFlowSessionManagerTest {
 
     @MockK
     lateinit var scopeManager: ScopeManager
+
+    @MockK
+    lateinit var clientRedirectUriManager: ClientRedirectUriManager
 
     var uncheckedClientTemplatesConfig: Flow<ClientTemplatesConfig> = flowOf(
         EnabledClientTemplatesConfig(emptyMap())
@@ -202,7 +206,7 @@ class InteractiveAuthFlowSessionManagerTest {
             val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
             val realManager = InteractiveAuthFlowSessionManager(
                 authorizationFlowManager, oauth2Manager, clientManager,
-                invitationManager, scopeManager, flowOf(templatesConfig)
+                invitationManager, scopeManager, clientRedirectUriManager, flowOf(templatesConfig)
             )
 
             val result = realManager.getDefaultInteractiveFlow()
@@ -217,7 +221,7 @@ class InteractiveAuthFlowSessionManagerTest {
         val templatesConfig = EnabledClientTemplatesConfig(emptyMap())
         val realManager = InteractiveAuthFlowSessionManager(
             authorizationFlowManager, oauth2Manager, clientManager,
-            invitationManager, scopeManager, flowOf(templatesConfig)
+            invitationManager, scopeManager, clientRedirectUriManager, flowOf(templatesConfig)
         )
 
         val result = realManager.getDefaultInteractiveFlow()
@@ -245,7 +249,7 @@ class InteractiveAuthFlowSessionManagerTest {
             val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
             val realManager = InteractiveAuthFlowSessionManager(
                 authorizationFlowManager, oauth2Manager, clientManager,
-                invitationManager, scopeManager, flowOf(templatesConfig)
+                invitationManager, scopeManager, clientRedirectUriManager, flowOf(templatesConfig)
             )
 
             val result = realManager.getDefaultInteractiveFlow()
@@ -272,7 +276,7 @@ class InteractiveAuthFlowSessionManagerTest {
             val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
             val realManager = InteractiveAuthFlowSessionManager(
                 authorizationFlowManager, oauth2Manager, clientManager,
-                invitationManager, scopeManager, flowOf(templatesConfig)
+                invitationManager, scopeManager, clientRedirectUriManager, flowOf(templatesConfig)
             )
 
             val result = realManager.getDefaultInteractiveFlow()
@@ -295,7 +299,7 @@ class InteractiveAuthFlowSessionManagerTest {
     ) {
         coEvery { clientManager.parseRequestedClient(any()) } returns client
         coEvery { scopeManager.parseRequestedScopes(client, any()) } returns scopes
-        every { manager.parseRequestedRedirectUri(client, any()) } returns redirectUri
+        every { clientRedirectUriManager.parseRequestedRedirectUri(client, any(), any()) } returns redirectUri
     }
 
     @Test
@@ -413,7 +417,7 @@ class InteractiveAuthFlowSessionManagerTest {
                 any()
             )
         } throws businessExceptionOf(detailsId = "scope.unsupported")
-        every { manager.parseRequestedRedirectUri(client, any()) } returns URI("https://example.com/callback")
+        every { clientRedirectUriManager.parseRequestedRedirectUri(client, any(), any()) } returns URI("https://example.com/callback")
         val errorSlot = slot<BusinessException?>()
         coEvery {
             oauth2Manager.startOAuth2Session(
@@ -481,8 +485,8 @@ class InteractiveAuthFlowSessionManagerTest {
         setupDefaultFlow()
         coEvery { clientManager.parseRequestedClient(any()) } returns client
         coEvery { scopeManager.parseRequestedScopes(client, any()) } returns emptyList()
-        every { manager.parseRequestedRedirectUri(client, any()) } throws businessExceptionOf(
-            detailsId = "flow.web.parse_requested_redirect_uri.missing"
+        every { clientRedirectUriManager.parseRequestedRedirectUri(client, any(), any()) } throws businessExceptionOf(
+            detailsId = "client.redirect_uri.missing"
         )
         val errorSlot = slot<BusinessException?>()
         coEvery {
@@ -508,7 +512,7 @@ class InteractiveAuthFlowSessionManagerTest {
             uncheckedRedirectUri = ""
         )
 
-        assertEquals("flow.web.parse_requested_redirect_uri.missing", errorSlot.captured?.detailsId)
+        assertEquals("client.redirect_uri.missing", errorSlot.captured?.detailsId)
     }
 
     @Test
@@ -538,7 +542,7 @@ class InteractiveAuthFlowSessionManagerTest {
             uncheckedRedirectUri = "https://example.com/callback"
         )
 
-        verify(exactly = 0) { manager.parseRequestedRedirectUri(any(), any()) }
+        verify(exactly = 0) { clientRedirectUriManager.parseRequestedRedirectUri(any(), any(), any()) }
     }
 
     @Test
@@ -551,7 +555,7 @@ class InteractiveAuthFlowSessionManagerTest {
         setupDefaultFlow()
         coEvery { clientManager.parseRequestedClient(any()) } returns client
         coEvery { scopeManager.parseRequestedScopes(client, any()) } returns emptyList()
-        every { manager.parseRequestedRedirectUri(client, any()) } returns URI("https://example.com/callback")
+        every { clientRedirectUriManager.parseRequestedRedirectUri(client, any(), any()) } returns URI("https://example.com/callback")
         val errorSlot = slot<BusinessException?>()
         coEvery {
             oauth2Manager.startOAuth2Session(
@@ -667,8 +671,8 @@ class InteractiveAuthFlowSessionManagerTest {
                 any()
             )
         } throws businessExceptionOf(detailsId = "scope.unsupported")
-        every { manager.parseRequestedRedirectUri(client, any()) } throws businessExceptionOf(
-            detailsId = "flow.web.parse_requested_redirect_uri.missing"
+        every { clientRedirectUriManager.parseRequestedRedirectUri(client, any(), any()) } throws businessExceptionOf(
+            detailsId = "client.redirect_uri.missing"
         )
         val errorSlot = slot<BusinessException?>()
         coEvery {
@@ -768,155 +772,6 @@ class InteractiveAuthFlowSessionManagerTest {
         )
 
         assertEquals("my-nonce-value", nonceSlot.captured)
-    }
-
-    // --- parseRequestedRedirectUri tests ---
-
-    @Test
-    fun `parseRequestedRedirectUri - Throws when redirect_uri is null`() {
-        val client = mockk<Client>()
-        val exception = assertThrows<BusinessException> {
-            manager.parseRequestedRedirectUri(client, null)
-        }
-        assertEquals("flow.web.parse_requested_redirect_uri.missing", exception.detailsId)
-    }
-
-    @Test
-    fun `parseRequestedRedirectUri - Throws when redirect_uri is blank`() {
-        val client = mockk<Client>()
-        val exception = assertThrows<BusinessException> {
-            manager.parseRequestedRedirectUri(client, "   ")
-        }
-        assertEquals("flow.web.parse_requested_redirect_uri.missing", exception.detailsId)
-    }
-
-    @Test
-    fun `parseRequestedRedirectUri - Throws when redirect_uri is not a valid URI`() {
-        val client = mockk<Client>()
-        val exception = assertThrows<BusinessException> {
-            manager.parseRequestedRedirectUri(client, "://not-valid")
-        }
-        assertEquals("flow.web.parse_requested_redirect_uri.invalid", exception.detailsId)
-    }
-
-    @Test
-    fun `parseRequestedRedirectUri - Throws when redirect_uri is not in allowedRedirectUris`() {
-        val client = mockk<Client> {
-            every { allowedRedirectUris } returns listOf("https://allowed.com/callback")
-        }
-        val exception = assertThrows<BusinessException> {
-            manager.parseRequestedRedirectUri(client, "https://other.com/callback")
-        }
-        assertEquals("flow.web.parse_requested_redirect_uri.not_allowed", exception.detailsId)
-    }
-
-    @Test
-    fun `parseRequestedRedirectUri - Accepts redirect_uri matching an allowed URI exactly`() {
-        val client = mockk<Client> {
-            every { allowedRedirectUris } returns listOf("https://example.com/callback")
-        }
-        val result = manager.parseRequestedRedirectUri(client, "https://example.com/callback")
-        assertEquals(URI("https://example.com/callback"), result)
-    }
-
-    @Test
-    fun `parseRequestedRedirectUri - Rejects redirect_uri with different path`() {
-        val client = mockk<Client> {
-            every { allowedRedirectUris } returns listOf("https://example.com/callback")
-        }
-        val exception = assertThrows<BusinessException> {
-            manager.parseRequestedRedirectUri(client, "https://example.com/other-path")
-        }
-        assertEquals("flow.web.parse_requested_redirect_uri.not_allowed", exception.detailsId)
-    }
-
-    @Test
-    fun `parseRequestedRedirectUri - Rejects redirect_uri with extra query params`() {
-        val client = mockk<Client> {
-            every { allowedRedirectUris } returns listOf("https://example.com/callback")
-        }
-        val exception = assertThrows<BusinessException> {
-            manager.parseRequestedRedirectUri(client, "https://example.com/callback?extra=param")
-        }
-        assertEquals("flow.web.parse_requested_redirect_uri.not_allowed", exception.detailsId)
-    }
-
-    @Test
-    fun `parseRequestedRedirectUri - Rejects redirect_uri with different case in scheme`() {
-        val client = mockk<Client> {
-            every { allowedRedirectUris } returns listOf("https://example.com/callback")
-        }
-        val exception = assertThrows<BusinessException> {
-            manager.parseRequestedRedirectUri(client, "HTTPS://example.com/callback")
-        }
-        assertEquals("flow.web.parse_requested_redirect_uri.not_allowed", exception.detailsId)
-    }
-
-    @Test
-    fun `parseRequestedRedirectUri - Rejects redirect_uri with different case in host`() {
-        val client = mockk<Client> {
-            every { allowedRedirectUris } returns listOf("https://example.com/callback")
-        }
-        val exception = assertThrows<BusinessException> {
-            manager.parseRequestedRedirectUri(client, "https://Example.com/callback")
-        }
-        assertEquals("flow.web.parse_requested_redirect_uri.not_allowed", exception.detailsId)
-    }
-
-    // --- matchesAllowedRedirectUri loopback tests ---
-
-    @Test
-    fun `matchesAllowedRedirectUri - Allows different port on 127_0_0_1 loopback`() {
-        val result = manager.matchesAllowedRedirectUri(
-            "http://127.0.0.1:12345/callback",
-            listOf("http://127.0.0.1:8080/callback")
-        )
-        assertTrue(result)
-    }
-
-    @Test
-    fun `matchesAllowedRedirectUri - Allows different port on IPv6 loopback`() {
-        val result = manager.matchesAllowedRedirectUri(
-            "http://[::1]:12345/callback",
-            listOf("http://[::1]:8080/callback")
-        )
-        assertTrue(result)
-    }
-
-    @Test
-    fun `matchesAllowedRedirectUri - Rejects different port on localhost`() {
-        val result = manager.matchesAllowedRedirectUri(
-            "http://localhost:12345/callback",
-            listOf("http://localhost:8080/callback")
-        )
-        assertFalse(result)
-    }
-
-    @Test
-    fun `matchesAllowedRedirectUri - Rejects loopback with different path`() {
-        val result = manager.matchesAllowedRedirectUri(
-            "http://127.0.0.1:12345/other",
-            listOf("http://127.0.0.1:8080/callback")
-        )
-        assertFalse(result)
-    }
-
-    @Test
-    fun `matchesAllowedRedirectUri - Rejects cross-family loopback mismatch`() {
-        val result = manager.matchesAllowedRedirectUri(
-            "http://127.0.0.1:12345/callback",
-            listOf("http://[::1]:8080/callback")
-        )
-        assertFalse(result)
-    }
-
-    @Test
-    fun `matchesAllowedRedirectUri - Rejects loopback flexibility for custom scheme`() {
-        val result = manager.matchesAllowedRedirectUri(
-            "myapp://127.0.0.1:12345/callback",
-            listOf("myapp://127.0.0.1:8080/callback")
-        )
-        assertFalse(result)
     }
 
     // --- checkSignUpAllowed ---
