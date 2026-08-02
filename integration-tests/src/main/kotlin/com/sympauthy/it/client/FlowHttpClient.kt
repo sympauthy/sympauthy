@@ -38,11 +38,6 @@ class FlowHttpClient(
             .header("Authorization", "State $state"),
     )
 
-    /** POSTs [body] as JSON to [path], authenticated as the bearer-token [accessToken] (e.g. a client token). */
-    fun postJson(path: String, accessToken: String, body: Any): FlowCall = exchange(
-        HttpRequest.POST(path, body).bearerAuth(accessToken),
-    )
-
     private fun exchange(request: HttpRequest<*>): FlowCall {
         val (status, location, body) = try {
             val response = http.toBlocking().exchange(request, String::class.java)
