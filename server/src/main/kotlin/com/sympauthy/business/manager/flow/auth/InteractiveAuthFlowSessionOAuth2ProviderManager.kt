@@ -4,10 +4,12 @@ import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionProviderManager
+import com.sympauthy.business.manager.flow.reauth.InteractiveFlowSessionReauthenticationManager
 
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_CALLBACK_ENDPOINT
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_ENDPOINTS
 import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
@@ -16,10 +18,12 @@ import com.sympauthy.business.manager.provider.ProviderManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.CreateOrAssociateResult
 import com.sympauthy.business.manager.user.UserManager
+import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.business.model.provider.Provider
+import com.sympauthy.business.model.provider.ProviderUserInfo
 import com.sympauthy.business.model.provider.config.ProviderAuthConfig
 import com.sympauthy.business.model.provider.config.ProviderOAuth2Config
 import com.sympauthy.business.model.provider.config.ProviderOpenIdConnectConfig
@@ -48,6 +52,7 @@ open class InteractiveAuthFlowSessionOAuth2ProviderManager(
     @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
     @Inject private val providerManager: InteractiveFlowSessionProviderManager,
+    @Inject private val reauthenticationManager: InteractiveFlowSessionReauthenticationManager,
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val invitationManager: InvitationManager,
@@ -91,6 +96,13 @@ open class InteractiveAuthFlowSessionOAuth2ProviderManager(
         providerId: String
     ): URI {
         val provider = providerConfigManager.findByIdAndCheckEnabled(providerId)
+        // During re-authentication only a provider already linked to the fixed session user may be used. The
+        // user is always set before that purpose runs, so the null pre-check keeps the normal path off the walk.
+        if (session.userId != null &&
+            engine.currentPurposeOrNull(session) == InteractiveFlowPurpose.REAUTHENTICATION
+        ) {
+            requireProviderLinkedToSessionUser(session, providerId)
+        }
         val state = sessionManager.encodeState(session)
         return when (val auth = provider.auth) {
             is ProviderOpenIdConnectConfig -> {
@@ -171,6 +183,15 @@ open class InteractiveAuthFlowSessionOAuth2ProviderManager(
             subject = rawUserInfo.subject
         )
 
+        // Under a re-authentication gate the session user is already fixed: confirm the resolved provider
+        // account is that user, never establish or switch identity. The user is always set before that purpose
+        // runs, so the null pre-check keeps the normal provider sign-in/up path off the engine walk.
+        if (session.userId != null &&
+            engine.currentPurposeOrNull(session) == InteractiveFlowPurpose.REAUTHENTICATION
+        ) {
+            return confirmReauthenticatedProviderUser(session, existingUserInfo, rawUserInfo)
+        }
+
         val (userId, signedUp) = if (existingUserInfo == null) {
             val oauth2 = oauth2Manager.fetchOAuth2(session)
             interactiveAuthFlowSessionManager.checkSignUpAllowed(oauth2, recoverable = false)
@@ -186,6 +207,49 @@ open class InteractiveAuthFlowSessionOAuth2ProviderManager(
 
         // Complete the flow if the end-user has no more step to go through.
         return engine.completeIfNecessary(updatedSession)
+    }
+
+    /**
+     * Reject with a recoverable error unless the [providerId] is a provider already linked to the session's
+     * fixed [OnGoingInteractiveFlowSession.userId]. Guards the authorize redirect during re-authentication so
+     * only the account's own providers can be used to prove ownership.
+     */
+    private suspend fun requireProviderLinkedToSessionUser(
+        session: OnGoingInteractiveFlowSession,
+        providerId: String
+    ) {
+        val userId = session.userId
+        if (userId == null ||
+            providerClaimsManager.findByUserIdAndProviderIdOrNull(userId, providerId) == null
+        ) {
+            throw recoverableBusinessExceptionOf(
+                detailsId = "flow.reauthentication.provider_not_linked",
+                descriptionId = "description.flow.reauthentication.provider_not_linked"
+            )
+        }
+    }
+
+    /**
+     * Re-authentication path: the provider account just proven must be already linked to the session's fixed
+     * [OnGoingInteractiveFlowSession.userId] — **confirm, never establish**. On a match, refresh the stored
+     * claims and record the primary credential as proven **without** touching the session's user id, then
+     * advance. If the subject is unknown or linked to a different user, reject with a recoverable error (retry
+     * on the sign-in step); the session user is never switched.
+     */
+    private suspend fun confirmReauthenticatedProviderUser(
+        session: OnGoingInteractiveFlowSession,
+        existingUserInfo: ProviderUserInfo?,
+        rawUserInfo: RawProviderClaims
+    ): InteractiveFlowSession {
+        if (existingUserInfo == null || existingUserInfo.userId != session.userId) {
+            throw recoverableBusinessExceptionOf(
+                detailsId = "flow.reauthentication.provider_not_linked",
+                descriptionId = "description.flow.reauthentication.provider_not_linked"
+            )
+        }
+        providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo)
+        reauthenticationManager.markPrimaryCredentialProven(session)
+        return engine.completeIfNecessary(session)
     }
 
     /**

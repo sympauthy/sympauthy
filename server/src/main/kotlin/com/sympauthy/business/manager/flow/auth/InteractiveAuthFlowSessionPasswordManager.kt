@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.flow.auth
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.manager.flow.reauth.InteractiveFlowSessionReauthenticationManager
 
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
@@ -13,6 +14,7 @@ import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.UserMapper
+import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.CollectedClaimUpdate
@@ -49,6 +51,7 @@ open class InteractiveAuthFlowSessionPasswordManager(
     @Inject private val passwordManager: PasswordManager,
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
     @Inject private val engine: InteractiveFlowEngine,
+    @Inject private val reauthenticationManager: InteractiveFlowSessionReauthenticationManager,
     @Inject private val userManager: UserManager,
     @Inject private val userRepository: UserRepository,
     @Inject private val claimValueMapper: ClaimValueMapper,
@@ -122,11 +125,41 @@ open class InteractiveAuthFlowSessionPasswordManager(
             )
         }
 
+        // Under a re-authentication gate the session user is already fixed: confirm it, never establish it.
+        // The user is always set before this purpose runs, so the null pre-check keeps the normal sign-in path
+        // (user not yet known) off the engine walk.
+        if (session.userId != null &&
+            engine.currentPurposeOrNull(session) == InteractiveFlowPurpose.REAUTHENTICATION
+        ) {
+            return confirmReauthenticatedUser(session, user)
+        }
+
         // Update the session with the id of the user so they can retrieve their access token.
         val updatedSession = sessionManager.setAuthenticatedUserId(session, user.id)
 
         // Complete the flow if the end-user has no more step to go through.
         return engine.completeIfNecessary(updatedSession)
+    }
+
+    /**
+     * Re-authentication path: the [user] just authenticated with a password must be the session's
+     * already-fixed [OnGoingInteractiveFlowSession.userId] — **confirm, never establish**. On a match, record
+     * the primary credential as proven on the re-authentication record **without** touching the session's user
+     * id, then advance. A mismatch (someone proving a *different* account) is a recoverable error so the
+     * end-user retries on the same sign-in step; the session user is never switched.
+     */
+    private suspend fun confirmReauthenticatedUser(
+        session: OnGoingInteractiveFlowSession,
+        user: User
+    ): InteractiveFlowSession {
+        if (user.id != session.userId) {
+            throw recoverableBusinessExceptionOf(
+                detailsId = "flow.reauthentication.wrong_account",
+                descriptionId = "description.flow.reauthentication.wrong_account"
+            )
+        }
+        reauthenticationManager.markPrimaryCredentialProven(session)
+        return engine.completeIfNecessary(session)
     }
 
     /**

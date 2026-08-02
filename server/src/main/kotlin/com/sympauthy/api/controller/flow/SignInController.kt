@@ -10,10 +10,14 @@ import com.sympauthy.api.resource.flow.SignInFlowResource
 import com.sympauthy.api.resource.flow.SignInInputResource
 import com.sympauthy.api.resource.flow.SimpleFlowResource
 import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionPasswordManager
+import com.sympauthy.business.manager.password.PasswordManager
+import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderManager
+import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlow
@@ -42,7 +46,10 @@ import java.util.Locale
 class SignInController(
     @Inject private val claimManager: ClaimManager,
     @Inject private val passwordFlowManager: InteractiveAuthFlowSessionPasswordManager,
+    @Inject private val passwordManager: PasswordManager,
     @Inject private val providerManager: ProviderManager,
+    @Inject private val providerClaimsManager: ProviderClaimsManager,
+    @Inject private val engine: InteractiveFlowEngine,
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
     @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
@@ -86,13 +93,18 @@ on-going flow. All URLs it contains already include the state query param.
      * The sign-in step applies while no user is associated to the [session] yet, unless the flow is an
      * invitation flow with a sign-up page (in which case the end-user must be redirected to sign-up).
      * The predicate mirrors [OAuth2AuthorizeInteractiveFlowPurposeHandler] so a not-applicable step never redirects to itself.
+     *
+     * A [session] whose user is already fixed normally does not apply — **except** under a
+     * [InteractiveFlowPurpose.REAUTHENTICATION] gate, which reuses the sign-in step to make that user re-prove
+     * ownership. The re-authentication check runs only when a user is already set, so the common
+     * unauthenticated sign-in path is unaffected.
      */
     private suspend fun signInApplies(
         session: OnGoingInteractiveFlowSession,
         flow: InteractiveFlow
     ): Boolean {
         if (session.userId != null) {
-            return false
+            return engine.currentPurposeOrNull(session) == InteractiveFlowPurpose.REAUTHENTICATION
         }
         val invitationId = oauth2Manager.fetchOAuth2(session).invitationId
         return invitationId == null || flow.signUpUri == null
@@ -104,21 +116,42 @@ on-going flow. All URLs it contains already include the state query param.
         locale: Locale
     ): SignInFlowResource {
         val urlsConfig = uncheckedUrlsConfig.orThrow()
-        val password = if (passwordFlowManager.signInEnabled) {
+        // When re-authenticating, the session user is already fixed (see signInApplies) and only the methods
+        // that account actually has are offered — password if it has one, providers already linked to it —
+        // and there is no sign-up. Otherwise this is a normal sign-in and every configured method is offered.
+        val reauthUserId = session.userId
+
+        val password = if (
+            passwordFlowManager.signInEnabled &&
+            (reauthUserId == null || passwordManager.hasPassword(reauthUserId))
+        ) {
             PasswordResource(
                 identifierClaims = collectableClaimResourceMapper.toResources(
                     claimManager.listIdentifierClaims(), locale
                 )
             )
         } else null
-        val providers = providerManager.listEnabledProviders()
+
+        val enabledProviders = providerManager.listEnabledProviders()
+        val offeredProviders = if (reauthUserId != null) {
+            val linkedProviderIds = providerClaimsManager.findByUserId(reauthUserId)
+                .map { it.providerId }
+                .toSet()
+            enabledProviders.filter { it.id in linkedProviderIds }
+        } else {
+            enabledProviders
+        }
+        val providers = offeredProviders
             .takeIf(List<EnabledProvider>::isNotEmpty)
             ?.map { getProvider(it, session, urlsConfig) }
+
         val signUpRedirectUrl = if (
+            reauthUserId == null &&
             interactiveAuthFlowSessionManager.isSignUpAllowed(session) && flow.signUpUri != null
         ) {
             stepUriMapper.getSignUpRedirectUri(session, flow)?.toString()
         } else null
+
         return SignInFlowResource(
             password = password,
             providers = providers,
