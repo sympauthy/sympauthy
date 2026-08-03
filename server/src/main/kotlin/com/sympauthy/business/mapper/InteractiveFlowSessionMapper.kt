@@ -36,6 +36,7 @@ abstract class InteractiveFlowSessionMapper {
             flowId = entity.flowId,
             expirationDate = entity.expirationDate,
             sessionDate = entity.sessionDate,
+            version = entity.version,
             userId = entity.userId,
             signedUp = entity.signedUp,
             completedPurposes = entity.completedPurposes.map(InteractiveFlowPurpose::valueOf),

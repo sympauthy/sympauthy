@@ -70,6 +70,17 @@ class OnGoingInteractiveFlowSession(
     val sessionDate: LocalDateTime,
 
     /**
+     * Optimistic-concurrency version of the underlying row, as it was last read. Every guarded
+     * lifecycle mutation is a compare-and-swap against this value (and returns a session carrying the
+     * incremented version); a stale value loses the swap, so a replayed / concurrent request cannot
+     * silently overwrite newer state.
+     *
+     * Defaults to 0 (a freshly-created row) purely for construction ergonomics; the mapper always
+     * supplies the persisted value read from the database.
+     */
+    val version: Long = 0,
+
+    /**
      * The identifier of the user that has been authenticated during this session.
      * Null until the user has been identified.
      */
@@ -136,6 +147,7 @@ class OnGoingInteractiveFlowSession(
         userId: UUID? = null,
         signedUp: Boolean? = null,
         mfaPassedDate: LocalDateTime? = null,
+        version: Long? = null,
     ) = OnGoingInteractiveFlowSession(
         id = this.id,
         purposes = purposes ?: this.purposes,
@@ -143,6 +155,7 @@ class OnGoingInteractiveFlowSession(
         flowId = this.flowId,
         expirationDate = this.expirationDate,
         sessionDate = this.sessionDate,
+        version = version ?: this.version,
         userId = userId ?: this.userId,
         signedUp = signedUp ?: this.signedUp,
         completedPurposes = completedPurposes ?: this.completedPurposes,

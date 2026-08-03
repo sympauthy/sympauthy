@@ -1,6 +1,9 @@
 CREATE TABLE interactive_flow_sessions
 (
     id                   uuid      NOT NULL DEFAULT random_uuid(),
+    -- Optimistic-concurrency counter, incremented on every guarded lifecycle update. See
+    -- InteractiveFlowSessionRepository for the compare-and-swap contract.
+    version              bigint    NOT NULL DEFAULT 0,
     purposes             text array NOT NULL,
     initiating_purpose   text       NOT NULL,
     session_date         timestamp NOT NULL,
