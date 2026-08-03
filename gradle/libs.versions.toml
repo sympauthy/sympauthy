@@ -4,7 +4,7 @@ micronaut = "5.1.0"
 # Gradle plugins
 micronaut-plugin = "5.0.2"
 kotlin = "2.4.10"
-ksp = "2.3.10"
+ksp = "2.3.11"
 # Pinned third-party libraries
 kotlinx-coroutines = "1.11.0"
 mapstruct = "1.6.3"
