@@ -125,20 +125,22 @@ open class InteractiveAuthFlowSessionPasswordManager(
             )
         }
 
-        // Under a re-authentication gate the session user is already fixed: confirm it, never establish it.
-        // The user is always set before this purpose runs, so the null pre-check keeps the normal sign-in path
-        // (user not yet known) off the engine walk.
-        if (session.userId != null &&
-            engine.currentPurposeOrNull(session) == InteractiveFlowPurpose.REAUTHENTICATION
-        ) {
-            return confirmReauthenticatedUser(session, user)
+        // Bind the authenticated user to the session — but NEVER switch an already-fixed session user:
+        // - no user yet -> normal sign-in ESTABLISHES identity.
+        // - user already fixed under a re-authentication gate -> CONFIRM it (assert it is that same user).
+        // - user already fixed but a later purpose is now active (e.g. an MFA challenge appended after the
+        //   primary credential was proven, or a CONFIRM gate still pending) -> sign-in no longer applies;
+        //   return the session unchanged so the flow redirects to its current step, without switching identity.
+        // Checking `userId == null` first keeps the normal sign-in path off the engine walk.
+        return when {
+            session.userId == null ->
+                engine.completeIfNecessary(sessionManager.setAuthenticatedUserId(session, user.id))
+
+            engine.currentPurposeOrNull(session) == InteractiveFlowPurpose.REAUTHENTICATION ->
+                confirmReauthenticatedUser(session, user)
+
+            else -> session
         }
-
-        // Update the session with the id of the user so they can retrieve their access token.
-        val updatedSession = sessionManager.setAuthenticatedUserId(session, user.id)
-
-        // Complete the flow if the end-user has no more step to go through.
-        return engine.completeIfNecessary(updatedSession)
     }
 
     /**

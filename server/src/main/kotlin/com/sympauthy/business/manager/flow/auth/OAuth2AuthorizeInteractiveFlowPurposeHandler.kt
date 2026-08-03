@@ -92,7 +92,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
         val mfaConfig = uncheckedMfaConfig.orThrow()
         if (!mfaConfig.enabled) return null
         val userId = session.userId ?: return null
-        val enrolled = totpManager.findConfirmedEnrollments(userId).isNotEmpty()
+        val enrolled = totpManager.isEnrolled(userId)
         return when {
             enrolled -> InteractiveFlowPurpose.MFA_CHALLENGE
             session.signedUp -> InteractiveFlowPurpose.MFA_ENROLLMENT

@@ -96,11 +96,11 @@ open class InteractiveAuthFlowSessionOAuth2ProviderManager(
         providerId: String
     ): URI {
         val provider = providerConfigManager.findByIdAndCheckEnabled(providerId)
-        // During re-authentication only a provider already linked to the fixed session user may be used. The
-        // user is always set before that purpose runs, so the null pre-check keeps the normal path off the walk.
-        if (session.userId != null &&
-            engine.currentPurposeOrNull(session) == InteractiveFlowPurpose.REAUTHENTICATION
-        ) {
+        // Once the session user is fixed, a provider round-trip may only re-confirm ownership with a provider
+        // already linked to that user — never establish a new identity (sign-in, which establishes, always runs
+        // with userId == null). A future LINK_PROVIDER purpose that authorizes a not-yet-linked provider is out
+        // of scope here and will relax this guard for its own purpose.
+        if (session.userId != null) {
             requireProviderLinkedToSessionUser(session, providerId)
         }
         val state = sessionManager.encodeState(session)
@@ -183,13 +183,17 @@ open class InteractiveAuthFlowSessionOAuth2ProviderManager(
             subject = rawUserInfo.subject
         )
 
-        // Under a re-authentication gate the session user is already fixed: confirm the resolved provider
-        // account is that user, never establish or switch identity. The user is always set before that purpose
-        // runs, so the null pre-check keeps the normal provider sign-in/up path off the engine walk.
-        if (session.userId != null &&
-            engine.currentPurposeOrNull(session) == InteractiveFlowPurpose.REAUTHENTICATION
-        ) {
-            return confirmReauthenticatedProviderUser(session, existingUserInfo, rawUserInfo)
+        // Never switch an already-fixed session user via a provider round-trip:
+        // - user already fixed under a re-authentication gate -> CONFIRM the resolved account is that user.
+        // - user already fixed but a later purpose is now active -> provider sign-in no longer applies; return
+        //   the session unchanged so the flow redirects to its current step, without switching identity.
+        // Sign-in/up, which establishes identity below, only runs while userId == null.
+        if (session.userId != null) {
+            return if (engine.currentPurposeOrNull(session) == InteractiveFlowPurpose.REAUTHENTICATION) {
+                confirmReauthenticatedProviderUser(session, existingUserInfo, rawUserInfo)
+            } else {
+                session
+            }
         }
 
         val (userId, signedUp) = if (existingUserInfo == null) {

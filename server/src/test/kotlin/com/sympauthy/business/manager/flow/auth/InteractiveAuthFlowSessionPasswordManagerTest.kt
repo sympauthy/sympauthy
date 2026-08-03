@@ -141,6 +141,23 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
     }
 
     @Test
+    fun `signInWithPassword - Does not establish or switch identity when a later purpose is active after re-auth`() = runTest {
+        // Regression for the confirm-never-establish gap: once REAUTHENTICATION has resolved and a later
+        // purpose (e.g. MFA_CHALLENGE) is active, a re-submitted sign-in POST must NOT fall through to the
+        // establish path and switch the already-fixed session user.
+        val session = mockk<OnGoingInteractiveFlowSession>()
+        every { session.userId } returns UUID.randomUUID() // already fixed
+        stubSuccessfulCredential()
+        coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.MFA_CHALLENGE
+
+        val result = manager.signInWithPassword(session, login, password)
+
+        assertSame(session, result)
+        coVerify(exactly = 0) { sessionManager.setAuthenticatedUserId(any(), any(), any()) }
+        coVerify(exactly = 0) { reauthenticationManager.markPrimaryCredentialProven(any()) }
+    }
+
+    @Test
     fun `signInWithPassword - Normal sign-in establishes identity and skips the re-authentication branch`() = runTest {
         val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns null }
         val updated = mockk<OnGoingInteractiveFlowSession>()

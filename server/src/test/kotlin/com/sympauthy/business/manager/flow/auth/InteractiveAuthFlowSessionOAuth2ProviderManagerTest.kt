@@ -370,7 +370,6 @@ class InteractiveAuthFlowSessionOAuth2ProviderManagerTest {
         val provider = createProvider()
         val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
         coEvery { providerConfigManager.findByIdAndCheckEnabled(provider.id) } returns provider
-        coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.REAUTHENTICATION
         coEvery { providerClaimsManager.findByUserIdAndProviderIdOrNull(userId, provider.id) } returns null
 
         val exception = assertThrows<BusinessException> {
@@ -445,6 +444,27 @@ class InteractiveAuthFlowSessionOAuth2ProviderManagerTest {
             assertTrue(exception.recoverable)
             coVerify(exactly = 0) { reauthenticationManager.markPrimaryCredentialProven(any()) }
             coVerify(exactly = 0) { sessionManager.setAuthenticatedUserId(any(), any(), any()) }
+            coVerify(exactly = 0) { providerClaimsManager.refreshUserInfo(any(), any()) }
+        }
+
+    @Test
+    fun `signInOrSignUpUsingProvider - Does not establish or switch identity when a later purpose is active after re-auth`() =
+        runTest {
+            // Regression for the confirm-never-establish gap: once REAUTHENTICATION has resolved and a later
+            // purpose (e.g. MFA_CHALLENGE) is active, a provider round-trip must NOT fall through to the
+            // establish path and switch the already-fixed session user.
+            val userId = UUID.randomUUID()
+            val provider = createProvider()
+            val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
+            val existingUserInfo = mockk<ProviderUserInfo> { every { this@mockk.userId } returns userId }
+            stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo)
+            coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.MFA_CHALLENGE
+
+            val result = manager.signInOrSignUpUsingProvider(session, provider.id, authorizeCode = "code")
+
+            assertSame(session, result)
+            coVerify(exactly = 0) { sessionManager.setAuthenticatedUserId(any(), any(), any()) }
+            coVerify(exactly = 0) { reauthenticationManager.markPrimaryCredentialProven(any()) }
             coVerify(exactly = 0) { providerClaimsManager.refreshUserInfo(any(), any()) }
         }
 }

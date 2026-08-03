@@ -51,13 +51,18 @@ class PasswordManager(
     }
 
     /**
+     * A stored password is usable if it never expires or its expiration is still in the future.
+     */
+    private fun PasswordEntity.isUsable(): Boolean =
+        expirationDate == null || expirationDate.isAfter(now())
+
+    /**
      * Return true if the user identified by [userId] has any non-expired password stored — i.e. a password
      * credential that [arePasswordMatching] could match against. Used to offer the password method only when
      * the account actually has one (e.g. during re-authentication).
      */
     suspend fun hasPassword(userId: UUID): Boolean {
-        return passwordRepository.findByUserId(userId)
-            .any { it.expirationDate == null || it.expirationDate.isBefore(now()) }
+        return passwordRepository.findByUserId(userId).any { it.isUsable() }
     }
 
     /**
@@ -65,7 +70,7 @@ class PasswordManager(
      */
     suspend fun arePasswordMatching(user: User, password: String): Boolean = coroutineScope {
         passwordRepository.findByUserId(user.id)
-            .filter { it.expirationDate == null || it.expirationDate.isBefore(now()) }
+            .filter { it.isUsable() }
             .map { async { isPasswordMatching(it, password) } }
             .let { awaitAll(*it.toTypedArray()) }
             .any { it }

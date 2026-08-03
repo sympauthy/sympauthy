@@ -51,7 +51,6 @@ class ReauthenticationInteractiveFlowPurposeHandler(
         val mfaConfig = uncheckedMfaConfig.orThrow()
         if (!mfaConfig.enabled) return emptyList()
         val userId = session.userId ?: return emptyList()
-        val enrolled = totpManager.findConfirmedEnrollments(userId).isNotEmpty()
-        return if (enrolled) listOf(InteractiveFlowPurpose.MFA_CHALLENGE) else emptyList()
+        return if (totpManager.isEnrolled(userId)) listOf(InteractiveFlowPurpose.MFA_CHALLENGE) else emptyList()
     }
 }

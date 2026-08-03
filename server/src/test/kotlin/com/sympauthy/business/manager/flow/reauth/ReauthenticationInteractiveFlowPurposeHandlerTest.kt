@@ -74,7 +74,7 @@ class ReauthenticationInteractiveFlowPurposeHandlerTest {
         every { session.purposes } returns listOf(InteractiveFlowPurpose.REAUTHENTICATION)
         every { session.userId } returns userId
         every { uncheckedMfaConfig.enabled } returns true
-        coEvery { totpManager.findConfirmedEnrollments(userId) } returns listOf(mockk())
+        coEvery { totpManager.isEnrolled(userId) } returns true
 
         assertEquals(listOf(InteractiveFlowPurpose.MFA_CHALLENGE), handler.followUpPurposes(session))
     }
@@ -85,7 +85,7 @@ class ReauthenticationInteractiveFlowPurposeHandlerTest {
         every { session.purposes } returns listOf(InteractiveFlowPurpose.REAUTHENTICATION)
         every { session.userId } returns userId
         every { uncheckedMfaConfig.enabled } returns true
-        coEvery { totpManager.findConfirmedEnrollments(userId) } returns emptyList()
+        coEvery { totpManager.isEnrolled(userId) } returns false
 
         assertTrue(handler.followUpPurposes(session).isEmpty())
     }

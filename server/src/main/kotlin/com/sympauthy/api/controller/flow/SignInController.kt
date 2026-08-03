@@ -9,6 +9,7 @@ import com.sympauthy.api.resource.flow.ProviderResource
 import com.sympauthy.api.resource.flow.SignInFlowResource
 import com.sympauthy.api.resource.flow.SignInInputResource
 import com.sympauthy.api.resource.flow.SimpleFlowResource
+import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
@@ -151,6 +152,13 @@ on-going flow. All URLs it contains already include the state query param.
         ) {
             stepUriMapper.getSignUpRedirectUri(session, flow)?.toString()
         } else null
+
+        // A re-authenticating account with no offerable method (no password set, its providers disabled or
+        // unlinked) would otherwise be served an empty sign-in page with no way to prove ownership — fail the
+        // flow with a clear error instead of stranding the end-user on a dead-end step.
+        if (reauthUserId != null && password == null && providers == null) {
+            throw businessExceptionOf("flow.reauthentication.no_method")
+        }
 
         return SignInFlowResource(
             password = password,

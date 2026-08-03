@@ -105,6 +105,13 @@ class TotpManager(
     }
 
     /**
+     * Returns true if [userId] has at least one confirmed TOTP enrollment (i.e. the account is MFA-enrolled).
+     */
+    suspend fun isEnrolled(userId: UUID): Boolean {
+        return totpEnrollmentRepository.findByUserIdAndConfirmedDateIsNotNull(userId).isNotEmpty()
+    }
+
+    /**
      * Returns the confirmed TOTP enrollment with the given [enrollmentId], or null if not found or not confirmed.
      */
     suspend fun findConfirmedEnrollmentOrNull(enrollmentId: UUID): TotpEnrollment? {
