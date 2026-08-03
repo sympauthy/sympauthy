@@ -15,6 +15,7 @@ import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import jakarta.transaction.Transactional
 import java.net.URI
 import java.time.LocalDateTime
 import java.util.*
@@ -34,7 +35,7 @@ import java.util.*
  * Managers handling those logics are in the flow package.
  */
 @Singleton
-class InteractiveFlowSessionManager(
+open class InteractiveFlowSessionManager(
     @Inject private val userManager: UserManager,
     @Inject private val jwtManager: JwtManager,
     @Inject private val sessionRepository: InteractiveFlowSessionRepository,
@@ -140,14 +141,17 @@ class InteractiveFlowSessionManager(
         userId: UUID,
         signedUp: Boolean = false
     ): OnGoingInteractiveFlowSession {
-        sessionRepository.updateUserId(
+        val updated = sessionRepository.updateUserId(
             id = session.id,
             userId = userId,
-            signedUp = signedUp
+            signedUp = signedUp,
+            expectedVersion = session.version
         )
+        if (updated == 0) throw concurrentModificationOf(session)
         return session.copy(
             userId = userId,
-            signedUp = signedUp
+            signedUp = signedUp,
+            version = session.version + 1
         )
     }
 
@@ -159,11 +163,13 @@ class InteractiveFlowSessionManager(
         session: OnGoingInteractiveFlowSession
     ): OnGoingInteractiveFlowSession {
         val mfaPassedDate = LocalDateTime.now()
-        sessionRepository.updateMfaPassedDate(
+        val updated = sessionRepository.updateMfaPassedDate(
             id = session.id,
-            mfaPassedDate = mfaPassedDate
+            mfaPassedDate = mfaPassedDate,
+            expectedVersion = session.version
         )
-        return session.copy(mfaPassedDate = mfaPassedDate)
+        if (updated == 0) throw concurrentModificationOf(session)
+        return session.copy(mfaPassedDate = mfaPassedDate, version = session.version + 1)
     }
 
     /**
@@ -184,31 +190,48 @@ class InteractiveFlowSessionManager(
         val afterIndex = session.purposes.indexOf(afterPurpose)
         val insertAt = if (afterIndex >= 0) afterIndex + 1 else session.purposes.size
         val purposes = session.purposes.toMutableList().apply { add(insertAt, purpose) }.toList()
-        sessionRepository.updatePurposes(
+        val updated = sessionRepository.updatePurposes(
             id = session.id,
-            purposes = purposes.map(InteractiveFlowPurpose::name)
+            purposes = purposes.map(InteractiveFlowPurpose::name).toTypedArray(),
+            expectedVersion = session.version
         )
-        return session.copy(purposes = purposes)
+        if (updated == 0) throw concurrentModificationOf(session)
+        return session.copy(purposes = purposes, version = session.version + 1)
     }
 
     /**
      * Set and save the error if it is non-recoverable to prevent further usage of the [session].
      * Do nothing if the [error] is recoverable.
      */
-    suspend fun markAsFailedIfNotRecoverable(
+    @Transactional
+    open suspend fun markAsFailedIfNotRecoverable(
         session: OnGoingInteractiveFlowSession,
         error: BusinessException
     ): InteractiveFlowSession {
         if (error.recoverable) return session
 
         val errorDate = LocalDateTime.now()
-        sessionRepository.updateError(
-            id = session.id,
-            errorDate = errorDate,
-            errorDetailsId = error.detailsId,
-            errorDescriptionId = error.descriptionId,
-            errorValues = error.values
-        )
+        // Two-step version guard: a scalar compare-and-swap then the derived error write, kept atomic
+        // by this @Transactional so the row lock the swap takes serialises concurrent writers across
+        // both statements. Unlike the other lifecycle mutations this cannot be a single versioned
+        // statement — the error_values JSON column round-trips only through Micronaut's property-mapped
+        // serialization, not a raw-query parameter.
+        //
+        // A lost swap (0 rows) is deliberately swallowed rather than thrown: the session was already
+        // advanced or terminated by a concurrent winner. We must not overwrite the winner's state, yet
+        // this losing/replayed request must still be routed to the error page — so we skip the write and
+        // return an in-memory FailedInteractiveFlowSession. Swallowing here is also what stops a
+        // concurrent-modification conflict (whose own exception brought us into this failure path) from
+        // recursing.
+        if (sessionRepository.bumpVersion(session.id, session.version) == 1) {
+            sessionRepository.updateError(
+                id = session.id,
+                errorDate = errorDate,
+                errorDetailsId = error.detailsId,
+                errorDescriptionId = error.descriptionId,
+                errorValues = error.values
+            )
+        }
         return FailedInteractiveFlowSession(
             id = session.id,
             purposes = session.purposes,
@@ -245,10 +268,12 @@ class InteractiveFlowSessionManager(
         }
 
         val cancelDate = LocalDateTime.now()
-        sessionRepository.updateCancelDate(
+        val updated = sessionRepository.updateCancelDate(
             id = session.id,
-            cancelDate = cancelDate
+            cancelDate = cancelDate,
+            expectedVersion = session.version
         )
+        if (updated == 0) throw concurrentModificationOf(session)
         return CancelledInteractiveFlowSession(
             id = session.id,
             purposes = session.purposes,
@@ -276,11 +301,13 @@ class InteractiveFlowSessionManager(
         purpose: InteractiveFlowPurpose
     ): OnGoingInteractiveFlowSession {
         val completedPurposes = (session.completedPurposes + purpose).distinct()
-        sessionRepository.updateCompletedPurposes(
+        val updated = sessionRepository.updateCompletedPurposes(
             id = session.id,
-            completedPurposes = completedPurposes.map(InteractiveFlowPurpose::name)
+            completedPurposes = completedPurposes.map(InteractiveFlowPurpose::name).toTypedArray(),
+            expectedVersion = session.version
         )
-        return session.copy(completedPurposes = completedPurposes)
+        if (updated == 0) throw concurrentModificationOf(session)
+        return session.copy(completedPurposes = completedPurposes, version = session.version + 1)
     }
 
     /**
@@ -299,10 +326,12 @@ class InteractiveFlowSessionManager(
             "auth.interactive_flow_session.complete.missing_user"
         )
         val completeDate = LocalDateTime.now()
-        sessionRepository.updateCompleteDate(
+        val updated = sessionRepository.updateCompleteDate(
             id = session.id,
-            completeDate = completeDate
+            completeDate = completeDate,
+            expectedVersion = session.version
         )
+        if (updated == 0) throw concurrentModificationOf(session)
         return CompletedInteractiveFlowSession(
             id = session.id,
             purposes = session.purposes,
@@ -361,6 +390,19 @@ class InteractiveFlowSessionManager(
             session
         } else null
     }
+
+    /**
+     * Build the non-recoverable [BusinessException] thrown when a version-guarded update affects no
+     * rows: the [session] snapshot the caller holds is stale because another request advanced the
+     * session since it was read. Being non-recoverable, it is routed by the interactive-flow error
+     * handling to the flow's error page (see
+     * [com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil.handleException]).
+     */
+    private fun concurrentModificationOf(session: InteractiveFlowSession): BusinessException =
+        businessExceptionOf(
+            "auth.interactive_flow_session.concurrent_modification",
+            "sessionId" to session.id.toString()
+        )
 
     companion object {
         /**

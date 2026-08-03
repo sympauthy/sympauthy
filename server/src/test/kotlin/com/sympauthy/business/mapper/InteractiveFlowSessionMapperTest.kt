@@ -120,6 +120,7 @@ class InteractiveFlowSessionMapperTest {
             id = id,
             userId = userId,
             mfaPassedDate = mfaPassedDate,
+            version = 7,
         )
 
         val session = mapper.toInteractiveFlowSession(entity)
@@ -130,6 +131,7 @@ class InteractiveFlowSessionMapperTest {
         assertEquals(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE), session.purposes)
         assertEquals(userId, session.userId)
         assertEquals(mfaPassedDate, session.mfaPassedDate)
+        assertEquals(7L, session.version)
     }
 
     @Test
@@ -176,6 +178,7 @@ class InteractiveFlowSessionMapperTest {
         flowId: String? = "flow",
         sessionDate: LocalDateTime = LocalDateTime.now().minusMinutes(2),
         expirationDate: LocalDateTime = LocalDateTime.now().plusMinutes(10),
+        version: Long = 0,
         userId: UUID? = null,
         mfaPassedDate: LocalDateTime? = null,
         successRedirectUri: String? = null,
@@ -189,6 +192,7 @@ class InteractiveFlowSessionMapperTest {
         errorValues: Map<String, String>? = null,
     ): InteractiveFlowSessionEntity {
         return InteractiveFlowSessionEntity(
+            version = version,
             purposes = arrayOf(purpose.name),
             initiatingPurpose = purpose.name,
             sessionDate = sessionDate,

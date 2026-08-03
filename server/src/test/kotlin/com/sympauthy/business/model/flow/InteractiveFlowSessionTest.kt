@@ -9,7 +9,8 @@ class InteractiveFlowSessionTest {
 
     private fun ongoing(
         purposes: List<InteractiveFlowPurpose>,
-        initiatingPurpose: InteractiveFlowPurpose,
+        initiatingPurpose: InteractiveFlowPurpose = purposes.first(),
+        version: Long = 0,
     ) = OnGoingInteractiveFlowSession(
         id = UUID.randomUUID(),
         purposes = purposes,
@@ -17,6 +18,7 @@ class InteractiveFlowSessionTest {
         flowId = null,
         expirationDate = LocalDateTime.now().plusMinutes(5),
         sessionDate = LocalDateTime.now(),
+        version = version,
         userId = null,
     )
 
@@ -30,5 +32,23 @@ class InteractiveFlowSessionTest {
         val copied = session.copy(userId = UUID.randomUUID())
 
         assertEquals(InteractiveFlowPurpose.MFA_ENROLLMENT, copied.initiatingPurpose)
+    }
+
+    @Test
+    fun `copy - Preserves the current version when not overridden`() {
+        val session = ongoing(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE), version = 4)
+
+        val copy = session.copy(userId = UUID.randomUUID())
+
+        assertEquals(4L, copy.version)
+    }
+
+    @Test
+    fun `copy - Overrides the version when provided`() {
+        val session = ongoing(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE), version = 4)
+
+        val copy = session.copy(version = 5)
+
+        assertEquals(5L, copy.version)
     }
 }
