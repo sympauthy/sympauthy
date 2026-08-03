@@ -185,7 +185,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         val userId = UUID.randomUUID()
         val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
         every { uncheckedMfaConfig.enabled } returns true
-        coEvery { totpManager.findConfirmedEnrollments(userId) } returns listOf(mockk())
+        coEvery { totpManager.isEnrolled(userId) } returns true
 
         assertEquals(InteractiveFlowPurpose.MFA_CHALLENGE, handler.requiredMfaPurpose(session))
     }
@@ -198,7 +198,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
             every { signedUp } returns true
         }
         every { uncheckedMfaConfig.enabled } returns true
-        coEvery { totpManager.findConfirmedEnrollments(userId) } returns emptyList()
+        coEvery { totpManager.isEnrolled(userId) } returns false
 
         assertEquals(InteractiveFlowPurpose.MFA_ENROLLMENT, handler.requiredMfaPurpose(session))
     }
@@ -212,7 +212,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         }
         every { uncheckedMfaConfig.enabled } returns true
         every { uncheckedMfaConfig.required } returns true
-        coEvery { totpManager.findConfirmedEnrollments(userId) } returns emptyList()
+        coEvery { totpManager.isEnrolled(userId) } returns false
 
         assertEquals(InteractiveFlowPurpose.MFA_ENROLLMENT, handler.requiredMfaPurpose(session))
     }
@@ -226,7 +226,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         }
         every { uncheckedMfaConfig.enabled } returns true
         every { uncheckedMfaConfig.required } returns false
-        coEvery { totpManager.findConfirmedEnrollments(userId) } returns emptyList()
+        coEvery { totpManager.isEnrolled(userId) } returns false
 
         assertNull(handler.requiredMfaPurpose(session))
     }
