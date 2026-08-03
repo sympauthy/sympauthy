@@ -1,13 +1,13 @@
 package com.sympauthy.business.manager.flow.mfa
 
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
+import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.mfa.TotpEnrollment
 import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import jakarta.inject.Inject
@@ -18,6 +18,7 @@ import java.net.URI
 class InteractiveFlowSessionTotpEnrollmentManager(
     @Inject private val totpManager: TotpManager,
     @Inject private val sessionManager: InteractiveFlowSessionManager,
+    @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val uncheckedAuthConfig: AuthConfig
 ) {
@@ -88,12 +89,16 @@ class InteractiveFlowSessionTotpEnrollmentManager(
     }
 
     /**
-     * Returns the user's email address as the TOTP account label, falling back to the user ID.
+     * Returns the TOTP account label for [user]: the first collected value among the configured
+     * identifier claims (in configured priority order), falling back to the user ID when none are available.
      */
     private suspend fun getAccount(user: User): String {
-        return collectedClaimManager.findByUserId(user.id)
-            .firstOrNull { it.claim.id == OpenIdConnectClaimId.EMAIL }
-            ?.value?.toString()
+        val collectedClaims = collectedClaimManager.findIdentifierByUserId(user.id)
+        return claimManager.listIdentifierClaims()
+            .firstNotNullOfOrNull { claim ->
+                collectedClaims.firstOrNull { it.claim.id == claim.id }?.value
+            }
+            ?.toString()
             ?: user.id.toString()
     }
 }
