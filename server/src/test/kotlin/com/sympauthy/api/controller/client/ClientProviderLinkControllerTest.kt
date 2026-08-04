@@ -1,9 +1,9 @@
 package com.sympauthy.api.controller.client
 
 import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
+import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.resource.client.ClientProviderLinkInputResource
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
 import com.sympauthy.business.manager.client.ClientRedirectUriManager
@@ -20,6 +20,7 @@ import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.security.ClientAuthentication
+import io.micronaut.http.HttpStatus
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -90,7 +91,8 @@ class ClientProviderLinkControllerTest {
 
             coEvery { clientManager.findClientById("client-id") } returns client
             coEvery { tokenManager.introspectToken(client, "user-access-token", "access_token") } returns userToken
-            coEvery { providerManager.findByIdAndCheckEnabled("discord") } returns mockk<EnabledProvider>()
+            coEvery { providerManager.listEnabledProviders() } returns
+                listOf(mockk<EnabledProvider> { every { id } returns "discord" })
             every {
                 clientRedirectUriManager.parseRequestedRedirectUri(client, "https://client.example.com/linked", recoverable = true)
             } returns returnUri
@@ -142,17 +144,17 @@ class ClientProviderLinkControllerTest {
     }
 
     @Test
-    fun `startLink - Fails and starts no session for an unknown provider`() = runTest {
+    fun `startLink - Returns 404 and starts no session for an unknown provider`() = runTest {
         val userId = UUID.randomUUID()
         val authentication = clientAuthentication("client-id")
         val client = mockk<Client>()
         val userToken = mockk<AuthenticationToken> { every { this@mockk.userId } returns userId }
         coEvery { clientManager.findClientById("client-id") } returns client
         coEvery { tokenManager.introspectToken(client, "user-access-token", "access_token") } returns userToken
-        coEvery { providerManager.findByIdAndCheckEnabled("bad-provider") } throws
-            businessExceptionOf("provider.missing", "providerId" to "bad-provider")
+        // No enabled provider matches the path id -> orNotFound() -> 404, coherent with unknown user/client.
+        coEvery { providerManager.listEnabledProviders() } returns emptyList()
 
-        val exception = assertThrows<BusinessException> {
+        val exception = assertThrows<LocalizedHttpException> {
             controller.startLink(
                 authentication,
                 "bad-provider",
@@ -163,7 +165,7 @@ class ClientProviderLinkControllerTest {
             )
         }
 
-        assertEquals("provider.missing", exception.detailsId)
+        assertEquals(HttpStatus.NOT_FOUND, exception.status)
         coVerify(exactly = 0) {
             linkProviderManager.startLinkProviderSession(any(), any(), any(), any(), any(), any())
         }

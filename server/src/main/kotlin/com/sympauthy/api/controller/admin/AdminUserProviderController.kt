@@ -133,14 +133,17 @@ class AdminUserProviderController(
             ),
             ApiResponse(
                 responseCode = "400",
-                description = "Unknown or disabled provider, or invalid return or cancel URI."
+                description = "Invalid return or cancel URI."
             ),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
                 responseCode = "403",
                 description = "The access token does not include the required scope: admin:users:write."
             ),
-            ApiResponse(responseCode = "404", description = "No user or client found with the given identifier.")
+            ApiResponse(
+                responseCode = "404",
+                description = "No user, client, or enabled provider found with the given identifier."
+            )
         ]
     )
     @Post("/{providerId}/link")
@@ -157,8 +160,9 @@ class AdminUserProviderController(
             ?.let { clientManager.findClientByIdOrNull(it) }
             .orNotFound()
 
-        // Fail fast (before creating any session) on an unknown or disabled provider (400).
-        providerManager.findByIdAndCheckEnabled(providerId)
+        // Fail fast (before creating any session) on an unknown or disabled provider. Like the unknown-user /
+        // unknown-client cases above, an absent named resource is a 404 (the provider id is a path variable).
+        providerManager.listEnabledProviders().find { it.id == providerId }.orNotFound()
 
         // Validate the return URI (and the optional cancel URI) against the named client's registered redirect
         // URIs to avoid open redirects. recoverable = true: a bad URI is a bad request (400), not a 500.

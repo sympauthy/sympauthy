@@ -128,10 +128,10 @@ class AdminUserProviderLinkFeatureIT : AbstractSympauthyIT() {
                     cancelUri = null,
                 ),
             )
-            assertEquals(400, rejection.status, "an unknown provider should be rejected as a bad request")
-            assertTrue(
-                rejection.body.contains("provider.missing"),
-                "should be rejected because the provider is unknown, was: ${rejection.body}",
+            assertEquals(
+                404,
+                rejection.status,
+                "an unknown provider should be rejected as not found (coherent with unknown user/client), was: ${rejection.body}",
             )
         }
     }

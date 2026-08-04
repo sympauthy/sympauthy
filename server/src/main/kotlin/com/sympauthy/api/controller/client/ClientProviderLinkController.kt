@@ -3,6 +3,7 @@ package com.sympauthy.api.controller.client
 import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
 import com.sympauthy.api.resource.client.ClientProviderLinkInputResource
 import com.sympauthy.api.resource.client.ClientProviderLinkResource
+import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
@@ -75,13 +76,14 @@ re-authenticate before the link is created; once it completes they are redirecte
             ),
             ApiResponse(
                 responseCode = "400",
-                description = "Invalid access token, unknown or disabled provider, or invalid return URI."
+                description = "Invalid access token, or invalid return URI."
             ),
             ApiResponse(responseCode = "401", description = "Missing or invalid client access token."),
             ApiResponse(
                 responseCode = "403",
                 description = "The access token does not include the required scope: users:providers:write."
-            )
+            ),
+            ApiResponse(responseCode = "404", description = "No enabled provider found with the given identifier.")
         ]
     )
     @Post
@@ -104,8 +106,9 @@ re-authenticate before the link is created; once it completes they are redirecte
                 "description.client.providers.link.invalid_access_token"
             )
 
-        // Fail fast (before creating any session) on an unknown or disabled provider (400).
-        providerManager.findByIdAndCheckEnabled(providerId)
+        // Fail fast (before creating any session) on an unknown or disabled provider. Like the unknown-user /
+        // unknown-client cases, an absent named resource is a 404 (the provider id is a path variable).
+        providerManager.listEnabledProviders().find { it.id == providerId }.orNotFound()
 
         // Validate the return URI (and the optional cancel URI) against the calling client's registered
         // redirect URIs to avoid open redirects. recoverable = true: a bad URI is a bad request from the

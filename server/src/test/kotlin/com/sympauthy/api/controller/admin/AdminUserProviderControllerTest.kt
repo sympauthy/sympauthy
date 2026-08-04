@@ -3,8 +3,6 @@ package com.sympauthy.api.controller.admin
 import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
 import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.resource.admin.AdminUserProviderLinkInputResource
-import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.client.ClientRedirectUriManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
@@ -195,7 +193,8 @@ class AdminUserProviderControllerTest {
 
         coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
         coEvery { clientManager.findClientByIdOrNull("client-id") } returns client
-        coEvery { providerManager.findByIdAndCheckEnabled("discord") } returns mockk<EnabledProvider>()
+        coEvery { providerManager.listEnabledProviders() } returns
+            listOf(mockk<EnabledProvider> { every { id } returns "discord" })
         every {
             clientRedirectUriManager.parseRequestedRedirectUri(client, "https://client.example.com/linked", recoverable = true)
         } returns returnUri
@@ -259,14 +258,14 @@ class AdminUserProviderControllerTest {
     }
 
     @Test
-    fun `startLink - Fails and starts no session for an unknown provider`() = runTest {
+    fun `startLink - Returns 404 and starts no session for an unknown provider`() = runTest {
         val client = mockk<Client>()
         coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
         coEvery { clientManager.findClientByIdOrNull("client-id") } returns client
-        coEvery { providerManager.findByIdAndCheckEnabled("bad-provider") } throws
-            businessExceptionOf("provider.missing", "providerId" to "bad-provider")
+        // No enabled provider matches the path id -> orNotFound() -> 404, coherent with unknown user/client.
+        coEvery { providerManager.listEnabledProviders() } returns emptyList()
 
-        val exception = assertThrows<BusinessException> {
+        val exception = assertThrows<LocalizedHttpException> {
             controller.startLink(
                 userId,
                 "bad-provider",
@@ -274,7 +273,7 @@ class AdminUserProviderControllerTest {
             )
         }
 
-        assertEquals("provider.missing", exception.detailsId)
+        assertEquals(HttpStatus.NOT_FOUND, exception.status)
         coVerify(exactly = 0) {
             linkProviderManager.startLinkProviderSession(any(), any(), any(), any(), any(), any())
         }
