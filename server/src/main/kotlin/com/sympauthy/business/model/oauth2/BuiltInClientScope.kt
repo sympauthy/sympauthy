@@ -16,6 +16,7 @@ enum class BuiltInClientScope(
     USERS_CLAIMS_WRITE(BuiltInClientScopeId.USERS_CLAIMS_WRITE),
     USERS_MFA_READ(BuiltInClientScopeId.USERS_MFA_READ),
     USERS_MFA_WRITE(BuiltInClientScopeId.USERS_MFA_WRITE),
+    USERS_PROVIDERS_WRITE(BuiltInClientScopeId.USERS_PROVIDERS_WRITE),
     INVITATIONS_READ(BuiltInClientScopeId.INVITATIONS_READ),
     INVITATIONS_WRITE(BuiltInClientScopeId.INVITATIONS_WRITE);
 }
@@ -31,6 +32,7 @@ object BuiltInClientScopeId {
     const val USERS_CLAIMS_WRITE = "users:claims:write"
     const val USERS_MFA_READ = "users:mfa:read"
     const val USERS_MFA_WRITE = "users:mfa:write"
+    const val USERS_PROVIDERS_WRITE = "users:providers:write"
     const val INVITATIONS_READ = "invitations:read"
     const val INVITATIONS_WRITE = "invitations:write"
 }
