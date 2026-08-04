@@ -134,29 +134,48 @@ class InteractiveFlowSessionManagerTest {
     }
 
     @Test
-    fun `appendPurpose - Persists the extended purpose list and returns the updated session`() = runTest {
+    fun `insertPurposeAfter - Inserts the purpose right after the given one and persists the list`() = runTest {
         val sessionId = UUID.randomUUID()
         val session = OnGoingInteractiveFlowSession(
             id = sessionId,
-            purposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE),
-            initiatingPurpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE,
+            purposes = listOf(
+                InteractiveFlowPurpose.CONFIRM,
+                InteractiveFlowPurpose.REAUTHENTICATION,
+                InteractiveFlowPurpose.MFA_ENROLLMENT,
+            ),
+            initiatingPurpose = InteractiveFlowPurpose.MFA_ENROLLMENT,
             flowId = "flow-id",
             expirationDate = LocalDateTime.now().plusHours(1),
             sessionDate = LocalDateTime.now(),
-            userId = null,
+            userId = UUID.randomUUID(),
         )
-        // Stub with the exact expected persisted names so reaching the assertion proves the right list was saved.
+        // Stub with the exact expected persisted names so reaching the assertion proves the right ordering was
+        // saved: the inserted MFA_CHALLENGE lands right after REAUTHENTICATION, ahead of the trailing purpose.
         coEvery {
             sessionRepository.updatePurposes(
                 sessionId,
-                listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE.name, InteractiveFlowPurpose.OAUTH2_AUTHORIZE.name)
+                listOf(
+                    InteractiveFlowPurpose.CONFIRM.name,
+                    InteractiveFlowPurpose.REAUTHENTICATION.name,
+                    InteractiveFlowPurpose.MFA_CHALLENGE.name,
+                    InteractiveFlowPurpose.MFA_ENROLLMENT.name,
+                )
             )
         } returns Unit
 
-        val result = interactiveFlowSessionManager.appendPurpose(session, InteractiveFlowPurpose.OAUTH2_AUTHORIZE)
+        val result = interactiveFlowSessionManager.insertPurposeAfter(
+            session,
+            purpose = InteractiveFlowPurpose.MFA_CHALLENGE,
+            afterPurpose = InteractiveFlowPurpose.REAUTHENTICATION,
+        )
 
         assertEquals(
-            listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, InteractiveFlowPurpose.OAUTH2_AUTHORIZE),
+            listOf(
+                InteractiveFlowPurpose.CONFIRM,
+                InteractiveFlowPurpose.REAUTHENTICATION,
+                InteractiveFlowPurpose.MFA_CHALLENGE,
+                InteractiveFlowPurpose.MFA_ENROLLMENT,
+            ),
             result.purposes
         )
     }

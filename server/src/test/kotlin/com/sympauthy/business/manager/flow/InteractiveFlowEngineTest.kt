@@ -144,8 +144,9 @@ class InteractiveFlowEngineTest {
     }
 
     @Test
-    fun `advance - Appends a follow-up purpose then visits it`() = runTest {
-        // The first purpose resolves and declares a follow-up; the engine appends it and the walk visits it.
+    fun `advance - Inserts a follow-up purpose right after the resolving one then visits it`() = runTest {
+        // The first purpose resolves and declares a follow-up; the engine inserts it right after and the walk
+        // visits it.
         val session = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE))
         val marked = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE))
         val grown = onGoingSession(
@@ -161,7 +162,11 @@ class InteractiveFlowEngineTest {
         } returns marked
         coEvery { oauth2Handler.followUpPurposes(marked) } returns listOf(InteractiveFlowPurpose.MFA_CHALLENGE)
         coEvery {
-            sessionManager.appendPurpose(marked, InteractiveFlowPurpose.MFA_CHALLENGE)
+            sessionManager.insertPurposeAfter(
+                marked,
+                InteractiveFlowPurpose.MFA_CHALLENGE,
+                InteractiveFlowPurpose.OAUTH2_AUTHORIZE,
+            )
         } returns grown
         coEvery { mfaHandler.nextStepOrNull(grown) } returns InteractiveFlowStep.MfaSelectionForChallenge
 
@@ -172,8 +177,82 @@ class InteractiveFlowEngineTest {
     }
 
     @Test
-    fun `advance - Does not re-append a follow-up purpose already present`() = runTest {
-        // The follow-up is already on the session, so no append happens; the walk moves on to it.
+    fun `advance - Inserts a follow-up right after a mid-list gate, ahead of the purpose it guards`() = runTest {
+        // REAUTHENTICATION is a *middle* gate: when it resolves and declares an MFA challenge, the engine must
+        // insert the challenge right after it (before the trailing sensitive purpose), not at the list end, so
+        // the guarded purpose (e.g. a provider link) can never run before the second factor. MFA_ENROLLMENT
+        // stands in here for the trailing sensitive purpose.
+        val session = onGoingSession(
+            listOf(
+                InteractiveFlowPurpose.CONFIRM,
+                InteractiveFlowPurpose.REAUTHENTICATION,
+                InteractiveFlowPurpose.MFA_ENROLLMENT,
+            ),
+            initiatingPurpose = InteractiveFlowPurpose.MFA_ENROLLMENT,
+        )
+        val afterConfirm = onGoingSession(
+            listOf(
+                InteractiveFlowPurpose.CONFIRM,
+                InteractiveFlowPurpose.REAUTHENTICATION,
+                InteractiveFlowPurpose.MFA_ENROLLMENT,
+            ),
+            initiatingPurpose = InteractiveFlowPurpose.MFA_ENROLLMENT,
+        )
+        val afterReauth = onGoingSession(
+            listOf(
+                InteractiveFlowPurpose.CONFIRM,
+                InteractiveFlowPurpose.REAUTHENTICATION,
+                InteractiveFlowPurpose.MFA_ENROLLMENT,
+            ),
+            initiatingPurpose = InteractiveFlowPurpose.MFA_ENROLLMENT,
+        )
+        val grown = onGoingSession(
+            listOf(
+                InteractiveFlowPurpose.CONFIRM,
+                InteractiveFlowPurpose.REAUTHENTICATION,
+                InteractiveFlowPurpose.MFA_CHALLENGE,
+                InteractiveFlowPurpose.MFA_ENROLLMENT,
+            ),
+            initiatingPurpose = InteractiveFlowPurpose.MFA_ENROLLMENT,
+        )
+        val confirmHandler = mockk<InteractiveFlowPurposeHandler>()
+        val reauthHandler = mockk<InteractiveFlowPurposeHandler>()
+        val mfaChallengeHandler = mockk<InteractiveFlowPurposeHandler>()
+        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.CONFIRM) } returns confirmHandler
+        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.REAUTHENTICATION) } returns reauthHandler
+        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.MFA_CHALLENGE) } returns mfaChallengeHandler
+        coEvery { confirmHandler.nextStepOrNull(session) } returns null
+        coEvery {
+            sessionManager.markPurposeAsCompleted(session, InteractiveFlowPurpose.CONFIRM)
+        } returns afterConfirm
+        coEvery { confirmHandler.followUpPurposes(afterConfirm) } returns emptyList()
+        coEvery { reauthHandler.nextStepOrNull(afterConfirm) } returns null
+        coEvery {
+            sessionManager.markPurposeAsCompleted(afterConfirm, InteractiveFlowPurpose.REAUTHENTICATION)
+        } returns afterReauth
+        coEvery {
+            reauthHandler.followUpPurposes(afterReauth)
+        } returns listOf(InteractiveFlowPurpose.MFA_CHALLENGE)
+        coEvery {
+            sessionManager.insertPurposeAfter(
+                afterReauth,
+                InteractiveFlowPurpose.MFA_CHALLENGE,
+                InteractiveFlowPurpose.REAUTHENTICATION,
+            )
+        } returns grown
+        coEvery {
+            mfaChallengeHandler.nextStepOrNull(grown)
+        } returns InteractiveFlowStep.MfaSelectionForChallenge
+
+        val result = engine.advance(session)
+
+        assertSame(grown, result.session)
+        assertEquals(InteractiveFlowStep.MfaSelectionForChallenge, result.step)
+    }
+
+    @Test
+    fun `advance - Does not re-insert a follow-up purpose already present`() = runTest {
+        // The follow-up is already on the session, so no insert happens; the walk moves on to it.
         val session = onGoingSession(
             listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, InteractiveFlowPurpose.MFA_CHALLENGE)
         )

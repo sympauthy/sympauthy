@@ -18,8 +18,9 @@ import jakarta.inject.Singleton
  *
  * The engine drives the purposes in order: it asks each [InteractiveFlowPurposeHandler], in turn, for the next
  * step of its purpose; the first purpose that still needs a step yields the step to present. As a purpose
- * resolves, the engine marks it complete and appends the follow-up purposes it declares — so completion is
- * recorded one purpose at a time as the engine hands off, even while later purposes still need steps. Once
+ * resolves, the engine marks it complete and inserts the follow-up purposes it declares right after it — so
+ * completion is recorded one purpose at a time as the engine hands off, even while later purposes still need
+ * steps. Once
  * every purpose has resolved, the engine runs each purpose's terminal effect and transitions the session to
  * completed (or failed). The engine is the sole owner of every session mutation — appending, completing,
  * failing — while the handlers only read the session and describe what their purpose needs.
@@ -82,28 +83,37 @@ class InteractiveFlowEngine(
             handler.nextStepOrNull(current)?.let { step ->
                 return InteractiveFlowStepResult(current, step)
             }
-            // The purpose has resolved: mark it complete as the engine hands off, then append the follow-up
-            // purposes it declares. Completion is recorded one purpose at a time, even when a later purpose
-            // still yields a step and the session as a whole is not yet complete.
+            // The purpose has resolved: mark it complete as the engine hands off, then insert the follow-up
+            // purposes it declares right after it. Completion is recorded one purpose at a time, even when a
+            // later purpose still yields a step and the session as a whole is not yet complete.
             current = sessionManager.markPurposeAsCompleted(current, purpose)
-            current = appendFollowUps(current, handler)
+            current = insertFollowUpsAfter(current, purpose, handler)
             index++
         }
         return complete(current)
     }
 
     /**
-     * Append the follow-up purposes [handler] declares for [session] that are not already present, persisting
-     * each, and return the possibly-grown session.
+     * Insert the follow-up purposes [handler] declares for [session] — that are not already present —
+     * immediately after the just-resolved [afterPurpose], in declared order, persisting each, and return the
+     * possibly-grown session.
+     *
+     * Inserting right after the resolving purpose (rather than appending at the end) keeps a follow-up ahead
+     * of any later purpose the session already carries: a re-authentication gate's MFA challenge lands before
+     * the sensitive purpose it guards (e.g. a provider link), never after it.
      */
-    private suspend fun appendFollowUps(
+    private suspend fun insertFollowUpsAfter(
         session: OnGoingInteractiveFlowSession,
+        afterPurpose: InteractiveFlowPurpose,
         handler: InteractiveFlowPurposeHandler
     ): OnGoingInteractiveFlowSession {
         var current = session
+        var previous = afterPurpose
         for (purpose in handler.followUpPurposes(current)) {
             if (purpose !in current.purposes) {
-                current = sessionManager.appendPurpose(current, purpose)
+                current = sessionManager.insertPurposeAfter(current, purpose, previous)
+                // Chain multiple follow-ups so they keep their declared order after the resolving purpose.
+                previous = purpose
             }
         }
         return current

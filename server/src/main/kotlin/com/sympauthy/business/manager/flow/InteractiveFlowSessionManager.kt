@@ -167,17 +167,23 @@ class InteractiveFlowSessionManager(
     }
 
     /**
-     * Append [purpose] to the ordered list of purposes of the [session], persist it, and return the updated
-     * session.
+     * Insert [purpose] into the ordered purpose list of the [session] immediately after [afterPurpose],
+     * persist it, and return the updated session. Falls back to appending at the end when [afterPurpose] is
+     * not present (which never happens for the engine's use — the resolving purpose is always in the list).
      *
-     * Used by a purpose handler that, as it resolves, needs a follow-up purpose to run before the session
-     * completes (e.g. the OAuth2 authorize purpose appending an MFA purpose).
+     * Used by the engine when a purpose resolves and declares a follow-up purpose that must run before the
+     * session completes (e.g. the re-authentication gate inserting an MFA challenge). Inserting **after** the
+     * resolving purpose — rather than at the end — keeps the follow-up ahead of any later purpose the session
+     * already carries, so e.g. a provider link never commits before its MFA challenge.
      */
-    suspend fun appendPurpose(
+    suspend fun insertPurposeAfter(
         session: OnGoingInteractiveFlowSession,
-        purpose: InteractiveFlowPurpose
+        purpose: InteractiveFlowPurpose,
+        afterPurpose: InteractiveFlowPurpose
     ): OnGoingInteractiveFlowSession {
-        val purposes = session.purposes + purpose
+        val afterIndex = session.purposes.indexOf(afterPurpose)
+        val insertAt = if (afterIndex >= 0) afterIndex + 1 else session.purposes.size
+        val purposes = session.purposes.toMutableList().apply { add(insertAt, purpose) }.toList()
         sessionRepository.updatePurposes(
             id = session.id,
             purposes = purposes.map(InteractiveFlowPurpose::name)
