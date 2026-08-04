@@ -4,10 +4,12 @@ import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROV
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_ENDPOINTS
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
+import com.sympauthy.business.manager.flow.link.InteractiveFlowSessionLinkProviderManager
 import com.sympauthy.business.manager.flow.reauth.InteractiveFlowSessionReauthenticationManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderClaimsResolver
 import com.sympauthy.business.manager.provider.ProviderManager
+import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
@@ -24,9 +26,11 @@ import com.sympauthy.business.model.redirect.ProviderOpenIdConnectAuthorizationR
 import com.sympauthy.business.model.user.RawProviderClaims
 import com.sympauthy.client.oauth2.TokenEndpointClient
 import com.sympauthy.config.model.*
+import com.sympauthy.util.loggerForClass
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.net.URI
+import java.util.UUID
 
 /**
  * Manager owning the interaction with a third-party OAuth 2 / OpenID Connect provider within an interactive
@@ -52,8 +56,13 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
     @Inject private val engine: InteractiveFlowEngine,
     @Inject private val tokenEndpointClient: TokenEndpointClient,
     @Inject private val establisher: ProviderUserEstablisher,
+    @Inject private val linkProviderManager: InteractiveFlowSessionLinkProviderManager,
+    @Inject private val userManager: UserManager,
+    @Inject private val uncheckedAuthConfig: AuthConfig,
     @Inject private val uncheckedUrlsConfig: UrlsConfig
 ) {
+
+    private val logger = loggerForClass()
 
     fun getOAuth2(provider: EnabledProvider): ProviderOAuth2Config {
         if (provider.auth !is ProviderOAuth2Config) {
@@ -85,11 +94,16 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
     ): URI {
         val provider = providerConfigManager.findByIdAndCheckEnabled(providerId)
         // Once the session user is fixed, a provider round-trip may only re-confirm ownership with a provider
-        // already linked to that user — never establish a new identity (sign-in, which establishes, always runs
-        // with userId == null). A future LINK_PROVIDER purpose that authorizes a not-yet-linked provider is out
-        // of scope here and will relax this guard for its own purpose.
+        // already linked to that user — never establish a new identity (sign-in, which establishes, always
+        // runs with userId == null). The one exception is the LINK_PROVIDER purpose, which authorizes a
+        // not-yet-linked provider: there we instead require the provider to be exactly the link intent, so a
+        // stolen link-session state cannot authorize an arbitrary provider.
         if (session.userId != null) {
-            requireProviderLinkedToSessionUser(session, providerId)
+            if (engine.currentPurposeOrNull(session) == InteractiveFlowPurpose.LINK_PROVIDER) {
+                requireProviderIsLinkTarget(session, providerId)
+            } else {
+                requireProviderLinkedToSessionUser(session, providerId)
+            }
         }
         val state = sessionManager.encodeState(session)
         return when (val auth = provider.auth) {
@@ -173,14 +187,17 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
 
         // Never switch an already-fixed session user via a provider round-trip:
         // - user already fixed under a re-authentication gate -> CONFIRM the resolved account is that user.
+        // - user already fixed under a provider-link gate -> LINK the resolved provider to the fixed user.
         // - user already fixed but a later purpose is now active -> provider sign-in no longer applies; return
         //   the session unchanged so the flow redirects to its current step, without switching identity.
         // Sign-in/up, which establishes identity below, only runs while userId == null.
         if (session.userId != null) {
-            return if (engine.currentPurposeOrNull(session) == InteractiveFlowPurpose.REAUTHENTICATION) {
-                confirmReauthenticatedProviderUser(session, existingUserInfo, rawUserInfo)
-            } else {
-                session
+            return when (engine.currentPurposeOrNull(session)) {
+                InteractiveFlowPurpose.REAUTHENTICATION ->
+                    confirmReauthenticatedProviderUser(session, existingUserInfo, rawUserInfo)
+                InteractiveFlowPurpose.LINK_PROVIDER ->
+                    linkProviderToSessionUser(session, provider, existingUserInfo, rawUserInfo)
+                else -> session
             }
         }
 
@@ -238,6 +255,94 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
         providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo)
         reauthenticationManager.markPrimaryCredentialProven(session)
         return engine.completeIfNecessary(session)
+    }
+
+    /**
+     * Reject with a recoverable error unless [providerId] is exactly the provider the LINK_PROVIDER session was
+     * created to link (its link-provider record). This enforces the link intent so a leaked link-session state
+     * cannot be used to authorize — and then link — an arbitrary provider the attacker controls.
+     */
+    private suspend fun requireProviderIsLinkTarget(
+        session: OnGoingInteractiveFlowSession,
+        providerId: String
+    ) {
+        val targetProviderId = linkProviderManager.fetchLinkProviderOrNull(session)?.providerId
+        if (targetProviderId != providerId) {
+            throw recoverableBusinessExceptionOf(
+                detailsId = "flow.link_provider.wrong_provider",
+                descriptionId = "description.flow.link_provider.wrong_provider"
+            )
+        }
+    }
+
+    /**
+     * Provider-link path: link the resolved provider account to the session's **fixed**
+     * [OnGoingInteractiveFlowSession.userId], then advance. The session user is never switched — linking only
+     * ever attaches a provider to the already-identified account.
+     *
+     * Conflicts hard-fail (unrecoverable, so the flow fails and nothing is linked):
+     * - the provider subject is already linked to **another** account (an identity cannot belong to two users);
+     * - an identifier claim the provider asserts is already owned by **another** account.
+     *
+     * A subject already linked to **this** user is an idempotent success (the stored claims are refreshed).
+     */
+    private suspend fun linkProviderToSessionUser(
+        session: OnGoingInteractiveFlowSession,
+        provider: EnabledProvider,
+        existingUserInfo: ProviderUserInfo?,
+        rawUserInfo: RawProviderClaims
+    ): InteractiveFlowSession {
+        val userId = session.userId
+            ?: throw businessExceptionOf("flow.link_provider.missing_user")
+
+        if (existingUserInfo != null) {
+            if (existingUserInfo.userId == userId) {
+                // Already linked to this user: idempotent success.
+                providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo)
+                return engine.completeIfNecessary(session)
+            }
+            // Linked to a different account: an identity cannot belong to two accounts.
+            throw businessExceptionOf(
+                "flow.link_provider.subject_conflict",
+                "providerId" to provider.id
+            )
+        }
+
+        val identifierOwnerId = findUserOwningIdentifierClaimsOrNull(provider, rawUserInfo)
+        if (identifierOwnerId != null && identifierOwnerId != userId) {
+            throw businessExceptionOf(
+                "flow.link_provider.identifier_conflict",
+                "providerId" to provider.id
+            )
+        }
+
+        providerClaimsManager.saveUserInfo(provider, userId, rawUserInfo)
+        logger.info(
+            "Linked provider {} (subject {}) to user {}.",
+            provider.id,
+            rawUserInfo.subject,
+            userId
+        )
+        return engine.completeIfNecessary(session)
+    }
+
+    /**
+     * Return the id of a user that already owns the identifier claim values [provider] asserts in
+     * [rawUserInfo], or null when there is none — or when the conflict cannot be evaluated (no identifier
+     * claims configured, or the provider omits one), in which case the subject check remains the primary
+     * defense. Only the identifier **values** are needed here (not the resolved claim objects), so this is a
+     * plain lookup rather than the full sign-up claim resolution.
+     */
+    private suspend fun findUserOwningIdentifierClaimsOrNull(
+        provider: EnabledProvider,
+        rawUserInfo: RawProviderClaims
+    ): UUID? {
+        val identifierClaims = uncheckedAuthConfig.orThrow().identifierClaims
+        if (identifierClaims.isEmpty()) return null
+        val identifierValues = identifierClaims.associateWith { claimId ->
+            rawUserInfo.getClaimValueOrNull(claimId) ?: return null
+        }
+        return userManager.findByIdentifierClaims(identifierValues)?.id
     }
 
     suspend fun fetchTokens(
