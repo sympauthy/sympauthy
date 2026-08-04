@@ -1,23 +1,13 @@
-package com.sympauthy.business.manager.flow.auth
-
-import com.sympauthy.business.manager.flow.InteractiveFlowEngine
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionProviderManager
-import com.sympauthy.business.manager.flow.reauth.InteractiveFlowSessionReauthenticationManager
+package com.sympauthy.business.manager.flow
 
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_CALLBACK_ENDPOINT
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_ENDPOINTS
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
-import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.invitation.InvitationManager
+import com.sympauthy.business.manager.flow.reauth.InteractiveFlowSessionReauthenticationManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderClaimsResolver
 import com.sympauthy.business.manager.provider.ProviderManager
-import com.sympauthy.business.manager.user.CollectedClaimManager
-import com.sympauthy.business.manager.user.CreateOrAssociateResult
-import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
@@ -31,39 +21,37 @@ import com.sympauthy.business.model.provider.oauth2.ProviderOAuth2TokenRequest
 import com.sympauthy.business.model.provider.oauth2.ProviderOAuth2Tokens
 import com.sympauthy.business.model.redirect.ProviderOAuth2AuthorizationRedirect
 import com.sympauthy.business.model.redirect.ProviderOpenIdConnectAuthorizationRedirect
-import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.RawProviderClaims
-import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.client.oauth2.TokenEndpointClient
 import com.sympauthy.config.model.*
-import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.net.URI
-import java.util.*
 
 /**
- * Manager in charge of the authentication and registration of an end-user going through an interactive auth flow
- * using an OAuth 2 or OIDC provider.
+ * Manager owning the interaction with a third-party OAuth 2 / OpenID Connect provider within an interactive
+ * flow session: it drives the end-user through the provider's authorization, handles the callback, exchanges
+ * the code for tokens and resolves the end-user claims, then routes the outcome by the session's current
+ * purpose.
+ *
+ * It is purpose-agnostic and shared by every consumer that authorizes with a provider — sign-in / sign-up
+ * ([InteractiveFlowPurpose.OAUTH2_AUTHORIZE]), ownership proof
+ * ([InteractiveFlowPurpose.REAUTHENTICATION]) and provider linking
+ * ([InteractiveFlowPurpose.LINK_PROVIDER]). The OAuth2-authorize-specific "establish a new user" outcome is
+ * delegated to the [ProviderUserEstablisher] seam so this manager stays free of consumer-specific identity
+ * logic.
  */
 @Singleton
-open class InteractiveAuthFlowSessionOAuth2ProviderManager(
+open class InteractiveFlowSessionOAuth2ProviderManager(
     @Inject private val sessionManager: InteractiveFlowSessionManager,
-    @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
     @Inject private val providerManager: InteractiveFlowSessionProviderManager,
     @Inject private val reauthenticationManager: InteractiveFlowSessionReauthenticationManager,
-    @Inject private val claimManager: ClaimManager,
-    @Inject private val collectedClaimManager: CollectedClaimManager,
-    @Inject private val invitationManager: InvitationManager,
     @Inject private val providerConfigManager: ProviderManager,
     @Inject private val providerClaimsManager: ProviderClaimsManager,
     @Inject private val providerClaimsResolver: ProviderClaimsResolver,
-    @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
     @Inject private val engine: InteractiveFlowEngine,
     @Inject private val tokenEndpointClient: TokenEndpointClient,
-    @Inject private val userManager: UserManager,
-    @Inject private val uncheckedAuthConfig: AuthConfig,
+    @Inject private val establisher: ProviderUserEstablisher,
     @Inject private val uncheckedUrlsConfig: UrlsConfig
 ) {
 
@@ -197,12 +185,8 @@ open class InteractiveAuthFlowSessionOAuth2ProviderManager(
         }
 
         val (userId, signedUp) = if (existingUserInfo == null) {
-            val oauth2 = oauth2Manager.fetchOAuth2(session)
-            interactiveAuthFlowSessionManager.checkSignUpAllowed(oauth2, recoverable = false)
-            val result = createOrAssociateUserWithProviderUserInfo(provider, rawUserInfo)
-            invitationManager.applyInvitationClaimsAndConsume(oauth2.invitationId, result.user.id)
-            // `created` is false when the provider was merged into an existing account (sign-in, not sign-up).
-            result.user.id to result.created
+            val establishment = establisher.establishNewProviderUser(session, provider, rawUserInfo)
+            establishment.userId to establishment.signedUp
         } else {
             providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo)
             existingUserInfo.userId to false
@@ -254,129 +238,6 @@ open class InteractiveAuthFlowSessionOAuth2ProviderManager(
         providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo)
         reauthenticationManager.markPrimaryCredentialProven(session)
         return engine.completeIfNecessary(session)
-    }
-
-    /**
-     * Create a new [com.sympauthy.business.model.user.User] or associate to an existing [com.sympauthy.business.model.user.User].
-     * Then update the provider user info with the newly collected [providerUserInfo].
-     *
-     * Depending on ```auth.user-merging-enabled```, we may instead associate the [providerUserInfo] to
-     * an existing user based on the configured identifier claims.
-     */
-    @Transactional
-    open suspend fun createOrAssociateUserWithProviderUserInfo(
-        provider: EnabledProvider,
-        providerUserInfo: RawProviderClaims
-    ): CreateOrAssociateResult {
-        val authConfig = uncheckedAuthConfig.orThrow()
-        val identifierClaims = resolveIdentifierClaims(authConfig, provider, providerUserInfo)
-        return if (authConfig.userMergingEnabled) {
-            createOrAssociateUserByIdentifierClaimsWithProviderUserInfo(identifierClaims, provider, providerUserInfo)
-        } else {
-            createUserWithProviderUserInfo(identifierClaims, provider, providerUserInfo)
-        }
-    }
-
-    /**
-     * Create a new [com.sympauthy.business.model.user.User] or associate it to an existing user
-     * that has matching values for all configured identifier claims.
-     *
-     * The identifier claim values are collected and copied as first-party data. We want this information
-     * to be stable and not be affected by changes from the third party in the future.
-     * Otherwise, an update from a provider may break our uniqueness and cause uncontrolled side effects.
-     */
-    @Transactional
-    internal open suspend fun createOrAssociateUserByIdentifierClaimsWithProviderUserInfo(
-        identifierClaims: Map<String, Pair<Claim, String>>,
-        provider: EnabledProvider,
-        providerUserInfo: RawProviderClaims
-    ): CreateOrAssociateResult {
-        val identifierMap = identifierClaims.map { (claimId, pair) -> claimId to pair.second }.toMap()
-        val existingUser = userManager.findByIdentifierClaims(identifierMap)
-
-        val user = existingUser ?: userManager.createUser().also { newUser ->
-            saveIdentifierClaims(newUser, identifierClaims)
-        }
-
-        providerClaimsManager.saveUserInfo(
-            provider = provider,
-            userId = user.id,
-            rawProviderClaims = providerUserInfo
-        )
-        return CreateOrAssociateResult(
-            created = existingUser == null,
-            user = user
-        )
-    }
-
-    /**
-     * Create a new [com.sympauthy.business.model.user.User] with the provider user info.
-     * Without user merging, if a user already exists with the same identifier claims, throw an error
-     * as the user must sign in with their existing account.
-     */
-    @Transactional
-    internal open suspend fun createUserWithProviderUserInfo(
-        identifierClaims: Map<String, Pair<Claim, String>>,
-        provider: EnabledProvider,
-        providerUserInfo: RawProviderClaims
-    ): CreateOrAssociateResult {
-        val identifierMap = identifierClaims.map { (claimId, pair) -> claimId to pair.second }.toMap()
-        val existingUser = userManager.findByIdentifierClaims(identifierMap)
-        if (existingUser != null) {
-            throw businessExceptionOf("user.create_with_provider.existing_user")
-        }
-
-        val user = userManager.createUser()
-        saveIdentifierClaims(user, identifierClaims)
-        providerClaimsManager.saveUserInfo(
-            provider = provider,
-            userId = user.id,
-            rawProviderClaims = providerUserInfo
-        )
-        return CreateOrAssociateResult(
-            created = true,
-            user = user
-        )
-    }
-
-    /**
-     * Extract identifier claim values from [providerUserInfo] and resolve the corresponding
-     * [Claim] business objects.
-     */
-    private suspend fun resolveIdentifierClaims(
-        authConfig: EnabledAuthConfig,
-        provider: EnabledProvider,
-        providerUserInfo: RawProviderClaims
-    ): Map<String, Pair<Claim, String>> {
-        return authConfig.identifierClaims.associateWith { claimId ->
-            val value = providerUserInfo.getClaimValueOrNull(claimId)
-                ?: throw businessExceptionOf(
-                    "user.create_with_provider.missing_identifier_claim",
-                    "providerId" to provider.id,
-                    "claim" to claimId
-                )
-            val claim = claimManager.findByIdOrNull(claimId)
-                ?: throw businessExceptionOf(
-                    "user.create_with_provider.missing_identifier_claim_config",
-                    "claim" to claimId
-                )
-            claim to value
-        }
-    }
-
-    private suspend fun saveIdentifierClaims(
-        user: User,
-        identifierClaims: Map<String, Pair<Claim, String>>
-    ) {
-        collectedClaimManager.update(
-            user = user,
-            updates = identifierClaims.map { (_, claimAndValue) ->
-                CollectedClaimUpdate(
-                    claim = claimAndValue.first,
-                    value = Optional.of(claimAndValue.second)
-                )
-            }
-        )
     }
 
     suspend fun fetchTokens(

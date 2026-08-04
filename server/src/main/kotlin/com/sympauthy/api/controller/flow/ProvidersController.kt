@@ -2,7 +2,7 @@ package com.sympauthy.api.controller.flow
 
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_ENDPOINTS
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
-import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionOAuth2ProviderManager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2ProviderManager
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
 import io.micronaut.http.HttpResponse
@@ -19,7 +19,7 @@ import jakarta.inject.Inject
 @Secured(HAS_STATE)
 @Controller(FLOW_PROVIDER_ENDPOINTS)
 class ProvidersController(
-    @Inject private val interactiveAuthFlowSessionOAuth2ProviderManager: InteractiveAuthFlowSessionOAuth2ProviderManager,
+    @Inject private val interactiveFlowSessionOAuth2ProviderManager: InteractiveFlowSessionOAuth2ProviderManager,
     @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
 ) {
 
@@ -46,7 +46,7 @@ defined in ```urls.flow.error``` configuration.
         interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenRunAndRedirect(
             state = authentication.stateOrNull,
             run = { session, _ ->
-                interactiveAuthFlowSessionOAuth2ProviderManager.authorizeWithProvider(
+                interactiveFlowSessionOAuth2ProviderManager.authorizeWithProvider(
                     session,
                     providerId = providerId
                 )
@@ -84,7 +84,7 @@ Redirection to either:
     ) = interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect(
         state = state,
         update = { session, _ ->
-            interactiveAuthFlowSessionOAuth2ProviderManager.signInOrSignUpUsingProvider(
+            interactiveFlowSessionOAuth2ProviderManager.signInOrSignUpUsingProvider(
                 session = session,
                 providerId = providerId,
                 authorizeCode = code,
