@@ -118,6 +118,7 @@ open class InteractiveFlowSessionMfaEnrollmentManager(
     ): OnGoingInteractiveFlowSession {
         val session = sessionManager.newSession(
             purposes = listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.MFA_ENROLLMENT),
+            initiatingPurpose = InteractiveFlowPurpose.MFA_ENROLLMENT,
             flow = flow,
             successRedirectUri = returnUri,
             redirectType = InteractiveFlowRedirectType.PLAIN,

@@ -28,6 +28,13 @@ sealed interface InteractiveFlowStep {
     data object Confirm : InteractiveFlowStep
 
     /**
+     * The end-user must authorize with the specific third-party identity provider [providerId] — used to link
+     * that provider to the session's fixed user. Unlike [SignIn], which presents a choice of methods, this
+     * drives the browser straight to the target provider's authorization endpoint.
+     */
+    data class AuthorizeProvider(val providerId: String) : InteractiveFlowStep
+
+    /**
      * The end-user must choose which multi-factor authentication method to enroll (and may skip when the
      * enrollment is optional). The selection page auto-redirects to the method's enrollment step when there is
      * a single method to enroll and no skip is offered.

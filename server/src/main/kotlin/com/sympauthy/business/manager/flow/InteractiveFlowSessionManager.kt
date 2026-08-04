@@ -53,6 +53,7 @@ class InteractiveFlowSessionManager(
      */
     suspend fun newSession(
         purposes: List<InteractiveFlowPurpose>,
+        initiatingPurpose: InteractiveFlowPurpose,
         flow: AuthorizationFlow? = null,
         successRedirectUri: URI? = null,
         redirectType: InteractiveFlowRedirectType? = null,
@@ -62,6 +63,7 @@ class InteractiveFlowSessionManager(
         val now = LocalDateTime.now()
         val entity = InteractiveFlowSessionEntity(
             purposes = purposes.map(InteractiveFlowPurpose::name).toTypedArray(),
+            initiatingPurpose = initiatingPurpose.name,
             flowId = flow?.id,
             sessionDate = now,
             expirationDate = now.plus(uncheckedAuthConfig.orThrow().authorizationCode.expiration),
@@ -165,17 +167,23 @@ class InteractiveFlowSessionManager(
     }
 
     /**
-     * Append [purpose] to the ordered list of purposes of the [session], persist it, and return the updated
-     * session.
+     * Insert [purpose] into the ordered purpose list of the [session] immediately after [afterPurpose],
+     * persist it, and return the updated session. Falls back to appending at the end when [afterPurpose] is
+     * not present (which never happens for the engine's use — the resolving purpose is always in the list).
      *
-     * Used by a purpose handler that, as it resolves, needs a follow-up purpose to run before the session
-     * completes (e.g. the OAuth2 authorize purpose appending an MFA purpose).
+     * Used by the engine when a purpose resolves and declares a follow-up purpose that must run before the
+     * session completes (e.g. the re-authentication gate inserting an MFA challenge). Inserting **after** the
+     * resolving purpose — rather than at the end — keeps the follow-up ahead of any later purpose the session
+     * already carries, so e.g. a provider link never commits before its MFA challenge.
      */
-    suspend fun appendPurpose(
+    suspend fun insertPurposeAfter(
         session: OnGoingInteractiveFlowSession,
-        purpose: InteractiveFlowPurpose
+        purpose: InteractiveFlowPurpose,
+        afterPurpose: InteractiveFlowPurpose
     ): OnGoingInteractiveFlowSession {
-        val purposes = session.purposes + purpose
+        val afterIndex = session.purposes.indexOf(afterPurpose)
+        val insertAt = if (afterIndex >= 0) afterIndex + 1 else session.purposes.size
+        val purposes = session.purposes.toMutableList().apply { add(insertAt, purpose) }.toList()
         sessionRepository.updatePurposes(
             id = session.id,
             purposes = purposes.map(InteractiveFlowPurpose::name)
@@ -204,6 +212,7 @@ class InteractiveFlowSessionManager(
         return FailedInteractiveFlowSession(
             id = session.id,
             purposes = session.purposes,
+            initiatingPurpose = session.initiatingPurpose,
             flowId = session.flowId,
             errorDate = errorDate,
             errorDetailsId = error.detailsId,
@@ -243,6 +252,7 @@ class InteractiveFlowSessionManager(
         return CancelledInteractiveFlowSession(
             id = session.id,
             purposes = session.purposes,
+            initiatingPurpose = session.initiatingPurpose,
             flowId = session.flowId,
             expirationDate = session.expirationDate,
             userId = session.userId,
@@ -296,6 +306,7 @@ class InteractiveFlowSessionManager(
         return CompletedInteractiveFlowSession(
             id = session.id,
             purposes = session.purposes,
+            initiatingPurpose = session.initiatingPurpose,
             flowId = session.flowId,
             expirationDate = session.expirationDate,
             sessionDate = session.sessionDate,

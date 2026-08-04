@@ -70,6 +70,7 @@ class AuthorizationFlowManagerTest {
         val failedSession = FailedInteractiveFlowSession(
             id = UUID.randomUUID(),
             purposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE),
+            initiatingPurpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE,
             flowId = "flow-id",
             expirationDate = LocalDateTime.now().plusHours(1),
             errorDetailsId = "some.error",
@@ -146,6 +147,7 @@ class AuthorizationFlowManagerTest {
         return OnGoingInteractiveFlowSession(
             id = UUID.randomUUID(),
             purposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE),
+            initiatingPurpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE,
             flowId = "flow-id",
             expirationDate = LocalDateTime.now().plusHours(1),
             sessionDate = LocalDateTime.now(),
@@ -160,6 +162,7 @@ class AuthorizationFlowManagerTest {
         return CompletedInteractiveFlowSession(
             id = UUID.randomUUID(),
             purposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE),
+            initiatingPurpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE,
             flowId = "flow-id",
             expirationDate = expirationDate,
             sessionDate = now,

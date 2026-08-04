@@ -70,6 +70,15 @@ class InteractiveFlowStepUriMapper(
             session,
             flow.confirmUri ?: throw internalBusinessExceptionOf("flow.confirm.uri.missing")
         )
+        // Drive the browser to the target provider's authorize endpoint (which then 303s to the provider),
+        // reusing the existing provider authorize/callback machinery. No configurable flow page is involved.
+        is InteractiveFlowStep.AuthorizeProvider -> appendState(
+            session,
+            uncheckedUrlsConfig.orThrow().getUri(
+                ProvidersController.FLOW_PROVIDER_ENDPOINTS + ProvidersController.FLOW_PROVIDER_AUTHORIZE_ENDPOINT,
+                "providerId" to step.providerId
+            )
+        )
         InteractiveFlowStep.CollectClaims -> appendState(session, flow.collectClaimsUri)
         is InteractiveFlowStep.ValidateClaims -> appendState(session, buildValidateClaimsUri(flow, step.media))
         InteractiveFlowStep.Error -> appendState(session, flow.errorUri)

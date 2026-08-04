@@ -27,6 +27,7 @@ object SecurityRule {
     const val CLIENT_USERS_CLAIMS_WRITE = "SCOPE_${BuiltInClientScopeId.USERS_CLAIMS_WRITE}"
     const val CLIENT_USERS_MFA_READ = "SCOPE_${BuiltInClientScopeId.USERS_MFA_READ}"
     const val CLIENT_USERS_MFA_WRITE = "SCOPE_${BuiltInClientScopeId.USERS_MFA_WRITE}"
+    const val CLIENT_USERS_PROVIDERS_WRITE = "SCOPE_${BuiltInClientScopeId.USERS_PROVIDERS_WRITE}"
     const val CLIENT_INVITATIONS_READ = "SCOPE_${BuiltInClientScopeId.INVITATIONS_READ}"
     const val CLIENT_INVITATIONS_WRITE = "SCOPE_${BuiltInClientScopeId.INVITATIONS_WRITE}"
 }

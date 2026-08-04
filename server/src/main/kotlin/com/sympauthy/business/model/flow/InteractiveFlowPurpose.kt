@@ -48,5 +48,19 @@ enum class InteractiveFlowPurpose {
      * Prepended in front of a sensitive purpose by a consumer (e.g. provider-link); progress is tracked by the
      * session's attached re-authentication record ([InteractiveFlowSessionReauthentication]).
      */
-    REAUTHENTICATION
+    REAUTHENTICATION,
+
+    /**
+     * Link a third-party identity provider to the end-user's **already-fixed** account
+     * ([InteractiveFlowSession.userId] is set before this purpose runs). The end-user authorizes with the
+     * target provider — its id is stored on the session's attached link record
+     * ([InteractiveFlowSessionLinkProvider]) — and on the provider callback the resolved subject is linked to
+     * the fixed user, subject to hard-fail conflict checks (the subject, or an identifier claim, already owned
+     * by another account).
+     *
+     * Always gated by a [REAUTHENTICATION] step (and, for a client/admin-initiated link, driven behind a
+     * [CONFIRM] gate): linking a provider mints a durable login credential, so the browser must prove it
+     * genuinely owns the account before the link commits.
+     */
+    LINK_PROVIDER
 }

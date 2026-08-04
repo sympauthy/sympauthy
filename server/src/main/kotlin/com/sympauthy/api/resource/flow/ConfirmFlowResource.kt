@@ -31,6 +31,17 @@ resource carries a ```redirect_url```.
     )
     val action: String? = null,
     @get:Schema(
+        name = "requires_reauthentication",
+        description = """
+Whether the end-user will be asked to re-authenticate (prove they own the account) after approving this
+action, so the custom UI can warn them up front. Computed from the session's remaining steps: true when a
+re-authentication step is still ahead (e.g. linking a provider), false otherwise (e.g. MFA enrollment).
+Defaults to false; irrelevant when this resource carries a ```redirect_url```.
+        """
+    )
+    @get:JsonProperty("requires_reauthentication")
+    val requiresReauthentication: Boolean = false,
+    @get:Schema(
         name = "initiating_client_id",
         description = """
 Identifier of the client that initiated the action on the end-user's behalf. Null when the action was

@@ -7,9 +7,13 @@ import java.util.*
 
 class InteractiveFlowSessionTest {
 
-    private fun ongoing(purposes: List<InteractiveFlowPurpose>) = OnGoingInteractiveFlowSession(
+    private fun ongoing(
+        purposes: List<InteractiveFlowPurpose>,
+        initiatingPurpose: InteractiveFlowPurpose,
+    ) = OnGoingInteractiveFlowSession(
         id = UUID.randomUUID(),
         purposes = purposes,
+        initiatingPurpose = initiatingPurpose,
         flowId = null,
         expirationDate = LocalDateTime.now().plusMinutes(5),
         sessionDate = LocalDateTime.now(),
@@ -17,16 +21,14 @@ class InteractiveFlowSessionTest {
     )
 
     @Test
-    fun `initiatingPurpose - Skips the CONFIRM gate to the first real purpose`() {
-        val session = ongoing(listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.MFA_ENROLLMENT))
+    fun `copy - Preserves the stored initiatingPurpose`() {
+        val session = ongoing(
+            purposes = listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.MFA_ENROLLMENT),
+            initiatingPurpose = InteractiveFlowPurpose.MFA_ENROLLMENT,
+        )
 
-        assertEquals(InteractiveFlowPurpose.MFA_ENROLLMENT, session.initiatingPurpose)
-    }
+        val copied = session.copy(userId = UUID.randomUUID())
 
-    @Test
-    fun `initiatingPurpose - Is the first purpose when there is no CONFIRM gate`() {
-        val session = ongoing(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, InteractiveFlowPurpose.MFA_CHALLENGE))
-
-        assertEquals(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, session.initiatingPurpose)
+        assertEquals(InteractiveFlowPurpose.MFA_ENROLLMENT, copied.initiatingPurpose)
     }
 }

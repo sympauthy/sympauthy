@@ -4,6 +4,7 @@ import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControll
 import com.sympauthy.api.resource.flow.ConfirmFlowResource
 import com.sympauthy.api.resource.flow.SimpleFlowResource
 import com.sympauthy.business.manager.flow.confirm.InteractiveFlowSessionConfirmManager
+import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
 import io.micronaut.http.annotation.Controller
@@ -47,8 +48,15 @@ on-going flow. All URLs it contains already include the state query param.
             run = { session, _ ->
                 val confirm = confirmManager.fetchConfirmOrNull(session)
                 if (confirm != null && !confirm.confirmed) {
+                    // Warn the UI up front when a re-authentication step is still ahead in this session (server
+                    // -computed, not hardcoded per action): true when the chain carries an unresolved
+                    // REAUTHENTICATION purpose (e.g. provider link), false otherwise (e.g. MFA enrollment).
+                    val requiresReauthentication =
+                        InteractiveFlowPurpose.REAUTHENTICATION in session.purposes &&
+                            InteractiveFlowPurpose.REAUTHENTICATION !in session.completedPurposes
                     ConfirmFlowResource(
                         action = confirm.action.name,
+                        requiresReauthentication = requiresReauthentication,
                         initiatingClientId = confirm.clientId
                     )
                 } else {

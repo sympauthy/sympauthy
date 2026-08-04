@@ -161,6 +161,15 @@
     ]
   },
   {
+    "name": "com.sympauthy.business.mapper.InteractiveFlowSessionLinkProviderMapperImpl",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
     "name": "com.sympauthy.business.mapper.ConsentMapperImpl",
     "methods": [
       {

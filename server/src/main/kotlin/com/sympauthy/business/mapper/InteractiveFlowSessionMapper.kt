@@ -32,6 +32,7 @@ abstract class InteractiveFlowSessionMapper {
         return OnGoingInteractiveFlowSession(
             id = entity.id ?: throw invalidBusinessException("id"),
             purposes = entity.purposes.map(InteractiveFlowPurpose::valueOf),
+            initiatingPurpose = InteractiveFlowPurpose.valueOf(entity.initiatingPurpose),
             flowId = entity.flowId,
             expirationDate = entity.expirationDate,
             sessionDate = entity.sessionDate,
@@ -49,6 +50,7 @@ abstract class InteractiveFlowSessionMapper {
         return CompletedInteractiveFlowSession(
             id = entity.id ?: throw invalidBusinessException("id"),
             purposes = entity.purposes.map(InteractiveFlowPurpose::valueOf),
+            initiatingPurpose = InteractiveFlowPurpose.valueOf(entity.initiatingPurpose),
             flowId = entity.flowId,
             expirationDate = entity.expirationDate,
             sessionDate = entity.sessionDate,
@@ -69,6 +71,7 @@ abstract class InteractiveFlowSessionMapper {
         return CancelledInteractiveFlowSession(
             id = entity.id ?: throw invalidBusinessException("id"),
             purposes = entity.purposes.map(InteractiveFlowPurpose::valueOf),
+            initiatingPurpose = InteractiveFlowPurpose.valueOf(entity.initiatingPurpose),
             flowId = entity.flowId,
             expirationDate = entity.expirationDate,
             userId = entity.userId,
@@ -84,6 +87,7 @@ abstract class InteractiveFlowSessionMapper {
         return FailedInteractiveFlowSession(
             id = entity.id ?: throw invalidBusinessException("id"),
             purposes = entity.purposes.map(InteractiveFlowPurpose::valueOf),
+            initiatingPurpose = InteractiveFlowPurpose.valueOf(entity.initiatingPurpose),
             flowId = entity.flowId,
             expirationDate = entity.expirationDate,
             errorDetailsId = entity.errorDetailsId ?: throw invalidBusinessException("errorDetailsId"),
@@ -97,6 +101,7 @@ abstract class InteractiveFlowSessionMapper {
         return FailedInteractiveFlowSession(
             id = entity.id ?: throw invalidBusinessException("id"),
             purposes = entity.purposes.map(InteractiveFlowPurpose::valueOf),
+            initiatingPurpose = InteractiveFlowPurpose.valueOf(entity.initiatingPurpose),
             flowId = entity.flowId,
             errorDetailsId = "auth.interactive_flow_session.validate.expired",
             errorDescriptionId = "description.oauth2.expired",
