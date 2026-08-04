@@ -2,6 +2,7 @@ CREATE TABLE interactive_flow_sessions
 (
     id                   uuid      NOT NULL DEFAULT random_uuid(),
     purposes             text array NOT NULL,
+    initiating_purpose   text       NOT NULL,
     session_date         timestamp NOT NULL,
     flow_id              text,
     expiration_date      timestamp NOT NULL,

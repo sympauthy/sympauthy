@@ -35,23 +35,24 @@ sealed class InteractiveFlowSession(
     val purposes: List<InteractiveFlowPurpose>,
 
     /**
+     * The purpose that initiated the session and owns its terminal handoff.
+     *
+     * Set once when the session is created — the starter names the purpose it creates the session for — and
+     * carried for the whole life of the session. It is deliberately **stored** rather than derived from
+     * [purposes]: gate purposes ([InteractiveFlowPurpose.CONFIRM], [InteractiveFlowPurpose.REAUTHENTICATION])
+     * are prepended and second-factor purposes ([InteractiveFlowPurpose.MFA_CHALLENGE]) are inserted at
+     * runtime, so no positional rule over [purposes] stays correct as the chain grows.
+     */
+    val initiatingPurpose: InteractiveFlowPurpose,
+
+    /**
      * The identifier of the interactive flow the user is going through.
      * null for non-interactive flows.
      */
     val flowId: String?,
 
     override val expirationDate: LocalDateTime
-) : Expirable {
-
-    /**
-     * The purpose that initiated the session and owns its terminal handoff.
-     *
-     * [InteractiveFlowPurpose.CONFIRM] is a gate prepended in front of the initiating purpose, so it is
-     * skipped here: the initiating purpose is the first non-[InteractiveFlowPurpose.CONFIRM] purpose.
-     */
-    val initiatingPurpose: InteractiveFlowPurpose
-        get() = purposes.first { it != InteractiveFlowPurpose.CONFIRM }
-}
+) : Expirable
 
 /**
  * Represents an interactive flow session that is ongoing.
@@ -59,6 +60,7 @@ sealed class InteractiveFlowSession(
 class OnGoingInteractiveFlowSession(
     id: UUID,
     purposes: List<InteractiveFlowPurpose>,
+    initiatingPurpose: InteractiveFlowPurpose,
     flowId: String?,
     expirationDate: LocalDateTime,
 
@@ -119,6 +121,7 @@ class OnGoingInteractiveFlowSession(
 ) : InteractiveFlowSession(
     id = id,
     purposes = purposes,
+    initiatingPurpose = initiatingPurpose,
     flowId = flowId,
     expirationDate = expirationDate
 ) {
@@ -136,6 +139,7 @@ class OnGoingInteractiveFlowSession(
     ) = OnGoingInteractiveFlowSession(
         id = this.id,
         purposes = purposes ?: this.purposes,
+        initiatingPurpose = this.initiatingPurpose,
         flowId = this.flowId,
         expirationDate = this.expirationDate,
         sessionDate = this.sessionDate,
@@ -158,6 +162,7 @@ class OnGoingInteractiveFlowSession(
 class CompletedInteractiveFlowSession(
     id: UUID,
     purposes: List<InteractiveFlowPurpose>,
+    initiatingPurpose: InteractiveFlowPurpose,
     flowId: String?,
     expirationDate: LocalDateTime,
 
@@ -213,6 +218,7 @@ class CompletedInteractiveFlowSession(
 ) : InteractiveFlowSession(
     id = id,
     purposes = purposes,
+    initiatingPurpose = initiatingPurpose,
     flowId = flowId,
     expirationDate = expirationDate
 )
@@ -223,6 +229,7 @@ class CompletedInteractiveFlowSession(
 class FailedInteractiveFlowSession(
     id: UUID,
     purposes: List<InteractiveFlowPurpose>,
+    initiatingPurpose: InteractiveFlowPurpose,
     flowId: String?,
     expirationDate: LocalDateTime,
 
@@ -250,6 +257,7 @@ class FailedInteractiveFlowSession(
 ) : InteractiveFlowSession(
     id = id,
     purposes = purposes,
+    initiatingPurpose = initiatingPurpose,
     flowId = flowId,
     expirationDate = expirationDate
 )
@@ -264,6 +272,7 @@ class FailedInteractiveFlowSession(
 class CancelledInteractiveFlowSession(
     id: UUID,
     purposes: List<InteractiveFlowPurpose>,
+    initiatingPurpose: InteractiveFlowPurpose,
     flowId: String?,
     expirationDate: LocalDateTime,
 
@@ -298,6 +307,7 @@ class CancelledInteractiveFlowSession(
 ) : InteractiveFlowSession(
     id = id,
     purposes = purposes,
+    initiatingPurpose = initiatingPurpose,
     flowId = flowId,
     expirationDate = expirationDate
 )

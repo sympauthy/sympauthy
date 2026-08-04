@@ -190,6 +190,7 @@ class InteractiveFlowSessionMapperTest {
     ): InteractiveFlowSessionEntity {
         return InteractiveFlowSessionEntity(
             purposes = arrayOf(purpose.name),
+            initiatingPurpose = purpose.name,
             sessionDate = sessionDate,
             flowId = flowId,
             expirationDate = expirationDate,

@@ -139,6 +139,7 @@ class InteractiveFlowSessionManagerTest {
         val session = OnGoingInteractiveFlowSession(
             id = sessionId,
             purposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE),
+            initiatingPurpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE,
             flowId = "flow-id",
             expirationDate = LocalDateTime.now().plusHours(1),
             sessionDate = LocalDateTime.now(),
@@ -166,6 +167,7 @@ class InteractiveFlowSessionManagerTest {
         val session = OnGoingInteractiveFlowSession(
             id = sessionId,
             purposes = listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.MFA_ENROLLMENT),
+            initiatingPurpose = InteractiveFlowPurpose.MFA_ENROLLMENT,
             flowId = "flow-id",
             expirationDate = LocalDateTime.now().plusHours(1),
             sessionDate = LocalDateTime.now(),
@@ -191,6 +193,7 @@ class InteractiveFlowSessionManagerTest {
         val session = OnGoingInteractiveFlowSession(
             id = sessionId,
             purposes = listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.MFA_ENROLLMENT),
+            initiatingPurpose = InteractiveFlowPurpose.MFA_ENROLLMENT,
             completedPurposes = listOf(InteractiveFlowPurpose.CONFIRM),
             flowId = "flow-id",
             expirationDate = LocalDateTime.now().plusHours(1),
@@ -216,6 +219,7 @@ class InteractiveFlowSessionManagerTest {
         val session = OnGoingInteractiveFlowSession(
             id = sessionId,
             purposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, InteractiveFlowPurpose.MFA_CHALLENGE),
+            initiatingPurpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE,
             completedPurposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, InteractiveFlowPurpose.MFA_CHALLENGE),
             flowId = "flow-id",
             expirationDate = LocalDateTime.now().plusHours(1),
@@ -246,6 +250,7 @@ class InteractiveFlowSessionManagerTest {
         val session = OnGoingInteractiveFlowSession(
             id = sessionId,
             purposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE),
+            initiatingPurpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE,
             flowId = "flow-id",
             expirationDate = LocalDateTime.now().plusHours(1),
             sessionDate = LocalDateTime.now(),
@@ -269,6 +274,7 @@ class InteractiveFlowSessionManagerTest {
         val session = OnGoingInteractiveFlowSession(
             id = UUID.randomUUID(),
             purposes = listOf(InteractiveFlowPurpose.MFA_ENROLLMENT),
+            initiatingPurpose = InteractiveFlowPurpose.MFA_ENROLLMENT,
             flowId = "flow-id",
             expirationDate = LocalDateTime.now().plusHours(1),
             sessionDate = LocalDateTime.now(),

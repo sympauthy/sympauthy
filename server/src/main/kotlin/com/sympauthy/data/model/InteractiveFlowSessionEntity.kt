@@ -14,6 +14,7 @@ import java.util.*
 class InteractiveFlowSessionEntity(
     // Session metadata
     val purposes: Array<String>,
+    val initiatingPurpose: String,
     val sessionDate: LocalDateTime,
     val flowId: String? = null,
     val expirationDate: LocalDateTime,

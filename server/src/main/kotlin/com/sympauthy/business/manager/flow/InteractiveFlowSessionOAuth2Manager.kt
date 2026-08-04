@@ -64,6 +64,7 @@ open class InteractiveFlowSessionOAuth2Manager(
         // cancel target (the OAuth2 error=access_denied response is returned there).
         val session = sessionManager.newSession(
             purposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE),
+            initiatingPurpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE,
             flow = flow,
             successRedirectUri = redirectUri,
             redirectType = InteractiveFlowRedirectType.AUTHORIZATION_CODE,

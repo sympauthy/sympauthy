@@ -53,6 +53,7 @@ class InteractiveFlowSessionManager(
      */
     suspend fun newSession(
         purposes: List<InteractiveFlowPurpose>,
+        initiatingPurpose: InteractiveFlowPurpose,
         flow: AuthorizationFlow? = null,
         successRedirectUri: URI? = null,
         redirectType: InteractiveFlowRedirectType? = null,
@@ -62,6 +63,7 @@ class InteractiveFlowSessionManager(
         val now = LocalDateTime.now()
         val entity = InteractiveFlowSessionEntity(
             purposes = purposes.map(InteractiveFlowPurpose::name).toTypedArray(),
+            initiatingPurpose = initiatingPurpose.name,
             flowId = flow?.id,
             sessionDate = now,
             expirationDate = now.plus(uncheckedAuthConfig.orThrow().authorizationCode.expiration),
@@ -204,6 +206,7 @@ class InteractiveFlowSessionManager(
         return FailedInteractiveFlowSession(
             id = session.id,
             purposes = session.purposes,
+            initiatingPurpose = session.initiatingPurpose,
             flowId = session.flowId,
             errorDate = errorDate,
             errorDetailsId = error.detailsId,
@@ -243,6 +246,7 @@ class InteractiveFlowSessionManager(
         return CancelledInteractiveFlowSession(
             id = session.id,
             purposes = session.purposes,
+            initiatingPurpose = session.initiatingPurpose,
             flowId = session.flowId,
             expirationDate = session.expirationDate,
             userId = session.userId,
@@ -296,6 +300,7 @@ class InteractiveFlowSessionManager(
         return CompletedInteractiveFlowSession(
             id = session.id,
             purposes = session.purposes,
+            initiatingPurpose = session.initiatingPurpose,
             flowId = session.flowId,
             expirationDate = session.expirationDate,
             sessionDate = session.sessionDate,

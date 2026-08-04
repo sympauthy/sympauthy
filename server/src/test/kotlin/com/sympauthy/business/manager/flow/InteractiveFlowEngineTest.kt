@@ -296,9 +296,13 @@ class InteractiveFlowEngineTest {
         assertSame(completed, engine.completeIfNecessary(session))
     }
 
-    private fun onGoingSession(purposes: List<InteractiveFlowPurpose>) = OnGoingInteractiveFlowSession(
+    private fun onGoingSession(
+        purposes: List<InteractiveFlowPurpose>,
+        initiatingPurpose: InteractiveFlowPurpose = purposes.first(),
+    ) = OnGoingInteractiveFlowSession(
         id = UUID.randomUUID(),
         purposes = purposes,
+        initiatingPurpose = initiatingPurpose,
         flowId = "flow-id",
         expirationDate = LocalDateTime.now().plusHours(1),
         sessionDate = LocalDateTime.now(),
@@ -308,6 +312,7 @@ class InteractiveFlowEngineTest {
     private fun completedSession() = CompletedInteractiveFlowSession(
         id = UUID.randomUUID(),
         purposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE),
+        initiatingPurpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE,
         flowId = "flow-id",
         expirationDate = LocalDateTime.now().plusHours(1),
         sessionDate = LocalDateTime.now(),
@@ -320,6 +325,7 @@ class InteractiveFlowEngineTest {
     private fun cancelledSession() = CancelledInteractiveFlowSession(
         id = UUID.randomUUID(),
         purposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE),
+        initiatingPurpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE,
         flowId = "flow-id",
         expirationDate = LocalDateTime.now().plusHours(1),
         userId = UUID.randomUUID(),
@@ -332,6 +338,7 @@ class InteractiveFlowEngineTest {
     private fun failedSession() = FailedInteractiveFlowSession(
         id = UUID.randomUUID(),
         purposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE),
+        initiatingPurpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE,
         flowId = "flow-id",
         expirationDate = LocalDateTime.now().plusHours(1),
         errorDetailsId = "error",
