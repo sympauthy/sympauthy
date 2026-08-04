@@ -12,5 +12,12 @@ enum class ConfirmActionType {
      * The end-user is asked to approve enrolling a multi-factor authentication method, initiated on their
      * behalf through a standalone MFA-enrollment endpoint by a client or by an administrator.
      */
-    ENROLL_MFA
+    ENROLL_MFA,
+
+    /**
+     * The end-user is asked to approve linking a third-party identity provider to their account, initiated on
+     * their behalf through a client or admin provider-link endpoint. They will be asked to re-authenticate
+     * before the link is created.
+     */
+    LINK_PROVIDER
 }
