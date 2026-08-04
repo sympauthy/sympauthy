@@ -11,6 +11,7 @@ import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.TerminalEffectResult
 import java.net.URI
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.mockk
@@ -248,6 +249,61 @@ class InteractiveFlowEngineTest {
 
         assertSame(grown, result.session)
         assertEquals(InteractiveFlowStep.MfaSelectionForChallenge, result.step)
+    }
+
+    @Test
+    fun `advance - Inserts a new follow-up after an already-present sibling, keeping declared order`() = runTest {
+        // A handler declaring several follow-ups [alreadyPresent, new] must keep their declared order: the new
+        // one lands right after the already-present sibling, not back at the resolving purpose. Here
+        // OAUTH2_AUTHORIZE resolves and declares [MFA_ENROLLMENT (already present), MFA_CHALLENGE (new)], so
+        // MFA_CHALLENGE must be inserted after MFA_ENROLLMENT.
+        val session = onGoingSession(
+            listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, InteractiveFlowPurpose.MFA_ENROLLMENT)
+        )
+        val marked = onGoingSession(
+            listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, InteractiveFlowPurpose.MFA_ENROLLMENT)
+        )
+        val grown = onGoingSession(
+            listOf(
+                InteractiveFlowPurpose.OAUTH2_AUTHORIZE,
+                InteractiveFlowPurpose.MFA_ENROLLMENT,
+                InteractiveFlowPurpose.MFA_CHALLENGE,
+            )
+        )
+        val oauth2Handler = mockk<InteractiveFlowPurposeHandler>()
+        val mfaEnrollmentHandler = mockk<InteractiveFlowPurposeHandler>()
+        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns oauth2Handler
+        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.MFA_ENROLLMENT) } returns mfaEnrollmentHandler
+        coEvery { oauth2Handler.nextStepOrNull(session) } returns null
+        coEvery {
+            sessionManager.markPurposeAsCompleted(session, InteractiveFlowPurpose.OAUTH2_AUTHORIZE)
+        } returns marked
+        coEvery { oauth2Handler.followUpPurposes(marked) } returns listOf(
+            InteractiveFlowPurpose.MFA_ENROLLMENT,
+            InteractiveFlowPurpose.MFA_CHALLENGE,
+        )
+        coEvery {
+            sessionManager.insertPurposeAfter(
+                marked,
+                InteractiveFlowPurpose.MFA_CHALLENGE,
+                InteractiveFlowPurpose.MFA_ENROLLMENT,
+            )
+        } returns grown
+        coEvery {
+            mfaEnrollmentHandler.nextStepOrNull(grown)
+        } returns InteractiveFlowStep.MfaSelectionForEnrollment
+
+        val result = engine.advance(session)
+
+        assertEquals(InteractiveFlowStep.MfaSelectionForEnrollment, result.step)
+        // The new follow-up is inserted after the already-present sibling, not after the resolving purpose.
+        coVerify {
+            sessionManager.insertPurposeAfter(
+                marked,
+                InteractiveFlowPurpose.MFA_CHALLENGE,
+                InteractiveFlowPurpose.MFA_ENROLLMENT,
+            )
+        }
     }
 
     @Test

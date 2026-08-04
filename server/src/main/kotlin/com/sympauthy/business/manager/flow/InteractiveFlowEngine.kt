@@ -112,9 +112,11 @@ class InteractiveFlowEngine(
         for (purpose in handler.followUpPurposes(current)) {
             if (purpose !in current.purposes) {
                 current = sessionManager.insertPurposeAfter(current, purpose, previous)
-                // Chain multiple follow-ups so they keep their declared order after the resolving purpose.
-                previous = purpose
             }
+            // Advance the anchor to `purpose` whether or not it was inserted, so several follow-ups keep their
+            // declared order after the resolving purpose — a later new follow-up lands after an already-present
+            // earlier sibling, not back at the resolving purpose.
+            previous = purpose
         }
         return current
     }
