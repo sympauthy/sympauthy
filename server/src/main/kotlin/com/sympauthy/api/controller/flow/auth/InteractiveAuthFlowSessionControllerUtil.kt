@@ -356,6 +356,17 @@ class InteractiveAuthFlowSessionControllerUtil(
         if (exception.recoverable) {
             throw exception
         }
+        // A concurrent-modification conflict means another request advanced this shared session. If that
+        // request already drove it to a terminal state, route by that current state instead of failing it
+        // (which would clobber the winner): e.g. a double-submit whose sibling already completed sends this
+        // request to the success redirect rather than the error page. If it is still ongoing we fall
+        // through and fail it, honouring the "a conflict fails the session" behaviour.
+        if (exception.detailsId == InteractiveFlowSessionManager.CONCURRENT_MODIFICATION_DETAILS_ID) {
+            val current = sessionManager.fetchByIdOrNull(session.id)
+            if (current != null && current !is OnGoingInteractiveFlowSession) {
+                return current
+            }
+        }
         return if (session is OnGoingInteractiveFlowSession) {
             sessionManager.markAsFailedIfNotRecoverable(
                 session = session,

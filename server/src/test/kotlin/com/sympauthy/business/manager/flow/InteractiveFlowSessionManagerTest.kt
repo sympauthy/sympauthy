@@ -381,6 +381,7 @@ class InteractiveFlowSessionManagerTest {
             listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, InteractiveFlowPurpose.MFA_CHALLENGE),
             result.completedPurposes
         )
+        assertEquals(URI.create("https://client.example.com/callback"), result.successRedirectUri)
         assertEquals(InteractiveFlowRedirectType.AUTHORIZATION_CODE, result.redirectType)
     }
 
@@ -410,6 +411,7 @@ class InteractiveFlowSessionManagerTest {
         assertEquals(session.id, result.id)
         assertEquals(userId, result.userId)
         assertEquals(InteractiveFlowRedirectType.AUTHORIZATION_CODE, result.redirectType)
+        assertEquals(URI.create("https://client.example.com/callback"), result.cancelRedirectUri)
     }
 
     @Test
@@ -459,15 +461,17 @@ class InteractiveFlowSessionManagerTest {
         val result = interactiveFlowSessionManager.markAsFailedIfNotRecoverable(session, recoverable)
 
         assertSame(session, result)
-        coVerify(exactly = 0) { sessionRepository.bumpVersion(any(), any()) }
+        coVerify(exactly = 0) { sessionRepository.failIfOngoing(any()) }
         coVerify(exactly = 0) { sessionRepository.updateError(any(), any(), any(), any(), any()) }
     }
 
     @Test
-    fun `markAsFailedIfNotRecoverable - Persists and returns a failed session for a non-recoverable error`() = runTest {
+    fun `markAsFailedIfNotRecoverable - Fails an ongoing session even when it advanced its own version first`() = runTest {
+        // The failing request has usually already bumped the version before hitting the error, so the guard
+        // is on "still ongoing" (failIfOngoing), not the remembered version: an ongoing session is failed.
         val session = ongoingSession()
         val error = businessExceptionOf("some.detail")
-        coEvery { sessionRepository.bumpVersion(session.id, STARTING_VERSION) } returns 1
+        coEvery { sessionRepository.failIfOngoing(session.id) } returns 1
         coEvery { sessionRepository.updateError(session.id, any(), "some.detail", null, any()) } just Runs
 
         val result = interactiveFlowSessionManager.markAsFailedIfNotRecoverable(session, error)
@@ -478,13 +482,12 @@ class InteractiveFlowSessionManagerTest {
     }
 
     @Test
-    fun `markAsFailedIfNotRecoverable - Swallows a lost swap without writing and still returns a failed session`() = runTest {
+    fun `markAsFailedIfNotRecoverable - Skips the write when the session is already terminal and still returns failed`() = runTest {
         val session = ongoingSession()
         val error = businessExceptionOf("some.detail")
-        // A concurrent winner already advanced the row: the compare-and-swap affects 0 rows, so the
-        // error write must be skipped (no throw, no clobber) while this request is still routed to the
-        // error page.
-        coEvery { sessionRepository.bumpVersion(session.id, STARTING_VERSION) } returns 0
+        // A concurrent request already drove the session to a terminal state: the guard affects 0 rows, so
+        // the error write must be skipped (no clobber) while this request is still routed to the error page.
+        coEvery { sessionRepository.failIfOngoing(session.id) } returns 0
 
         val result = interactiveFlowSessionManager.markAsFailedIfNotRecoverable(session, error)
 

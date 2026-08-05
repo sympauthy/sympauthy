@@ -40,8 +40,9 @@ import java.util.*
  *
  * The lone exception is the terminal error write: its `error_values` `json` column round-trips
  * correctly only through Micronaut's property-mapped serialization, not through a raw-query
- * parameter, so it cannot be expressed as a single versioned statement. It is instead guarded by a
- * scalar [bumpVersion] compare-and-swap paired with the derived [updateError] inside one transaction
+ * parameter, so it cannot be expressed as a single versioned statement. It is instead a scalar
+ * [failIfOngoing] guard (which bumps the version only while the session is still ongoing) paired with
+ * the derived [updateError] inside one transaction
  * (see [com.sympauthy.business.manager.flow.InteractiveFlowSessionManager.markAsFailedIfNotRecoverable]).
  *
  * `version` is deliberately a plain column rather than a Micronaut Data `@Version` property:
@@ -129,25 +130,32 @@ interface InteractiveFlowSessionRepository : CoroutineCrudRepository<Interactive
     ): Int
 
     /**
-     * Version compare-and-swap used to guard a mutation whose columns cannot be bound as parameters
-     * inside a raw versioned `@Query` — currently only the terminal error write (see [updateError]).
-     * Increments the version iff the row still holds [expectedVersion]. Callers run it in the same
-     * transaction as the accompanying partial update so the row lock it takes serialises concurrent
-     * writers across both statements.
-     * @return 1 if the swap succeeded, 0 if [expectedVersion] was stale.
+     * Fail-guard for the terminal error write: bump the version **iff the session is still ongoing**
+     * (no completion, cancellation or error date yet).
+     *
+     * Used instead of a version compare-and-swap because the failing request has usually advanced the
+     * session's version itself before hitting the non-recoverable error, so the version it remembers is
+     * stale — yet the session must still be failed. Guarding on "not already terminal" instead lets that
+     * self-advanced session be failed while still refusing to overwrite a session a concurrent request
+     * already drove to a terminal state (a concurrent conflict is diverted before this point; see
+     * [com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil]).
+     *
+     * Paired with the derived [updateError] in one transaction so the row lock it takes serialises the
+     * two statements.
+     * @return 1 if the session was ongoing and is now failing, 0 if it was already terminal.
      */
     @Query(
         """
         UPDATE interactive_flow_sessions
         SET version = version + 1
-        WHERE id = :id AND version = :expectedVersion
+        WHERE id = :id AND complete_date IS NULL AND cancel_date IS NULL AND error_date IS NULL
         """
     )
-    suspend fun bumpVersion(id: UUID, expectedVersion: Long): Int
+    suspend fun failIfOngoing(id: UUID): Int
 
     /**
-     * Write the terminal error, failing the session. Unversioned on its own: it must be paired with a
-     * preceding [bumpVersion] in the same transaction (see
+     * Write the terminal error, failing the session. Unguarded on its own: it must be paired with a
+     * preceding [failIfOngoing] in the same transaction (see
      * [com.sympauthy.business.manager.flow.InteractiveFlowSessionManager.markAsFailedIfNotRecoverable]).
      * Kept as a derived method so `error_values` is serialized to JSON by Micronaut's property mapping,
      * which a raw-query parameter does not do.

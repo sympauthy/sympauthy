@@ -64,6 +64,7 @@ class InteractiveFlowSessionRepositoryTest {
         val now = LocalDateTime.now()
         return InteractiveFlowSessionEntity(
             purposes = purposes,
+            initiatingPurpose = purposes.first(),
             sessionDate = now,
             flowId = "flow",
             expirationDate = now.plusMinutes(10),
@@ -141,16 +142,17 @@ class InteractiveFlowSessionRepositoryTest {
     }
 
     @Test
-    fun `bumpVersion - increments at the expected version and rejects a stale one`() = runTest {
+    fun `failIfOngoing - bumps the version while ongoing and refuses once terminal`() = runTest {
         val session = newSession()
         val id = session.id!!
 
-        assertEquals(1, sessionRepository.bumpVersion(id, expectedVersion = 0))
+        // Ongoing: the guard bumps the version regardless of its current value.
+        assertEquals(1, sessionRepository.failIfOngoing(id))
         assertEquals(1L, sessionRepository.findById(id)!!.version)
 
-        // The original snapshot (version 0) is now stale.
-        assertEquals(0, sessionRepository.bumpVersion(id, expectedVersion = 0))
-        assertEquals(1L, sessionRepository.findById(id)!!.version)
+        // Drive it to a terminal (completed) state; the guard must then refuse.
+        sessionRepository.updateCompleteDate(id, LocalDateTime.now(), expectedVersion = 1)
+        assertEquals(0, sessionRepository.failIfOngoing(id))
     }
 
     @Test

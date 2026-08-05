@@ -211,19 +211,18 @@ open class InteractiveFlowSessionManager(
         if (error.recoverable) return session
 
         val errorDate = LocalDateTime.now()
-        // Two-step version guard: a scalar compare-and-swap then the derived error write, kept atomic
-        // by this @Transactional so the row lock the swap takes serialises concurrent writers across
-        // both statements. Unlike the other lifecycle mutations this cannot be a single versioned
-        // statement — the error_values JSON column round-trips only through Micronaut's property-mapped
-        // serialization, not a raw-query parameter.
+        // Two-step terminal write: a not-terminal guard then the derived error write, kept atomic by this
+        // @Transactional so the row lock the guard takes serialises the two statements. It cannot be a
+        // single versioned statement — the error_values JSON column round-trips only through Micronaut's
+        // property-mapped serialization, not a raw-query parameter.
         //
-        // A lost swap (0 rows) is deliberately swallowed rather than thrown: the session was already
-        // advanced or terminated by a concurrent winner. We must not overwrite the winner's state, yet
-        // this losing/replayed request must still be routed to the error page — so we skip the write and
-        // return an in-memory FailedInteractiveFlowSession. Swallowing here is also what stops a
-        // concurrent-modification conflict (whose own exception brought us into this failure path) from
-        // recursing.
-        if (sessionRepository.bumpVersion(session.id, session.version) == 1) {
+        // The guard bumps the version only while the session is still ongoing. This request has usually
+        // advanced the version itself before failing, so a version compare-and-swap on the remembered
+        // (now-stale) version would wrongly swallow the write and leave the session ongoing; guarding on
+        // "not already terminal" fails it correctly. A session a concurrent request already
+        // completed/cancelled/failed yields 0 rows here and is left untouched — we must not overwrite that
+        // winner (and a concurrent conflict never reaches this method: it is diverted in the controller).
+        if (sessionRepository.failIfOngoing(session.id) == 1) {
             sessionRepository.updateError(
                 id = session.id,
                 errorDate = errorDate,
@@ -392,19 +391,37 @@ open class InteractiveFlowSessionManager(
     }
 
     /**
+     * Re-read the [InteractiveFlowSession] with the given [id] from the database, or null if it no longer
+     * exists. Unlike [verifyEncodedInternalState] this needs no signed state, so a caller holding a stale
+     * in-memory session (e.g. after a concurrent-modification conflict) can refresh it to its current
+     * persisted status and route by that.
+     */
+    suspend fun fetchByIdOrNull(id: UUID): InteractiveFlowSession? {
+        return sessionRepository.findById(id)?.let(sessionMapper::toInteractiveFlowSession)
+    }
+
+    /**
      * Build the non-recoverable [BusinessException] thrown when a version-guarded update affects no
      * rows: the [session] snapshot the caller holds is stale because another request advanced the
      * session since it was read. Being non-recoverable, it is routed by the interactive-flow error
-     * handling to the flow's error page (see
-     * [com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil.handleException]).
+     * handling (see
+     * [com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil.handleException]),
+     * which reflects the session's current terminal status where possible and otherwise fails it.
      */
     private fun concurrentModificationOf(session: InteractiveFlowSession): BusinessException =
         businessExceptionOf(
-            "auth.interactive_flow_session.concurrent_modification",
+            CONCURRENT_MODIFICATION_DETAILS_ID,
             "sessionId" to session.id.toString()
         )
 
     companion object {
+        /**
+         * Detail id of the non-recoverable exception raised when a version-guarded update loses its
+         * compare-and-swap. The controller special-cases it (see
+         * [com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil]).
+         */
+        const val CONCURRENT_MODIFICATION_DETAILS_ID = "auth.interactive_flow_session.concurrent_modification"
+
         /**
          * Name of the cryptographic key used to sign the state.
          */
