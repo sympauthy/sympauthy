@@ -12,6 +12,12 @@ import java.util.*
 @Serdeable
 @MappedEntity("interactive_flow_sessions")
 class InteractiveFlowSessionEntity(
+    // Optimistic-concurrency counter. Incremented by every guarded lifecycle update in
+    // InteractiveFlowSessionRepository (WHERE version = :expectedVersion ... SET version = version + 1).
+    // Deliberately a plain column, not @Version: Micronaut's optimistic locking only engages on
+    // full-entity update/delete, whereas the session is mutated through query-based partial updates.
+    val version: Long = 0,
+
     // Session metadata
     val purposes: Array<String>,
     val initiatingPurpose: String,
