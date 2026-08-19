@@ -2,5 +2,20 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "packageRules": [
+    {
+      "description": [
+        "Hold the Gradle wrapper below 9.7.0.",
+        "Gradle 9.7.0 exposes its own lib/javaparser-core-3.27.1.jar on the system classloader (9.6.1 exposed it only on the Gradle API classloader).",
+        "kapt's annotation-processor classloader delegates parent-first, so Micronaut's Java processors link against that 3.27.1 instead of the 3.28.0 on the kapt classpath and :server:kaptKotlin fails with",
+        "NoSuchMethodError: StaticJavaParser.parseJavadoc(String, boolean) (javaparser 3.28.0 replaced the 1-arg overload that 3.27.1 provides).",
+        "Remove this rule once a Gradle release no longer leaks javaparser onto the system classloader — verify by flipping distributionUrl and running ./gradlew test."
+      ],
+      "matchManagers": [
+        "gradle-wrapper"
+      ],
+      "allowedVersions": "<9.7.0"
+    }
   ]
 }

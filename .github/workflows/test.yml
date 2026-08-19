@@ -24,4 +24,4 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
           cache: 'gradle'
-      - run: gradle test --no-daemon
+      - run: ./gradlew test --no-daemon
