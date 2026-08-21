@@ -232,23 +232,3 @@ artifacts {
         builtBy(syncOpenApiSpec)
     }
 }
-
-// --- OpenAPI release asset ----------------------------------------------------------------------
-// Both kapt (injected by the Micronaut plugin, present here for MapStruct) and KSP run
-// micronaut-openapi, and the two renderings differ. The `duplicatesStrategy = EXCLUDE` above decides
-// which one is packaged, and that packaged copy is the one OpenApiController serves at
-// GET /openapi.yml. Extract it straight out of the jar — rather than from either processor's output
-// directory — so the published release asset is byte-identical to what the released binary serves,
-// whichever processor happens to win.
-// Distinct from syncOpenApiSpec above, which deliberately exports the KSP copy because the
-// integration-tests client generator needs its accurate parameter types.
-val syncPackagedOpenApiSpec by tasks.registering(Sync::class) {
-    description = "Extracts the OpenAPI spec packaged in the server jar to build/openapi-packaged/openapi.yml."
-    group = "openapi"
-    from(tasks.jar.flatMap { it.archiveFile }.map { zipTree(it) }) {
-        include("META-INF/swagger/*.yml")
-        eachFile { path = "openapi.yml" }
-        includeEmptyDirs = false
-    }
-    into(layout.buildDirectory.dir("openapi-packaged"))
-}

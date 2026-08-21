@@ -1,8 +1,10 @@
 # Generates the server's OpenAPI contract and uploads it as the `sympauthy-openapi` artifact so the
 # release / nightly workflows can attach it to the GitHub release next to the native binaries.
 #
-# The published document is the one extracted from the jar by :server:syncPackagedOpenApiSpec, i.e.
-# the exact copy a running instance serves at GET /openapi.yml (with {rootUrl} left unresolved).
+# The published document comes from :server:syncOpenApiSpec — the KSP rendering, which is also what
+# the integration-tests client is generated from, so every green integration run is evidence that it
+# describes the running server. It is NOT the copy packaged in the jar: micronaut-openapi runs under
+# both kapt and KSP, and the packaged (kapt) rendering carries spurious schema properties. See #316.
 
 name: Build SympAuthy OpenAPI specification
 
@@ -37,11 +39,11 @@ jobs:
         uses: ./.github/actions/setup_java
 
       - name: Generate OpenAPI specification
-        run: ./gradlew :server:syncPackagedOpenApiSpec --no-daemon
+        run: ./gradlew :server:syncOpenApiSpec --no-daemon
 
       - name: Prepare specification for upload
         run: |
-          SPEC=server/build/openapi-packaged/openapi.yml
+          SPEC=server/build/openapi/openapi.yml
           # Fail here rather than attaching an empty or truncated asset to a release.
           test -s "$SPEC"
           head -1 "$SPEC" | grep -qE '^openapi: 3\.'

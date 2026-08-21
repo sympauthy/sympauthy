@@ -245,8 +245,8 @@ jobs:
           |------|-------------|
           | sympauthy-openapi.yml | OpenAPI 3.0 contract of the SympAuthy HTTP API |
 
-          This is the same document a running instance serves at \`/openapi.yml\`. Server URLs keep
-          the \`{rootUrl}\` placeholder, which an instance substitutes with its configured root URL.
+          Server URLs keep the \`{rootUrl}\` placeholder; substitute the root URL of your deployment.
+          A running instance also serves its contract at \`/openapi.yml\`.
 
           ## Docker
 
