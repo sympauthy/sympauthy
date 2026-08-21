@@ -6,8 +6,9 @@ inputs:
     default: temurin
   github-token:
     description: >-
-      Token forwarded to graalvm/setup-graalvm. Composite actions cannot read secrets, so callers
-      installing GraalVM must pass ${{ secrets.GITHUB_TOKEN }} explicitly.
+      Token forwarded to graalvm/setup-graalvm. Composite actions cannot read the secrets context, so
+      callers installing GraalVM must pass the GITHUB_TOKEN secret explicitly. Note that expression
+      syntax is evaluated even inside these descriptions, so it cannot be spelled out here.
     default: ''
   cache:
     description: "Build tool whose dependencies are cached ('gradle', 'maven', …). Empty disables caching."
