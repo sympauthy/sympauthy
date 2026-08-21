@@ -99,20 +99,19 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Extract Java version from build script
-        id: java-version
-        run: |
-          VERSION=$(grep -E 'JavaVersion\.VERSION_[0-9]+' server/build.gradle.kts | grep -oE '[0-9]+$')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Setup JDK ${{ steps.java-version.outputs.version }}
-        uses: actions/setup-java@v5
-        with:
-          java-version: ${{ steps.java-version.outputs.version }}
-          distribution: temurin
+      - name: Setup Java
+        uses: ./.github/actions/setup_java
 
       - name: Run tests
         run: ./gradlew test --no-daemon
+
+  # Sibling of `test` rather than downstream of it: the spec is cheap to build and must not sit on the
+  # critical path of the native builds.
+  build_openapi:
+    needs: [ validate_branch, read_version ]
+    uses: ./.github/workflows/build-openapi.yml
+    with:
+      ref: ${{ github.ref_name }}
 
   build_flow:
     needs: [ read_version, test ]
@@ -201,7 +200,7 @@ jobs:
 
   publish_release:
     name: Publish GitHub release
-    needs: [ read_version, build_binary, integration_test ]
+    needs: [ read_version, build_binary, integration_test, build_openapi ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -217,6 +216,8 @@ jobs:
         run: |
           mkdir -p release-assets
           find binaries -maxdepth 1 -type f -name 'sympauthy-*' -exec cp {} release-assets/ \;
+          # The OpenAPI spec rides in on the `sympauthy-*` glob above (artifact: sympauthy-openapi).
+          test -f release-assets/sympauthy-openapi.yml
           ls -la release-assets/
 
       - name: Create GitHub release
@@ -237,6 +238,15 @@ jobs:
           | sympauthy-linux-arm64 | Linux ARM64 |
           | sympauthy-macos-x64 | macOS Intel |
           | sympauthy-macos-arm64 | macOS Apple Silicon |
+
+          ## API
+
+          | File | Description |
+          |------|-------------|
+          | sympauthy-openapi.yml | OpenAPI 3.0 contract of the SympAuthy HTTP API |
+
+          Server URLs keep the \`{rootUrl}\` placeholder; substitute the root URL of your deployment.
+          A running instance also serves its contract at \`/openapi.yml\`.
 
           ## Docker
 

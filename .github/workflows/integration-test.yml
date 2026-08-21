@@ -45,19 +45,11 @@ jobs:
         with:
           ref: ${{ inputs.ref || github.ref }}
 
-      - name: Extract Java version from build script
-        id: java-version
-        shell: bash
-        run: |
-          VERSION=$(grep -E 'JavaVersion\.VERSION_[0-9]+' server/build.gradle.kts | grep -oE '[0-9]+$')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
       # Single toolchain for both paths: GraalVM runs Gradle for the integration tests, and provides
       # native-image for the build-from-source path below.
-      - name: Setup GraalVM for JDK ${{ steps.java-version.outputs.version }}
-        uses: graalvm/setup-graalvm@v1
+      - name: Setup Java
+        uses: ./.github/actions/setup_java
         with:
-          java-version: ${{ steps.java-version.outputs.version }}
           distribution: graalvm
           github-token: ${{ secrets.GITHUB_TOKEN }}
 

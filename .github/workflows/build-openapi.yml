@@ -1,0 +1,59 @@
+# Generates the server's OpenAPI contract and uploads it as the `sympauthy-openapi` artifact so the
+# release / nightly workflows can attach it to the GitHub release next to the native binaries.
+#
+# The published document comes from :server:syncOpenApiSpec — the KSP rendering, which is also what
+# the integration-tests client is generated from, so every green integration run is evidence that it
+# describes the running server. It is NOT the copy packaged in the jar: micronaut-openapi runs under
+# both kapt and KSP, and the packaged (kapt) rendering carries spurious schema properties. See #316.
+
+name: Build SympAuthy OpenAPI specification
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Git reference of the commit to build
+        type: string
+        required: true
+  # Dispatchable on its own so the spec generation can be rehearsed without cutting a release.
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git reference to build
+        type: string
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build OpenAPI specification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Setup Java
+        uses: ./.github/actions/setup_java
+
+      - name: Generate OpenAPI specification
+        run: ./gradlew :server:syncOpenApiSpec --no-daemon
+
+      - name: Prepare specification for upload
+        run: |
+          SPEC=server/build/openapi/openapi.yml
+          # Fail here rather than attaching an empty or truncated asset to a release.
+          test -s "$SPEC"
+          head -1 "$SPEC" | grep -qE '^openapi: 3\.'
+          grep -q '^paths:' "$SPEC"
+          # Name it sympauthy-* so publish_release's existing `sympauthy-*` glob collects it.
+          cp "$SPEC" sympauthy-openapi.yml
+
+      - name: Upload OpenAPI specification artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: sympauthy-openapi
+          path: sympauthy-openapi.yml
+          if-no-files-found: error

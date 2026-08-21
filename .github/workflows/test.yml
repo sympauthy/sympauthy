@@ -1,8 +1,5 @@
 name: Test
 
-env:
-  JAVA_VERSION: 25
-
 on:
   push:
     branches-ignore:
@@ -19,9 +16,7 @@ jobs:
         with:
           gradle-version: wrapper
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: ./.github/actions/setup_java
         with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: 'temurin'
-          cache: 'gradle'
+          cache: gradle
       - run: ./gradlew test --no-daemon

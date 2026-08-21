@@ -1,0 +1,51 @@
+name: setup_java
+description: Extract the Java version from the build script and install the matching JDK.
+inputs:
+  distribution:
+    description: "Distribution to install: 'temurin' for a plain JDK, 'graalvm' when native-image is needed."
+    default: temurin
+  github-token:
+    description: >-
+      Token forwarded to graalvm/setup-graalvm. Composite actions cannot read the secrets context, so
+      callers installing GraalVM must pass the GITHUB_TOKEN secret explicitly. Note that expression
+      syntax is evaluated even inside these descriptions, so it cannot be spelled out here.
+    default: ''
+  cache:
+    description: "Build tool whose dependencies are cached ('gradle', 'maven', …). Empty disables caching."
+    default: ''
+outputs:
+  version:
+    description: Java version extracted from server/build.gradle.kts.
+    value: ${{ steps.extract.outputs.version }}
+runs:
+  using: composite
+  steps:
+    # The build script is the single source of truth for the Java version. Requires the repository to
+    # be checked out before this action runs.
+    - name: Extract Java version from build script
+      id: extract
+      shell: bash
+      run: |
+        VERSION=$(grep -E 'JavaVersion\.VERSION_[0-9]+' server/build.gradle.kts | grep -oE '[0-9]+$')
+        if [[ -z "$VERSION" ]]; then
+          echo "::error::Could not extract the Java version from server/build.gradle.kts"
+          exit 1
+        fi
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+    - name: Setup ${{ inputs.distribution }} JDK ${{ steps.extract.outputs.version }}
+      if: inputs.distribution != 'graalvm'
+      uses: actions/setup-java@v5
+      with:
+        java-version: ${{ steps.extract.outputs.version }}
+        distribution: ${{ inputs.distribution }}
+        cache: ${{ inputs.cache }}
+
+    - name: Setup GraalVM for JDK ${{ steps.extract.outputs.version }}
+      if: inputs.distribution == 'graalvm'
+      uses: graalvm/setup-graalvm@v1
+      with:
+        java-version: ${{ steps.extract.outputs.version }}
+        distribution: graalvm
+        github-token: ${{ inputs.github-token }}
+        cache: ${{ inputs.cache }}

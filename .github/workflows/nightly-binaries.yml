@@ -100,6 +100,13 @@ jobs:
     with:
       ref: ${{ inputs.ref || 'main' }}
 
+  build_openapi:
+    needs: [ should_build ]
+    if: needs.should_build.outputs.result == '1'
+    uses: ./.github/workflows/build-openapi.yml
+    with:
+      ref: ${{ inputs.ref || 'main' }}
+
   build_linux_binary:
     needs: [ should_build, build_flow, build_admin ]
     if: needs.should_build.outputs.result == '1'
@@ -204,7 +211,7 @@ jobs:
 
   publish_release:
     name: Publish to nightly release
-    needs: [ should_build, build_linux_binary, build_macos_binary, integration_test ]
+    needs: [ should_build, build_linux_binary, build_macos_binary, integration_test, build_openapi ]
     if: needs.should_build.outputs.result == '1'
     runs-on: ubuntu-latest
     steps:
@@ -224,6 +231,8 @@ jobs:
         run: |
           mkdir -p release-assets
           find binaries -maxdepth 1 -type f -name 'sympauthy-*' -exec cp {} release-assets/ \;
+          # The OpenAPI spec rides in on the `sympauthy-*` glob above (artifact: sympauthy-openapi).
+          test -f release-assets/sympauthy-openapi.yml
           ls -la release-assets/
 
       - name: Create or update nightly release
@@ -243,6 +252,11 @@ jobs:
           | sympauthy-linux-arm64 | Linux ARM64 |
           | sympauthy-macos-x64 | macOS Intel |
           | sympauthy-macos-arm64 | macOS Apple Silicon |
+
+          ## API
+          | File | Description |
+          |------|-------------|
+          | sympauthy-openapi.yml | OpenAPI 3.0 contract of the SympAuthy HTTP API (`{rootUrl}` placeholder unresolved) |
           EOF
           )" \
             --prerelease \
