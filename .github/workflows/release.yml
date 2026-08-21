@@ -99,17 +99,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Extract Java version from build script
-        id: java-version
-        run: |
-          VERSION=$(grep -E 'JavaVersion\.VERSION_[0-9]+' server/build.gradle.kts | grep -oE '[0-9]+$')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Setup JDK ${{ steps.java-version.outputs.version }}
-        uses: actions/setup-java@v5
-        with:
-          java-version: ${{ steps.java-version.outputs.version }}
-          distribution: temurin
+      - name: Setup Java
+        uses: ./.github/actions/setup_java
 
       - name: Run tests
         run: ./gradlew test --no-daemon

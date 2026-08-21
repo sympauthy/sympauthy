@@ -39,17 +39,9 @@ jobs:
           name: sympauthy-admin-dist
           path: server/src/main/resources/sympauthy-admin
 
-      - name: Extract Java version from build script
-        id: java-version
-        shell: bash
-        run: |
-          VERSION=$(grep -E 'JavaVersion\.VERSION_[0-9]+' server/build.gradle.kts | grep -oE '[0-9]+$')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Setup GraalVM for JDK ${{ steps.java-version.outputs.version }}
-        uses: graalvm/setup-graalvm@v1
+      - name: Setup Java
+        uses: ./.github/actions/setup_java
         with:
-          java-version: ${{ steps.java-version.outputs.version }}
           distribution: graalvm
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
