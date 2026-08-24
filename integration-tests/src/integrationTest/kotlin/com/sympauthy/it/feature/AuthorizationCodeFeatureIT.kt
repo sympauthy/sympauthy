@@ -40,6 +40,10 @@ class AuthorizationCodeFeatureIT : AbstractSympauthyIT() {
             assertNotNull(tokens.accessToken(), "token response should carry an access token")
             assertNotNull(tokens.idToken(), "the openid scope should yield an id_token")
 
+            // RFC 6749 names this expires_in and defines it as the lifetime in seconds. The default
+            // access token expiration is 1h, so the response must advertise 3600 under that exact name.
+            assertEquals(3600L, tokens.expiresIn(), "expires_in should be the token lifetime in seconds")
+
             // Verify the id_token is genuinely signed by the key the server publishes at its jwks_uri.
             val claims = verifyIdTokenSignature(sympauthy, tokens.idToken())
             assertEquals(sympauthy.issuerUrl, claims.issuer, "id_token should be issued by this container")

@@ -18,8 +18,12 @@ data class TokenResource(
     val accessToken: String,
     @get:JsonProperty("token_type")
     val tokenType: String,
-    @get:JsonProperty("expired_in")
-    val expiredIn: Int?,
+    /**
+     * The lifetime in seconds of the access token, as defined by OAuth 2.0 (RFC 6749, section 5.1).
+     * Null if the access token never expires.
+     */
+    @get:JsonProperty("expires_in")
+    val expiresIn: Int?,
     @get:JsonProperty("scope")
     val scope: String? = null,
     @get:JsonProperty("refresh_token")

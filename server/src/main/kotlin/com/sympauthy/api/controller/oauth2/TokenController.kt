@@ -40,8 +40,6 @@ import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.inject.Inject
 import java.time.Duration
-import java.time.Instant
-import java.time.ZoneOffset
 
 @Controller(OAUTH2_TOKEN_ENDPOINT)
 class TokenController(
@@ -275,7 +273,7 @@ Client authentication is supported via:
         return TokenResource(
             accessToken = tokens.accessToken.token,
             tokenType = tokenType,
-            expiredIn = getExpiredIn(tokens.accessToken),
+            expiresIn = getExpiresIn(tokens.accessToken),
             scope = getScope(tokens.accessToken),
             refreshToken = tokens.refreshToken?.token,
             idToken = tokens.idToken?.token
@@ -297,7 +295,7 @@ Client authentication is supported via:
         return TokenResource(
             accessToken = accessToken.token,
             tokenType = tokenType,
-            expiredIn = getExpiredIn(accessToken),
+            expiresIn = getExpiresIn(accessToken),
             scope = getScope(accessToken),
             refreshToken = refreshedRefreshToken?.token ?: encodedRefreshToken
         )
@@ -323,7 +321,7 @@ Client authentication is supported via:
         return TokenResource(
             accessToken = accessToken.token,
             tokenType = tokenType,
-            expiredIn = getExpiredIn(accessToken),
+            expiresIn = getExpiresIn(accessToken),
             scope = getScope(accessToken),
             refreshToken = null,
             idToken = null
@@ -370,7 +368,7 @@ Client authentication is supported via:
         return TokenResource(
             accessToken = accessToken.token,
             tokenType = tokenType,
-            expiredIn = getExpiredIn(accessToken),
+            expiresIn = getExpiresIn(accessToken),
             scope = getScope(accessToken),
             refreshToken = null,
             idToken = null,
@@ -395,12 +393,16 @@ Client authentication is supported via:
             .nullIfBlank()
     }
 
-    private fun getExpiredIn(accessToken: EncodedAuthenticationToken): Int? {
+    /**
+     * Returns the lifetime in seconds of the [accessToken], or null if it never expires.
+     *
+     * The lifetime is measured from the issue date of the token rather than from now, so that the
+     * returned value is exactly the configured lifetime instead of being shortened by the time spent
+     * handling the request.
+     */
+    private fun getExpiresIn(accessToken: EncodedAuthenticationToken): Int? {
         return accessToken.expirationDate?.let {
-            Duration.between(
-                Instant.now(),
-                it.toInstant(ZoneOffset.UTC)
-            ).toMillisPart()
+            Duration.between(accessToken.issueDate, it).toSeconds().toInt()
         }
     }
 
