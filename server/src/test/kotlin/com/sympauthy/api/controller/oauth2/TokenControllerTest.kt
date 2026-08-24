@@ -117,12 +117,14 @@ class TokenControllerTest {
     private fun mockEncodedToken(
         token: String = "encoded-token",
         scopes: List<String> = emptyList(),
+        issueDate: LocalDateTime = LocalDateTime.of(2024, 1, 1, 0, 0),
         expirationDate: LocalDateTime? = null,
         type: AuthenticationTokenType = ACCESS
     ): EncodedAuthenticationToken {
         return mockk {
             every { this@mockk.token } returns token
             every { this@mockk.scopes } returns scopes
+            every { this@mockk.issueDate } returns issueDate
             every { this@mockk.expirationDate } returns expirationDate
             every { this@mockk.type } returns type
         }
@@ -585,5 +587,48 @@ class TokenControllerTest {
         assertEquals("bearer", result.tokenType)
         assertNull(result.refreshToken)
         assertNull(result.idToken)
+        assertNull(result.expiresIn, "a token without an expiration date has no lifetime to report")
+    }
+
+    // --- expires_in tests ---
+
+    @Test
+    fun `getTokens - Returns the lifetime of the access token in seconds`() = runTest {
+        val request = mockRequestWithoutAuth()
+        val client = mockClient("my-client")
+        val accessToken = mockEncodedToken(
+            token = "cc-access",
+            issueDate = LocalDateTime.of(2024, 1, 1, 12, 0, 0),
+            expirationDate = LocalDateTime.of(2024, 1, 1, 13, 0, 0)
+        )
+
+        coEvery { clientAuthenticationUtil.resolveClient(request, any(), any()) } returns client
+        coEvery { scopeManager.parseRequestedClientScopes(client, null) } returns emptyList()
+        coEvery { clientScopeGrantingManager.grantClientScopes(client, emptyList()) } returns ClientGrantScopesResult(
+            requestedScopes = emptyList(),
+            results = emptyList()
+        )
+        coEvery {
+            accessTokenGenerator.generateAccessTokenForClient(
+                clientId = "my-client",
+                tokenAudience = any(),
+                clientScopes = emptyList(),
+                dpopJkt = null
+            )
+        } returns accessToken
+
+        val result = controller.getTokens(
+            request = request,
+            grantType = "client_credentials",
+            code = null,
+            redirectUri = null,
+            refreshToken = null,
+            scope = null,
+            clientId = "my-client",
+            clientSecret = "secret",
+            codeVerifier = null
+        )
+
+        assertEquals(3600, result.expiresIn)
     }
 }
