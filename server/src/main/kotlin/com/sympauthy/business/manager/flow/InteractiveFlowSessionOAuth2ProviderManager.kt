@@ -1,7 +1,5 @@
 package com.sympauthy.business.manager.flow
 
-import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_CALLBACK_ENDPOINT
-import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_ENDPOINTS
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.flow.link.InteractiveFlowSessionLinkProviderManager
@@ -58,8 +56,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
     @Inject private val establisher: ProviderUserEstablisher,
     @Inject private val linkProviderManager: InteractiveFlowSessionLinkProviderManager,
     @Inject private val userManager: UserManager,
-    @Inject private val uncheckedAuthConfig: AuthConfig,
-    @Inject private val uncheckedUrlsConfig: UrlsConfig
+    @Inject private val uncheckedAuthConfig: AuthConfig
 ) {
 
     private val logger = loggerForClass()
@@ -72,25 +69,18 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
     }
 
     /**
-     * Return the redirect uri that must be called by the third-party OAuth 2 provider after the user
-     * has authenticated in an authorization code grant flow.
-     */
-    fun getRedirectUri(provider: Provider): URI {
-        return uncheckedUrlsConfig.orThrow().getUri(
-            FLOW_PROVIDER_ENDPOINTS + FLOW_PROVIDER_CALLBACK_ENDPOINT,
-            "providerId" to provider.id
-        )
-    }
-
-    /**
      * Return the URL to redirect the end-user to start the authorization process with the [Provider] identified by
-     * [providerId].
+     * [providerId], which sends them back to [redirectUri] once they have authenticated.
      *
      * If the provider is not found or is disabled, an unrecoverable business exception is thrown.
+     *
+     * The very same [redirectUri] must later be given to [signInOrSignUpUsingProvider], since RFC 6749
+     * section 4.1.3 requires the token request to repeat the redirect uri of the authorization request.
      */
     suspend fun authorizeWithProvider(
         session: OnGoingInteractiveFlowSession,
-        providerId: String
+        providerId: String,
+        redirectUri: URI
     ): URI {
         val provider = providerConfigManager.findByIdAndCheckEnabled(providerId)
         // Once the session user is fixed, a provider round-trip may only re-confirm ownership with a provider
@@ -112,7 +102,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
                 ProviderOpenIdConnectAuthorizationRedirect(
                     openIdConnect = auth,
                     responseType = "code",
-                    redirectUri = getRedirectUri(provider),
+                    redirectUri = redirectUri,
                     state = state,
                     nonce = nonce
                 ).build()
@@ -123,7 +113,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
                 ProviderOAuth2AuthorizationRedirect(
                     oauth2 = auth,
                     responseType = "code",
-                    redirectUri = getRedirectUri(provider),
+                    redirectUri = redirectUri,
                     state = state
                 ).build()
             }
@@ -138,10 +128,14 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
      * - retrieve end-user claims from the [Provider] and store them in this authorization server database.
      * - sign in the user if it already exists, according to the user-merging strategy.
      * - otherwise, sign up the user with the claims retrieved from the [Provider].
+     *
+     * [redirectUri] is the one given to [authorizeWithProvider] when this flow was started: RFC 6749 section
+     * 4.1.3 requires the token request to repeat it, and a provider rejects the exchange when it differs.
      */
     suspend fun signInOrSignUpUsingProvider(
         session: OnGoingInteractiveFlowSession,
         providerId: String?,
+        redirectUri: URI,
         authorizeCode: String?,
         providerError: String? = null,
         providerErrorDescription: String? = null
@@ -176,7 +170,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
 
         val provider = providerConfigManager.findByIdAndCheckEnabled(providerId)
 
-        val tokens = fetchTokens(provider, provider.auth, authorizeCode)
+        val tokens = fetchTokens(provider, provider.auth, authorizeCode, redirectUri)
         val expectedNonce = providerManager.buildProviderNonceOrNull(sessionProvider)
         val rawUserInfo = providerClaimsResolver.resolveClaims(provider, tokens, expectedNonce)
 
@@ -348,7 +342,8 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
     suspend fun fetchTokens(
         provider: Provider,
         auth: ProviderAuthConfig,
-        authorizeCode: String
+        authorizeCode: String,
+        redirectUri: URI
     ): ProviderOAuth2Tokens {
         val oauth2Config = when (auth) {
             is ProviderOAuth2Config -> auth
@@ -363,7 +358,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
         val request = ProviderOAuth2TokenRequest(
             oauth2 = oauth2Config,
             authorizeCode = authorizeCode,
-            redirectUri = getRedirectUri(provider)
+            redirectUri = redirectUri
         )
         val response = tokenEndpointClient.fetchTokens(request)
 

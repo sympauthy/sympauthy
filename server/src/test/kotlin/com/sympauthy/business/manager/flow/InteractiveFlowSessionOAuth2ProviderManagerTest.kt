@@ -22,7 +22,6 @@ import com.sympauthy.business.model.provider.config.ProviderUserInfoConfig
 import com.sympauthy.business.model.provider.oauth2.ProviderOAuth2Tokens
 import com.sympauthy.business.model.user.RawProviderClaims
 import com.sympauthy.client.oauth2.TokenEndpointClient
-import com.sympauthy.config.model.UrlsConfig
 import io.mockk.*
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
@@ -33,6 +32,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
+import java.net.URI
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
@@ -74,12 +74,11 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
     @MockK
     lateinit var uncheckedAuthConfig: EnabledAuthConfig
 
-    @MockK
-    lateinit var uncheckedUrlsConfig: UrlsConfig
-
     @SpyK
     @InjectMockKs
     lateinit var manager: InteractiveFlowSessionOAuth2ProviderManager
+
+    private val redirectUri = URI.create("https://auth.example.com/api/v1/flow/providers/test-provider/callback")
 
     private fun createProvider(): EnabledProvider {
         return EnabledProvider(
@@ -119,7 +118,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
         coEvery { providerClaimsManager.findByUserIdAndProviderIdOrNull(userId, provider.id) } returns null
 
         val exception = assertThrows<BusinessException> {
-            manager.authorizeWithProvider(session, provider.id)
+            manager.authorizeWithProvider(session, provider.id, redirectUri)
         }
 
         assertEquals("flow.reauthentication.provider_not_linked", exception.detailsId)
@@ -144,7 +143,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
         val rawUserInfo = RawProviderClaims(subject = subject, email = "user@example.com")
         coEvery { providerManager.fetchProviderOrNull(session) } returns sessionProvider
         coEvery { providerConfigManager.findByIdAndCheckEnabled(provider.id) } returns provider
-        coEvery { manager.fetchTokens(provider, provider.auth, "code") } returns tokens
+        coEvery { manager.fetchTokens(provider, provider.auth, "code", redirectUri) } returns tokens
         coEvery { providerManager.buildProviderNonceOrNull(sessionProvider) } returns null
         coEvery { providerClaimsResolver.resolveClaims(provider, tokens, null) } returns rawUserInfo
         coEvery { providerClaimsManager.findByProviderAndSubject(provider, subject) } returns existingUserInfo
@@ -165,7 +164,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             coEvery { reauthenticationManager.markPrimaryCredentialProven(session) } returns mockk()
             coEvery { engine.completeIfNecessary(session) } returns advanced
 
-            val result = manager.signInOrSignUpUsingProvider(session, provider.id, authorizeCode = "code")
+            val result = manager.signInOrSignUpUsingProvider(session, provider.id, redirectUri, authorizeCode = "code")
 
             assertSame(advanced, result)
             coVerify { reauthenticationManager.markPrimaryCredentialProven(session) }
@@ -183,7 +182,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.REAUTHENTICATION
 
             val exception = assertThrows<BusinessException> {
-                manager.signInOrSignUpUsingProvider(session, provider.id, authorizeCode = "code")
+                manager.signInOrSignUpUsingProvider(session, provider.id, redirectUri, authorizeCode = "code")
             }
 
             assertEquals("flow.reauthentication.provider_not_linked", exception.detailsId)
@@ -206,7 +205,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo)
             coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.MFA_CHALLENGE
 
-            val result = manager.signInOrSignUpUsingProvider(session, provider.id, authorizeCode = "code")
+            val result = manager.signInOrSignUpUsingProvider(session, provider.id, redirectUri, authorizeCode = "code")
 
             assertSame(session, result)
             coVerify(exactly = 0) { sessionManager.setAuthenticatedUserId(any(), any(), any()) }
@@ -227,7 +226,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             InteractiveFlowSessionLinkProvider(sessionId = UUID.randomUUID(), providerId = "other-provider")
 
         val exception = assertThrows<BusinessException> {
-            manager.authorizeWithProvider(session, provider.id)
+            manager.authorizeWithProvider(session, provider.id, redirectUri)
         }
 
         assertEquals("flow.link_provider.wrong_provider", exception.detailsId)
@@ -247,7 +246,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
         coEvery { providerClaimsManager.saveUserInfo(provider, userId, rawUserInfo) } returns mockk()
         coEvery { engine.completeIfNecessary(session) } returns advanced
 
-        val result = manager.signInOrSignUpUsingProvider(session, provider.id, authorizeCode = "code")
+        val result = manager.signInOrSignUpUsingProvider(session, provider.id, redirectUri, authorizeCode = "code")
 
         assertSame(advanced, result)
         coVerify { providerClaimsManager.saveUserInfo(provider, userId, rawUserInfo) }
@@ -266,7 +265,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             coJustRun { providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo) }
             coEvery { engine.completeIfNecessary(session) } returns advanced
 
-            val result = manager.signInOrSignUpUsingProvider(session, provider.id, authorizeCode = "code")
+            val result = manager.signInOrSignUpUsingProvider(session, provider.id, redirectUri, authorizeCode = "code")
 
             assertSame(advanced, result)
             coVerify { providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo) }
@@ -283,7 +282,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
         coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
 
         val exception = assertThrows<BusinessException> {
-            manager.signInOrSignUpUsingProvider(session, provider.id, authorizeCode = "code")
+            manager.signInOrSignUpUsingProvider(session, provider.id, redirectUri, authorizeCode = "code")
         }
 
         assertEquals("flow.link_provider.subject_conflict", exception.detailsId)
@@ -304,7 +303,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             coEvery { userManager.findByIdentifierClaims(mapOf("email" to "user@example.com")) } returns otherUser
 
             val exception = assertThrows<BusinessException> {
-                manager.signInOrSignUpUsingProvider(session, provider.id, authorizeCode = "code")
+                manager.signInOrSignUpUsingProvider(session, provider.id, redirectUri, authorizeCode = "code")
             }
 
             assertEquals("flow.link_provider.identifier_conflict", exception.detailsId)

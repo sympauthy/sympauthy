@@ -3,9 +3,9 @@ package com.sympauthy.api.mapper.client
 import com.sympauthy.api.mapper.config.OutputResourceMapperConfig
 import com.sympauthy.api.resource.client.ClientProviderResource
 import com.sympauthy.api.resource.client.ClientUserResource
+import com.sympauthy.business.model.provider.ProviderUserInfo
 import com.sympauthy.business.model.user.ClientUser
 import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.data.model.ProviderUserInfoEntity
 import org.mapstruct.Mapper
 import org.mapstruct.Mapping
 
@@ -25,8 +25,8 @@ abstract class ClientUserResourceMapper {
         return claims.associate { it.claim.id to it.value }
     }
 
-    @Mapping(source = "id.providerId", target = "providerId")
-    @Mapping(source = "subject", target = "subject")
+    @Mapping(source = "providerId", target = "providerId")
+    @Mapping(source = "userInfo.subject", target = "subject")
     @Mapping(source = "fetchDate", target = "linkedAt")
-    abstract fun toProviderResource(entity: ProviderUserInfoEntity): ClientProviderResource
+    abstract fun toProviderResource(providerUserInfo: ProviderUserInfo): ClientProviderResource
 }

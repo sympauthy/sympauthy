@@ -1,5 +1,5 @@
 applicationType: default
-defaultPackage: tournament.events.auth
+defaultPackage: com.sympauthy
 testFramework: junit
 sourceLanguage: kotlin
 buildTool: gradle_kotlin

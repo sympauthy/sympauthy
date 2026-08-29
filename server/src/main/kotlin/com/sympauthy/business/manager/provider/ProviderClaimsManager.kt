@@ -38,6 +38,11 @@ class ProviderClaimsManager(
             .map(userInfoMapper::toProviderUserInfo)
     }
 
+    suspend fun listByUserIds(userIds: List<UUID>): List<ProviderUserInfo> {
+        return userInfoRepository.findByUserIdInList(userIds)
+            .map(userInfoMapper::toProviderUserInfo)
+    }
+
     suspend fun findByUserIdAndProviderIdOrNull(userId: UUID, providerId: String): ProviderUserInfo? {
         return userInfoRepository.findByProviderIdAndUserId(providerId, userId)
             ?.let(userInfoMapper::toProviderUserInfo)

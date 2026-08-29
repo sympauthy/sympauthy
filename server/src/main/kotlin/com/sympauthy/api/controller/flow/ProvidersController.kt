@@ -3,6 +3,9 @@ package com.sympauthy.api.controller.flow
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_ENDPOINTS
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2ProviderManager
+import com.sympauthy.config.model.UrlsConfig
+import com.sympauthy.config.model.getUri
+import com.sympauthy.config.model.orThrow
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
 import io.micronaut.http.HttpResponse
@@ -15,13 +18,27 @@ import io.micronaut.security.rules.SecurityRule.IS_ANONYMOUS
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import jakarta.inject.Inject
+import java.net.URI
 
 @Secured(HAS_STATE)
 @Controller(FLOW_PROVIDER_ENDPOINTS)
 class ProvidersController(
     @Inject private val interactiveFlowSessionOAuth2ProviderManager: InteractiveFlowSessionOAuth2ProviderManager,
-    @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
+    @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil,
+    @Inject private val uncheckedUrlsConfig: UrlsConfig
 ) {
+
+    /**
+     * Return the absolute uri the provider identified by [providerId] must redirect the end-user back to at
+     * the end of its authorization code flow.
+     *
+     * Both handlers below build it here rather than each spelling the route: RFC 6749 section 4.1.3 requires
+     * the token request to repeat the redirect uri of the authorization request, so the two have to agree.
+     */
+    private fun callbackUri(providerId: String): URI = uncheckedUrlsConfig.orThrow().getUri(
+        FLOW_PROVIDER_ENDPOINTS + FLOW_PROVIDER_CALLBACK_ENDPOINT,
+        "providerId" to providerId
+    )
 
     @Operation(
         description = """
@@ -48,7 +65,8 @@ defined in ```urls.flow.error``` configuration.
             run = { session, _ ->
                 interactiveFlowSessionOAuth2ProviderManager.authorizeWithProvider(
                     session,
-                    providerId = providerId
+                    providerId = providerId,
+                    redirectUri = callbackUri(providerId)
                 )
             },
             mapRedirectUriToResource = { redirectUri -> HttpResponse.seeOther<Any>(redirectUri) },
@@ -87,6 +105,7 @@ Redirection to either:
             interactiveFlowSessionOAuth2ProviderManager.signInOrSignUpUsingProvider(
                 session = session,
                 providerId = providerId,
+                redirectUri = callbackUri(providerId),
                 authorizeCode = code,
                 providerError = error,
                 providerErrorDescription = errorDescription

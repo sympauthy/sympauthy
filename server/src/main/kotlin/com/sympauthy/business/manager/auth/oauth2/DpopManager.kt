@@ -8,13 +8,13 @@ import com.nimbusds.jose.jwk.JWK
 import com.nimbusds.jose.jwk.RSAKey
 import com.nimbusds.jwt.SignedJWT
 import com.sympauthy.api.exception.oauth2ExceptionOf
+import com.sympauthy.business.model.oauth2.DpopBoundRequest
 import com.sympauthy.business.model.oauth2.DpopProof
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
 import com.sympauthy.config.model.EnabledUrlsConfig
 import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.config.model.getUri
 import com.sympauthy.config.model.orThrow
-import io.micronaut.http.HttpRequest
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.text.ParseException
@@ -33,25 +33,25 @@ class DpopManager(
 ) {
 
     /**
-     * Extracts and validates the DPoP proof from the request, if present.
+     * Validate the DPoP proof presented on a request and return it as a [DpopProof] carrying the thumbprint
+     * of the key it was signed with, or null when the caller presented none.
      *
-     * @return a [DpopProof] containing the JWK thumbprint, or null if no DPoP header is present.
-     * @throws com.sympauthy.api.exception.OAuth2Exception if the proof is present but invalid.
+     * [proofs] is every value sent under the [DPOP_HEADER] header, and [boundRequest] the method and uri the
+     * proof has to be bound to. Presenting more than one proof, or one that does not validate against
+     * [boundRequest], raises an [com.sympauthy.api.exception.OAuth2Exception] carrying [INVALID_DPOP_PROOF].
      */
-    fun validateDpopProof(request: HttpRequest<*>): DpopProof? {
-        val dpopHeaders = request.headers.getAll(DPOP_HEADER)
-        if (dpopHeaders.isNullOrEmpty()) {
+    fun validateDpopProof(proofs: List<String>, boundRequest: DpopBoundRequest): DpopProof? {
+        if (proofs.isEmpty()) {
             return null
         }
-        if (dpopHeaders.size > 1) {
+        if (proofs.size > 1) {
             throw oauth2ExceptionOf(INVALID_DPOP_PROOF, "dpop.multiple_headers")
         }
 
-        val proofJwt = dpopHeaders.first()
-        return validateProof(proofJwt, request)
+        return validateProof(proofs.first(), boundRequest)
     }
 
-    internal fun validateProof(encodedProof: String, request: HttpRequest<*>): DpopProof {
+    internal fun validateProof(encodedProof: String, boundRequest: DpopBoundRequest): DpopProof {
         val signedJwt = try {
             SignedJWT.parse(encodedProof)
         } catch (e: ParseException) {
@@ -97,15 +97,15 @@ class DpopManager(
         }
 
         // Validate htm matches request method
-        if (!htm.equals(request.method.name, ignoreCase = true)) {
+        if (!htm.equals(boundRequest.method, ignoreCase = true)) {
             throw oauth2ExceptionOf(
                 INVALID_DPOP_PROOF, "dpop.invalid_htm",
-                "proofHtm" to htm, "requestMethod" to request.method.name
+                "proofHtm" to htm, "requestMethod" to boundRequest.method
             )
         }
 
         // Validate htu matches request URI (without query and fragment)
-        val requestUri = getRequestUri(request)
+        val requestUri = getRequestUri(boundRequest)
         if (htu != requestUri) {
             throw oauth2ExceptionOf(
                 INVALID_DPOP_PROOF, "dpop.invalid_htu",
@@ -154,8 +154,8 @@ class DpopManager(
      * Returns the full request URI without query string and fragment, as required by RFC 9449.
      * Uses [EnabledUrlsConfig.getUri] to build the absolute URI from the configured root.
      */
-    internal fun getRequestUri(request: HttpRequest<*>): String {
-        return uncheckedUrlsConfig.orThrow().getUri(request.uri.path).toString()
+    internal fun getRequestUri(boundRequest: DpopBoundRequest): String {
+        return uncheckedUrlsConfig.orThrow().getUri(boundRequest.uri.path).toString()
     }
 
     companion object {

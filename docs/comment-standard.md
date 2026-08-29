@@ -70,6 +70,17 @@ most likely to rot, because a function is rewritten far more often than the deci
 changes: the rationale outlives the body it was attached to and then quietly describes code that no
 longer exists.
 
+**That contract is written as prose, never as `@param`, `@return` or `@throws` tags.** The argument,
+the result and the failure are named in the sentences that say what the function does, and an
+argument is referenced as `[name]` so that it links instead of being spelled a second time.
+
+A tag holds exactly one name, so a contract split across tags has nowhere to put the part a caller
+most needs: that this argument is only read when that one is null, that this failure is the same
+condition the return value describes from the other side. The fragments are then read in isolation,
+and the sentence relating them is never written. Tags also invite the line that carries nothing —
+the signature already gives the name, the type and the nullability, so a tag restating them is a
+paraphrase of the code in the way a KDoc restating an annotation is a paraphrase of the framework.
+
 **A declaration is documented with KDoc, never with `//` above it.** `//` belongs to statements
 *inside* a body, where it explains the line beneath it and is deleted along with it. A `//` sitting
 above a `fun`, a `val` or a `class` is a KDoc that has opted out of being one: it reaches no IDE
