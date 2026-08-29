@@ -15,8 +15,8 @@ they are *not* is a user manual: how to configure and integrate with a running S
 
 ## Contents
 
-- **[Architecture](architecture.md)** — the three layers and the two that cut across them, the five
-  API surfaces and why only three carry a version, and the project layout on disk.
+- **[Architecture](architecture.md)** — the layers and what cuts across them, what makes something
+  its own API surface and which of them carry a version, and the project layout on disk.
 - **[General code standard](general-code-standard.md)** — the components a feature is made of, what
   each layer may import from another, and the naming that holds everywhere. Each layer then has its
   own: [`api`](api-layer-code-standard.md), [`business`](business-layer-code-standard.md),
@@ -28,8 +28,8 @@ they are *not* is a user manual: how to configure and integrate with a running S
   looks like, how a collection is paged, the body a failure returns, and why no redirect is a 307.
 - **[Database standard](database-standard.md)** — how a table and a migration are written, and what
   keeps the PostgreSQL and H2 schemas from drifting apart.
-- **[Internationalization standard](i18n-standard.md)** — the three message bundles, what each one
-  is for, and how a key reaches the reader in their own language.
+- **[Internationalization standard](i18n-standard.md)** — why there is a bundle per audience, how a
+  key is named, and how it reaches the reader in their own language.
 - **[Comment standard](comment-standard.md)** — what a KDoc carries, and where the rationale that
   does not belong in one goes instead.
 - **[Testing standard](testing-standard.md)** — what each kind of subject is tested with, where its
@@ -37,7 +37,7 @@ they are *not* is a user manual: how to configure and integrate with a running S
 - **[Native image standard](native-image-standard.md)** — the closed-world rules that compile
   cleanly, pass every test, and then fail in production.
 - **[The interactive flow](interactive-flow.md)** — the session, the purposes an engine sequences
-  over it, and how a step is added.
+  over it, and how a purpose or a step is added.
 - **[Security](security.md)** — how a credential becomes an authentication, what a scope is allowed
   to mean, and what each surface's gate does and does not protect.
 - **[Technology](technology.md)** — the frameworks and runtime the server is built on, and why each

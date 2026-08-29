@@ -1,13 +1,13 @@
 # The interactive flow
 
 Signing in is not the only thing this server needs a browser for. Enrolling a second factor,
-confirming an action a client asked for, re-proving who you are before something sensitive, and
-linking a third-party identity all need the same things: a page to send a person to, a way to
-remember where they were, and a rule for what comes next.
+confirming an action a client asked for, re-proving who you are before something sensitive, linking
+a third-party identity — and whatever is added next — all need the same things: a page to send a
+person to, a way to remember where they were, and a rule for what comes next.
 
-**They are not five flows. They are five purposes, sequenced by one engine over one session.** This
-document is that engine — the only subsystem here where reading the code in file order does not
-explain it.
+**They are not separate flows. They are separate purposes, sequenced by one engine over one
+session.** This document is that engine — the only subsystem here where reading the code in file
+order does not explain it.
 
 ## The session
 
@@ -19,8 +19,7 @@ expires.
 
 **Concern-specific state is not on the session.** Each purpose that needs to remember something has
 its **own record, keyed by the session id**, in its own table, fetched on demand through its own
-manager: the OAuth2 request context, the third-party provider being used, what a confirm was for,
-that a re-authentication proved the primary credential, which provider is being linked.
+manager — the OAuth2 request context is one such record, what a confirm was for is another.
 
 The alternative — one session row that grows a column per purpose — fails on the first purpose that
 is optional, because every other purpose then carries columns that are null for it and the row stops
@@ -38,17 +37,23 @@ moved and routes to the error page, rather than two writes that both look fine.
 
 ## Purposes
 
-`InteractiveFlowPurpose` has six values, and they play three roles:
+**`InteractiveFlowPurpose` is the authoritative list, and its KDoc is the authoritative description
+of each value.** Read it before adding one. What this document holds is the part the enum cannot
+say: the three roles a purpose plays, and how the engine treats each.
 
-| Role | Purposes | Owns the handoff at the end |
+| Role | A purpose has this role when | Owns the handoff at the end |
 | --- | --- | --- |
-| initiating | `OAUTH2_AUTHORIZE`, `LINK_PROVIDER` | yes — it is why the session exists |
-| gate | `CONFIRM`, `REAUTHENTICATION` | no — it is prepended to something else |
-| follow-up | `MFA_ENROLLMENT`, `MFA_CHALLENGE` | no — it is appended by another purpose |
+| initiating | it is the reason the session was created at all | yes |
+| gate | it must be satisfied before another purpose may run | no |
+| follow-up | another purpose appends it once it knows it is needed | no |
+
+Authorizing a client is initiating; confirming that the person meant to start this is a gate;
+challenging for a second factor is a follow-up. Those are illustrations of the criterion, not the
+set — the roles are what a new purpose has to be classified into, and the classification decides
+where in the order it goes and whether it may complete the session.
 
 A session's purposes are **ordered**, gates first and the initiating purpose last, and the list is
-**appendable** while the session runs. The enum's own KDoc is the authoritative description of each
-value; read it before adding one.
+**appendable** while the session runs.
 
 ## The engine
 

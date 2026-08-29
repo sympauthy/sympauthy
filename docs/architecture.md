@@ -43,33 +43,32 @@ and **`security`** turns a credential into an `Authentication` the controllers c
 are drawn across the three layers because both are consumed by all of them:
 [the `config` layer standard](config-layer-code-standard.md) and [security](security.md).
 
-## Five surfaces, one server
+## Surfaces
 
-SympAuthy answers to five very different callers, and the split is visible in the route:
+SympAuthy answers to several very different callers, and the split is visible in the route. **A
+surface is a route prefix with one audience and one gate** — which is also the test for whether
+something is a new surface or a route on an existing one: a caller authenticated differently, or one
+a whole prefix should be refusable for in one place, is its own surface.
 
-| Surface | Routes | Callers | Gate |
-| --- | --- | --- | --- |
-| OAuth2 | `/api/oauth2/**` | any registered client | the protocol's own |
-| OpenID Connect | `/api/openid/**`, `/.well-known/**` | any client | an access token |
-| Flow | `/api/v1/flow/**` | the sign-in pages, in a browser | `ROLE_STATE` |
-| Client | `/api/v1/client/**` | a confidential client, server to server | a client scope |
-| Admin | `/api/v1/admin/**` | the admin console | an admin scope |
+The routing is the source of truth for which exist. Today they run from the protocol endpoints under
+`/api/oauth2` and `/api/openid`, through the flow the sign-in pages drive under `/api/v1/flow`, to
+the server-to-server and back-office prefixes under `/api/v1/client` and `/api/v1/admin`.
 
-The gates are one word each because none of them is one check. The OAuth2 surface is guarded by the
-protocol itself — PKCE, client authentication, a signed `state` — rather than by a role; discovery
-is public by specification; and `ROLE_STATE` is granted by a signed session token that is
-emphatically not a user's access token. [Security](security.md) is where each is spelled out.
+**A gate is never one check.** The protocol endpoints are guarded by the protocol itself — client
+authentication, PKCE, a signed `state` — rather than by a role; discovery is public by
+specification; the flow prefix is gated on a signed session token that is emphatically not a user's
+access token; and the application prefixes are gated on scope. [Security](security.md) is where each
+is spelled out.
 
-**Only three of the five carry a version.** `/api/oauth2` and `/api/openid` do not, because their
-routes are not ours to version: they are named by RFC 6749, RFC 7009, RFC 7662 and the OpenID
-Connect Core and Discovery specifications, and a client that finds them by reading
-`/.well-known/openid-configuration` never sees the path we chose anyway. The three surfaces we do
-design — flow, client, admin — are versioned because the contract is ours to break.
+**A surface carries a version when its contract is ours to break.** The protocol prefixes do not:
+their routes are named by RFC 6749, RFC 7009, RFC 7662 and the OpenID Connect Core and Discovery
+specifications, and a client that finds them by reading `/.well-known/openid-configuration` never
+sees the path we chose anyway. Everything we design ourselves is versioned.
 
-**The three versioned surfaces freeze on different schedules**, which is why each is its own prefix
-rather than one API with three sections. The admin console ships alongside the server; a client
-integration may be years old; the flow pages are replaced whenever the front end is. One shared
-version would chain them together and force a bump on one surface for another's benefit.
+**Versioned surfaces freeze on different schedules**, which is why each is its own prefix rather
+than one API with sections. The admin console ships alongside the server; a client integration may
+be years old; the sign-in pages are replaced whenever the front end is. One shared version would
+chain them together and force a bump on one surface for another's benefit.
 
 **The prefix is a security boundary, not only a routing convention.** It is what lets a whole
 surface be gated once, in the security configuration, instead of one annotation at a time. What each
@@ -106,18 +105,20 @@ diverging in practice rather than in principle.
 
 ## The interactive flow is an engine, not a script
 
-Signing in, enrolling a second factor, confirming an action, re-proving who you are and linking an
-identity provider are not five flows. They are five **purposes** that a single engine sequences over
-one `InteractiveFlowSession`, which is why a session can carry several of them at once and why the
-server — never the client — decides which step comes next.
+Signing in, enrolling a second factor, confirming an action, re-proving who you are, linking an
+identity provider: these are not separate flows. Each is a **purpose**, and a single engine
+sequences purposes over one `InteractiveFlowSession` — which is why a session can carry several at
+once, why the list grows as the server learns what else is needed, and why the server, never the
+client, decides which step comes next.
 
 This is the one subsystem where reading the code in file order does not explain it, so it has its
 own description: [the interactive flow](interactive-flow.md).
 
 ## Beside the layers
 
-Four packages sit next to the three rather than inside one of them, because none of them owns a
-layer's model.
+Some packages sit next to the three rather than inside one of them, and the test is the same in
+every case: **a package belongs beside the layers when it owns no layer's model.** The ones there
+today:
 
 - **`client/`** — requests *leaving* this server: the token, UserInfo and discovery endpoints of a
   third-party identity provider, and the authorization webhook. One package per protocol, each with

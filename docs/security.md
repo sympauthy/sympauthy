@@ -1,31 +1,31 @@
 # Security
 
 How a credential becomes an authentication, what a scope is allowed to mean, and what each of
-[the five surfaces](architecture.md#five-surfaces-one-server) is actually protected by. The rules
+[the five surfaces](architecture.md#surfaces) is actually protected by. The rules
 for writing a secured controller are [the `api` layer standard](api-layer-code-standard.md); this
 document is what those annotations are annotating.
 
-## Three kinds of caller, three authentications
+## A credential becomes an authentication
 
-The `security/` package turns three different credentials into three implementations of the
-framework's `Authentication`, and the roles each one grants are what every `@Secured` annotation in
-the server is ultimately comparing against.
+The `security/` package turns each kind of credential into an implementation of the framework's
+`Authentication`, and the roles it grants are what every `@Secured` annotation in the server is
+ultimately comparing against. **A new kind of caller is a new implementation when it is
+authenticated differently, not when it is merely authorized differently** — a caller distinguished
+only by what it may do is a scope, not a principal.
 
-| Type | Credential | Grants |
-| --- | --- | --- |
-| `UserAuthentication` | an access token issued to a person | `ROLE_USER`, plus its scopes |
-| `ClientAuthentication` | client credentials | `ROLE_CLIENT`, plus the client's scopes |
-| `StateAuthentication` | the signed state of an interactive flow | `ROLE_STATE` |
+An access token issued to a person grants a user role and that token's scopes; client credentials
+grant a client role and the client's own scopes; the signed state of an interactive flow grants a
+role that says only which flow is asking. The package is the source of truth for which exist.
 
-**`UserAuthentication` carries the consented and granted scopes separately**, because they answer
+**The user authentication carries the consented and granted scopes separately**, because they answer
 different questions: what the person agreed to share, and what the deployment's rules decided they
 may do. Merging them at the moment of authentication would lose the distinction everywhere
 downstream, including in the token that gets issued.
 
 **An administrator is a user with admin scopes, not a separate kind of principal.** There is one
-user pool. `ROLE_ADMIN` and the individual admin scopes are derived from the scopes on the token, so
-the admin console is an OAuth2 client like any other and an administrator signs in through the same
-flow as everybody else.
+user pool. The admin role and the individual admin scopes are derived from the scopes on the token,
+so the admin console is an OAuth2 client like any other and an administrator signs in through the
+same flow as everybody else.
 
 ## The state authentication is not a session
 
@@ -45,14 +45,10 @@ once that session ends.
 
 ## Scopes
 
-`Scope` is sealed into three, and the split is about *where a scope comes from* rather than what it
-is called:
-
-| Kind | Comes from | May be requested by |
-| --- | --- | --- |
-| `ConsentableUserScope` | the person agreeing to it | a client, on behalf of a user |
-| `GrantableUserScope` | a rule the deployment configured | never requested — it is granted |
-| `ClientScope` | the client's own registration | a client, for itself |
+`Scope` is a sealed hierarchy, and **the split is about where a scope comes from** rather than what
+it is called. A scope the person agrees to is one kind; a scope a configured rule decides is
+another; a scope a client holds in its own right is a third. The sealed type is the source of truth,
+and a new kind of scope has to answer the same question: who decides that a caller has it.
 
 **A grantable scope cannot be asked for, and that is the point.** Anything a client could request it
 would request; a scope that represents authority — administrating, acting as another user — is

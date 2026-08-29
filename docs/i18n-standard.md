@@ -5,18 +5,17 @@ is rendered. This document says which bundle, how its keys are named, and where 
 from. What a failure carries *before* it is rendered is
 [the exception standard](exception-code-standard.md).
 
-## Three bundles, three audiences
+## A bundle per audience
 
-| Bundle | Read by | Key |
-| --- | --- | --- |
-| `error_messages` | an operator, and an end-user | the error code, and `description.` + it |
-| `display_messages` | an end-user, in the sign-in pages | `claims.<claim>.name` |
-| `mail_messages` | an end-user, in their inbox | `mail.<template>.<usage>` |
+**A bundle exists for one audience, and the audience decides what may be said in it.** That is the
+test for whether a string belongs in an existing bundle or a new one: not what the message is about,
+but who reads it and what they are allowed to be told. A message an operator reads may name a claim,
+a provider or an algorithm; a message an end-user reads may not.
 
-**They are separate bundles because they are separate audiences, not because they are separate
-topics.** A message an operator reads may name a claim, a provider or an algorithm; a message an
-end-user reads may not. Merging them would put one editorial rule over two kinds of writing, and the
-one that would lose is the one nobody in this repository ever reads.
+Merging two audiences into one bundle would put a single editorial rule over two kinds of writing,
+and the one that would lose is the one nobody in this repository ever reads. Today that separates
+the failure messages, the labels the sign-in pages render, and the text of the mails — the resource
+bundles under the server's resources are the source of truth for which exist.
 
 **Each bundle is injected by its own qualifier**, so a class asking for messages says which audience
 it is writing for. There is no default and no unqualified message source: a class that wants strings
@@ -41,8 +40,8 @@ nothing.
 
 **A placeholder is written bare, never quoted.** `'{value}'` is emitted literally and interpolation
 silently does not happen. The rule and the reason live in
-[the exception standard](exception-code-standard.md#the-apostrophe-rule); it applies to all three
-bundles.
+[the exception standard](exception-code-standard.md#the-apostrophe-rule); it applies to every
+bundle.
 
 ## Locale
 
@@ -73,8 +72,8 @@ sending thread.
 
 ## What this standard does not cover
 
-**Which languages ship.** One bundle per language, and today there is one language. Adding a second
-is adding files, and nothing here has to change to accept it.
+**Which languages ship.** A language is a further copy of each bundle, and adding one is adding
+files — nothing here has to change to accept it.
 
 **Translation tooling and workflow.** The bundles are edited by hand in this repository. Where
 translations would come from, and how a new key reaches a translator, is a process nobody has needed

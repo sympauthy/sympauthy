@@ -18,7 +18,7 @@ a client.
 ## Routes
 
 Which prefix belongs to which surface, and why only three carry a version, is
-[architecture](architecture.md#five-surfaces-one-server). What is left is everything after the
+[architecture](architecture.md#surfaces). What is left is everything after the
 prefix.
 
 **A path segment is a lowercase plural noun, never a verb.** The verb is the method, and every

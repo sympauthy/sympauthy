@@ -46,6 +46,22 @@ without the rule itself changing. What a standard still may not do is name a cla
 have instead; if there is no shape, what has been found is a fact about one class, and it belongs in
 that class as a [comment](comment-standard.md).
 
+**Do not enumerate a set that will grow.** Not the count, and not the members. A list of what exists
+today — the purposes a flow can have, the surfaces the server exposes, the providers that ship, the
+message bundles — reads as the complete set whether or not it says so, and it is silently wrong the
+day the set is extended, which is the day nobody rereads the document. A count in prose is the worst
+form of it: "the five purposes" is already a lie the moment a sixth is added, and it is a lie no
+test can catch. A table of all five is the same lie with more surface area.
+
+Describe the **criterion for membership** instead, and name the source of truth as authoritative —
+the sealed type, the enum and its KDoc, the configuration. A reader who needs the current members
+reads them where they cannot be out of date; a reader who needs to know whether a *new* member
+belongs needs the criterion, which is the thing only a document can give them.
+
+Members may still be named, as **illustrations of the criterion** rather than as the elements of a
+complete list — and the difference has to be visible in the writing. "Confirming an action is a
+gate" survives a seventh purpose; a table with a row per purpose does not.
+
 **A deviation is not documented either.** Where the code breaks a rule this set states, the rule is
 still written as the rule, and the breach goes to an issue. Listing today's offenders in a standard
 is exhibiting code by another name, and the list is wrong the moment one of them is fixed.

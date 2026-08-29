@@ -30,10 +30,10 @@ annotation is what the server actually emits; the schema annotation's name is wh
 document says. They are read by different tools, and setting only one produces a server and a
 contract that disagree — which nothing detects, because each is internally consistent.
 
-**Each surface owns its resources.** The admin, client and flow surfaces describe overlapping
-concepts — all three have a notion of a user — but an administrator's view carries fields the others
-must never see. One shared type means either leaking those fields or forking it later under
-pressure; separate types mean the leak has to be written on purpose.
+**Each surface owns its resources.** Surfaces describe overlapping concepts — more than one of them
+has a notion of a user — but an administrator's view carries fields the others must never see. One
+shared type means either leaking those fields or forking it later under pressure; separate types
+mean the leak has to be written on purpose.
 
 **A resource is validated for shape, and only shape.** Required, length, range, pattern — anything
 answerable from the request alone. Whether a value refers to something that exists is not: that
