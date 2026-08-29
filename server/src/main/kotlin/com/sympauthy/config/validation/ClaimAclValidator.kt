@@ -1,6 +1,7 @@
 package com.sympauthy.config.validation
 
 import com.sympauthy.business.model.oauth2.BuiltInClientScope
+import com.sympauthy.business.model.oauth2.ConsentableUserScope
 import com.sympauthy.business.model.user.OpenIdConnectScope
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ConsentAcl
@@ -8,7 +9,6 @@ import com.sympauthy.business.model.user.claim.UnconditionalAcl
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.ClaimTemplateAcl
-import com.sympauthy.config.model.CustomScopeConfig
 import com.sympauthy.config.model.ScopesConfig
 import com.sympauthy.config.model.orNull
 import com.sympauthy.config.parsing.ParsedClaimAcl
@@ -27,8 +27,7 @@ class ClaimAclValidator(
         val ids = mutableSetOf<String>()
         OpenIdConnectScope.entries.forEach { ids.add(it.scope) }
         scopesConfig.orNull()?.scopes
-            ?.filterIsInstance<CustomScopeConfig>()
-            ?.filter { it.consentable }
+            ?.filterIsInstance<ConsentableUserScope>()
             ?.forEach { ids.add(it.scope) }
         ids
     }

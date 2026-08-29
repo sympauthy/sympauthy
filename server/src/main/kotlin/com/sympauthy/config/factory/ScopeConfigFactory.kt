@@ -14,7 +14,8 @@ class ScopeConfigFactory(
     @Inject private val scopeParser: ScopeConfigParser,
     @Inject private val scopeValidator: ScopeConfigValidator,
     @Inject private val scopeTemplatesConfig: ScopeTemplatesConfig,
-    @Inject private val uncheckedAudiencesConfig: AudiencesConfig
+    @Inject private val uncheckedAudiencesConfig: AudiencesConfig,
+    @Inject private val uncheckedAdminConfig: AdminConfig
 ) {
 
     @Singleton
@@ -29,7 +30,9 @@ class ScopeConfigFactory(
         val ctx = ConfigParsingContext()
         val parsed = scopeParser.parse(ctx, propertiesList, enabledTemplatesConfig.templates)
         val scopes = scopeValidator.validate(
-            ctx, parsed, enabledAudiencesConfig.audiences.associateBy { it.id }
+            ctx, parsed,
+            enabledAudiencesConfig.audiences.associateBy { it.id },
+            (uncheckedAdminConfig as? EnabledAdminConfig)?.audienceId
         )
         return if (ctx.hasErrors) DisabledScopesConfig(ctx.errors)
         else EnabledScopesConfig(scopes)
