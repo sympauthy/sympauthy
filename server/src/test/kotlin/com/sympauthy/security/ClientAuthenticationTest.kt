@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 
 @ExtendWith(MockKExtension::class)
-@MockKExtension.CheckUnnecessaryStub
 class ClientAuthenticationTest {
 
     /** The roles are derived from the scopes alone; only the name is read off the token. */

@@ -36,7 +36,6 @@ import java.net.URI
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
-@MockKExtension.CheckUnnecessaryStub
 class InteractiveFlowSessionOAuth2ProviderManagerTest {
 
     @MockK

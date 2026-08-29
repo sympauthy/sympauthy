@@ -41,7 +41,6 @@ import java.net.URI
 import java.time.LocalDateTime
 
 @ExtendWith(MockKExtension::class)
-@MockKExtension.CheckUnnecessaryStub
 class TokenControllerTest {
 
     @MockK

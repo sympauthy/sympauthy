@@ -30,7 +30,6 @@ import kotlin.test.assertTrue
     startApplication = false
 )
 @ExtendWith(MockKExtension::class)
-@MockKExtension.CheckUnnecessaryStub
 class AuthorizationWebhookClientTest {
 
     @Inject

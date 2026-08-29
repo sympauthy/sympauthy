@@ -26,7 +26,6 @@ import java.time.LocalDateTime
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
-@MockKExtension.CheckUnnecessaryStub
 class InteractiveFlowEngineTest {
 
     private val purposeRegistry = mockk<InteractiveFlowPurposeRegistry>()

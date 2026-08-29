@@ -160,7 +160,6 @@ class InteractiveAuthFlowSessionManager(
         }
 
         val (codeChallenge, codeChallengeMethod, pkceException) = parseCodeChallenge(
-            client = client,
             uncheckedCodeChallenge = uncheckedCodeChallenge,
             uncheckedCodeChallengeMethod = uncheckedCodeChallengeMethod
         )
@@ -205,7 +204,6 @@ class InteractiveAuthFlowSessionManager(
      * - If `code_challenge` is missing, returns an error (PKCE is required for all clients per OAuth 2.1).
      */
     internal fun parseCodeChallenge(
-        client: Client?,
         uncheckedCodeChallenge: String?,
         uncheckedCodeChallengeMethod: String?
     ): Triple<String?, CodeChallengeMethod?, BusinessException?> {

@@ -35,7 +35,6 @@ import java.net.URI
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
-@MockKExtension.CheckUnnecessaryStub
 class InteractiveAuthFlowSessionManagerTest {
 
     @MockK
@@ -136,8 +135,7 @@ class InteractiveAuthFlowSessionManagerTest {
 
     @Test
     fun `parseCodeChallenge - Returns challenge and S256 method when both provided`() {
-        val client = mockk<Client>()
-        val (challenge, method, error) = manager.parseCodeChallenge(client, "test-challenge", "S256")
+        val (challenge, method, error) = manager.parseCodeChallenge("test-challenge", "S256")
 
         assertEquals("test-challenge", challenge)
         assertEquals(CodeChallengeMethod.S256, method)
@@ -146,8 +144,7 @@ class InteractiveAuthFlowSessionManagerTest {
 
     @Test
     fun `parseCodeChallenge - Defaults to S256 when method not provided`() {
-        val client = mockk<Client>()
-        val (challenge, method, error) = manager.parseCodeChallenge(client, "test-challenge", null)
+        val (challenge, method, error) = manager.parseCodeChallenge("test-challenge", null)
 
         assertEquals("test-challenge", challenge)
         assertEquals(CodeChallengeMethod.S256, method)
@@ -156,8 +153,7 @@ class InteractiveAuthFlowSessionManagerTest {
 
     @Test
     fun `parseCodeChallenge - Returns error for unsupported method`() {
-        val client = mockk<Client>()
-        val (challenge, method, error) = manager.parseCodeChallenge(client, "test-challenge", "plain")
+        val (challenge, method, error) = manager.parseCodeChallenge("test-challenge", "plain")
 
         assertNull(challenge)
         assertNull(method)
@@ -167,7 +163,7 @@ class InteractiveAuthFlowSessionManagerTest {
 
     @Test
     fun `parseCodeChallenge - Returns error when code_challenge is missing`() {
-        val (challenge, method, error) = manager.parseCodeChallenge(mockk<Client>(), null, null)
+        val (challenge, method, error) = manager.parseCodeChallenge(null, null)
 
         assertNull(challenge)
         assertNull(method)

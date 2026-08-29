@@ -25,7 +25,6 @@ import org.junit.jupiter.api.extension.ExtendWith
 import java.net.URI
 
 @ExtendWith(MockKExtension::class)
-@MockKExtension.CheckUnnecessaryStub
 class ClientsConfigFactoryTest {
 
     @MockK(relaxed = true)

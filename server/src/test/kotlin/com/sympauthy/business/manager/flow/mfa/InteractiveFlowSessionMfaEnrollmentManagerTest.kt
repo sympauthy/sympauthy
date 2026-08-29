@@ -30,7 +30,6 @@ import java.net.URI
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
-@MockKExtension.CheckUnnecessaryStub
 class InteractiveFlowSessionMfaEnrollmentManagerTest {
 
     @MockK

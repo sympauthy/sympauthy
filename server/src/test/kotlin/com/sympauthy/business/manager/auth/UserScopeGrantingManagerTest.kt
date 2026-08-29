@@ -26,7 +26,6 @@ import java.util.*
 import kotlin.test.assertEquals
 
 @ExtendWith(MockKExtension::class)
-@MockKExtension.CheckUnnecessaryStub
 class UserScopeGrantingManagerTest {
 
     @MockK

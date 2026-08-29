@@ -30,7 +30,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 @ExtendWith(MockKExtension::class)
-@MockKExtension.CheckUnnecessaryStub
 class TokenExchangeManagerTest {
 
     private val jwtManager = mockk<JwtManager>()

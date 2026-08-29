@@ -18,7 +18,6 @@ import java.util.*
 
 @Suppress("unused")
 @ExtendWith(MockKExtension::class)
-@MockKExtension.CheckUnnecessaryStub
 class TotpManagerTest {
 
     @MockK
