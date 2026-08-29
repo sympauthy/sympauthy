@@ -55,12 +55,7 @@ class ScopeConfigFactoryTest {
         return ScopeConfigurationProperties(id).apply {
             this.type = type
             this.template = template
-        }.also {
-            if (enabled != null) {
-                val field = ScopeConfigurationProperties::class.java.getDeclaredField("enabled")
-                field.isAccessible = true
-                field.set(it, enabled)
-            }
+            this.enabled = enabled
         }
     }
 
