@@ -7,33 +7,29 @@ import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ENDPOINT
 import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ID
-import com.sympauthy.config.model.EnabledMfaConfig
-import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.config.parsing.ParsedAuthorizationFlow
 import com.sympauthy.config.properties.AuthorizationFlowConfigurationProperties.Companion.AUTHORIZATION_FLOWS_KEY
 import com.sympauthy.util.mergeUri
 import io.micronaut.http.uri.UriBuilder
-import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.net.URI
 
 @Singleton
-class AuthorizationFlowsConfigValidator(
-    @Inject private val uncheckedMfaConfig: MfaConfig
-) {
+class AuthorizationFlowsConfigValidator {
 
     /**
      * Build the flows the deployment configured. [rootUri] is the deployment's root URL, which a flow
-     * declaring no root of its own falls back to.
+     * declaring no root of its own falls back to. A flow must offer the MFA pages when [totpMfaEnabled].
      */
     fun validate(
         ctx: ConfigParsingContext,
         parsed: List<ParsedAuthorizationFlow>,
-        rootUri: URI
+        rootUri: URI,
+        totpMfaEnabled: Boolean
     ): List<AuthorizationFlow> {
         return parsed.mapNotNull { flow ->
             when (flow.type) {
-                AuthorizationFlowType.WEB -> validateWebFlow(ctx, flow, rootUri)
+                AuthorizationFlowType.WEB -> validateWebFlow(ctx, flow, rootUri, totpMfaEnabled)
                 null -> null // Parse error, already reported.
             }
         }
@@ -63,7 +59,8 @@ class AuthorizationFlowsConfigValidator(
     private fun validateWebFlow(
         ctx: ConfigParsingContext,
         parsed: ParsedAuthorizationFlow,
-        rootUri: URI
+        rootUri: URI,
+        totpMfaEnabled: Boolean
     ): InteractiveFlow? {
         val subCtx = ctx.child()
         val configKeyPrefix = "$AUTHORIZATION_FLOWS_KEY.${parsed.id}"
@@ -84,8 +81,7 @@ class AuthorizationFlowsConfigValidator(
 
         // MFA cross-reference validation: both selection pages are needed whenever MFA is enabled, since a
         // sign-up can lead to enrollment (even when optional) and a sign-in of an enrolled user to a challenge.
-        val mfaConfig = uncheckedMfaConfig as? EnabledMfaConfig
-        if (mfaConfig?.totp == true && mfaSelectionForEnrollmentUri == null) {
+        if (totpMfaEnabled && mfaSelectionForEnrollmentUri == null) {
             subCtx.addError(
                 configExceptionOf(
                     "$configKeyPrefix.mfa-selection-for-enrollment",
@@ -93,7 +89,7 @@ class AuthorizationFlowsConfigValidator(
                 )
             )
         }
-        if (mfaConfig?.totp == true && mfaSelectionForChallengeUri == null) {
+        if (totpMfaEnabled && mfaSelectionForChallengeUri == null) {
             subCtx.addError(
                 configExceptionOf(
                     "$configKeyPrefix.mfa-selection-for-challenge",
@@ -101,12 +97,12 @@ class AuthorizationFlowsConfigValidator(
                 )
             )
         }
-        if (mfaConfig?.totp == true && mfaTotpEnrollUri == null) {
+        if (totpMfaEnabled && mfaTotpEnrollUri == null) {
             subCtx.addError(
                 configExceptionOf("$configKeyPrefix.mfa-totp-enroll", "config.flow.mfa.totp.enroll.missing")
             )
         }
-        if (mfaConfig?.totp == true && mfaTotpChallengeUri == null) {
+        if (totpMfaEnabled && mfaTotpChallengeUri == null) {
             subCtx.addError(
                 configExceptionOf("$configKeyPrefix.mfa-totp-challenge", "config.flow.mfa.totp.challenge.missing")
             )

@@ -7,8 +7,6 @@ import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.ConfigTemplateResolver
 import com.sympauthy.config.exception.configExceptionOf
-import com.sympauthy.config.model.EnabledUrlsConfig
-import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.config.properties.ClientConfigurationProperties.AuthorizationWebhookConfig
 import io.micronaut.http.uri.UriBuilder
 import jakarta.inject.Inject
@@ -30,7 +28,6 @@ data class ParsedAuthorizationWebhook(
 @Singleton
 class ClientConfigFieldParser(
     @Inject private val parser: ConfigParser,
-    @Inject private val urlsConfig: UrlsConfig,
     @Inject private val templateResolver: ConfigTemplateResolver
 ) {
 
@@ -65,17 +62,19 @@ class ClientConfigFieldParser(
 
     /**
      * Resolve template variables in redirect URIs and parse them.
+     * [rootUri] is what the `urls.root` template variable resolves to.
      * Returns null when the list is empty or null.
      */
     fun parseRedirectUris(
         ctx: ConfigParsingContext,
         configKey: String,
         uris: Map<String, String>?,
-        allowedRedirectUris: List<String>?
+        allowedRedirectUris: List<String>?,
+        rootUri: URI
     ): List<String>? {
         if (allowedRedirectUris.isNullOrEmpty()) return null
 
-        val templateContext = buildTemplateContext(uris)
+        val templateContext = buildTemplateContext(uris, rootUri)
         return allowedRedirectUris.mapIndexedNotNull { index, uri ->
             val itemKey = "$configKey[$index]"
             ctx.parse {
@@ -132,12 +131,8 @@ class ClientConfigFieldParser(
         return ParsedAuthorizationWebhook(url = url, secret = secret, onFailure = onFailure)
     }
 
-    private fun buildTemplateContext(uris: Map<String, String>?): Map<String, String> {
-        val context = mutableMapOf<String, String>()
-        val enabledUrlsConfig = urlsConfig as? EnabledUrlsConfig
-        if (enabledUrlsConfig != null) {
-            context["urls.root"] = enabledUrlsConfig.root.toString()
-        }
+    private fun buildTemplateContext(uris: Map<String, String>?, rootUri: URI): Map<String, String> {
+        val context = mutableMapOf<String, String>("urls.root" to rootUri.toString())
         uris?.forEach { (key, value) ->
             context["client.uris.$key"] = value
         }

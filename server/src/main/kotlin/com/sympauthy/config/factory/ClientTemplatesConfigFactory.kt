@@ -9,6 +9,8 @@ import com.sympauthy.config.model.DisabledClientTemplatesConfig
 import com.sympauthy.config.model.EnabledAuthorizationFlowsConfig
 import com.sympauthy.config.model.EnabledClientTemplatesConfig
 import com.sympauthy.config.model.ScopesConfig
+import com.sympauthy.config.model.UrlsConfig
+import com.sympauthy.config.model.getOrNull
 import com.sympauthy.config.model.orNull
 import com.sympauthy.config.parsing.ClientTemplatesConfigParser
 import com.sympauthy.config.properties.ClientTemplateConfigurationProperties
@@ -24,7 +26,8 @@ class ClientTemplatesConfigFactory(
     @Inject private val clientTemplatesParser: ClientTemplatesConfigParser,
     @Inject private val clientTemplatesValidator: ClientTemplatesConfigValidator,
     @Inject private val uncheckedScopesConfig: ScopesConfig,
-    @Inject private val uncheckedFlowsConfig: AuthorizationFlowsConfig
+    @Inject private val uncheckedFlowsConfig: AuthorizationFlowsConfig,
+    @Inject private val uncheckedUrlsConfig: UrlsConfig
 ) {
 
     @Singleton
@@ -33,18 +36,15 @@ class ClientTemplatesConfigFactory(
     ): Flow<ClientTemplatesConfig> {
         return flow {
             val scopesConfig = uncheckedScopesConfig.orNull()
-            if (scopesConfig == null) {
-                emit(DisabledClientTemplatesConfig(emptyList()))
-                return@flow
-            }
             val flowsConfig = uncheckedFlowsConfig as? EnabledAuthorizationFlowsConfig
-            if (flowsConfig == null) {
+            val rootUri = uncheckedUrlsConfig.getOrNull()?.root
+            if (scopesConfig == null || flowsConfig == null || rootUri == null) {
                 emit(DisabledClientTemplatesConfig(emptyList()))
                 return@flow
             }
 
             val ctx = ConfigParsingContext()
-            val parsed = clientTemplatesParser.parse(ctx, templatesList)
+            val parsed = clientTemplatesParser.parse(ctx, templatesList, rootUri)
             val templates = clientTemplatesValidator.validate(
                 ctx, parsed,
                 scopesConfig.scopes.associateBy(Scope::scope),

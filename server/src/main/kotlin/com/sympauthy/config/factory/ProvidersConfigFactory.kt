@@ -1,7 +1,9 @@
 package com.sympauthy.config.factory
 
 import com.sympauthy.config.ConfigParsingContext
+import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.DisabledProvidersConfig
+import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.config.model.EnabledProvidersConfig
 import com.sympauthy.config.model.ProvidersConfig
 import com.sympauthy.config.parsing.ProvidersConfigParser
@@ -14,7 +16,8 @@ import jakarta.inject.Singleton
 @Factory
 class ProvidersConfigFactory(
     @Inject private val providersParser: ProvidersConfigParser,
-    @Inject private val providersValidator: ProvidersConfigValidator
+    @Inject private val providersValidator: ProvidersConfigValidator,
+    @Inject private val uncheckedAuthConfig: AuthConfig
 ) {
 
     @Singleton
@@ -23,7 +26,8 @@ class ProvidersConfigFactory(
     ): ProvidersConfig {
         val ctx = ConfigParsingContext()
         val parsed = providersParser.parse(ctx, providers)
-        val providerConfigs = providersValidator.validate(ctx, parsed)
+        val userMergingEnabled = (uncheckedAuthConfig as? EnabledAuthConfig)?.userMergingEnabled == true
+        val providerConfigs = providersValidator.validate(ctx, parsed, userMergingEnabled)
         return if (ctx.hasErrors) DisabledProvidersConfig(ctx.errors)
         else EnabledProvidersConfig(providerConfigs)
     }

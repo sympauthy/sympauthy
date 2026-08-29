@@ -1,6 +1,7 @@
 package com.sympauthy.config.validation
 
 import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
 import com.sympauthy.config.ConfigParsingContext
@@ -21,11 +22,12 @@ class ClaimsConfigValidator(
         parsed: List<ParsedClaim>,
         templates: Map<String, ClaimTemplate>,
         audiencesById: Map<String, Audience>,
+        scopesById: Map<String, Scope>,
         identifierClaims: List<String>?,
         userMergingEnabled: Boolean?
     ): List<Claim> {
         val claims = parsed.mapNotNull { parsedClaim ->
-            validateClaim(ctx, parsedClaim, audiencesById)
+            validateClaim(ctx, parsedClaim, audiencesById, scopesById)
         }
 
         // Validate identifier claims are enabled.
@@ -50,7 +52,8 @@ class ClaimsConfigValidator(
     private fun validateClaim(
         ctx: ConfigParsingContext,
         parsed: ParsedClaim,
-        audiencesById: Map<String, Audience>
+        audiencesById: Map<String, Audience>,
+        scopesById: Map<String, Scope>
     ): Claim? {
         val configKeyPrefix = "$CLAIMS_KEY.${parsed.id}"
 
@@ -65,7 +68,7 @@ class ClaimsConfigValidator(
             val generatedClaim = GeneratedOpenIdConnectClaim.entries.first { it.id == parsed.id }
             claimAclValidator.validateGeneratedClaimAcl(ctx, parsed.acl, configKeyPrefix, generatedClaim.scope)
         } else {
-            claimAclValidator.validateAcl(ctx, parsed.acl, configKeyPrefix)
+            claimAclValidator.validateAcl(ctx, parsed.acl, configKeyPrefix, scopesById)
         }
 
         if (parsed.dataType == null) return null

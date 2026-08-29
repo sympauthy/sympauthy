@@ -30,8 +30,9 @@ class AuthorizationFlowsConfigFactoryTest {
     private fun factory(urlsConfig: UrlsConfig): AuthorizationFlowsConfigFactory {
         return AuthorizationFlowsConfigFactory(
             AuthorizationFlowsConfigParser(parser),
-            AuthorizationFlowsConfigValidator(mfaConfig),
-            urlsConfig
+            AuthorizationFlowsConfigValidator(),
+            urlsConfig,
+            mfaConfig
         )
     }
 

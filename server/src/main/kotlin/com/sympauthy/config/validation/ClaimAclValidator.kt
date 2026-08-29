@@ -2,35 +2,22 @@ package com.sympauthy.config.validation
 
 import com.sympauthy.business.model.oauth2.BuiltInClientScope
 import com.sympauthy.business.model.oauth2.ConsentableUserScope
-import com.sympauthy.business.model.user.OpenIdConnectScope
+import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.user.isOpenIdConnectScope
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.UnconditionalAcl
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.ClaimTemplateAcl
-import com.sympauthy.config.model.ScopesConfig
-import com.sympauthy.config.model.orNull
 import com.sympauthy.config.parsing.ParsedClaimAcl
-import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
 /**
  * Validates scope references in parsed ACL data and builds final ACL models.
  */
 @Singleton
-class ClaimAclValidator(
-    @Inject private val scopesConfig: ScopesConfig
-) {
-
-    private val consentableScopeIds: Set<String> by lazy {
-        val ids = mutableSetOf<String>()
-        OpenIdConnectScope.entries.forEach { ids.add(it.scope) }
-        scopesConfig.orNull()?.scopes
-            ?.filterIsInstance<ConsentableUserScope>()
-            ?.forEach { ids.add(it.scope) }
-        ids
-    }
+class ClaimAclValidator {
 
     private val clientScopeIds: Set<String> by lazy {
         BuiltInClientScope.entries.map { it.scope }.toSet()
@@ -42,9 +29,10 @@ class ClaimAclValidator(
     fun validateTemplateAcl(
         ctx: ConfigParsingContext,
         parsed: ParsedClaimAcl,
-        configKeyPrefix: String
+        configKeyPrefix: String,
+        scopesById: Map<String, Scope>
     ): ClaimTemplateAcl {
-        validateConsentScope(ctx, parsed.consentScope, "$configKeyPrefix.acl.consent-scope")
+        validateConsentScope(ctx, parsed.consentScope, "$configKeyPrefix.acl.consent-scope", scopesById)
         validateClientScopeList(
             ctx,
             parsed.readableWithClientScopes,
@@ -73,9 +61,10 @@ class ClaimAclValidator(
     fun validateAcl(
         ctx: ConfigParsingContext,
         parsed: ParsedClaimAcl,
-        configKeyPrefix: String
+        configKeyPrefix: String,
+        scopesById: Map<String, Scope>
     ): ClaimAcl {
-        validateConsentScope(ctx, parsed.consentScope, "$configKeyPrefix.acl.consent-scope")
+        validateConsentScope(ctx, parsed.consentScope, "$configKeyPrefix.acl.consent-scope", scopesById)
         validateClientScopeList(
             ctx,
             parsed.readableWithClientScopes,
@@ -132,8 +121,16 @@ class ClaimAclValidator(
         )
     }
 
-    private fun validateConsentScope(ctx: ConfigParsingContext, scope: String?, configKey: String) {
-        if (scope != null && scope !in consentableScopeIds) {
+    private fun validateConsentScope(
+        ctx: ConfigParsingContext,
+        scope: String?,
+        configKey: String,
+        scopesById: Map<String, Scope>
+    ) {
+        if (scope == null) return
+        // An OpenID Connect scope is accepted even where the deployment turned it off, so that
+        // disabling one does not invalidate every claim whose consent it gates.
+        if (!scope.isOpenIdConnectScope() && scopesById[scope] !is ConsentableUserScope) {
             ctx.addError(
                 configExceptionOf(configKey, "config.claim.acl.not_consentable_scope", "scope" to scope)
             )

@@ -1,11 +1,10 @@
 package com.sympauthy.config.factory
 
+import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.ClaimTemplate
 import com.sympauthy.config.model.ClaimTemplateAcl
-import com.sympauthy.config.model.EnabledScopesConfig
-import com.sympauthy.config.model.ScopesConfig
 import com.sympauthy.config.parsing.ClaimAclParser
 import com.sympauthy.config.properties.ClaimAclProperties
 import com.sympauthy.config.validation.ClaimAclValidator
@@ -16,7 +15,7 @@ import org.junit.jupiter.api.Test
 class ClaimAclFactoryTest {
 
     private val parser = ConfigParser()
-    private val scopesConfig: ScopesConfig = EnabledScopesConfig(emptyList())
+    private val scopesById = emptyMap<String, Scope>()
 
     lateinit var claimAclParser: ClaimAclParser
     lateinit var claimAclValidator: ClaimAclValidator
@@ -24,7 +23,7 @@ class ClaimAclFactoryTest {
     @BeforeEach
     fun setUp() {
         claimAclParser = ClaimAclParser(parser)
-        claimAclValidator = ClaimAclValidator(scopesConfig)
+        claimAclValidator = ClaimAclValidator()
     }
 
     private fun aclProperties(
@@ -73,7 +72,7 @@ class ClaimAclFactoryTest {
         )
 
         val parsed = claimAclParser.parseAcl(ctx, acl, null, "claims.test", null)
-        val result = claimAclValidator.validateAcl(ctx, parsed, "claims.test")
+        val result = claimAclValidator.validateAcl(ctx, parsed, "claims.test", scopesById)
 
         assertFalse(ctx.hasErrors)
         assertEquals("profile", result.consent.scope)
@@ -101,7 +100,7 @@ class ClaimAclFactoryTest {
         )
 
         val parsed = claimAclParser.parseAcl(ctx, null, template, "claims.test", null)
-        val result = claimAclValidator.validateAcl(ctx, parsed, "claims.test")
+        val result = claimAclValidator.validateAcl(ctx, parsed, "claims.test", scopesById)
 
         assertFalse(ctx.hasErrors)
         assertEquals("email", result.consent.scope)
@@ -117,7 +116,7 @@ class ClaimAclFactoryTest {
         val ctx = ConfigParsingContext()
 
         val parsed = claimAclParser.parseAcl(ctx, null, null, "claims.test", "profile")
-        val result = claimAclValidator.validateAcl(ctx, parsed, "claims.test")
+        val result = claimAclValidator.validateAcl(ctx, parsed, "claims.test", scopesById)
 
         assertFalse(ctx.hasErrors)
         assertEquals("profile", result.consent.scope)
@@ -128,7 +127,7 @@ class ClaimAclFactoryTest {
         val ctx = ConfigParsingContext()
 
         val parsed = claimAclParser.parseAcl(ctx, null, null, "claims.test", null)
-        val result = claimAclValidator.validateAcl(ctx, parsed, "claims.test")
+        val result = claimAclValidator.validateAcl(ctx, parsed, "claims.test", scopesById)
 
         assertFalse(ctx.hasErrors)
         assertNull(result.consent.scope)
@@ -157,7 +156,7 @@ class ClaimAclFactoryTest {
         )
 
         val parsed = claimAclParser.parseAcl(ctx, acl, template, "claims.test", null)
-        val result = claimAclValidator.validateAcl(ctx, parsed, "claims.test")
+        val result = claimAclValidator.validateAcl(ctx, parsed, "claims.test", scopesById)
 
         assertFalse(ctx.hasErrors)
         assertFalse(result.consent.readableByUser)
@@ -179,7 +178,7 @@ class ClaimAclFactoryTest {
         val acl = aclProperties(consentScope = "nonexistent_scope")
 
         val parsed = claimAclParser.parseAcl(ctx, acl, null, "claims.test", null)
-        claimAclValidator.validateAcl(ctx, parsed, "claims.test")
+        claimAclValidator.validateAcl(ctx, parsed, "claims.test", scopesById)
 
         assertEquals(1, ctx.errors.size)
     }
@@ -190,7 +189,7 @@ class ClaimAclFactoryTest {
         val acl = aclProperties(readableWithClientScopes = listOf("nonexistent:scope"))
 
         val parsed = claimAclParser.parseAcl(ctx, acl, null, "claims.test", null)
-        claimAclValidator.validateAcl(ctx, parsed, "claims.test")
+        claimAclValidator.validateAcl(ctx, parsed, "claims.test", scopesById)
 
         assertEquals(1, ctx.errors.size)
     }
@@ -258,7 +257,7 @@ class ClaimAclFactoryTest {
         val ctx = ConfigParsingContext()
 
         val parsed = claimAclParser.parseTemplateAcl(ctx, null, "templates.claims.test")
-        val result = claimAclValidator.validateTemplateAcl(ctx, parsed, "templates.claims.test")
+        val result = claimAclValidator.validateTemplateAcl(ctx, parsed, "templates.claims.test", scopesById)
 
         assertFalse(ctx.hasErrors)
         assertNull(result.consentScope)
@@ -284,7 +283,7 @@ class ClaimAclFactoryTest {
         )
 
         val parsed = claimAclParser.parseTemplateAcl(ctx, acl, "templates.claims.test")
-        val result = claimAclValidator.validateTemplateAcl(ctx, parsed, "templates.claims.test")
+        val result = claimAclValidator.validateTemplateAcl(ctx, parsed, "templates.claims.test", scopesById)
 
         assertFalse(ctx.hasErrors)
         assertEquals("profile", result.consentScope)
@@ -312,7 +311,7 @@ class ClaimAclFactoryTest {
         val acl = aclProperties(consentScope = "nonexistent")
 
         val parsed = claimAclParser.parseTemplateAcl(ctx, acl, "templates.claims.test")
-        claimAclValidator.validateTemplateAcl(ctx, parsed, "templates.claims.test")
+        claimAclValidator.validateTemplateAcl(ctx, parsed, "templates.claims.test", scopesById)
 
         assertEquals(1, ctx.errors.size)
     }

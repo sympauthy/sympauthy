@@ -1,5 +1,6 @@
 package com.sympauthy.config.validation
 
+import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.ClaimTemplate
 import com.sympauthy.config.parsing.ParsedClaimTemplate
@@ -14,22 +15,24 @@ class ClaimTemplatesConfigValidator(
 
     fun validate(
         ctx: ConfigParsingContext,
-        parsed: List<ParsedClaimTemplate>
+        parsed: List<ParsedClaimTemplate>,
+        scopesById: Map<String, Scope>
     ): Map<String, ClaimTemplate> {
         val templates = parsed.mapNotNull { template ->
-            validateTemplate(ctx, template)
+            validateTemplate(ctx, template, scopesById)
         }
         return templates.associateBy { it.id }
     }
 
     private fun validateTemplate(
         ctx: ConfigParsingContext,
-        parsed: ParsedClaimTemplate
+        parsed: ParsedClaimTemplate,
+        scopesById: Map<String, Scope>
     ): ClaimTemplate? {
         val configKeyPrefix = "$TEMPLATES_CLAIMS_KEY.${parsed.id}"
         val subCtx = ctx.child()
 
-        val acl = claimAclValidator.validateTemplateAcl(subCtx, parsed.acl, configKeyPrefix)
+        val acl = claimAclValidator.validateTemplateAcl(subCtx, parsed.acl, configKeyPrefix, scopesById)
 
         ctx.merge(subCtx)
         if (subCtx.hasErrors) return null

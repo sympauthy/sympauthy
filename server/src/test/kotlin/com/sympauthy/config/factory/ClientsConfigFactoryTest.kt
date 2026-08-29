@@ -22,6 +22,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import java.net.URI
 
 @ExtendWith(MockKExtension::class)
 class ClientsConfigFactoryTest {
@@ -94,7 +95,8 @@ class ClientsConfigFactoryTest {
             templatesFlow,
             audiencesConfig,
             EnabledScopesConfig(emptyList()),
-            EnabledAuthorizationFlowsConfig(mockk<InteractiveFlow>(relaxed = true), emptyList())
+            EnabledAuthorizationFlowsConfig(mockk<InteractiveFlow>(relaxed = true), emptyList()),
+            EnabledUrlsConfig(root = URI.create("https://auth.example.com"))
         )
     }
 
@@ -105,7 +107,7 @@ class ClientsConfigFactoryTest {
         val grantTypes = setOf(GrantType.AUTHORIZATION_CODE)
         val redirectUris = listOf("https://example.com/callback")
 
-        coEvery { fieldParser.parseRedirectUris(any(), any(), any(), any()) } returns redirectUris
+        coEvery { fieldParser.parseRedirectUris(any(), any(), any(), any(), any()) } returns redirectUris
 
         val factory = factory(
             clientTemplate(

@@ -10,6 +10,7 @@ import com.sympauthy.config.properties.ClientConfigurationProperties.Companion.C
 import com.sympauthy.config.properties.ClientTemplateConfigurationProperties.Companion.DEFAULT
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import java.net.URI
 
 data class ParsedClient(
     val id: String,
@@ -35,17 +36,19 @@ class ClientsConfigParser(
     fun parse(
         ctx: ConfigParsingContext,
         propertiesList: List<ClientConfigurationProperties>,
-        templates: Map<String, ClientTemplate>
+        templates: Map<String, ClientTemplate>,
+        rootUri: URI
     ): List<ParsedClient> {
         return propertiesList.map { properties ->
-            parseClient(ctx, properties, templates)
+            parseClient(ctx, properties, templates, rootUri)
         }
     }
 
     private fun parseClient(
         ctx: ConfigParsingContext,
         properties: ClientConfigurationProperties,
-        templates: Map<String, ClientTemplate>
+        templates: Map<String, ClientTemplate>,
+        rootUri: URI
     ): ParsedClient {
         val template = resolveTemplate(ctx, properties, templates)
         val configKeyPrefix = "$CLIENTS_KEY.${properties.id}"
@@ -68,7 +71,8 @@ class ClientsConfigParser(
 
         val allowedRedirectUris = if (properties.allowedRedirectUris != null) {
             fieldParser.parseRedirectUris(
-                ctx, "$configKeyPrefix.allowed-redirect-uris", properties.uris, properties.allowedRedirectUris
+                ctx, "$configKeyPrefix.allowed-redirect-uris", properties.uris, properties.allowedRedirectUris,
+                rootUri
             )
         } else {
             template?.allowedRedirectUris
