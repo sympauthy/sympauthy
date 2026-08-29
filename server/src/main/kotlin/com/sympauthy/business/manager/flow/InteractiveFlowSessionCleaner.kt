@@ -11,7 +11,7 @@ import com.sympauthy.data.repository.InteractiveFlowSessionRepository
 import com.sympauthy.data.repository.ValidationCodeRepository
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import jakarta.transaction.Transactional
+import io.micronaut.transaction.annotation.Transactional
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 

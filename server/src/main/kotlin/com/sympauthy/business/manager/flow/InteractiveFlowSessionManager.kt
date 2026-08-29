@@ -15,7 +15,7 @@ import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import jakarta.transaction.Transactional
+import io.micronaut.transaction.annotation.Transactional
 import java.net.URI
 import java.time.LocalDateTime
 import java.util.*

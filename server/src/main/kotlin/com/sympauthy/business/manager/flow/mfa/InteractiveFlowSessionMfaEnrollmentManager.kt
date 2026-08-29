@@ -12,7 +12,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.config.model.orThrow
-import jakarta.transaction.Transactional
+import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.net.URI
