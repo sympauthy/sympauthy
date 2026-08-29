@@ -1,5 +1,7 @@
 package com.sympauthy.business.manager.key
 
+import com.sympauthy.business.exception.internalBusinessExceptionOf
+import com.sympauthy.business.manager.jwt.CryptoKeysGenerationStrategy
 import com.sympauthy.business.mapper.CryptoKeysMapper
 import com.sympauthy.business.model.key.CryptoKeys
 import com.sympauthy.business.model.key.KeyAlgorithm
@@ -18,7 +20,12 @@ import kotlinx.coroutines.rx3.rxSingle
 class CryptoKeysManager(
     @Inject private val keysRepository: CryptoKeysRepository,
     @Inject private val keysMapper: CryptoKeysMapper,
-    @Inject private val advancedConfig: AdvancedConfig
+    @Inject private val advancedConfig: AdvancedConfig,
+    /**
+     * Every generation strategy, by the qualifier it is published under, which is what
+     * [com.sympauthy.business.model.key.CryptoKeysGenerationStrategyId] names.
+     */
+    @Inject private val generationStrategies: Map<String, CryptoKeysGenerationStrategy>
 ) {
     private val keysMap = mutableMapOf<String, Single<CryptoKeys>>()
 
@@ -64,7 +71,22 @@ class CryptoKeysManager(
 
     internal fun generateKey(name: String, algorithm: KeyAlgorithm): Single<CryptoKeys> {
         return rxSingle {
-            advancedConfig.orThrow().keysGenerationStrategy.generateKeys(name, algorithm)
+            generationStrategy().generateKeys(name, algorithm)
         }
+    }
+
+    /**
+     * The strategy the deployment configured.
+     *
+     * @throws com.sympauthy.business.exception.BusinessException key.generation_strategy.missing when no
+     * implementation is published under the configured identifier, which means an entry was added to the
+     * enumeration without the bean that implements it.
+     */
+    private fun generationStrategy(): CryptoKeysGenerationStrategy {
+        val id = advancedConfig.orThrow().keysGenerationStrategyId
+        return generationStrategies[id.id] ?: throw internalBusinessExceptionOf(
+            detailsId = "key.generation_strategy.missing",
+            values = arrayOf("strategy" to id.id)
+        )
     }
 }
