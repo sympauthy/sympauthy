@@ -2,13 +2,15 @@ package com.sympauthy.it.feature
 
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
+import com.sympauthy.testcontainers.Client
 import com.sympauthy.testcontainers.flow.FlowStep
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.EnumSource
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 
 /**
  * Feature scenario — **OAuth 2.1 authorization-code grant with PKCE, from sign-up to signed tokens.**
@@ -18,16 +20,42 @@ import org.junit.jupiter.params.provider.EnumSource
  * advertises at its `jwks_uri`. This proves the end-to-end flow, token issuance and JWT signing all
  * work on the running native image, against each supported database.
  *
+ * The scenario runs for both client profiles: a **public** client that authenticates the code exchange
+ * with PKCE alone, and a **confidential** client that additionally presents its secret at the token
+ * endpoint. Both must reach the same signed tokens, so the grant is proven independent of client type.
+ *
  * Reference: [RFC 7636 (PKCE)](https://datatracker.ietf.org/doc/html/rfc7636) and
  * [OpenID Connect Core 1.0, ID Token](https://openid.net/specs/openid-connect-core-1_0.html#IDToken).
  */
 @Tag("feature")
 class AuthorizationCodeFeatureIT : AbstractSympauthyIT() {
 
-    @ParameterizedTest(name = "authorization code + PKCE yields a signed id_token on {0}")
-    @EnumSource(Database::class)
-    fun signsUpAndExchangesCodeForSignedTokens(database: Database) {
-        withContainer(database) { sympauthy, registry ->
+    /**
+     * The two client types SympAuthy issues authorization-code tokens to. Both drive the flow with PKCE;
+     * a [CONFIDENTIAL] client additionally authenticates the token exchange with its secret, while a
+     * [PUBLIC] client relies on PKCE alone. Each knows how to build its [Client] for a given `clientId`.
+     */
+    enum class ClientProfile(private val label: String) {
+        PUBLIC("public") {
+            override fun client(clientId: String): Client = Client.publicClient(clientId)
+        },
+        CONFIDENTIAL("confidential") {
+            override fun client(clientId: String): Client = Client.confidentialClient(clientId, SECRET)
+        };
+
+        abstract fun client(clientId: String): Client
+
+        override fun toString(): String = label
+
+        private companion object {
+            const val SECRET = "confidential-flow-secret-value"
+        }
+    }
+
+    @ParameterizedTest(name = "authorization code + PKCE yields a signed id_token for a {1} client on {0}")
+    @MethodSource("clientProfilesAcrossDatabases")
+    fun signsUpAndExchangesCodeForSignedTokens(database: Database, clientProfile: ClientProfile) {
+        withContainer(database, client = clientProfile.client(clientId)) { sympauthy, registry ->
             val flow = registry.newFlow()
                 .withSignUpHandler { mapOf("email" to "ada@example.com", "password" to "Str0ngP@ssw0rd!") }
 
@@ -53,5 +81,14 @@ class AuthorizationCodeFeatureIT : AbstractSympauthyIT() {
             )
             assertNotNull(claims.subject, "id_token should identify a subject")
         }
+    }
+
+    private companion object {
+        /** Every [ClientProfile] exercised on every [Database] — the full cartesian product. */
+        @JvmStatic
+        fun clientProfilesAcrossDatabases(): List<Arguments> =
+            Database.entries.flatMap { database ->
+                ClientProfile.entries.map { profile -> Arguments.of(database, profile) }
+            }
     }
 }
