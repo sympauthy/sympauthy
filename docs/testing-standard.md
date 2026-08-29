@@ -37,6 +37,12 @@ a failure: a test that no longer exercises the path it was written for, or a tes
 not sure what the subject would call and stubbed everything in reach. The first is coverage that has
 quietly gone; the second is a test that would pass against a subject doing something else entirely.
 
+**Nothing resets the framework in its own teardown.** A class that clears the mocks after each test
+clears them *before* the check runs, so the check finds no stub left to report and the class passes
+whatever it stubbed. It still carries the annotation and still reports green, which makes it the one
+failure this rule cannot catch: the enforcement is gone and nothing says so. The extension already
+clears between tests, so the teardown buys nothing and costs the check.
+
 **Do not verify a call the assertion already proves.** When a stub's return value or thrown
 exception is what the assertion turns on, reaching the assertion is proof the call happened, and a
 further verification of the same call asserts nothing. Strict stubs enforce the other half of this

@@ -130,19 +130,24 @@ class TokenControllerTest {
         every { this@mockk.token } returns token
     }
 
-    /** A token the response is built around: its scopes are reported, and its lifetime with them. */
+    /** A token the response is built around: its scopes are reported, and it never expires. */
     private fun mockAccessToken(
         token: String,
-        scopes: List<String> = emptyList(),
-        issueDate: LocalDateTime = LocalDateTime.of(2024, 1, 1, 0, 0),
-        expirationDate: LocalDateTime? = null
+        scopes: List<String> = emptyList()
     ): EncodedAuthenticationToken = mockk {
         every { this@mockk.token } returns token
         every { this@mockk.scopes } returns scopes
-        every { this@mockk.expirationDate } returns expirationDate
-        if (expirationDate != null) {
-            every { this@mockk.issueDate } returns issueDate
-        }
+        every { this@mockk.expirationDate } returns null
+    }
+
+    /** An access token that expires, whose lifetime is measured from the date it was issued. */
+    private fun mockExpiringAccessToken(
+        token: String,
+        issueDate: LocalDateTime,
+        expirationDate: LocalDateTime
+    ): EncodedAuthenticationToken = mockAccessToken(token).also {
+        every { it.issueDate } returns issueDate
+        every { it.expirationDate } returns expirationDate
     }
 
     // --- getTokens routing tests ---
@@ -632,7 +637,7 @@ class TokenControllerTest {
     fun `getTokens - Returns the lifetime of the access token in seconds`() = runTest {
         val request = mockRequest()
         val client = mockClientIdentifiedAs("my-client")
-        val accessToken = mockAccessToken(
+        val accessToken = mockExpiringAccessToken(
             token = "cc-access",
             issueDate = LocalDateTime.of(2024, 1, 1, 12, 0, 0),
             expirationDate = LocalDateTime.of(2024, 1, 1, 13, 0, 0)

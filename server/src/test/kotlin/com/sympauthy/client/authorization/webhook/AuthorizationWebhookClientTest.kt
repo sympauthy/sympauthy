@@ -9,6 +9,7 @@ import com.sympauthy.config.model.AuthorizationWebhookAdvancedConfig
 import io.micronaut.http.client.HttpClient
 import io.micronaut.serde.ObjectMapper
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
+import io.mockk.junit5.MockKExtension
 import jakarta.inject.Inject
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
@@ -23,7 +24,6 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
-import io.mockk.junit5.MockKExtension
 
 @MicronautTest(
     environments = ["default", "test"],

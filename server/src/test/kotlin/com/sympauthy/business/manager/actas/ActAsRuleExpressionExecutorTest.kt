@@ -3,12 +3,10 @@ package com.sympauthy.business.manager.actas
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.Claim
-import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import java.time.LocalDateTime
@@ -21,9 +19,6 @@ import kotlin.test.assertTrue
 class ActAsRuleExpressionExecutorTest {
 
     private val executor = ActAsRuleExpressionExecutor()
-
-    @AfterEach
-    fun tearDown() = clearAllMocks()
 
     @Test
     fun `validateExpression - simple expression is valid`() = runTest {
@@ -43,7 +38,6 @@ class ActAsRuleExpressionExecutorTest {
         val client = mockk<Client> {
             every { id } returns "discord-bot"
             every { audience } returns mockk { every { id } returns "admin" }
-            every { public } returns false
         }
         val config = executor.getConfiguration(client, emptyList())
         assertTrue(executor.evaluateExpressionOrThrow("""CLIENT("client_id") = "discord-bot"""", config))
