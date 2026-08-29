@@ -31,6 +31,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class InteractiveAuthFlowSessionClaimValidationManagerTest {
 
     @MockK
@@ -191,7 +192,6 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
             every { claim } returns mockk { every { id } returns "name" }
         })
         val existingValidationCode = mockk<ValidationCode> {
-            every { reasons } returns listOf(EMAIL_CLAIM)
         }
 
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
@@ -235,10 +235,8 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
         }
         val media = EMAIL
         val identifierClaims = listOf(mockk<CollectedClaim> {
-            every { claim } returns mockk { every { id } returns "email" }
         })
         val consentedClaims = listOf(mockk<CollectedClaim> {
-            every { claim } returns mockk { every { id } returns "name" }
         })
         val reasons = listOf(PHONE_NUMBER_CLAIM)
 

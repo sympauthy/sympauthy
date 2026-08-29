@@ -39,6 +39,7 @@ import java.time.LocalDateTime
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class InteractiveAuthFlowSessionPasswordManagerTest {
 
     @MockK
