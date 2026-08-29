@@ -15,9 +15,12 @@ import jakarta.inject.Singleton
  * but they share one `Access-Control-Allow-Headers` value and one `Access-Control-Max-Age`. Centralising
  * them here means `cors.allowed-headers` is read in exactly one place.
  *
- * If the `cors` configuration section is invalid, only [MANDATORY_ALLOWED_HEADERS] is advertised: a
- * configuration mistake must never break CORS for the endpoints the application itself depends on. The
- * errors are reported by [com.sympauthy.business.manager.ConfigReadinessManager] instead.
+ * If the `cors` configuration section is invalid, only [MANDATORY_ALLOWED_HEADERS] is advertised, so CORS
+ * keeps working for the endpoints the application itself depends on.
+ *
+ * That fallback is a runtime safety net, not a way to tolerate a broken configuration. Like every other
+ * section, the errors are collected by [com.sympauthy.business.manager.ConfigReadinessManager], logged at
+ * startup and reported by the readiness health indicator, which stays DOWN until they are fixed.
  */
 @Singleton
 class CorsPreflightHeaders(
