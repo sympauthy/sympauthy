@@ -13,6 +13,7 @@ import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.business.model.oauth2.DpopBoundRequest
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
 import com.sympauthy.config.model.EnabledUrlsConfig
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -79,12 +80,12 @@ class DpopManagerTest {
     // --- validateDpopProof tests ---
 
     @Test
-    fun `validateDpopProof - Returns null when no DPoP header`() {
+    fun `validateDpopProof - Returns null when no DPoP header`() = runTest {
         assertNull(dpopManager.validateDpopProof(emptyList(), boundRequest()))
     }
 
     @Test
-    fun `validateDpopProof - Throws when multiple DPoP headers`() {
+    fun `validateDpopProof - Throws when multiple DPoP headers`() = runTest {
         val exception = assertThrows<OAuth2Exception> {
             dpopManager.validateDpopProof(listOf("proof1", "proof2"), boundRequest())
         }
@@ -93,7 +94,7 @@ class DpopManagerTest {
     }
 
     @Test
-    fun `validateDpopProof - Returns DpopProof on valid proof`() {
+    fun `validateDpopProof - Returns DpopProof on valid proof`() = runTest {
         val proof = createValidDpopProof()
         val result = dpopManager.validateDpopProof(listOf(proof), boundRequest())
 
@@ -116,7 +117,7 @@ class DpopManagerTest {
     // --- validateProof: malformed ---
 
     @Test
-    fun `validateProof - Throws on malformed JWT`() {
+    fun `validateProof - Throws on malformed JWT`() = runTest {
         val request = boundRequest()
         val exception = assertThrows<OAuth2Exception> {
             dpopManager.validateProof("not-a-jwt", request)
@@ -127,7 +128,7 @@ class DpopManagerTest {
     // --- validateProof: typ ---
 
     @Test
-    fun `validateProof - Throws when typ is not dpop+jwt`() {
+    fun `validateProof - Throws when typ is not dpop+jwt`() = runTest {
         val proof = createValidDpopProof(typ = "JWT")
         val request = boundRequest()
         val exception = assertThrows<OAuth2Exception> {
@@ -139,7 +140,7 @@ class DpopManagerTest {
     // --- validateProof: alg ---
 
     @Test
-    fun `validateProof - Throws on unsupported algorithm`() {
+    fun `validateProof - Throws on unsupported algorithm`() = runTest {
         // Create a proof with HS256 (symmetric, not allowed)
         val publicJwk = ecKey.toPublicJWK()
         val header = JWSHeader.Builder(JWSAlgorithm.HS256)
@@ -166,7 +167,7 @@ class DpopManagerTest {
     // --- validateProof: missing claims ---
 
     @Test
-    fun `validateProof - Throws when jti is missing`() {
+    fun `validateProof - Throws when jti is missing`() = runTest {
         val proof = createDpopProofWithClaims(
             JWTClaimsSet.Builder()
                 // no jti
@@ -184,7 +185,7 @@ class DpopManagerTest {
     }
 
     @Test
-    fun `validateProof - Throws when htm is missing`() {
+    fun `validateProof - Throws when htm is missing`() = runTest {
         val proof = createDpopProofWithClaims(
             JWTClaimsSet.Builder()
                 .jwtID(UUID.randomUUID().toString())
@@ -202,7 +203,7 @@ class DpopManagerTest {
     }
 
     @Test
-    fun `validateProof - Throws when htu is missing`() {
+    fun `validateProof - Throws when htu is missing`() = runTest {
         val proof = createDpopProofWithClaims(
             JWTClaimsSet.Builder()
                 .jwtID(UUID.randomUUID().toString())
@@ -220,7 +221,7 @@ class DpopManagerTest {
     }
 
     @Test
-    fun `validateProof - Throws when iat is missing`() {
+    fun `validateProof - Throws when iat is missing`() = runTest {
         val proof = createDpopProofWithClaims(
             JWTClaimsSet.Builder()
                 .jwtID(UUID.randomUUID().toString())
@@ -240,7 +241,7 @@ class DpopManagerTest {
     // --- validateProof: htm mismatch ---
 
     @Test
-    fun `validateProof - Throws when htm does not match request method`() {
+    fun `validateProof - Throws when htm does not match request method`() = runTest {
         val proof = createValidDpopProof(htm = "GET")
         val request = boundRequest(method = "POST")
 
@@ -253,7 +254,7 @@ class DpopManagerTest {
     // --- validateProof: htu mismatch ---
 
     @Test
-    fun `validateProof - Throws when htu does not match request URI`() {
+    fun `validateProof - Throws when htu does not match request URI`() = runTest {
         val proof = createValidDpopProof(htu = "https://other.example.com/api/oauth2/token")
         val request = boundRequest()
 
@@ -264,7 +265,7 @@ class DpopManagerTest {
     }
 
     @Test
-    fun `validateProof - Strips query string from request URI for htu comparison`() {
+    fun `validateProof - Strips query string from request URI for htu comparison`() = runTest {
         val proof = createValidDpopProof(htu = "https://auth.example.com/api/oauth2/token")
         val request = boundRequest(uri = URI.create("/api/oauth2/token?foo=bar"))
 
@@ -275,7 +276,7 @@ class DpopManagerTest {
     // --- validateProof: iat window ---
 
     @Test
-    fun `validateProof - Throws when iat is too old`() {
+    fun `validateProof - Throws when iat is too old`() = runTest {
         val proof = createValidDpopProof(iat = Instant.now().minusSeconds(120))
         val request = boundRequest()
 
@@ -286,7 +287,7 @@ class DpopManagerTest {
     }
 
     @Test
-    fun `validateProof - Throws when iat is too far in the future`() {
+    fun `validateProof - Throws when iat is too far in the future`() = runTest {
         val proof = createValidDpopProof(iat = Instant.now().plusSeconds(120))
         val request = boundRequest()
 
@@ -297,7 +298,7 @@ class DpopManagerTest {
     }
 
     @Test
-    fun `validateProof - Accepts iat within acceptable window`() {
+    fun `validateProof - Accepts iat within acceptable window`() = runTest {
         val proof = createValidDpopProof(iat = Instant.now().minusSeconds(30))
         val request = boundRequest()
 
@@ -308,7 +309,7 @@ class DpopManagerTest {
     // --- validateProof: signature ---
 
     @Test
-    fun `validateProof - Throws when signature is invalid`() {
+    fun `validateProof - Throws when signature is invalid`() = runTest {
         val proof = createValidDpopProof()
         // Tamper with the payload to invalidate the signature
         val parts = proof.split(".")
@@ -326,7 +327,7 @@ class DpopManagerTest {
     // --- validateProof: happy path ---
 
     @Test
-    fun `validateProof - Returns consistent jkt for the same key`() {
+    fun `validateProof - Returns consistent jkt for the same key`() = runTest {
         val proof1 = createValidDpopProof(jti = UUID.randomUUID().toString())
         val proof2 = createValidDpopProof(jti = UUID.randomUUID().toString())
         val request = boundRequest()
@@ -338,7 +339,7 @@ class DpopManagerTest {
     }
 
     @Test
-    fun `validateProof - Returns different jkt for different keys`() {
+    fun `validateProof - Returns different jkt for different keys`() = runTest {
         val otherKeyPairGen = KeyPairGenerator.getInstance("EC")
         otherKeyPairGen.initialize(ECGenParameterSpec("secp256r1"))
         val otherKeyPair = otherKeyPairGen.generateKeyPair()
@@ -361,13 +362,13 @@ class DpopManagerTest {
     // --- getRequestUri ---
 
     @Test
-    fun `getRequestUri - Strips query from request path`() {
+    fun `getRequestUri - Strips query from request path`() = runTest {
         val request = boundRequest(uri = URI.create("/api/oauth2/token?code=abc&state=xyz"))
         assertEquals("https://auth.example.com/api/oauth2/token", dpopManager.getRequestUri(request))
     }
 
     @Test
-    fun `getRequestUri - Uses urls root for scheme and authority`() {
+    fun `getRequestUri - Uses urls root for scheme and authority`() = runTest {
         val request = boundRequest(uri = URI.create("/api/oauth2/token"))
         assertEquals("https://auth.example.com/api/oauth2/token", dpopManager.getRequestUri(request))
     }

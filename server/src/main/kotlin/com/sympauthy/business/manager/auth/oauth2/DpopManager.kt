@@ -40,7 +40,7 @@ class DpopManager(
      * proof has to be bound to. Presenting more than one proof, or one that does not validate against
      * [boundRequest], raises an [com.sympauthy.api.exception.OAuth2Exception] carrying [INVALID_DPOP_PROOF].
      */
-    fun validateDpopProof(proofs: List<String>, boundRequest: DpopBoundRequest): DpopProof? {
+    suspend fun validateDpopProof(proofs: List<String>, boundRequest: DpopBoundRequest): DpopProof? {
         if (proofs.isEmpty()) {
             return null
         }
@@ -51,7 +51,7 @@ class DpopManager(
         return validateProof(proofs.first(), boundRequest)
     }
 
-    internal fun validateProof(encodedProof: String, boundRequest: DpopBoundRequest): DpopProof {
+    internal suspend fun validateProof(encodedProof: String, boundRequest: DpopBoundRequest): DpopProof {
         val signedJwt = try {
             SignedJWT.parse(encodedProof)
         } catch (e: ParseException) {
@@ -132,7 +132,7 @@ class DpopManager(
      * Uses nimbus JOSE library which correctly handles JWS signature formats
      * (including ECDSA R||S encoding).
      */
-    internal fun verifySignature(signedJwt: SignedJWT, jwk: JWK) {
+    internal suspend fun verifySignature(signedJwt: SignedJWT, jwk: JWK) {
         try {
             val verifier: JWSVerifier = when (jwk) {
                 is RSAKey -> RSASSAVerifier(jwk)
@@ -154,7 +154,7 @@ class DpopManager(
      * Returns the full request URI without query string and fragment, as required by RFC 9449.
      * Uses [EnabledUrlsConfig.getUri] to build the absolute URI from the configured root.
      */
-    internal fun getRequestUri(boundRequest: DpopBoundRequest): String {
+    internal suspend fun getRequestUri(boundRequest: DpopBoundRequest): String {
         return uncheckedUrlsConfig.orThrow().getUri(boundRequest.uri.path).toString()
     }
 

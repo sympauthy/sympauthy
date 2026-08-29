@@ -108,7 +108,7 @@ class TokenControllerTest {
             every { method } returns HttpMethod.POST
             every { uri } returns URI.create("/api/oauth2/token")
         }.also {
-            every { dpopManager.validateDpopProof(any(), any()) } returns null
+            coEvery { dpopManager.validateDpopProof(any(), any()) } returns null
         }
     }
 
@@ -278,7 +278,7 @@ class TokenControllerTest {
             )
         }
 
-        verify {
+        coVerify {
             dpopManager.validateDpopProof(
                 listOf("a-proof"),
                 DpopBoundRequest(method = "POST", uri = URI.create("/api/oauth2/token"))
