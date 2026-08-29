@@ -7,11 +7,14 @@ import com.sympauthy.business.model.oauth2.GrantableUserScope
 import com.sympauthy.security.SecurityRule.IS_ADMIN
 import com.sympauthy.security.SecurityRule.IS_USER
 import io.mockk.every
+import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 import java.util.*
 
+@ExtendWith(MockKExtension::class)
 class UserAuthenticationTest {
 
     private fun createAuthentication(

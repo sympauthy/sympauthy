@@ -13,32 +13,31 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class ClaimValueValidatorTest {
 
     @InjectMockKs
     lateinit var validator: ClaimValueValidator
 
-    private fun mockClaim(
-        dataType: com.sympauthy.business.model.user.claim.ClaimDataType = STRING,
-        allowedValues: List<Any>? = null
-    ): Claim = mockk {
-        every { this@mockk.id } returns "test_claim"
-        every { this@mockk.dataType } returns dataType
-        every { this@mockk.allowedValues } returns allowedValues
+    /** A claim of the type the validator checks a value against; the rest is read per path. */
+    private fun mockStringClaim(): Claim = mockk {
+        every { dataType } returns STRING
     }
 
     // --- validateAndCleanValueForClaim ---
 
     @Test
     fun `validateAndCleanValueForClaim - Returns empty Optional for null value`() {
-        val claim = mockClaim()
+        // A null value is never type-checked, but the allowed values are still consulted.
+        val claim = mockk<Claim> { every { allowedValues } returns null }
         val result = validator.validateAndCleanValueForClaim(claim, null)
         assertTrue(result.isEmpty)
     }
 
     @Test
     fun `validateAndCleanValueForClaim - Throws if value type does not match claim dataType`() {
-        val claim = mockClaim(dataType = STRING)
+        val claim = mockStringClaim()
+        every { claim.id } returns "test_claim"
         assertThrowsLocalizedException("user.claim_value_validator.invalid_type") {
             validator.validateAndCleanValueForClaim(claim, 123)
         }
@@ -46,7 +45,8 @@ class ClaimValueValidatorTest {
 
     @Test
     fun `validateAndCleanValueForClaim - Throws if value not in allowedValues`() {
-        val claim = mockClaim(allowedValues = emptyList())
+        val claim = mockStringClaim()
+        every { claim.allowedValues } returns emptyList()
         assertThrowsLocalizedException("user.claim_value_validator.invalid_value") {
             validator.validateAndCleanValueForClaim(claim, "value")
         }
@@ -54,7 +54,8 @@ class ClaimValueValidatorTest {
 
     @Test
     fun `validateAndCleanValueForClaim - Accepts value present in allowedValues`() {
-        val claim = mockClaim(allowedValues = listOf("allowed"))
+        val claim = mockStringClaim()
+        every { claim.allowedValues } returns listOf("allowed")
         val result = validator.validateAndCleanValueForClaim(claim, "allowed")
         assertTrue(result.isPresent)
         assertEquals("allowed", result.get())
@@ -62,7 +63,8 @@ class ClaimValueValidatorTest {
 
     @Test
     fun `validateAndCleanValueForClaim - Accepts any value when allowedValues is null`() {
-        val claim = mockClaim(allowedValues = null)
+        val claim = mockStringClaim()
+        every { claim.allowedValues } returns null
         val result = validator.validateAndCleanValueForClaim(claim, "anything")
         assertTrue(result.isPresent)
         assertEquals("anything", result.get())
@@ -72,14 +74,15 @@ class ClaimValueValidatorTest {
 
     @Test
     fun `validateAndCleanStringForClaim - Returns empty Optional for blank string`() {
-        val claim = mockClaim()
+        // A blank string is refused before the claim is looked at at all.
+        val claim = mockk<Claim>()
         val result = validator.validateAndCleanStringForClaim(claim, "   ")
         assertTrue(result.isEmpty)
     }
 
     @Test
     fun `validateAndCleanStringForClaim - Trims whitespace on STRING claims`() {
-        val claim = mockClaim(dataType = STRING)
+        val claim = mockStringClaim()
         val result = validator.validateAndCleanStringForClaim(claim, "  hello  ")
         assertTrue(result.isPresent)
         assertEquals("hello", result.get())

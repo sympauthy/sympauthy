@@ -19,6 +19,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class ClientAuthenticationUtilTest {
 
     @MockK
@@ -92,7 +93,7 @@ class ClientAuthenticationUtilTest {
 
     @Test
     fun `resolveClientAllowingPublic - Resolves public client without secret`() = runTest {
-        val publicClient = mockk<Client> { every { `public` } returns true }
+        val publicClient = mockk<Client>()
         coEvery { clientManager.findPublicClientByIdOrNull("public-app") } returns publicClient
 
         val result = util.resolveClientAllowingPublic(

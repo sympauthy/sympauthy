@@ -22,6 +22,7 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class AdminClientControllerTest {
 
     @MockK
@@ -32,10 +33,6 @@ class AdminClientControllerTest {
 
     @InjectMockKs
     lateinit var controller: AdminClientController
-
-    private fun mockClient(id: String): Client = mockk {
-        every { this@mockk.id } returns id
-    }
 
     private fun mockSummaryResource(clientId: String): AdminClientSummaryResource = AdminClientSummaryResource(
         clientId = clientId,
@@ -58,8 +55,8 @@ class AdminClientControllerTest {
 
     @Test
     fun `listClients - Return paginated list with defaults`() = runTest {
-        val client1 = mockClient("c1")
-        val client2 = mockClient("c2")
+        val client1 = mockk<Client>()
+        val client2 = mockk<Client>()
         val resource1 = mockSummaryResource("c1")
         val resource2 = mockSummaryResource("c2")
 
@@ -79,12 +76,13 @@ class AdminClientControllerTest {
 
     @Test
     fun `listClients - Apply page and size`() = runTest {
-        val clients = (1..5).map { mockClient("c$it") }
+        val clients = (1..5).map { mockk<Client>() }
         val resources = (1..5).map { mockSummaryResource("c$it") }
 
         coEvery { clientManager.listClients() } returns clients
-        clients.forEachIndexed { i, client ->
-            every { clientMapper.toSummaryResource(client) } returns resources[i]
+        // The second page of two holds the third and fourth client.
+        listOf(2, 3).forEach { i ->
+            every { clientMapper.toSummaryResource(clients[i]) } returns resources[i]
         }
 
         val result = controller.listClients(1, 2)
@@ -109,7 +107,7 @@ class AdminClientControllerTest {
 
     @Test
     fun `listClients - Return empty page when page exceeds total`() = runTest {
-        val client = mockClient("c1")
+        val client = mockk<Client>()
         coEvery { clientManager.listClients() } returns listOf(client)
 
         val result = controller.listClients(5, 20)
@@ -121,7 +119,7 @@ class AdminClientControllerTest {
 
     @Test
     fun `getClient - Return client when found`() = runTest {
-        val client = mockClient("my-app")
+        val client = mockk<Client>()
         val resource = mockResource("my-app")
 
         coEvery { clientManager.findClientByIdOrNull("my-app") } returns client

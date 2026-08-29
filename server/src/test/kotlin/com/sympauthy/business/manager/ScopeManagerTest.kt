@@ -21,6 +21,7 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class ScopeManagerTest {
 
     @MockK
@@ -61,7 +62,6 @@ class ScopeManagerTest {
         val foundScope = mockk<Scope> { every { audienceId } returns null }
         val client = mockk<com.sympauthy.business.model.client.Client> {
             every { allowedScopes } returns null
-            every { audience } returns mockk { every { id } returns "test-audience" }
         }
 
         coEvery { scopeManager.find(scope) } returns foundScope
@@ -78,7 +78,6 @@ class ScopeManagerTest {
         val foundScope = mockk<Scope> { every { audienceId } returns null }
         val client = mockk<com.sympauthy.business.model.client.Client> {
             every { allowedScopes } returns setOf(foundScope)
-            every { audience } returns mockk { every { id } returns "test-audience" }
         }
 
         coEvery { scopeManager.find(scope) } returns foundScope
@@ -107,7 +106,6 @@ class ScopeManagerTest {
         val otherScope = mockk<Scope>()
         val client = mockk<com.sympauthy.business.model.client.Client> {
             every { allowedScopes } returns setOf(otherScope)
-            every { audience } returns mockk { every { id } returns "test-audience" }
         }
 
         coEvery { scopeManager.find(scope) } returns foundScope
@@ -122,7 +120,6 @@ class ScopeManagerTest {
         val scope = "admin:users:read"
         val foundScope = mockk<Scope> {
             every { audienceId } returns "admin"
-            every { this@mockk.scope } returns scope
         }
         val client = mockk<com.sympauthy.business.model.client.Client> {
             every { audience } returns mockk { every { id } returns "default" }
@@ -180,7 +177,6 @@ class ScopeManagerTest {
         val scope = "admin:users:read"
         val foundScope = mockk<Scope> {
             every { audienceId } returns "admin"
-            every { this@mockk.scope } returns scope
         }
         val client = mockk<com.sympauthy.business.model.client.Client> {
             every { audience } returns mockk { every { id } returns "default" }

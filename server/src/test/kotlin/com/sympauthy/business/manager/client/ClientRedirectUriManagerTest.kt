@@ -3,14 +3,17 @@ package com.sympauthy.business.manager.client
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.model.client.Client
 import io.mockk.every
+import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.extension.ExtendWith
 import java.net.URI
 
+@ExtendWith(MockKExtension::class)
 class ClientRedirectUriManagerTest {
 
     private val manager = ClientRedirectUriManager()

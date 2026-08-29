@@ -17,6 +17,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class ScopeGrantingRuleManagerTest {
 
     @MockK
@@ -83,8 +84,8 @@ class ScopeGrantingRuleManagerTest {
         )
 
         val declineRule = mockk<ScopeGrantingRule>()
+        // The lower order loses on the order alone, so its behavior is never consulted.
         every { declineRule.order } returns 0
-        every { declineRule.behavior } returns DECLINE
         val declineResult = ScopeGrantingRuleIsApplicableResult(
             rule = declineRule,
             applicableRequestedScopes = listOf(scope),

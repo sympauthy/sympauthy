@@ -8,10 +8,8 @@ import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.config.model.*
-import io.micronaut.http.HttpHeaders
 import io.micronaut.http.HttpRequest
 import io.mockk.coEvery
-import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
@@ -26,6 +24,7 @@ import java.time.LocalDateTime
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class IntrospectionControllerTest {
 
     @MockK
@@ -54,28 +53,17 @@ class IntrospectionControllerTest {
     @InjectMockKs
     lateinit var controller: IntrospectionController
 
-    private fun mockRequest(): HttpRequest<*> {
-        val headers = mockk<HttpHeaders> {
-            every { authorization } returns Optional.empty()
-        }
-        return mockk<HttpRequest<*>> {
-            every { this@mockk.headers } returns headers
-        }
-    }
-
-    private fun mockClient(id: String = "test-client"): Client {
-        return mockk {
-            every { this@mockk.id } returns id
-            every { audience } returns mockk {
-                every { tokenAudience } returns "https://test-audience"
-            }
+    /** A client the audience of an active token is read from; an inactive one names no audience. */
+    private fun mockClientWithTokenAudience(): Client = mockk {
+        every { audience } returns mockk {
+            every { tokenAudience } returns "https://test-audience"
         }
     }
 
     @Test
     fun `introspectToken - Returns active response for valid token`() = runTest {
-        val request = mockRequest()
-        val client = mockClient()
+        val request = mockk<HttpRequest<*>>()
+        val client = mockClientWithTokenAudience()
         val userId = UUID.randomUUID()
         val tokenId = UUID.randomUUID()
         val issueDate = LocalDateTime.of(2025, 1, 1, 0, 0, 0)
@@ -116,8 +104,8 @@ class IntrospectionControllerTest {
 
     @Test
     fun `introspectToken - Returns inactive response for invalid token`() = runTest {
-        val request = mockRequest()
-        val client = mockClient()
+        val request = mockk<HttpRequest<*>>()
+        val client = mockk<Client>()
 
         coEvery { clientAuthenticationUtil.resolveClient(request, "test-client", "secret") } returns client
         coEvery { tokenManager.introspectToken(client, "bad-token", null) } returns null
@@ -139,8 +127,8 @@ class IntrospectionControllerTest {
 
     @Test
     fun `introspectToken - Throws when token parameter is missing`() = runTest {
-        val request = mockRequest()
-        val client = mockClient()
+        val request = mockk<HttpRequest<*>>()
+        val client = mockk<Client>()
 
         coEvery { clientAuthenticationUtil.resolveClient(request, "test-client", "secret") } returns client
 
@@ -159,7 +147,7 @@ class IntrospectionControllerTest {
 
     @Test
     fun `introspectToken - Throws when client authentication fails`() = runTest {
-        val request = mockRequest()
+        val request = mockk<HttpRequest<*>>()
 
         coEvery {
             clientAuthenticationUtil.resolveClient(request, "bad-client", "wrong")
@@ -178,8 +166,8 @@ class IntrospectionControllerTest {
 
     @Test
     fun `introspectToken - Returns DPoP token type when dpopJkt is present`() = runTest {
-        val request = mockRequest()
-        val client = mockClient()
+        val request = mockk<HttpRequest<*>>()
+        val client = mockClientWithTokenAudience()
         val token = mockk<AuthenticationToken> {
             every { id } returns UUID.randomUUID()
             every { clientId } returns "test-client"
@@ -207,8 +195,8 @@ class IntrospectionControllerTest {
 
     @Test
     fun `introspectToken - Uses client ID as subject for client_credentials tokens`() = runTest {
-        val request = mockRequest()
-        val client = mockClient()
+        val request = mockk<HttpRequest<*>>()
+        val client = mockClientWithTokenAudience()
         val token = mockk<AuthenticationToken> {
             every { id } returns UUID.randomUUID()
             every { clientId } returns "test-client"
@@ -236,8 +224,8 @@ class IntrospectionControllerTest {
 
     @Test
     fun `introspectToken - Passes token_type_hint to manager`() = runTest {
-        val request = mockRequest()
-        val client = mockClient()
+        val request = mockk<HttpRequest<*>>()
+        val client = mockk<Client>()
 
         coEvery { clientAuthenticationUtil.resolveClient(request, "test-client", "secret") } returns client
         coEvery { tokenManager.introspectToken(client, "the-token", "refresh_token") } returns null
@@ -251,6 +239,5 @@ class IntrospectionControllerTest {
         )
 
         assertFalse(result.active)
-        coVerify(exactly = 1) { tokenManager.introspectToken(client, "the-token", "refresh_token") }
     }
 }

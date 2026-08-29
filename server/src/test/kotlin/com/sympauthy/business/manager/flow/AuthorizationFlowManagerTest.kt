@@ -1,7 +1,6 @@
 package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
@@ -28,6 +27,7 @@ import java.net.URI
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class AuthorizationFlowManagerTest {
 
     @MockK
@@ -36,8 +36,6 @@ class AuthorizationFlowManagerTest {
     @MockK
     lateinit var uncheckedUrlsConfig: UrlsConfig
 
-    private val testAudience = Audience(id = "test-audience", tokenAudience = "test-audience")
-
     @InjectMockKs
     lateinit var manager: AuthorizationFlowManager
 
@@ -45,7 +43,7 @@ class AuthorizationFlowManagerTest {
 
     @Test
     fun `checkCanIssueToken - Throws when session is null`() = runTest {
-        val client = mockClient()
+        val client = mockk<Client>()
 
         val exception = assertThrows<BusinessException> {
             manager.checkCanIssueToken(null, null, client)
@@ -55,7 +53,7 @@ class AuthorizationFlowManagerTest {
 
     @Test
     fun `checkCanIssueToken - Throws when session is ongoing`() = runTest {
-        val client = mockClient()
+        val client = mockk<Client>()
         val onGoingSession = createOnGoingSession(userId = UUID.randomUUID())
 
         val exception = assertThrows<BusinessException> {
@@ -66,7 +64,7 @@ class AuthorizationFlowManagerTest {
 
     @Test
     fun `checkCanIssueToken - Throws when session has failed`() = runTest {
-        val client = mockClient()
+        val client = mockk<Client>()
         val failedSession = FailedInteractiveFlowSession(
             id = UUID.randomUUID(),
             purposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE),
@@ -85,7 +83,7 @@ class AuthorizationFlowManagerTest {
 
     @Test
     fun `checkCanIssueToken - Throws when session is expired`() = runTest {
-        val client = mockClient("test-client")
+        val client = mockk<Client>()
         val completedSession = createCompletedSession(
             expirationDate = LocalDateTime.now().minusMinutes(1)
         )
@@ -99,7 +97,7 @@ class AuthorizationFlowManagerTest {
 
     @Test
     fun `checkCanIssueToken - Throws when oauth2 record is missing`() = runTest {
-        val client = mockClient("test-client")
+        val client = mockk<Client>()
         val completedSession = createCompletedSession()
 
         val exception = assertThrows<BusinessException> {
@@ -134,11 +132,9 @@ class AuthorizationFlowManagerTest {
 
     // --- helpers ---
 
-    private fun mockClient(id: String = "test-client"): Client {
-        return mockk {
-            every { this@mockk.id } returns id
-            every { audience } returns testAudience
-        }
+    /** A client only identified where the check gets as far as comparing it with the session's. */
+    private fun mockClient(id: String): Client = mockk {
+        every { this@mockk.id } returns id
     }
 
     private fun createOnGoingSession(

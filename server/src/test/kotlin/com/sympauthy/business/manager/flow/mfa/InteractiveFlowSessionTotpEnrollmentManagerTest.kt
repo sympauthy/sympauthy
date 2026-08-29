@@ -29,6 +29,7 @@ import java.time.LocalDateTime
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class InteractiveFlowSessionTotpEnrollmentManagerTest {
 
     @MockK
@@ -58,9 +59,10 @@ class InteractiveFlowSessionTotpEnrollmentManagerTest {
     fun `getAccount - uses the first configured identifier claim regardless of collected order`() = runTest {
         // Config order (username before email) must win over collection/DB order (email first).
         val account = accountLabelFor(
-            identifierClaims = listOf(claim("preferred_username"), claim("email")),
+            // The second configured claim is never reached, so nothing is read off it.
+            identifierClaims = listOf(claim("preferred_username"), mockk()),
             collected = listOf(
-                collectedClaim("email", "alice@example.com"),
+                collectedClaim("email"),
                 collectedClaim("preferred_username", "alice")
             )
         )
@@ -91,7 +93,8 @@ class InteractiveFlowSessionTotpEnrollmentManagerTest {
     @Test
     fun `getAccount - falls back to the user id when no identifier claim is collected`() = runTest {
         val account = accountLabelFor(
-            identifierClaims = listOf(claim("preferred_username"), claim("email")),
+            // Nothing is collected, so no configured claim is ever compared against one.
+            identifierClaims = listOf(mockk()),
             collected = emptyList()
         )
         assertEquals(userId.toString(), account)
@@ -101,7 +104,8 @@ class InteractiveFlowSessionTotpEnrollmentManagerTest {
     fun `getAccount - falls back to the user id when no identifier claim is configured`() = runTest {
         val account = accountLabelFor(
             identifierClaims = emptyList(),
-            collected = listOf(collectedClaim("email", "alice@example.com"))
+            // Nothing is configured, so the collected claim is never looked at.
+            collected = listOf(mockk())
         )
         assertEquals(userId.toString(), account)
     }
@@ -206,11 +210,14 @@ class InteractiveFlowSessionTotpEnrollmentManagerTest {
         every { this@mockk.id } returns id
     }
 
-    private fun collectedClaim(claimId: String, collectedValue: Any?): CollectedClaim {
+    /** A collected claim the lookup matches on; only the one it matches is read for its value. */
+    private fun collectedClaim(claimId: String): CollectedClaim {
         val claim = claim(claimId)
         return mockk {
             every { this@mockk.claim } returns claim
-            every { value } returns collectedValue
         }
     }
+
+    private fun collectedClaim(claimId: String, collectedValue: Any?): CollectedClaim =
+        collectedClaim(claimId).also { every { it.value } returns collectedValue }
 }

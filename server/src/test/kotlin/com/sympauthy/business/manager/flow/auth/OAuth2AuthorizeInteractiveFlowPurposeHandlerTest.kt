@@ -24,7 +24,6 @@ import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.config.model.EnabledFeaturesConfig
 import com.sympauthy.config.model.EnabledMfaConfig
 import io.mockk.coEvery
-import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
@@ -43,6 +42,7 @@ import java.time.LocalDateTime
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
 
     @MockK
@@ -237,21 +237,19 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     fun `applyTerminalEffect - Saves consent and proceeds when scopes are granted`() = runTest {
         val userId = UUID.randomUUID()
         val clientId = "client-id"
-        val grantedScopeObjects = listOf(mockkScope("read"))
+        val grantedScopeObjects = listOf(mockk<Scope>())
         val session = createOnGoingSession(userId = userId)
         val oauth2AfterGranted = oauth2Of(clientId = clientId, grantedScopes = listOf("read"))
 
-        every { uncheckedFeaturesConfig.allowAccessToClientWithoutScope } returns false
         coEvery { collectedClaimManager.findByUserId(userId) } returns emptyList()
         coEvery { scopeGrantingManager.grantScopes(session, emptyList()) } returns grantScopesResultOf(grantedScopeObjects)
         coEvery { oauth2Manager.setGrantedScopes(session, grantedScopeObjects, any()) } returns oauth2AfterGranted
-        coEvery { clientManager.findClientById(clientId) } returns mockClient(clientId)
-        coEvery { consentManager.saveConsent(userId, any(), clientId, any()) } returns mockk()
+        coEvery { clientManager.findClientById(clientId) } returns mockClient()
+        coEvery { consentManager.saveConsent(userId, testAudience.id, clientId, any()) } returns mockk()
 
         val result = handler.applyTerminalEffect(session)
 
         assertEquals(TerminalEffectResult.Proceed, result)
-        coVerify(exactly = 1) { consentManager.saveConsent(userId, testAudience.id, clientId, any()) }
     }
 
     @Test
@@ -282,7 +280,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         coEvery { collectedClaimManager.findByUserId(userId) } returns emptyList()
         coEvery { scopeGrantingManager.grantScopes(session, emptyList()) } returns grantScopesResultOf(emptyList())
         coEvery { oauth2Manager.setGrantedScopes(session, emptyList(), any()) } returns oauth2AfterGranted
-        coEvery { clientManager.findClientById(clientId) } returns mockClient(clientId)
+        coEvery { clientManager.findClientById(clientId) } returns mockClient()
         coEvery { consentManager.saveConsent(userId, any(), clientId, any()) } returns mockk()
 
         val result = handler.applyTerminalEffect(session)
@@ -370,17 +368,9 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         )
     }
 
-    private fun mockkScope(scope: String): Scope {
-        return mockk {
-            every { this@mockk.scope } returns scope
-        }
-    }
-
-    private fun mockClient(id: String = "test-client"): Client {
-        return mockk {
-            every { this@mockk.id } returns id
-            every { audience } returns testAudience
-        }
+    /** A client the consent is saved against: only its audience is read. */
+    private fun mockClient(): Client = mockk {
+        every { audience } returns testAudience
     }
 
     private fun createOnGoingSession(userId: UUID?): OnGoingInteractiveFlowSession {

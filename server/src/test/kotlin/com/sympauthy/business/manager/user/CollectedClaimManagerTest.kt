@@ -24,6 +24,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class CollectedClaimManagerTest {
 
     @MockK
@@ -125,14 +126,12 @@ class CollectedClaimManagerTest {
         val user = mockk<User> {
             every { id } returns userId
         }
-        val createdClaim = "created"
         val updatedClaim = "updated"
         val deletedClaim = "deleted"
         val keptClaim = "kept"
 
-        val createdEntity = mockk<CollectedClaimEntity> {
-            every { claim } returns createdClaim
-        }
+        // Nothing looks at which claim the created entity carries; it is mapped and returned.
+        val createdEntity = mockk<CollectedClaimEntity>()
         val updatedEntity = mockk<CollectedClaimEntity> {
             every { claim } returns updatedClaim
         }
@@ -147,10 +146,8 @@ class CollectedClaimManagerTest {
         val updated = mockk<CollectedClaim>()
         val kept = mockk<CollectedClaim>()
 
-        val createdUpdate = mockUpdate(createdClaim)
-        val updatedUpdate = mockUpdate(updatedClaim)
-        val deleteUpdate = mockUpdate(deletedClaim)
-        val updates = listOf(createdUpdate, updatedUpdate, deleteUpdate)
+        // The updates are handed straight to the three helpers below, which are stubbed on the spy.
+        val updates = List(3) { mockk<CollectedClaimUpdate>() }
 
         coEvery { collectedClaimRepository.findByUserId(userId) } returns
                 listOf(updatedEntity, deletedEntity, keptEntity)
@@ -195,7 +192,7 @@ class CollectedClaimManagerTest {
     fun `deleteExistingClaimUpdatedToNull - Do not delete if value for update is not null`() = runTest {
         val updatedClaim = "udpated"
         val updatedEntity = mockk<CollectedClaimEntity>()
-        val update = mockUpdate("updated", mockk())
+        val update = mockUpdateOfValue(mockk())
 
         coEvery { collectedClaimRepository.deleteAll(emptyList()) } returns 0
 
@@ -263,7 +260,6 @@ class CollectedClaimManagerTest {
         val update = mockUpdate(updatedClaim, newValueOptional)
 
         every { collectedClaimUpdateMapper.toValue(Optional.of(updatedClaimValue)) } answers { updatedClaimValue }
-        every { collectedClaimUpdateMapper.updateEntity(toUpdateEntity, update) } returns toUpdateEntity
         every { collectedClaimRepository.updateAll(emptyList()) } returns flowOf()
 
         val result = manager.updateExistingClaims(
@@ -335,16 +331,15 @@ class CollectedClaimManagerTest {
         assertEquals(0, result.count())
     }
 
+    /** An update whose value is read before, and sometimes instead of, the claim it is for. */
+    private fun mockUpdateOfValue(updateValue: Optional<Any>?): CollectedClaimUpdate = mockk(relaxed = true) {
+        every { value } returns updateValue
+    }
+
     private fun mockUpdate(
         updateClaim: String,
         updateValue: Optional<Any>? = null
-    ): CollectedClaimUpdate {
-        val updateClaimObject = mockk<Claim> {
-            every { id } returns updateClaim
-        }
-        return mockk(relaxed = true) {
-            every { claim } returns updateClaimObject
-            every { value } returns updateValue
-        }
+    ): CollectedClaimUpdate = mockUpdateOfValue(updateValue).also { update ->
+        every { update.claim } returns mockk { every { id } returns updateClaim }
     }
 }

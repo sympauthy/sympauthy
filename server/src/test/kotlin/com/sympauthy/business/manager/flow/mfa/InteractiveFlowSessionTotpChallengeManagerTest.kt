@@ -21,6 +21,7 @@ import java.util.*
 
 @Suppress("unused")
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class InteractiveFlowSessionTotpChallengeManagerTest {
 
     @MockK
@@ -33,21 +34,26 @@ class InteractiveFlowSessionTotpChallengeManagerTest {
     lateinit var manager: InteractiveFlowSessionTotpChallengeManager
 
     private val userId = UUID.randomUUID()
-    private val user = mockk<User> { every { id } returns userId }
+    private val user = mockk<User>()
     private val session = mockk<OnGoingInteractiveFlowSession>()
+
+    /** Identifies the user, for the paths that get as far as checking a code against them. */
+    private fun identifyUser() {
+        every { user.id } returns userId
+    }
 
     // --- validateTotpChallenge ---
 
     @Test
     fun `validateTotpChallenge - Records mfaPassedDate and returns updated session when code is valid`() = runTest {
         val updatedSession = mockk<OnGoingInteractiveFlowSession>()
+        identifyUser()
         coEvery { totpManager.isCodeValidForUser(userId, "123456") } returns true
         coEvery { sessionManager.setMfaPassed(session) } returns updatedSession
 
         val result = manager.validateTotpChallenge(session, user, "123456")
 
         assertSame(updatedSession, result)
-        coVerify(exactly = 1) { sessionManager.setMfaPassed(session) }
     }
 
     @Test
@@ -76,6 +82,7 @@ class InteractiveFlowSessionTotpChallengeManagerTest {
 
     @Test
     fun `validateTotpChallenge - Throws recoverable exception when code does not match any enrollment`() = runTest {
+        identifyUser()
         coEvery { totpManager.isCodeValidForUser(userId, "000000") } returns false
 
         val exception = assertThrows<BusinessException> {

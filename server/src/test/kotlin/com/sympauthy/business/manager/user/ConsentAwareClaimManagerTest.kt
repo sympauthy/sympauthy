@@ -21,6 +21,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class ConsentAwareClaimManagerTest {
 
     @MockK
@@ -66,9 +67,8 @@ class ConsentAwareClaimManagerTest {
     fun `listCollectableClaimsWithScopes - Exclude identifier claims`() {
         val scope1 = "scope1"
 
-        val identifierClaim = mockk<Claim> {
-            every { canBeWrittenByUser(any()) } returns true
-        }
+        // An identifier claim is dropped before anything asks whether the user could write it.
+        val identifierClaim = mockk<Claim>()
         val regularClaim = mockk<Claim> {
             every { canBeWrittenByUser(any()) } returns true
         }

@@ -6,10 +6,13 @@ import com.sympauthy.business.model.oauth2.ClientScope
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.security.SecurityRule.IS_CLIENT
 import io.mockk.every
+import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 
+@ExtendWith(MockKExtension::class)
 class ClientAuthenticationTest {
 
     private fun createAuthentication(scopes: List<Scope>): ClientAuthentication {

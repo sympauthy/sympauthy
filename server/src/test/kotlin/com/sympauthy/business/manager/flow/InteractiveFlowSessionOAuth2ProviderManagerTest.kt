@@ -36,6 +36,7 @@ import java.net.URI
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class InteractiveFlowSessionOAuth2ProviderManagerTest {
 
     @MockK
@@ -201,7 +202,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             val userId = UUID.randomUUID()
             val provider = createProvider()
             val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
-            val existingUserInfo = mockk<ProviderUserInfo> { every { this@mockk.userId } returns userId }
+            val existingUserInfo = mockk<ProviderUserInfo>()
             stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo)
             coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.MFA_CHALLENGE
 

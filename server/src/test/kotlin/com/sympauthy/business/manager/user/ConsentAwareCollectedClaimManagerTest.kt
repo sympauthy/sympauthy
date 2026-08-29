@@ -24,6 +24,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class ConsentAwareCollectedClaimManagerTest {
 
     @MockK
@@ -256,9 +257,7 @@ class ConsentAwareCollectedClaimManagerTest {
         val user = mockk<User>()
         val consentedScopes = listOf(scope1)
 
-        val collectedClaim1 = mockk<CollectedClaim> {
-            every { claim } returns claim1
-        }
+        val collectedClaim1 = mockk<CollectedClaim>()
 
         every { consentAwareClaimManager.listCollectableClaimsWithScopes(consentedScopes) } returns listOf(claim1)
         coEvery { collectedClaimManager.applyUpdates(user, listOf(update1)) } returns listOf(collectedClaim1)

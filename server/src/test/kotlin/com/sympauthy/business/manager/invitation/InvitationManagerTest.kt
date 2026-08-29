@@ -8,7 +8,6 @@ import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.invitation.InvitationStatus
 import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.data.model.InvitationEntity
 import com.sympauthy.data.repository.InvitationRepository
@@ -25,6 +24,7 @@ import java.time.LocalDateTime
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class InvitationManagerTest {
 
     @MockK
@@ -57,17 +57,9 @@ class InvitationManagerTest {
     @InjectMockKs
     lateinit var manager: InvitationManager
 
-    private fun createClaim(
-        id: String,
-        enabled: Boolean = true,
-        dataType: ClaimDataType = ClaimDataType.STRING
-    ): Claim {
-        return mockk {
-            every { this@mockk.id } returns id
-            every { this@mockk.enabled } returns enabled
-            every { this@mockk.dataType } returns dataType
-            every { this@mockk.allowedValues } returns null
-        }
+    /** A claim the manager only asks whether it is enabled; its value is the validator's business. */
+    private fun createClaim(enabled: Boolean = true): Claim = mockk {
+        every { this@mockk.enabled } returns enabled
     }
 
     private fun createInvitation(
@@ -120,7 +112,7 @@ class InvitationManagerTest {
 
     @Test
     fun `validateAndCleanClaims - Throws when claim is disabled`() {
-        val claim = createClaim("disabled_claim", enabled = false)
+        val claim = createClaim(enabled = false)
         every { claimManager.findByIdOrNull("disabled_claim") } returns claim
 
         val exception = assertThrows<BusinessException> {
@@ -131,7 +123,7 @@ class InvitationManagerTest {
 
     @Test
     fun `validateAndCleanClaims - Validates claim value against type`() {
-        val claim = createClaim("my_boolean", dataType = ClaimDataType.BOOLEAN)
+        val claim = createClaim()
         every { claimManager.findByIdOrNull("my_boolean") } returns claim
         every { claimValueValidator.validateAndCleanValueForClaim(claim, "not_a_boolean") } throws
                 BusinessException(recoverable = true, detailsId = "user.claim_value_validator.invalid_boolean")
@@ -144,7 +136,7 @@ class InvitationManagerTest {
 
     @Test
     fun `validateAndCleanClaims - Returns cleaned values`() {
-        val claim = createClaim("my_boolean", dataType = ClaimDataType.BOOLEAN)
+        val claim = createClaim()
         every { claimManager.findByIdOrNull("my_boolean") } returns claim
         every { claimValueValidator.validateAndCleanValueForClaim(claim, "TRUE") } returns Optional.of("true")
 
@@ -154,7 +146,7 @@ class InvitationManagerTest {
 
     @Test
     fun `validateAndCleanClaims - Throws when client does not have write access to claim`() {
-        val claim = createClaim("custom_role")
+        val claim = createClaim()
         every { claimManager.findByIdOrNull("custom_role") } returns claim
         every { claim.canBeWrittenByClient(emptyList(), listOf("invitations:write")) } returns false
 
@@ -170,7 +162,7 @@ class InvitationManagerTest {
 
     @Test
     fun `validateAndCleanClaims - Skips ACL check when clientScopeIds is null`() {
-        val claim = createClaim("custom_role")
+        val claim = createClaim()
         every { claimManager.findByIdOrNull("custom_role") } returns claim
         every { claimValueValidator.validateAndCleanValueForClaim(claim, "admin") } returns Optional.of("admin")
 
@@ -301,7 +293,7 @@ class InvitationManagerTest {
             id = invitationId,
             claims = mapOf("custom_role" to "admin")
         )
-        val claim = createClaim("custom_role")
+        val claim = mockk<Claim>()
         val user = mockk<com.sympauthy.business.model.user.User>()
         val entity = mockk<InvitationEntity>()
 
@@ -343,7 +335,7 @@ class InvitationManagerTest {
             id = invitationId,
             claims = mapOf("known" to "value", "unknown" to "value")
         )
-        val knownClaim = createClaim("known")
+        val knownClaim = mockk<Claim>()
         val user = mockk<com.sympauthy.business.model.user.User>()
         val entity = mockk<InvitationEntity>()
 

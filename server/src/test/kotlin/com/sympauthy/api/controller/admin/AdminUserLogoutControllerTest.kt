@@ -25,6 +25,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class AdminUserLogoutControllerTest {
 
     @MockK
@@ -43,7 +44,7 @@ class AdminUserLogoutControllerTest {
     private val adminId: UUID = UUID.randomUUID()
     private val clientId: String = "my-app"
 
-    private fun mockAuthentication(): UserAuthentication = mockk {
+    private fun mockAdminAuthentication(): UserAuthentication = mockk {
         every { authenticationToken } returns mockk<AuthenticationToken> {
             every { this@mockk.userId } returns adminId
         }
@@ -51,7 +52,7 @@ class AdminUserLogoutControllerTest {
 
     @Test
     fun `forceLogout - Revokes all user tokens and returns count`() = runTest {
-        val authentication = mockAuthentication()
+        val authentication = mockAdminAuthentication()
         coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
         coEvery { tokenManager.revokeTokensByUser(userId, TokenRevokedBy.ADMIN, adminId) } returns 5
 
@@ -64,7 +65,7 @@ class AdminUserLogoutControllerTest {
 
     @Test
     fun `forceLogout - Returns 404 when user not found`() = runTest {
-        val authentication = mockAuthentication()
+        val authentication = mockk<UserAuthentication>()
         coEvery { userManager.findByIdOrNull(userId) } returns null
 
         val exception = assertThrows<LocalizedHttpException> {
@@ -76,7 +77,7 @@ class AdminUserLogoutControllerTest {
 
     @Test
     fun `forceClientLogout - Revokes all tokens for user+client and returns count`() = runTest {
-        val authentication = mockAuthentication()
+        val authentication = mockAdminAuthentication()
         coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
         coEvery { clientManager.findClientByIdOrNull(clientId) } returns mockk<Client>()
         coEvery { tokenManager.revokeTokensByUserAndClient(userId, clientId, TokenRevokedBy.ADMIN, adminId) } returns 3
@@ -90,7 +91,7 @@ class AdminUserLogoutControllerTest {
 
     @Test
     fun `forceClientLogout - Returns 404 when user not found`() = runTest {
-        val authentication = mockAuthentication()
+        val authentication = mockk<UserAuthentication>()
         coEvery { userManager.findByIdOrNull(userId) } returns null
 
         val exception = assertThrows<LocalizedHttpException> {
@@ -102,7 +103,7 @@ class AdminUserLogoutControllerTest {
 
     @Test
     fun `forceClientLogout - Returns 404 when client not found`() = runTest {
-        val authentication = mockAuthentication()
+        val authentication = mockk<UserAuthentication>()
         coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
         coEvery { clientManager.findClientByIdOrNull(clientId) } returns null
 

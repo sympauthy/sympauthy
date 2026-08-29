@@ -12,12 +12,10 @@ import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.*
-import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.EnabledAuthConfig
 import io.micronaut.http.HttpStatus
 import io.mockk.coEvery
 import io.mockk.every
-import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
@@ -30,6 +28,7 @@ import java.time.LocalDateTime
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class AdminUserClaimControllerTest {
 
     @MockK
@@ -45,13 +44,7 @@ class AdminUserClaimControllerTest {
     lateinit var generatedClaimsManager: GeneratedClaimsManager
 
     @MockK
-    lateinit var uncheckedAuthConfig: AuthConfig
-
-    @MockK
     lateinit var userClaimMapper: AdminUserClaimResourceMapper
-
-    @InjectMockKs
-    lateinit var controller: AdminUserClaimController
 
     private val userId = UUID.randomUUID()
 
@@ -146,10 +139,6 @@ class AdminUserClaimControllerTest {
         acl = customAcl
     )
 
-    private fun mockUser(): User = mockk {
-        every { id } returns userId
-    }
-
     private fun mockResource(claimId: String, value: Any? = null): AdminUserClaimResource = AdminUserClaimResource(
         claimId = claimId,
         value = value,
@@ -175,15 +164,12 @@ class AdminUserClaimControllerTest {
         verificationDate = verificationDate
     )
 
-    // Helper to create controller with real EnabledAuthConfig
-    private fun createController(
-        identifierOpenIdClaims: List<String> = listOf(OpenIdConnectClaimId.EMAIL)
-    ): AdminUserClaimController {
+    private fun createController(): AdminUserClaimController {
         val enabledConfig = EnabledAuthConfig(
             issuer = "test",
             token = mockk(),
             authorizationCode = mockk(),
-            identifierClaims = identifierOpenIdClaims,
+            identifierClaims = listOf(OpenIdConnectClaimId.EMAIL),
             userMergingEnabled = false,
             byPassword = mockk()
         )
@@ -200,7 +186,7 @@ class AdminUserClaimControllerTest {
     @Test
     fun `listUserClaims - Return paginated list with defaults`() = runTest {
         val ctrl = createController()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockUser()
+        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim, nameClaim)
         coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns emptyList()
 
@@ -222,7 +208,7 @@ class AdminUserClaimControllerTest {
     @Test
     fun `listUserClaims - Verified claims are excluded`() = runTest {
         val ctrl = createController()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockUser()
+        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
         // emailClaim has verifiedId = "email_verified", so emailVerifiedClaim should be excluded
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim, emailVerifiedClaim, nameClaim)
         coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns emptyList()
@@ -241,7 +227,7 @@ class AdminUserClaimControllerTest {
     @Test
     fun `listUserClaims - Filter by claimId`() = runTest {
         val ctrl = createController()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockUser()
+        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim, nameClaim)
         coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns emptyList()
 
@@ -257,7 +243,7 @@ class AdminUserClaimControllerTest {
     @Test
     fun `listUserClaims - Filter by identifier`() = runTest {
         val ctrl = createController()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockUser()
+        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim, nameClaim)
         coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns emptyList()
 
@@ -273,7 +259,7 @@ class AdminUserClaimControllerTest {
     @Test
     fun `listUserClaims - Filter by required`() = runTest {
         val ctrl = createController()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockUser()
+        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim, nameClaim)
         coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns emptyList()
 
@@ -289,7 +275,7 @@ class AdminUserClaimControllerTest {
     @Test
     fun `listUserClaims - Filter by origin`() = runTest {
         val ctrl = createController()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockUser()
+        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim, customClaim)
         coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns emptyList()
 
@@ -305,7 +291,7 @@ class AdminUserClaimControllerTest {
     @Test
     fun `listUserClaims - Filter by collected`() = runTest {
         val ctrl = createController()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockUser()
+        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim, nameClaim)
 
         val collectedEmail = mockCollectedClaim(emailClaim, "user@test.com")
@@ -323,7 +309,7 @@ class AdminUserClaimControllerTest {
     @Test
     fun `listUserClaims - Filter by verified`() = runTest {
         val ctrl = createController()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockUser()
+        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim, nameClaim)
 
         val verifiedDate = LocalDateTime.of(2025, 1, 1, 0, 0)
@@ -342,7 +328,7 @@ class AdminUserClaimControllerTest {
     @Test
     fun `listUserClaims - Claims without collected values show null metadata`() = runTest {
         val ctrl = createController()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockUser()
+        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
         every { claimManager.listEnabledClaims() } returns listOf(nameClaim)
         coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns emptyList()
 
@@ -382,7 +368,7 @@ class AdminUserClaimControllerTest {
     @Test
     fun `listUserClaims - Pagination works correctly`() = runTest {
         val ctrl = createController()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockUser()
+        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
 
         val claims = (1..5).map {
             Claim(
@@ -403,8 +389,9 @@ class AdminUserClaimControllerTest {
         coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns emptyList()
 
         val resources = claims.map { mockResource(it.id) }
-        claims.forEachIndexed { i, claim ->
-            every { userClaimMapper.toResourceFromCollectedClaim(claim, null, false) } returns resources[i]
+        // The second page of two holds the third and fourth claim.
+        listOf(2, 3).forEach { i ->
+            every { userClaimMapper.toResourceFromCollectedClaim(claims[i], null, false) } returns resources[i]
         }
 
         val result = ctrl.listUserClaims(userId, 1, 2, null, null, null, null, null, null)
@@ -420,7 +407,7 @@ class AdminUserClaimControllerTest {
     @Test
     fun `listUserClaims - Empty page when page exceeds total`() = runTest {
         val ctrl = createController()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockUser()
+        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim)
         coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns emptyList()
 
