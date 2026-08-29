@@ -24,7 +24,8 @@ class ClientUserManager(
 
     /**
      * List one page of the users holding an active consent for [audienceId], oldest consent first, and how
-     * many users the same filter matches in total.
+     * many active consents the same filter matches in total. The two agree while a user holds at most one
+     * active consent per audience, which is the invariant [ConsentManager] writes under.
      *
      * [providerId] restricts the page to users linked to that provider, and [subject] narrows it further to
      * the single link carrying it; [subject] is only read when [providerId] is given. [page] is 0-based and

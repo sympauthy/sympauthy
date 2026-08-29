@@ -30,9 +30,6 @@ import java.util.*
 class ConsentRepositoryTest {
 
     @Inject
-    lateinit var collectedClaimRepository: CollectedClaimRepository
-
-    @Inject
     lateinit var consentRepository: ConsentRepository
 
     @Inject
@@ -41,10 +38,7 @@ class ConsentRepositoryTest {
     @Inject
     lateinit var userRepository: UserRepository
 
-    private val audienceId = "audience"
-    private val otherAudienceId = "other-audience"
-
-    /** The first four users hold an active consent for [audienceId], oldest consent first. */
+    /** The first four users hold an active consent for [AUDIENCE_ID], oldest consent first. */
     private lateinit var userIds: List<UUID>
 
     /**
@@ -53,27 +47,32 @@ class ConsentRepositoryTest {
      */
     private lateinit var tiedConsentIds: List<UUID>
 
+    private val createdConsentIds = mutableListOf<UUID>()
+    private val createdProviderLinks = mutableListOf<ProviderUserInfoEntityId>()
+
+    // This @MicronautTest shares its H2 database with the other @MicronautTest classes, so we must not
+    // deleteAll() — other tests' rows reference these tables via foreign keys. Both audiences below are
+    // named for this class so that no other test's consents can fall inside a query under test, and
+    // tearDown removes only the rows created here.
     @BeforeEach
     fun setUp() = runTest {
-        deleteEveryUserAndWhatReferencesOne()
-
         userIds = (1..6).map {
             userRepository.save(UserEntity(status = "enabled", creationDate = CONSENTED_AT)).id!!
         }
 
         // Indices 1 and 2 share a consent date, so only the tiebreak separates them.
         val consentIds = listOf(
-            saveConsent(userIds[0], audienceId, CONSENTED_AT),
-            saveConsent(userIds[1], audienceId, CONSENTED_AT.plusHours(1)),
-            saveConsent(userIds[2], audienceId, CONSENTED_AT.plusHours(1)),
-            saveConsent(userIds[3], audienceId, CONSENTED_AT.plusHours(2))
+            saveConsent(userIds[0], AUDIENCE_ID, CONSENTED_AT),
+            saveConsent(userIds[1], AUDIENCE_ID, CONSENTED_AT.plusHours(1)),
+            saveConsent(userIds[2], AUDIENCE_ID, CONSENTED_AT.plusHours(1)),
+            saveConsent(userIds[3], AUDIENCE_ID, CONSENTED_AT.plusHours(2))
         )
         tiedConsentIds = listOf(consentIds[1], consentIds[2])
 
         // Revoked, and so excluded however early its consent date is.
-        saveConsent(userIds[4], audienceId, CONSENTED_AT.minusDays(1), revokedAt = CONSENTED_AT)
+        saveConsent(userIds[4], AUDIENCE_ID, CONSENTED_AT.minusDays(1), revokedAt = CONSENTED_AT)
         // Another audience's consent, and so none of this audience's business.
-        saveConsent(userIds[5], otherAudienceId, CONSENTED_AT)
+        saveConsent(userIds[5], OTHER_AUDIENCE_ID, CONSENTED_AT)
 
         // The first two users are linked to the provider; the second one shares its subject with a link
         // held by a user of the other audience, so a subject alone cannot select a user.
@@ -84,9 +83,20 @@ class ConsentRepositoryTest {
         saveProviderLink(userIds[3], OTHER_PROVIDER_ID, "subject-3")
     }
 
+    @AfterEach
+    fun tearDown() = runTest {
+        createdProviderLinks.forEach {
+            providerUserInfoRepository.deleteByProviderIdAndUserId(it.providerId, it.userId)
+        }
+        createdProviderLinks.clear()
+        createdConsentIds.forEach { consentRepository.deleteById(it) }
+        createdConsentIds.clear()
+        userIds.forEach { userRepository.deleteById(it) }
+    }
+
     @Test
     fun `findActiveByAudienceId - Order the consents by consent date`() = runTest {
-        val consents = consentRepository.findActiveByAudienceId(audienceId, limit = 10, offset = 0)
+        val consents = consentRepository.findActiveByAudienceId(AUDIENCE_ID, limit = 10, offset = 0)
 
         assertEquals(
             listOf(CONSENTED_AT, CONSENTED_AT.plusHours(1), CONSENTED_AT.plusHours(1), CONSENTED_AT.plusHours(2)),
@@ -96,7 +106,7 @@ class ConsentRepositoryTest {
 
     @Test
     fun `findActiveByAudienceId - Break a tie on the consent date by identifier`() = runTest {
-        val consents = consentRepository.findActiveByAudienceId(audienceId, limit = 10, offset = 0)
+        val consents = consentRepository.findActiveByAudienceId(AUDIENCE_ID, limit = 10, offset = 0)
 
         // This states the contract rather than guarding it: the index the audience is read through
         // carries the identifier as its last column, so H2 answers in this order even when the query
@@ -110,7 +120,7 @@ class ConsentRepositoryTest {
 
     @Test
     fun `findActiveByAudienceId - Exclude the revoked consents and the other audiences`() = runTest {
-        val consents = consentRepository.findActiveByAudienceId(audienceId, limit = 10, offset = 0)
+        val consents = consentRepository.findActiveByAudienceId(AUDIENCE_ID, limit = 10, offset = 0)
 
         assertEquals(userIds.take(4).toSet(), consents.map(ConsentEntity::userId).toSet())
     }
@@ -118,25 +128,25 @@ class ConsentRepositoryTest {
     @Test
     fun `findActiveByAudienceId - Split the consents into pages that neither overlap nor skip`() = runTest {
         val pages = (0..1).map { page ->
-            consentRepository.findActiveByAudienceId(audienceId, limit = 2, offset = page * 2)
+            consentRepository.findActiveByAudienceId(AUDIENCE_ID, limit = 2, offset = page * 2)
         }
 
         assertEquals(
-            consentRepository.findActiveByAudienceId(audienceId, limit = 10, offset = 0).map { it.id!! },
+            consentRepository.findActiveByAudienceId(AUDIENCE_ID, limit = 10, offset = 0).map { it.id!! },
             pages.flatten().map { it.id!! }
         )
     }
 
     @Test
     fun `findActiveByAudienceId - Return nothing past the last page`() = runTest {
-        val consents = consentRepository.findActiveByAudienceId(audienceId, limit = 2, offset = 4)
+        val consents = consentRepository.findActiveByAudienceId(AUDIENCE_ID, limit = 2, offset = 4)
 
         assertTrue(consents.isEmpty())
     }
 
     @Test
     fun `countActiveByAudienceId - Count the consents the page query returns`() = runTest {
-        val count = consentRepository.countActiveByAudienceId(audienceId)
+        val count = consentRepository.countActiveByAudienceId(AUDIENCE_ID)
 
         assertEquals(4L, count)
     }
@@ -144,7 +154,7 @@ class ConsentRepositoryTest {
     @Test
     fun `findActiveByAudienceIdAndProvider - Keep only the users linked to the provider`() = runTest {
         val consents = consentRepository.findActiveByAudienceIdAndProvider(
-            audienceId, PROVIDER_ID, subject = null, limit = 10, offset = 0
+            AUDIENCE_ID, PROVIDER_ID, subject = null, limit = 10, offset = 0
         )
 
         assertEquals(userIds.take(2), consents.map(ConsentEntity::userId))
@@ -153,7 +163,7 @@ class ConsentRepositoryTest {
     @Test
     fun `findActiveByAudienceIdAndProvider - Keep only the user carrying the subject`() = runTest {
         val consents = consentRepository.findActiveByAudienceIdAndProvider(
-            audienceId, PROVIDER_ID, SHARED_SUBJECT, limit = 10, offset = 0
+            AUDIENCE_ID, PROVIDER_ID, SHARED_SUBJECT, limit = 10, offset = 0
         )
 
         // The other audience's user holds the same subject and stays out of the audience's page.
@@ -163,7 +173,7 @@ class ConsentRepositoryTest {
     @Test
     fun `findActiveByAudienceIdAndProvider - Return nothing for an unlinked provider`() = runTest {
         val consents = consentRepository.findActiveByAudienceIdAndProvider(
-            audienceId, "unlinked-provider", subject = null, limit = 10, offset = 0
+            AUDIENCE_ID, "unlinked-provider", subject = null, limit = 10, offset = 0
         )
 
         assertTrue(consents.isEmpty())
@@ -172,7 +182,7 @@ class ConsentRepositoryTest {
     @Test
     fun `findActiveByAudienceIdAndProvider - Page the filtered consents`() = runTest {
         val consents = consentRepository.findActiveByAudienceIdAndProvider(
-            audienceId, PROVIDER_ID, subject = null, limit = 1, offset = 1
+            AUDIENCE_ID, PROVIDER_ID, subject = null, limit = 1, offset = 1
         )
 
         assertEquals(listOf(userIds[1]), consents.map(ConsentEntity::userId))
@@ -180,33 +190,16 @@ class ConsentRepositoryTest {
 
     @Test
     fun `countActiveByAudienceIdAndProvider - Count every subject when none is given`() = runTest {
-        val count = consentRepository.countActiveByAudienceIdAndProvider(audienceId, PROVIDER_ID, subject = null)
+        val count = consentRepository.countActiveByAudienceIdAndProvider(AUDIENCE_ID, PROVIDER_ID, subject = null)
 
         assertEquals(2L, count)
     }
 
     @Test
     fun `countActiveByAudienceIdAndProvider - Count only the given subject`() = runTest {
-        val count = consentRepository.countActiveByAudienceIdAndProvider(audienceId, PROVIDER_ID, SHARED_SUBJECT)
+        val count = consentRepository.countActiveByAudienceIdAndProvider(AUDIENCE_ID, PROVIDER_ID, SHARED_SUBJECT)
 
         assertEquals(1L, count)
-    }
-
-    /**
-     * The consents and provider links this class writes reference users, and the sibling repository
-     * tests share this database and delete every user in their own set-up. Left behind, these rows turn
-     * that delete into a foreign-key violation, in whichever class the runner happens to schedule next.
-     */
-    @AfterEach
-    fun tearDown() = runTest {
-        deleteEveryUserAndWhatReferencesOne()
-    }
-
-    private suspend fun deleteEveryUserAndWhatReferencesOne() {
-        providerUserInfoRepository.deleteAll()
-        consentRepository.deleteAll()
-        collectedClaimRepository.deleteAll()
-        userRepository.deleteAll()
     }
 
     private suspend fun saveConsent(
@@ -214,32 +207,40 @@ class ConsentRepositoryTest {
         audienceId: String,
         consentedAt: LocalDateTime,
         revokedAt: LocalDateTime? = null
-    ): UUID = consentRepository.save(
-        ConsentEntity(
-            userId = userId,
-            audienceId = audienceId,
-            promptedByClientId = "client",
-            scopes = arrayOf("profile"),
-            consentedAt = consentedAt,
-            revokedAt = revokedAt
-        )
-    ).id!!
+    ): UUID {
+        val id = consentRepository.save(
+            ConsentEntity(
+                userId = userId,
+                audienceId = audienceId,
+                promptedByClientId = "client",
+                scopes = arrayOf("profile"),
+                consentedAt = consentedAt,
+                revokedAt = revokedAt
+            )
+        ).id!!
+        createdConsentIds += id
+        return id
+    }
 
     private suspend fun saveProviderLink(userId: UUID, providerId: String, subject: String) {
+        val id = ProviderUserInfoEntityId(providerId = providerId, userId = userId)
         providerUserInfoRepository.save(
             ProviderUserInfoEntity(
-                id = ProviderUserInfoEntityId(providerId = providerId, userId = userId),
+                id = id,
                 fetchDate = CONSENTED_AT,
                 changeDate = CONSENTED_AT,
                 subject = subject
             )
         )
+        createdProviderLinks += id
     }
 
     private companion object {
         val CONSENTED_AT: LocalDateTime = LocalDateTime.of(2024, 1, 1, 0, 0)
-        const val PROVIDER_ID = "provider"
-        const val OTHER_PROVIDER_ID = "other-provider"
+        const val AUDIENCE_ID = "consent-repository-test"
+        const val OTHER_AUDIENCE_ID = "consent-repository-test-other"
+        const val PROVIDER_ID = "consent-repository-test-provider"
+        const val OTHER_PROVIDER_ID = "consent-repository-test-other-provider"
         const val SHARED_SUBJECT = "shared-subject"
 
         val UNSIGNED_UUID_ORDER: Comparator<UUID> = compareBy<UUID> { it.mostSignificantBits.toULong() }

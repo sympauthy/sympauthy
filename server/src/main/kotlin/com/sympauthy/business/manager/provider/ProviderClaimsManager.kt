@@ -39,6 +39,9 @@ class ProviderClaimsManager(
     }
 
     suspend fun listByUserIds(userIds: List<UUID>): List<ProviderUserInfo> {
+        if (userIds.isEmpty()) {
+            return emptyList()
+        }
         return userInfoRepository.findByUserIdInList(userIds)
             .map(userInfoMapper::toProviderUserInfo)
     }

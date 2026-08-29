@@ -63,8 +63,8 @@ open class CollectedClaimManager(
 
     /**
      * Return the [CollectedClaim] for the identifier claims collected from every user in [userIds], as one
-     * flat list the caller groups by [CollectedClaim.userId]. A user having collected none simply
-     * contributes nothing.
+     * flat list, in no particular order and not grouped. A user having collected none simply
+     * contributes nothing, so the result covers no more of [userIds] than was actually collected.
      *
      * Note: This method is not restricted by consent or scopes.
      * It is intended for use by the authorization server internals and admin endpoints.
