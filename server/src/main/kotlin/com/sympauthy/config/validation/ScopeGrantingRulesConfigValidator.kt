@@ -1,7 +1,5 @@
 package com.sympauthy.config.validation
 
-import com.sympauthy.business.manager.rule.InvalidScopeGrantingRuleException
-import com.sympauthy.business.manager.rule.ScopeGrantingRuleExpressionExecutor
 import com.sympauthy.business.model.oauth2.ClientScope
 import com.sympauthy.business.model.oauth2.ConsentableUserScope
 import com.sympauthy.business.model.oauth2.GrantableUserScope
@@ -10,13 +8,12 @@ import com.sympauthy.business.model.rule.ScopeGrantingRule
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.parsing.ParsedScopeGrantingRule
-import jakarta.inject.Inject
+import com.sympauthy.expression.InvalidRuleExpressionException
+import com.sympauthy.expression.ScopeGrantingRuleExpressions
 import jakarta.inject.Singleton
 
 @Singleton
-class ScopeGrantingRulesConfigValidator(
-    @Inject private val scopeGrantingRuleExpressionExecutor: ScopeGrantingRuleExpressionExecutor
-) {
+class ScopeGrantingRulesConfigValidator {
 
     suspend fun validateUserRules(
         ctx: ConfigParsingContext,
@@ -29,7 +26,7 @@ class ScopeGrantingRulesConfigValidator(
                 rule,
                 scopesById,
                 ::validateUserRuleScope,
-                scopeGrantingRuleExpressionExecutor::validateUserExpression
+                ScopeGrantingRuleExpressions::validateUserExpression
             )
         }
     }
@@ -45,7 +42,7 @@ class ScopeGrantingRulesConfigValidator(
                 rule,
                 scopesById,
                 ::validateClientRuleScope,
-                scopeGrantingRuleExpressionExecutor::validateClientExpression
+                ScopeGrantingRuleExpressions::validateClientExpression
             )
         }
     }
@@ -55,7 +52,7 @@ class ScopeGrantingRulesConfigValidator(
         parsed: ParsedScopeGrantingRule,
         scopesById: Map<String, Scope>,
         scopeValidator: (Scope, String, Int, ConfigParsingContext) -> Unit,
-        expressionValidator: suspend (String) -> Unit
+        expressionValidator: (String) -> Unit
     ): ScopeGrantingRule? {
         val subCtx = ctx.child()
 
@@ -80,7 +77,7 @@ class ScopeGrantingRulesConfigValidator(
         parsed.expressions?.forEachIndexed { index, expression ->
             try {
                 expressionValidator(expression)
-            } catch (e: InvalidScopeGrantingRuleException) {
+            } catch (e: InvalidRuleExpressionException) {
                 subCtx.addError(
                     configExceptionOf(
                         "${parsed.key}.expressions[$index]", e.configMessageId,

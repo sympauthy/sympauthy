@@ -1,18 +1,15 @@
 package com.sympauthy.config.validation
 
-import com.sympauthy.business.manager.actas.ActAsRuleExpressionExecutor
-import com.sympauthy.business.manager.actas.InvalidActAsRuleException
 import com.sympauthy.business.model.rule.ActAsRule
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.parsing.ParsedActAsRule
-import jakarta.inject.Inject
+import com.sympauthy.expression.ActAsRuleExpressions
+import com.sympauthy.expression.InvalidRuleExpressionException
 import jakarta.inject.Singleton
 
 @Singleton
-class ActAsRulesConfigValidator(
-    @Inject private val actAsRuleExpressionExecutor: ActAsRuleExpressionExecutor
-) {
+class ActAsRulesConfigValidator {
 
     suspend fun validateActAsRules(
         ctx: ConfigParsingContext,
@@ -31,8 +28,8 @@ class ActAsRulesConfigValidator(
 
         parsed.expressions?.forEachIndexed { index, expression ->
             try {
-                actAsRuleExpressionExecutor.validateExpression(expression)
-            } catch (e: InvalidActAsRuleException) {
+                ActAsRuleExpressions.validateExpression(expression)
+            } catch (e: InvalidRuleExpressionException) {
                 subCtx.addError(
                     configExceptionOf(
                         "${parsed.key}.expressions[$index]", e.configMessageId,

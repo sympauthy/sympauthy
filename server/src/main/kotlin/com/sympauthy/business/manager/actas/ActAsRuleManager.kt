@@ -13,6 +13,7 @@ import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
+import com.sympauthy.expression.InvalidRuleExpressionException
 
 /**
  * Evaluates the configured `rules.act_as` rules to decide whether an acting client may obtain an access token that
@@ -71,7 +72,7 @@ class ActAsRuleManager(
         return rule.expressions.all { expression ->
             try {
                 actAsRuleExpressionExecutor.evaluateExpressionOrThrow(expression, configuration)
-            } catch (e: InvalidActAsRuleException) {
+            } catch (e: InvalidRuleExpressionException) {
                 throw internalBusinessExceptionOf(
                     detailsId = e.businessErrorDetailsId,
                     values = arrayOf("message" to (e.message ?: ""))

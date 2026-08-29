@@ -16,6 +16,7 @@ import com.sympauthy.config.model.orThrow
 import jakarta.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
+import com.sympauthy.expression.InvalidRuleExpressionException
 
 class ScopeGrantingRuleManager(
     @Inject private val scopeGrantingRuleExpressionExecutor: ScopeGrantingRuleExpressionExecutor,
@@ -121,7 +122,7 @@ class ScopeGrantingRuleManager(
         val applicable = rule.expressions.all { expression ->
             try {
                 scopeGrantingRuleExpressionExecutor.evaluateExpressionOrThrow(expression, configuration)
-            } catch (e: InvalidScopeGrantingRuleException) {
+            } catch (e: InvalidRuleExpressionException) {
                 throw internalBusinessExceptionOf(
                     detailsId = e.businessErrorDetailsId,
                     values = arrayOf("message" to (e.message ?: ""))
