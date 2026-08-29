@@ -189,7 +189,7 @@ claims:
 # so repeat any entry below that you still want.
 cors:
   allowed-headers:
-    - X-Requested-With # sent by the bundled swagger-ui
+    - X-Requested-With # sent by swagger-ui, e.g. another application documenting its API against SympAuthy
 
 mfa:
   required: false

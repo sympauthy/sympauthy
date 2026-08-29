@@ -16,6 +16,7 @@ class WildcardCorsFilterTest : AbstractFlowIntegrationTest() {
     private val jwksPath = "/.well-known/public.jwk"
     private val tokenPath = "/api/oauth2/token"
     private val revokePath = "/api/oauth2/revoke"
+    private val userInfoPath = "/api/openid/userinfo"
 
     /** Mandatory headers, then cors.allowed-headers as declared in application-default.yml. */
     private val expectedAllowedHeaders = "Content-Type, Authorization, DPoP, X-Requested-With"
@@ -117,6 +118,48 @@ class WildcardCorsFilterTest : AbstractFlowIntegrationTest() {
         assertEquals("*", response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN])
         // DPoP is advertised on every tier, not only on the token endpoint.
         assertEquals(expectedAllowedHeaders, response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS])
+    }
+
+    // -- OpenID Connect UserInfo --
+
+    @Test
+    fun `openid - OPTIONS preflight on userinfo returns wildcard CORS headers`() {
+        val request = HttpRequest.OPTIONS<Any>(userInfoPath)
+            .header(HttpHeaders.ORIGIN, anyOrigin)
+            .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, HttpMethod.GET.name)
+
+        val response = httpClient.toBlocking().exchange(request, String::class.java)
+
+        assertEquals(200, response.status.code)
+        assertEquals("*", response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN])
+        assertEquals(expectedAllowedHeaders, response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS])
+    }
+
+    @Test
+    fun `openid - preflight is answered without a token, before the security filter`() {
+        val request = HttpRequest.OPTIONS<Any>(userInfoPath)
+            .header(HttpHeaders.ORIGIN, anyOrigin)
+            .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, HttpMethod.GET.name)
+
+        // No Authorization header: userinfo is @Secured(IS_USER), so an unfiltered preflight would 401.
+        val response = httpClient.toBlocking().exchange(request, String::class.java)
+
+        assertEquals(200, response.status.code)
+    }
+
+    @Test
+    fun `openid - rejected GET with Origin still carries the wildcard CORS header`() {
+        // Unauthenticated, so the request itself fails; the browser must still be able to read the error.
+        val response = exchange(HttpRequest.GET<Any>(userInfoPath).header(HttpHeaders.ORIGIN, anyOrigin))
+
+        assertEquals("*", response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN])
+    }
+
+    @Test
+    fun `openid - GET without Origin header does not add CORS headers`() {
+        val response = exchange(HttpRequest.GET<Any>(userInfoPath))
+
+        assertNull(response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN])
     }
 
     private fun exchange(request: HttpRequest<*>): HttpResponse<*> = try {

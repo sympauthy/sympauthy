@@ -17,6 +17,12 @@ import kotlin.jvm.optionals.getOrNull
  * Covers:
  * - **OpenID discovery** (`/.well-known`) — public metadata per OIDC spec.
  * - **OAuth 2.0** (`/api/oauth2`) — token and revocation endpoints called directly by public clients (e.g. SPAs).
+ * - **OpenID Connect** (`/api/openid`) — the UserInfo endpoint, which an SPA calls cross-origin with the
+ *   access token it just obtained.
+ *
+ * All of them authenticate from an explicit `Authorization` (or `DPoP`) header rather than from cookies,
+ * and no `Access-Control-Allow-Credentials` is ever sent, so allowing every origin does not let a
+ * third-party page act on behalf of a signed-in user: it would need a token it does not have.
  *
  * ## Request handling
  * - **No `Origin` header** — not a browser CORS request; passed through unchanged.
@@ -27,7 +33,8 @@ import kotlin.jvm.optionals.getOrNull
  */
 @Filter(
     "/.well-known/**",
-    "/api/oauth2/**"
+    "/api/oauth2/**",
+    "/api/openid/**"
 )
 class WildcardCorsFilter(
     @Inject private val corsPreflightHeaders: CorsPreflightHeaders
