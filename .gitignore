@@ -28,7 +28,8 @@ server/src/main/resources/sympauthy-admin/*
 !server/src/main/resources/sympauthy-admin/.gitkeep
 
 # Claude Code local settings
-.claude/
+.claude/*
+!.claude/rules/
 
 # Eclipse Gradle plugin generated files
 # Eclipse Core

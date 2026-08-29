@@ -19,7 +19,7 @@ import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.Claim
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import jakarta.transaction.Transactional
+import io.micronaut.transaction.annotation.Transactional
 
 /**
  * Component in charge of validating the claim collected during an interactive auth flow.

@@ -18,7 +18,7 @@ import com.sympauthy.data.model.InteractiveFlowSessionOAuth2Entity
 import com.sympauthy.data.repository.InteractiveFlowSessionOAuth2Repository
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import jakarta.transaction.Transactional
+import io.micronaut.transaction.annotation.Transactional
 import java.net.URI
 import java.time.LocalDateTime
 import java.util.*

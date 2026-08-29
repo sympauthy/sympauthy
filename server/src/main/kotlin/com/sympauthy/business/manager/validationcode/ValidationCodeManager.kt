@@ -13,7 +13,7 @@ import com.sympauthy.data.repository.ValidationCodeRepository
 import com.sympauthy.exception.localizedExceptionOf
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import jakarta.transaction.Transactional
+import io.micronaut.transaction.annotation.Transactional
 import java.time.LocalDateTime
 
 @Singleton

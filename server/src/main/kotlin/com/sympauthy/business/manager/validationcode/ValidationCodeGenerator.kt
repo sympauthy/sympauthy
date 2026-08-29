@@ -16,7 +16,7 @@ import com.sympauthy.util.loggerForClass
 import com.sympauthy.util.min
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import jakarta.transaction.Transactional
+import io.micronaut.transaction.annotation.Transactional
 import java.time.LocalDateTime
 import java.time.LocalDateTime.now
 import kotlin.math.pow
