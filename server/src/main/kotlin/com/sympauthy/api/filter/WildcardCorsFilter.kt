@@ -24,6 +24,11 @@ import kotlin.jvm.optionals.getOrNull
  * and no `Access-Control-Allow-Credentials` is ever sent, so allowing every origin does not let a
  * third-party page act on behalf of a signed-in user: it would need a token it does not have.
  *
+ * The client API (`/api/v1/client`) is deliberately **not** covered. Its endpoints are secured by client
+ * scopes, which `ScopeManager.parseRequestedClientScopes` only grants in the `client_credentials` flow,
+ * so reaching them requires a client secret and they are server-to-server by design. A browser cannot
+ * legitimately authenticate there, and advertising CORS would suggest otherwise.
+ *
  * ## Request handling
  * - **No `Origin` header** — not a browser CORS request; passed through unchanged.
  * - **OPTIONS preflight** — short-circuited with `200` and wildcard CORS headers.
