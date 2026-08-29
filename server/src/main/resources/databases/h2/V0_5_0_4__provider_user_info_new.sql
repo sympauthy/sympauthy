@@ -2,6 +2,7 @@ CREATE TABLE provider_user_info
 (
     provider_id           text      NOT NULL,
     user_id               uuid      NOT NULL,
+    link_date             timestamp NOT NULL,
     fetch_date            timestamp NOT NULL,
     change_date           timestamp NOT NULL,
 

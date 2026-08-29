@@ -72,7 +72,7 @@ class AdminUserProviderController(
                 AdminUserProviderResource(
                     providerId = it.providerId,
                     subject = it.userInfo.subject,
-                    linkedAt = it.fetchDate
+                    linkedAt = it.linkDate
                 )
             }
         return AdminUserProviderListResource(

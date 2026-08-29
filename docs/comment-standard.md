@@ -95,10 +95,20 @@ the only place it is generated from, for the resources whose properties become a
 
 ## The same rule outside Kotlin
 
-**A migration carries the same kind of rationale, which means it leaves out the same things.** Why
-*this* table's columns are shaped the way they are, never why every identifier is what it is — that
-belongs to [the database standard](database-standard.md). A schema outlives the discussion that
-produced it, and the discussion is not in the file.
+**A migration carries no comment.** Every migration exists
+[twice, once per dialect](database-standard.md#two-dialects-one-schema), so a sentence written in
+one of them is either missing from its twin or written out a second time. The second copy is what
+drifts: the two files are edited by separate changes, each reviewed as its own diff, and nothing —
+not the compiler, not Flyway, not a test — ever compares their prose. A comment that is wrong in one
+dialect and right in the other is worse than no comment at all, because a reader has no way to tell
+which of the two they opened.
+
+**The rationale a migration would have carried goes on the business model.** A column that needs
+explaining is a property that needs explaining, and the model is the declaration every value passes
+through on its way to the table — written once, and the one an IDE shows at the call site where the
+value is being decided. Where a column's *shape* is what needs explaining rather than what it means,
+that is a rule about the schema and belongs to
+[the database standard](database-standard.md).
 
 **A message in a bundle is documented by being written well.** The technical half already explains
 the failure; a comment above it explaining the explanation is the clearest case of writing the same

@@ -60,6 +60,7 @@ class ClientUserManagerTest {
     private fun mockProviderUserInfo(userId: UUID, providerId: String, subject: String) = ProviderUserInfo(
         providerId = providerId,
         userId = userId,
+        linkDate = LocalDateTime.now(),
         fetchDate = LocalDateTime.now(),
         changeDate = LocalDateTime.now(),
         userInfo = RawProviderClaims(subject = subject)

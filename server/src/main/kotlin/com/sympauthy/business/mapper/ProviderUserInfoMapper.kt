@@ -34,6 +34,7 @@ interface ProviderUserInfoMapper {
         providerId: String,
         userId: UUID,
         userInfo: RawProviderClaims,
+        linkDate: LocalDateTime,
         fetchDate: LocalDateTime,
         changeDate: LocalDateTime
     ): ProviderUserInfoEntity
