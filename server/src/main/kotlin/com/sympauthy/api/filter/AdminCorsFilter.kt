@@ -142,7 +142,7 @@ class AdminCorsFilter(
             response.headers.add(HttpHeaders.VARY, HttpHeaders.ORIGIN)
         }
         if (preflight) {
-            corsPreflightHeaders.apply(response, ALLOWED_METHODS)
+            corsPreflightHeaders.addTo(response, ALLOWED_METHODS)
         }
     }
 

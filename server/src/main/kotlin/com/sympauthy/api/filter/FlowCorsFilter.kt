@@ -118,7 +118,7 @@ class FlowCorsFilter(
         response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, origin)
         response.headers.add(HttpHeaders.VARY, HttpHeaders.ORIGIN)
         if (preflight) {
-            corsPreflightHeaders.apply(response, ALLOWED_METHODS)
+            corsPreflightHeaders.addTo(response, ALLOWED_METHODS)
         }
     }
 

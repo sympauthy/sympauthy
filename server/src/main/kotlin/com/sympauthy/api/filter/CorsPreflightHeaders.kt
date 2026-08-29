@@ -27,7 +27,8 @@ class CorsPreflightHeaders(
     /**
      * Value of the `Access-Control-Allow-Headers` response header.
      *
-     * Resolved on first use rather than at construction, as the filters are instantiated eagerly.
+     * Merged once, on first use. [corsConfig] is a constructor dependency and is therefore already
+     * resolved by then: this only defers building the string, not reading the configuration.
      */
     val allowedHeaders: String by lazy {
         mergeAllowedHeaders(corsConfig.orNull()?.allowedHeaders ?: emptyList())
@@ -38,7 +39,7 @@ class CorsPreflightHeaders(
      *
      * [allowedMethods] is left to the caller: the tiers legitimately advertise different methods.
      */
-    fun apply(response: MutableHttpResponse<*>, allowedMethods: String) {
+    fun addTo(response: MutableHttpResponse<*>, allowedMethods: String) {
         response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, allowedMethods)
         response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, allowedHeaders)
         response.headers.add(HttpHeaders.ACCESS_CONTROL_MAX_AGE, MAX_AGE)

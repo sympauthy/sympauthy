@@ -13,22 +13,23 @@ class CorsConfigValidator {
         ctx: ConfigParsingContext,
         parsed: ParsedCorsConfig
     ) {
-        for (header in parsed.allowedHeaders) {
+        parsed.allowedHeaders.forEachIndexed { index, header ->
+            // Errors are keyed per entry: the readiness indicator collapses errors sharing a key, so a
+            // section-wide key would report only one of several invalid headers.
+            val key = "$CORS_KEY.allowed-headers[$index]"
             when {
                 header == WILDCARD -> ctx.addError(
-                    configExceptionOf(KEY, "config.cors.allowed_headers.wildcard_unsupported")
+                    configExceptionOf(key, "config.cors.allowed_headers.wildcard_unsupported")
                 )
 
                 !TOKEN.matches(header) -> ctx.addError(
-                    configExceptionOf(KEY, "config.cors.allowed_headers.invalid", "header" to header)
+                    configExceptionOf(key, "config.cors.allowed_headers.invalid", "header" to header)
                 )
             }
         }
     }
 
     companion object {
-        private const val KEY = "$CORS_KEY.allowed-headers"
-
         /**
          * The wildcard needs its own check: it is a valid [TOKEN], so the regex below does not reject it.
          * It is refused because `Access-Control-Allow-Headers: *` does not cover the `Authorization` header

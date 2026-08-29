@@ -1,6 +1,7 @@
 package com.sympauthy.config.factory
 
 import com.sympauthy.config.ConfigParser
+import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.model.DisabledCorsConfig
 import com.sympauthy.config.model.EnabledCorsConfig
 import com.sympauthy.config.parsing.CorsConfigParser
@@ -93,6 +94,17 @@ class CorsConfigFactoryTest {
                 it.contains("config.cors.allowed_headers.invalid")
             }
         )
+    }
+
+    @Test
+    fun `Each invalid header is reported under its own key`() {
+        val result = factory().provideCorsConfig(properties(listOf("X-Ok", "X-Foo, X-Bar", "*")))
+
+        assertInstanceOf(DisabledCorsConfig::class.java, result)
+        // The readiness indicator collapses errors sharing a key, so both must be keyed per entry.
+        val keys = (result as DisabledCorsConfig).configurationErrors!!
+            .map { (it as ConfigurationException).key }
+        assertEquals(listOf("cors.allowed-headers[1]", "cors.allowed-headers[2]"), keys)
     }
 
     @Test

@@ -57,7 +57,7 @@ class WildcardCorsFilter(
     private fun addCorsHeaders(response: MutableHttpResponse<*>, preflight: Boolean) {
         response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
         if (preflight) {
-            corsPreflightHeaders.apply(response, ALLOWED_METHODS)
+            corsPreflightHeaders.addTo(response, ALLOWED_METHODS)
         }
     }
 
