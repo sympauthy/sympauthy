@@ -1,5 +1,7 @@
 package com.sympauthy.config.validation
 
+import com.sympauthy.business.model.flow.AuthorizationFlow
+import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.ClientTemplate
 import com.sympauthy.config.parsing.ParsedClientTemplate
@@ -12,19 +14,23 @@ class ClientTemplatesConfigValidator(
     @Inject private val fieldValidator: ClientConfigFieldValidator
 ) {
 
-    suspend fun validate(
+    fun validate(
         ctx: ConfigParsingContext,
-        parsed: List<ParsedClientTemplate>
+        parsed: List<ParsedClientTemplate>,
+        scopesById: Map<String, Scope>,
+        flowsById: Map<String, AuthorizationFlow>
     ): Map<String, ClientTemplate> {
         val templates = parsed.mapNotNull { template ->
-            validateTemplate(ctx, template)
+            validateTemplate(ctx, template, scopesById, flowsById)
         }
         return templates.associateBy { it.id }
     }
 
-    private suspend fun validateTemplate(
+    private fun validateTemplate(
         ctx: ConfigParsingContext,
-        parsed: ParsedClientTemplate
+        parsed: ParsedClientTemplate,
+        scopesById: Map<String, Scope>,
+        flowsById: Map<String, AuthorizationFlow>
     ): ClientTemplate? {
         val configKeyPrefix = "$TEMPLATES_CLIENTS_KEY.${parsed.id}"
         val subCtx = ctx.child()
@@ -33,13 +39,13 @@ class ClientTemplatesConfigValidator(
             subCtx, "$configKeyPrefix.allowed-grant-types", parsed.allowedGrantTypes
         )
         val authorizationFlow = fieldValidator.validateAuthorizationFlow(
-            subCtx, "$configKeyPrefix.authorization-flow", parsed.authorizationFlowId
+            subCtx, "$configKeyPrefix.authorization-flow", parsed.authorizationFlowId, flowsById
         )
         val allowedScopes = fieldValidator.validateScopes(
-            subCtx, "$configKeyPrefix.allowed-scopes", parsed.allowedScopes
+            subCtx, "$configKeyPrefix.allowed-scopes", parsed.allowedScopes, scopesById
         )?.toSet()
         val defaultScopes = fieldValidator.validateScopes(
-            subCtx, "$configKeyPrefix.default-scopes", parsed.defaultScopes
+            subCtx, "$configKeyPrefix.default-scopes", parsed.defaultScopes, scopesById
         )
         val authorizationWebhook = fieldValidator.validateWebhook(parsed.authorizationWebhook)
 

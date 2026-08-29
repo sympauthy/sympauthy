@@ -3,6 +3,7 @@ package com.sympauthy.config.factory
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.flow.AuthorizationFlow
+import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.model.*
@@ -91,7 +92,9 @@ class ClientsConfigFactoryTest {
             ClientsConfigParser(parser, fieldParser),
             ClientsConfigValidator(fieldValidator),
             templatesFlow,
-            audiencesConfig
+            audiencesConfig,
+            EnabledScopesConfig(emptyList()),
+            EnabledAuthorizationFlowsConfig(mockk<InteractiveFlow>(relaxed = true), emptyList())
         )
     }
 

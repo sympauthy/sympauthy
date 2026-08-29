@@ -10,7 +10,6 @@ import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.config.model.AuthorizationFlowsConfig
-import com.sympauthy.config.model.UrlsConfig
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
@@ -32,9 +31,6 @@ class AuthorizationFlowManagerTest {
 
     @MockK
     lateinit var authorizationFlowsConfig: AuthorizationFlowsConfig
-
-    @MockK
-    lateinit var uncheckedUrlsConfig: UrlsConfig
 
     @InjectMockKs
     lateinit var manager: AuthorizationFlowManager

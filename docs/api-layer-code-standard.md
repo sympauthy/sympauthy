@@ -65,6 +65,12 @@ endpoint another part of the system builds a URL for — the protocol endpoints,
 redirect points at — declares its path as a constant in the controller's companion. A route nothing
 else references is written inline, where it is read.
 
+**A route something below the `api` layer has to build a URL for declares its constant with the
+concept instead.** A configuration assembling the pages of a flow cannot import a controller, so a
+constant that stayed in the companion would have to be spelled a second time to be reachable — and
+the second spelling is the one that drifts. The controller then names its route from that constant,
+so the path is still written once and still findable from the endpoint that serves it.
+
 **Security is declared at class level, matching the surface.** A per-method annotation that *widens*
 access is how a route ends up unprotected, so anything narrower than the surface's default belongs
 in a check inside the manager instead. The roles and scopes themselves come from the constants in

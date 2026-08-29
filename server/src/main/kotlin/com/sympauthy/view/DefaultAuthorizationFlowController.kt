@@ -1,6 +1,6 @@
 package com.sympauthy.view
 
-import com.sympauthy.view.DefaultAuthorizationFlowController.Companion.USER_FLOW_ENDPOINT
+import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ENDPOINT
 import io.micronaut.core.io.ResourceResolver
 import io.micronaut.http.MediaType.TEXT_HTML
 import io.micronaut.http.annotation.Controller
@@ -15,7 +15,7 @@ import kotlin.jvm.optionals.getOrNull
  * Serve the index.html of sympauthy-flow that have been added in the resources by the CI.
  */
 @Hidden
-@Controller(USER_FLOW_ENDPOINT)
+@Controller(DEFAULT_WEB_AUTHORIZATION_FLOW_ENDPOINT)
 class DefaultAuthorizationFlowController(
     @Inject private val resourceResolver: ResourceResolver,
 ) {
@@ -25,9 +25,5 @@ class DefaultAuthorizationFlowController(
         return resourceResolver.getResource("classpath:sympauthy-flow/index.html")
             ?.map(::StreamedFile)
             ?.getOrNull()
-    }
-
-    companion object {
-        const val USER_FLOW_ENDPOINT = "/flow"
     }
 }

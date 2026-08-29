@@ -11,10 +11,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.config.model.AuthorizationFlowsConfig
-import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.config.model.orThrow
-import com.sympauthy.view.DefaultAuthorizationFlowController.Companion.USER_FLOW_ENDPOINT
-import io.micronaut.http.uri.UriBuilder
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
@@ -25,39 +22,18 @@ import jakarta.inject.Singleton
 @Singleton
 class AuthorizationFlowManager(
     @Inject private val authorizationFlowsConfig: AuthorizationFlowsConfig,
-    @Inject private val uncheckedUrlsConfig: UrlsConfig,
 ) {
 
     /**
-     * Note: The default web authentication flow is hardcoded since it is bundled with this authorization server.
+     * The interactive flow bundled with this authorization server.
      */
-    val defaultInteractiveFlow: InteractiveFlow by lazy {
-        val rootUri = uncheckedUrlsConfig.orThrow().root
-            .let(UriBuilder::of)
-            .path(USER_FLOW_ENDPOINT)
-            .build()
-        InteractiveFlow(
-            id = DEFAULT_WEB_AUTHORIZATION_FLOW_ID,
-            signInUri = UriBuilder.of(rootUri).path("sign-in").build(),
-            signUpUri = UriBuilder.of(rootUri).path("sign-up").build(),
-            mfaSelectionForEnrollmentUri = UriBuilder.of(rootUri).path("mfa/enrollment").build(),
-            mfaSelectionForChallengeUri = UriBuilder.of(rootUri).path("mfa/challenge").build(),
-            mfaTotpChallengeUri = UriBuilder.of(rootUri).path("mfa/totp").build(),
-            mfaTotpEnrollUri = UriBuilder.of(rootUri).path("mfa/totp/enroll").build(),
-            collectClaimsUri = UriBuilder.of(rootUri).path("claims/edit").build(),
-            validateClaimsUri = UriBuilder.of(rootUri).path("claims/validate").build(),
-            errorUri = UriBuilder.of(rootUri).path("error").build(),
-            confirmUri = UriBuilder.of(rootUri).path("confirm").build(),
-        )
-    }
+    val defaultInteractiveFlow: InteractiveFlow
+        get() = authorizationFlowsConfig.orThrow().bundledFlow
 
     /**
      * Return the [AuthorizationFlow] identified by [id] or null.
      */
     fun findByIdOrNull(id: String): AuthorizationFlow? {
-        if (id == DEFAULT_WEB_AUTHORIZATION_FLOW_ID) {
-            return defaultInteractiveFlow
-        }
         return authorizationFlowsConfig.orThrow().flows
             .firstOrNull { it.id == id }
     }

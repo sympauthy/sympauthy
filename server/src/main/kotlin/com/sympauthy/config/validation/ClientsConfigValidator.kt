@@ -3,6 +3,8 @@ package com.sympauthy.config.validation
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
+import com.sympauthy.business.model.flow.AuthorizationFlow
+import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.parsing.ParsedClient
@@ -15,20 +17,24 @@ class ClientsConfigValidator(
     @Inject private val fieldValidator: ClientConfigFieldValidator
 ) {
 
-    suspend fun validate(
+    fun validate(
         ctx: ConfigParsingContext,
         parsed: List<ParsedClient>,
-        audiencesById: Map<String, Audience>
+        audiencesById: Map<String, Audience>,
+        scopesById: Map<String, Scope>,
+        flowsById: Map<String, AuthorizationFlow>
     ): List<Client> {
         return parsed.mapNotNull { client ->
-            validateClient(ctx, client, audiencesById)
+            validateClient(ctx, client, audiencesById, scopesById, flowsById)
         }
     }
 
-    private suspend fun validateClient(
+    private fun validateClient(
         ctx: ConfigParsingContext,
         parsed: ParsedClient,
-        audiencesById: Map<String, Audience>
+        audiencesById: Map<String, Audience>,
+        scopesById: Map<String, Scope>,
+        flowsById: Map<String, AuthorizationFlow>
     ): Client? {
         val subCtx = ctx.child()
         val configKeyPrefix = "$CLIENTS_KEY.${parsed.id}"
@@ -60,7 +66,7 @@ class ClientsConfigValidator(
         // Validate authorization flow.
         val authorizationFlow = when {
             parsed.authorizationFlowId != null -> fieldValidator.validateAuthorizationFlow(
-                subCtx, "$configKeyPrefix.authorization-flow", parsed.authorizationFlowId
+                subCtx, "$configKeyPrefix.authorization-flow", parsed.authorizationFlowId, flowsById
             )
 
             else -> parsed.template?.authorizationFlow
@@ -94,7 +100,7 @@ class ClientsConfigValidator(
         // Validate scopes.
         val allowedScopes = when {
             parsed.allowedScopes != null -> fieldValidator.validateScopes(
-                subCtx, "$configKeyPrefix.allowed-scopes", parsed.allowedScopes,
+                subCtx, "$configKeyPrefix.allowed-scopes", parsed.allowedScopes, scopesById,
                 audienceId = parsed.audienceId
             )?.toSet()
 
@@ -102,7 +108,7 @@ class ClientsConfigValidator(
         }
         val defaultScopes = when {
             parsed.defaultScopes != null -> fieldValidator.validateScopes(
-                subCtx, "$configKeyPrefix.default-scopes", parsed.defaultScopes,
+                subCtx, "$configKeyPrefix.default-scopes", parsed.defaultScopes, scopesById,
                 audienceId = parsed.audienceId
             )
 

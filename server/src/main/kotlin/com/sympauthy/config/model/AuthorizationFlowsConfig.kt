@@ -1,6 +1,7 @@
 package com.sympauthy.config.model
 
 import com.sympauthy.business.model.flow.AuthorizationFlow
+import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.config.exception.ConfigurationException
 
 sealed class AuthorizationFlowsConfig(
@@ -12,8 +13,18 @@ class DisabledAuthorizationFlowsConfig(
 ) : AuthorizationFlowsConfig(configurationErrors)
 
 class EnabledAuthorizationFlowsConfig(
-    val flows: List<AuthorizationFlow>
-) : AuthorizationFlowsConfig()
+    /**
+     * The interactive flow bundled with this authorization server, whose pages it serves itself.
+     */
+    val bundledFlow: InteractiveFlow,
+    configuredFlows: List<AuthorizationFlow>
+) : AuthorizationFlowsConfig() {
+
+    /**
+     * Every flow this authorization server serves, the bundled one first.
+     */
+    val flows: List<AuthorizationFlow> = listOf(bundledFlow) + configuredFlows
+}
 
 fun AuthorizationFlowsConfig.orThrow(): EnabledAuthorizationFlowsConfig {
     return when (this) {
