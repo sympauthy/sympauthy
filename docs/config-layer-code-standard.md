@@ -8,7 +8,7 @@ A deployment configures SympAuthy with a YAML file, so the configuration *is* th
 every mistake in it is a mistake by an operator who cannot read this codebase, at a moment when the
 server is not yet up. That is what the rules below are protecting.
 
-## Five artifacts, four of them per domain
+## The artifacts a domain is written as
 
 | Artifact | Does | May not |
 | --- | --- | --- |
@@ -72,6 +72,14 @@ starting, and a feature nobody configured that something *does* use should fail 
 naming what is missing.
 
 ## Configuration errors take readiness down
+
+**Whether the configuration is usable is answered once, across every domain.** That answer is the
+only component here that is not per-domain, and it holds every domain's model in order to give it:
+an operator is owed one verdict on the file they wrote, not one per section of it.
+
+**What publishes that verdict is not configuration.** The health check reporting it belongs with the
+other things the server exposes about itself, and a configuration that reached out to the component
+serving it would have the dependency backwards.
 
 **Any configuration error makes the server report itself unready** — including the cosmetic ones.
 There is no severity split, and adding one is how a deployment ends up running for months with a

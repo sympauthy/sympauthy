@@ -33,11 +33,12 @@ a standard nobody can open without loading the other six is one that gets skimme
 | `config` | parser | `…ConfigParser` | text into types |
 | `config` | validator | `…ConfigValidator` | whether those values are allowed |
 | `config` | factory | `…ConfigFactory` | assembling the validated model |
+| `config` | readiness | *none* | whether the configuration as a whole is usable |
 
-Not every feature needs all twelve — a read-only endpoint has no input resource, a feature nothing
-configures has no config quartet — but none of them needs a thirteenth. A component that does not
-fit one of these rows is either a component in the wrong layer or a new kind of thing, and a new
-kind of thing is a change to this table before it is a class.
+Not every feature needs every row — a read-only endpoint has no input resource, a feature nothing
+configures has none of the config ones — and none needs a row that is not here. A component that
+does not fit one of these rows is either a component in the wrong layer or a new kind of thing, and
+a new kind of thing is a change to this table before it is a class.
 
 ## Dependency rules
 
@@ -47,6 +48,7 @@ kind of thing is a change to this table before it is a class.
 | `business` | `data`, `config`, `client` | `api` |
 | `data` | Micronaut Data and the JDK | `business`, `api` |
 | `config` | `business.model`, the JDK | the rest of `business`, `data`, `api` |
+| `expression` | `business.model`, the JDK | `business`, `config`, `data`, `api` |
 
 **The two that get broken first, and what they look like when they are:** a resource mapper that
 imports an entity because the manager it would otherwise go through returns almost the right shape,
@@ -73,6 +75,15 @@ ordering such a loop depends on is not visible from either end of it. What a val
 elsewhere is resolved by its factory and handed to it, which is [the config
 standard's](config-layer-code-standard.md) rule for one configuration referring to another, applied
 one layer further out.
+
+**An embedded language belongs to neither the layer that checks it nor the layer that runs it.**
+A rule a deployment writes as an expression is refused when the configuration is read and evaluated
+when a request is served, which is two layers using one grammar. Putting the grammar in either of
+them forces the other to import it, so it sits in `expression`, below both.
+
+What that package may not do is grow the half that needs a request: it defines the functions and
+turns a string into a boolean or a failure, and it is handed the values to bind. The moment it
+reaches for a manager, the layer below has become the layer above.
 
 **A manager is callable without an HTTP request.** It takes no request, no `Authentication` and no
 header — a caller that has one extracts what the manager needs and passes it as an ordinary
