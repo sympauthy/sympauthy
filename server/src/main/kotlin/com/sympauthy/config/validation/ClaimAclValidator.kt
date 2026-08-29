@@ -127,14 +127,15 @@ class ClaimAclValidator {
         configKey: String,
         scopesById: Map<String, Scope>
     ) {
-        if (scope == null) return
-        // An OpenID Connect scope is accepted even where the deployment turned it off, so that
-        // disabling one does not invalidate every claim whose consent it gates.
-        if (!scope.isOpenIdConnectScope() && scopesById[scope] !is ConsentableUserScope) {
-            ctx.addError(
-                configExceptionOf(configKey, "config.claim.acl.not_consentable_scope", "scope" to scope)
-            )
+        if (scope == null || scopesById[scope] is ConsentableUserScope) return
+        // A scope the deployment turned off is reported apart from one that was never consentable:
+        // the first is fixed by enabling it or dropping the claim, the second by correcting the name.
+        val detailsId = if (scope.isOpenIdConnectScope()) {
+            "config.claim.acl.disabled_consent_scope"
+        } else {
+            "config.claim.acl.not_consentable_scope"
         }
+        ctx.addError(configExceptionOf(configKey, detailsId, "scope" to scope))
     }
 
     private fun validateClientScopeList(ctx: ConfigParsingContext, scopes: List<String>?, configKey: String) {

@@ -1,6 +1,8 @@
 package com.sympauthy.config.factory
 
+import com.sympauthy.business.model.oauth2.ConsentableUserScope
 import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.user.OpenIdConnectScope
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.ClaimTemplate
@@ -15,7 +17,11 @@ import org.junit.jupiter.api.Test
 class ClaimAclFactoryTest {
 
     private val parser = ConfigParser()
-    private val scopesById = emptyMap<String, Scope>()
+    /**
+     * The consentable scopes a deployment that disabled none of them serves.
+     */
+    private val scopesById: Map<String, Scope> = OpenIdConnectScope.entries
+        .associate { it.scope to ConsentableUserScope(scope = it.scope) }
 
     lateinit var claimAclParser: ClaimAclParser
     lateinit var claimAclValidator: ClaimAclValidator
@@ -59,7 +65,7 @@ class ClaimAclFactoryTest {
     // region parseAcl + validateAcl
 
     @Test
-    fun `buildAcl - Resolves all fields from properties`() {
+    fun `validateAcl - Resolves all fields from properties`() {
         val ctx = ConfigParsingContext()
         val acl = aclProperties(
             consentScope = "profile",
@@ -85,7 +91,7 @@ class ClaimAclFactoryTest {
     }
 
     @Test
-    fun `buildAcl - Falls back to template when properties are null`() {
+    fun `validateAcl - Falls back to template when properties are null`() {
         val ctx = ConfigParsingContext()
         val template = template(
             acl = ClaimTemplateAcl(
@@ -112,7 +118,7 @@ class ClaimAclFactoryTest {
     }
 
     @Test
-    fun `buildAcl - Falls back to defaultConsentScope when neither properties nor template set scope`() {
+    fun `validateAcl - Falls back to defaultConsentScope when neither properties nor template set scope`() {
         val ctx = ConfigParsingContext()
 
         val parsed = claimAclParser.parseAcl(ctx, null, null, "claims.test", "profile")
@@ -123,7 +129,7 @@ class ClaimAclFactoryTest {
     }
 
     @Test
-    fun `buildAcl - Defaults to false and empty when nothing set`() {
+    fun `validateAcl - Defaults to false and empty when nothing set`() {
         val ctx = ConfigParsingContext()
 
         val parsed = claimAclParser.parseAcl(ctx, null, null, "claims.test", null)
@@ -140,7 +146,7 @@ class ClaimAclFactoryTest {
     }
 
     @Test
-    fun `buildAcl - Properties override template`() {
+    fun `validateAcl - Properties override template`() {
         val ctx = ConfigParsingContext()
         val acl = aclProperties(readableByUser = "false")
         val template = template(
@@ -163,7 +169,7 @@ class ClaimAclFactoryTest {
     }
 
     @Test
-    fun `buildAcl - Accumulates error for invalid boolean`() {
+    fun `validateAcl - Accumulates error for invalid boolean`() {
         val ctx = ConfigParsingContext()
         val acl = aclProperties(readableByUser = "not_a_boolean", writableByUser = "also_bad")
 
@@ -173,7 +179,7 @@ class ClaimAclFactoryTest {
     }
 
     @Test
-    fun `buildAcl - Error for unknown consent scope`() {
+    fun `validateAcl - Error for unknown consent scope`() {
         val ctx = ConfigParsingContext()
         val acl = aclProperties(consentScope = "nonexistent_scope")
 
@@ -181,10 +187,24 @@ class ClaimAclFactoryTest {
         claimAclValidator.validateAcl(ctx, parsed, "claims.test", scopesById)
 
         assertEquals(1, ctx.errors.size)
+        assertTrue(ctx.errors.first().message!!.contains("config.claim.acl.not_consentable_scope"))
     }
 
     @Test
-    fun `buildAcl - Error for unknown client scope in unconditional list`() {
+    fun `validateAcl - Error for a consent scope the deployment disabled`() {
+        val ctx = ConfigParsingContext()
+        val disabledScope = OpenIdConnectScope.EMAIL.scope
+        val acl = aclProperties(consentScope = disabledScope)
+
+        val parsed = claimAclParser.parseAcl(ctx, acl, null, "claims.test", null)
+        claimAclValidator.validateAcl(ctx, parsed, "claims.test", scopesById - disabledScope)
+
+        assertEquals(1, ctx.errors.size)
+        assertTrue(ctx.errors.first().message!!.contains("config.claim.acl.disabled_consent_scope"))
+    }
+
+    @Test
+    fun `validateAcl - Error for unknown client scope in unconditional list`() {
         val ctx = ConfigParsingContext()
         val acl = aclProperties(readableWithClientScopes = listOf("nonexistent:scope"))
 
@@ -253,7 +273,7 @@ class ClaimAclFactoryTest {
     // region parseTemplateAcl + validateTemplateAcl
 
     @Test
-    fun `buildTemplateAcl - Returns all nulls when acl is null`() {
+    fun `validateTemplateAcl - Returns all nulls when acl is null`() {
         val ctx = ConfigParsingContext()
 
         val parsed = claimAclParser.parseTemplateAcl(ctx, null, "templates.claims.test")
@@ -270,7 +290,7 @@ class ClaimAclFactoryTest {
     }
 
     @Test
-    fun `buildTemplateAcl - Parses all fields`() {
+    fun `validateTemplateAcl - Parses all fields`() {
         val ctx = ConfigParsingContext()
         val acl = aclProperties(
             consentScope = "profile",
@@ -296,7 +316,7 @@ class ClaimAclFactoryTest {
     }
 
     @Test
-    fun `buildTemplateAcl - Accumulates errors for invalid booleans`() {
+    fun `validateTemplateAcl - Accumulates errors for invalid booleans`() {
         val ctx = ConfigParsingContext()
         val acl = aclProperties(readableByUser = "bad", writableByClient = "worse")
 
@@ -306,7 +326,7 @@ class ClaimAclFactoryTest {
     }
 
     @Test
-    fun `buildTemplateAcl - Error for unknown consent scope`() {
+    fun `validateTemplateAcl - Error for unknown consent scope`() {
         val ctx = ConfigParsingContext()
         val acl = aclProperties(consentScope = "nonexistent")
 
