@@ -58,9 +58,9 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
      * The list will only contain reason which this authorization server is able to send a validation code for.
      * ex. the authorization server cannot verify an email if there is no email sending solution configured.
      *
-     * @param identifierClaims claims that identify the user, which the authorization server must always validate
-     * regardless of consent.
-     * @param consentedClaims claims the client has consent for during this interactive flow session.
+     * [identifierClaims] are the claims identifying the user, which this authorization server validates whether or
+     * not the client asked for them; [consentedClaims] are the ones the client holds consent for during this
+     * interactive flow session. A claim appearing in both is considered once.
      */
     fun getReasonsToSendValidationCode(
         identifierClaims: List<CollectedClaim>,
@@ -76,9 +76,9 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
      * The list may contain [ValidationCodeReason] which this authorization server is not able to send a validation code
      * for.
      *
-     * @param identifierClaims claims that identify the user, which the authorization server must always validate
-     * regardless of consent.
-     * @param consentedClaims claims the client has consent for during this interactive flow session.
+     * [identifierClaims] are the claims identifying the user, which this authorization server validates whether or
+     * not the client asked for them; [consentedClaims] are the ones the client holds consent for during this
+     * interactive flow session. A claim appearing in both is considered once.
      */
     internal fun getUnfilteredReasonsToSendValidationCode(
         identifierClaims: List<CollectedClaim>,

@@ -41,17 +41,15 @@ class TokenExchangeManager(
 
     /**
      * Exchange the acting client's own client-credentials [subjectToken] for an identity-only access token that acts on
-     * behalf of the user identified by [requestedSubject] (Phase 1).
+     * behalf of the user whose id [requestedSubject] carries (Phase 1). [actingClient] is the authenticated
+     * confidential client presenting that token and is the actor the issued token records; [subjectTokenType] says
+     * what [subjectToken] is, and must be [ACCESS_TOKEN_TYPE].
      *
-     * @param actingClient the authenticated confidential client, which is the actor.
-     * @param subjectToken the client's own client-credentials access token.
-     * @param subjectTokenType must be [ACCESS_TOKEN_TYPE].
-     * @param requestedSubject the id (UUID) of the user to act on behalf of.
-     * @param resource RFC 8693 `resource`: a URI where the client intends to use the token, mapped by the server to a
-     * policy. It never contributes to the issued token's audience. Not supported yet: rejected when present.
-     * @param audience RFC 8693 `audience`: the logical name of the target service; the only input used to resolve the
-     * issued token's audience.
-     * @param dpopJkt the JWK thumbprint to bind the issued token to, or null for a bearer token.
+     * [audience] and [resource] are the two ways RFC 8693 lets a client name where the token is going, and only the
+     * first is honoured here. [audience] is the logical name of the target service and the only input that resolves
+     * the issued token's audience; [resource] is a URI the server would map to a policy, which this server does not
+     * implement, so it is rejected when present rather than ignored. Passing [dpopJkt] binds the issued token to that
+     * JWK thumbprint, and leaving it null issues a bearer token.
      */
     suspend fun exchangeForActAsToken(
         actingClient: Client,

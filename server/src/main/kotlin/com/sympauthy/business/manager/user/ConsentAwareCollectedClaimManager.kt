@@ -58,8 +58,9 @@ open class ConsentAwareCollectedClaimManager(
      * When [audienceId] is provided, only claims that belong to that audience (or have no audience restriction)
      * are included.
      *
-     * @param consentedScopes scopes the end-user has consented to (e.g. profile, email).
-     * @param clientScopes scopes granted to the client itself (e.g. users:claims:read).
+     * The two scope lists are read from different places and a claim is readable when either of them allows it:
+     * [consentedScopes] are the scopes the end-user consented to, and [clientScopes] are the ones granted to the
+     * client itself.
      */
     suspend fun findByUserIdAndReadableByClient(
         userId: UUID,
@@ -146,10 +147,11 @@ open class ConsentAwareCollectedClaimManager(
      *
      * Only claims writable by a client according to the [consentedScopes] and [clientScopes] are applied.
      * Updates targeting claims not writable by the given scopes are silently ignored.
-     * Returns all claims readable by the client for those scopes.
+     * Returns all claims readable by the client for those scopes, which is not the same set: a claim the client
+     * may write and may not read is applied and left out of the answer.
      *
-     * @param consentedScopes scopes the end-user has consented to (e.g. profile, email).
-     * @param clientScopes scopes granted to the client itself (e.g. users:claims:write).
+     * As on the read side, [consentedScopes] are the scopes the end-user consented to and [clientScopes] the
+     * ones granted to the client itself, and either of the two may be what permits a write.
      */
     @Transactional
     open suspend fun updateByClient(

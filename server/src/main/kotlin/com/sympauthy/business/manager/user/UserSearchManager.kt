@@ -37,11 +37,14 @@ class UserSearchManager(
     /**
      * Search, filter, and sort users with their claims.
      *
-     * @param status Filter by user status.
-     * @param query Partial case-insensitive text search across all enabled claim values.
-     * @param claimFilters Exact-match filters keyed by claim ID.
-     * @param sort Property to sort by: "created_at", "status", or a claim ID.
-     * @param order Sort direction: "asc" or "desc". Defaults to "asc".
+     * Every criterion is optional and they compose: [status] keeps the users in one [UserStatus], [query] is a
+     * partial case-insensitive match across the values of every enabled claim, and [claimFilters] are
+     * exact-match values keyed by claim id. [sort] names `created_at`, `status` or a claim id, and [order] is
+     * `asc` or `desc`, ascending when it is null.
+     *
+     * A criterion naming something that does not exist is the caller's mistake rather than an empty result: an
+     * unknown claim id, sort property or status each throw a recoverable business exception carrying
+     * `user.search.invalid_claim`, `user.search.invalid_sort` or `user.search.invalid_status`.
      */
     suspend fun listUsers(
         status: String?,

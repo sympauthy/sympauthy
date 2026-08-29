@@ -86,9 +86,8 @@ open class TokenManager(
      * Generate tokens for a completed authorization code flow.
      *
      * Always generates an access token and an ID token. A refresh token is only generated if the [client] supports
-     * the [GrantType.REFRESH_TOKEN] grant type.
-     *
-     * @throws OAuth2Exception if the [session] has expired.
+     * the [GrantType.REFRESH_TOKEN] grant type. A [session] that has expired issues nothing and throws an
+     * `OAuth2Exception` carrying `token.expired`.
      */
     @Transactional
     open suspend fun generateTokens(

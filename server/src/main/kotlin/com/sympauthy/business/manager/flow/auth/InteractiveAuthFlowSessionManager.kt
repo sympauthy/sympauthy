@@ -265,8 +265,9 @@ class InteractiveAuthFlowSessionManager(
      * Takes the already-fetched [oauth2] record (rather than the session) so a caller that also needs it —
      * e.g. for the invitation id — fetches it once.
      *
-     * @param recoverable Whether the thrown exception should be recoverable (true for password sign-up
-     *   where the user can retry, false for provider sign-up where the flow is non-interactive).
+     * [recoverable] is the flag that exception carries. Password sign-up passes `true`, because the person is
+     * in front of the page and can supply something else; provider sign-up passes `false`, because that leg of
+     * the flow is non-interactive and there is nothing for anyone to retry.
      */
     suspend fun checkSignUpAllowed(
         oauth2: InteractiveFlowSessionOAuth2,
