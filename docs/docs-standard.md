@@ -36,6 +36,12 @@ bundle a code resolves against — because that is the reader's next stop, and a
 is obviously wrong rather than quietly wrong. What it may not do is prove a rule by exhibiting a
 class that obeys it, or quote code as evidence that the rule is real.
 
+**A name that *is* the rule is vocabulary, not an example.** The exception type a layer must throw,
+the annotation a class must carry, the interface a repository must extend: a standard that refused
+to name these would have no way to state its rule at all, and none of them can rot into a lie
+without the rule itself changing. What a standard still may not do is name a class that merely
+*obeys* a rule.
+
 **A rule that cannot be stated without pointing at code is not a rule yet.** Write the shape it must
 have instead; if there is no shape, what has been found is a fact about one class, and it belongs in
 that class as a [comment](comment-standard.md).
