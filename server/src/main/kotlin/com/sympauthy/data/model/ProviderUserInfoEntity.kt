@@ -19,6 +19,7 @@ data class ProviderUserInfoEntityId(
 @MappedEntity("provider_user_info")
 data class ProviderUserInfoEntity(
     @EmbeddedId val id: ProviderUserInfoEntityId,
+    val linkDate: LocalDateTime,
     val fetchDate: LocalDateTime,
     val changeDate: LocalDateTime,
 

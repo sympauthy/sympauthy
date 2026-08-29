@@ -76,14 +76,20 @@ class AdminUserProviderControllerTest {
     private val userId: UUID = UUID.randomUUID()
     private val linkedAt: LocalDateTime = LocalDateTime.of(2026, 1, 15, 14, 30, 0)
 
+    /**
+     * A later sign-in with the same provider, so a resource fed from the fetch date fails the assertion.
+     */
+    private val lastFetchedAt: LocalDateTime = LocalDateTime.of(2026, 3, 2, 9, 0, 0)
+
     private fun mockProviderUserInfo(
         providerId: String = "discord",
         subject: String = "123456789012345678"
     ): ProviderUserInfo = ProviderUserInfo(
         providerId = providerId,
         userId = userId,
-        fetchDate = linkedAt,
-        changeDate = linkedAt,
+        linkDate = linkedAt,
+        fetchDate = lastFetchedAt,
+        changeDate = lastFetchedAt,
         userInfo = RawProviderClaims(subject = subject)
     )
 

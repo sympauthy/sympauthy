@@ -62,6 +62,7 @@ class ProviderClaimsManager(
             providerId = provider.id,
             userId = userId,
             userInfo = rawProviderClaims,
+            linkDate = now,
             fetchDate = now,
             changeDate = now
         )
@@ -72,6 +73,7 @@ class ProviderClaimsManager(
     /**
      * Update the stored provider claims with the latest data from the provider.
      * Always updates the fetch date. Only updates the change date and claims if they differ.
+     * Never moves the link date: refreshing is a sign-in with a provider already linked, not a new link.
      */
     suspend fun refreshUserInfo(
         existingUserInfo: ProviderUserInfo,
@@ -83,6 +85,7 @@ class ProviderClaimsManager(
             providerId = existingUserInfo.providerId,
             userId = existingUserInfo.userId,
             userInfo = if (changed) newUserInfo else existingUserInfo.userInfo,
+            linkDate = existingUserInfo.linkDate,
             fetchDate = now,
             changeDate = if (changed) now else existingUserInfo.changeDate
         )

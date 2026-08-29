@@ -27,6 +27,6 @@ abstract class ClientUserResourceMapper {
 
     @Mapping(source = "providerId", target = "providerId")
     @Mapping(source = "userInfo.subject", target = "subject")
-    @Mapping(source = "fetchDate", target = "linkedAt")
+    @Mapping(source = "linkDate", target = "linkedAt")
     abstract fun toProviderResource(providerUserInfo: ProviderUserInfo): ClientProviderResource
 }

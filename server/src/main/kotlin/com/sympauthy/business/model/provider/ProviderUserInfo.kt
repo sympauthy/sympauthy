@@ -14,6 +14,13 @@ data class ProviderUserInfo(
      */
     val userId: UUID,
     /**
+     * Time at which the provider was linked to the user.
+     *
+     * Written when the link is created and never moved afterwards, so it stays the age of the link rather than
+     * the recency of the last sign-in with this provider.
+     */
+    val linkDate: LocalDateTime,
+    /**
      * Last time this application fetched the info from the provider.
      */
     val fetchDate: LocalDateTime,
