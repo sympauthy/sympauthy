@@ -1,6 +1,6 @@
-package com.sympauthy.config
+package com.sympauthy.health
 
-import com.sympauthy.business.manager.ConfigReadinessManager
+import com.sympauthy.config.ConfigReadiness
 import com.sympauthy.server.ErrorMessages
 import com.sympauthy.util.getKeyAndLocalizedMessage
 import io.micronaut.context.MessageSource
@@ -18,13 +18,13 @@ import org.reactivestreams.Publisher
 @Singleton
 @Readiness
 open class ConfigReadinessHealthIndicator(
-    @Inject private val configReadinessManager: ConfigReadinessManager,
+    @Inject private val configReadiness: ConfigReadiness,
     @Inject @param:ErrorMessages private val messageSource: MessageSource,
 ) : HealthIndicator {
 
     override fun getResult(): Publisher<HealthResult> {
         return flow {
-            val configurationErrors = configReadinessManager.getConfigurationErrors()
+            val configurationErrors = configReadiness.getConfigurationErrors()
             val builder = HealthResult.builder(HEALTH_INDICATOR_NAME)
             if (configurationErrors.isEmpty()) {
                 builder.status(UP)

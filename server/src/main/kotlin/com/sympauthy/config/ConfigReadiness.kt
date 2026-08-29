@@ -1,4 +1,4 @@
-package com.sympauthy.business.manager
+package com.sympauthy.config
 
 import com.sympauthy.config.model.*
 import jakarta.inject.Inject
@@ -8,10 +8,13 @@ import kotlinx.coroutines.flow.firstOrNull
 
 
 /**
- * Manager in charge of verifying if the configuration has completed and has no error.
+ * The configuration answering, across every domain it is split into, whether it is usable.
+ *
+ * It is the one component here that spans domains, which is why it holds every configuration bean:
+ * an operator is owed one verdict on their file, not one per section.
  */
 @Singleton
-class ConfigReadinessManager(
+class ConfigReadiness(
     @Inject private val advancedConfig: AdvancedConfig,
     @Inject private val authConfig: AuthConfig,
     @Inject private val authorizationFlowsConfig: AuthorizationFlowsConfig,

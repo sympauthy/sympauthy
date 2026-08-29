@@ -3,7 +3,7 @@ package com.sympauthy
 import com.sympauthy.api.controller.openapi.OpenApiController.Companion.OPENAPI_ENDPOINT
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.ClientManager
-import com.sympauthy.business.manager.ConfigReadinessManager
+import com.sympauthy.config.ConfigReadiness
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.provider.ProviderManager
 import com.sympauthy.business.manager.rule.ScopeGrantingRuleManager
@@ -32,7 +32,7 @@ import kotlinx.coroutines.runBlocking
  */
 @Singleton
 class ApplicationReadinessStatusPrinter(
-    @Inject private val configReadinessManager: ConfigReadinessManager,
+    @Inject private val configReadiness: ConfigReadiness,
     @Inject private val claimManager: ClaimManager,
     @Inject private val clientManager: ClientManager,
     @Inject private val scopeManager: ScopeManager,
@@ -56,7 +56,7 @@ class ApplicationReadinessStatusPrinter(
     override fun onApplicationEvent(event: ServiceReadyEvent) {
         runBlocking {
             launch {
-                val configurationErrors = configReadinessManager.getConfigurationErrors()
+                val configurationErrors = configReadiness.getConfigurationErrors()
                 if (configurationErrors.isEmpty()) {
                     printReadyBanner()
                     printServingBanner()
