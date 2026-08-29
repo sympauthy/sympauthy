@@ -31,11 +31,19 @@ appears has no test at all — much harder to notice when every name starts with
 **A suspending subject is tested inside a coroutine test scope**, with suspending stubs and
 verifications. Nothing is unwrapped by blocking.
 
-**Strict stubs are on.** Every test class that assembles its subject from doubles also asks the
-framework to fail when a stub is never used. An unused stub is one of two things, and both are worth
-a failure: a test that no longer exercises the path it was written for, or a test whose author was
-not sure what the subject would call and stubbed everything in reach. The first is coverage that has
-quietly gone; the second is a test that would pass against a subject doing something else entirely.
+**Strict stubs are on, for the whole module at once.** A class that uses doubles runs under the
+MockK extension, and the unnecessary-stub check is switched on for the module in the JUnit platform
+configuration rather than per class, so it holds for every one of them — including the classes
+nobody has written yet. An unused stub is one of two things, and both are worth a failure: a test
+that no longer exercises the path it was written for, or a test whose author was not sure what the
+subject would call and stubbed everything in reach. The first is coverage that has quietly gone; the
+second is a test that would pass against a subject doing something else entirely.
+
+**Nothing resets the framework in its own teardown.** A class that clears the mocks after each test
+clears them *before* the check runs, so the check finds no stub left to report and the class passes
+whatever it stubbed. That class reports green while enforcing nothing, which is the one way this
+rule fails without saying so. The extension already clears between tests, so the teardown buys
+nothing and costs the check.
 
 **Do not verify a call the assertion already proves.** When a stub's return value or thrown
 exception is what the assertion turns on, reaching the assertion is proof the call happened, and a

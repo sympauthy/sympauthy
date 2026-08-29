@@ -37,7 +37,6 @@ import java.util.*
 
 @Suppress("unused")
 @ExtendWith(MockKExtension::class)
-@MockKExtension.CheckUnnecessaryStub
 class TokenManagerTest {
 
     @MockK

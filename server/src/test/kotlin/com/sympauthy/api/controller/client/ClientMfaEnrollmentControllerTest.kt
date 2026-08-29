@@ -73,6 +73,9 @@ class ClientMfaEnrollmentControllerTest {
         uncheckedMfaConfig = mfaConfig,
     )
 
+    /** An authentication for the paths refused before they ask which client is calling. */
+    private fun clientAuthentication(): ClientAuthentication = ClientAuthentication(mockk(), emptyList())
+
     private fun clientAuthentication(clientId: String): ClientAuthentication {
         val authenticationToken = mockk<AuthenticationToken> {
             every { this@mockk.clientId } returns clientId
@@ -174,7 +177,7 @@ class ClientMfaEnrollmentControllerTest {
 
     @Test
     fun `startEnrollment - Fails with mfa_disabled and starts no session when MFA is disabled`() = runTest {
-        val authentication = clientAuthentication("client-id")
+        val authentication = clientAuthentication()
 
         val exception = assertThrows<BusinessException> {
             controller(mockk<DisabledMfaConfig>()).startEnrollment(

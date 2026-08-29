@@ -52,7 +52,6 @@ class ConfirmControllerTest {
             }
             every { session.purposes } returns
                 listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.MFA_ENROLLMENT)
-            every { session.completedPurposes } returns emptyList()
             coEvery { confirmManager.fetchConfirmOrNull(session) } returns confirm
             coEvery {
                 interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenRunAndRedirect<ConfirmFlowResource, ConfirmFlowResource>(

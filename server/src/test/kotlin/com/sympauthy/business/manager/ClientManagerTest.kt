@@ -19,12 +19,8 @@ class ClientManagerTest {
 
     @Test
     fun `listClients - Return list of clients from config`() = runTest {
-        val client1 = mockk<Client> {
-            every { id } returns "client1"
-        }
-        val client2 = mockk<Client> {
-            every { id } returns "client2"
-        }
+        val client1 = mockk<Client>()
+        val client2 = mockk<Client>()
         val clientsConfig = EnabledClientsConfig(clients = listOf(client1, client2))
         val uncheckedClientsConfig = flowOf<ClientsConfig>(clientsConfig)
 
@@ -50,12 +46,8 @@ class ClientManagerTest {
 
     @Test
     fun `findClientByIdOrNull - Return client when found`() = runTest {
-        val client1 = mockk<Client> {
-            every { id } returns "client1"
-        }
-        val client2 = mockk<Client> {
-            every { id } returns "client2"
-        }
+        val client1 = mockClient("client1")
+        val client2 = mockClient("client2")
         val clientsConfig = EnabledClientsConfig(clients = listOf(client1, client2))
         val uncheckedClientsConfig = flowOf<ClientsConfig>(clientsConfig)
 
@@ -68,9 +60,7 @@ class ClientManagerTest {
 
     @Test
     fun `findClientByIdOrNull - Return null when client not found`() = runTest {
-        val client1 = mockk<Client> {
-            every { id } returns "client1"
-        }
+        val client1 = mockClient("client1")
         val clientsConfig = EnabledClientsConfig(clients = listOf(client1))
         val uncheckedClientsConfig = flowOf<ClientsConfig>(clientsConfig)
 
@@ -83,12 +73,8 @@ class ClientManagerTest {
 
     @Test
     fun `findClientById - Return client when found`() = runTest {
-        val client1 = mockk<Client> {
-            every { id } returns "client1"
-        }
-        val client2 = mockk<Client> {
-            every { id } returns "client2"
-        }
+        val client1 = mockClient("client1")
+        val client2 = mockk<Client>()
         val clientsConfig = EnabledClientsConfig(clients = listOf(client1, client2))
         val uncheckedClientsConfig = flowOf<ClientsConfig>(clientsConfig)
 
@@ -101,9 +87,7 @@ class ClientManagerTest {
 
     @Test
     fun `findClientById - Throw BusinessException when client not found`() = runTest {
-        val client1 = mockk<Client> {
-            every { id } returns "client1"
-        }
+        val client1 = mockClient("client1")
         val clientsConfig = EnabledClientsConfig(clients = listOf(client1))
         val uncheckedClientsConfig = flowOf<ClientsConfig>(clientsConfig)
 
@@ -118,14 +102,8 @@ class ClientManagerTest {
 
     @Test
     fun `authenticateClientOrNull - Return client when clientId and clientSecret match`() = runTest {
-        val client1 = mockk<Client> {
-            every { id } returns "client1"
-            every { secret } returns "secret1"
-        }
-        val client2 = mockk<Client> {
-            every { id } returns "client2"
-            every { secret } returns "secret2"
-        }
+        val client1 = mockClient("client1")
+        val client2 = mockClient("client2", "secret2")
         val clientsConfig = EnabledClientsConfig(clients = listOf(client1, client2))
         val uncheckedClientsConfig = flowOf<ClientsConfig>(clientsConfig)
 
@@ -138,10 +116,7 @@ class ClientManagerTest {
 
     @Test
     fun `authenticateClientOrNull - Return null when clientId does not exist`() = runTest {
-        val client1 = mockk<Client> {
-            every { id } returns "client1"
-            every { secret } returns "secret1"
-        }
+        val client1 = mockClient("client1")
         val clientsConfig = EnabledClientsConfig(clients = listOf(client1))
         val uncheckedClientsConfig = flowOf<ClientsConfig>(clientsConfig)
 
@@ -154,10 +129,7 @@ class ClientManagerTest {
 
     @Test
     fun `authenticateClientOrNull - Return null when clientSecret does not match`() = runTest {
-        val client1 = mockk<Client> {
-            every { id } returns "client1"
-            every { secret } returns "secret1"
-        }
+        val client1 = mockClient("client1", "secret1")
         val clientsConfig = EnabledClientsConfig(clients = listOf(client1))
         val uncheckedClientsConfig = flowOf<ClientsConfig>(clientsConfig)
 
@@ -166,5 +138,14 @@ class ClientManagerTest {
         val result = clientManager.authenticateClientOrNull("client1", "wrongsecret")
 
         assertNull(result)
+    }
+
+    private fun mockClient(id: String): Client = mockk {
+        every { this@mockk.id } returns id
+    }
+
+    /** A client whose secret is compared, which only happens once its id has matched. */
+    private fun mockClient(id: String, secret: String): Client = mockClient(id).also {
+        every { it.secret } returns secret
     }
 }

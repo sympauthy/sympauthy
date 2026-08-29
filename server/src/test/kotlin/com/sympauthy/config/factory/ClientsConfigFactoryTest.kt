@@ -36,12 +36,18 @@ class ClientsConfigFactoryTest {
     private val parser = ConfigParser()
 
     private fun setUpFieldValidator() {
-        // By default, validateGrantTypes passes through the input.
-        coEvery { fieldValidator.validateGrantTypes(any(), any(), any()) } answers {
-            thirdArg()
-        }
         // By default, validateWebhook passes through null.
         coEvery { fieldValidator.validateWebhook(any()) } returns null
+    }
+
+    /**
+     * Makes the validator pass the parsed grant types through.
+     *
+     * Only a client that gets as far as being validated reaches it: one whose template could not be
+     * resolved is refused before that.
+     */
+    private fun passGrantTypesThrough() {
+        coEvery { fieldValidator.validateGrantTypes(any(), any(), any()) } answers { thirdArg() }
     }
 
     private fun clientProperties(
@@ -107,7 +113,7 @@ class ClientsConfigFactoryTest {
         val grantTypes = setOf(GrantType.AUTHORIZATION_CODE)
         val redirectUris = listOf("https://example.com/callback")
 
-        coEvery { fieldParser.parseRedirectUris(any(), any(), any(), any(), any()) } returns redirectUris
+        passGrantTypesThrough()
 
         val factory = factory(
             clientTemplate(
@@ -135,6 +141,7 @@ class ClientsConfigFactoryTest {
         val redirectUris = listOf("https://example.com/callback")
 
         coEvery { fieldParser.parseGrantTypes(any(), any(), any()) } returns clientGrantTypes
+        passGrantTypesThrough()
 
         val factory = factory(
             clientTemplate(
@@ -166,6 +173,8 @@ class ClientsConfigFactoryTest {
         val defaultFlow = mockk<AuthorizationFlow>()
         val customFlow = mockk<AuthorizationFlow>()
         val grantTypes = setOf(GrantType.CLIENT_CREDENTIALS)
+
+        passGrantTypesThrough()
 
         val factory = factory(
             clientTemplate(id = "default", authorizationFlow = defaultFlow, allowedGrantTypes = grantTypes),
@@ -234,6 +243,8 @@ class ClientsConfigFactoryTest {
     @Test
     fun `Public client inherits public from default template`() = runTest {
         val grantTypes = setOf(GrantType.CLIENT_CREDENTIALS)
+
+        passGrantTypesThrough()
 
         val factory = factory(
             clientTemplate(id = "default", public = true, allowedGrantTypes = grantTypes)

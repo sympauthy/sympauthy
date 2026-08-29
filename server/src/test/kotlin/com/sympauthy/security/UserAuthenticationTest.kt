@@ -1,16 +1,19 @@
 package com.sympauthy.security
 
+import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.ConsentableUserScope
 import com.sympauthy.business.model.oauth2.GrantableUserScope
 import com.sympauthy.security.SecurityRule.IS_ADMIN
 import com.sympauthy.security.SecurityRule.IS_USER
+import io.micronaut.http.HttpStatus
 import io.mockk.every
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import java.util.*
 
@@ -21,14 +24,33 @@ class UserAuthenticationTest {
         consentedScopes: List<com.sympauthy.business.model.oauth2.Scope> = emptyList(),
         grantedScopes: List<com.sympauthy.business.model.oauth2.Scope> = emptyList()
     ): UserAuthentication {
-        val token = mockk<AuthenticationToken> {
-            every { userId } returns UUID.randomUUID()
-        }
         return UserAuthentication(
-            authenticationToken = token,
+            // Only the name of an authentication is read off its token, and nothing here asks for it.
+            authenticationToken = mockk(),
             consentedScopes = consentedScopes,
             grantedScopes = grantedScopes
         )
+    }
+
+    @Test
+    fun `getName - Returns the id of the authenticated user`() {
+        val id = UUID.randomUUID()
+        val token = mockk<AuthenticationToken> { every { userId } returns id }
+
+        val auth = UserAuthentication(token, consentedScopes = emptyList(), grantedScopes = emptyList())
+
+        assertEquals(id.toString(), auth.name)
+    }
+
+    @Test
+    fun `getName - Throws 403 when the token is bound to no user`() {
+        val token = mockk<AuthenticationToken> { every { userId } returns null }
+
+        val auth = UserAuthentication(token, consentedScopes = emptyList(), grantedScopes = emptyList())
+
+        val exception = assertThrows<LocalizedHttpException> { auth.name }
+
+        assertEquals(HttpStatus.FORBIDDEN, exception.status)
     }
 
     @Test

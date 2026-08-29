@@ -6,12 +6,10 @@ import com.sympauthy.business.model.rule.ActAsRuleBehavior
 import com.sympauthy.business.model.rule.ActAsRuleBehavior.ALLOW
 import com.sympauthy.business.model.rule.ActAsRuleBehavior.DENY
 import com.sympauthy.config.model.EnabledActAsRulesConfig
-import io.mockk.clearAllMocks
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertFalse
@@ -21,9 +19,6 @@ import kotlin.test.assertTrue
 class ActAsRuleManagerTest {
 
     private val client = mockk<Client>(relaxed = true)
-
-    @AfterEach
-    fun tearDown() = clearAllMocks()
 
     private fun manager(vararg rules: ActAsRule) = ActAsRuleManager(
         actAsRuleExpressionExecutor = ActAsRuleExpressionExecutor(),

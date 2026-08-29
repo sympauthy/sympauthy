@@ -18,7 +18,6 @@ import org.junit.jupiter.api.extension.ExtendWith
 
 @Suppress("unused")
 @ExtendWith(MockKExtension::class)
-@MockKExtension.CheckUnnecessaryStub
 class PasswordManagerTest {
 
     @MockK

@@ -32,6 +32,7 @@ import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -152,11 +153,13 @@ class AdminUserMfaControllerTest {
         val resources = enrollments.map { mockResource(id = it.id) }
         coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
         coEvery { totpManager.findConfirmedEnrollments(userId) } returns enrollments
-        enrollments.forEachIndexed { i, e -> every { mfaMapper.toResource(e) } returns resources[i] }
+        // The second page of two holds the third enrollment alone.
+        every { mfaMapper.toResource(enrollments[2]) } returns resources[2]
 
         val result = controller().listMfaMethods(userId, 1, 2)
 
         assertEquals(1, result.mfaMethods.size)
+        assertSame(resources[2], result.mfaMethods[0])
         assertEquals(1, result.page)
         assertEquals(2, result.size)
         assertEquals(3, result.total)

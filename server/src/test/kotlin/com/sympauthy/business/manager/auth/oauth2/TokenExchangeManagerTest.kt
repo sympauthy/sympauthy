@@ -17,14 +17,12 @@ import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TARGET
 import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.EnabledAudiencesConfig
-import io.mockk.clearAllMocks
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import java.util.UUID
@@ -33,11 +31,6 @@ import kotlin.test.assertFailsWith
 
 @ExtendWith(MockKExtension::class)
 class TokenExchangeManagerTest {
-
-    // Clear the global MockK registry after each test so inline mocks with per-test-only stubs do not leak into
-    // other test classes that assert on unnecessary stubbings (e.g. TokenManagerTest).
-    @AfterEach
-    fun tearDown() = clearAllMocks()
 
     private val jwtManager = mockk<JwtManager>()
     private val tokenManager = mockk<TokenManager>()
@@ -49,13 +42,7 @@ class TokenExchangeManagerTest {
     private val defaultAudience = Audience(id = "default", tokenAudience = "default-aud")
     private val backendAudience = Audience(id = "backend", tokenAudience = "backend-aud")
 
-    private val actingClient = mockk<Client> {
-        every { id } returns CLIENT_ID
-        every { audience } returns mockk {
-            every { id } returns "default"
-            every { tokenAudience } returns "default-aud"
-        }
-    }
+    private val actingClient = mockk<Client>()
 
     private val userId = UUID.randomUUID()
     private val accessTokenType = TokenExchangeManager.ACCESS_TOKEN_TYPE
@@ -71,20 +58,24 @@ class TokenExchangeManagerTest {
             uncheckedAudiencesConfig = EnabledAudiencesConfig(audiences)
         )
 
-    private fun mockActorToken(
-        clientId: String = CLIENT_ID,
-        userId: UUID? = null,
-        actorTokenId: UUID? = null
-    ): AuthenticationToken {
-        val token = mockk<AuthenticationToken>()
-        every { token.clientId } returns clientId
-        every { token.userId } returns userId
-        every { token.actorTokenId } returns actorTokenId
-        every { token.id } returns UUID.randomUUID()
-        return token
+    /** A client-credentials token issued to the acting client: bound to no user and to no other token. */
+    private fun mockActorToken(): AuthenticationToken = mockk {
+        every { clientId } returns CLIENT_ID
+        every { actorTokenId } returns null
+        every { userId } returns null
     }
 
+    /** The acting client's own audience, read only where the request names none of its own. */
+    private fun stubClientAudience() {
+        every { actingClient.audience } returns mockk { every { tokenAudience } returns "default-aud" }
+    }
+
+    /**
+     * Stubs [token] as the subject token the acting client presents, and the client's own identity, which
+     * the ownership check compares it against.
+     */
     private fun stubValidSubjectToken(token: AuthenticationToken) {
+        every { actingClient.id } returns CLIENT_ID
         val decoded = mockk<DecodedJwt>()
         coEvery { jwtManager.decodeAndVerify(ACCESS_KEY, SUBJECT_TOKEN) } returns decoded
         coEvery { tokenManager.getAuthenticationToken(decoded) } returns token
@@ -106,7 +97,8 @@ class TokenExchangeManagerTest {
 
     @Test
     fun `subject_token issued to another client is rejected`() = runTest {
-        stubValidSubjectToken(mockActorToken(clientId = "another-client"))
+        // The owner is checked first, so nothing else about the token is read.
+        stubValidSubjectToken(mockk { every { clientId } returns "another-client" })
         val ex = assertFailsWith<OAuth2Exception> {
             manager().exchangeForActAsToken(actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), null)
         }
@@ -115,7 +107,11 @@ class TokenExchangeManagerTest {
 
     @Test
     fun `subject_token bound to a user is rejected`() = runTest {
-        stubValidSubjectToken(mockActorToken(userId = UUID.randomUUID()))
+        stubValidSubjectToken(mockk {
+            every { clientId } returns CLIENT_ID
+            every { actorTokenId } returns null
+            every { userId } returns UUID.randomUUID()
+        })
         val ex = assertFailsWith<OAuth2Exception> {
             manager().exchangeForActAsToken(actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), null)
         }
@@ -125,7 +121,11 @@ class TokenExchangeManagerTest {
     @Test
     fun `subject_token that already has an actor is rejected as unsupported chaining`() = runTest {
         // An act-as token carries an actor and a user; presenting it would chain act-as tokens, which is unsupported.
-        stubValidSubjectToken(mockActorToken(userId = UUID.randomUUID(), actorTokenId = UUID.randomUUID()))
+        stubValidSubjectToken(mockk {
+            every { clientId } returns CLIENT_ID
+            // An actor is checked before the user binding, so the user is never read.
+            every { actorTokenId } returns UUID.randomUUID()
+        })
         val ex = assertFailsWith<OAuth2Exception> {
             manager().exchangeForActAsToken(actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), null)
         }
@@ -179,6 +179,7 @@ class TokenExchangeManagerTest {
     @Test
     fun `success without requested audience defaults to the client audience`() = runTest {
         val actorToken = mockActorToken()
+        stubClientAudience()
         stubValidSubjectToken(actorToken)
         stubKnownUser()
         coEvery { actAsRuleManager.isActAsAllowed(actingClient, emptyList()) } returns true
