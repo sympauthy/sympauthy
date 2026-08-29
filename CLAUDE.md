@@ -1,280 +1,117 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code (claude.ai/code) when working in this repository.
 
-## Project Overview
+## What this is
 
-SympAuthy is an open-source, self-hosted OAuth2/OpenID Connect authorization server built with Micronaut 4 and Kotlin (
-coroutines). It supports GraalVM native image compilation.
+SympAuthy is a self-hosted OAuth2 and OpenID Connect authorization server: it owns the accounts a
+set of applications share, issues the tokens they trust, and serves the interactive flow a person
+signs in through. Kotlin and Micronaut, coroutines throughout, R2DBC against PostgreSQL **and** H2,
+compiled to a GraalVM native image.
 
-## Build & Run Commands
+**`docs/` is the authority** (start at `docs/index.md`). Read the document governing a change before
+the code it governs, and put a new design decision there before or alongside its code. This file
+carries rules only — each section names the document holding their reasoning. The standards are also
+symlinked into `.claude/rules/`.
 
-```bash
-# Build
-./gradlew build
+**Rules, not inventory.** What exists is answered by the package tree, `git log` and `docs/`. Add a
+rule here when a decision would otherwise be re-litigated; never a status report.
 
-# Run all tests
-./gradlew test
+**Treat an absence as a decision, not an oversight.** Every standard ends with what it deliberately
+does not cover. If you end a deferral, say there why.
 
-# Run a single test class
-./gradlew test --tests com.sympauthy.business.manager.auth.ScopeGrantingManagerTest
+## Commands
 
-# Compile check only (no tests)
-./gradlew compileKotlin
+```sh
+./gradlew test                   # unit tests — fast, no Docker
+./gradlew compileKotlin          # compile only
+./gradlew build                  # compile, test, package
+./gradlew nativeCompile          # the production artifact; slow
 
-# Run application (JVM)
-MICRONAUT_CONFIG_FILES=$(pwd)/config/application.yml MICRONAUT_ENVIRONMENTS=default,admin ./gradlew :server:run
+MICRONAUT_CONFIG_FILES=$(pwd)/config/application.yml \
+  MICRONAUT_ENVIRONMENTS=default,admin ./gradlew :server:run
 
-# Build native image
-./gradlew nativeCompile
-
-# Run native image
-MICRONAUT_CONFIG_FILES=$(pwd)/config/application.yml MICRONAUT_ENVIRONMENTS=default,admin ./server/build/native/nativeCompile/server
+./gradlew test --tests 'com.sympauthy.business.manager.ScopeManagerTest'
 ```
 
-### Integration tests (`:integration-tests`)
+Integration tests need Docker and never run in `build`/`check`/`test`. They point at an image tag,
+not at your source, so **rebuild the image after every code change**:
 
-The `:integration-tests` module boots the SympAuthy image as a Docker container and drives it over real
-HTTP, against both databases (H2 + PostgreSQL). It runs **only** via the `integrationTest` task (never in
-`build` / `check` / `test`). To validate the **current working tree**, build a JVM image and point the
-tests at it (the default nightly image is stale and lacks your changes):
-
-```bash
-# 1. Build a JVM Docker image from the working tree (Micronaut tags it `server:latest`).
-#    Seconds, no GraalVM toolchain needed — always rebuild after code changes.
+```sh
 ./gradlew :server:dockerBuild
-
-# 2. Authenticate to GitHub Packages (testcontainers-sympauthy lives there; needs a read:packages token).
-#    The gh CLI token works.
-export GITHUB_ACTOR=$(gh api user --jq .login)
-export GITHUB_TOKEN=$(gh auth token)
-
-# 3. Run the full suite (feature + security, H2 + PostgreSQL) against the freshly built image.
+export GITHUB_ACTOR=$(gh api user --jq .login) GITHUB_TOKEN=$(gh auth token)
 ./gradlew :integration-tests:integrationTest -Dsympauthy.image=server:latest
-
-# Run a single scenario
-./gradlew :integration-tests:integrationTest -Dsympauthy.image=server:latest --tests '*AuthorizationCodeFeatureIT'
 ```
 
-- **Requires** Docker (host-reachable daemon) and JDK 25.
-- **JVM image ≠ CI native image.** `server:latest` runs the code on the JVM; CI (and the nightly image)
-  use a GraalVM **native** image, whose closed-world reflection only works when declared in the native
-  metadata (`reflect-config.json` / `resource-config.json` — e.g. every MapStruct `*Impl`). A green JVM
-  run is **necessary but not sufficient** — the native run in CI is the source of truth.
-- Changing the shape of any flow-config response resource (`SignInFlowResource`, `SignUpFlowResource`,
-  `PasswordResource`, `CollectableClaimResource`, `ProviderResource`) is a **wire-format break** that
-  requires bumping `testcontainers-sympauthy` (`gradle/libs.versions.toml`) in lockstep. See
-  `integration-tests/README.md`.
-- **One `*IT` class per feature/risk — happy + negative paths together.** A feature's happy path and its
-  rejection/negative scenarios (bad input, missing scope, disabled feature, cross-client token, …) go in
-  the **same** `*IT` class as separate `@ParameterizedTest` methods — they exercise one endpoint, so its
-  behaviour stays in one place. Only a genuinely distinct feature or security risk gets a new class. Do
-  **not** propose a separate class per negative case of the same endpoint.
-- **Drive endpoints through the generated OpenAPI client, not raw HTTP.** Call the server via the typed
-  `@Client` beans generated from its contract:
-  `withApiClient(sympauthy, token) { ctx -> ctx.getBean(XxxApi::class.java).op(...).block() }`. Read a
-  rejected call's status/body from the thrown `HttpClientResponseException` **inside** the `withApiClient`
-  block (the response buffer is released once the context closes). Reach for the raw `httpGet` /
-  `httpPostForm` helpers only when a scenario must send something the typed client cannot express — a
-  malformed/forged request, or an assertion on redirect/`Location` / header behaviour.
+Full setup is `docs/running-locally.md`.
 
-## Architecture
+## Architecture — `docs/architecture.md`, `docs/general-code-standard.md`
 
-Multi-module Gradle project (root + `server`). All source code is in `server/src/main/kotlin/com/sympauthy/`.
+- **`api`** — HTTP boundary. Controllers, resources, mappers, filters, error handlers.
+- **`business`** — managers (use cases + transaction boundary), models, entity mappers.
+- **`data`** — R2DBC entities and repositories, with a PostgreSQL and an H2 twin for each.
+- **`config`** — properties → parser → validator → factory → model.
+- **`security`** — the three authentications and the token validator.
 
-### Layer Structure
+**Five API surfaces**, gated differently: `/api/oauth2` and `/api/openid` (the protocol's own
+rules), `/api/v1/flow` (`ROLE_STATE`), `/api/v1/client` (a client scope), `/api/v1/admin` (an admin
+scope). Only the last three carry a version — the first two are named by their specifications.
 
-- **`api/`** — HTTP controllers, DTOs (`resource/`), request/response mappers, error handlers, filters
-- **`business/`** — Core logic in managers (`manager/`), domain models (`model/`), entity-to-model mappers (`mapper/`)
-- **`data/`** — R2DBC entities (`model/`), reactive repositories (`repository/`), database-specific repos (
-  `postgresql/`, `h2/`)
-- **`config/`** — Configuration properties (`properties/`), sealed config models (`model/`), parsers (`parsing/`),
-  validators (`validation/`), config factories (`factory/`)
-- **`security/`** — Authentication/authorization (token validation, user/state authentication)
+**A model per layer, translated at every boundary.** A manager never returns an entity.
 
-### Key Conventions
+**Dependency rules**: `api` never imports `data`; `business` never imports `api` *except* the OAuth2
+exception carve-out; `data` imports neither.
 
-#### API (com.sympauthy.api)
+## Rules that compile and then fail
 
-- **No HTTP 307 redirects** — OAuth
-  2.1 [forbids 307 redirects](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1#name-http-307-redirect)
-  because they cause the browser to resubmit the POST body (including credentials) to the redirect target. Always use *
-  *303 See Other** (`HttpResponse.seeOther()`) which forces a GET on the redirect target.
-- **Document endpoint parameters inline, never in `@Operation(parameters = [...])`** — put a
-  `@Parameter(description = "…")` directly on each `@QueryValue`/`@PathVariable`/`@Header` method argument and let
-  Micronaut derive the schema from the Kotlin type. Do **not** list parameters in a method-level
-  `@Operation(parameters = [Parameter(name = "…", schema = Schema(...))])` block: when an `@Operation`-level
-  `@Parameter` name matches a bound method argument, micronaut-openapi keeps the description but **drops the schema**,
-  emitting a typeless parameter in the generated OpenAPI spec (which then fails the OpenAPI client generation in
-  `integration-tests`). Type, `required` (from nullability) and `format` (e.g. `uuid` from `UUID`) are all inferred
-  from the argument, so the inline `@Parameter` only needs the human-readable `description`.
+- **`open` on a class and method carrying an AOP annotation** — Kotlin classes are final, the
+  annotation needs a proxy, and `all-open` is not applied.
+- **A generated mapper must be registered in `BusinessMapperFactory` (or the API equivalent) *and*
+  in `reflect-config.json`.** The first fails at startup; the second only in the native image.
+  `docs/native-image-standard.md`.
+- **Never `'` before `{` in a message bundle** — interpolation silently stops.
+  `docs/exception-code-standard.md`.
+- **Every repository needs both dialect twins**, or the bean is missing on one database only.
+- **Document a parameter on the parameter**, never in `@Operation(parameters = [...])` — the schema
+  is dropped and client generation fails two build steps later. `docs/api-layer-code-standard.md`.
 
-#### Config (com.sympauthy.config)
+## Naming — `docs/general-code-standard.md`
 
-- **Config sealed class pattern** — `EnabledXxxConfig` / `DisabledXxxConfig` with `orThrow()` extension for required
-  configs, `as? EnabledXxxConfig` for optional feature checks
-- **Config three-layer architecture** — Each config domain is split across three layers:
-  - **Parser** (`config/parsing/XxxConfigParser.kt`): `@Singleton` bean. Only does type conversion (
-    `ctx.parse { parser.getXxxOrThrow(...) }`) and template resolution. Returns a parsed intermediate data class with
-    nullable fields. Never validates values, never references other config domains.
-  - **Validator** (`config/validation/XxxConfigValidator.kt`): `@Singleton` bean. Handles intra-domain validation (
-    value ranges, consistency checks) and cross-domain validation (audience exists, scope exists). Returns final
-    business models.
-  - **Factory** (`config/factory/XxxConfigFactory.kt`): `@Factory` bean. Thin orchestration: creates
-    `ConfigParsingContext`, calls parser, calls validator, assembles `EnabledXxxConfig` or `DisabledXxxConfig`.
-- **ConfigParsingContext** — All parsers and validators use `ConfigParsingContext` for error accumulation. Use
-  `ctx.parse { }` to catch `ConfigurationException` automatically, `ctx.addError()` for explicit validation errors,
-  `ctx.child()` + `ctx.merge()` for sub-sections.
-- **Config vs Manager separation** — Config factories validate YAML input only (no HTTP calls, no external
-  interactions). Runtime operations (e.g. OpenID Connect discovery) belong in the manager layer. Error message keys must
-  reflect where they occur (`config.*` for validation errors, `provider.*` for runtime errors).
+`OAuth2` not `Oauth2`; `OpenIdConnect` not `Oidc` or `OpenId` (the YAML key `oidc` is the one
+exception). `…OrNull` for a nullable-returning method, with a throwing twin that delegates to it.
+`updateXxx(@Id id, …)` on a repository, never `And` in the name. `identifierClaims` /
+`consentedClaims` / `allClaims`, never a bare `claims`.
 
-#### Business (com.sympauthy.business)
+## The wire — `docs/api-standard.md`, `docs/exception-code-standard.md`
 
-- **Business manager guidelines**: https://sympauthy.github.io/contributing/backend/how-to-write-a-business-manager.html
-- **Managers never return entities** — only `business.model` types are exposed to controllers
-- **Exception factory methods** — `businessExceptionOf()`, `recoverableBusinessExceptionOf()` (user-retryable),
-  `internalBusinessExceptionOf()` (server errors). Error messages in `error_messages.properties`
-- **OAuth2 managers may throw `OAuth2Exception`** — managers under `business.manager.auth.oauth2` (e.g. `TokenManager`,
-  `TokenExchangeManager`) are an intentional exception to the "managers throw business exceptions" rule: they may throw
-  `OAuth2Exception` directly (via `oauth2ExceptionOf(...)`) so the standardized OAuth2 error code (`invalid_grant`,
-  `invalid_request`, `invalid_target`, `access_denied`, …) is emitted per the OAuth2 / RFC 8693 specification rather
-  than being flattened to a single code at the controller boundary.
-- **Error message placeholders** — Never use `'` (single quote) before `{` in `error_messages.properties` because the
-  MessageSource interprets `'{...}'` as a literal string and does not perform placeholder replacement. Write `{scope}`
-  directly, not `'{scope}'`.
-- **Collected claim list naming** — Use `identifierClaims` for claims that identify the user (fetched via
-  `findIdentifierByUserId`), `consentedClaims` for claims filtered by consented scopes, and `allClaims` only when all
-  claims are present without consent filtering (e.g. admin code).
+- **303, never 307.** OAuth 2.1 forbids it; a 307 resubmits the credentials.
+- snake_case JSON set explicitly; **nulls are omitted, not sent**; path parameters are camelCase.
+- No `PUT`; `PATCH` for partial updates; `DELETE` returns 204.
+- An error code *is* a message-bundle key, and `description.<code>` is its end-user twin. Renaming
+  one is a breaking API change.
+- `businessExceptionOf` / `recoverableBusinessExceptionOf` / `internalBusinessExceptionOf` — the
+  question is whether the caller could send something else.
 
-#### Data (com.sympauthy.data)
+## Database — `docs/database-standard.md`
 
-- **Repository update methods** — `suspend fun updateXxx(@Id id: UUID, xxx: T)`. Never use `And` in update method names.
-  `delete()` returns `Int` in Micronaut Data 4.x
-- **DB-specific repository implementations** — Each repository interface in `data/repository/` must have a PostgreSQL
-  and H2 implementation in `data/postgresql/repository/` and `data/h2/repository/`. These are empty interfaces extending
-  the base repository, annotated with `@R2dbcRepository(dialect = ...)` and
-  `@Requires(condition = DefaultDataSourceIsPostgreSQL/H2::class)`.
+Every migration exists **twice**, same name, one per dialect folder; only the dialect's spelling
+differs. A constraint one dialect cannot express holds only on the other, so the schema is never the
+whole argument — the rule also lives in the manager. Before 1.0, edit a `_new` file in place rather
+than adding an `_edit`.
 
-#### Others
+## Testing — `docs/testing-standard.md`
 
-- **Naming conventions for protocols** — Use `OAuth2` (not `Oauth2`) and `OpenIdConnect` (not `Oidc` or `OpenId`) in
-  class names, method names, and packages. Examples: `ProviderOAuth2Config`,
-  `InteractiveAuthFlowSessionOAuth2ProviderManager`, `OpenIdConnectDiscoveryClient`, `ProviderOpenIdConnectConfig`. The
-  YAML config key `oidc` is kept as shorthand for user-facing configuration.
-- **Nullable methods use `OrNull` suffix** — e.g., `findByCodeOrNull()` returns `T?`
-- **All async operations prefer `suspend` functions** — no callbacks or reactive streams. Wrap blocking third-party
-  calls (e.g. Nimbus `JWKSourceBuilder`) in `withContext(Dispatchers.IO)`.
-- **Prefer DB storage over JWT embedding for transient flow state** — Store nonces, provider IDs, verifiers in the
-  database (e.g. the `interactive_flow_session_oauth2` / `interactive_flow_session_provider` tables). Keep only the
-  minimal identifying data (e.g. a UUID / jti) and reconstruct the full value at runtime when needed.
-- **MapStruct mappers** — See [Libraries](#libraries). New `*Impl` classes must be registered in
-  `META-INF/native-image/.../reflect-config.json` for native image support
+JUnit 5 + MockK, `runTest`, tests named `` `method - case` ``. Do not verify a call the assertion
+already proves. Integration tests: one class per feature or risk with happy and negative paths
+together, driven through the generated client, parameterized over both databases.
 
-### Scope Type Hierarchy
+## Writing — `docs/comment-standard.md`, `docs/docs-standard.md`
 
-Scopes use a sealed class hierarchy (`Scope` → `ConsentableUserScope`, `GrantableUserScope`, `ClientScope`). Consentable
-scopes come from user consent, grantable scopes from rules/auto-grant, client scopes are for `client_credentials` flows
-only.
+A comment carries only what the reader cannot get from the code, the framework's documentation, or a
+standard. Never paraphrase an annotation; never restate a convention. KDoc on declarations, `//`
+only inside a body, property docs above the property.
 
-### Interactive Flow Session
-
-The interactive end-user flow is a **purpose-agnostic engine** built around the sealed `InteractiveFlowSession`
-primitive (`business/model/flow/`, subtypes `OnGoing`/`Completed`/`Failed`, `Expirable`). This replaced the old
-`AuthorizeAttempt`. The session carries only **flow-generic state** (id, `type`, `flowId`, `sessionDate`,
-`expirationDate`, `userId`, MFA, terminal status). Each concern-specific piece of state lives in its **own record keyed
-by `session_id`**, fetched on demand via its manager — never carried on the session:
-
-- **`InteractiveFlowSessionOAuth2`** — the client's OAuth2 request context (clientId, redirectUri, requestedScopes,
-  PKCE, nonce, invitation) + consent/grant. Fetched via `InteractiveFlowSessionOAuth2Manager.fetchOAuth2(session)`.
-- **`InteractiveFlowSessionProvider`** — third-party-provider authorization state (providerId + OIDC nonce jti).
-  Fetched via `InteractiveFlowSessionProviderManager.fetchProviderOrNull(session)`.
-
-**Three managers, split by concern** (`business/manager/flow/`):
-
-- `InteractiveFlowSessionManager` — session lifecycle + the signed `state` JWT
-  (`encodeState` / `verifyEncodedInternalState`, subject = session id). Owns `VerifyEncodedStateResult`.
-- `InteractiveFlowSessionOAuth2Manager` — `@Transactional open suspend startOAuth2Session` creates the session + its
-  OAuth2 record in one transaction; also fetch / consent / grant / replay checks.
-- `InteractiveFlowSessionProviderManager` — `setProvider` upsert, fetch, nonce reconstruction.
-
-**Package split (engine vs consumer):**
-
-- `business.manager.flow` — the **generic engine**: the `InteractiveFlowSession*` managers above +
-  `InteractiveFlowSessionCleaner` + the generic `AuthorizationFlowManager`.
-- `business.manager.flow.mfa` — **generic flow steps** (MFA is a step of the session, not auth-specific):
-  `InteractiveFlowSessionMfaManager`, `InteractiveFlowSession{TotpChallenge,TotpEnrollment}Manager`.
-- `business.manager.flow.auth` — the **OAuth2 / web-authorization consumer** of the engine, named
-  `InteractiveAuthFlowSession*`: `Manager`, `RedirectUriBuilder`, `PasswordManager`, `OAuth2ProviderManager`,
-  `ClaimValidationManager`; its controller helper `InteractiveAuthFlowSessionControllerUtil` lives in
-  `api.controller.flow.auth`.
-
-**Model naming** (`business/model/flow/`): `InteractiveFlow` / `InteractiveFlowStatus` are the generic interactive-flow
-definition (step URIs) + status — an interactive flow may host authorization, reset-password, or other feature steps, so
-they are kept generic. Distinct from the sealed base `AuthorizationFlow` (+ `NonInteractiveAuthorizationFlow`).
-
-**Conventions to preserve:**
-
-- Every table that references a session uses the `session_id` column / `sessionId` field — `authentication_tokens`
-  (not a DB FK), `authorization_codes`, `validation_codes`, plus the two attached-record tables.
-- A **failed** session never fetches an OAuth2 record — the failed path uses only `id` + `flowId` (→ error page); OAuth2
-  is read only on the ongoing/completed path, where the record always exists.
-- OAuth2 fields (clientId, scopes, consent, grant, PKCE) and provider fields are **fetched via the managers**, never
-  read off the session object.
-- **Pass the required subpart alongside the session to avoid refetching.** When a manager method needs an attached
-  record (OAuth2 / provider) that the caller already holds — or that a validation step just fetched — accept it as a
-  (possibly nullable) parameter and validate it there, rather than each method re-fetching it. Example:
-  `checkCanIssueToken(session, oauth2, client)` validates the nullable OAuth2 record and returns it non-null, and
-  `generateTokens(session, oauth2, client)` takes that record so the token endpoint reads it once. Keep the fetch at
-  the top of a request/flow and thread the record downward.
-
-## Libraries
-
-- **JWT / JWK**: Nimbus JOSE JWT (`com.nimbusds:nimbus-jose-jwt`, transitive via `micronaut-security-jwt`). Use for all
-  JWT signing, verification, JWKS serialization, and JWK operations. Do not introduce other JWT libraries (e.g. Auth0
-  java-jwt, jose4j, jjwt).
-- **Cryptographic primitives**: BouncyCastle (`org.bouncycastle:bcprov-jdk18on`) and standard JCA (`java.security`).
-- **Object mapping**: MapStruct (compile-time code generation). New `*Impl` classes must be registered in
-  `reflect-config.json` for native image support.
-- **Database**: Micronaut Data R2DBC with Flyway migrations.
-- **Testing**: JUnit 5 + MockK.
-
-## Database
-
-- **PostgreSQL** (production) and **H2** (development) via R2DBC
-- **Flyway migrations** in `server/src/main/resources/databases/postgresql/` and `databases/h2/` (both must be kept in
-  sync)
-- Migration naming: `V{major}_{minor}_{patch}_{sequence}__{table_name}_{new|edit}.sql`
-  - Version reflects the SympAuthy version from `build.gradle.kts` (e.g., `0_5_0` for version `0.5.0`)
-  - `_new` suffix: full CREATE TABLE + indexes (one file per table, always reflects the complete current state)
-  - `_edit` suffix: ALTER TABLE changes for future incremental modifications
-  - Example: `V0_5_0_1__users_new.sql`, `V0_6_0_1__users_edit.sql`
-
-## Configuration
-
-- External config via `MICRONAUT_CONFIG_FILES` env var pointing to a YAML file (typically `config/application.yml`)
-- Environment profiles via `MICRONAUT_ENVIRONMENTS` (e.g., `default,admin,mail,discord`)
-- `server/src/main/resources/application-default.yml` contains default values; environment-specific files (
-  `application-admin.yml`, etc.) overlay them
-
-## Testing
-
-- **JUnit 5 + MockK** with `@ExtendWith(MockKExtension::class)`
-- `@MockK` for dependencies, `@InjectMockKs` for auto-wiring the class under test
-- `runTest { }` for suspend function tests, `coEvery { }` / `coVerify { }` for suspend mocks
-- Tests mirror main package structure in `server/src/test/kotlin/`
-- **No redundant `verify(exactly = 1)` for stubbed methods** — when a method is stubbed with `every` / `coEvery` and its
-  behavior drives the asserted outcome (e.g. the stub throws the caught exception, or its return value is asserted), do
-  not add a `verify(exactly = 1)` / `coVerify(exactly = 1)` for that same call. Reaching the assertion already proves
-  the call happened, and the MockK extension's unnecessary-stub check flags an unused stub. Keep `exactly = 0`
-  verifications, which assert a method was *not* called — no stub covers that.
-
-## Code Documentation
-
-- **KDoc standard** — Use KDoc for code documentation. Place property documentation above each property, not as
-  `@property` tags in the class-level KDoc.
-
-## Documentation
-
-- **Functional documentation**: https://sympauthy.github.io/documentation/functional/
-- **Contributing guidelines**: https://sympauthy.github.io/documentation/contributing/
+**In `docs/`, a description names real code and a standard does not.** A standard states its rule as
+a shape — `…Manager`, `find…OrNull()` — because an example lifted from the codebase rots without
+anything failing. A new document is added to `docs/index.md` and, if it is a standard, symlinked
+into `.claude/rules/`.
