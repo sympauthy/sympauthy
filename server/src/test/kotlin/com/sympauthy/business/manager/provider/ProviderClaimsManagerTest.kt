@@ -35,23 +35,25 @@ class ProviderClaimsManagerTest {
     lateinit var manager: ProviderClaimsManager
 
     private val userId: UUID = UUID.randomUUID()
-    private val linkDate: LocalDateTime = LocalDateTime.of(2026, 1, 15, 14, 30, 0)
     private val claims = RawProviderClaims(subject = "123456789012345678")
+
+    /**
+     * Derived from the clock rather than a calendar date, so an assertion that a freshly-taken date is
+     * after it tests the subject rather than the machine the suite runs on.
+     */
+    private val linkDate: LocalDateTime = LocalDateTime.now().minusMonths(6)
 
     private fun mockProvider(id: String = "discord") = mockk<EnabledProvider> {
         every { this@mockk.id } returns id
     }
 
-    private fun mockExistingUserInfo(
-        changeDate: LocalDateTime = linkDate,
-        userInfo: RawProviderClaims = claims
-    ) = ProviderUserInfo(
+    private fun mockExistingUserInfo() = ProviderUserInfo(
         providerId = "discord",
         userId = userId,
         linkDate = linkDate,
         fetchDate = linkDate,
-        changeDate = changeDate,
-        userInfo = userInfo
+        changeDate = linkDate,
+        userInfo = claims
     )
 
     @Test
@@ -69,7 +71,7 @@ class ProviderClaimsManagerTest {
         manager.saveUserInfo(mockProvider(), userId, claims)
 
         assertTrue(linkDateSlot.captured >= before)
-        assertEquals(fetchDateSlot.captured, linkDateSlot.captured)
+        assertEquals(linkDateSlot.captured, fetchDateSlot.captured)
     }
 
     @Test
@@ -86,7 +88,7 @@ class ProviderClaimsManagerTest {
         manager.refreshUserInfo(existingUserInfo, claims.copy(nickname = "renamed"))
 
         assertEquals(linkDate, linkDateSlot.captured)
-        assertTrue(fetchDateSlot.captured > linkDate)
+        assertTrue(fetchDateSlot.captured > existingUserInfo.fetchDate)
     }
 
     @Test
@@ -100,9 +102,9 @@ class ProviderClaimsManagerTest {
         coEvery { userInfoRepository.update(entity) } returns entity
 
         manager.refreshUserInfo(existingUserInfo, claims)
-        assertEquals(linkDate, changeDateSlot.captured)
+        assertEquals(existingUserInfo.changeDate, changeDateSlot.captured)
 
         manager.refreshUserInfo(existingUserInfo, claims.copy(nickname = "renamed"))
-        assertTrue(changeDateSlot.captured > linkDate)
+        assertTrue(changeDateSlot.captured > existingUserInfo.changeDate)
     }
 }

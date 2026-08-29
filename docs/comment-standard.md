@@ -103,12 +103,11 @@ not the compiler, not Flyway, not a test — ever compares their prose. A commen
 dialect and right in the other is worse than no comment at all, because a reader has no way to tell
 which of the two they opened.
 
-**What a column means goes on the business model, and only there.** Not on the migration, and not
-on the [entity](data-layer-code-standard.md#the-entity), which mirrors the column rather than the
-domain and so has nothing to say about what the value means. The model is the one declaration every
-value passes through before it reaches the table, it is what an IDE shows at the call site, and
-there is exactly one of it — which is the whole argument. Where a column's *shape* is what needs
-explaining rather than its meaning, that is a rule about the schema and belongs to
+**The rationale a migration would have carried goes on the business model.** A column that needs
+explaining is a property that needs explaining, and the model is the declaration every value passes
+through on its way to the table — written once, and the one an IDE shows at the call site where the
+value is being decided. Where a column's *shape* is what needs explaining rather than what it means,
+that is a rule about the schema and belongs to
 [the database standard](database-standard.md).
 
 **A message in a bundle is documented by being written well.** The technical half already explains
