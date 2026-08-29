@@ -30,6 +30,7 @@ import io.mockk.junit5.MockKExtension
     startApplication = false
 )
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class AuthorizationWebhookClientTest {
 
     @Inject

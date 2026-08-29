@@ -14,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import java.util.Optional
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class StateAuthenticationFetcherTest {
 
     private val fetcher = StateAuthenticationFetcher()

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class MfaChallengeInteractiveFlowPurposeHandlerTest {
 
     private val handler = MfaChallengeInteractiveFlowPurposeHandler()

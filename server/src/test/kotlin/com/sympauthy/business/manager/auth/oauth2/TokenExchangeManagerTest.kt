@@ -32,6 +32,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class TokenExchangeManagerTest {
 
     // Clear the global MockK registry after each test so inline mocks with per-test-only stubs do not leak into

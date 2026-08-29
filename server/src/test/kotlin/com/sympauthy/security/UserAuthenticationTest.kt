@@ -1,31 +1,27 @@
 package com.sympauthy.security
 
 import com.sympauthy.business.model.oauth2.AdminScopeId
-import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.ConsentableUserScope
 import com.sympauthy.business.model.oauth2.GrantableUserScope
 import com.sympauthy.security.SecurityRule.IS_ADMIN
 import com.sympauthy.security.SecurityRule.IS_USER
-import io.mockk.every
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
-import java.util.*
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class UserAuthenticationTest {
 
     private fun createAuthentication(
         consentedScopes: List<com.sympauthy.business.model.oauth2.Scope> = emptyList(),
         grantedScopes: List<com.sympauthy.business.model.oauth2.Scope> = emptyList()
     ): UserAuthentication {
-        val token = mockk<AuthenticationToken> {
-            every { userId } returns UUID.randomUUID()
-        }
         return UserAuthentication(
-            authenticationToken = token,
+            // Only the name of an authentication is read off its token, and nothing here asks for it.
+            authenticationToken = mockk(),
             consentedScopes = consentedScopes,
             grantedScopes = grantedScopes
         )

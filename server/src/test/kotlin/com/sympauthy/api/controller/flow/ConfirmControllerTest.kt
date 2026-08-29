@@ -27,6 +27,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import java.net.URI
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class ConfirmControllerTest {
 
     @MockK
@@ -52,7 +53,6 @@ class ConfirmControllerTest {
             }
             every { session.purposes } returns
                 listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.MFA_ENROLLMENT)
-            every { session.completedPurposes } returns emptyList()
             coEvery { confirmManager.fetchConfirmOrNull(session) } returns confirm
             coEvery {
                 interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenRunAndRedirect<ConfirmFlowResource, ConfirmFlowResource>(

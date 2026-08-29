@@ -31,6 +31,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class AuthorizationWebhookUserScopeGrantingManagerTest {
 
     @MockK
@@ -60,12 +61,15 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
     private val scope1 = GrantableUserScope("scope1", discoverable = false)
     private val scope2 = GrantableUserScope("scope2", discoverable = false)
 
-    private fun mockSession(
-        clientId: String = "test-client",
-        userId: UUID = UUID.randomUUID()
-    ): OnGoingInteractiveFlowSession {
+    private fun mockSession(clientId: String = "test-client"): OnGoingInteractiveFlowSession {
+        val session = mockSessionWithoutUser(clientId)
+        every { session.userId } returns UUID.randomUUID()
+        return session
+    }
+
+    /** A session whose user is never read, because nothing gets as far as calling a webhook with it. */
+    private fun mockSessionWithoutUser(clientId: String = "test-client"): OnGoingInteractiveFlowSession {
         val session = mockk<OnGoingInteractiveFlowSession>()
-        every { session.userId } returns userId
         coEvery { oauth2Manager.fetchOAuth2(session) } returns InteractiveFlowSessionOAuth2(
             sessionId = UUID.randomUUID(),
             clientId = clientId,
@@ -103,7 +107,7 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
 
     @Test
     fun `applyAuthorizationWebhookScopeGranting - returns empty result when no webhook configured`() = runTest {
-        val session = mockSession()
+        val session = mockSessionWithoutUser()
         val client = mockClient()
         coEvery { clientManager.findClientById("test-client") } returns client
 

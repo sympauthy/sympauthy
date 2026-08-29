@@ -17,6 +17,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class ActAsRuleExpressionExecutorTest {
 
     private val executor = ActAsRuleExpressionExecutor()

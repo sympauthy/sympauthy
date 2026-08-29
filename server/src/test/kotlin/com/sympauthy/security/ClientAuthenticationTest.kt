@@ -13,18 +13,19 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class ClientAuthenticationTest {
 
-    private fun createAuthentication(scopes: List<Scope>): ClientAuthentication {
-        val token = mockk<AuthenticationToken> {
-            every { clientId } returns "test-client"
-        }
-        return ClientAuthentication(authenticationToken = token, scopes = scopes)
-    }
+    /** The roles are derived from the scopes alone; only the name is read off the token. */
+    private fun createAuthentication(scopes: List<Scope>): ClientAuthentication =
+        ClientAuthentication(authenticationToken = mockk(), scopes = scopes)
 
     @Test
     fun `getName - Returns clientId`() {
-        val auth = createAuthentication(emptyList())
+        val token = mockk<AuthenticationToken> { every { clientId } returns "test-client" }
+
+        val auth = ClientAuthentication(authenticationToken = token, scopes = emptyList())
+
         assertEquals("test-client", auth.name)
     }
 
