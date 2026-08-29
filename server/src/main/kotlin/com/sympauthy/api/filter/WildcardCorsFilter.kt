@@ -7,6 +7,7 @@ import io.micronaut.http.filter.HttpServerFilter
 import io.micronaut.http.filter.ServerFilterChain
 import io.micronaut.http.filter.ServerFilterPhase
 import io.reactivex.rxjava3.core.Flowable
+import jakarta.inject.Inject
 import org.reactivestreams.Publisher
 import kotlin.jvm.optionals.getOrNull
 
@@ -21,12 +22,16 @@ import kotlin.jvm.optionals.getOrNull
  * - **No `Origin` header** — not a browser CORS request; passed through unchanged.
  * - **OPTIONS preflight** — short-circuited with `200` and wildcard CORS headers.
  * - **Regular request with `Origin`** — proceeds through the chain; wildcard CORS header appended.
+ *
+ * The set of allowed request headers is uniform across all paths and defined by [CorsPreflightHeaders].
  */
 @Filter(
     "/.well-known/**",
     "/api/oauth2/**"
 )
-class WildcardCorsFilter : HttpServerFilter, Ordered {
+class WildcardCorsFilter(
+    @Inject private val corsPreflightHeaders: CorsPreflightHeaders
+) : HttpServerFilter, Ordered {
 
     override fun getOrder(): Int = ServerFilterPhase.FIRST.before()
 
@@ -39,33 +44,24 @@ class WildcardCorsFilter : HttpServerFilter, Ordered {
 
         if (request.method == HttpMethod.OPTIONS) {
             val response = HttpResponse.ok<Any>()
-            addCorsHeaders(response, request, preflight = true)
+            addCorsHeaders(response, preflight = true)
             return Flowable.just(response)
         }
 
         return Flowable.fromPublisher(chain.proceed(request)).map { response ->
-            addCorsHeaders(response, request, preflight = false)
+            addCorsHeaders(response, preflight = false)
             response
         }
     }
 
-    private fun addCorsHeaders(response: MutableHttpResponse<*>, request: HttpRequest<*>, preflight: Boolean) {
+    private fun addCorsHeaders(response: MutableHttpResponse<*>, preflight: Boolean) {
         response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
         if (preflight) {
-            response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, OPTIONS")
-            // The token endpoint accepts the DPoP header for sender-constrained tokens (RFC 9449).
-            // https://datatracker.ietf.org/doc/html/rfc9449#section-5
-            val allowedHeaders = if (request.path == TOKEN_ENDPOINT) {
-                "Content-Type, Authorization, DPoP"
-            } else {
-                "Content-Type, Authorization"
-            }
-            response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, allowedHeaders)
-            response.headers.add(HttpHeaders.ACCESS_CONTROL_MAX_AGE, "86400")
+            corsPreflightHeaders.apply(response, ALLOWED_METHODS)
         }
     }
 
     companion object {
-        private const val TOKEN_ENDPOINT = "/api/oauth2/token"
+        private const val ALLOWED_METHODS = "GET, POST, OPTIONS"
     }
 }

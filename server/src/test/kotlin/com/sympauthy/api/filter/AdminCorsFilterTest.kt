@@ -16,6 +16,9 @@ class AdminCorsFilterTest : AbstractFlowIntegrationTest() {
     private val unknownOrigin = "http://evil.example.com"
     private val adminPath = "/api/v1/admin/clients"
 
+    /** Mandatory headers, then cors.allowed-headers as declared in application-default.yml. */
+    private val expectedAllowedHeaders = "Content-Type, Authorization, DPoP, X-Requested-With"
+
     @Test
     fun `OPTIONS preflight with allowed origin returns 200 with CORS headers`() {
         val request = HttpRequest.OPTIONS<Any>(adminPath)
@@ -27,7 +30,7 @@ class AdminCorsFilterTest : AbstractFlowIntegrationTest() {
         assertEquals(200, response.status.code)
         assertEquals(allowedOrigin, response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN])
         assertNotNull(response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS])
-        assertNotNull(response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS])
+        assertEquals(expectedAllowedHeaders, response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS])
         assertNotNull(response.headers[HttpHeaders.ACCESS_CONTROL_MAX_AGE])
     }
 

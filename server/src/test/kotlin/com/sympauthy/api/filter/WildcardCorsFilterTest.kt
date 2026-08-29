@@ -17,6 +17,9 @@ class WildcardCorsFilterTest : AbstractFlowIntegrationTest() {
     private val tokenPath = "/api/oauth2/token"
     private val revokePath = "/api/oauth2/revoke"
 
+    /** Mandatory headers, then cors.allowed-headers as declared in application-default.yml. */
+    private val expectedAllowedHeaders = "Content-Type, Authorization, DPoP, X-Requested-With"
+
     // -- Discovery endpoints --
 
     @Test
@@ -31,6 +34,7 @@ class WildcardCorsFilterTest : AbstractFlowIntegrationTest() {
         assertEquals("*", response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN])
         assertNotNull(response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS])
         assertNotNull(response.headers[HttpHeaders.ACCESS_CONTROL_MAX_AGE])
+        assertEquals(expectedAllowedHeaders, response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS])
     }
 
     @Test
@@ -59,6 +63,8 @@ class WildcardCorsFilterTest : AbstractFlowIntegrationTest() {
 
         assertEquals(200, response.status.code)
         assertEquals("*", response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN])
+        // DPoP is advertised on every tier, not only on the token endpoint.
+        assertEquals(expectedAllowedHeaders, response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS])
     }
 
     // -- OAuth2 endpoints --
@@ -75,6 +81,7 @@ class WildcardCorsFilterTest : AbstractFlowIntegrationTest() {
         assertEquals("*", response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN])
         assertNotNull(response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS])
         assertNotNull(response.headers[HttpHeaders.ACCESS_CONTROL_MAX_AGE])
+        assertEquals(expectedAllowedHeaders, response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS])
     }
 
     @Test
@@ -108,6 +115,8 @@ class WildcardCorsFilterTest : AbstractFlowIntegrationTest() {
 
         assertEquals(200, response.status.code)
         assertEquals("*", response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN])
+        // DPoP is advertised on every tier, not only on the token endpoint.
+        assertEquals(expectedAllowedHeaders, response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS])
     }
 
     private fun exchange(request: HttpRequest<*>): HttpResponse<*> = try {
