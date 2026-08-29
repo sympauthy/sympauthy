@@ -8,4 +8,6 @@ import java.util.*
 interface UserRepository : CoroutineCrudRepository<UserEntity, UUID> {
 
     fun findByStatus(status: String): Flow<UserEntity>
+
+    suspend fun findByIdInList(id: List<UUID>): List<UserEntity>
 }

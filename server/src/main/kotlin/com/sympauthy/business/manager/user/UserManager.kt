@@ -44,6 +44,17 @@ open class UserManager(
     }
 
     /**
+     * List the end-users identified by [ids], in no particular order. An id matching no row is absent
+     * from the result rather than an error, so the result may be shorter than [ids].
+     */
+    suspend fun listByIds(ids: List<UUID>): List<User> {
+        if (ids.isEmpty()) {
+            return emptyList()
+        }
+        return userRepository.findByIdInList(ids).map(userMapper::toUser)
+    }
+
+    /**
      * Find an end-user whose collected claims match ALL entries in [claimValues].
      * Returns the first matching user, or null if none found.
      */

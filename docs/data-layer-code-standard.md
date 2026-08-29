@@ -100,6 +100,13 @@ compile error; it produces a binding failure at runtime, which is why the
 [testing standard](testing-standard.md) asks for a repository test against a real database rather
 than a mock for anything raw.
 
+**An optional parameter is folded into its comparison, not tested for null beside it.** The obvious
+spelling — the parameter is null, *or* the column equals it — gives that parameter a use carrying
+no type at all, and where that is its only use a driver has nothing to bind it from. Coalescing the
+absent parameter to the column instead leaves one typed use and degenerates to a tautology, which
+selects everything without asking either dialect to infer anything. This works only where the column
+is `NOT NULL`; where it is not, the predicate is written out once per case rather than made clever.
+
 **A criteria query is an extension function on the repository interface**, in the same file. It
 keeps the composed query beside the declared ones instead of in a manager, and it reads at the call
 site as another method on the repository — which is what it is, minus the framework's ability to

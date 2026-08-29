@@ -99,6 +99,49 @@ open class ConsentManager(
     }
 
     /**
+     * List one page of the active (non-revoked) consents granted for [audienceId], oldest consent first,
+     * skipping [page] pages of [size] consents each. [page] is 0-based.
+     *
+     * When [providerId] is given, only the consents of users linked to that provider are returned, and
+     * [subject] then narrows those to the single link carrying it. [subject] is only read when
+     * [providerId] is given; on its own it selects nothing and is ignored.
+     *
+     * The order is total. Use [countActiveConsentsByAudience] with the same filter for how many pages
+     * there are.
+     */
+    suspend fun listActiveConsentsByAudience(
+        audienceId: String,
+        providerId: String?,
+        subject: String?,
+        page: Int,
+        size: Int
+    ): List<Consent> {
+        val offset = page * size
+        val entities = if (providerId == null) {
+            consentRepository.findActiveByAudienceId(audienceId, size, offset)
+        } else {
+            consentRepository.findActiveByAudienceIdAndProvider(audienceId, providerId, subject, size, offset)
+        }
+        return entities.map(consentMapper::toConsent)
+    }
+
+    /**
+     * Count the active (non-revoked) consents granted for [audienceId], under the same [providerId] and
+     * [subject] filter [listActiveConsentsByAudience] applies.
+     */
+    suspend fun countActiveConsentsByAudience(
+        audienceId: String,
+        providerId: String?,
+        subject: String?
+    ): Long {
+        return if (providerId == null) {
+            consentRepository.countActiveByAudienceId(audienceId)
+        } else {
+            consentRepository.countActiveByAudienceIdAndProvider(audienceId, providerId, subject)
+        }
+    }
+
+    /**
      * Revoke the given [consent] and all associated refresh tokens for this user+client pair.
      */
     @Transactional

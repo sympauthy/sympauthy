@@ -34,7 +34,8 @@ class ClientUserController(
 ) {
 
     @Operation(
-        description = "Retrieve a paginated list of end-users who have granted scopes to the requesting client.",
+        description = "Retrieve a paginated list of end-users who have granted scopes to the requesting client, " +
+                "ordered by the date they consented, oldest first.",
         tags = ["client"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of users."),

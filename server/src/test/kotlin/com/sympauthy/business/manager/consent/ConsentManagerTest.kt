@@ -106,6 +106,50 @@ class ConsentManagerTest {
     }
 
     @Test
+    fun `listActiveConsentsByAudience - Turns the page and its size into an offset`() = runTest {
+        val entity = mockk<ConsentEntity>()
+        val consent = mockk<Consent>()
+
+        coEvery { consentRepository.findActiveByAudienceId(audienceId, 20, 60) } returns listOf(entity)
+        every { consentMapper.toConsent(entity) } returns consent
+
+        val result = consentManager.listActiveConsentsByAudience(audienceId, null, null, page = 3, size = 20)
+
+        assertEquals(listOf(consent), result)
+    }
+
+    @Test
+    fun `listActiveConsentsByAudience - Passes the provider and the subject to the filtered query`() = runTest {
+        val entity = mockk<ConsentEntity>()
+        val consent = mockk<Consent>()
+
+        coEvery {
+            consentRepository.findActiveByAudienceIdAndProvider(audienceId, "discord", "123", 20, 0)
+        } returns listOf(entity)
+        every { consentMapper.toConsent(entity) } returns consent
+
+        val result = consentManager.listActiveConsentsByAudience(audienceId, "discord", "123", page = 0, size = 20)
+
+        assertEquals(listOf(consent), result)
+    }
+
+    @Test
+    fun `countActiveConsentsByAudience - Counts every consent of the audience when unfiltered`() = runTest {
+        coEvery { consentRepository.countActiveByAudienceId(audienceId) } returns 42L
+
+        assertEquals(42L, consentManager.countActiveConsentsByAudience(audienceId, null, null))
+    }
+
+    @Test
+    fun `countActiveConsentsByAudience - Counts under the same filter as the page`() = runTest {
+        coEvery {
+            consentRepository.countActiveByAudienceIdAndProvider(audienceId, "discord", "123")
+        } returns 7L
+
+        assertEquals(7L, consentManager.countActiveConsentsByAudience(audienceId, "discord", "123"))
+    }
+
+    @Test
     fun `revokeConsent - Revokes consent and tokens`() = runTest {
         val consentId = UUID.randomUUID()
         val adminId = UUID.randomUUID()

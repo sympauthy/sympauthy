@@ -2,8 +2,11 @@ package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
+import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.provider.ProviderUserInfo
 import com.sympauthy.business.model.user.ClientUser
+import com.sympauthy.business.model.user.CollectedClaim
+import com.sympauthy.business.model.user.User
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.util.*
@@ -20,10 +23,16 @@ class ClientUserManager(
 ) {
 
     /**
-     * List users who have active consents for the given [audienceId].
-     * Optionally filters by [providerId] and [subject].
+     * List one page of the users holding an active consent for [audienceId], oldest consent first, and how
+     * many users the same filter matches in total.
      *
-     * Returns a pair of (paginated users, total count).
+     * [providerId] restricts the page to users linked to that provider, and [subject] narrows it further to
+     * the single link carrying it; [subject] is only read when [providerId] is given. [page] is 0-based and
+     * [size] is the number of users a page holds.
+     *
+     * The page is assembled by reading the consents in order and attaching what each user needs, rather
+     * than by ordering what the attached reads returned: the batch reads answer for a set of users and say
+     * nothing about their order.
      */
     suspend fun listUsersForAudience(
         audienceId: String,
@@ -32,60 +41,34 @@ class ClientUserManager(
         page: Int,
         size: Int
     ): Pair<List<ClientUser>, Int> {
-        val consents = consentManager.findActiveConsentsByAudience(audienceId)
-        if (consents.isEmpty()) {
+        val total = consentManager.countActiveConsentsByAudience(audienceId, providerId, subject)
+        if (total == 0L) {
             return emptyList<ClientUser>() to 0
         }
 
-        val userIds = consents.map { it.userId }
-        val consentByUserId = consents.associateBy { it.userId }
+        val consents = consentManager.listActiveConsentsByAudience(audienceId, providerId, subject, page, size)
+        if (consents.isEmpty()) {
+            return emptyList<ClientUser>() to total.toInt()
+        }
 
-        // Load providers for all users
+        val userIds = consents.map(Consent::userId)
+        val usersById = userManager.listByIds(userIds).associateBy(User::id)
+        val identifierClaimsByUserId = collectedClaimManager.listIdentifierByUserIds(userIds)
+            .groupBy(CollectedClaim::userId)
         val providersByUserId = providerClaimsManager.listByUserIds(userIds)
             .groupBy(ProviderUserInfo::userId)
 
-        // Filter by provider_id and subject if specified
-        val filteredUserIds = if (providerId != null) {
-            providersByUserId.entries
-                .filter { (_, providers) ->
-                    providers.any { provider ->
-                        provider.providerId == providerId &&
-                                (subject == null || provider.userInfo.subject == subject)
-                    }
-                }
-                .map { it.key }
-        } else {
-            userIds
-        }
-
-        val total = filteredUserIds.size
-
-        // Paginate
-        val pagedUserIds = filteredUserIds
-            .drop(page * size)
-            .take(size)
-
-        if (pagedUserIds.isEmpty()) {
-            return emptyList<ClientUser>() to total
-        }
-
-        // Load users and identifier claims for the page
-        val users = pagedUserIds.mapNotNull { userManager.findByIdOrNull(it) }
-        val identifierClaimsByUserId = pagedUserIds.associateWith { userId ->
-            collectedClaimManager.findIdentifierByUserId(userId)
-        }
-
-        val clientUsers = users.mapNotNull { user ->
-            val consent = consentByUserId[user.id] ?: return@mapNotNull null
+        val clientUsers = consents.mapNotNull { consent ->
+            val user = usersById[consent.userId] ?: return@mapNotNull null
             ClientUser(
                 user = user,
-                identifierClaims = identifierClaimsByUserId[user.id] ?: emptyList(),
-                providers = providersByUserId[user.id] ?: emptyList(),
+                identifierClaims = identifierClaimsByUserId[consent.userId] ?: emptyList(),
+                providers = providersByUserId[consent.userId] ?: emptyList(),
                 consent = consent
             )
         }
 
-        return clientUsers to total
+        return clientUsers to total.toInt()
     }
 
     /**

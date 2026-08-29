@@ -79,6 +79,40 @@ class CollectedClaimManagerTest {
     }
 
     @Test
+    fun `listIdentifierByUserIds - Read every user's identifier claims in one query`() = runTest {
+        val userIds = listOf(UUID.randomUUID(), UUID.randomUUID())
+        val identifierClaim = mockk<Claim> { every { id } returns "email" }
+        val entity = mockk<CollectedClaimEntity>()
+        val collectedClaim = mockk<CollectedClaim>()
+
+        every { claimManager.listIdentifierClaims() } returns listOf(identifierClaim)
+        coEvery {
+            collectedClaimRepository.findByUserIdInListAndClaimInList(userIds, listOf("email"))
+        } returns listOf(entity)
+        every { collectedClaimMapper.toCollectedClaim(entity) } returns collectedClaim
+
+        val result = manager.listIdentifierByUserIds(userIds)
+
+        assertEquals(listOf(collectedClaim), result)
+    }
+
+    @Test
+    fun `listIdentifierByUserIds - Return empty without querying when userIds is empty`() = runTest {
+        val result = manager.listIdentifierByUserIds(emptyList())
+
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun `listIdentifierByUserIds - Return empty without querying when no claim identifies a user`() = runTest {
+        every { claimManager.listIdentifierClaims() } returns emptyList()
+
+        val result = manager.listIdentifierByUserIds(listOf(UUID.randomUUID()))
+
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
     fun `areAllRequiredClaimCollected - True if all required claims are collected false otherwise`() {
         val firstRequiredClaim = mockk<Claim>()
         val secondRequiredClaim = mockk<Claim>()

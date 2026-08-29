@@ -72,6 +72,30 @@ class UserManagerTest {
     }
 
     @Test
+    fun `listByIds - Return the users of the given ids`() = runTest {
+        val ids = listOf(UUID.randomUUID(), UUID.randomUUID())
+        val entity1 = mockk<UserEntity>()
+        val entity2 = mockk<UserEntity>()
+        val user1 = mockk<User>()
+        val user2 = mockk<User>()
+
+        coEvery { userRepository.findByIdInList(ids) } returns listOf(entity1, entity2)
+        every { userMapper.toUser(entity1) } returns user1
+        every { userMapper.toUser(entity2) } returns user2
+
+        val result = manager.listByIds(ids)
+
+        assertEquals(listOf(user1, user2), result)
+    }
+
+    @Test
+    fun `listByIds - Return empty without querying when ids is empty`() = runTest {
+        val result = manager.listByIds(emptyList())
+
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
     fun `findById - Return user when found`() = runTest {
         val userId = UUID.randomUUID()
         val user = mockk<User>()

@@ -131,6 +131,20 @@ are optional. The base matches the data layer underneath rather than being frien
 two numbers meet inside a manager, and an off-by-one there is a page of rows silently skipped, where
 an unfamiliar base is noticed once per client at integration time.
 
+**A paged collection is ordered on a key that is total, and the order is part of the contract.**
+Total means the tiebreak is written too: a date, a name or a status orders most rows and leaves the
+rest in whatever order they arrived in, so the key ends in something unique — the row's identifier
+will do — and two rows are never free to swap between two calls. Without that, `page` and `size`
+slice a sequence nothing promised, and a client walking the pages sees one row twice and never sees
+another. Nothing in the response says this has gone wrong, which is why it is a rule rather than
+something a reviewer notices.
+
+**The order is named in the operation's description**, because a caller cannot read it off a page.
+Named, and no more than named — what the order then guarantees is
+[not a description's to spell out](#openapi). Prefer the order rows are appended in: a newest-first
+listing shifts every page each time a row is written, so a caller mid-walk re-reads what it has
+already seen, and the shift is exactly as invisible as the missing tiebreak.
+
 ## Errors
 
 Which exception becomes which status is [the exception standard's](exception-code-standard.md). This
@@ -185,6 +199,23 @@ configured value on the way out.
 artifact.** Two annotation processors both produce a specification here, and they do not agree.
 Anyone changing an annotation and checking the result has to know which of the two they are looking
 at, and the one that matters for integrators is the published one.
+
+**A description says what the operation does and what a caller could not otherwise know. It does not
+spell out what follows.** Which order a collection comes back in has to be written, because nothing
+in the response reveals it. That the order therefore lets a caller page through the collection
+without seeing a row twice does not: it is the consequence, and an integrator who has been told the
+order works it out. The test is whether removing the sentence removes a fact or only a restatement
+of one already given.
+
+**A consequence written down is also a promise, and a wider one than the fact it came from.** The
+fact is what the endpoint returns; the sentence deriving it reads as a guarantee about how the
+endpoint behaves over a sequence of calls, which is broader, harder to keep, and is what an
+integrator will quote back when it does not hold. Descriptions are published text and are read as
+the contract, so an operation promises the least that still tells a caller what they need.
+
+**A guarantee every endpoint of a kind gives belongs in this document, not in each description.**
+Repeating it per operation makes it a sentence to keep in step across every endpoint — and the one
+that is not updated is the one an integrator relies on.
 
 ## What this standard does not cover
 

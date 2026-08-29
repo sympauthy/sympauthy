@@ -46,6 +46,30 @@ Following the rule is written by following it.
 - a coupling the reader cannot see from the file — a format another project owns, an ordering
   something downstream depends on, a row another system writes.
 
+**A declaration is documented from where it stands, never from where it is called.** What a query
+selects, what a manager enforces, what a model holds: all of it is written as a fact about the
+thing. Which endpoint, screen or use case it happens to serve is not, however illuminating it feels
+while writing the very feature that needed it.
+
+Three things go wrong when a lower layer explains itself by its caller. The description is *already*
+provisional — a repository serves whoever imports it, so the second caller arrives and the
+sentence is now half-true, with nothing failing to say so. It inverts the direction
+[the dependency rules](general-code-standard.md#dependency-rules) establish: a file that may not
+import a layer should not need that layer explained in order to be read, and a reader who follows
+the reference has gone the wrong way through the architecture. And it is the description most likely
+to be wrong for the most ordinary reason — the caller was renamed, split or deleted, and nothing
+about that change passes through this file.
+
+The pull is strongest in exactly the place the rule matters most: a query written for one endpoint,
+documented on the day that endpoint was written, by someone who has both files open. That is not
+evidence the coupling is real. **The check is whether the sentence would survive the caller being
+deleted tomorrow** — if it would not, it is describing something that is not there.
+
+The permitted form of this is narrow and points the other way: a *downstream* coupling the
+declaration is genuinely constrained by — an ordering another system depends on, a format someone
+else owns — is a fact about this declaration, and the bullet above already asks for it. The
+difference is whether the caller merely *uses* the thing or *constrains* it.
+
 **A function's KDoc documents the function, not the design.** It answers what a caller needs in
 order to call it: what it does, what it requires of its arguments, what it returns, and what it
 throws — including the error code, because a caller that has to handle a failure has to name it.
