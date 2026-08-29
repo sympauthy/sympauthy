@@ -20,12 +20,13 @@ class ClientRedirectUriManager {
 
     /**
      * Parses [uncheckedRedirectUri] and checks it against [client]'s registered redirect URIs, returning
-     * the validated [URI].
+     * the validated [URI]. One that is missing, malformed or not registered throws a [BusinessException]
+     * whose detail id says which of the three it was.
      *
-     * @param recoverable how a rejection surfaces. The browser authorize flow passes `false` — an unusable
-     *   redirect URI is a hard error it cannot safely redirect back from (HTTP 500). The client/admin APIs
-     *   pass `true` — the caller sent a bad request parameter (HTTP 400). The thrown exception's detail id
-     *   still identifies whether the URI was missing, malformed, or not registered.
+     * [recoverable] is the flag that exception carries, and it is how the rejection surfaces. The browser
+     * authorize flow passes `false` — an unusable redirect URI is a hard error it cannot safely redirect
+     * back from (HTTP 500). The client and admin APIs pass `true` — the caller sent a bad request
+     * parameter (HTTP 400).
      */
     fun parseRequestedRedirectUri(
         client: Client,

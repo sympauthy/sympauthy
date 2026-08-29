@@ -26,12 +26,13 @@ class InteractiveFlowSessionProviderManager(
 ) {
 
     /**
-     * Store the third-party provider the user is authenticating with, upserting the provider record of the
-     * [session]. For OIDC providers, generates a signed nonce JWT bound to the session.
-     * Only the random part (jti) is stored in the database; the full JWT is reconstructed on callback via
-     * [buildProviderNonceOrNull].
+     * Store the third-party provider [providerId] names as the one the user of [session] is authenticating
+     * with, upserting the session's provider record.
      *
-     * @return the full nonce JWT if [generateNonce] is true, null otherwise.
+     * An OIDC provider needs a nonce and [generateNonce] is what asks for one: it is then generated as a
+     * signed JWT bound to the session and returned, and the return is null when no nonce was asked for. Only
+     * the random part (jti) is stored in the database; the full JWT is reconstructed on callback via
+     * [buildProviderNonceOrNull], so this is the only moment a caller can obtain it.
      */
     suspend fun setProvider(
         session: OnGoingInteractiveFlowSession,

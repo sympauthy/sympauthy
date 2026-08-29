@@ -26,7 +26,16 @@ import java.security.MessageDigest
 class ProviderIdTokenManager {
 
     /**
-     * @param accessToken the access token from the token response, used to validate the `at_hash` claim if present.
+     * Verify [idTokenRaw] against [openIdConnectConfig] — its signature against the provider's JWKS, then its
+     * issuer, audience and expiry — and return the claims it carries.
+     *
+     * [expectedNonce] is matched against the token's `nonce` claim, and passing one also makes that claim
+     * required rather than optional. [accessToken] is the one from the same token response, and is read only to
+     * check the `at_hash` claim when the provider sent one.
+     *
+     * Anything the token fails on throws a business exception carrying
+     * `provider.openid_connect.invalid_id_token`, except a mismatching `at_hash`, which has its own
+     * `provider.openid_connect.invalid_at_hash`.
      */
     suspend fun validateAndExtractClaims(
         openIdConnectConfig: ProviderOpenIdConnectConfig,

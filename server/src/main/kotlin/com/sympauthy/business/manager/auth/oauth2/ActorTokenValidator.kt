@@ -27,9 +27,12 @@ class ActorTokenValidator(
      * (the acting client's client-credentials token that was exchanged) is still valid: it still exists, has not
      * been revoked, and has not expired.
      *
-     * No-op when [token] is not an act-as token ([AuthenticationToken.actorTokenId] is null).
+     * An actor token that is gone, revoked or expired throws an `OAuth2Exception` carrying [INVALID_GRANT] and
+     * the code naming which of the three it was: `token.actor_invalid`, `token.actor_revoked` or
+     * `token.actor_expired`.
      *
-     * @throws OAuth2Exception ([INVALID_GRANT]) if the actor token is missing, revoked, or expired.
+     * Does nothing when [token] is not an act-as token, which is any token whose
+     * [AuthenticationToken.actorTokenId] is null.
      */
     suspend fun validateActorToken(token: AuthenticationToken) {
         val actorTokenId = token.actorTokenId ?: return

@@ -55,11 +55,10 @@ class JwtManager(
     }
 
     /**
-     * Decode the [token] and perform validation on it:
-     * - if the token has not been signed by the key with [name].
-     * – if the token has expired.
-     *
-     * @throws LocalizedException if the [token] is malformed or invalid.
+     * Decode the [token] and return its claims, having checked that it parses, that it was signed by the key
+     * registered under [name], and that it has not expired. A token failing any of those three throws a
+     * [LocalizedException] carrying the code that says which: `jwt.malformed`, `jwt.invalid_signature` or
+     * `jwt.expired`.
      */
     suspend fun decodeAndVerify(
         name: String,

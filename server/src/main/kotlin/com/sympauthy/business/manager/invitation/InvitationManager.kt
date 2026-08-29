@@ -49,9 +49,9 @@ open class InvitationManager(
      * Create a new invitation. Returns the [Invitation] model and the raw base64url-encoded token.
      * The raw token is only available at creation time.
      *
-     * @param clientScopeIds When creating from the client API, the scopes held by the client.
-     *   Used to check the client has write access to the pre-assigned claims via the unconditional ACL.
-     *   Null when creating from the admin API or bootstrap (no ACL check).
+     * [clientScopeIds] carries the scopes the client holds when the invitation comes from the client API, and
+     * is what the pre-assigned [claims] are checked against through the unconditional ACL. The admin API and
+     * the bootstrap pass null, which means no ACL check at all rather than a client holding no scope.
      */
     @Transactional
     open suspend fun createInvitation(

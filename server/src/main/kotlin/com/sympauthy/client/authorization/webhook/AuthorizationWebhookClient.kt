@@ -35,12 +35,10 @@ class AuthorizationWebhookClient(
 ) {
 
     /**
-     * Call the authorization webhook endpoint and return the result.
-     *
-     * @param authorizationWebhook the webhook configuration containing the URL and signing secret.
-     * @param request the request payload with user context and requested scopes.
-     * @return [AuthorizationWebhookResult.Success] with the parsed response on success,
-     *         or [AuthorizationWebhookResult.Failure] on any error.
+     * Post the user context and requested scopes [request] carries to the URL [authorizationWebhook] names,
+     * signed with the secret it holds alongside that URL, and return the parsed answer as an
+     * [AuthorizationWebhookResult.Success] — or, for any of the failures this class turns into a value rather
+     * than an exception, an [AuthorizationWebhookResult.Failure] carrying what went wrong.
      */
     suspend fun callWebhook(
         authorizationWebhook: AuthorizationWebhook,

@@ -69,8 +69,9 @@ class MailQueue(
      *
      * If the queue is not [enabled], this method is a no-op.
      *
-     * @param maxAge If provided, the mail will be discarded on startup replay if older than this duration.
-     *               If null, the mail never expires and will always be replayed.
+     * [maxAge] is how long the mail stays worth sending: one still unsent when the server replays the queue on
+     * startup is discarded once it is older than that, rather than reaching a recipient for whom it no longer
+     * means anything. A null [maxAge] never expires, and is replayed on every startup until it is sent.
      */
     suspend fun send(
         template: String,

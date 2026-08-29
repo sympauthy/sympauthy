@@ -9,10 +9,8 @@ data class PageParams(
 )
 
 /**
- * Resolve nullable pagination query parameters to their default values.
- *
- * @param page Zero-indexed page number, defaults to [DEFAULT_PAGE].
- * @param size Number of results per page, defaults to [DEFAULT_PAGE_SIZE].
+ * Resolve the [page] and [size] query parameters a caller may have omitted, substituting
+ * [DEFAULT_PAGE] and [DEFAULT_PAGE_SIZE] for the ones left null.
  */
 fun resolvePageParams(
     page: Int?,

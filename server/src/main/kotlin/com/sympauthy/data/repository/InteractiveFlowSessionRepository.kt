@@ -71,7 +71,6 @@ interface InteractiveFlowSessionRepository : CoroutineCrudRepository<Interactive
 
     /**
      * Version-guarded update of the ordered purpose list.
-     * @return 1 if applied, 0 if [expectedVersion] was stale (see the optimistic-concurrency contract).
      */
     @Query(
         """
@@ -88,7 +87,6 @@ interface InteractiveFlowSessionRepository : CoroutineCrudRepository<Interactive
 
     /**
      * Version-guarded update of the authenticated user id and sign-up flag.
-     * @return 1 if applied, 0 if [expectedVersion] was stale (see the optimistic-concurrency contract).
      */
     @Query(
         """
@@ -101,7 +99,6 @@ interface InteractiveFlowSessionRepository : CoroutineCrudRepository<Interactive
 
     /**
      * Version-guarded update of the MFA-passed date.
-     * @return 1 if applied, 0 if [expectedVersion] was stale (see the optimistic-concurrency contract).
      */
     @Query(
         """
@@ -114,7 +111,6 @@ interface InteractiveFlowSessionRepository : CoroutineCrudRepository<Interactive
 
     /**
      * Version-guarded update of the completed-purpose list.
-     * @return 1 if applied, 0 if [expectedVersion] was stale (see the optimistic-concurrency contract).
      */
     @Query(
         """
@@ -141,8 +137,8 @@ interface InteractiveFlowSessionRepository : CoroutineCrudRepository<Interactive
      * [com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil]).
      *
      * Paired with the derived [updateError] in one transaction so the row lock it takes serialises the
-     * two statements.
-     * @return 1 if the session was ongoing and is now failing, 0 if it was already terminal.
+     * two statements. It answers 1 when the session was still ongoing and is now failing, and 0 when it had
+     * already reached a terminal state and was left as it was.
      */
     @Query(
         """
@@ -170,7 +166,6 @@ interface InteractiveFlowSessionRepository : CoroutineCrudRepository<Interactive
 
     /**
      * Version-guarded write of the completion date, completing the session.
-     * @return 1 if applied, 0 if [expectedVersion] was stale (see the optimistic-concurrency contract).
      */
     @Query(
         """
@@ -183,7 +178,6 @@ interface InteractiveFlowSessionRepository : CoroutineCrudRepository<Interactive
 
     /**
      * Version-guarded write of the cancellation date, cancelling the session.
-     * @return 1 if applied, 0 if [expectedVersion] was stale (see the optimistic-concurrency contract).
      */
     @Query(
         """

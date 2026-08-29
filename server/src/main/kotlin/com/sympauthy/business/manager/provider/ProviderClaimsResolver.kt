@@ -32,7 +32,8 @@ class ProviderClaimsResolver(
      * If the token response contains an ID token, claims are extracted from it and the userinfo endpoint
      * is not called. Otherwise, the userinfo endpoint is used as a fallback.
      *
-     * @param expectedNonce the nonce to validate against the ID token's nonce claim, if applicable.
+     * [expectedNonce] is matched against the ID token's `nonce` claim, so it is read on the first of those two
+     * paths only — a provider that answered without an ID token has nothing to match it against.
      */
     suspend fun resolveClaims(
         provider: EnabledProvider,
