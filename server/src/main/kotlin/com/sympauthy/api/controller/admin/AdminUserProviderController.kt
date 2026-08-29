@@ -5,7 +5,6 @@ import com.sympauthy.api.resource.admin.AdminUserProviderLinkInputResource
 import com.sympauthy.api.resource.admin.AdminUserProviderLinkResource
 import com.sympauthy.api.resource.admin.AdminUserProviderListResource
 import com.sympauthy.api.resource.admin.AdminUserProviderResource
-import com.sympauthy.api.resource.admin.AdminUserProviderUnlinkResource
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.ClientManager
@@ -19,6 +18,7 @@ import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.security.SecurityRule.ADMIN_USERS_READ
 import com.sympauthy.security.SecurityRule.ADMIN_USERS_WRITE
+import io.micronaut.http.HttpStatus
 import io.micronaut.http.annotation.*
 import io.micronaut.security.annotation.Secured
 import io.swagger.v3.oas.annotations.Operation
@@ -87,7 +87,7 @@ class AdminUserProviderController(
         description = "Remove the link between a user and an external identity provider.",
         tags = ["admin"],
         responses = [
-            ApiResponse(responseCode = "200", description = "Provider unlinked successfully."),
+            ApiResponse(responseCode = "204", description = "Provider unlinked successfully."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
                 responseCode = "403",
@@ -102,18 +102,14 @@ class AdminUserProviderController(
     @Delete("/{providerId}")
     @Secured(ADMIN_USERS_WRITE)
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.USERS_WRITE])
+    @Status(HttpStatus.NO_CONTENT)
     suspend fun unlinkProvider(
         @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
         @PathVariable @Parameter(description = "Identifier of the provider to unlink.") providerId: String
-    ): AdminUserProviderUnlinkResource {
+    ) {
         userManager.findByIdOrNull(userId).orNotFound()
         providerClaimsManager.findByUserIdAndProviderIdOrNull(userId, providerId).orNotFound()
         providerClaimsManager.deleteProviderLink(userId, providerId)
-        return AdminUserProviderUnlinkResource(
-            userId = userId,
-            providerId = providerId,
-            unlinked = true
-        )
     }
 
     @Operation(

@@ -163,17 +163,14 @@ class AdminUserMfaControllerTest {
     }
 
     @Test
-    fun `revokeMfaMethod - Deletes enrollment and returns revoked response`() = runTest {
+    fun `revokeMfaMethod - Deletes the enrollment`() = runTest {
         val enrollment = mockEnrollment()
         coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
         coEvery { totpManager.findConfirmedEnrollmentOrNull(mfaId) } returns enrollment
         coEvery { totpManager.deleteEnrollment(enrollment) } returns Unit
 
-        val result = controller().revokeMfaMethod(userId, mfaId)
+        controller().revokeMfaMethod(userId, mfaId)
 
-        assertEquals(userId, result.userId)
-        assertEquals(mfaId, result.mfaId)
-        assertTrue(result.revoked)
         coVerify { totpManager.deleteEnrollment(enrollment) }
     }
 

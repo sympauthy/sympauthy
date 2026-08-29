@@ -146,17 +146,14 @@ class AdminUserProviderControllerTest {
     }
 
     @Test
-    fun `unlinkProvider - Deletes provider link and returns unlinked response`() = runTest {
+    fun `unlinkProvider - Deletes the provider link`() = runTest {
         val providerInfo = mockProviderUserInfo()
         coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
         coEvery { providerClaimsManager.findByUserIdAndProviderIdOrNull(userId, "discord") } returns providerInfo
         coEvery { providerClaimsManager.deleteProviderLink(userId, "discord") } returns 1
 
-        val result = controller.unlinkProvider(userId, "discord")
+        controller.unlinkProvider(userId, "discord")
 
-        assertEquals(userId, result.userId)
-        assertEquals("discord", result.providerId)
-        assertTrue(result.unlinked)
         coVerify { providerClaimsManager.deleteProviderLink(userId, "discord") }
     }
 

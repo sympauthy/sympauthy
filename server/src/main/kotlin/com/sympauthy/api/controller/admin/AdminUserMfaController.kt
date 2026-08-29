@@ -6,7 +6,6 @@ import com.sympauthy.api.mapper.admin.AdminUserMfaMethodResourceMapper
 import com.sympauthy.api.resource.admin.AdminUserMfaEnrollmentInputResource
 import com.sympauthy.api.resource.admin.AdminUserMfaEnrollmentResource
 import com.sympauthy.api.resource.admin.AdminUserMfaMethodListResource
-import com.sympauthy.api.resource.admin.AdminUserMfaRevokeResource
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
@@ -22,6 +21,7 @@ import com.sympauthy.config.model.EnabledMfaConfig
 import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.security.SecurityRule.ADMIN_USERS_READ
 import com.sympauthy.security.SecurityRule.ADMIN_USERS_WRITE
+import io.micronaut.http.HttpStatus
 import io.micronaut.http.HttpStatus.NOT_FOUND
 import io.micronaut.http.annotation.*
 import io.micronaut.security.annotation.Secured
@@ -87,7 +87,7 @@ class AdminUserMfaController(
                 "The user will need to re-enroll on their next sign-in if MFA is required.",
         tags = ["admin"],
         responses = [
-            ApiResponse(responseCode = "200", description = "MFA method revoked successfully."),
+            ApiResponse(responseCode = "204", description = "MFA method revoked successfully."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
                 responseCode = "403",
@@ -99,21 +99,17 @@ class AdminUserMfaController(
     @Delete("/{mfaId}")
     @Secured(ADMIN_USERS_WRITE)
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.USERS_WRITE])
+    @Status(HttpStatus.NO_CONTENT)
     suspend fun revokeMfaMethod(
         @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
         @PathVariable @Parameter(description = "Unique identifier of the MFA registration to revoke.") mfaId: UUID
-    ): AdminUserMfaRevokeResource {
+    ) {
         userManager.findByIdOrNull(userId).orNotFound()
         val enrollment = totpManager.findConfirmedEnrollmentOrNull(mfaId).orNotFound()
         if (enrollment.userId != userId) {
             throw httpExceptionOf(NOT_FOUND, "not_found", "description.not_found")
         }
         totpManager.deleteEnrollment(enrollment)
-        return AdminUserMfaRevokeResource(
-            userId = userId,
-            mfaId = mfaId,
-            revoked = true
-        )
     }
 
     @Operation(
