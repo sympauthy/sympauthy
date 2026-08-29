@@ -7,6 +7,7 @@ import com.sympauthy.config.properties.ClientTemplateConfigurationProperties
 import com.sympauthy.config.properties.ClientTemplateConfigurationProperties.Companion.TEMPLATES_CLIENTS_KEY
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import java.net.URI
 
 data class ParsedClientTemplate(
     val id: String,
@@ -27,16 +28,18 @@ class ClientTemplatesConfigParser(
 ) {
     fun parse(
         ctx: ConfigParsingContext,
-        templatesList: List<ClientTemplateConfigurationProperties>
+        templatesList: List<ClientTemplateConfigurationProperties>,
+        rootUri: URI
     ): List<ParsedClientTemplate> {
         return templatesList.map { properties ->
-            parseTemplate(ctx, properties)
+            parseTemplate(ctx, properties, rootUri)
         }
     }
 
     private fun parseTemplate(
         ctx: ConfigParsingContext,
-        properties: ClientTemplateConfigurationProperties
+        properties: ClientTemplateConfigurationProperties,
+        rootUri: URI
     ): ParsedClientTemplate {
         val configKeyPrefix = "$TEMPLATES_CLIENTS_KEY.${properties.id}"
 
@@ -53,7 +56,8 @@ class ClientTemplatesConfigParser(
         )
 
         val allowedRedirectUris = fieldParser.parseRedirectUris(
-            ctx, "$configKeyPrefix.allowed-redirect-uris", properties.uris, properties.allowedRedirectUris
+            ctx, "$configKeyPrefix.allowed-redirect-uris", properties.uris, properties.allowedRedirectUris,
+            rootUri
         )
 
         val authorizationWebhook = fieldParser.parseWebhook(

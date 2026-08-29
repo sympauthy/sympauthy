@@ -1,7 +1,5 @@
 package com.sympauthy.config.validation
 
-import com.sympauthy.business.manager.ScopeManager
-import com.sympauthy.business.manager.flow.AuthorizationFlowManager
 import com.sympauthy.business.model.client.AuthorizationWebhook
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.flow.AuthorizationFlow
@@ -9,7 +7,6 @@ import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.parsing.ParsedAuthorizationWebhook
-import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
 /**
@@ -19,10 +16,7 @@ import jakarta.inject.Singleton
  * for cross-domain references and business rule validation.
  */
 @Singleton
-class ClientConfigFieldValidator(
-    @Inject private val scopeManager: ScopeManager,
-    @Inject private val authorizationFlowManager: AuthorizationFlowManager
-) {
+class ClientConfigFieldValidator {
 
     /**
      * Validate that REFRESH_TOKEN requires AUTHORIZATION_CODE.
@@ -45,15 +39,16 @@ class ClientConfigFieldValidator(
     }
 
     /**
-     * Look up an authorization flow by ID.
+     * Look up an authorization flow by ID among the [flowsById] the server serves.
      */
     fun validateAuthorizationFlow(
         ctx: ConfigParsingContext,
         key: String,
-        flowId: String?
+        flowId: String?,
+        flowsById: Map<String, AuthorizationFlow>
     ): AuthorizationFlow? {
         if (flowId == null) return null
-        val flow = authorizationFlowManager.findByIdOrNull(flowId)
+        val flow = flowsById[flowId]
         if (flow == null) {
             ctx.addError(
                 configExceptionOf(
@@ -66,53 +61,47 @@ class ClientConfigFieldValidator(
     }
 
     /**
-     * Look up scopes by name via [ScopeManager].
+     * Look up scopes by name among the [scopesById] the server serves.
      *
      * When [audienceId] is provided, also validates that each scope belongs to the given audience
      * (or has no audience restriction).
      */
-    suspend fun validateScopes(
+    fun validateScopes(
         ctx: ConfigParsingContext,
         key: String,
         scopes: List<String>?,
+        scopesById: Map<String, Scope>,
         audienceId: String? = null
     ): List<Scope>? {
         if (scopes == null) return null
 
-        val verifiedScopes = scopes.mapIndexedNotNull { index, scope ->
-            try {
-                val verifiedScope = scopeManager.find(scope)
-                if (verifiedScope == null) {
-                    ctx.addError(
-                        configExceptionOf(
-                            "$key[$index]", "config.client.scope.invalid",
-                            "scope" to scope
-                        )
+        return scopes.mapIndexedNotNull { index, scope ->
+            val verifiedScope = scopesById[scope]
+            if (verifiedScope == null) {
+                ctx.addError(
+                    configExceptionOf(
+                        "$key[$index]", "config.client.scope.invalid",
+                        "scope" to scope
                     )
-                    return@mapIndexedNotNull null
-                }
-                if (audienceId != null
-                    && verifiedScope.audienceId != null
-                    && verifiedScope.audienceId != audienceId
-                ) {
-                    ctx.addError(
-                        configExceptionOf(
-                            "$key[$index]", "config.client.scope.audience_mismatch",
-                            "scope" to scope,
-                            "scopeAudience" to verifiedScope.audienceId,
-                            "clientAudience" to audienceId
-                        )
-                    )
-                    return@mapIndexedNotNull null
-                }
-                verifiedScope
-            } catch (_: Throwable) {
-                // Most likely caused by another configuration error.
-                null
+                )
+                return@mapIndexedNotNull null
             }
+            if (audienceId != null
+                && verifiedScope.audienceId != null
+                && verifiedScope.audienceId != audienceId
+            ) {
+                ctx.addError(
+                    configExceptionOf(
+                        "$key[$index]", "config.client.scope.audience_mismatch",
+                        "scope" to scope,
+                        "scopeAudience" to verifiedScope.audienceId,
+                        "clientAudience" to audienceId
+                    )
+                )
+                return@mapIndexedNotNull null
+            }
+            verifiedScope
         }
-
-        return verifiedScopes
     }
 
     /**

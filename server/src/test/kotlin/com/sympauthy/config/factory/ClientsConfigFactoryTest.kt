@@ -3,6 +3,7 @@ package com.sympauthy.config.factory
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.flow.AuthorizationFlow
+import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.model.*
@@ -21,6 +22,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import java.net.URI
 
 @ExtendWith(MockKExtension::class)
 class ClientsConfigFactoryTest {
@@ -91,7 +93,10 @@ class ClientsConfigFactoryTest {
             ClientsConfigParser(parser, fieldParser),
             ClientsConfigValidator(fieldValidator),
             templatesFlow,
-            audiencesConfig
+            audiencesConfig,
+            EnabledScopesConfig(emptyList()),
+            EnabledAuthorizationFlowsConfig(mockk<InteractiveFlow>(relaxed = true), emptyList()),
+            EnabledUrlsConfig(root = URI.create("https://auth.example.com"))
         )
     }
 
@@ -102,7 +107,7 @@ class ClientsConfigFactoryTest {
         val grantTypes = setOf(GrantType.AUTHORIZATION_CODE)
         val redirectUris = listOf("https://example.com/callback")
 
-        coEvery { fieldParser.parseRedirectUris(any(), any(), any(), any()) } returns redirectUris
+        coEvery { fieldParser.parseRedirectUris(any(), any(), any(), any(), any()) } returns redirectUris
 
         val factory = factory(
             clientTemplate(

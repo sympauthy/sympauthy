@@ -1,5 +1,13 @@
 package com.sympauthy.config.factory
 
+import com.sympauthy.business.model.oauth2.AdminScope
+import com.sympauthy.business.model.oauth2.BuiltInClientScope
+import com.sympauthy.business.model.oauth2.BuiltInGrantableScope
+import com.sympauthy.business.model.oauth2.ClientScope
+import com.sympauthy.business.model.oauth2.ConsentableUserScope
+import com.sympauthy.business.model.oauth2.GrantableUserScope
+import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.user.OpenIdConnectScope
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.model.*
 import com.sympauthy.config.parsing.ScopeConfigParser
@@ -22,11 +30,19 @@ class ScopeConfigFactoryTest {
 
     @BeforeEach
     fun setUp() {
-        factory = ScopeConfigFactory(
+        factory = factoryWith()
+    }
+
+    private fun factoryWith(
+        templates: List<ScopeTemplate> = emptyList(),
+        adminConfig: AdminConfig = DisabledAdminConfig(emptyList())
+    ): ScopeConfigFactory {
+        return ScopeConfigFactory(
             ScopeConfigParser(parser),
             ScopeConfigValidator(),
-            EnabledScopeTemplatesConfig(emptyMap()),
-            EnabledAudiencesConfig(emptyList())
+            EnabledScopeTemplatesConfig(templates.associateBy { it.id }),
+            EnabledAudiencesConfig(emptyList()),
+            adminConfig
         )
     }
 
@@ -39,154 +55,183 @@ class ScopeConfigFactoryTest {
         return ScopeConfigurationProperties(id).apply {
             this.type = type
             this.template = template
-        }.also {
-            if (enabled != null) {
-                val field = ScopeConfigurationProperties::class.java.getDeclaredField("enabled")
-                field.isAccessible = true
-                field.set(it, enabled)
-            }
+            this.enabled = enabled
         }
     }
 
-    private fun withTemplates(vararg templates: ScopeTemplate): ScopeConfigFactory {
-        val config = EnabledScopeTemplatesConfig(templates.associateBy { it.id })
-        return ScopeConfigFactory(
-            ScopeConfigParser(parser),
-            ScopeConfigValidator(),
-            config,
-            EnabledAudiencesConfig(emptyList())
-        )
+    private fun ScopesConfig.scopeNamed(id: String): Scope? {
+        return (this as EnabledScopesConfig).scopes.firstOrNull { it.scope == id }
     }
 
     // --- OpenID Connect scope with default_openid template ---
 
     @Test
-    fun `OpenID scope gets default_openid template applied`() {
-        val factory =
-            withTemplates(ScopeTemplate(id = "default_openid", enabled = false, type = null, audienceId = null))
-        val scopes = listOf(scopeProperties(id = "profile"))
+    fun `provideScopes - Apply default_openid template to an OpenID Connect scope`() {
+        val factory = factoryWith(
+            templates = listOf(ScopeTemplate(id = "default_openid", enabled = false, type = null, audienceId = null))
+        )
 
-        val result = factory.provideScopes(scopes)
+        val result = factory.provideScopes(listOf(scopeProperties(id = "profile")))
 
         assertInstanceOf(EnabledScopesConfig::class.java, result)
-        val config = result as EnabledScopesConfig
-        val scope = config.scopes.first() as OpenIdConnectScopeConfig
-        assertEquals("profile", scope.scope)
-        assertEquals(false, scope.enabled)
+        assertNull(result.scopeNamed("profile"))
     }
 
     @Test
-    fun `OpenID scope property overrides template`() {
-        val factory =
-            withTemplates(ScopeTemplate(id = "default_openid", enabled = false, type = null, audienceId = null))
-        val scopes = listOf(scopeProperties(id = "email", enabled = "true"))
+    fun `provideScopes - Let an OpenID Connect scope property override its template`() {
+        val factory = factoryWith(
+            templates = listOf(ScopeTemplate(id = "default_openid", enabled = false, type = null, audienceId = null))
+        )
 
-        val result = factory.provideScopes(scopes)
+        val result = factory.provideScopes(listOf(scopeProperties(id = "email", enabled = "true")))
 
         assertInstanceOf(EnabledScopesConfig::class.java, result)
-        val config = result as EnabledScopesConfig
-        val scope = config.scopes.first() as OpenIdConnectScopeConfig
-        assertEquals(true, scope.enabled)
+        assertInstanceOf(ConsentableUserScope::class.java, result.scopeNamed("email"))
     }
 
     @Test
-    fun `OpenID scope defaults to enabled when no template`() {
-        val scopes = listOf(scopeProperties(id = "profile"))
-
-        val result = factory.provideScopes(scopes)
+    fun `provideScopes - Enable an OpenID Connect scope when no template applies`() {
+        val result = factory.provideScopes(listOf(scopeProperties(id = "profile")))
 
         assertInstanceOf(EnabledScopesConfig::class.java, result)
-        val config = result as EnabledScopesConfig
-        val scope = config.scopes.first() as OpenIdConnectScopeConfig
-        assertEquals(true, scope.enabled)
+        assertInstanceOf(ConsentableUserScope::class.java, result.scopeNamed("profile"))
+    }
+
+    @Test
+    fun `provideScopes - Serve every OpenID Connect scope the deployment did not disable`() {
+        val result = factory.provideScopes(emptyList())
+
+        OpenIdConnectScope.entries.forEach {
+            assertInstanceOf(ConsentableUserScope::class.java, result.scopeNamed(it.scope))
+        }
     }
 
     // --- Custom scope with default_custom template ---
 
     @Test
-    fun `Custom scope gets default_custom template type applied`() {
-        val factory =
-            withTemplates(ScopeTemplate(id = "default_custom", enabled = null, type = "consentable", audienceId = null))
-        val scopes = listOf(scopeProperties(id = "my-scope"))
+    fun `provideScopes - Apply default_custom template type to a custom scope`() {
+        val factory = factoryWith(
+            templates = listOf(
+                ScopeTemplate(id = "default_custom", enabled = null, type = "consentable", audienceId = null)
+            )
+        )
 
-        val result = factory.provideScopes(scopes)
+        val result = factory.provideScopes(listOf(scopeProperties(id = "my-scope")))
 
         assertInstanceOf(EnabledScopesConfig::class.java, result)
-        val config = result as EnabledScopesConfig
-        val scope = config.scopes.first() as CustomScopeConfig
-        assertEquals("my-scope", scope.scope)
-        assertEquals(true, scope.consentable)
+        assertInstanceOf(ConsentableUserScope::class.java, result.scopeNamed("my-scope"))
     }
 
     @Test
-    fun `Custom scope property overrides template type`() {
-        val factory =
-            withTemplates(ScopeTemplate(id = "default_custom", enabled = null, type = "consentable", audienceId = null))
-        val scopes = listOf(scopeProperties(id = "my-scope", type = "grantable"))
+    fun `provideScopes - Let a custom scope property override its template type`() {
+        val factory = factoryWith(
+            templates = listOf(
+                ScopeTemplate(id = "default_custom", enabled = null, type = "consentable", audienceId = null)
+            )
+        )
 
-        val result = factory.provideScopes(scopes)
+        val result = factory.provideScopes(listOf(scopeProperties(id = "my-scope", type = "grantable")))
 
         assertInstanceOf(EnabledScopesConfig::class.java, result)
-        val config = result as EnabledScopesConfig
-        val scope = config.scopes.first() as CustomScopeConfig
-        assertEquals(false, scope.consentable)
+        assertInstanceOf(GrantableUserScope::class.java, result.scopeNamed("my-scope"))
     }
 
     @Test
-    fun `Custom scope defaults to grantable when no template`() {
-        val scopes = listOf(scopeProperties(id = "my-scope"))
-
-        val result = factory.provideScopes(scopes)
+    fun `provideScopes - Default a custom scope to grantable when no template applies`() {
+        val result = factory.provideScopes(listOf(scopeProperties(id = "my-scope")))
 
         assertInstanceOf(EnabledScopesConfig::class.java, result)
-        val config = result as EnabledScopesConfig
-        val scope = config.scopes.first() as CustomScopeConfig
-        assertEquals(false, scope.consentable)
+        assertInstanceOf(GrantableUserScope::class.java, result.scopeNamed("my-scope"))
     }
 
     // --- Explicit custom template ---
 
     @Test
-    fun `Custom scope with explicit template uses that template`() {
-        val factory = withTemplates(
-            ScopeTemplate(id = "default_custom", enabled = null, type = "grantable", audienceId = null),
-            ScopeTemplate(id = "my-template", enabled = null, type = "consentable", audienceId = null)
+    fun `provideScopes - Use the template a custom scope names`() {
+        val factory = factoryWith(
+            templates = listOf(
+                ScopeTemplate(id = "default_custom", enabled = null, type = "grantable", audienceId = null),
+                ScopeTemplate(id = "my-template", enabled = null, type = "consentable", audienceId = null)
+            )
         )
-        val scopes = listOf(scopeProperties(id = "my-scope", template = "my-template"))
 
-        val result = factory.provideScopes(scopes)
+        val result = factory.provideScopes(listOf(scopeProperties(id = "my-scope", template = "my-template")))
 
         assertInstanceOf(EnabledScopesConfig::class.java, result)
-        val config = result as EnabledScopesConfig
-        val scope = config.scopes.first() as CustomScopeConfig
-        assertEquals(true, scope.consentable)
+        assertInstanceOf(ConsentableUserScope::class.java, result.scopeNamed("my-scope"))
+    }
+
+    // --- Scopes the server defines itself ---
+
+    @Test
+    fun `provideScopes - Serve the built-in grantable and client scopes`() {
+        val result = factory.provideScopes(emptyList())
+
+        BuiltInGrantableScope.entries.forEach {
+            val scope = result.scopeNamed(it.scope)
+            assertInstanceOf(GrantableUserScope::class.java, scope)
+            assertEquals(it.discoverable, scope!!.discoverable)
+        }
+        BuiltInClientScope.entries.forEach {
+            assertInstanceOf(ClientScope::class.java, result.scopeNamed(it.scope))
+        }
+    }
+
+    @Test
+    fun `provideScopes - Bind the admin scopes to the configured admin audience`() {
+        val factory = factoryWith(
+            adminConfig = EnabledAdminConfig(enabled = true, integratedUi = true, audienceId = "admin")
+        )
+
+        val result = factory.provideScopes(emptyList())
+
+        AdminScope.entries.forEach { adminScope ->
+            val scope = result.scopeNamed(adminScope.scope)
+            assertInstanceOf(GrantableUserScope::class.java, scope)
+            assertFalse(scope!!.discoverable)
+            assertEquals("admin", scope.audienceId)
+        }
+    }
+
+    @Test
+    fun `provideScopes - Serve no admin scope when the administration API is not configured`() {
+        val result = factory.provideScopes(emptyList())
+
+        AdminScope.entries.forEach {
+            assertNull(result.scopeNamed(it.scope))
+        }
+    }
+
+    @Test
+    fun `provideScopes - Reject a scope the server defines itself`() {
+        val result = factory.provideScopes(listOf(scopeProperties(id = BuiltInGrantableScope.OPENID.scope)))
+
+        assertInstanceOf(DisabledScopesConfig::class.java, result)
+        val error = (result as DisabledScopesConfig).configurationErrors!!.first()
+        assertTrue(error.message!!.contains("config.scope.builtin_not_configurable"))
     }
 
     // --- Template validation errors ---
 
     @Test
-    fun `Referencing default template by name produces error`() {
-        val factory =
-            withTemplates(ScopeTemplate(id = "default_openid", enabled = null, type = null, audienceId = null))
-        val scopes = listOf(scopeProperties(id = "my-scope", template = "default_openid"))
+    fun `provideScopes - Reject a scope referencing a default template by name`() {
+        val factory = factoryWith(
+            templates = listOf(ScopeTemplate(id = "default_openid", enabled = null, type = null, audienceId = null))
+        )
 
-        val result = factory.provideScopes(scopes)
+        val result = factory.provideScopes(listOf(scopeProperties(id = "my-scope", template = "default_openid")))
 
         assertInstanceOf(DisabledScopesConfig::class.java, result)
-        val config = result as DisabledScopesConfig
-        val error = config.configurationErrors!!.first()
+        val error = (result as DisabledScopesConfig).configurationErrors!!.first()
         assertTrue(error.message!!.contains("config.scope.template.cannot_reference_default"))
     }
 
     @Test
-    fun `Referencing nonexistent template produces error`() {
-        val scopes = listOf(scopeProperties(id = "my-scope", template = "nonexistent"))
-
-        val result = factory.provideScopes(scopes)
+    fun `provideScopes - Reject a scope referencing a template that does not exist`() {
+        val result = factory.provideScopes(listOf(scopeProperties(id = "my-scope", template = "nonexistent")))
 
         assertInstanceOf(DisabledScopesConfig::class.java, result)
-        val config = result as DisabledScopesConfig
-        val error = config.configurationErrors!!.first()
+        val error = (result as DisabledScopesConfig).configurationErrors!!.first()
         assertTrue(error.message!!.contains("config.scope.template.not_found"))
     }
 }

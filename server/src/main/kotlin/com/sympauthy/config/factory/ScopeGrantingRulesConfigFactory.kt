@@ -1,9 +1,12 @@
 package com.sympauthy.config.factory
 
+import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.DisabledScopeGrantingRulesConfig
 import com.sympauthy.config.model.EnabledScopeGrantingRulesConfig
 import com.sympauthy.config.model.ScopeGrantingRulesConfig
+import com.sympauthy.config.model.ScopesConfig
+import com.sympauthy.config.model.orNull
 import com.sympauthy.config.parsing.ScopeGrantingRulesConfigParser
 import com.sympauthy.config.properties.ClientScopeGrantingRuleConfigurationProperties
 import com.sympauthy.config.properties.UserScopeGrantingRuleConfigurationProperties
@@ -17,7 +20,8 @@ import kotlinx.coroutines.flow.flow
 @Factory
 class ScopeGrantingRulesConfigFactory(
     @Inject private val rulesParser: ScopeGrantingRulesConfigParser,
-    @Inject private val rulesValidator: ScopeGrantingRulesConfigValidator
+    @Inject private val rulesValidator: ScopeGrantingRulesConfigValidator,
+    @Inject private val uncheckedScopesConfig: ScopesConfig
 ) {
 
     @Singleton
@@ -26,6 +30,13 @@ class ScopeGrantingRulesConfigFactory(
         clientPropertiesList: List<ClientScopeGrantingRuleConfigurationProperties>
     ): Flow<ScopeGrantingRulesConfig> {
         return flow {
+            val scopesConfig = uncheckedScopesConfig.orNull()
+            if (scopesConfig == null) {
+                emit(DisabledScopeGrantingRulesConfig(emptyList()))
+                return@flow
+            }
+            val scopesById = scopesConfig.scopes.associateBy(Scope::scope)
+
             val ctx = ConfigParsingContext()
 
             val parsedUserRules = rulesParser.parse(
@@ -35,8 +46,8 @@ class ScopeGrantingRulesConfigFactory(
                 ctx, clientPropertiesList, ClientScopeGrantingRuleConfigurationProperties.RULES_KEY
             )
 
-            val userRules = rulesValidator.validateUserRules(ctx, parsedUserRules)
-            val clientRules = rulesValidator.validateClientRules(ctx, parsedClientRules)
+            val userRules = rulesValidator.validateUserRules(ctx, parsedUserRules, scopesById)
+            val clientRules = rulesValidator.validateClientRules(ctx, parsedClientRules, scopesById)
 
             if (ctx.hasErrors) {
                 emit(DisabledScopeGrantingRulesConfig(ctx.errors))

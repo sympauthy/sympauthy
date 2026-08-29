@@ -7,6 +7,14 @@ sealed class AuthorizationFlow(
 ) {
     companion object {
         const val DEFAULT_WEB_AUTHORIZATION_FLOW_ID = "default_web"
+
+        /**
+         * Path the pages of the bundled interactive flow are served under.
+         *
+         * Declared here rather than on the controller serving it because the configuration assembling that
+         * flow cannot import one, and a path spelled in both places is a path that will eventually differ.
+         */
+        const val DEFAULT_WEB_AUTHORIZATION_FLOW_ENDPOINT = "/flow"
     }
 }
 

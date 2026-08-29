@@ -60,7 +60,7 @@ class ClaimsConfigFactoryTest {
         every { authProperties.identifierClaims } returns null
 
         val claimAclParser = ClaimAclParser(parser)
-        val claimAclValidator = ClaimAclValidator(EnabledScopesConfig(emptyList()))
+        val claimAclValidator = ClaimAclValidator()
 
         val templates = mapOf(
             DEFAULT to defaultTemplate(),
@@ -72,7 +72,8 @@ class ClaimsConfigFactoryTest {
             ClaimsConfigValidator(claimAclValidator),
             authProperties,
             claimTemplatesConfig,
-            EnabledAudiencesConfig(emptyList())
+            EnabledAudiencesConfig(emptyList()),
+            EnabledScopesConfig(emptyList())
         )
     }
 
@@ -268,13 +269,14 @@ class ClaimsConfigFactoryTest {
             audienceId = null, allowedValues = null, acl = writableTemplateAcl
         )
         val claimAclParser = ClaimAclParser(parser)
-        val claimAclValidator = ClaimAclValidator(EnabledScopesConfig(emptyList()))
+        val claimAclValidator = ClaimAclValidator()
         val writableFactory = ClaimsConfigFactory(
             ClaimsConfigParser(parser, claimAclParser),
             ClaimsConfigValidator(claimAclValidator),
             authProperties,
             EnabledClaimTemplatesConfig(mapOf(DEFAULT to writableTemplate)),
-            EnabledAudiencesConfig(emptyList())
+            EnabledAudiencesConfig(emptyList()),
+            EnabledScopesConfig(emptyList())
         )
 
         val properties = listOf(

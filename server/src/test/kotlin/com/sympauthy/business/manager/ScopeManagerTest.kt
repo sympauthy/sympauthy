@@ -4,7 +4,6 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.model.oauth2.AdminScope
 import com.sympauthy.business.model.oauth2.GrantableUserScope
 import com.sympauthy.business.model.oauth2.Scope
-import com.sympauthy.business.model.oauth2.isAdmin
 import com.sympauthy.config.model.*
 import io.mockk.coEvery
 import io.mockk.every
@@ -13,7 +12,6 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
-import io.mockk.spyk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -26,9 +24,6 @@ class ScopeManagerTest {
 
     @MockK
     lateinit var scopesConfig: EnabledScopesConfig
-
-    @MockK
-    lateinit var adminConfig: AdminConfig
 
     @MockK
     lateinit var claimManager: ClaimManager
@@ -214,51 +209,26 @@ class ScopeManagerTest {
     }
 
     @Test
-    fun `adminScopes - Contains all admin scopes with configured audienceId`() {
-        val adminConfig = EnabledAdminConfig(enabled = true, integratedUi = true, audienceId = "admin")
-        val manager = ScopeManager(scopesConfig, adminConfig, claimManager)
-
-        val adminScopes = manager.adminScopes
-        assertEquals(AdminScope.entries.size, adminScopes.size)
-        AdminScope.entries.forEach { adminScope ->
-            val scope = adminScopes.first { it.scope == adminScope.scope }
-            assertTrue(scope.isAdmin)
-            assertTrue(scope is GrantableUserScope)
-            assertFalse(scope.discoverable)
-            assertEquals("admin", scope.audienceId)
-        }
-    }
-
-    @Test
-    fun `adminScopes - Returns empty list when admin is disabled`() {
-        val adminConfig = DisabledAdminConfig(emptyList())
-        val manager = ScopeManager(scopesConfig, adminConfig, claimManager)
-
-        val adminScopes = manager.adminScopes
-        assertTrue(adminScopes.isEmpty())
-    }
-
-    @Test
     fun `listScopesForAudience - Excludes admin scopes from non-admin audience`() = runTest {
-        val adminConfig = EnabledAdminConfig(enabled = true, integratedUi = true, audienceId = "admin")
-        val manager = spyk(ScopeManager(scopesConfig, adminConfig, claimManager))
+        coEvery { scopeManager.listScopes() } returns adminScopes(audienceId = "admin")
 
-        coEvery { manager.listScopes() } returns manager.adminScopes
-
-        val result = manager.listScopesForAudience("default")
+        val result = scopeManager.listScopesForAudience("default")
 
         assertTrue(result.isEmpty())
     }
 
     @Test
     fun `listScopesForAudience - Includes admin scopes for admin audience`() = runTest {
-        val adminConfig = EnabledAdminConfig(enabled = true, integratedUi = true, audienceId = "admin")
-        val manager = spyk(ScopeManager(scopesConfig, adminConfig, claimManager))
+        coEvery { scopeManager.listScopes() } returns adminScopes(audienceId = "admin")
 
-        coEvery { manager.listScopes() } returns manager.adminScopes
-
-        val result = manager.listScopesForAudience("admin")
+        val result = scopeManager.listScopesForAudience("admin")
 
         assertEquals(AdminScope.entries.size, result.size)
+    }
+
+    private fun adminScopes(audienceId: String): List<Scope> {
+        return AdminScope.entries.map {
+            GrantableUserScope(scope = it.scope, discoverable = false, audienceId = audienceId)
+        }
     }
 }

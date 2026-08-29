@@ -1,5 +1,6 @@
 package com.sympauthy.config.model
 
+import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.config.exception.ConfigurationException
 
 sealed class ScopesConfig(
@@ -7,25 +8,12 @@ sealed class ScopesConfig(
 ) : Config(configurationErrors)
 
 data class EnabledScopesConfig(
-    val scopes: List<ScopeConfig>
+    /**
+     * Every scope this authorization server serves: the ones the deployment defined, and the
+     * built-in ones the server contributes itself.
+     */
+    val scopes: List<Scope>
 ) : ScopesConfig()
-
-sealed class ScopeConfig(
-    val scope: String,
-    val audienceId: String?
-)
-
-class OpenIdConnectScopeConfig(
-    scope: String,
-    val enabled: Boolean,
-    audienceId: String? = null
-) : ScopeConfig(scope, audienceId)
-
-class CustomScopeConfig(
-    scope: String,
-    val consentable: Boolean,
-    audienceId: String? = null
-) : ScopeConfig(scope, audienceId)
 
 class DisabledScopesConfig(
     configurationErrors: List<ConfigurationException>

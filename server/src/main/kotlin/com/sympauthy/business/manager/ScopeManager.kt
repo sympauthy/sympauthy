@@ -4,113 +4,23 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.*
-import com.sympauthy.business.model.user.OpenIdConnectScope
 import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.config.model.*
+import com.sympauthy.config.model.ScopesConfig
+import com.sympauthy.config.model.orThrow
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.buffer
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.toList
 
 @Singleton
 class ScopeManager(
     @Inject private val uncheckedScopesConfig: ScopesConfig,
-    @Inject private val uncheckedAdminConfig: AdminConfig,
     @Inject private val claimManager: ClaimManager
 ) {
-    /**
-     * Consentable scopes defined in the OpenID Connect specification (profile, email, address, phone).
-     */
-    private val enabledOpenIdConnectScopes: Flow<Scope> = flow {
-        OpenIdConnectScope.entries.forEach { standardScope ->
-            val config = uncheckedScopesConfig.orThrow().scopes.asSequence()
-                .filterIsInstance<OpenIdConnectScopeConfig>()
-                .firstOrNull { it.scope == standardScope.scope }
-            val scope = toScope(config = config, standardScope = standardScope)
-            scope?.let { emit(it) }
-        }
-    }.buffer()
 
     /**
-     * Custom scopes defined in configuration, typed as consentable or grantable.
-     */
-    private val customScopes: Flow<Scope> = flow {
-        uncheckedScopesConfig.orThrow().scopes
-            .filterIsInstance<CustomScopeConfig>()
-            .forEach { config ->
-                val scope = if (config.consentable) {
-                    ConsentableUserScope(scope = config.scope, discoverable = true, audienceId = config.audienceId)
-                } else {
-                    GrantableUserScope(scope = config.scope, discoverable = true, audienceId = config.audienceId)
-                }
-                emit(scope)
-            }
-    }.buffer()
-
-    /**
-     * Built-in scopes granting access to the administration APIs of this authorization server.
-     * When admin is enabled, scopes are bound to the configured admin audience.
-     * When admin is disabled, returns an empty list.
-     */
-    val adminScopes: List<Scope> by lazy {
-        when (val config = uncheckedAdminConfig) {
-            is EnabledAdminConfig -> AdminScope.entries.map { adminScope ->
-                GrantableUserScope(
-                    scope = adminScope.scope,
-                    discoverable = false,
-                    audienceId = config.audienceId
-                )
-            }
-
-            is DisabledAdminConfig -> emptyList()
-        }
-    }
-
-    /**
-     * Built-in grantable scopes (e.g., openid) that are not admin scopes.
-     */
-    val builtInGrantableScopes: List<Scope> = BuiltInGrantableScope.entries.map { builtIn ->
-        GrantableUserScope(
-            scope = builtIn.scope,
-            discoverable = builtIn.discoverable
-        )
-    }
-
-    /**
-     * Built-in client scopes for `client_credentials` flows.
-     */
-    val clientScopes: List<Scope> = BuiltInClientScope.entries.map { builtIn ->
-        ClientScope(scope = builtIn.scope)
-    }
-
-    /**
-     * Convert an [OpenIdConnectScope] into a [ConsentableUserScope].
-     * Return null if the scope has been disabled by the [config].
-     */
-    private fun toScope(
-        config: OpenIdConnectScopeConfig?,
-        standardScope: OpenIdConnectScope
-    ): Scope? {
-        if (config != null && !config.enabled) {
-            return null
-        }
-        return ConsentableUserScope(
-            scope = standardScope.scope,
-            discoverable = true
-        )
-    }
-
-    /**
-     * List of all [Scope] enabled on this authorization server.
-     *
-     * Includes built-in grantable scopes, admin scopes, client scopes,
-     * OpenID Connect consentable scopes, and custom scopes.
+     * List of every [Scope] this authorization server serves.
      */
     suspend fun listScopes(): List<Scope> {
-        return builtInGrantableScopes + adminScopes + clientScopes +
-                enabledOpenIdConnectScopes.toList() + customScopes.toList()
+        return uncheckedScopesConfig.orThrow().scopes
     }
 
     /**

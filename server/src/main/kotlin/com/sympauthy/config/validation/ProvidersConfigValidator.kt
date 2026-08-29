@@ -11,22 +11,26 @@ import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
 @Singleton
-class ProvidersConfigValidator(
-    @Inject private val uncheckedAuthConfig: AuthConfig
-) {
+class ProvidersConfigValidator {
 
+    /**
+     * Build the providers the deployment configured. A provider must expose an email path when
+     * [userMergingEnabled], since that is what an account is merged on.
+     */
     fun validate(
         ctx: ConfigParsingContext,
-        parsed: List<ParsedProviderConfig>
+        parsed: List<ParsedProviderConfig>,
+        userMergingEnabled: Boolean
     ): List<ProviderConfig> {
         return parsed.mapNotNull { provider ->
-            validateProvider(ctx, provider)
+            validateProvider(ctx, provider, userMergingEnabled)
         }
     }
 
     private fun validateProvider(
         ctx: ConfigParsingContext,
-        parsed: ParsedProviderConfig
+        parsed: ParsedProviderConfig,
+        userMergingEnabled: Boolean
     ): ProviderConfig? {
         val subCtx = ctx.child()
         val keyPrefix = "$PROVIDERS_KEY.${parsed.id}"
@@ -74,8 +78,7 @@ class ProvidersConfigValidator(
                         configExceptionOf("$keyPrefix.user-info.paths", "config.provider.user_info.missing_subject_key")
                     )
                 }
-                val authConfig = uncheckedAuthConfig as? EnabledAuthConfig
-                if (authConfig?.userMergingEnabled == true && parsed.userInfoPaths[EMAIL] == null) {
+                if (userMergingEnabled && parsed.userInfoPaths[EMAIL] == null) {
                     subCtx.addError(
                         configExceptionOf("$keyPrefix.user-info.paths", "config.provider.user_info.missing_email_key")
                     )

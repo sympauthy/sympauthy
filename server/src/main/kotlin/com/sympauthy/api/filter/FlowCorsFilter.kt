@@ -1,6 +1,5 @@
 package com.sympauthy.api.filter
 
-import com.sympauthy.business.manager.flow.AuthorizationFlowManager
 import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.config.model.AuthorizationFlowsConfig
 import com.sympauthy.config.model.EnabledAuthorizationFlowsConfig
@@ -50,7 +49,6 @@ import kotlin.jvm.optionals.getOrNull
 @Filter("/api/v1/flow/**")
 class FlowCorsFilter(
     @Inject private val authorizationFlowsConfig: AuthorizationFlowsConfig,
-    @Inject private val authorizationFlowManager: AuthorizationFlowManager,
     @Inject private val corsPreflightHeaders: CorsPreflightHeaders
 ) : HttpServerFilter, Ordered {
 
@@ -61,13 +59,6 @@ class FlowCorsFilter(
     private fun buildAllowedOrigins(): Set<String> {
         val origins = mutableSetOf<String>()
 
-        // Default bundled flow (same server, but include for completeness)
-        try {
-            origins += extractOrigins(authorizationFlowManager.defaultInteractiveFlow)
-        } catch (_: Exception) {
-        }
-
-        // User-configured flows
         (authorizationFlowsConfig as? EnabledAuthorizationFlowsConfig)
             ?.flows
             ?.filterIsInstance<InteractiveFlow>()

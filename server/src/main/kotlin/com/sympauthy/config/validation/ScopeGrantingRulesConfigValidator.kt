@@ -1,6 +1,5 @@
 package com.sympauthy.config.validation
 
-import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.rule.InvalidScopeGrantingRuleException
 import com.sympauthy.business.manager.rule.ScopeGrantingRuleExpressionExecutor
 import com.sympauthy.business.model.oauth2.ClientScope
@@ -16,18 +15,19 @@ import jakarta.inject.Singleton
 
 @Singleton
 class ScopeGrantingRulesConfigValidator(
-    @Inject private val scopeManager: ScopeManager,
     @Inject private val scopeGrantingRuleExpressionExecutor: ScopeGrantingRuleExpressionExecutor
 ) {
 
     suspend fun validateUserRules(
         ctx: ConfigParsingContext,
-        parsed: List<ParsedScopeGrantingRule>
+        parsed: List<ParsedScopeGrantingRule>,
+        scopesById: Map<String, Scope>
     ): List<ScopeGrantingRule> {
         return parsed.mapNotNull { rule ->
             validateRule(
                 ctx,
                 rule,
+                scopesById,
                 ::validateUserRuleScope,
                 scopeGrantingRuleExpressionExecutor::validateUserExpression
             )
@@ -36,12 +36,14 @@ class ScopeGrantingRulesConfigValidator(
 
     suspend fun validateClientRules(
         ctx: ConfigParsingContext,
-        parsed: List<ParsedScopeGrantingRule>
+        parsed: List<ParsedScopeGrantingRule>,
+        scopesById: Map<String, Scope>
     ): List<ScopeGrantingRule> {
         return parsed.mapNotNull { rule ->
             validateRule(
                 ctx,
                 rule,
+                scopesById,
                 ::validateClientRuleScope,
                 scopeGrantingRuleExpressionExecutor::validateClientExpression
             )
@@ -51,6 +53,7 @@ class ScopeGrantingRulesConfigValidator(
     private suspend fun validateRule(
         ctx: ConfigParsingContext,
         parsed: ParsedScopeGrantingRule,
+        scopesById: Map<String, Scope>,
         scopeValidator: (Scope, String, Int, ConfigParsingContext) -> Unit,
         expressionValidator: suspend (String) -> Unit
     ): ScopeGrantingRule? {
@@ -58,23 +61,19 @@ class ScopeGrantingRulesConfigValidator(
 
         // Validate scopes.
         val scopes = parsed.scopeIds?.mapIndexedNotNull { index, scopeId ->
-            try {
-                val scope = scopeManager.find(scopeId)
-                if (scope == null) {
-                    subCtx.addError(
-                        configExceptionOf(
-                            "${parsed.key}.scopes[$index]",
-                            "config.rule.scope.invalid",
-                            "scope" to scopeId
-                        )
+            val scope = scopesById[scopeId]
+            if (scope == null) {
+                subCtx.addError(
+                    configExceptionOf(
+                        "${parsed.key}.scopes[$index]",
+                        "config.rule.scope.invalid",
+                        "scope" to scopeId
                     )
-                } else {
-                    scopeValidator(scope, "${parsed.key}.scopes", index, subCtx)
-                }
-                scope
-            } catch (_: Throwable) {
-                null
+                )
+            } else {
+                scopeValidator(scope, "${parsed.key}.scopes", index, subCtx)
             }
+            scope
         }
 
         // Validate expressions.

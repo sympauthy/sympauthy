@@ -27,10 +27,11 @@ class ClaimTemplatesConfigFactoryTest {
 
     private fun setUp() {
         val claimAclParser = ClaimAclParser(parser)
-        val claimAclValidator = ClaimAclValidator(EnabledScopesConfig(emptyList()))
+        val claimAclValidator = ClaimAclValidator()
         factory = ClaimTemplatesConfigFactory(
             ClaimTemplatesConfigParser(parser, claimAclParser),
-            ClaimTemplatesConfigValidator(claimAclValidator)
+            ClaimTemplatesConfigValidator(claimAclValidator),
+            EnabledScopesConfig(emptyList())
         )
     }
 
