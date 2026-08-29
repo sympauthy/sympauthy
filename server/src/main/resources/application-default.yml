@@ -183,6 +183,14 @@ claims:
     acl:
       consent-scope: address
 
+# Headers browsers are allowed to send on cross-origin requests, on top of the mandatory
+# Content-Type, Authorization and DPoP headers which are always allowed and cannot be removed.
+# Redefining this key in your own configuration REPLACES this list rather than extending it,
+# so repeat any entry below that you still want.
+cors:
+  allowed-headers:
+    - X-Requested-With # sent by the bundled swagger-ui
+
 mfa:
   required: false
   totp:
