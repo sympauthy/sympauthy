@@ -8,7 +8,6 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
@@ -31,6 +30,7 @@ import java.time.LocalDateTime
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class UserSearchManagerTest {
 
     @MockK
@@ -54,12 +54,8 @@ class UserSearchManagerTest {
     @InjectMockKs
     lateinit var manager: UserSearchManager
 
-    private fun mockClaim(id: String, enabled: Boolean = true, dataType: ClaimDataType = ClaimDataType.STRING): Claim {
-        return mockk<Claim> {
-            every { this@mockk.id } returns id
-            every { this@mockk.enabled } returns enabled
-            every { this@mockk.dataType } returns dataType
-        }
+    private fun mockClaim(id: String): Claim = mockk {
+        every { this@mockk.id } returns id
     }
 
     private fun mockUser(
@@ -213,6 +209,8 @@ class UserSearchManagerTest {
         val cc1 = mockCollectedClaim(user1.id, emailClaim, "jane@example.com")
         val cc2 = mockCollectedClaim(user2.id, emailClaim, "john@example.com")
 
+        // Only a value collected for a claim that is still enabled is searched.
+        every { emailClaim.enabled } returns true
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim)
         coEvery { userRepository.findAll() } returns flowOf(entity1, entity2)
         every { userMapper.toUser(entity1) } returns user1

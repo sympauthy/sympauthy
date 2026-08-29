@@ -35,6 +35,7 @@ import java.net.URI
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class InteractiveAuthFlowSessionManagerTest {
 
     @MockK
@@ -135,7 +136,7 @@ class InteractiveAuthFlowSessionManagerTest {
 
     @Test
     fun `parseCodeChallenge - Returns challenge and S256 method when both provided`() {
-        val client = mockk<Client> { every { `public` } returns false }
+        val client = mockk<Client>()
         val (challenge, method, error) = manager.parseCodeChallenge(client, "test-challenge", "S256")
 
         assertEquals("test-challenge", challenge)
@@ -145,7 +146,7 @@ class InteractiveAuthFlowSessionManagerTest {
 
     @Test
     fun `parseCodeChallenge - Defaults to S256 when method not provided`() {
-        val client = mockk<Client> { every { `public` } returns false }
+        val client = mockk<Client>()
         val (challenge, method, error) = manager.parseCodeChallenge(client, "test-challenge", null)
 
         assertEquals("test-challenge", challenge)
@@ -155,7 +156,7 @@ class InteractiveAuthFlowSessionManagerTest {
 
     @Test
     fun `parseCodeChallenge - Returns error for unsupported method`() {
-        val client = mockk<Client> { every { `public` } returns false }
+        val client = mockk<Client>()
         val (challenge, method, error) = manager.parseCodeChallenge(client, "test-challenge", "plain")
 
         assertNull(challenge)
@@ -165,20 +166,8 @@ class InteractiveAuthFlowSessionManagerTest {
     }
 
     @Test
-    fun `parseCodeChallenge - Returns error when public client has no code_challenge`() {
-        val client = mockk<Client> { every { `public` } returns true }
-        val (challenge, method, error) = manager.parseCodeChallenge(client, null, null)
-
-        assertNull(challenge)
-        assertNull(method)
-        assertNotNull(error)
-        assertEquals("authorize.pkce.missing_code_challenge", error!!.detailsId)
-    }
-
-    @Test
-    fun `parseCodeChallenge - Returns error when confidential client has no code_challenge`() {
-        val client = mockk<Client> { every { `public` } returns false }
-        val (challenge, method, error) = manager.parseCodeChallenge(client, null, null)
+    fun `parseCodeChallenge - Returns error when code_challenge is missing`() {
+        val (challenge, method, error) = manager.parseCodeChallenge(mockk<Client>(), null, null)
 
         assertNull(challenge)
         assertNull(method)
@@ -370,7 +359,6 @@ class InteractiveAuthFlowSessionManagerTest {
     fun `startAuthorizationWith - Uses default flow when client has no authorizationFlow`() = runTest {
         val client = mockk<Client> {
             every { authorizationFlow } returns null
-            every { `public` } returns false
             every { supportsGrantType(any()) } returns true
         }
         setupDefaultFlow()
@@ -406,7 +394,6 @@ class InteractiveAuthFlowSessionManagerTest {
     fun `startAuthorizationWith - Stores scope error when scope is invalid`() = runTest {
         val client = mockk<Client> {
             every { authorizationFlow } returns null
-            every { `public` } returns false
             every { supportsGrantType(any()) } returns true
         }
         setupDefaultFlow()
@@ -479,7 +466,6 @@ class InteractiveAuthFlowSessionManagerTest {
     fun `startAuthorizationWith - Stores redirect_uri error when redirect_uri is blank`() = runTest {
         val client = mockk<Client> {
             every { authorizationFlow } returns null
-            every { `public` } returns false
             every { supportsGrantType(any()) } returns true
         }
         setupDefaultFlow()
@@ -546,10 +532,9 @@ class InteractiveAuthFlowSessionManagerTest {
     }
 
     @Test
-    fun `startAuthorizationWith - Stores PKCE error for public client without code_challenge`() = runTest {
+    fun `startAuthorizationWith - Stores PKCE error when code_challenge is missing`() = runTest {
         val client = mockk<Client> {
             every { authorizationFlow } returns null
-            every { `public` } returns true
             every { supportsGrantType(any()) } returns true
         }
         setupDefaultFlow()
@@ -573,7 +558,7 @@ class InteractiveAuthFlowSessionManagerTest {
         } returns mockk()
 
         manager.startAuthorizationWith(
-            uncheckedClientId = "public-client",
+            uncheckedClientId = "client",
             uncheckedClientState = null,
             uncheckedClientNonce = null,
             uncheckedScopes = null,
@@ -589,7 +574,6 @@ class InteractiveAuthFlowSessionManagerTest {
     fun `startAuthorizationWith - Stores code_challenge and S256 on valid PKCE request`() = runTest {
         val client = mockk<Client> {
             every { authorizationFlow } returns null
-            every { `public` } returns false
             every { supportsGrantType(any()) } returns true
         }
         setupDefaultFlow()
@@ -660,7 +644,6 @@ class InteractiveAuthFlowSessionManagerTest {
     fun `startAuthorizationWith - Uses first error when multiple validations fail`() = runTest {
         val client = mockk<Client> {
             every { authorizationFlow } returns null
-            every { `public` } returns true
             every { supportsGrantType(any()) } returns true
         }
         setupDefaultFlow()
@@ -706,7 +689,6 @@ class InteractiveAuthFlowSessionManagerTest {
     fun `startAuthorizationWith - Passes state to startOAuth2Session`() = runTest {
         val client = mockk<Client> {
             every { authorizationFlow } returns null
-            every { `public` } returns false
             every { supportsGrantType(any()) } returns true
         }
         setupDefaultFlow()
@@ -742,7 +724,6 @@ class InteractiveAuthFlowSessionManagerTest {
     fun `startAuthorizationWith - Passes nonce to startOAuth2Session`() = runTest {
         val client = mockk<Client> {
             every { authorizationFlow } returns null
-            every { `public` } returns false
             every { supportsGrantType(any()) } returns true
         }
         setupDefaultFlow()

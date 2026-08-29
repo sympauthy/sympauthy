@@ -5,15 +5,18 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.Claim
 import io.mockk.clearAllMocks
 import io.mockk.every
+import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 import java.time.LocalDateTime
 import java.util.UUID
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
+@ExtendWith(MockKExtension::class)
 class ActAsRuleExpressionExecutorTest {
 
     private val executor = ActAsRuleExpressionExecutor()

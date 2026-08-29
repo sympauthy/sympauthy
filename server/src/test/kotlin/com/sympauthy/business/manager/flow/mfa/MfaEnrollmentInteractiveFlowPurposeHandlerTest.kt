@@ -3,12 +3,15 @@ package com.sympauthy.business.manager.flow.mfa
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import io.mockk.every
+import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 
+@ExtendWith(MockKExtension::class)
 class MfaEnrollmentInteractiveFlowPurposeHandlerTest {
 
     private val handler = MfaEnrollmentInteractiveFlowPurposeHandler()

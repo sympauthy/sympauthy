@@ -16,17 +16,20 @@ import okhttp3.mockwebserver.MockWebServer
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 import java.net.URI
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import io.mockk.junit5.MockKExtension
 
 @MicronautTest(
     environments = ["default", "test"],
     startApplication = false
 )
+@ExtendWith(MockKExtension::class)
 class AuthorizationWebhookClientTest {
 
     @Inject

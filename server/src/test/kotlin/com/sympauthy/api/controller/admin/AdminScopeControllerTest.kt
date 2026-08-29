@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class AdminScopeControllerTest {
 
     @MockK
@@ -31,10 +32,6 @@ class AdminScopeControllerTest {
 
     @InjectMockKs
     lateinit var controller: AdminScopeController
-
-    private fun mockClaim(id: String): Claim = mockk {
-        every { this@mockk.id } returns id
-    }
 
     private fun mockResource(id: String, type: String, claims: List<String>? = null): AdminScopeResource =
         AdminScopeResource(
@@ -51,7 +48,7 @@ class AdminScopeControllerTest {
         val openid = GrantableUserScope("openid", discoverable = true)
         val scopes = listOf(profile, openid)
 
-        val profileClaims = listOf(mockClaim("name"), mockClaim("family_name"))
+        val profileClaims = listOf(mockk<Claim>(), mockk<Claim>())
         val profileResource = mockResource("profile", "consentable", listOf("name", "family_name"))
         val openidResource = mockResource("openid", "grantable")
 
@@ -77,7 +74,7 @@ class AdminScopeControllerTest {
         val profile = ConsentableUserScope("profile")
         val openid = GrantableUserScope("openid", discoverable = true)
 
-        val profileClaims = listOf(mockClaim("name"))
+        val profileClaims = listOf(mockk<Claim>())
         val profileResource = mockResource("profile", "consentable", listOf("name"))
 
         coEvery { scopeManager.listScopes() } returns listOf(profile, openid)
@@ -151,9 +148,10 @@ class AdminScopeControllerTest {
         val resources = scopes.map { mockResource(it.scope, "consentable") }
 
         coEvery { scopeManager.listScopes() } returns scopes
-        scopes.forEachIndexed { i, scope ->
-            every { scopeManager.listClaimsProtectedByScope(scope) } returns emptyList()
-            every { scopeMapper.toResource(scope, emptyList()) } returns resources[i]
+        // Sorted by scope id, the second page of two holds openid and phone.
+        listOf(2, 3).forEach { i ->
+            every { scopeManager.listClaimsProtectedByScope(scopes[i]) } returns emptyList()
+            every { scopeMapper.toResource(scopes[i], emptyList()) } returns resources[i]
         }
 
         val result = controller.listScopes(1, 2, null, null)
@@ -162,6 +160,8 @@ class AdminScopeControllerTest {
         assertEquals(2, result.size)
         assertEquals(5, result.total)
         assertEquals(2, result.scopes.size)
+        assertSame(resources[2], result.scopes[0])
+        assertSame(resources[3], result.scopes[1])
     }
 
     @Test
@@ -181,7 +181,7 @@ class AdminScopeControllerTest {
         val profile = ConsentableUserScope("profile")
         val openid = GrantableUserScope("openid", discoverable = true)
 
-        val profileClaims = listOf(mockClaim("name"))
+        val profileClaims = listOf(mockk<Claim>())
 
         coEvery { scopeManager.listScopes() } returns listOf(profile, openid)
         every { scopeManager.listClaimsProtectedByScope(profile) } returns profileClaims

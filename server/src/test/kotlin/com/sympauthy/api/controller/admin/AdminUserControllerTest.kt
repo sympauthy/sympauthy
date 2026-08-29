@@ -12,7 +12,6 @@ import com.sympauthy.business.manager.user.UserSearchManager
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
-import com.sympauthy.business.model.user.claim.Claim
 import io.micronaut.http.HttpStatus
 import io.mockk.coEvery
 import io.mockk.every
@@ -29,6 +28,7 @@ import java.time.LocalDateTime
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class AdminUserControllerTest {
 
     @MockK
@@ -61,12 +61,7 @@ class AdminUserControllerTest {
     @Test
     fun `getUser - Returns user with identifier claims`() = runTest {
         val user = User(id = userId, status = UserStatus.ENABLED, creationDate = creationDate)
-        val emailClaim = mockk<Claim> { every { id } returns "email" }
-        val collectedClaim = mockk<CollectedClaim> {
-            every { claim } returns emailClaim
-            every { value } returns "user@example.com"
-        }
-        val identifierClaims = listOf(collectedClaim)
+        val identifierClaims = listOf(mockk<CollectedClaim>())
         val identifierClaimsMap = mapOf("email" to "user@example.com")
 
         val expectedResource = AdminUserDetailResource(

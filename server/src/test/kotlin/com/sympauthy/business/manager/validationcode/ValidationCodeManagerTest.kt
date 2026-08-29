@@ -30,6 +30,7 @@ import java.time.LocalDateTime
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class ValidationCodeManagerTest {
 
     @MockK
@@ -138,9 +139,7 @@ class ValidationCodeManagerTest {
             val collectedClaim = mockk<CollectedClaim> {
                 every { userId } returns mockUserId
             }
-            val sender = mockk<ValidationCodeMediaSender> {
-                every { media } returns EMAIL
-            }
+            val sender = mockk<ValidationCodeMediaSender>()
             val senderClaimTuple = ValidationCodeManager.SenderClaimTuple(
                 media = EMAIL,
                 collectedClaim = collectedClaim,
@@ -200,10 +199,7 @@ class ValidationCodeManagerTest {
             every { reasons } returns listOf(EMAIL_CLAIM)
             every { expired } returns false
         }
-        val nonMatchingCode = mockk<ValidationCode> {
-            every { reasons } returns listOf(PHONE_NUMBER_CLAIM)
-            every { expired } returns false
-        }
+        val nonMatchingCode = mockk<ValidationCode> { every { reasons } returns listOf(PHONE_NUMBER_CLAIM) }
 
         coEvery { validationCodeRepository.findBySessionId(sessionId) } returns listOf(
             expiredEntity, nonMatchingEntity, matchingEntity
@@ -231,18 +227,10 @@ class ValidationCodeManagerTest {
         val expiredEntity = mockk<ValidationCodeEntity>()
         val nonMatchingEntity = mockk<ValidationCodeEntity>()
         val matchingEntity = mockk<ValidationCodeEntity>()
-        val expiredCode = mockk<ValidationCode> {
-            every { reasons } returns listOf(EMAIL_CLAIM)
-            every { expired } returns true
-        }
-        val matchingCode = mockk<ValidationCode> {
-            every { reasons } returns listOf(EMAIL_CLAIM)
-            every { expired } returns false
-        }
-        val nonMatchingCode = mockk<ValidationCode> {
-            every { reasons } returns listOf(PHONE_NUMBER_CLAIM)
-            every { expired } returns false
-        }
+        // Expired codes are asked for, so nothing is filtered on the expiry.
+        val expiredCode = mockk<ValidationCode> { every { reasons } returns listOf(EMAIL_CLAIM) }
+        val matchingCode = mockk<ValidationCode> { every { reasons } returns listOf(EMAIL_CLAIM) }
+        val nonMatchingCode = mockk<ValidationCode> { every { reasons } returns listOf(PHONE_NUMBER_CLAIM) }
 
         coEvery { validationCodeRepository.findBySessionId(sessionId) } returns listOf(
             expiredEntity, nonMatchingEntity, matchingEntity
@@ -325,10 +313,8 @@ class ValidationCodeManagerTest {
 
     @Test
     fun `canBeRefreshed - Returns true if validation code is expired`() {
-        val validationCode = mockk<ValidationCode> {
-            every { expired } returns true
-            every { resendDate } returns null
-        }
+        // An expired code can be refreshed whatever its resend date says.
+        val validationCode = mockk<ValidationCode> { every { expired } returns true }
 
         assertTrue(manager.canBeRefreshed(validationCode))
     }

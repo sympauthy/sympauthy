@@ -29,6 +29,7 @@ import java.time.LocalDateTime
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class InteractiveAuthFlowSessionProviderEstablisherTest {
 
     @MockK
@@ -208,7 +209,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
         }
 
     @Test
-    fun `createOrAssociateUserWithProviderUserInfo - Throw when merging enabled but identifier claim not provided by provider`() =
+    fun `createOrAssociateUserWithProviderUserInfo - Throw when identifier claim not provided by provider`() =
         runTest {
             val provider = createProvider()
             val providerUserInfo = RawProviderClaims(
@@ -216,7 +217,6 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
                 email = null
             )
 
-            every { uncheckedAuthConfig.userMergingEnabled } returns true
             every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
 
             val exception = assertThrows<BusinessException> {
@@ -228,7 +228,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
         }
 
     @Test
-    fun `createOrAssociateUserWithProviderUserInfo - Throw when merging enabled but identifier claim not configured`() =
+    fun `createOrAssociateUserWithProviderUserInfo - Throw when identifier claim not configured`() =
         runTest {
             val provider = createProvider()
             val providerUserInfo = RawProviderClaims(
@@ -236,7 +236,6 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
                 email = "user@example.com"
             )
 
-            every { uncheckedAuthConfig.userMergingEnabled } returns true
             every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
             every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns null
 

@@ -22,6 +22,7 @@ import java.net.URI
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class InteractiveFlowSessionLinkProviderManagerTest {
 
     @MockK
@@ -47,7 +48,7 @@ class InteractiveFlowSessionLinkProviderManagerTest {
         initiatingClientId: String?,
         flow: AuthorizationFlow,
     ): OnGoingInteractiveFlowSession {
-        val newSession = mockk<OnGoingInteractiveFlowSession> { every { id } returns sessionId }
+        val newSession = mockk<OnGoingInteractiveFlowSession>()
         val withUser = mockk<OnGoingInteractiveFlowSession> { every { id } returns sessionId }
         coEvery {
             sessionManager.newSession(

@@ -15,7 +15,6 @@ import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
-import com.sympauthy.business.model.oauth2.AuthenticationTokenType
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
@@ -40,9 +39,9 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import java.net.URI
 import java.time.LocalDateTime
-import java.util.*
 
 @ExtendWith(MockKExtension::class)
+@MockKExtension.CheckUnnecessaryStub
 class TokenControllerTest {
 
     @MockK
@@ -98,9 +97,9 @@ class TokenControllerTest {
     @InjectMockKs
     lateinit var controller: TokenController
 
-    private fun mockRequestWithoutAuth(dpopHeaders: List<String> = emptyList()): HttpRequest<*> {
+    /** A request the DPoP manager is stubbed to find no proof on, whatever [dpopHeaders] it carries. */
+    private fun mockRequest(dpopHeaders: List<String> = emptyList()): HttpRequest<*> {
         val headers = mockk<HttpHeaders> {
-            every { authorization } returns Optional.empty()
             every { getAll(DpopManager.DPOP_HEADER) } returns dpopHeaders
         }
         return mockk<HttpRequest<*>> {
@@ -112,27 +111,37 @@ class TokenControllerTest {
         }
     }
 
-    private fun mockClient(id: String = "test-client"): Client {
-        return mockk {
-            every { this@mockk.id } returns id
-            every { supportsGrantType(any()) } returns true
-            every { audience } returns mockk { every { tokenAudience } returns "https://test-audience" }
-        }
+    private fun mockClient(): Client = mockk {
+        every { supportsGrantType(any()) } returns true
     }
 
-    private fun mockEncodedToken(
-        token: String = "encoded-token",
+    /** A client the issued token is named after, which only the client credentials grant does. */
+    private fun mockClientIdentifiedAs(id: String): Client = mockClient().also {
+        every { it.id } returns id
+        every { it.audience } returns mockk { every { tokenAudience } returns "https://test-audience" }
+    }
+
+    private fun mockOAuth2(redirectUri: String): InteractiveFlowSessionOAuth2 = mockk {
+        every { this@mockk.redirectUri } returns redirectUri
+    }
+
+    /** A token the response only carries the encoded form of. */
+    private fun mockEncodedToken(token: String): EncodedAuthenticationToken = mockk {
+        every { this@mockk.token } returns token
+    }
+
+    /** A token the response is built around: its scopes are reported, and its lifetime with them. */
+    private fun mockAccessToken(
+        token: String,
         scopes: List<String> = emptyList(),
         issueDate: LocalDateTime = LocalDateTime.of(2024, 1, 1, 0, 0),
-        expirationDate: LocalDateTime? = null,
-        type: AuthenticationTokenType = ACCESS
-    ): EncodedAuthenticationToken {
-        return mockk {
-            every { this@mockk.token } returns token
-            every { this@mockk.scopes } returns scopes
+        expirationDate: LocalDateTime? = null
+    ): EncodedAuthenticationToken = mockk {
+        every { this@mockk.token } returns token
+        every { this@mockk.scopes } returns scopes
+        every { this@mockk.expirationDate } returns expirationDate
+        if (expirationDate != null) {
             every { this@mockk.issueDate } returns issueDate
-            every { this@mockk.expirationDate } returns expirationDate
-            every { this@mockk.type } returns type
         }
     }
 
@@ -140,7 +149,7 @@ class TokenControllerTest {
 
     @Test
     fun `getTokens - client_credentials uses resolveClient, not resolveClientAllowingPublic`() = runTest {
-        val request = mockRequestWithoutAuth()
+        val request = mockRequest()
         coEvery {
             clientAuthenticationUtil.resolveClient(request, any(), any())
         } throws oauth2ExceptionOf(INVALID_GRANT, "authentication.wrong")
@@ -164,7 +173,7 @@ class TokenControllerTest {
 
     @Test
     fun `getTokens - token-exchange uses resolveClient, not resolveClientAllowingPublic`() = runTest {
-        val request = mockRequestWithoutAuth()
+        val request = mockRequest()
         coEvery {
             clientAuthenticationUtil.resolveClient(request, any(), any())
         } throws oauth2ExceptionOf(INVALID_GRANT, "authentication.wrong")
@@ -188,7 +197,7 @@ class TokenControllerTest {
 
     @Test
     fun `getTokens - token-exchange without subject_token throws invalid_request`() = runTest {
-        val request = mockRequestWithoutAuth()
+        val request = mockRequest()
         val client = mockClient()
         coEvery { clientAuthenticationUtil.resolveClient(request, any(), any()) } returns client
 
@@ -214,7 +223,7 @@ class TokenControllerTest {
 
     @Test
     fun `getTokens - refresh_token uses resolveClientAllowingPublic, not resolveClient`() = runTest {
-        val request = mockRequestWithoutAuth()
+        val request = mockRequest()
         coEvery {
             clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
         } throws oauth2ExceptionOf(INVALID_GRANT, "authentication.wrong")
@@ -238,7 +247,7 @@ class TokenControllerTest {
 
     @Test
     fun `getTokens - authorization_code uses resolveClientAllowingPublic, not resolveClient`() = runTest {
-        val request = mockRequestWithoutAuth()
+        val request = mockRequest()
         coEvery {
             clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
         } throws oauth2ExceptionOf(INVALID_GRANT, "authentication.wrong")
@@ -262,7 +271,7 @@ class TokenControllerTest {
 
     @Test
     fun `getTokens - Binds the proof validation to the DPoP header, method and uri of the request`() = runTest {
-        val request = mockRequestWithoutAuth(dpopHeaders = listOf("a-proof"))
+        val request = mockRequest(dpopHeaders = listOf("a-proof"))
 
         assertThrows<OAuth2Exception> {
             controller.getTokens(
@@ -290,7 +299,7 @@ class TokenControllerTest {
     fun `getTokens - Throws unsupported_grant_type for unknown grant`() = runTest {
         val exception = assertThrows<OAuth2Exception> {
             controller.getTokens(
-                request = mockRequestWithoutAuth(),
+                request = mockRequest(),
                 grantType = "unknown",
                 code = null,
                 redirectUri = null,
@@ -308,7 +317,7 @@ class TokenControllerTest {
 
     @Test
     fun `getTokensUsingAuthorizationCode - Throws when code is missing`() = runTest {
-        val request = mockRequestWithoutAuth()
+        val request = mockRequest()
         coEvery {
             clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
         } returns mockClient()
@@ -332,13 +341,9 @@ class TokenControllerTest {
 
     @Test
     fun `getTokensUsingAuthorizationCode - Throws when redirect_uri does not match`() = runTest {
-        val request = mockRequestWithoutAuth()
+        val request = mockRequest()
         val session = mockk<CompletedInteractiveFlowSession>()
-        val oauth2 = mockk<InteractiveFlowSessionOAuth2> {
-            every { redirectUri } returns "https://example.com/callback"
-            every { codeChallenge } returns null
-            every { codeChallengeMethod } returns null
-        }
+        val oauth2 = mockOAuth2("https://example.com/callback")
         coEvery {
             clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
         } returns mockClient()
@@ -364,7 +369,7 @@ class TokenControllerTest {
 
     @Test
     fun `getTokensUsingAuthorizationCode - Throws invalid_grant when session is not found`() = runTest {
-        val request = mockRequestWithoutAuth()
+        val request = mockRequest()
         coEvery {
             clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
         } returns mockClient()
@@ -393,7 +398,7 @@ class TokenControllerTest {
 
     @Test
     fun `getTokensUsingAuthorizationCode - Throws invalid_grant when oauth2 record is missing`() = runTest {
-        val request = mockRequestWithoutAuth()
+        val request = mockRequest()
         val session = mockk<CompletedInteractiveFlowSession>()
         coEvery {
             clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
@@ -423,13 +428,11 @@ class TokenControllerTest {
 
     @Test
     fun `getTokensUsingAuthorizationCode - Throws when PKCE verification fails`() = runTest {
-        val request = mockRequestWithoutAuth()
+        val request = mockRequest()
         val session = mockk<CompletedInteractiveFlowSession>()
-        val oauth2 = mockk<InteractiveFlowSessionOAuth2> {
-            every { redirectUri } returns "https://example.com/callback"
-            every { codeChallenge } returns "stored-challenge"
-            every { codeChallengeMethod } returns CodeChallengeMethod.S256
-        }
+        val oauth2 = mockOAuth2("https://example.com/callback")
+        every { oauth2.codeChallenge } returns "stored-challenge"
+        every { oauth2.codeChallengeMethod } returns CodeChallengeMethod.S256
         coEvery {
             clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
         } returns mockClient()
@@ -459,16 +462,14 @@ class TokenControllerTest {
 
     @Test
     fun `getTokensUsingAuthorizationCode - Returns tokens on success`() = runTest {
-        val request = mockRequestWithoutAuth()
-        val accessToken = mockEncodedToken("access-jwt", listOf("openid"))
-        val refreshToken = mockEncodedToken("refresh-jwt", type = REFRESH)
+        val request = mockRequest()
+        val accessToken = mockAccessToken("access-jwt", listOf("openid"))
+        val refreshToken = mockEncodedToken("refresh-jwt")
         val idToken = mockEncodedToken("id-jwt")
         val session = mockk<CompletedInteractiveFlowSession>()
-        val oauth2 = mockk<InteractiveFlowSessionOAuth2> {
-            every { redirectUri } returns "https://example.com/callback"
-            every { codeChallenge } returns null
-            every { codeChallengeMethod } returns null
-        }
+        val oauth2 = mockOAuth2("https://example.com/callback")
+        every { oauth2.codeChallenge } returns null
+        every { oauth2.codeChallengeMethod } returns null
         coEvery {
             clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
         } returns mockClient()
@@ -504,7 +505,7 @@ class TokenControllerTest {
 
     @Test
     fun `getTokensUsingRefreshToken - Throws when refresh_token is missing`() = runTest {
-        val request = mockRequestWithoutAuth()
+        val request = mockRequest()
         val client = mockClient()
         coEvery { clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any()) } returns client
 
@@ -527,10 +528,12 @@ class TokenControllerTest {
 
     @Test
     fun `getTokensUsingRefreshToken - Returns tokens with refreshed refresh token`() = runTest {
-        val request = mockRequestWithoutAuth()
+        val request = mockRequest()
         val client = mockClient()
-        val accessToken = mockEncodedToken("new-access", listOf("openid"), type = ACCESS)
-        val newRefreshToken = mockEncodedToken("new-refresh", type = REFRESH)
+        val accessToken = mockAccessToken("new-access", listOf("openid"))
+        val newRefreshToken = mockEncodedToken("new-refresh")
+        every { accessToken.type } returns ACCESS
+        every { newRefreshToken.type } returns REFRESH
 
         coEvery { clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any()) } returns client
         coEvery { tokenManager.refreshToken(client, "old-refresh", dpopJkt = null) } returns listOf(
@@ -556,9 +559,10 @@ class TokenControllerTest {
 
     @Test
     fun `getTokensUsingRefreshToken - Falls back to original refresh token when not refreshed`() = runTest {
-        val request = mockRequestWithoutAuth()
+        val request = mockRequest()
         val client = mockClient()
-        val accessToken = mockEncodedToken("new-access", type = ACCESS)
+        val accessToken = mockAccessToken("new-access")
+        every { accessToken.type } returns ACCESS
 
         coEvery { clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any()) } returns client
         coEvery { tokenManager.refreshToken(client, "old-refresh", dpopJkt = null) } returns listOf(accessToken)
@@ -583,10 +587,10 @@ class TokenControllerTest {
 
     @Test
     fun `getTokensUsingClientCredentials - Returns access token without refresh or id token`() = runTest {
-        val request = mockRequestWithoutAuth()
-        val client = mockClient("my-client")
+        val request = mockRequest()
+        val client = mockClientIdentifiedAs("my-client")
         val scope = mockk<com.sympauthy.business.model.oauth2.ClientScope> { every { this@mockk.scope } returns "read" }
-        val accessToken = mockEncodedToken("cc-access", listOf("read"))
+        val accessToken = mockAccessToken("cc-access", listOf("read"))
 
         coEvery { clientAuthenticationUtil.resolveClient(request, any(), any()) } returns client
         coEvery { scopeManager.parseRequestedClientScopes(client, "read") } returns listOf(scope)
@@ -626,9 +630,9 @@ class TokenControllerTest {
 
     @Test
     fun `getTokens - Returns the lifetime of the access token in seconds`() = runTest {
-        val request = mockRequestWithoutAuth()
-        val client = mockClient("my-client")
-        val accessToken = mockEncodedToken(
+        val request = mockRequest()
+        val client = mockClientIdentifiedAs("my-client")
+        val accessToken = mockAccessToken(
             token = "cc-access",
             issueDate = LocalDateTime.of(2024, 1, 1, 12, 0, 0),
             expirationDate = LocalDateTime.of(2024, 1, 1, 13, 0, 0)
