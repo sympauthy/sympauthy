@@ -38,7 +38,8 @@ import kotlin.jvm.optionals.getOrNull
 @Filter("/api/v1/admin/**")
 class AdminCorsFilter(
     @Inject private val adminConfig: AdminConfig,
-    @Inject private val urlsConfig: UrlsConfig
+    @Inject private val urlsConfig: UrlsConfig,
+    @Inject private val corsPreflightHeaders: CorsPreflightHeaders
 ) : HttpServerFilter, Ordered {
 
     override fun getOrder(): Int = ServerFilterPhase.FIRST.before()
@@ -94,11 +95,11 @@ class AdminCorsFilter(
     ): Publisher<MutableHttpResponse<*>> {
         if (request.method == HttpMethod.OPTIONS) {
             val response = HttpResponse.ok<Any>()
-            addWildcardCorsHeaders(response, preflight = true)
+            addCorsHeaders(response, origin = null, preflight = true)
             return Flowable.just(response)
         }
         return Flowable.fromPublisher(chain.proceed(request)).map { response ->
-            addWildcardCorsHeaders(response, preflight = false)
+            addCorsHeaders(response, origin = null, preflight = false)
             response
         }
     }
@@ -113,38 +114,39 @@ class AdminCorsFilter(
 
         if (request.method == HttpMethod.OPTIONS) {
             val response = HttpResponse.ok<Any>()
-            if (isAllowed) addRestrictedCorsHeaders(response, origin, preflight = true)
+            if (isAllowed) addCorsHeaders(response, origin, preflight = true)
             return Flowable.just(response)
         }
 
         if (!isAllowed) return chain.proceed(request)
 
         return Flowable.fromPublisher(chain.proceed(request)).map { response ->
-            addRestrictedCorsHeaders(response, origin, preflight = false)
+            addCorsHeaders(response, origin, preflight = false)
             response
         }
     }
 
-    private fun addWildcardCorsHeaders(response: MutableHttpResponse<*>, preflight: Boolean) {
-        response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+    /**
+     * [origin] is `null` in wildcard mode, where every origin is allowed and the response therefore does
+     * not vary on the request.
+     */
+    private fun addCorsHeaders(
+        response: MutableHttpResponse<*>,
+        origin: String?,
+        preflight: Boolean
+    ) {
+        if (origin == null) {
+            response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+        } else {
+            response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, origin)
+            response.headers.add(HttpHeaders.VARY, HttpHeaders.ORIGIN)
+        }
         if (preflight) {
-            response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, PUT, DELETE, OPTIONS")
-            response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type, Authorization")
-            response.headers.add(HttpHeaders.ACCESS_CONTROL_MAX_AGE, "86400")
+            corsPreflightHeaders.addTo(response, ALLOWED_METHODS)
         }
     }
 
-    private fun addRestrictedCorsHeaders(
-        response: MutableHttpResponse<*>,
-        origin: String,
-        preflight: Boolean
-    ) {
-        response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, origin)
-        response.headers.add(HttpHeaders.VARY, HttpHeaders.ORIGIN)
-        if (preflight) {
-            response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, PUT, DELETE, OPTIONS")
-            response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type, Authorization")
-            response.headers.add(HttpHeaders.ACCESS_CONTROL_MAX_AGE, "86400")
-        }
+    companion object {
+        private const val ALLOWED_METHODS = "GET, POST, PUT, DELETE, OPTIONS"
     }
 }

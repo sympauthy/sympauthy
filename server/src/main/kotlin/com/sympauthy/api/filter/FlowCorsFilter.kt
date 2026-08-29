@@ -44,13 +44,14 @@ import kotlin.jvm.optionals.getOrNull
  * - **Regular request, unknown origin** — passed through unchanged; no CORS headers are added.
  *
  * ## Filter order
- * Runs at [ServerFilterPhase.SECURITY].order() - 10, i.e. before Micronaut Security, so that
- * OPTIONS preflights are handled before the security filter can reject unauthenticated requests.
+ * Runs at [ServerFilterPhase.FIRST].before(), i.e. before Micronaut Security, so that OPTIONS preflights
+ * are handled before the security filter can reject unauthenticated requests.
  */
 @Filter("/api/v1/flow/**")
 class FlowCorsFilter(
     @Inject private val authorizationFlowsConfig: AuthorizationFlowsConfig,
-    @Inject private val authorizationFlowManager: AuthorizationFlowManager
+    @Inject private val authorizationFlowManager: AuthorizationFlowManager,
+    @Inject private val corsPreflightHeaders: CorsPreflightHeaders
 ) : HttpServerFilter, Ordered {
 
     override fun getOrder(): Int = ServerFilterPhase.FIRST.before()
@@ -117,9 +118,11 @@ class FlowCorsFilter(
         response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, origin)
         response.headers.add(HttpHeaders.VARY, HttpHeaders.ORIGIN)
         if (preflight) {
-            response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, PUT, DELETE, OPTIONS")
-            response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type, Authorization")
-            response.headers.add(HttpHeaders.ACCESS_CONTROL_MAX_AGE, "86400")
+            corsPreflightHeaders.addTo(response, ALLOWED_METHODS)
         }
+    }
+
+    companion object {
+        private const val ALLOWED_METHODS = "GET, POST, PUT, DELETE, OPTIONS"
     }
 }
