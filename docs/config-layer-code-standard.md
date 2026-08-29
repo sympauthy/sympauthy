@@ -39,6 +39,18 @@ never by injecting the other domain's configuration. Injecting it would make the
 configurations are created part of the design, and the cycle that eventually appears is not
 diagnosable from either end.
 
+**A validator never injects a manager either.** A manager reads configuration, so a validator that
+injects one is reaching back into the layer it is in the middle of building: from config, into
+business, and into config again. That is the same loop as injecting another configuration directly,
+with one more step hiding it.
+
+**A configuration carries its complete set, including the entries the server itself adds.** Where a
+deployment names some of the values and the server supplies the rest — the ones a specification
+defines, the ones a built-in feature needs — the two halves are put together here, and everything
+downstream reads the result. Assembling the set above this layer instead is what leaves a validator
+with no one to ask but a manager, and it means every caller that wants the whole set has to know how
+to build it.
+
 **The factory is thin enough to read in one breath.** Create the context, parse, validate, and
 return the enabled model or the disabled one. The non-null assertions it needs are legal there and
 only there, because it has just checked that the context has no errors.

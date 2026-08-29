@@ -46,7 +46,7 @@ kind of thing is a change to this table before it is a class.
 | `api` | `business`, `config`, `security` | `data` — no entity, no repository |
 | `business` | `data`, `config`, `client` | `api` |
 | `data` | Micronaut Data and the JDK | `business`, `api` |
-| `config` | the JDK | `business`, `data`, `api` |
+| `config` | `business.model`, the JDK | the rest of `business`, `data`, `api` |
 
 **The two that get broken first, and what they look like when they are:** a resource mapper that
 imports an entity because the manager it would otherwise go through returns almost the right shape,
@@ -58,6 +58,21 @@ implementing an OAuth2 endpoint throws the protocol's own error type, which live
 an OAuth2 error code is a wire format rather than a domain concept. Flattening it to a business
 exception would lose the code the specification requires. [The exception
 standard](exception-code-standard.md) is where that carve-out is argued; nothing else may use it.
+
+**`config` may import `business.model`, and that is an admission rather than a permission.** A
+validated configuration *is* a domain value — the factory's output is the model the rest of the
+application injects, and the alternative is a second set of types saying the same thing with a
+translation between them. The coupling already runs both ways, because a manager reading the
+configuration it was given is what the table has always allowed, so a rule forbidding one direction
+would be describing half of a relationship. These two model packages are one layer with two names.
+
+**What that does not extend to is the rest of `business`.** No manager, no mapper, no business
+exception. The line is load-bearing rather than tidy: a manager reads configuration, so a validator
+that injects one closes a loop back through the layer it is in the middle of building, and the
+ordering such a loop depends on is not visible from either end of it. What a validator needs from
+elsewhere is resolved by its factory and handed to it, which is [the config
+standard's](config-layer-code-standard.md) rule for one configuration referring to another, applied
+one layer further out.
 
 **A manager is callable without an HTTP request.** It takes no request, no `Authentication` and no
 header — a caller that has one extracts what the manager needs and passes it as an ordinary
