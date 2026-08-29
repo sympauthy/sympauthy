@@ -1,8 +1,9 @@
 package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.manager.consent.ConsentManager
+import com.sympauthy.business.manager.provider.ProviderClaimsManager
+import com.sympauthy.business.model.provider.ProviderUserInfo
 import com.sympauthy.business.model.user.ClientUser
-import com.sympauthy.data.repository.ProviderUserInfoRepository
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.util.*
@@ -15,7 +16,7 @@ class ClientUserManager(
     @Inject private val consentManager: ConsentManager,
     @Inject private val userManager: UserManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
-    @Inject private val providerUserInfoRepository: ProviderUserInfoRepository
+    @Inject private val providerClaimsManager: ProviderClaimsManager
 ) {
 
     /**
@@ -40,16 +41,16 @@ class ClientUserManager(
         val consentByUserId = consents.associateBy { it.userId }
 
         // Load providers for all users
-        val providersByUserId = providerUserInfoRepository.findByUserIdInList(userIds)
-            .groupBy { it.id.userId }
+        val providersByUserId = providerClaimsManager.listByUserIds(userIds)
+            .groupBy(ProviderUserInfo::userId)
 
         // Filter by provider_id and subject if specified
         val filteredUserIds = if (providerId != null) {
             providersByUserId.entries
                 .filter { (_, providers) ->
                     providers.any { provider ->
-                        provider.id.providerId == providerId &&
-                                (subject == null || provider.subject == subject)
+                        provider.providerId == providerId &&
+                                (subject == null || provider.userInfo.subject == subject)
                     }
                 }
                 .map { it.key }
@@ -94,7 +95,7 @@ class ClientUserManager(
         val consent = consentManager.findActiveConsentByAudienceOrNull(userId, audienceId) ?: return null
         val user = userManager.findByIdOrNull(userId) ?: return null
         val identifierClaims = collectedClaimManager.findIdentifierByUserId(userId)
-        val providers = providerUserInfoRepository.findByUserId(userId)
+        val providers = providerClaimsManager.findByUserId(userId)
 
         return ClientUser(
             user = user,

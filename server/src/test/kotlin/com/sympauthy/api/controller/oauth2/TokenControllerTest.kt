@@ -19,12 +19,14 @@ import com.sympauthy.business.model.oauth2.AuthenticationTokenType
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
+import com.sympauthy.business.model.oauth2.DpopBoundRequest
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.UNSUPPORTED_GRANT_TYPE
 import com.sympauthy.config.model.*
 import io.micronaut.http.HttpHeaders
+import io.micronaut.http.HttpMethod
 import io.micronaut.http.HttpRequest
 import io.mockk.*
 import io.mockk.impl.annotations.InjectMockKs
@@ -36,6 +38,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
+import java.net.URI
 import java.time.LocalDateTime
 import java.util.*
 
@@ -95,14 +98,17 @@ class TokenControllerTest {
     @InjectMockKs
     lateinit var controller: TokenController
 
-    private fun mockRequestWithoutAuth(): HttpRequest<*> {
+    private fun mockRequestWithoutAuth(dpopHeaders: List<String> = emptyList()): HttpRequest<*> {
         val headers = mockk<HttpHeaders> {
             every { authorization } returns Optional.empty()
+            every { getAll(DpopManager.DPOP_HEADER) } returns dpopHeaders
         }
         return mockk<HttpRequest<*>> {
             every { this@mockk.headers } returns headers
+            every { method } returns HttpMethod.POST
+            every { uri } returns URI.create("/api/oauth2/token")
         }.also {
-            every { dpopManager.validateDpopProof(it) } returns null
+            every { dpopManager.validateDpopProof(any(), any()) } returns null
         }
     }
 
@@ -252,6 +258,32 @@ class TokenControllerTest {
         }
 
         coVerify(exactly = 0) { clientAuthenticationUtil.resolveClient(any(), any(), any()) }
+    }
+
+    @Test
+    fun `getTokens - Binds the proof validation to the DPoP header, method and uri of the request`() = runTest {
+        val request = mockRequestWithoutAuth(dpopHeaders = listOf("a-proof"))
+
+        assertThrows<OAuth2Exception> {
+            controller.getTokens(
+                request = request,
+                grantType = "unknown",
+                code = null,
+                redirectUri = null,
+                refreshToken = null,
+                scope = null,
+                clientId = null,
+                clientSecret = null,
+                codeVerifier = null
+            )
+        }
+
+        verify {
+            dpopManager.validateDpopProof(
+                listOf("a-proof"),
+                DpopBoundRequest(method = "POST", uri = URI.create("/api/oauth2/token"))
+            )
+        }
     }
 
     @Test

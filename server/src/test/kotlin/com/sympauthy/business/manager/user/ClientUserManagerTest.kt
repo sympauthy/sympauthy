@@ -1,12 +1,12 @@
 package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.manager.consent.ConsentManager
+import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.model.oauth2.Consent
+import com.sympauthy.business.model.provider.ProviderUserInfo
+import com.sympauthy.business.model.user.RawProviderClaims
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
-import com.sympauthy.data.model.ProviderUserInfoEntity
-import com.sympauthy.data.model.ProviderUserInfoEntityId
-import com.sympauthy.data.repository.ProviderUserInfoRepository
 import io.mockk.coEvery
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
@@ -32,7 +32,7 @@ class ClientUserManagerTest {
     lateinit var collectedClaimManager: CollectedClaimManager
 
     @MockK
-    lateinit var providerUserInfoRepository: ProviderUserInfoRepository
+    lateinit var providerClaimsManager: ProviderClaimsManager
 
     @InjectMockKs
     lateinit var manager: ClientUserManager
@@ -57,11 +57,12 @@ class ClientUserManagerTest {
         revokedById = null
     )
 
-    private fun mockProviderEntity(userId: UUID, providerId: String, subject: String) = ProviderUserInfoEntity(
-        id = ProviderUserInfoEntityId(providerId = providerId, userId = userId),
+    private fun mockProviderUserInfo(userId: UUID, providerId: String, subject: String) = ProviderUserInfo(
+        providerId = providerId,
+        userId = userId,
         fetchDate = LocalDateTime.now(),
         changeDate = LocalDateTime.now(),
-        subject = subject
+        userInfo = RawProviderClaims(subject = subject)
     )
 
     @Test
@@ -81,7 +82,7 @@ class ClientUserManagerTest {
         val consent = mockConsent(userId)
 
         coEvery { consentManager.findActiveConsentsByAudience(audienceId) } returns listOf(consent)
-        coEvery { providerUserInfoRepository.findByUserIdInList(listOf(userId)) } returns emptyList()
+        coEvery { providerClaimsManager.listByUserIds(listOf(userId)) } returns emptyList()
         coEvery { userManager.findByIdOrNull(userId) } returns user
         coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns emptyList()
 
@@ -100,10 +101,10 @@ class ClientUserManagerTest {
         val consent1 = mockConsent(userId1)
         val consent2 = mockConsent(userId2)
 
-        val provider = mockProviderEntity(userId1, "discord", "123")
+        val provider = mockProviderUserInfo(userId1, "discord", "123")
 
         coEvery { consentManager.findActiveConsentsByAudience(audienceId) } returns listOf(consent1, consent2)
-        coEvery { providerUserInfoRepository.findByUserIdInList(listOf(userId1, userId2)) } returns listOf(provider)
+        coEvery { providerClaimsManager.listByUserIds(listOf(userId1, userId2)) } returns listOf(provider)
         coEvery { userManager.findByIdOrNull(userId1) } returns user1
         coEvery { collectedClaimManager.findIdentifierByUserId(userId1) } returns emptyList()
 
@@ -121,11 +122,11 @@ class ClientUserManagerTest {
         val consent1 = mockConsent(userId1)
         val consent2 = mockConsent(userId2)
 
-        val provider1 = mockProviderEntity(userId1, "discord", "123")
-        val provider2 = mockProviderEntity(userId2, "discord", "456")
+        val provider1 = mockProviderUserInfo(userId1, "discord", "123")
+        val provider2 = mockProviderUserInfo(userId2, "discord", "456")
 
         coEvery { consentManager.findActiveConsentsByAudience(audienceId) } returns listOf(consent1, consent2)
-        coEvery { providerUserInfoRepository.findByUserIdInList(listOf(userId1, userId2)) } returns listOf(
+        coEvery { providerClaimsManager.listByUserIds(listOf(userId1, userId2)) } returns listOf(
             provider1,
             provider2
         )
@@ -145,7 +146,7 @@ class ClientUserManagerTest {
         val consents = userIds.map { mockConsent(it) }
 
         coEvery { consentManager.findActiveConsentsByAudience(audienceId) } returns consents
-        coEvery { providerUserInfoRepository.findByUserIdInList(userIds) } returns emptyList()
+        coEvery { providerClaimsManager.listByUserIds(userIds) } returns emptyList()
 
         // Only mock the users on page 1 (indices 2, 3)
         userIds.forEachIndexed { index, id ->
@@ -170,7 +171,7 @@ class ClientUserManagerTest {
         coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, audienceId) } returns consent
         coEvery { userManager.findByIdOrNull(userId) } returns user
         coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns emptyList()
-        coEvery { providerUserInfoRepository.findByUserId(userId) } returns emptyList()
+        coEvery { providerClaimsManager.findByUserId(userId) } returns emptyList()
 
         val result = manager.findUserForAudienceOrNull(audienceId, userId)
 

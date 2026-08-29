@@ -10,13 +10,9 @@ import com.nimbusds.jose.jwk.KeyUse
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import com.sympauthy.api.exception.OAuth2Exception
+import com.sympauthy.business.model.oauth2.DpopBoundRequest
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
 import com.sympauthy.config.model.EnabledUrlsConfig
-import io.micronaut.http.HttpHeaders
-import io.micronaut.http.HttpMethod
-import io.micronaut.http.HttpRequest
-import io.mockk.every
-import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -50,21 +46,10 @@ class DpopManagerTest {
         signer = ECDSASigner(ecKey)
     }
 
-    private fun mockRequest(
-        method: HttpMethod = HttpMethod.POST,
-        uri: URI = URI.create("/api/oauth2/token"),
-        dpopHeaders: List<String> = emptyList()
-    ): HttpRequest<*> {
-        val headers = mockk<HttpHeaders> {
-            every { getAll("DPoP") } returns dpopHeaders
-        }
-        return mockk {
-            every { this@mockk.headers } returns headers
-            every { this@mockk.method } returns method
-            every { this@mockk.uri } returns uri
-            every { this@mockk.methodName } returns method.name
-        }
-    }
+    private fun boundRequest(
+        method: String = "POST",
+        uri: URI = URI.create("/api/oauth2/token")
+    ) = DpopBoundRequest(method = method, uri = uri)
 
     private fun createValidDpopProof(
         htm: String = "POST",
@@ -95,15 +80,13 @@ class DpopManagerTest {
 
     @Test
     fun `validateDpopProof - Returns null when no DPoP header`() {
-        val request = mockRequest(dpopHeaders = emptyList())
-        assertNull(dpopManager.validateDpopProof(request))
+        assertNull(dpopManager.validateDpopProof(emptyList(), boundRequest()))
     }
 
     @Test
     fun `validateDpopProof - Throws when multiple DPoP headers`() {
-        val request = mockRequest(dpopHeaders = listOf("proof1", "proof2"))
         val exception = assertThrows<OAuth2Exception> {
-            dpopManager.validateDpopProof(request)
+            dpopManager.validateDpopProof(listOf("proof1", "proof2"), boundRequest())
         }
         assertEquals(INVALID_DPOP_PROOF, exception.errorCode)
         assertEquals("dpop.multiple_headers", exception.detailsId)
@@ -112,8 +95,7 @@ class DpopManagerTest {
     @Test
     fun `validateDpopProof - Returns DpopProof on valid proof`() {
         val proof = createValidDpopProof()
-        val request = mockRequest(dpopHeaders = listOf(proof))
-        val result = dpopManager.validateDpopProof(request)
+        val result = dpopManager.validateDpopProof(listOf(proof), boundRequest())
 
         assertNotNull(result)
         assertNotNull(result!!.jkt)
@@ -135,7 +117,7 @@ class DpopManagerTest {
 
     @Test
     fun `validateProof - Throws on malformed JWT`() {
-        val request = mockRequest()
+        val request = boundRequest()
         val exception = assertThrows<OAuth2Exception> {
             dpopManager.validateProof("not-a-jwt", request)
         }
@@ -147,7 +129,7 @@ class DpopManagerTest {
     @Test
     fun `validateProof - Throws when typ is not dpop+jwt`() {
         val proof = createValidDpopProof(typ = "JWT")
-        val request = mockRequest()
+        val request = boundRequest()
         val exception = assertThrows<OAuth2Exception> {
             dpopManager.validateProof(proof, request)
         }
@@ -173,7 +155,7 @@ class DpopManagerTest {
         val signedJwt = SignedJWT(header, claims)
         signedJwt.sign(com.nimbusds.jose.crypto.MACSigner("a-very-long-secret-key-that-is-at-least-32-bytes-long!"))
         val proof = signedJwt.serialize()
-        val request = mockRequest()
+        val request = boundRequest()
 
         val exception = assertThrows<OAuth2Exception> {
             dpopManager.validateProof(proof, request)
@@ -193,7 +175,7 @@ class DpopManagerTest {
                 .issueTime(Date())
                 .build()
         )
-        val request = mockRequest()
+        val request = boundRequest()
 
         val exception = assertThrows<OAuth2Exception> {
             dpopManager.validateProof(proof, request)
@@ -211,7 +193,7 @@ class DpopManagerTest {
                 .issueTime(Date())
                 .build()
         )
-        val request = mockRequest()
+        val request = boundRequest()
 
         val exception = assertThrows<OAuth2Exception> {
             dpopManager.validateProof(proof, request)
@@ -229,7 +211,7 @@ class DpopManagerTest {
                 .issueTime(Date())
                 .build()
         )
-        val request = mockRequest()
+        val request = boundRequest()
 
         val exception = assertThrows<OAuth2Exception> {
             dpopManager.validateProof(proof, request)
@@ -247,7 +229,7 @@ class DpopManagerTest {
                 // no iat
                 .build()
         )
-        val request = mockRequest()
+        val request = boundRequest()
 
         val exception = assertThrows<OAuth2Exception> {
             dpopManager.validateProof(proof, request)
@@ -260,7 +242,7 @@ class DpopManagerTest {
     @Test
     fun `validateProof - Throws when htm does not match request method`() {
         val proof = createValidDpopProof(htm = "GET")
-        val request = mockRequest(method = HttpMethod.POST)
+        val request = boundRequest(method = "POST")
 
         val exception = assertThrows<OAuth2Exception> {
             dpopManager.validateProof(proof, request)
@@ -273,7 +255,7 @@ class DpopManagerTest {
     @Test
     fun `validateProof - Throws when htu does not match request URI`() {
         val proof = createValidDpopProof(htu = "https://other.example.com/api/oauth2/token")
-        val request = mockRequest()
+        val request = boundRequest()
 
         val exception = assertThrows<OAuth2Exception> {
             dpopManager.validateProof(proof, request)
@@ -284,7 +266,7 @@ class DpopManagerTest {
     @Test
     fun `validateProof - Strips query string from request URI for htu comparison`() {
         val proof = createValidDpopProof(htu = "https://auth.example.com/api/oauth2/token")
-        val request = mockRequest(uri = URI.create("/api/oauth2/token?foo=bar"))
+        val request = boundRequest(uri = URI.create("/api/oauth2/token?foo=bar"))
 
         val result = dpopManager.validateProof(proof, request)
         assertNotNull(result)
@@ -295,7 +277,7 @@ class DpopManagerTest {
     @Test
     fun `validateProof - Throws when iat is too old`() {
         val proof = createValidDpopProof(iat = Instant.now().minusSeconds(120))
-        val request = mockRequest()
+        val request = boundRequest()
 
         val exception = assertThrows<OAuth2Exception> {
             dpopManager.validateProof(proof, request)
@@ -306,7 +288,7 @@ class DpopManagerTest {
     @Test
     fun `validateProof - Throws when iat is too far in the future`() {
         val proof = createValidDpopProof(iat = Instant.now().plusSeconds(120))
-        val request = mockRequest()
+        val request = boundRequest()
 
         val exception = assertThrows<OAuth2Exception> {
             dpopManager.validateProof(proof, request)
@@ -317,7 +299,7 @@ class DpopManagerTest {
     @Test
     fun `validateProof - Accepts iat within acceptable window`() {
         val proof = createValidDpopProof(iat = Instant.now().minusSeconds(30))
-        val request = mockRequest()
+        val request = boundRequest()
 
         val result = dpopManager.validateProof(proof, request)
         assertNotNull(result)
@@ -334,7 +316,7 @@ class DpopManagerTest {
             .encodeToString("{\"jti\":\"tampered\",\"htm\":\"POST\",\"htu\":\"https://auth.example.com/api/oauth2/token\",\"iat\":${Instant.now().epochSecond}}".toByteArray())
         val tamperedProof = "${parts[0]}.$tamperedPayload.${parts[2]}"
 
-        val request = mockRequest()
+        val request = boundRequest()
         val exception = assertThrows<OAuth2Exception> {
             dpopManager.validateProof(tamperedProof, request)
         }
@@ -347,7 +329,7 @@ class DpopManagerTest {
     fun `validateProof - Returns consistent jkt for the same key`() {
         val proof1 = createValidDpopProof(jti = UUID.randomUUID().toString())
         val proof2 = createValidDpopProof(jti = UUID.randomUUID().toString())
-        val request = mockRequest()
+        val request = boundRequest()
 
         val result1 = dpopManager.validateProof(proof1, request)
         val result2 = dpopManager.validateProof(proof2, request)
@@ -368,7 +350,7 @@ class DpopManagerTest {
 
         val proof1 = createValidDpopProof()
         val proof2 = createValidDpopProof(ecKeyOverride = otherEcKey, signerOverride = otherSigner)
-        val request = mockRequest()
+        val request = boundRequest()
 
         val result1 = dpopManager.validateProof(proof1, request)
         val result2 = dpopManager.validateProof(proof2, request)
@@ -380,13 +362,13 @@ class DpopManagerTest {
 
     @Test
     fun `getRequestUri - Strips query from request path`() {
-        val request = mockRequest(uri = URI.create("/api/oauth2/token?code=abc&state=xyz"))
+        val request = boundRequest(uri = URI.create("/api/oauth2/token?code=abc&state=xyz"))
         assertEquals("https://auth.example.com/api/oauth2/token", dpopManager.getRequestUri(request))
     }
 
     @Test
     fun `getRequestUri - Uses urls root for scheme and authority`() {
-        val request = mockRequest(uri = URI.create("/api/oauth2/token"))
+        val request = boundRequest(uri = URI.create("/api/oauth2/token"))
         assertEquals("https://auth.example.com/api/oauth2/token", dpopManager.getRequestUri(request))
     }
 }

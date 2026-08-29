@@ -20,6 +20,7 @@ import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
+import com.sympauthy.business.model.oauth2.DpopBoundRequest
 import com.sympauthy.business.model.oauth2.DpopProof
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode
@@ -171,7 +172,15 @@ Client authentication is supported via:
         @Part("audience") audience: String? = null,
     ): TokenResource {
         // Validate DPoP proof if present, enforce if required by config
-        val dpopProof = dpopManager.validateDpopProof(request)
+        val dpopProof = dpopManager.validateDpopProof(
+            // The header lookup carries no nullability annotation, and a null reaching the non-null
+            // parameter would fail the commonest request there is: one carrying no proof at all.
+            proofs = request.headers.getAll(DpopManager.DPOP_HEADER) ?: emptyList(),
+            boundRequest = DpopBoundRequest(
+                method = request.method.name,
+                uri = request.uri
+            )
+        )
         val authConfig = uncheckedAuthConfig.orThrow()
         if (dpopProof == null && authConfig.token.dpopRequired) {
             throw oauth2ExceptionOf(INVALID_DPOP_PROOF, "dpop.missing_header")
