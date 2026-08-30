@@ -81,7 +81,7 @@ class ScopeGrantingRulesConfigValidator {
                 subCtx.addError(
                     configExceptionOf(
                         "${parsed.key}.expressions[$index]", e.configMessageId,
-                        "message" to e.message
+                        "message" to e.reason
                     )
                 )
             }

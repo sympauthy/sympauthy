@@ -19,17 +19,25 @@ fun Exception.getKeyAndLocalizedMessage(messageSource: MessageSource): Pair<Stri
     return when (this) {
         is LocalizedException -> {
             val key = values["key"] ?: "unknown"
-            val localizedErrorMessage = messageSource.getMessage(detailsId, Locale.US, values)
-                .orElse(detailsId)
-            key to localizedErrorMessage
+            key to messageSource.render(detailsId, values)
         }
 
-        is ConfigurationException -> {
-            val localizedErrorMessage = messageSource.getMessage(messageId, Locale.US, values)
-                .orElse(messageId)
-            key to localizedErrorMessage
-        }
+        is ConfigurationException -> key to messageSource.render(messageId, values)
 
         else -> javaClass.name to message
     }
 }
+
+/**
+ * Renders the message [messageId] names, interpolating [values] into its placeholders, and falls back
+ * to [messageId] itself when the bundle holds no such message.
+ *
+ * [values] may not admit a null, and the type saying so is what makes this work. The message source
+ * takes named values and positional values through two functions of the same name, and a map whose
+ * values are nullable matches only the positional one — so the call binds there, silently, and the
+ * message is rendered with no named value in scope at all. Every placeholder in it then resolves to
+ * nothing and is written out as its own name, which is what an operator reads instead of the audience,
+ * scope or algorithm the message was carrying.
+ */
+private fun MessageSource.render(messageId: String, values: Map<String, Any>): String =
+    getMessage(messageId, Locale.US, values).orElse(messageId)
