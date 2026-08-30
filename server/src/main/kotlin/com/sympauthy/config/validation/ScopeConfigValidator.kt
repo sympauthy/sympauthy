@@ -15,7 +15,9 @@ import com.sympauthy.business.model.user.OpenIdConnectScope
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.parsing.ParsedScopeConfig
+import com.sympauthy.config.parsing.ParsedScopeSetting
 import com.sympauthy.config.properties.ScopeConfigurationProperties.Companion.SCOPES_KEY
+import com.sympauthy.config.properties.ScopeTemplateConfigurationProperties.Companion.TEMPLATES_SCOPES_KEY
 import jakarta.inject.Singleton
 
 /**
@@ -52,7 +54,7 @@ class ScopeConfigValidator {
 
         val disabledOpenIdConnectScopes = configurable
             .filter { it.isOpenIdConnect }
-            .mapNotNull { validateOpenIdConnectScope(ctx, it, audiencesById) }
+            .mapNotNull { validateOpenIdConnectScope(ctx, it) }
             .toSet()
         val customScopes = configurable
             .filterNot { it.isOpenIdConnect }
@@ -96,17 +98,56 @@ class ScopeConfigValidator {
      */
     private fun validateOpenIdConnectScope(
         ctx: ConfigParsingContext,
-        parsed: ParsedScopeConfig,
-        audiencesById: Map<String, Audience>
+        parsed: ParsedScopeConfig
     ): String? {
-        // The audience is validated for the error it raises when unknown, then discarded: an
-        // OpenID Connect scope has never carried one. Honouring it changes which clients may
-        // request the scope, so it is tracked as its own change in #338.
-        validateAudienceId(
-            ctx, parsed.audienceId, audiencesById,
-            "$SCOPES_KEY.${parsed.id}.audience", "config.scope.audience.not_found"
+        refuseSetting(
+            ctx, parsed, parsed.audience, "audience",
+            onEntry = "config.scope.audience.not_allowed_for_openid",
+            onTemplate = "config.scope.template.audience_not_allowed_for_openid"
+        )
+        refuseSetting(
+            ctx, parsed, parsed.type, "type",
+            onEntry = "config.scope.type.not_allowed_for_openid",
+            onTemplate = "config.scope.template.type_not_allowed_for_openid"
         )
         return if (parsed.enabled == false) parsed.id else null
+    }
+
+    /**
+     * Record the error for a [setting] that reached an OpenID Connect scope but cannot apply to
+     * one, on the line the deployment wrote it: [settingKey] under the scope's own entry, or the
+     * reference to the template supplying it.
+     *
+     * The reference is named rather than the template, because a template carrying the setting is
+     * legitimate for the custom scopes also using it — the mistake is pointing an OpenID Connect
+     * scope at it. The template applied implicitly to these scopes cannot arrive here at all: what
+     * it carries is refused where it is declared, which leaves the whole configuration unusable
+     * before any scope is built from it.
+     */
+    private fun refuseSetting(
+        ctx: ConfigParsingContext,
+        parsed: ParsedScopeConfig,
+        setting: ParsedScopeSetting?,
+        settingKey: String,
+        onEntry: String,
+        onTemplate: String
+    ) {
+        val templateId = (setting ?: return).templateId
+        val error = if (templateId == null) {
+            configExceptionOf(
+                "$SCOPES_KEY.${parsed.id}.$settingKey",
+                onEntry,
+                "scope" to parsed.id
+            )
+        } else {
+            configExceptionOf(
+                "$SCOPES_KEY.${parsed.id}.template",
+                onTemplate,
+                "scope" to parsed.id,
+                "template" to templateId
+            )
+        }
+        ctx.addError(error)
     }
 
     private fun validateCustomScope(
@@ -117,11 +158,12 @@ class ScopeConfigValidator {
         val configKeyPrefix = "$SCOPES_KEY.${parsed.id}"
 
         val audienceId = validateAudienceId(
-            ctx, parsed.audienceId, audiencesById,
-            "$configKeyPrefix.audience", "config.scope.audience.not_found"
+            ctx, parsed.audience?.value, audiencesById,
+            audienceKey(parsed), "config.scope.audience.not_found"
         )
 
-        val consentable = when (parsed.type) {
+        val type = parsed.type?.value
+        val consentable = when (type) {
             null, "grantable" -> false
             "consentable" -> true
             "client" -> {
@@ -141,7 +183,7 @@ class ScopeConfigValidator {
                         "$configKeyPrefix.type",
                         "config.scope.invalid_type",
                         "scope" to parsed.id,
-                        "type" to parsed.type
+                        "type" to type
                     )
                 )
                 return null
@@ -153,6 +195,16 @@ class ScopeConfigValidator {
         } else {
             GrantableUserScope(scope = parsed.id, discoverable = true, audienceId = audienceId)
         }
+    }
+
+    /**
+     * The key the audience of [parsed] was written at, which is the template it was inherited from
+     * when the scope's own entry did not name one.
+     */
+    private fun audienceKey(parsed: ParsedScopeConfig): String {
+        val templateId = parsed.audience?.templateId
+            ?: return "$SCOPES_KEY.${parsed.id}.audience"
+        return "$TEMPLATES_SCOPES_KEY.$templateId.audience"
     }
 
     private fun openIdConnectScopes(disabledScopes: Set<String>): List<Scope> {
