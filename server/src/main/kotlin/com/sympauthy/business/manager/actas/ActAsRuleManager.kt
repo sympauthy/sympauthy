@@ -9,6 +9,7 @@ import com.sympauthy.business.model.rule.ActAsRuleBehavior.DENY
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.config.model.ActAsRulesConfig
 import com.sympauthy.config.model.orThrow
+import com.sympauthy.expression.InvalidRuleExpressionException
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -71,7 +72,7 @@ class ActAsRuleManager(
         return rule.expressions.all { expression ->
             try {
                 actAsRuleExpressionExecutor.evaluateExpressionOrThrow(expression, configuration)
-            } catch (e: InvalidActAsRuleException) {
+            } catch (e: InvalidRuleExpressionException) {
                 throw internalBusinessExceptionOf(
                     detailsId = e.businessErrorDetailsId,
                     values = arrayOf("message" to (e.message ?: ""))

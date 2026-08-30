@@ -1,4 +1,4 @@
-package com.sympauthy.business.manager
+package com.sympauthy.config
 
 import com.sympauthy.config.model.*
 import jakarta.inject.Inject
@@ -8,11 +8,22 @@ import kotlinx.coroutines.flow.firstOrNull
 
 
 /**
- * Manager in charge of verifying if the configuration has completed and has no error.
+ * The configuration answering, across every domain it is split into, whether it is usable.
+ *
+ * This is a departure from the artifacts a configuration domain is otherwise written as: everything
+ * else here is per-domain, and this holds every domain's model at once. It has to, because an
+ * operator is owed one verdict on the file they wrote rather than one per section of it, and no
+ * single domain can give that.
+ *
+ * Every configuration bean therefore belongs in this constructor. One left out is a section whose
+ * errors never reach readiness, which looks from the outside exactly like a section with no errors.
  */
 @Singleton
-class ConfigReadinessManager(
+class ConfigReadiness(
+    @Inject private val actAsRulesConfig: Flow<ActAsRulesConfig>,
+    @Inject private val adminConfig: AdminConfig,
     @Inject private val advancedConfig: AdvancedConfig,
+    @Inject private val audiencesConfig: AudiencesConfig,
     @Inject private val authConfig: AuthConfig,
     @Inject private val authorizationFlowsConfig: AuthorizationFlowsConfig,
     @Inject private val claimTemplatesConfig: ClaimTemplatesConfig,
@@ -34,7 +45,9 @@ class ConfigReadinessManager(
      * List of synchronous configuration objects.
      */
     private val configs = listOf(
+        adminConfig,
         advancedConfig,
+        audiencesConfig,
         authConfig,
         authorizationFlowsConfig,
         bootstrapInvitationsConfig,
@@ -54,6 +67,7 @@ class ConfigReadinessManager(
      * List of asynchronous configuration objects.
      */
     private val flowConfigs = listOf(
+        actAsRulesConfig,
         clientTemplatesConfig,
         clientsConfig,
         rulesConfig

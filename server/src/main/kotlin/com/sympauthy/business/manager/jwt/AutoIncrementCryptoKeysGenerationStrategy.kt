@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.jwt
 import com.sympauthy.business.mapper.CryptoKeysMapper
 import com.sympauthy.business.mapper.IndexedCryptoKeysMapper
 import com.sympauthy.business.model.key.CryptoKeys
+import com.sympauthy.business.model.key.CryptoKeysGenerationStrategyQualifiers
 import com.sympauthy.business.model.key.KeyAlgorithm
 import com.sympauthy.data.model.IndexedCryptoKeysEntity
 import com.sympauthy.data.repository.CryptoKeysRepository
@@ -25,7 +26,7 @@ import jakarta.inject.Singleton
  *   - The instance takes the one with the lowest autoincrement id.
  */
 @Singleton
-@Named("autoincrement")
+@Named(CryptoKeysGenerationStrategyQualifiers.AUTO_INCREMENT)
 class AutoIncrementCryptoKeysGenerationStrategy(
     @Inject private val keysRepository: CryptoKeysRepository,
     @Inject private val indexedKeysRepository: IndexedCryptoKeysRepository,

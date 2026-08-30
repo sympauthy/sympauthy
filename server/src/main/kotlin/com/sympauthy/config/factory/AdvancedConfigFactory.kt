@@ -1,6 +1,5 @@
 package com.sympauthy.config.factory
 
-import com.sympauthy.business.manager.jwt.CryptoKeysGenerationStrategy
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.DisabledAdvancedConfig
@@ -32,7 +31,6 @@ class AdvancedConfigFactory(
         invitationHashProperties: InvitationHashConfigurationProperties,
         validationCodeProperties: ValidationCodeConfigurationProperties,
         authorizationWebhookProperties: AuthorizationWebhookConfigurationProperties,
-        keyGenerationStrategies: Map<String, CryptoKeysGenerationStrategy>,
     ): AdvancedConfig {
         val ctx = ConfigParsingContext()
         val parsed = advancedParser.parse(
@@ -40,7 +38,7 @@ class AdvancedConfigFactory(
             invitationProperties, invitationHashProperties,
             validationCodeProperties, authorizationWebhookProperties
         )
-        val config = advancedValidator.validate(ctx, parsed, keyGenerationStrategies)
+        val config = advancedValidator.validate(ctx, parsed)
         return config ?: DisabledAdvancedConfig(ctx.errors)
     }
 }

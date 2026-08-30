@@ -19,7 +19,7 @@ import jakarta.inject.Singleton
  * keeps working for the endpoints the application itself depends on.
  *
  * That fallback is a runtime safety net, not a way to tolerate a broken configuration. Like every other
- * section, the errors are collected by [com.sympauthy.business.manager.ConfigReadinessManager], logged at
+ * section, the errors are collected by [com.sympauthy.config.ConfigReadiness], logged at
  * startup and reported by the readiness health indicator, which stays DOWN until they are fixed.
  */
 @Singleton

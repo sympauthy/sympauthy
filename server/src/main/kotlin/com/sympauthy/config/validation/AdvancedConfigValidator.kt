@@ -1,7 +1,7 @@
 package com.sympauthy.config.validation
 
-import com.sympauthy.business.manager.jwt.CryptoKeysGenerationStrategy
 import com.sympauthy.business.model.jwt.JwtAlgorithm
+import com.sympauthy.business.model.key.CryptoKeysGenerationStrategyId
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.AuthorizationWebhookAdvancedConfig
@@ -27,12 +27,9 @@ class AdvancedConfigValidator {
 
     fun validate(
         ctx: ConfigParsingContext,
-        parsed: ParsedAdvancedConfig,
-        keyGenerationStrategies: Map<String, CryptoKeysGenerationStrategy>
+        parsed: ParsedAdvancedConfig
     ): EnabledAdvancedConfig? {
-        val keysGenerationStrategy = validateKeysGenerationStrategy(
-            ctx, parsed.keysGenerationStrategyId, keyGenerationStrategies
-        )
+        val keysGenerationStrategyId = validateKeysGenerationStrategy(ctx, parsed.keysGenerationStrategyId)
         validatePublicKeyAlgorithm(ctx, parsed.publicJwtAlgorithm)
         validateAccessKeyAlgorithm(ctx, parsed.accessJwtAlgorithm)
         validatePrivateKeyAlgorithm(ctx, parsed.privateJwtAlgorithm)
@@ -45,7 +42,7 @@ class AdvancedConfigValidator {
 
         if (ctx.hasErrors) return null
         return EnabledAdvancedConfig(
-            keysGenerationStrategy = keysGenerationStrategy!!,
+            keysGenerationStrategyId = keysGenerationStrategyId!!,
             publicJwtAlgorithm = parsed.publicJwtAlgorithm!!,
             accessJwtAlgorithm = parsed.accessJwtAlgorithm!!,
             privateJwtAlgorithm = parsed.privateJwtAlgorithm!!,
@@ -58,18 +55,17 @@ class AdvancedConfigValidator {
 
     private fun validateKeysGenerationStrategy(
         ctx: ConfigParsingContext,
-        strategyId: String?,
-        keyGenerationStrategies: Map<String, CryptoKeysGenerationStrategy>
-    ): CryptoKeysGenerationStrategy? {
+        strategyId: String?
+    ): CryptoKeysGenerationStrategyId? {
         if (strategyId == null) return null
-        val strategy = keyGenerationStrategies[strategyId]
+        val strategy = CryptoKeysGenerationStrategyId.fromIdOrNull(strategyId)
         if (strategy == null) {
             ctx.addError(
                 configExceptionOf(
                     "$ADVANCED_KEY.keys-generation-strategy",
                     "config.advanced.generation_algorithm.invalid",
                     "algorithm" to strategyId,
-                    "algorithms" to keyGenerationStrategies.keys.joinToString(", ")
+                    "algorithms" to CryptoKeysGenerationStrategyId.entries.joinToString(", ") { it.id }
                 )
             )
         }

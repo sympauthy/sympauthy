@@ -13,6 +13,7 @@ import com.sympauthy.business.model.rule.ScopeGrantingRuleBehavior.GRANT
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.config.model.ScopeGrantingRulesConfig
 import com.sympauthy.config.model.orThrow
+import com.sympauthy.expression.InvalidRuleExpressionException
 import jakarta.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
@@ -121,7 +122,7 @@ class ScopeGrantingRuleManager(
         val applicable = rule.expressions.all { expression ->
             try {
                 scopeGrantingRuleExpressionExecutor.evaluateExpressionOrThrow(expression, configuration)
-            } catch (e: InvalidScopeGrantingRuleException) {
+            } catch (e: InvalidRuleExpressionException) {
                 throw internalBusinessExceptionOf(
                     detailsId = e.businessErrorDetailsId,
                     values = arrayOf("message" to (e.message ?: ""))

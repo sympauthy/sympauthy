@@ -20,19 +20,6 @@ class ActAsRuleExpressionExecutorTest {
     private val executor = ActAsRuleExpressionExecutor()
 
     @Test
-    fun `validateExpression - simple expression is valid`() = runTest {
-        executor.validateExpression("true")
-    }
-
-    @Test
-    fun `validateExpression - expression mixing CLIENT and CLAIM functions is valid`() = runTest {
-        executor.validateExpression(
-            """CLIENT("client_id") = "discord-bot" && CLIENT("audience") = "admin" """ +
-                """&& CLAIM("email") = "a@b.c" && CLAIM_IS_VERIFIED("email")"""
-        )
-    }
-
-    @Test
     fun `getConfiguration - CLIENT resolves client_id and audience`() = runTest {
         val client = mockk<Client> {
             every { id } returns "discord-bot"

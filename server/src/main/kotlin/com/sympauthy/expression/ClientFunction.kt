@@ -1,4 +1,4 @@
-package com.sympauthy.business.manager.expression
+package com.sympauthy.expression
 
 import com.ezylang.evalex.Expression
 import com.ezylang.evalex.data.EvaluationValue
