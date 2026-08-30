@@ -78,9 +78,10 @@ class CryptoKeysManager(
     /**
      * The strategy the deployment configured.
      *
-     * @throws com.sympauthy.business.exception.BusinessException key.generation_strategy.missing when no
-     * implementation is published under the configured identifier, which means an entry was added to the
-     * enumeration without the bean that implements it.
+     * When no implementation is published under the configured identifier it throws a
+     * [com.sympauthy.business.exception.BusinessException] carrying `key.generation_strategy.missing`.
+     * That is not something a deployment can cause: it means an entry was added to the enumeration
+     * without the bean implementing it.
      */
     private fun generationStrategy(): CryptoKeysGenerationStrategy {
         val id = advancedConfig.orThrow().keysGenerationStrategyId
