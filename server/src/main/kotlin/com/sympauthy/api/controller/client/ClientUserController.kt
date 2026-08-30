@@ -35,7 +35,10 @@ class ClientUserController(
 ) {
 
     @Operation(
-        description = "Retrieve a paginated list of end-users who have granted scopes to the requesting client.",
+        description = "Retrieve a paginated list of end-users who have granted scopes to the requesting client. " +
+                "Users are ordered by the date of their current consent, oldest first. That date is rewritten " +
+                "each time a user authorizes again, which moves them to the end of the list, so a client " +
+                "walking every page while users are signing in may miss one or see one twice.",
         tags = ["client"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of users."),

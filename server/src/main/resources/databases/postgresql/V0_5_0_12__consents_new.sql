@@ -15,5 +15,5 @@ CREATE TABLE consents
 );
 
 CREATE INDEX consents__user_id ON consents (user_id);
-CREATE INDEX consents__audience_id ON consents (audience_id);
+CREATE INDEX consents__audience_id_consented_at_id ON consents (audience_id, consented_at, id);
 CREATE UNIQUE INDEX consents__active_user_audience ON consents (user_id, audience_id) WHERE revoked_at IS NULL;

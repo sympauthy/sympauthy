@@ -99,6 +99,65 @@ open class ConsentManager(
     }
 
     /**
+     * List one page of the active (non-revoked) consents granted for the given [audienceId], oldest first.
+     *
+     * When a [providerId] is given, only the consents of users linked to that provider are returned, and a
+     * [subject] narrows that further to the single account bearing it. A [subject] without a [providerId] is
+     * meaningless and is ignored; the caller is expected to have refused the combination already.
+     *
+     * The order is by consent date and total, so two calls agree on a snapshot. It is not append-only, which
+     * is the departure the API standard's ordering rule allows for and names: [saveConsent] revokes and
+     * re-inserts rather than updating, so a user consenting again moves to the tail, and a caller walking every
+     * page while that happens may miss one or see one twice.
+     */
+    suspend fun listActiveConsentsByAudience(
+        audienceId: String,
+        providerId: String?,
+        subject: String?,
+        page: Int,
+        size: Int
+    ): List<Consent> {
+        val offset = page * size
+        val entities = if (providerId != null) {
+            consentRepository.findActiveByAudienceIdAndProvider(
+                audienceId = audienceId,
+                providerId = providerId,
+                subject = subject,
+                limit = size,
+                offset = offset
+            )
+        } else {
+            consentRepository.findActiveByAudienceId(
+                audienceId = audienceId,
+                limit = size,
+                offset = offset
+            )
+        }
+        return entities.map(consentMapper::toConsent)
+    }
+
+    /**
+     * Count the active (non-revoked) consents granted for the given [audienceId], under the same [providerId]
+     * and [subject] filter [listActiveConsentsByAudience] applies.
+     */
+    suspend fun countActiveConsentsByAudience(
+        audienceId: String,
+        providerId: String?,
+        subject: String?
+    ): Int {
+        val count = if (providerId != null) {
+            consentRepository.countActiveByAudienceIdAndProvider(
+                audienceId = audienceId,
+                providerId = providerId,
+                subject = subject
+            )
+        } else {
+            consentRepository.countActiveByAudienceId(audienceId)
+        }
+        return count.toInt()
+    }
+
+    /**
      * Revoke the given [consent] and all associated refresh tokens for this user+client pair.
      */
     @Transactional
