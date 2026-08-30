@@ -11,13 +11,13 @@ import com.sympauthy.config.model.*
 import com.sympauthy.exception.LocalizedException
 import com.sympauthy.server.ErrorMessages
 import com.sympauthy.util.loggerForClass
+import com.sympauthy.util.render
 import io.micronaut.context.MessageSource
 import jakarta.annotation.PostConstruct
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.*
 import java.net.URI
-import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -49,8 +49,7 @@ open class ProviderManager(
                 try {
                     resolveProvider(config)
                 } catch (e: LocalizedException) {
-                    val localizedErrorMessage = messageSource.getMessage(e.detailsId, Locale.US, e.values)
-                        .orElse(e.detailsId)
+                    val localizedErrorMessage = messageSource.render(e.detailsId, e.values)
                     logger.error("Failed to resolve provider ${config.id}: $localizedErrorMessage")
                     DisabledProvider(config.id, e)
                 } catch (e: Exception) {

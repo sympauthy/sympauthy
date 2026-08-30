@@ -7,6 +7,7 @@ import com.sympauthy.config.model.orNull
 import com.sympauthy.exception.LocalizedException
 import com.sympauthy.exception.model.LocalizedError
 import com.sympauthy.server.ErrorMessages
+import com.sympauthy.util.renderOrNull
 import io.micronaut.context.MessageSource
 import io.micronaut.http.HttpStatus
 import jakarta.inject.Inject
@@ -39,9 +40,9 @@ class LocalizedErrorMapper(
             else -> "description.internal_server_error"
         }
 
-        val localizedDescription = messageSource.getMessage(descriptionId, locale, exception.values).orElse(null)
+        val localizedDescription = messageSource.renderOrNull(descriptionId, locale, exception.values)
         val localizedDetails = if (featuresConfig.orNull()?.printDetailsInError == true) {
-            messageSource.getMessage(exception.detailsId, locale, exception.values).orElse(null)
+            messageSource.renderOrNull(exception.detailsId, locale, exception.values)
         } else null
 
         return LocalizedError(

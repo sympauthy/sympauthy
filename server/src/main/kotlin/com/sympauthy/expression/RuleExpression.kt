@@ -23,8 +23,24 @@ class InvalidRuleExpressionException(
      * Code reported when the expression is refused while a request is being served.
      */
     val businessErrorDetailsId: String,
-    message: String? = null
-) : Exception("$expressionString - $message")
+    parseError: String? = null
+) : Exception(formatMessage(expressionString, parseError)) {
+
+    /**
+     * The expression and what was wrong with it, as the message each of the two codes names
+     * interpolates it.
+     *
+     * It carries the same text as [message] and exists because that one is [Throwable]'s, and so
+     * nullable.
+     */
+    val reason: String = formatMessage(expressionString, parseError)
+
+    companion object {
+        private fun formatMessage(expressionString: String, parseError: String?): String {
+            return listOfNotNull(expressionString, parseError).joinToString(" - ")
+        }
+    }
+}
 
 /**
  * A configuration carrying none of the custom functions.
@@ -54,7 +70,7 @@ fun evaluateRuleExpression(
             expressionString = expressionString,
             configMessageId = "config.rule.expression.invalid",
             businessErrorDetailsId = "rule.evaluate.failed",
-            message = e.message,
+            parseError = e.message,
         )
     }
     if (value.dataType != BOOLEAN) {

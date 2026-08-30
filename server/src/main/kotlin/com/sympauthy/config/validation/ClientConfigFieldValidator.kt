@@ -53,7 +53,8 @@ class ClientConfigFieldValidator {
             ctx.addError(
                 configExceptionOf(
                     key, "config.client.authorization_flow.invalid",
-                    "flow" to flowId
+                    "flow" to flowId,
+                    "flows" to flowsById.keys.joinToString(", ")
                 )
             )
         }

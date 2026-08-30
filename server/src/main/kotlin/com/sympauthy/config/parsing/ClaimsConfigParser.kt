@@ -156,7 +156,7 @@ class ClaimsConfigParser(
                     String::class -> parser.getString(properties, itemKey) { value }
                     else -> throw configExceptionOf(
                         itemKey, "config.claim.allowed_values.invalid_type",
-                        "type" to type.typeClass.simpleName
+                        "type" to type.typeClass.javaObjectType.simpleName
                     )
                 }
             }
