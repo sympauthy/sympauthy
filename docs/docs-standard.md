@@ -66,6 +66,18 @@ gate" survives a seventh purpose; a table with a row per purpose does not.
 still written as the rule, and the breach goes to an issue. Listing today's offenders in a standard
 is exhibiting code by another name, and the list is wrong the moment one of them is fixed.
 
+**A departure is documented where it departs, not here.** Where something deliberately does not
+follow a rule — the one component that is not per-domain, the class that had to break the pattern —
+the reason goes in [its own documentation](comment-standard.md), and the standard goes on stating
+the rule unqualified.
+
+Writing the exception into the standard instead costs twice. The rule stops being something a reader
+can apply, because applying it now means first checking whether they are holding one of the things
+excused from it. And the explanation ends up where the person who needs it is not: at the call site
+and in the IDE hover, a reader sees the class, never the paragraph in `docs/` that pardons it. A
+carve-out earns its place in a standard only when it is a rule in its own right — something a second
+case would also fall under — rather than a pass written for one class.
+
 ## Shape of a document
 
 - **One subject per document**, cross-linked rather than restated. A rule written in two places is a

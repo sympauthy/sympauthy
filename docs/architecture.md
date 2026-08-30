@@ -129,6 +129,13 @@ today:
   mapper that renders one against a message bundle. It is above all three layers because `business`
   and `api` both throw, and neither may depend on the other. See [the exception
   standard](exception-code-standard.md).
+- **`expression/`** — the small language a deployment writes its rules in: the functions an
+  expression may call, and the compiler that turns one into a boolean or a failure. It is beside the
+  layers because `config` refuses an expression when the file is read and `business` evaluates one
+  when a request is served, so putting the grammar in either would force the other to import it.
+- **`health/`** — what this server reports about itself to whatever is watching it. A health
+  indicator answers for a layer without belonging to it, and configuration in particular must not
+  depend on the thing that publishes its verdict.
 - **`cron/`** and **`server/`** — scheduled cleanup, and the factories that publish the message
   sources and the executor.
 - **`view/`** and **`util/`** — the controllers that serve the two bundled single-page applications,
@@ -161,6 +168,8 @@ sympauthy/
 │   │   ├── security/           the authentications and the token validator
 │   │   ├── client/             outbound HTTP, one package per protocol
 │   │   ├── exception/          LocalizedException and its mapper
+│   │   ├── expression/         the rule language, shared by config and business
+│   │   ├── health/             what the server reports about itself
 │   │   ├── cron/ server/ util/ view/
 │   │   └── Application.kt
 │   └── src/main/resources/
