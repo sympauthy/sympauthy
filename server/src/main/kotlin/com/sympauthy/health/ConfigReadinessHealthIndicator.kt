@@ -15,6 +15,12 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.reactive.asPublisher
 import org.reactivestreams.Publisher
 
+/**
+ * Publishes whether the deployment's configuration is usable.
+ *
+ * It lives apart from the configuration it reports on, rather than beside it, because the dependency
+ * only runs one way: what is being reported on may not reach for the thing reporting it.
+ */
 @Singleton
 @Readiness
 open class ConfigReadinessHealthIndicator(
