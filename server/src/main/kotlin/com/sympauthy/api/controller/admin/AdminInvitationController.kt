@@ -5,8 +5,8 @@ import com.sympauthy.api.resource.admin.AdminCreateInvitationInputResource
 import com.sympauthy.api.resource.admin.AdminCreatedInvitationResource
 import com.sympauthy.api.resource.admin.AdminInvitationListResource
 import com.sympauthy.api.resource.admin.AdminInvitationResource
+import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.oauth2.AdminScopeId
@@ -26,7 +26,8 @@ import java.util.*
 @Controller("/api/v1/admin/invitations")
 class AdminInvitationController(
     @Inject private val invitationManager: InvitationManager,
-    @Inject private val invitationMapper: AdminInvitationResourceMapper
+    @Inject private val invitationMapper: AdminInvitationResourceMapper,
+    @Inject private val paginationUtil: PaginationUtil
 ) {
 
     @Operation(
@@ -64,6 +65,7 @@ class AdminInvitationController(
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of invitations."),
+            ApiResponse(responseCode = "400", description = "Invalid page or size."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
                 responseCode = "403",
@@ -80,7 +82,7 @@ class AdminInvitationController(
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
         @QueryValue @Parameter(description = "Number of results per page.") size: Int?
     ): AdminInvitationListResource {
-        val (resolvedPage, resolvedSize) = resolvePageParams(page, size)
+        val (resolvedPage, resolvedSize) = paginationUtil.resolvePageParams(page, size)
         val allInvitations = if (audienceId != null) {
             invitationManager.findByAudienceId(audienceId)
         } else {

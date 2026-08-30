@@ -5,6 +5,7 @@ import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.mapper.admin.AdminUserMfaMethodResourceMapper
 import com.sympauthy.api.resource.admin.AdminUserMfaEnrollmentInputResource
 import com.sympauthy.api.resource.admin.AdminUserMfaMethodResource
+import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.client.ClientRedirectUriManager
@@ -84,6 +85,7 @@ class AdminUserMfaControllerTest {
         engine = engine,
         stepUriMapper = stepUriMapper,
         uncheckedMfaConfig = mfaConfig,
+        paginationUtil = defaultPaginationUtil(),
     )
 
     private val userId: UUID = UUID.randomUUID()

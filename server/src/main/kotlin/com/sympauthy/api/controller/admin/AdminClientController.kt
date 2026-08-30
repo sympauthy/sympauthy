@@ -3,8 +3,8 @@ package com.sympauthy.api.controller.admin
 import com.sympauthy.api.mapper.admin.AdminClientResourceMapper
 import com.sympauthy.api.resource.admin.AdminClientListResource
 import com.sympauthy.api.resource.admin.AdminClientResource
+import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.security.SecurityRule.ADMIN_CONFIG_READ
@@ -24,7 +24,8 @@ import jakarta.inject.Inject
 @SecurityRequirement(name = "admin", scopes = [AdminScopeId.CONFIG_READ])
 class AdminClientController(
     @Inject private val clientManager: ClientManager,
-    @Inject private val clientMapper: AdminClientResourceMapper
+    @Inject private val clientMapper: AdminClientResourceMapper,
+    @Inject private val paginationUtil: PaginationUtil
 ) {
 
     @Operation(
@@ -32,6 +33,7 @@ class AdminClientController(
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of clients."),
+            ApiResponse(responseCode = "400", description = "Invalid page or size."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
                 responseCode = "403",
@@ -44,7 +46,7 @@ class AdminClientController(
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
         @QueryValue @Parameter(description = "Number of results per page.") size: Int?
     ): AdminClientListResource {
-        val (page, size) = resolvePageParams(page, size)
+        val (page, size) = paginationUtil.resolvePageParams(page, size)
         val clients = clientManager.listClients()
         val paged = clients
             .drop(page * size)

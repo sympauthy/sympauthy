@@ -4,7 +4,8 @@ import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.mapper.admin.AdminUserClaimResourceMapper
 import com.sympauthy.api.resource.admin.AdminUserClaimResource
 import com.sympauthy.api.util.DEFAULT_PAGE
-import com.sympauthy.api.util.DEFAULT_PAGE_SIZE
+import com.sympauthy.api.util.TEST_DEFAULT_PAGE_SIZE
+import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
@@ -178,7 +179,8 @@ class AdminUserClaimControllerTest {
             collectedClaimManager = collectedClaimManager,
             generatedClaimsManager = generatedClaimsManager,
             uncheckedAuthConfig = enabledConfig,
-            userClaimMapper = userClaimMapper
+            userClaimMapper = userClaimMapper,
+            paginationUtil = defaultPaginationUtil()
         )
     }
 
@@ -197,7 +199,7 @@ class AdminUserClaimControllerTest {
         val result = ctrl.listUserClaims(userId, null, null, null, null, null, null, null, null)
 
         assertEquals(DEFAULT_PAGE, result.page)
-        assertEquals(DEFAULT_PAGE_SIZE, result.size)
+        assertEquals(TEST_DEFAULT_PAGE_SIZE, result.size)
         assertEquals(2, result.total)
         assertEquals(2, result.claims.size)
         assertSame(emailResource, result.claims[0])

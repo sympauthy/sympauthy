@@ -4,6 +4,7 @@ import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.mapper.admin.AdminUserDetailResourceMapper
 import com.sympauthy.api.mapper.admin.AdminUserResourceMapper
 import com.sympauthy.api.resource.admin.AdminUserDetailResource
+import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
@@ -50,6 +51,9 @@ class AdminUserControllerTest {
 
     @MockK
     lateinit var userDetailMapper: AdminUserDetailResourceMapper
+
+    @Suppress("unused")
+    private val paginationUtil = defaultPaginationUtil()
 
     @InjectMockKs
     lateinit var controller: AdminUserController

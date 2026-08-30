@@ -2,8 +2,8 @@ package com.sympauthy.api.controller.admin
 
 import com.sympauthy.api.mapper.admin.AdminUserClaimResourceMapper
 import com.sympauthy.api.resource.admin.AdminUserClaimListResource
+import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
@@ -33,7 +33,8 @@ class AdminUserClaimController(
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val generatedClaimsManager: GeneratedClaimsManager,
     @Inject private val uncheckedAuthConfig: AuthConfig,
-    @Inject private val userClaimMapper: AdminUserClaimResourceMapper
+    @Inject private val userClaimMapper: AdminUserClaimResourceMapper,
+    @Inject private val paginationUtil: PaginationUtil
 ) {
 
     @Operation(
@@ -41,6 +42,7 @@ class AdminUserClaimController(
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of user claims."),
+            ApiResponse(responseCode = "400", description = "Invalid page or size."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
                 responseCode = "403",
@@ -63,7 +65,7 @@ class AdminUserClaimController(
         @QueryValue @Parameter(description = "Filter by claim origin.") origin: String?
     ): AdminUserClaimListResource {
         userManager.findByIdOrNull(userId).orNotFound()
-        val (resolvedPage, resolvedSize) = resolvePageParams(page, size)
+        val (resolvedPage, resolvedSize) = paginationUtil.resolvePageParams(page, size)
 
         val identifierClaimIds = uncheckedAuthConfig.orThrow()
             .identifierClaims

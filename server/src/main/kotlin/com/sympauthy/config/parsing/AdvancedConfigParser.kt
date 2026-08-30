@@ -10,6 +10,7 @@ import com.sympauthy.config.properties.HashConfigurationProperties.Companion.HAS
 import com.sympauthy.config.properties.InvitationConfigurationProperties.Companion.INVITATION_KEY
 import com.sympauthy.config.properties.InvitationHashConfigurationProperties.Companion.INVITATION_HASH_KEY
 import com.sympauthy.config.properties.JwtConfigurationProperties.Companion.JWT_KEY
+import com.sympauthy.config.properties.PaginationConfigurationProperties.Companion.PAGINATION_KEY
 import com.sympauthy.config.properties.ValidationCodeConfigurationProperties.Companion.VALIDATION_CODE_KEY
 import jakarta.inject.Singleton
 import java.time.Duration
@@ -22,7 +23,8 @@ data class ParsedAdvancedConfig(
     val hash: ParsedHashConfig,
     val invitation: ParsedInvitationConfig,
     val validationCode: ParsedValidationCodeConfig,
-    val webhookTimeout: Duration?
+    val webhookTimeout: Duration?,
+    val pagination: ParsedPaginationConfig
 )
 
 data class ParsedInvitationConfig(
@@ -38,6 +40,11 @@ data class ParsedHashConfig(
     val parallelizationParameter: Int?,
     val saltLength: Int?,
     val keyLength: Int?
+)
+
+data class ParsedPaginationConfig(
+    val defaultSize: Int?,
+    val maxSize: Int?
 )
 
 data class ParsedValidationCodeConfig(
@@ -58,7 +65,8 @@ class AdvancedConfigParser(
         invitationProperties: InvitationConfigurationProperties,
         invitationHashProperties: InvitationHashConfigurationProperties,
         validationCodeProperties: ValidationCodeConfigurationProperties,
-        authorizationWebhookProperties: AuthorizationWebhookConfigurationProperties
+        authorizationWebhookProperties: AuthorizationWebhookConfigurationProperties,
+        paginationProperties: PaginationConfigurationProperties
     ): ParsedAdvancedConfig {
         val keysGenerationStrategyId = ctx.parse {
             parser.getString(
@@ -99,6 +107,8 @@ class AdvancedConfigParser(
             )
         }
 
+        val pagination = parsePaginationConfig(ctx, paginationProperties)
+
         return ParsedAdvancedConfig(
             keysGenerationStrategyId = keysGenerationStrategyId,
             publicJwtAlgorithm = publicJwtAlgorithm,
@@ -107,7 +117,32 @@ class AdvancedConfigParser(
             hash = hash,
             invitation = invitation,
             validationCode = validationCode,
-            webhookTimeout = webhookTimeout
+            webhookTimeout = webhookTimeout,
+            pagination = pagination
+        )
+    }
+
+    private fun parsePaginationConfig(
+        ctx: ConfigParsingContext,
+        properties: PaginationConfigurationProperties
+    ): ParsedPaginationConfig {
+        val subCtx = ctx.child()
+        val defaultSize = subCtx.parse {
+            parser.getIntOrThrow(
+                properties, "$PAGINATION_KEY.default-size",
+                PaginationConfigurationProperties::defaultSize
+            )
+        }
+        val maxSize = subCtx.parse {
+            parser.getIntOrThrow(
+                properties, "$PAGINATION_KEY.max-size",
+                PaginationConfigurationProperties::maxSize
+            )
+        }
+        ctx.merge(subCtx)
+        return ParsedPaginationConfig(
+            defaultSize = defaultSize,
+            maxSize = maxSize
         )
     }
 

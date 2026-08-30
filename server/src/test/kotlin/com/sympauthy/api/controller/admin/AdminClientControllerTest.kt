@@ -5,7 +5,8 @@ import com.sympauthy.api.mapper.admin.AdminClientResourceMapper
 import com.sympauthy.api.resource.admin.AdminClientResource
 import com.sympauthy.api.resource.admin.AdminClientSummaryResource
 import com.sympauthy.api.util.DEFAULT_PAGE
-import com.sympauthy.api.util.DEFAULT_PAGE_SIZE
+import com.sympauthy.api.util.TEST_DEFAULT_PAGE_SIZE
+import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.model.client.Client
 import io.micronaut.http.HttpStatus
@@ -29,6 +30,9 @@ class AdminClientControllerTest {
 
     @MockK
     lateinit var clientMapper: AdminClientResourceMapper
+
+    @Suppress("unused")
+    private val paginationUtil = defaultPaginationUtil()
 
     @InjectMockKs
     lateinit var controller: AdminClientController
@@ -66,7 +70,7 @@ class AdminClientControllerTest {
         val result = controller.listClients(null, null)
 
         assertEquals(DEFAULT_PAGE, result.page)
-        assertEquals(DEFAULT_PAGE_SIZE, result.size)
+        assertEquals(TEST_DEFAULT_PAGE_SIZE, result.size)
         assertEquals(2, result.total)
         assertEquals(2, result.clients.size)
         assertSame(resource1, result.clients[0])

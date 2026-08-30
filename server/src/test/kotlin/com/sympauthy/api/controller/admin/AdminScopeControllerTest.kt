@@ -3,7 +3,8 @@ package com.sympauthy.api.controller.admin
 import com.sympauthy.api.mapper.admin.AdminScopeResourceMapper
 import com.sympauthy.api.resource.admin.AdminScopeResource
 import com.sympauthy.api.util.DEFAULT_PAGE
-import com.sympauthy.api.util.DEFAULT_PAGE_SIZE
+import com.sympauthy.api.util.TEST_DEFAULT_PAGE_SIZE
+import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.model.oauth2.ClientScope
 import com.sympauthy.business.model.oauth2.ConsentableUserScope
@@ -28,6 +29,9 @@ class AdminScopeControllerTest {
 
     @MockK
     lateinit var scopeMapper: AdminScopeResourceMapper
+
+    @Suppress("unused")
+    private val paginationUtil = defaultPaginationUtil()
 
     @InjectMockKs
     lateinit var controller: AdminScopeController
@@ -60,7 +64,7 @@ class AdminScopeControllerTest {
         val result = controller.listScopes(null, null, null, null)
 
         assertEquals(DEFAULT_PAGE, result.page)
-        assertEquals(DEFAULT_PAGE_SIZE, result.size)
+        assertEquals(TEST_DEFAULT_PAGE_SIZE, result.size)
         assertEquals(2, result.total)
         assertEquals(2, result.scopes.size)
         // Sorted by scope id: openid < profile
