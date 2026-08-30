@@ -3,12 +3,13 @@ package com.sympauthy
 import com.sympauthy.api.controller.openapi.OpenApiController.Companion.OPENAPI_ENDPOINT
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.ClientManager
-import com.sympauthy.config.ConfigReadiness
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.provider.ProviderManager
 import com.sympauthy.business.manager.rule.ScopeGrantingRuleManager
+import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ENDPOINT
 import com.sympauthy.business.model.oauth2.isAdmin
 import com.sympauthy.business.model.user.claim.ClaimOrigin
+import com.sympauthy.config.ConfigReadiness
 import com.sympauthy.config.model.*
 import com.sympauthy.server.ErrorMessages
 import com.sympauthy.util.DEFAULT_ENVIRONMENT
@@ -16,7 +17,6 @@ import com.sympauthy.util.getKeyAndLocalizedMessage
 import com.sympauthy.util.isDefaultActive
 import com.sympauthy.util.loggerForClass
 import com.sympauthy.view.AdminUiController.Companion.ADMIN_UI_ENDPOINT
-import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ENDPOINT
 import io.micronaut.context.MessageSource
 import io.micronaut.context.env.Environment
 import io.micronaut.context.event.ApplicationEventListener

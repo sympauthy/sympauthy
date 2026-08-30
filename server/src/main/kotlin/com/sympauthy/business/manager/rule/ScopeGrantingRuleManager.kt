@@ -13,10 +13,10 @@ import com.sympauthy.business.model.rule.ScopeGrantingRuleBehavior.GRANT
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.config.model.ScopeGrantingRulesConfig
 import com.sympauthy.config.model.orThrow
+import com.sympauthy.expression.InvalidRuleExpressionException
 import jakarta.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
-import com.sympauthy.expression.InvalidRuleExpressionException
 
 class ScopeGrantingRuleManager(
     @Inject private val scopeGrantingRuleExpressionExecutor: ScopeGrantingRuleExpressionExecutor,

@@ -9,11 +9,11 @@ import com.sympauthy.business.model.rule.ActAsRuleBehavior.DENY
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.config.model.ActAsRulesConfig
 import com.sympauthy.config.model.orThrow
+import com.sympauthy.expression.InvalidRuleExpressionException
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
-import com.sympauthy.expression.InvalidRuleExpressionException
 
 /**
  * Evaluates the configured `rules.act_as` rules to decide whether an acting client may obtain an access token that
