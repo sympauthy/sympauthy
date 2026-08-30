@@ -11,19 +11,21 @@ import java.util.Map.entry
  *
  * An act-as expression may speak about both the acting client and the user being acted for, which is
  * why it gets both function families where a scope granting rule gets one.
+ *
+ * The two uses have separate entry points rather than one taking nullable values, for
+ * [the reason given beside the scope granting rules][ScopeGrantingRuleExpressions].
  */
 object ActAsRuleExpressions {
 
     /**
      * Configuration for a rule letting [client] act for the user whose [targetUserClaims] the
-     * expression may read. Passing neither yields the configuration used to refuse an expression
-     * rather than run it.
+     * expression may read.
      */
     fun configuration(
-        client: Client? = null,
-        targetUserClaims: List<CollectedClaim> = emptyList()
+        client: Client,
+        targetUserClaims: List<CollectedClaim>
     ): ExpressionConfiguration {
-        return defaultExpressionConfiguration.withAdditionalFunctions(
+        return defaultExpressionConfiguration().withAdditionalFunctions(
             entry(ClientFunction.FUNCTION_NAME, ClientFunction(client)),
             entry(ClaimFunction.FUNCTION_NAME, ClaimFunction(targetUserClaims)),
             entry(ClaimIsVerifiedFunction.FUNCTION_NAME, ClaimIsVerifiedFunction(targetUserClaims))
@@ -31,9 +33,16 @@ object ActAsRuleExpressions {
     }
 
     /**
-     * @throws InvalidRuleExpressionException when [expressionString] is not a usable act-as rule.
+     * Refuse [expressionString] unless it is usable as an act-as rule, by evaluating it against
+     * functions that exist and answer nothing. One that is not throws an
+     * [InvalidRuleExpressionException] naming which of the two ways it failed.
      */
     fun validateExpression(expressionString: String) {
-        evaluateRuleExpression(expressionString, configuration())
+        val configuration = defaultExpressionConfiguration().withAdditionalFunctions(
+            entry(ClientFunction.FUNCTION_NAME, ClientFunction()),
+            entry(ClaimFunction.FUNCTION_NAME, ClaimFunction()),
+            entry(ClaimIsVerifiedFunction.FUNCTION_NAME, ClaimIsVerifiedFunction())
+        )
+        evaluateRuleExpression(expressionString, configuration)
     }
 }

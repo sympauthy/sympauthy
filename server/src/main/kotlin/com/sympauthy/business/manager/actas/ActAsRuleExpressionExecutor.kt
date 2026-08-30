@@ -27,9 +27,11 @@ class ActAsRuleExpressionExecutor {
     ): ExpressionConfiguration = ActAsRuleExpressions.configuration(client, targetUserClaims)
 
     /**
-     * @throws com.sympauthy.expression.InvalidRuleExpressionException when [expressionString] does not
-     * evaluate to a boolean, which at this point means an expression the configuration accepted has
-     * failed against real values.
+     * Evaluate [expressionString] against [configuration] and return what it answers.
+     *
+     * One that does not answer a boolean throws an
+     * [com.sympauthy.expression.InvalidRuleExpressionException], which here means an expression the
+     * configuration already accepted has failed against real values rather than dummy ones.
      */
     internal suspend fun evaluateExpressionOrThrow(
         expressionString: String,

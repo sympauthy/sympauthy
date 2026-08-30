@@ -27,17 +27,21 @@ class InvalidRuleExpressionException(
 ) : Exception("$expressionString - $message")
 
 /**
- * The expression configuration carrying none of the custom functions.
+ * A configuration carrying none of the custom functions.
+ *
+ * Built again on every call, and it has to be: EvalEx registers a function by mutating the
+ * configuration it is asked to add it to and handing that same instance back, so one kept between
+ * calls would let each request rebind the functions every other request is evaluating against.
  */
-internal val defaultExpressionConfiguration: ExpressionConfiguration by lazy {
+internal fun defaultExpressionConfiguration(): ExpressionConfiguration =
     ExpressionConfiguration.defaultConfiguration()
-}
 
 /**
- * Evaluate [expressionString] against [configuration].
+ * Evaluate [expressionString] against [configuration] and return what it answers.
  *
- * @throws InvalidRuleExpressionException config.rule.expression.invalid when it does not parse, and
- * config.rule.expression.invalid_return when it evaluates to something that is not a boolean.
+ * An expression that does not parse throws an [InvalidRuleExpressionException] carrying
+ * `config.rule.expression.invalid`, and one that parses but answers something other than a boolean
+ * throws the same exception carrying `config.rule.expression.invalid_return`.
  */
 fun evaluateRuleExpression(
     expressionString: String,
