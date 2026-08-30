@@ -21,6 +21,8 @@ interface CollectedClaimRepository : CoroutineCrudRepository<CollectedClaimEntit
 
     suspend fun findByUserIdInList(userId: List<UUID>): List<CollectedClaimEntity>
 
+    suspend fun findByUserIdInListAndClaimInList(userId: List<UUID>, claim: List<String>): List<CollectedClaimEntity>
+
     @Query("SELECT MAX(c.collection_date) FROM collected_claims c WHERE c.user_id = :userId")
     suspend fun findMaxCollectionDateByUserId(userId: UUID): LocalDateTime?
 

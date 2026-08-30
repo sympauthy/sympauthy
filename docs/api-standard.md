@@ -153,6 +153,27 @@ one place they can be read without being wrong.
 resolved rather than at each endpoint, so a new paged collection inherits the answer instead of
 restating it, and no two collections can disagree about what a negative page means.
 
+**A paged collection is returned in a total order, and the order is part of the contract.** A query
+with no `ORDER BY` returns rows in whatever order the database chooses, and it is free to choose
+differently between two calls — so slicing one is not paging: a client walking pages sees the same
+row twice and never sees another. Sorting on a column that is not unique has the same failure at a
+smaller scale, because rows sharing a value may swap, so the sort ends in a key that is unique by
+construction.
+
+**The order is ascending on a moment the row does not later rewrite**, so that a new row appends at
+the tail and a client walking pages 0..N is never shifted under. Newest-first reads better as a
+default in a console and prepends instead, which re-shows a row on every page after the first
+insertion — the failure the rule exists to prevent.
+
+**A sort column the row rewrites keeps the order total but not append-only**, and that is a weaker
+guarantee rather than the same one. Two calls still agree on a snapshot, so the order is a contract;
+what a client loses is the promise that a page it has already walked will not shift, because a row
+whose sort value moves can be skipped or returned twice by a walk in progress. An endpoint sorting
+on such a column says so where it is documented, which is the next rule.
+
+**The order is named in the endpoint's own description**, because it is the contract and an
+integrator reads the generated document rather than the query.
+
 ## Errors
 
 Which exception becomes which status is [the exception standard's](exception-code-standard.md). This

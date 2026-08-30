@@ -2,10 +2,15 @@ package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
+import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.provider.ProviderUserInfo
 import com.sympauthy.business.model.user.ClientUser
+import com.sympauthy.business.model.user.CollectedClaim
+import com.sympauthy.business.model.user.User
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import java.util.*
 
 /**
@@ -20,10 +25,14 @@ class ClientUserManager(
 ) {
 
     /**
-     * List users who have active consents for the given [audienceId].
-     * Optionally filters by [providerId] and [subject].
+     * List one page of the users who have an active consent for the given [audienceId], oldest consent first,
+     * paired with the total number of users the filter matches.
      *
-     * Returns a pair of (paginated users, total count).
+     * [providerId] restricts the page to users linked to that provider, and [subject] narrows it further to the
+     * account bearing it. A [subject] without a [providerId] is refused before reaching here.
+     *
+     * The page, the filter and the total are one query each, and the three batch reads that follow are also one
+     * query each, so the number of round trips does not grow with [size].
      */
     suspend fun listUsersForAudience(
         audienceId: String,
@@ -31,52 +40,38 @@ class ClientUserManager(
         subject: String?,
         page: Int,
         size: Int
-    ): Pair<List<ClientUser>, Int> {
-        val consents = consentManager.findActiveConsentsByAudience(audienceId)
+    ): Pair<List<ClientUser>, Int> = coroutineScope {
+        val deferredTotal = async {
+            consentManager.countActiveConsentsByAudience(
+                audienceId = audienceId,
+                providerId = providerId,
+                subject = subject
+            )
+        }
+        val consents = consentManager.listActiveConsentsByAudience(
+            audienceId = audienceId,
+            providerId = providerId,
+            subject = subject,
+            page = page,
+            size = size
+        )
         if (consents.isEmpty()) {
-            return emptyList<ClientUser>() to 0
+            return@coroutineScope emptyList<ClientUser>() to deferredTotal.await()
         }
 
-        val userIds = consents.map { it.userId }
-        val consentByUserId = consents.associateBy { it.userId }
+        val userIds = consents.map(Consent::userId)
+        val deferredUsers = async { userManager.listByIds(userIds) }
+        val deferredIdentifierClaims = async { collectedClaimManager.listIdentifierByUserIds(userIds) }
+        val deferredProviders = async { providerClaimsManager.listByUserIds(userIds) }
 
-        // Load providers for all users
-        val providersByUserId = providerClaimsManager.listByUserIds(userIds)
-            .groupBy(ProviderUserInfo::userId)
+        val userById = deferredUsers.await().associateBy(User::id)
+        val identifierClaimsByUserId = deferredIdentifierClaims.await().groupBy(CollectedClaim::userId)
+        val providersByUserId = deferredProviders.await().groupBy(ProviderUserInfo::userId)
 
-        // Filter by provider_id and subject if specified
-        val filteredUserIds = if (providerId != null) {
-            providersByUserId.entries
-                .filter { (_, providers) ->
-                    providers.any { provider ->
-                        provider.providerId == providerId &&
-                                (subject == null || provider.userInfo.subject == subject)
-                    }
-                }
-                .map { it.key }
-        } else {
-            userIds
-        }
-
-        val total = filteredUserIds.size
-
-        // Paginate
-        val pagedUserIds = filteredUserIds
-            .drop(page * size)
-            .take(size)
-
-        if (pagedUserIds.isEmpty()) {
-            return emptyList<ClientUser>() to total
-        }
-
-        // Load users and identifier claims for the page
-        val users = pagedUserIds.mapNotNull { userManager.findByIdOrNull(it) }
-        val identifierClaimsByUserId = pagedUserIds.associateWith { userId ->
-            collectedClaimManager.findIdentifierByUserId(userId)
-        }
-
-        val clientUsers = users.mapNotNull { user ->
-            val consent = consentByUserId[user.id] ?: return@mapNotNull null
+        // Mapped over the consents rather than over the user batch: an IN-list comes back in whatever
+        // order the database chooses, which is the order the paging query exists to replace.
+        val clientUsers = consents.mapNotNull { consent ->
+            val user = userById[consent.userId] ?: return@mapNotNull null
             ClientUser(
                 user = user,
                 identifierClaims = identifierClaimsByUserId[user.id] ?: emptyList(),
@@ -85,7 +80,7 @@ class ClientUserManager(
             )
         }
 
-        return clientUsers to total
+        clientUsers to deferredTotal.await()
     }
 
     /**

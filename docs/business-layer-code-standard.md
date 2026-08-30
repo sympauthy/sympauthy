@@ -83,6 +83,7 @@ out:
 | `find…` | looks a row up by criteria; may match nothing |
 | `fetch…` | reads a record attached to one the caller already holds |
 | `list…` | reads many |
+| `count…` | reads how many, without reading them |
 | `get…` | derives, computes or reads configuration rather than querying |
 | `create…`, `save…` | writes a new row |
 | `mark…` | moves an existing row to a new state |

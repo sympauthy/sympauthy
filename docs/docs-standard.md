@@ -66,6 +66,13 @@ gate" survives a seventh purpose; a table with a row per purpose does not.
 still written as the rule, and the breach goes to an issue. Listing today's offenders in a standard
 is exhibiting code by another name, and the list is wrong the moment one of them is fixed.
 
+**Before a follow-up is proposed, the tracker is searched for one that already covers it.** That
+holds for the issue a breach goes to, for anything a review turns up, and for a gap noticed in
+passing — the check is a search, and it is cheaper than what it prevents. A second issue for a known
+defect splits the discussion in two, and the half carrying the design is not the half the next
+reader finds; worse, proposing work that is already filed reads as new information and gets planned
+a second time. Where an issue exists and is too narrow, it is broadened rather than duplicated.
+
 **A departure is documented where it departs, not here.** Where something deliberately does not
 follow a rule — the one component that is not per-domain, the class that had to break the pattern —
 the reason goes in [its own documentation](comment-standard.md), and the standard goes on stating

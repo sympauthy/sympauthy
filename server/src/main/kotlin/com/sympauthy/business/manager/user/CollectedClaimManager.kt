@@ -62,6 +62,24 @@ open class CollectedClaimManager(
     }
 
     /**
+     * Return the identifier claims collected from the users identified by [userIds], for all of them at once.
+     *
+     * Note: This method is not restricted by consent or scopes.
+     * It is intended for use by the authorization server internals and admin endpoints.
+     */
+    suspend fun listIdentifierByUserIds(userIds: List<UUID>): List<CollectedClaim> {
+        if (userIds.isEmpty()) {
+            return emptyList()
+        }
+        val claimIds = claimManager.listIdentifierClaims().map(Claim::id)
+        if (claimIds.isEmpty()) {
+            return emptyList()
+        }
+        return collectedClaimRepository.findByUserIdInListAndClaimInList(userIds, claimIds)
+            .mapNotNull(collectedClaimMapper::toCollectedClaim)
+    }
+
+    /**
      * Return true if all [Claim] that have been marked as [Claim.required] have been collected from the end-user.
      */
     fun areAllRequiredClaimCollected(collectedClaims: List<CollectedClaim>): Boolean {
