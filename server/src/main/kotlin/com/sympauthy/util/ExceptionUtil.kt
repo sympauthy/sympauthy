@@ -29,15 +29,26 @@ fun Exception.getKeyAndLocalizedMessage(messageSource: MessageSource): Pair<Stri
 }
 
 /**
- * Renders the message [messageId] names, interpolating [values] into its placeholders, and falls back
- * to [messageId] itself when the bundle holds no such message.
+ * Renders the message [messageId] names in [locale], interpolating [values] into its placeholders,
+ * or returns null when the bundle holds no such message.
  *
- * [values] may not admit a null, and the type saying so is what makes this work. The message source
- * takes named values and positional values through two functions of the same name, and a map whose
- * values are nullable matches only the positional one — so the call binds there, silently, and the
- * message is rendered with no named value in scope at all. Every placeholder in it then resolves to
- * nothing and is written out as its own name, which is what an operator reads instead of the audience,
- * scope or algorithm the message was carrying.
+ * This is the only place a message is asked for, and [values] may not admit a null, which is what
+ * makes that worth insisting on. The message source takes named values and positional values through
+ * two functions of the same name, and a map whose values are nullable matches only the positional one
+ * — so the call binds there, silently, and the message is rendered with no named value in scope at
+ * all. Every placeholder in it then resolves to nothing and is written out as its own name, which is
+ * what a reader gets instead of the audience, scope or algorithm the message was carrying.
  */
-private fun MessageSource.render(messageId: String, values: Map<String, Any>): String =
-    getMessage(messageId, Locale.US, values).orElse(messageId)
+internal fun MessageSource.renderOrNull(
+    messageId: String,
+    locale: Locale,
+    values: Map<String, Any>
+): String? = getMessage(messageId, locale, values).orElse(null)
+
+/**
+ * Renders the message [messageId] names for a reader with no locale of their own — an operator
+ * reading a log or a health check — and falls back to [messageId] itself when the bundle holds no
+ * such message.
+ */
+internal fun MessageSource.render(messageId: String, values: Map<String, Any>): String =
+    renderOrNull(messageId, DEFAULT_LOCALE, values) ?: messageId

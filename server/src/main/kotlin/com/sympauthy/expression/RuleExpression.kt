@@ -23,7 +23,9 @@ class InvalidRuleExpressionException(
      * Code reported when the expression is refused while a request is being served.
      */
     val businessErrorDetailsId: String,
-    parseError: String? = null,
+    parseError: String? = null
+) : Exception(formatMessage(expressionString, parseError)) {
+
     /**
      * The expression and what was wrong with it, as the message each of the two codes names
      * interpolates it.
@@ -31,8 +33,14 @@ class InvalidRuleExpressionException(
      * It carries the same text as [message] and exists because that one is [Throwable]'s, and so
      * nullable.
      */
-    val reason: String = listOfNotNull(expressionString, parseError).joinToString(" - ")
-) : Exception(reason)
+    val reason: String = formatMessage(expressionString, parseError)
+
+    companion object {
+        private fun formatMessage(expressionString: String, parseError: String?): String {
+            return listOfNotNull(expressionString, parseError).joinToString(" - ")
+        }
+    }
+}
 
 /**
  * A configuration carrying none of the custom functions.

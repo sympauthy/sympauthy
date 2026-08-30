@@ -18,8 +18,11 @@ data class LocalizedError(
      * A message explaining the error to the end-user.
      * It may contain information on how to recover from the issue.
      * It is localized to the end-user's preferred language.
+     *
+     * Absent when no bundle holds a message under the description code, which is a code shipped
+     * without its message rather than a state the caller can do anything about.
      */
-    val description: String,
+    val description: String?,
     /**
      * A message containing technical details about the error.
      * May be absent if the printDetailsInError configuration is disabled.

@@ -2,8 +2,8 @@ package com.sympauthy.util
 
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.exception.localizedExceptionOf
+import com.sympauthy.server.MessageSourceFactory
 import io.micronaut.context.StaticMessageSource
-import io.micronaut.context.i18n.ResourceBundleMessageSource
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -18,8 +18,6 @@ class ExceptionUtilTest {
     private fun messageSource(code: String) = StaticMessageSource().addMessage(
         Locale.US, code, "Audience {audience} does not exist. Available audiences: {availableAudiences}."
     )
-
-    // --- getKeyAndLocalizedMessage ---
 
     @Test
     fun `getKeyAndLocalizedMessage - Interpolates the values of a ConfigurationException`() {
@@ -69,7 +67,7 @@ class ExceptionUtilTest {
         )
 
         val (_, message) = exception.getKeyAndLocalizedMessage(
-            ResourceBundleMessageSource("error_messages", DEFAULT_LOCALE)
+            MessageSourceFactory().provideErrorMessageSource()
         )
 
         assertTrue(message!!.contains("nonexistent-audience"), message)

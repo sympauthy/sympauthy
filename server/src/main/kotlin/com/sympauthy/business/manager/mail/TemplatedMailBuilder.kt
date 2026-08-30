@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.mail
 
+import com.sympauthy.util.renderOrNull
 import io.micronaut.context.MessageSource
 import io.micronaut.email.*
 import io.micronaut.email.template.TemplateBody
@@ -76,7 +77,7 @@ class TemplatedMailBuilder(
     }
 
     internal fun localizeMessage(messageKey: String): String? {
-        return messageSource.getMessage(messageKey, locale, model).orElse(null)
+        return messageSource.renderOrNull(messageKey, locale, model)
     }
 
     companion object {

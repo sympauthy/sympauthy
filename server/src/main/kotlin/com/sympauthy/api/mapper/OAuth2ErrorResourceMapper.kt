@@ -5,6 +5,7 @@ import com.sympauthy.api.resource.error.OAuth2ErrorResource
 import com.sympauthy.config.model.FeaturesConfig
 import com.sympauthy.config.model.orNull
 import com.sympauthy.server.ErrorMessages
+import com.sympauthy.util.renderOrNull
 import io.micronaut.context.MessageSource
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -31,7 +32,6 @@ class OAuth2ErrorResourceMapper(
     }
 
     private fun String?.translate(error: OAuth2Exception, locale: Locale): String? {
-        return this?.let { messageSource.getMessage(this, locale, error.values) }
-            ?.orElse(null)
+        return this?.let { messageSource.renderOrNull(it, locale, error.values) }
     }
 }
