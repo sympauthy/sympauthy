@@ -29,6 +29,7 @@ a standard nobody can open without loading the other six is one that gets skimme
 | `api` | resource | `…Resource`, `…InputResource` | one surface's JSON contract |
 | `api` | mapper | `…ResourceMapper` | model → resource |
 | `api` | controller | `…Controller` | routing and status codes, and nothing else |
+| `api` | utility | `…Util` | a rule the controllers of a surface apply identically |
 | `config` | properties | `…ConfigurationProperties` | the raw YAML, all of it nullable |
 | `config` | parser | `…ConfigParser` | text into types |
 | `config` | validator | `…ConfigValidator` | whether those values are allowed |

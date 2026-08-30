@@ -46,7 +46,10 @@ class AdminAudienceController(
     @Get
     suspend fun listAudiences(
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
-        @QueryValue @Parameter(description = "Number of results per page.") size: Int?
+        @QueryValue @Parameter(
+            description = "Number of results per page. Defaults to the size this server is configured " +
+                    "with, and may not exceed its configured maximum."
+        ) size: Int?
     ): AdminAudienceListResource {
         val (page, size) = paginationUtil.resolvePageParams(page, size)
         val audiences = audienceManager.listAudiences()

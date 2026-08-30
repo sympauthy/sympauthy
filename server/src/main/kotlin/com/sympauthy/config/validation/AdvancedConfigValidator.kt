@@ -137,7 +137,9 @@ class AdvancedConfigValidator {
             )
         }
 
-        if (parsed.defaultSize != null && parsed.maxSize != null && parsed.defaultSize > parsed.maxSize) {
+        if (parsed.defaultSize != null && parsed.maxSize != null &&
+            parsed.defaultSize > 0 && parsed.maxSize > 0 && parsed.defaultSize > parsed.maxSize
+        ) {
             subCtx.addError(
                 configExceptionOf("$PAGINATION_KEY.default-size", "config.advanced.pagination.default_exceeds_max")
             )

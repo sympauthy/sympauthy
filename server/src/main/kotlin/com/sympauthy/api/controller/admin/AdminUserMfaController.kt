@@ -67,10 +67,13 @@ class AdminUserMfaController(
     suspend fun listMfaMethods(
         @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
-        @QueryValue @Parameter(description = "Number of results per page.") size: Int?
+        @QueryValue @Parameter(
+            description = "Number of results per page. Defaults to the size this server is configured " +
+                    "with, and may not exceed its configured maximum."
+        ) size: Int?
     ): AdminUserMfaMethodListResource {
-        userManager.findByIdOrNull(userId).orNotFound()
         val (page, size) = paginationUtil.resolvePageParams(page, size)
+        userManager.findByIdOrNull(userId).orNotFound()
         val allEnrollments = totpManager.findConfirmedEnrollments(userId)
         val paged = allEnrollments
             .drop(page * size)

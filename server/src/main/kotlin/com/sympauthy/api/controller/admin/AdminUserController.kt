@@ -63,7 +63,10 @@ class AdminUserController(
     suspend fun listUsers(
         request: HttpRequest<*>,
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
-        @QueryValue @Parameter(description = "Number of results per page.") size: Int?,
+        @QueryValue @Parameter(
+            description = "Number of results per page. Defaults to the size this server is configured " +
+                    "with, and may not exceed its configured maximum."
+        ) size: Int?,
         @QueryValue @Parameter(description = "Filter by user status (e.g. enabled, disabled).") status: String?,
         @QueryValue @Parameter(
             description = "Comma-separated list of claim IDs to include in the response. " +

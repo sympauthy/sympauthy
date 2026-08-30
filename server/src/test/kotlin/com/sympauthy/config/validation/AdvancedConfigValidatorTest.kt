@@ -61,10 +61,7 @@ class AdvancedConfigValidatorTest {
 
         assertNull(config)
         assertEquals(
-            listOf(
-                "config.advanced.pagination.invalid_max_size",
-                "config.advanced.pagination.default_exceeds_max"
-            ),
+            listOf("config.advanced.pagination.invalid_max_size"),
             ctx.errors.map { it.messageId }
         )
     }

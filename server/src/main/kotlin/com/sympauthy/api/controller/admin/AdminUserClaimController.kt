@@ -56,7 +56,10 @@ class AdminUserClaimController(
     suspend fun listUserClaims(
         @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
-        @QueryValue @Parameter(description = "Number of results per page.") size: Int?,
+        @QueryValue @Parameter(
+            description = "Number of results per page. Defaults to the size this server is configured " +
+                    "with, and may not exceed its configured maximum."
+        ) size: Int?,
         @QueryValue("claim_id") @Parameter(description = "Filter by specific claim identifier.") claimId: String?,
         @QueryValue @Parameter(description = "Filter by whether the claim is an identifier claim.") identifier: Boolean?,
         @QueryValue @Parameter(description = "Filter by whether the claim is required.") required: Boolean?,
@@ -64,8 +67,8 @@ class AdminUserClaimController(
         @QueryValue @Parameter(description = "Filter by whether the claim has been verified.") verified: Boolean?,
         @QueryValue @Parameter(description = "Filter by claim origin.") origin: String?
     ): AdminUserClaimListResource {
-        userManager.findByIdOrNull(userId).orNotFound()
         val (resolvedPage, resolvedSize) = paginationUtil.resolvePageParams(page, size)
+        userManager.findByIdOrNull(userId).orNotFound()
 
         val identifierClaimIds = uncheckedAuthConfig.orThrow()
             .identifierClaims

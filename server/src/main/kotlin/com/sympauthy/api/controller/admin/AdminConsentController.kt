@@ -50,10 +50,13 @@ class AdminConsentController(
     suspend fun listConsents(
         @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
-        @QueryValue @Parameter(description = "Number of results per page.") size: Int?
+        @QueryValue @Parameter(
+            description = "Number of results per page. Defaults to the size this server is configured " +
+                    "with, and may not exceed its configured maximum."
+        ) size: Int?
     ): AdminConsentListResource {
-        userManager.findByIdOrNull(userId).orNotFound()
         val (page, size) = paginationUtil.resolvePageParams(page, size)
+        userManager.findByIdOrNull(userId).orNotFound()
         val allConsents = consentManager.findActiveConsentsByUser(userId)
         val paged = allConsents
             .drop(page * size)

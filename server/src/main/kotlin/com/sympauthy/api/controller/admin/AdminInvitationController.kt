@@ -80,7 +80,10 @@ class AdminInvitationController(
         @QueryValue("audience_id") @Parameter(description = "Filter by audience identifier.") audienceId: String?,
         @QueryValue @Parameter(description = "Filter by invitation status.") status: String?,
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
-        @QueryValue @Parameter(description = "Number of results per page.") size: Int?
+        @QueryValue @Parameter(
+            description = "Number of results per page. Defaults to the size this server is configured " +
+                    "with, and may not exceed its configured maximum."
+        ) size: Int?
     ): AdminInvitationListResource {
         val (resolvedPage, resolvedSize) = paginationUtil.resolvePageParams(page, size)
         val allInvitations = if (audienceId != null) {

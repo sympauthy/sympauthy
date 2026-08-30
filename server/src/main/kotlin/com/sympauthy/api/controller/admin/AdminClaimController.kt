@@ -42,7 +42,10 @@ class AdminClaimController(
     @Get
     fun listClaims(
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
-        @QueryValue @Parameter(description = "Number of results per page.") size: Int?,
+        @QueryValue @Parameter(
+            description = "Number of results per page. Defaults to the size this server is configured " +
+                    "with, and may not exceed its configured maximum."
+        ) size: Int?,
         @QueryValue @Parameter(description = "Filter by enabled status.") enabled: Boolean?,
         @QueryValue @Parameter(description = "Filter by required status.") required: Boolean?,
         @QueryValue @Parameter(description = "Filter by claim origin.") origin: String?

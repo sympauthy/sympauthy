@@ -126,10 +126,11 @@ nested in an envelope:
 Naming the array after the resource rather than `items` means a response reads correctly on its own
 and two collections never look identical in a log.
 
-**`page` is 0-based and `size` defaults to 20.** Both arrive as ordinary query parameters and both
-are optional. The base matches the data layer underneath rather than being friendlier to read: the
-two numbers meet inside a manager, and an off-by-one there is a page of rows silently skipped, where
-an unfamiliar base is noticed once per client at integration time.
+**`page` is 0-based, and `size` omitted is the size a deployment configured — 20 unless it says
+otherwise.** Both arrive as ordinary query parameters and both are optional. The base matches the
+data layer underneath rather than being friendlier to read: the two numbers meet inside a manager,
+and an off-by-one there is a page of rows silently skipped, where an unfamiliar base is noticed once
+per client at integration time.
 
 **A page or a size outside its bounds is a `400` naming the parameter, never a clamp.** A negative
 page, a size below one, and a page whose offset into the collection overflows the integer the layer
@@ -137,8 +138,8 @@ below counts rows with are each refused. Clamping would answer a request the cal
 and a response reporting a size other than the one asked for is one a client paging on its own
 arithmetic skips rows with — silently, and only past the first page.
 
-**`size` has a maximum, it defaults to 100, and a deployment sets it.** An unbounded size is a
-request to read and serialize a whole collection in one response, which the endpoints paging in
+**`size` has a ceiling, and a deployment sets it — 100 unless it says otherwise.** An unbounded
+size is a request to serialize a whole collection into one response, which the endpoints paging in
 memory will do. Where the ceiling belongs depends on how large the collections a deployment holds,
 which is why it is configuration rather than a constant — but *having* one is not the deployment's
 to decide, because an endpoint that returns every row on request is a denial of service with a

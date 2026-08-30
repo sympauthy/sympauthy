@@ -89,7 +89,10 @@ class ClientInvitationController(
     suspend fun listInvitations(
         authentication: Authentication,
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
-        @QueryValue @Parameter(description = "Number of results per page.") size: Int?
+        @QueryValue @Parameter(
+            description = "Number of results per page. Defaults to the size this server is configured " +
+                    "with, and may not exceed its configured maximum."
+        ) size: Int?
     ): ClientInvitationListResource {
         val clientAuth = authentication.clientAuthentication
         val (resolvedPage, resolvedSize) = paginationUtil.resolvePageParams(page, size)

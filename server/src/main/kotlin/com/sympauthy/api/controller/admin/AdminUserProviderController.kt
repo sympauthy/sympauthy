@@ -62,10 +62,13 @@ class AdminUserProviderController(
     suspend fun listProviders(
         @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
-        @QueryValue @Parameter(description = "Number of results per page.") size: Int?
+        @QueryValue @Parameter(
+            description = "Number of results per page. Defaults to the size this server is configured " +
+                    "with, and may not exceed its configured maximum."
+        ) size: Int?
     ): AdminUserProviderListResource {
-        userManager.findByIdOrNull(userId).orNotFound()
         val (page, size) = paginationUtil.resolvePageParams(page, size)
+        userManager.findByIdOrNull(userId).orNotFound()
         val allProviders = providerClaimsManager.findByUserId(userId)
         val paged = allProviders
             .drop(page * size)
