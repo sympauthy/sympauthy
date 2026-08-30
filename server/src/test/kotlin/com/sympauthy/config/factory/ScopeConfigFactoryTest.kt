@@ -1,5 +1,6 @@
 package com.sympauthy.config.factory
 
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.oauth2.AdminScope
 import com.sympauthy.business.model.oauth2.BuiltInClientScope
 import com.sympauthy.business.model.oauth2.BuiltInGrantableScope
@@ -9,6 +10,7 @@ import com.sympauthy.business.model.oauth2.GrantableUserScope
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.user.OpenIdConnectScope
 import com.sympauthy.config.ConfigParser
+import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.model.*
 import com.sympauthy.config.parsing.ScopeConfigParser
 import com.sympauthy.config.properties.ScopeConfigurationProperties
@@ -35,13 +37,14 @@ class ScopeConfigFactoryTest {
 
     private fun factoryWith(
         templates: List<ScopeTemplate> = emptyList(),
+        audiences: List<String> = emptyList(),
         adminConfig: AdminConfig = DisabledAdminConfig(emptyList())
     ): ScopeConfigFactory {
         return ScopeConfigFactory(
             ScopeConfigParser(parser),
             ScopeConfigValidator(),
             EnabledScopeTemplatesConfig(templates.associateBy { it.id }),
-            EnabledAudiencesConfig(emptyList()),
+            EnabledAudiencesConfig(audiences.map { Audience(id = it, tokenAudience = it) }),
             adminConfig
         )
     }
@@ -50,12 +53,14 @@ class ScopeConfigFactoryTest {
         id: String,
         type: String? = null,
         template: String? = null,
-        enabled: String? = null
+        enabled: String? = null,
+        audience: String? = null
     ): ScopeConfigurationProperties {
         return ScopeConfigurationProperties(id).apply {
             this.type = type
             this.template = template
             this.enabled = enabled
+            this.audience = audience
         }
     }
 
@@ -63,15 +68,31 @@ class ScopeConfigFactoryTest {
         return (this as EnabledScopesConfig).scopes.firstOrNull { it.scope == id }
     }
 
-    // --- OpenID Connect scope with default_openid template ---
+    private fun ScopesConfig.onlyError(): ConfigurationException {
+        val errors = errors()
+        assertEquals(1, errors.size)
+        return errors.first()
+    }
+
+    /** Every configuration error, as the key it was reported at mapped to the code reported there. */
+    private fun ScopesConfig.errorsByKey(): Map<String, String> {
+        return errors().associate { it.key to it.messageId }
+    }
+
+    private fun ScopesConfig.errors(): List<ConfigurationException> {
+        assertInstanceOf(DisabledScopesConfig::class.java, this)
+        return (this as DisabledScopesConfig).configurationErrors!!.map { it as ConfigurationException }
+    }
+
+    // --- OpenID Connect scope templates ---
 
     @Test
-    fun `provideScopes - Apply default_openid template to an OpenID Connect scope`() {
+    fun `provideScopes - Take an OpenID Connect scope off from the template it names`() {
         val factory = factoryWith(
-            templates = listOf(ScopeTemplate(id = "default_openid", enabled = false, type = null, audienceId = null))
+            templates = listOf(ScopeTemplate(id = "my-template", enabled = false, type = null, audienceId = null))
         )
 
-        val result = factory.provideScopes(listOf(scopeProperties(id = "profile")))
+        val result = factory.provideScopes(listOf(scopeProperties(id = "profile", template = "my-template")))
 
         assertInstanceOf(EnabledScopesConfig::class.java, result)
         assertNull(result.scopeNamed("profile"))
@@ -80,10 +101,12 @@ class ScopeConfigFactoryTest {
     @Test
     fun `provideScopes - Let an OpenID Connect scope property override its template`() {
         val factory = factoryWith(
-            templates = listOf(ScopeTemplate(id = "default_openid", enabled = false, type = null, audienceId = null))
+            templates = listOf(ScopeTemplate(id = "my-template", enabled = false, type = null, audienceId = null))
         )
 
-        val result = factory.provideScopes(listOf(scopeProperties(id = "email", enabled = "true")))
+        val result = factory.provideScopes(
+            listOf(scopeProperties(id = "email", template = "my-template", enabled = "true"))
+        )
 
         assertInstanceOf(EnabledScopesConfig::class.java, result)
         assertInstanceOf(ConsentableUserScope::class.java, result.scopeNamed("email"))
@@ -209,6 +232,116 @@ class ScopeConfigFactoryTest {
         assertInstanceOf(DisabledScopesConfig::class.java, result)
         val error = (result as DisabledScopesConfig).configurationErrors!!.first()
         assertTrue(error.message!!.contains("config.scope.builtin_not_configurable"))
+    }
+
+    // --- Audience ---
+
+    @Test
+    fun `provideScopes - Bind a custom scope to the audience it names`() {
+        val factory = factoryWith(audiences = listOf("partners"))
+
+        val result = factory.provideScopes(listOf(scopeProperties(id = "my-scope", audience = "partners")))
+
+        assertInstanceOf(EnabledScopesConfig::class.java, result)
+        assertEquals("partners", result.scopeNamed("my-scope")!!.audienceId)
+    }
+
+    @Test
+    fun `provideScopes - Bind a custom scope to the audience its template names`() {
+        val factory = factoryWith(
+            audiences = listOf("partners"),
+            templates = listOf(
+                ScopeTemplate(id = "default_custom", enabled = null, type = null, audienceId = "partners")
+            )
+        )
+
+        val result = factory.provideScopes(listOf(scopeProperties(id = "my-scope")))
+
+        assertInstanceOf(EnabledScopesConfig::class.java, result)
+        assertEquals("partners", result.scopeNamed("my-scope")!!.audienceId)
+    }
+
+    @Test
+    fun `provideScopes - Report an audience a custom scope inherits from a template at that template`() {
+        val factory = factoryWith(
+            templates = listOf(
+                ScopeTemplate(id = "default_custom", enabled = null, type = null, audienceId = "nonexistent")
+            )
+        )
+
+        val result = factory.provideScopes(listOf(scopeProperties(id = "my-scope")))
+
+        val error = result.onlyError()
+        assertEquals("templates.scopes.default_custom.audience", error.key)
+        assertEquals("config.scope.audience.not_found", error.messageId)
+    }
+
+    @Test
+    fun `provideScopes - Refuse an audience named on an OpenID Connect scope`() {
+        val factory = factoryWith(audiences = listOf("partners"))
+
+        val result = factory.provideScopes(listOf(scopeProperties(id = "email", audience = "partners")))
+
+        val error = result.onlyError()
+        assertEquals("scopes.email.audience", error.key)
+        assertEquals("config.scope.audience.not_allowed_for_openid", error.messageId)
+    }
+
+    @Test
+    fun `provideScopes - Refuse an audience an OpenID Connect scope inherits from the template it names`() {
+        val factory = factoryWith(
+            audiences = listOf("partners"),
+            templates = listOf(
+                ScopeTemplate(id = "my-template", enabled = null, type = null, audienceId = "partners")
+            )
+        )
+
+        val result = factory.provideScopes(listOf(scopeProperties(id = "email", template = "my-template")))
+
+        val error = result.onlyError()
+        assertEquals("scopes.email.template", error.key)
+        assertEquals("config.scope.template.audience_not_allowed_for_openid", error.messageId)
+    }
+
+    @Test
+    fun `provideScopes - Refuse a type named on an OpenID Connect scope`() {
+        val result = factory.provideScopes(listOf(scopeProperties(id = "email", type = "grantable")))
+
+        val error = result.onlyError()
+        assertEquals("scopes.email.type", error.key)
+        assertEquals("config.scope.type.not_allowed_for_openid", error.messageId)
+    }
+
+    @Test
+    fun `provideScopes - Refuse a type an OpenID Connect scope inherits from the template it names`() {
+        val factory = factoryWith(
+            templates = listOf(
+                ScopeTemplate(id = "my-template", enabled = null, type = "grantable", audienceId = null)
+            )
+        )
+
+        val result = factory.provideScopes(listOf(scopeProperties(id = "email", template = "my-template")))
+
+        val error = result.onlyError()
+        assertEquals("scopes.email.template", error.key)
+        assertEquals("config.scope.template.type_not_allowed_for_openid", error.messageId)
+    }
+
+    @Test
+    fun `provideScopes - Report every setting an OpenID Connect scope may not carry`() {
+        val factory = factoryWith(audiences = listOf("partners"))
+
+        val result = factory.provideScopes(
+            listOf(scopeProperties(id = "email", type = "grantable", audience = "partners"))
+        )
+
+        assertEquals(
+            mapOf(
+                "scopes.email.audience" to "config.scope.audience.not_allowed_for_openid",
+                "scopes.email.type" to "config.scope.type.not_allowed_for_openid"
+            ),
+            result.errorsByKey()
+        )
     }
 
     // --- Template validation errors ---

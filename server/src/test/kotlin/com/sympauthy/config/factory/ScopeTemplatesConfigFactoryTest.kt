@@ -1,8 +1,10 @@
 package com.sympauthy.config.factory
 
 import com.sympauthy.config.ConfigParser
+import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.model.DisabledScopeTemplatesConfig
 import com.sympauthy.config.model.EnabledScopeTemplatesConfig
+import com.sympauthy.config.model.ScopeTemplatesConfig
 import com.sympauthy.config.parsing.ScopeTemplatesConfigParser
 import com.sympauthy.config.properties.ScopeTemplateConfigurationProperties
 import com.sympauthy.config.validation.ScopeTemplatesConfigValidator
@@ -32,10 +34,12 @@ class ScopeTemplatesConfigFactoryTest {
     private fun scopeTemplateProperties(
         id: String,
         type: String? = null,
-        enabled: String? = null
+        enabled: String? = null,
+        audience: String? = null
     ): ScopeTemplateConfigurationProperties {
         return ScopeTemplateConfigurationProperties(id).apply {
             this.type = type
+            this.audience = audience
         }.also {
             // enabled is val, so we set it via reflection
             if (enabled != null) {
@@ -46,10 +50,17 @@ class ScopeTemplatesConfigFactoryTest {
         }
     }
 
+    /** Every configuration error, as the key it was reported at mapped to the code reported there. */
+    private fun ScopeTemplatesConfig.errorsByKey(): Map<String, String> {
+        assertInstanceOf(DisabledScopeTemplatesConfig::class.java, this)
+        return (this as DisabledScopeTemplatesConfig).configurationErrors!!
+            .associate { (it as ConfigurationException).key to it.messageId }
+    }
+
     @Test
     fun `provideScopeTemplates - Returns enabled config with valid templates`() {
         val templates = listOf(
-            scopeTemplateProperties(id = "default_openid", enabled = "false"),
+            scopeTemplateProperties(id = "my_template", enabled = "false"),
             scopeTemplateProperties(id = "default_custom", type = "consentable")
         )
 
@@ -59,9 +70,9 @@ class ScopeTemplatesConfigFactoryTest {
         val config = result as EnabledScopeTemplatesConfig
         assertEquals(2, config.templates.size)
 
-        val openidTemplate = config.templates["default_openid"]!!
-        assertEquals(false, openidTemplate.enabled)
-        assertNull(openidTemplate.type)
+        val namedTemplate = config.templates["my_template"]!!
+        assertEquals(false, namedTemplate.enabled)
+        assertNull(namedTemplate.type)
 
         val customTemplate = config.templates["default_custom"]!!
         assertNull(customTemplate.enabled)
@@ -99,6 +110,93 @@ class ScopeTemplatesConfigFactoryTest {
         assertInstanceOf(EnabledScopeTemplatesConfig::class.java, result)
         val config = result as EnabledScopeTemplatesConfig
         assertEquals("client", config.templates["default_client"]!!.type)
+    }
+
+    @Test
+    fun `provideScopeTemplates - Carry the audience a template defines for the custom scopes using it`() {
+        val templates = listOf(
+            scopeTemplateProperties(id = "partner_scopes", audience = "partners")
+        )
+
+        val result = factory.provideScopeTemplates(templates)
+
+        assertInstanceOf(EnabledScopeTemplatesConfig::class.java, result)
+        val config = result as EnabledScopeTemplatesConfig
+        assertEquals("partners", config.templates["partner_scopes"]!!.audienceId)
+    }
+
+    @Test
+    fun `provideScopeTemplates - Refuse an audience on the template applied to the OpenID Connect scopes`() {
+        val templates = listOf(
+            scopeTemplateProperties(id = "default_openid", audience = "partners")
+        )
+
+        val result = factory.provideScopeTemplates(templates)
+
+        assertEquals(
+            mapOf(
+                "templates.scopes.default_openid.audience"
+                        to "config.scope.template.audience_not_allowed_on_default_openid"
+            ),
+            result.errorsByKey()
+        )
+    }
+
+    @Test
+    fun `provideScopeTemplates - Refuse a type on the template applied to the OpenID Connect scopes`() {
+        val templates = listOf(
+            scopeTemplateProperties(id = "default_openid", type = "grantable")
+        )
+
+        val result = factory.provideScopeTemplates(templates)
+
+        assertEquals(
+            mapOf(
+                "templates.scopes.default_openid.type"
+                        to "config.scope.template.type_not_allowed_on_default_openid"
+            ),
+            result.errorsByKey()
+        )
+    }
+
+    @Test
+    fun `provideScopeTemplates - Refuse turning the OpenID Connect scopes off as a set`() {
+        val templates = listOf(
+            scopeTemplateProperties(id = "default_openid", enabled = "false")
+        )
+
+        val result = factory.provideScopeTemplates(templates)
+
+        assertEquals(
+            mapOf(
+                "templates.scopes.default_openid.enabled"
+                        to "config.scope.template.enabled_not_allowed_on_default_openid"
+            ),
+            result.errorsByKey()
+        )
+    }
+
+    @Test
+    fun `provideScopeTemplates - Report every setting the OpenID Connect template may not carry`() {
+        val templates = listOf(
+            scopeTemplateProperties(
+                id = "default_openid", enabled = "false", type = "grantable", audience = "partners"
+            )
+        )
+
+        val result = factory.provideScopeTemplates(templates)
+
+        assertEquals(
+            mapOf(
+                "templates.scopes.default_openid.enabled"
+                        to "config.scope.template.enabled_not_allowed_on_default_openid",
+                "templates.scopes.default_openid.type"
+                        to "config.scope.template.type_not_allowed_on_default_openid",
+                "templates.scopes.default_openid.audience"
+                        to "config.scope.template.audience_not_allowed_on_default_openid"
+            ),
+            result.errorsByKey()
+        )
     }
 
     @Test

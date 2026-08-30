@@ -16,8 +16,18 @@ data class ParsedScopeConfig(
     val id: String,
     val isOpenIdConnect: Boolean,
     val enabled: Boolean?,
-    val type: String?,
-    val audienceId: String?
+    val type: ParsedScopeSetting?,
+    val audience: ParsedScopeSetting?
+)
+
+/**
+ * A value a scope was configured with, and the template that supplied it when the scope's own entry
+ * did not. The two sources are kept apart because they are two different lines for an operator to
+ * go and edit.
+ */
+data class ParsedScopeSetting(
+    val value: String,
+    val templateId: String?
 )
 
 @Singleton
@@ -42,17 +52,32 @@ class ScopeConfigParser(
                 )
             } ?: template?.enabled
 
-            val type = (properties.type ?: template?.type)?.lowercase()
-            val audienceId = properties.audience ?: template?.audienceId
-
             ParsedScopeConfig(
                 id = properties.id,
                 isOpenIdConnect = isOpenIdConnect,
                 enabled = enabled,
-                type = type,
-                audienceId = audienceId
+                type = resolveType(properties, template),
+                audience = resolveAudience(properties, template)
             )
         }
+    }
+
+    private fun resolveType(
+        properties: ScopeConfigurationProperties,
+        template: ScopeTemplate?
+    ): ParsedScopeSetting? {
+        properties.type?.let { return ParsedScopeSetting(value = it.lowercase(), templateId = null) }
+        val inherited = template?.type ?: return null
+        return ParsedScopeSetting(value = inherited.lowercase(), templateId = template.id)
+    }
+
+    private fun resolveAudience(
+        properties: ScopeConfigurationProperties,
+        template: ScopeTemplate?
+    ): ParsedScopeSetting? {
+        properties.audience?.let { return ParsedScopeSetting(value = it, templateId = null) }
+        val inherited = template?.audienceId ?: return null
+        return ParsedScopeSetting(value = inherited, templateId = template.id)
     }
 
     private fun resolveTemplate(
