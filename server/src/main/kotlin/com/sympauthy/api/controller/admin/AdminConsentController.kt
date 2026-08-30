@@ -2,8 +2,8 @@ package com.sympauthy.api.controller.admin
 
 import com.sympauthy.api.mapper.admin.AdminConsentResourceMapper
 import com.sympauthy.api.resource.admin.AdminConsentListResource
+import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
@@ -26,7 +26,8 @@ import java.util.*
 class AdminConsentController(
     @Inject private val userManager: UserManager,
     @Inject private val consentManager: ConsentManager,
-    @Inject private val consentMapper: AdminConsentResourceMapper
+    @Inject private val consentMapper: AdminConsentResourceMapper,
+    @Inject private val paginationUtil: PaginationUtil
 ) {
 
     @Operation(
@@ -34,6 +35,7 @@ class AdminConsentController(
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of consents."),
+            ApiResponse(responseCode = "400", description = "Invalid page or size."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
                 responseCode = "403",
@@ -48,10 +50,13 @@ class AdminConsentController(
     suspend fun listConsents(
         @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
-        @QueryValue @Parameter(description = "Number of results per page.") size: Int?
+        @QueryValue @Parameter(
+            description = "Number of results per page. Defaults to the size this server is configured " +
+                    "with, and may not exceed its configured maximum."
+        ) size: Int?
     ): AdminConsentListResource {
+        val (page, size) = paginationUtil.resolvePageParams(page, size)
         userManager.findByIdOrNull(userId).orNotFound()
-        val (page, size) = resolvePageParams(page, size)
         val allConsents = consentManager.findActiveConsentsByUser(userId)
         val paged = allConsents
             .drop(page * size)

@@ -3,8 +3,8 @@ package com.sympauthy.api.controller.admin
 import com.sympauthy.api.mapper.admin.AdminAudienceResourceMapper
 import com.sympauthy.api.resource.admin.AdminAudienceListResource
 import com.sympauthy.api.resource.admin.AdminAudienceResource
+import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.AudienceManager
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
@@ -26,7 +26,8 @@ import jakarta.inject.Inject
 class AdminAudienceController(
     @Inject private val audienceManager: AudienceManager,
     @Inject private val clientManager: ClientManager,
-    @Inject private val audienceMapper: AdminAudienceResourceMapper
+    @Inject private val audienceMapper: AdminAudienceResourceMapper,
+    @Inject private val paginationUtil: PaginationUtil
 ) {
 
     @Operation(
@@ -34,6 +35,7 @@ class AdminAudienceController(
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of audiences."),
+            ApiResponse(responseCode = "400", description = "Invalid page or size."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
                 responseCode = "403",
@@ -44,9 +46,12 @@ class AdminAudienceController(
     @Get
     suspend fun listAudiences(
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
-        @QueryValue @Parameter(description = "Number of results per page.") size: Int?
+        @QueryValue @Parameter(
+            description = "Number of results per page. Defaults to the size this server is configured " +
+                    "with, and may not exceed its configured maximum."
+        ) size: Int?
     ): AdminAudienceListResource {
-        val (page, size) = resolvePageParams(page, size)
+        val (page, size) = paginationUtil.resolvePageParams(page, size)
         val audiences = audienceManager.listAudiences()
         val clientCountsByAudienceId = clientManager.countClientsByAudienceId()
         val paged = audiences

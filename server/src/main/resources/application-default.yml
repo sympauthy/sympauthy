@@ -25,6 +25,9 @@ advanced:
     access-alg: es256
     private-alg: hs256
   keys-generation-strategy: autoincrement
+  pagination:
+    default-size: 20
+    max-size: 100
   validation-code:
     length: 6
     resend-delay: 1m

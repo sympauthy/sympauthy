@@ -5,8 +5,8 @@ import com.sympauthy.api.resource.admin.AdminUserProviderLinkInputResource
 import com.sympauthy.api.resource.admin.AdminUserProviderLinkResource
 import com.sympauthy.api.resource.admin.AdminUserProviderListResource
 import com.sympauthy.api.resource.admin.AdminUserProviderResource
+import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.client.ClientRedirectUriManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
@@ -39,6 +39,7 @@ class AdminUserProviderController(
     @Inject private val linkProviderManager: InteractiveFlowSessionLinkProviderManager,
     @Inject private val engine: InteractiveFlowEngine,
     @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
+    @Inject private val paginationUtil: PaginationUtil,
 ) {
 
     @Operation(
@@ -46,6 +47,7 @@ class AdminUserProviderController(
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of linked providers."),
+            ApiResponse(responseCode = "400", description = "Invalid page or size."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
                 responseCode = "403",
@@ -60,10 +62,13 @@ class AdminUserProviderController(
     suspend fun listProviders(
         @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
-        @QueryValue @Parameter(description = "Number of results per page.") size: Int?
+        @QueryValue @Parameter(
+            description = "Number of results per page. Defaults to the size this server is configured " +
+                    "with, and may not exceed its configured maximum."
+        ) size: Int?
     ): AdminUserProviderListResource {
+        val (page, size) = paginationUtil.resolvePageParams(page, size)
         userManager.findByIdOrNull(userId).orNotFound()
-        val (page, size) = resolvePageParams(page, size)
         val allProviders = providerClaimsManager.findByUserId(userId)
         val paged = allProviders
             .drop(page * size)

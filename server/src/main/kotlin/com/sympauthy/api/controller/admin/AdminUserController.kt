@@ -4,8 +4,8 @@ import com.sympauthy.api.mapper.admin.AdminUserDetailResourceMapper
 import com.sympauthy.api.mapper.admin.AdminUserResourceMapper
 import com.sympauthy.api.resource.admin.AdminUserDetailResource
 import com.sympauthy.api.resource.admin.AdminUserListResource
+import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
@@ -36,7 +36,8 @@ class AdminUserController(
     @Inject private val claimManager: ClaimManager,
     @Inject private val generatedClaimsManager: GeneratedClaimsManager,
     @Inject private val userMapper: AdminUserResourceMapper,
-    @Inject private val userDetailMapper: AdminUserDetailResourceMapper
+    @Inject private val userDetailMapper: AdminUserDetailResourceMapper,
+    @Inject private val paginationUtil: PaginationUtil
 ) {
 
     companion object {
@@ -50,7 +51,7 @@ class AdminUserController(
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of users."),
-            ApiResponse(responseCode = "400", description = "Invalid claim ID, status, or sort property."),
+            ApiResponse(responseCode = "400", description = "Invalid page, size, claim ID, status, or sort property."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
                 responseCode = "403",
@@ -62,7 +63,10 @@ class AdminUserController(
     suspend fun listUsers(
         request: HttpRequest<*>,
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
-        @QueryValue @Parameter(description = "Number of results per page.") size: Int?,
+        @QueryValue @Parameter(
+            description = "Number of results per page. Defaults to the size this server is configured " +
+                    "with, and may not exceed its configured maximum."
+        ) size: Int?,
         @QueryValue @Parameter(description = "Filter by user status (e.g. enabled, disabled).") status: String?,
         @QueryValue @Parameter(
             description = "Comma-separated list of claim IDs to include in the response. " +
@@ -74,7 +78,7 @@ class AdminUserController(
         @QueryValue @Parameter(description = "Property to sort by: created_at, status, or a claim identifier.") sort: String?,
         @QueryValue @Parameter(description = "Sort direction: asc or desc.") order: String?
     ): AdminUserListResource {
-        val (page, size) = resolvePageParams(page, size)
+        val (page, size) = paginationUtil.resolvePageParams(page, size)
 
         // Resolve selected claims
         val selectedClaims = resolveSelectedClaims(claims)

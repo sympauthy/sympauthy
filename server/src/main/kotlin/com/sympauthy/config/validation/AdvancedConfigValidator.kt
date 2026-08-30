@@ -8,16 +8,19 @@ import com.sympauthy.config.model.AuthorizationWebhookAdvancedConfig
 import com.sympauthy.config.model.EnabledAdvancedConfig
 import com.sympauthy.config.model.HashConfig
 import com.sympauthy.config.model.InvitationAdvancedConfig
+import com.sympauthy.config.model.PaginationConfig
 import com.sympauthy.config.model.ValidationCodeConfig
 import com.sympauthy.config.parsing.ParsedAdvancedConfig
 import com.sympauthy.config.parsing.ParsedHashConfig
 import com.sympauthy.config.parsing.ParsedInvitationConfig
+import com.sympauthy.config.parsing.ParsedPaginationConfig
 import com.sympauthy.config.parsing.ParsedValidationCodeConfig
 import com.sympauthy.config.properties.InvitationConfigurationProperties.Companion.INVITATION_KEY
 import com.sympauthy.config.properties.InvitationHashConfigurationProperties.Companion.INVITATION_HASH_KEY
 import com.sympauthy.config.properties.AdvancedConfigurationProperties.Companion.ADVANCED_KEY
 import com.sympauthy.config.properties.HashConfigurationProperties.Companion.HASH_KEY
 import com.sympauthy.config.properties.JwtConfigurationProperties.Companion.JWT_KEY
+import com.sympauthy.config.properties.PaginationConfigurationProperties.Companion.PAGINATION_KEY
 import com.sympauthy.config.properties.ValidationCodeConfigurationProperties.Companion.VALIDATION_CODE_KEY
 import jakarta.inject.Singleton
 import java.time.Duration
@@ -39,6 +42,7 @@ class AdvancedConfigValidator {
         val webhookConfig = AuthorizationWebhookAdvancedConfig(
             timeout = parsed.webhookTimeout ?: DEFAULT_WEBHOOK_TIMEOUT
         )
+        val paginationConfig = validatePaginationConfig(ctx, parsed.pagination)
 
         if (ctx.hasErrors) return null
         return EnabledAdvancedConfig(
@@ -49,7 +53,8 @@ class AdvancedConfigValidator {
             hashConfig = hashConfig!!,
             invitationConfig = invitationConfig!!,
             validationCode = validationCodeConfig!!,
-            authorizationWebhook = webhookConfig
+            authorizationWebhook = webhookConfig,
+            pagination = paginationConfig!!
         )
     }
 
@@ -112,6 +117,42 @@ class AdvancedConfigValidator {
                 )
             )
         }
+    }
+
+    private fun validatePaginationConfig(
+        ctx: ConfigParsingContext,
+        parsed: ParsedPaginationConfig
+    ): PaginationConfig? {
+        val subCtx = ctx.child()
+
+        if (parsed.defaultSize != null && parsed.defaultSize <= 0) {
+            subCtx.addError(
+                configExceptionOf("$PAGINATION_KEY.default-size", "config.advanced.pagination.invalid_default_size")
+            )
+        }
+
+        if (parsed.maxSize != null && parsed.maxSize <= 0) {
+            subCtx.addError(
+                configExceptionOf("$PAGINATION_KEY.max-size", "config.advanced.pagination.invalid_max_size")
+            )
+        }
+
+        if (parsed.defaultSize != null && parsed.maxSize != null &&
+            parsed.defaultSize > 0 && parsed.maxSize > 0 && parsed.defaultSize > parsed.maxSize
+        ) {
+            subCtx.addError(
+                configExceptionOf("$PAGINATION_KEY.default-size", "config.advanced.pagination.default_exceeds_max")
+            )
+        }
+
+        ctx.merge(subCtx)
+        if (subCtx.hasErrors || parsed.defaultSize == null || parsed.maxSize == null) {
+            return null
+        }
+        return PaginationConfig(
+            defaultSize = parsed.defaultSize,
+            maxSize = parsed.maxSize
+        )
     }
 
     private fun validateHashConfig(

@@ -84,6 +84,24 @@ name there matches a bound argument, the generator keeps the description and **d
 emitting a typeless parameter that then fails client generation in the integration tests. The
 failure is two build steps away from the annotation that caused it.
 
+## The utility
+
+**A rule the controllers of a surface all apply identically, and that needs an injected
+collaborator, is a bean they share rather than a line each of them repeats.** A controller holds no
+logic, so the rule cannot live in one; a top-level function cannot hold the collaborator, and one
+reaching for it anyway is [a service locator](general-code-standard.md#extension-functions). What is
+left is an ordinary singleton, named for what it resolves or refuses.
+
+Stating the rule once is what makes it hold for the endpoints nobody was thinking about: the
+arithmetic that overflows, the value one caller in a thousand sends, the endpoint written a year
+later. Copied into each controller instead, it is that many places for one of the copies to be the
+one that was never updated.
+
+**It is not somewhere to put what a manager should own.** The test is whether stating the rule needs
+the request or the response — resolving a query parameter, choosing a status, reading a credential
+off a header. Anything answerable without either is a use case, and a use case is
+[a manager](business-layer-code-standard.md#the-manager) however convenient this neighbourhood is.
+
 ## Filters and error handlers
 
 **CORS is ours, not the framework's.** The framework's own handling is switched off and each surface

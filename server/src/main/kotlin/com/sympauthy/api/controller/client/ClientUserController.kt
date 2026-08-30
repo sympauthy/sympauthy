@@ -3,8 +3,8 @@ package com.sympauthy.api.controller.client
 import com.sympauthy.api.mapper.client.ClientUserResourceMapper
 import com.sympauthy.api.resource.client.ClientUserListResource
 import com.sympauthy.api.resource.client.ClientUserResource
+import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.user.ClientUserManager
@@ -30,7 +30,8 @@ import java.util.*
 class ClientUserController(
     @Inject private val clientManager: ClientManager,
     @Inject private val clientUserManager: ClientUserManager,
-    @Inject private val userMapper: ClientUserResourceMapper
+    @Inject private val userMapper: ClientUserResourceMapper,
+    @Inject private val paginationUtil: PaginationUtil
 ) {
 
     @Operation(
@@ -50,7 +51,10 @@ class ClientUserController(
     suspend fun listUsers(
         authentication: Authentication,
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
-        @QueryValue @Parameter(description = "Number of results per page.") size: Int?,
+        @QueryValue @Parameter(
+            description = "Number of results per page. Defaults to the size this server is configured " +
+                    "with, and may not exceed its configured maximum."
+        ) size: Int?,
         @QueryValue("provider_id") @Parameter(description = "Filter users linked to a specific provider.") providerId: String?,
         @QueryValue @Parameter(description = "Filter by provider subject ID. Must be used together with provider_id.") subject: String?
     ): ClientUserListResource {
@@ -60,7 +64,7 @@ class ClientUserController(
 
         val clientAuth = authentication.clientAuthentication
         val client = clientManager.findClientById(clientAuth.clientId)
-        val (resolvedPage, resolvedSize) = resolvePageParams(page, size)
+        val (resolvedPage, resolvedSize) = paginationUtil.resolvePageParams(page, size)
         val (users, total) = clientUserManager.listUsersForAudience(
             audienceId = client.audience.id,
             providerId = providerId,

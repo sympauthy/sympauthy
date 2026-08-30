@@ -5,8 +5,8 @@ import com.sympauthy.api.resource.client.ClientCreateInvitationInputResource
 import com.sympauthy.api.resource.client.ClientCreatedInvitationResource
 import com.sympauthy.api.resource.client.ClientInvitationListResource
 import com.sympauthy.api.resource.client.ClientInvitationResource
+import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
@@ -30,7 +30,8 @@ import java.util.*
 class ClientInvitationController(
     @Inject private val clientManager: ClientManager,
     @Inject private val invitationManager: InvitationManager,
-    @Inject private val invitationMapper: ClientInvitationResourceMapper
+    @Inject private val invitationMapper: ClientInvitationResourceMapper,
+    @Inject private val paginationUtil: PaginationUtil
 ) {
 
     @Operation(
@@ -74,6 +75,7 @@ class ClientInvitationController(
         tags = ["client"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of invitations."),
+            ApiResponse(responseCode = "400", description = "Invalid page or size."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
                 responseCode = "403",
@@ -87,10 +89,13 @@ class ClientInvitationController(
     suspend fun listInvitations(
         authentication: Authentication,
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
-        @QueryValue @Parameter(description = "Number of results per page.") size: Int?
+        @QueryValue @Parameter(
+            description = "Number of results per page. Defaults to the size this server is configured " +
+                    "with, and may not exceed its configured maximum."
+        ) size: Int?
     ): ClientInvitationListResource {
         val clientAuth = authentication.clientAuthentication
-        val (resolvedPage, resolvedSize) = resolvePageParams(page, size)
+        val (resolvedPage, resolvedSize) = paginationUtil.resolvePageParams(page, size)
         val allInvitations = invitationManager.findByCreatedById(clientAuth.clientId)
         val paged = allInvitations
             .drop(resolvedPage * resolvedSize)

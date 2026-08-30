@@ -10,6 +10,7 @@ import com.sympauthy.config.properties.HashConfigurationProperties
 import com.sympauthy.config.properties.InvitationConfigurationProperties
 import com.sympauthy.config.properties.InvitationHashConfigurationProperties
 import com.sympauthy.config.properties.JwtConfigurationProperties
+import com.sympauthy.config.properties.PaginationConfigurationProperties
 import com.sympauthy.config.properties.ValidationCodeConfigurationProperties
 import com.sympauthy.config.validation.AdvancedConfigValidator
 import io.micronaut.context.annotation.Factory
@@ -31,12 +32,13 @@ class AdvancedConfigFactory(
         invitationHashProperties: InvitationHashConfigurationProperties,
         validationCodeProperties: ValidationCodeConfigurationProperties,
         authorizationWebhookProperties: AuthorizationWebhookConfigurationProperties,
+        paginationProperties: PaginationConfigurationProperties,
     ): AdvancedConfig {
         val ctx = ConfigParsingContext()
         val parsed = advancedParser.parse(
             ctx, properties, jwtProperties, hashProperties,
             invitationProperties, invitationHashProperties,
-            validationCodeProperties, authorizationWebhookProperties
+            validationCodeProperties, authorizationWebhookProperties, paginationProperties
         )
         val config = advancedValidator.validate(ctx, parsed)
         return config ?: DisabledAdvancedConfig(ctx.errors)

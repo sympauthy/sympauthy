@@ -26,6 +26,7 @@ data class EnabledAdvancedConfig(
     val invitationConfig: InvitationAdvancedConfig,
     val validationCode: ValidationCodeConfig,
     val authorizationWebhook: AuthorizationWebhookAdvancedConfig,
+    val pagination: PaginationConfig,
 ) : AdvancedConfig()
 
 class DisabledAdvancedConfig(
@@ -75,6 +76,23 @@ data class InvitationAdvancedConfig(
      * Scrypt hash configuration for invitation token storage.
      */
     val hashConfig: HashConfig,
+)
+
+/**
+ * Bounds every paged endpoint applies to the page and size query parameters a caller sends.
+ *
+ * The maximum is what stops a caller asking for a whole collection in one response, so it is a
+ * deployment's to raise or lower against the size of the collections it actually holds.
+ */
+data class PaginationConfig(
+    /**
+     * Number of items returned when the caller sends no size.
+     */
+    val defaultSize: Int,
+    /**
+     * Largest size a caller may ask for. A larger one is refused rather than reduced.
+     */
+    val maxSize: Int,
 )
 
 data class AuthorizationWebhookAdvancedConfig(

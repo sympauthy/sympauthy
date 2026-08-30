@@ -3,6 +3,7 @@ package com.sympauthy.api.controller.admin
 import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
 import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.resource.admin.AdminUserProviderLinkInputResource
+import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.client.ClientRedirectUriManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
@@ -68,6 +69,9 @@ class AdminUserProviderControllerTest {
 
     @MockK
     lateinit var stepUriMapper: InteractiveFlowStepUriMapper
+
+    @Suppress("unused")
+    private val paginationUtil = defaultPaginationUtil()
 
     @InjectMockKs
     lateinit var controller: AdminUserProviderController

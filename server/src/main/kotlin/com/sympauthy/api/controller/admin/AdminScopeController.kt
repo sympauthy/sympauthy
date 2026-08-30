@@ -2,7 +2,7 @@ package com.sympauthy.api.controller.admin
 
 import com.sympauthy.api.mapper.admin.AdminScopeResourceMapper
 import com.sympauthy.api.resource.admin.AdminScopeListResource
-import com.sympauthy.api.util.resolvePageParams
+import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.security.SecurityRule.ADMIN_CONFIG_READ
@@ -21,7 +21,8 @@ import jakarta.inject.Inject
 @SecurityRequirement(name = "admin", scopes = [AdminScopeId.CONFIG_READ])
 class AdminScopeController(
     @Inject private val scopeManager: ScopeManager,
-    @Inject private val scopeMapper: AdminScopeResourceMapper
+    @Inject private val scopeMapper: AdminScopeResourceMapper,
+    @Inject private val paginationUtil: PaginationUtil
 ) {
 
     @Operation(
@@ -29,6 +30,7 @@ class AdminScopeController(
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of scopes."),
+            ApiResponse(responseCode = "400", description = "Invalid page or size."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
                 responseCode = "403",
@@ -39,11 +41,14 @@ class AdminScopeController(
     @Get
     suspend fun listScopes(
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
-        @QueryValue @Parameter(description = "Number of results per page.") size: Int?,
+        @QueryValue @Parameter(
+            description = "Number of results per page. Defaults to the size this server is configured " +
+                    "with, and may not exceed its configured maximum."
+        ) size: Int?,
         @QueryValue @Parameter(description = "Filter by scope type.") type: String?,
         @QueryValue @Parameter(description = "Filter by enabled status.") enabled: Boolean?
     ): AdminScopeListResource {
-        val (page, size) = resolvePageParams(page, size)
+        val (page, size) = paginationUtil.resolvePageParams(page, size)
         val scopes = scopeManager.listScopes()
             .let { list -> filterByType(list, type) }
             .let { list -> if (enabled != null) list.filter { enabled } else list }

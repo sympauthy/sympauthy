@@ -6,8 +6,8 @@ import com.sympauthy.api.mapper.admin.AdminUserMfaMethodResourceMapper
 import com.sympauthy.api.resource.admin.AdminUserMfaEnrollmentInputResource
 import com.sympauthy.api.resource.admin.AdminUserMfaEnrollmentResource
 import com.sympauthy.api.resource.admin.AdminUserMfaMethodListResource
+import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.client.ClientRedirectUriManager
@@ -44,6 +44,7 @@ class AdminUserMfaController(
     @Inject private val engine: InteractiveFlowEngine,
     @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
     @Inject private val uncheckedMfaConfig: MfaConfig,
+    @Inject private val paginationUtil: PaginationUtil,
 ) {
 
     @Operation(
@@ -51,6 +52,7 @@ class AdminUserMfaController(
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of MFA methods."),
+            ApiResponse(responseCode = "400", description = "Invalid page or size."),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
                 responseCode = "403",
@@ -65,10 +67,13 @@ class AdminUserMfaController(
     suspend fun listMfaMethods(
         @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
-        @QueryValue @Parameter(description = "Number of results per page.") size: Int?
+        @QueryValue @Parameter(
+            description = "Number of results per page. Defaults to the size this server is configured " +
+                    "with, and may not exceed its configured maximum."
+        ) size: Int?
     ): AdminUserMfaMethodListResource {
+        val (page, size) = paginationUtil.resolvePageParams(page, size)
         userManager.findByIdOrNull(userId).orNotFound()
-        val (page, size) = resolvePageParams(page, size)
         val allEnrollments = totpManager.findConfirmedEnrollments(userId)
         val paged = allEnrollments
             .drop(page * size)
