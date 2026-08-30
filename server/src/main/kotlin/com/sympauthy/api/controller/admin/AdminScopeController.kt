@@ -2,6 +2,7 @@ package com.sympauthy.api.controller.admin
 
 import com.sympauthy.api.mapper.admin.AdminScopeResourceMapper
 import com.sympauthy.api.resource.admin.AdminScopeListResource
+import com.sympauthy.api.util.orderedPage
 import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.model.oauth2.*
@@ -25,7 +26,8 @@ class AdminScopeController(
 ) {
 
     @Operation(
-        description = "Retrieve all configured scopes (consentable, grantable, client). Since scopes are defined in configuration, this endpoint exposes them as read-only resources.",
+        description = "Retrieve all configured scopes (consentable, grantable, client). Since scopes are " +
+                "defined in configuration, this endpoint exposes them as read-only resources. Ordered by scope.",
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of scopes."),
@@ -43,22 +45,20 @@ class AdminScopeController(
         @QueryValue @Parameter(description = "Filter by scope type.") type: String?,
         @QueryValue @Parameter(description = "Filter by enabled status.") enabled: Boolean?
     ): AdminScopeListResource {
-        val (page, size) = resolvePageParams(page, size)
+        val pageParams = resolvePageParams(page, size)
         val scopes = scopeManager.listScopes()
             .let { list -> filterByType(list, type) }
             .let { list -> if (enabled != null) list.filter { enabled } else list }
-            .sortedBy { it.scope }
         val paged = scopes
-            .drop(page * size)
-            .take(size)
+            .orderedPage(pageParams, compareBy { it.scope })
             .map { scope ->
                 val claims = scopeManager.listClaimsProtectedByScope(scope)
                 scopeMapper.toResource(scope, claims)
             }
         return AdminScopeListResource(
             scopes = paged,
-            page = page,
-            size = size,
+            page = pageParams.page,
+            size = pageParams.size,
             total = scopes.size
         )
     }

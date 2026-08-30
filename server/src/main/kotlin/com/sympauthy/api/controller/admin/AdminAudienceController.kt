@@ -4,6 +4,7 @@ import com.sympauthy.api.mapper.admin.AdminAudienceResourceMapper
 import com.sympauthy.api.resource.admin.AdminAudienceListResource
 import com.sympauthy.api.resource.admin.AdminAudienceResource
 import com.sympauthy.api.util.orNotFound
+import com.sympauthy.api.util.orderedPage
 import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.AudienceManager
 import com.sympauthy.business.manager.ClientManager
@@ -30,7 +31,8 @@ class AdminAudienceController(
 ) {
 
     @Operation(
-        description = "Retrieve all configured audiences. Since audiences are defined in configuration files, this endpoint exposes them as read-only resources.",
+        description = "Retrieve all configured audiences. Since audiences are defined in configuration files, " +
+                "this endpoint exposes them as read-only resources. Ordered by identifier.",
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of audiences."),
@@ -46,17 +48,16 @@ class AdminAudienceController(
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
         @QueryValue @Parameter(description = "Number of results per page.") size: Int?
     ): AdminAudienceListResource {
-        val (page, size) = resolvePageParams(page, size)
+        val pageParams = resolvePageParams(page, size)
         val audiences = audienceManager.listAudiences()
         val clientCountsByAudienceId = clientManager.countClientsByAudienceId()
         val paged = audiences
-            .drop(page * size)
-            .take(size)
+            .orderedPage(pageParams, compareBy { it.id })
             .map { audienceMapper.toResource(it, clientCountsByAudienceId[it.id] ?: 0) }
         return AdminAudienceListResource(
             audiences = paged,
-            page = page,
-            size = size,
+            page = pageParams.page,
+            size = pageParams.size,
             total = audiences.size
         )
     }

@@ -33,6 +33,10 @@ class AdminClientControllerTest {
     @InjectMockKs
     lateinit var controller: AdminClientController
 
+    private fun mockClient(clientId: String): Client = mockk {
+        every { id } returns clientId
+    }
+
     private fun mockSummaryResource(clientId: String): AdminClientSummaryResource = AdminClientSummaryResource(
         clientId = clientId,
         type = "confidential",
@@ -54,8 +58,8 @@ class AdminClientControllerTest {
 
     @Test
     fun `listClients - Return paginated list with defaults`() = runTest {
-        val client1 = mockk<Client>()
-        val client2 = mockk<Client>()
+        val client1 = mockClient("c1")
+        val client2 = mockClient("c2")
         val resource1 = mockSummaryResource("c1")
         val resource2 = mockSummaryResource("c2")
 
@@ -75,7 +79,7 @@ class AdminClientControllerTest {
 
     @Test
     fun `listClients - Apply page and size`() = runTest {
-        val clients = (1..5).map { mockk<Client>() }
+        val clients = (1..5).map { mockClient("c$it") }
         val resources = (1..5).map { mockSummaryResource("c$it") }
 
         coEvery { clientManager.listClients() } returns clients
@@ -106,14 +110,31 @@ class AdminClientControllerTest {
 
     @Test
     fun `listClients - Return empty page when page exceeds total`() = runTest {
-        val client = mockk<Client>()
-        coEvery { clientManager.listClients() } returns listOf(client)
+        // A single-element list is never handed to the comparator, so the client needs no identifier.
+        coEvery { clientManager.listClients() } returns listOf(mockk<Client>())
 
         val result = controller.listClients(5, 20)
 
         assertEquals(5, result.page)
         assertEquals(1, result.total)
         assertTrue(result.clients.isEmpty())
+    }
+
+    @Test
+    fun `listClients - Order by identifier`() = runTest {
+        val zulu = mockClient("zulu")
+        val alpha = mockClient("alpha")
+        val zuluResource = mockSummaryResource("zulu")
+        val alphaResource = mockSummaryResource("alpha")
+
+        coEvery { clientManager.listClients() } returns listOf(zulu, alpha)
+        every { clientMapper.toSummaryResource(zulu) } returns zuluResource
+        every { clientMapper.toSummaryResource(alpha) } returns alphaResource
+
+        val result = controller.listClients(null, null)
+
+        assertSame(alphaResource, result.clients[0])
+        assertSame(zuluResource, result.clients[1])
     }
 
     @Test

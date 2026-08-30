@@ -2,6 +2,7 @@ package com.sympauthy.api.controller.admin
 
 import com.sympauthy.api.mapper.admin.AdminClaimResourceMapper
 import com.sympauthy.api.resource.admin.AdminClaimListResource
+import com.sympauthy.api.util.orderedPage
 import com.sympauthy.api.util.resolvePageParams
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
@@ -26,7 +27,9 @@ class AdminClaimController(
 ) {
 
     @Operation(
-        description = "Retrieve all configured claims (standard and custom). Since claims are defined in configuration files, this endpoint exposes them as read-only resources.",
+        description = "Retrieve all configured claims (standard and custom). Since claims are defined in " +
+                "configuration files, this endpoint exposes them as read-only resources. " +
+                "Enabled claims first, then ordered by identifier.",
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of claims."),
@@ -45,20 +48,18 @@ class AdminClaimController(
         @QueryValue @Parameter(description = "Filter by required status.") required: Boolean?,
         @QueryValue @Parameter(description = "Filter by claim origin.") origin: String?
     ): AdminClaimListResource {
-        val (page, size) = resolvePageParams(page, size)
+        val pageParams = resolvePageParams(page, size)
         val claims = claimManager.listAllClaims()
             .let { list -> if (enabled != null) list.filter { it.enabled == enabled } else list }
             .let { list -> if (required != null) list.filter { it.required == required } else list }
             .let { list -> if (origin != null) list.filter { it.origin.value == origin.lowercase() } else list }
-            .sortedWith(compareByDescending<Claim> { it.enabled }.thenBy { it.id })
         val paged = claims
-            .drop(page * size)
-            .take(size)
+            .orderedPage(pageParams, compareByDescending<Claim> { it.enabled }.thenBy { it.id })
             .map(claimMapper::toResource)
         return AdminClaimListResource(
             claims = paged,
-            page = page,
-            size = size,
+            page = pageParams.page,
+            size = pageParams.size,
             total = claims.size
         )
     }
