@@ -3,10 +3,10 @@ package com.sympauthy.api.mapper.admin
 import com.sympauthy.api.resource.admin.AdminClaimResource
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimGroup
-import com.sympauthy.business.model.user.claim.wireName
 
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
+import com.sympauthy.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
@@ -27,9 +27,7 @@ class AdminClaimResourceMapper(
             required = claim.required,
             identifier = claim.id in identifierClaimIds,
             allowedValues = claim.allowedValues,
-            group = claim.group?.toGroupString()
+            group = claim.group?.wireName
         )
     }
-
-    private fun ClaimGroup.toGroupString(): String = name.lowercase()
 }

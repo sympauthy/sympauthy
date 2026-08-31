@@ -5,6 +5,7 @@ import com.sympauthy.api.resource.admin.AdminUserDetailResource
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
+import com.sympauthy.util.wireName
 import org.mapstruct.Mapper
 import org.mapstruct.Mapping
 import org.mapstruct.Named
@@ -21,7 +22,7 @@ abstract class AdminUserDetailResourceMapper {
     abstract fun toResource(user: User, identifierClaims: List<CollectedClaim>): AdminUserDetailResource
 
     @Named("toStatusString")
-    fun toStatusString(status: UserStatus): String = status.name.lowercase()
+    fun toStatusString(status: UserStatus): String = status.wireName
 
     @Named("toClaimsMap")
     fun toClaimsMap(claims: List<CollectedClaim>): Map<String, Any?> =

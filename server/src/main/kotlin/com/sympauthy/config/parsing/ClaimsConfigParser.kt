@@ -1,6 +1,7 @@
 package com.sympauthy.config.parsing
 
 import com.sympauthy.business.model.user.claim.ClaimDataType
+import com.sympauthy.business.model.user.claim.ClaimDataType.*
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
 import com.sympauthy.config.ConfigParser
@@ -11,7 +12,6 @@ import com.sympauthy.config.properties.ClaimConfigurationProperties
 import com.sympauthy.config.properties.ClaimConfigurationProperties.Companion.CLAIMS_KEY
 import com.sympauthy.config.properties.ClaimTemplateConfigurationProperties.Companion.DEFAULT
 import com.sympauthy.config.properties.ClaimTemplateConfigurationProperties.Companion.TEMPLATES_CLAIMS_KEY
-import com.sympauthy.config.util.configName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
@@ -55,10 +55,14 @@ class ClaimsConfigParser(
             )
         }
 
+        // A template several claims name is converted once per type rather than once per claim, so that a
+        // mistake in one is reported once instead of once for every claim that inherits it.
+        val inheritedAllowedValues = mutableMapOf<Pair<String, ClaimDataType>, List<Any>?>()
+
         val configurableClaims = propertiesList.mapNotNull { properties ->
             val normalizedId = properties.id.normalizeClaimId()
             if (normalizedId in generatedClaimIds) return@mapNotNull null
-            parseClaim(ctx, properties, templates)
+            parseClaim(ctx, properties, templates, inheritedAllowedValues)
         }
 
         return generatedClaims + configurableClaims
@@ -95,7 +99,8 @@ class ClaimsConfigParser(
     private fun parseClaim(
         ctx: ConfigParsingContext,
         properties: ClaimConfigurationProperties,
-        templates: Map<String, ClaimTemplate>
+        templates: Map<String, ClaimTemplate>,
+        inheritedAllowedValues: MutableMap<Pair<String, ClaimDataType>, List<Any>?>
     ): ParsedClaim? {
         val template = resolveTemplate(ctx, properties, templates)
         val claimId = properties.id.normalizeClaimId()
@@ -126,9 +131,11 @@ class ClaimsConfigParser(
         val allowedValues = if (declaredAllowedValues != null) {
             parseAllowedValues(ctx, declaredAllowedValues, "$configKeyPrefix.allowed-values", dataType)
         } else if (template != null) {
-            parseAllowedValues(
-                ctx, template.allowedValues, "$TEMPLATES_CLAIMS_KEY.${template.id}.allowed-values", dataType
-            )
+            inheritedAllowedValues.getOrPut(template.id to dataType) {
+                parseAllowedValues(
+                    ctx, template.allowedValues, "$TEMPLATES_CLAIMS_KEY.${template.id}.allowed-values", dataType
+                )
+            }
         } else null
 
         val acl = claimAclParser.parseAcl(ctx, properties.acl, template, configKeyPrefix, null)
@@ -155,7 +162,7 @@ class ClaimsConfigParser(
      * [values] may be the ones a claim declares or the ones it inherits from a template, and [key] names
      * whichever of the two they are written under. A template carries no type of its own, so its entries can
      * only be converted once a claim naming the template supplies one — which also means the same template
-     * can convert for one claim and fail for another.
+     * can convert for one type and fail for another.
      */
     internal fun parseAllowedValues(
         ctx: ConfigParsingContext,
@@ -166,13 +173,10 @@ class ClaimsConfigParser(
         return values?.mapIndexedNotNull { index, value ->
             val itemKey = "$key[$index]"
             ctx.parse {
-                when (type.typeClass) {
-                    String::class -> parser.getString(value, itemKey) { it }
-                    Long::class -> parser.getLong(value, itemKey) { it }
-                    else -> throw configExceptionOf(
-                        itemKey, "config.claim.allowed_values.unsupported_type",
-                        "type" to type.configName
-                    )
+                when (type) {
+                    NUMBER -> parser.getLong(value, itemKey) { it }
+                    BOOLEAN, DATE, EMAIL, PHONE_NUMBER, STRING, TIMEZONE ->
+                        parser.getString(value, itemKey) { it }
                 }
             }
         }

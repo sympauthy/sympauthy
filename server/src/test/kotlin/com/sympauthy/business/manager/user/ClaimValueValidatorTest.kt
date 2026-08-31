@@ -174,6 +174,13 @@ class ClaimValueValidatorTest {
     }
 
     @Test
+    fun `validateAndCleanNumberForClaim - Accepts a whole number written with a decimal point`() {
+        // 42.0 and 42 are the same number; which one arrives is the JSON parser's choice, not the client's.
+        assertEquals(42L, validator.validateAndCleanNumberForClaim(42.0).get())
+        assertEquals(42L, validator.validateAndCleanNumberForClaim("42.0").get())
+    }
+
+    @Test
     fun `validateAndCleanNumberForClaim - Throws on a fraction`() {
         assertThrowsLocalizedException("user.claim_value_validator.invalid_number") {
             validator.validateAndCleanNumberForClaim(1.5)

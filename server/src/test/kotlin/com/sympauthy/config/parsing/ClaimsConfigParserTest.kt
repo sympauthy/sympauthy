@@ -110,15 +110,56 @@ class ClaimsConfigParserTest {
 
     @Test
     fun `parse - Read the values a claim declares over the ones its template offers`() {
+        // The template's own values could not convert for this claim, so an error appears here the moment
+        // the inherited branch is reached at all.
         val ctx = ConfigParsingContext()
         val templates = mapOf(
             DEFAULT to claimTemplate(DEFAULT, null),
-            "ages" to claimTemplate("ages", listOf(18, 21))
+            "ages" to claimTemplate("ages", listOf("young"))
         )
         val properties = claimProperties("age", "number", "ages").apply { allowedValues = listOf(30) }
 
         val claims = parser.parse(ctx, listOf(properties), templates)
 
         assertEquals(listOf(30L), claims.first { it.id == "age" }.allowedValues)
+        assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
+    }
+
+    @Test
+    fun `parse - Report an inherited value once however many claims of a type inherit it`() {
+        val ctx = ConfigParsingContext()
+        val templates = mapOf(
+            DEFAULT to claimTemplate(DEFAULT, null),
+            "ages" to claimTemplate("ages", listOf("young"))
+        )
+        val properties = listOf(
+            claimProperties("age", "number", "ages"),
+            claimProperties("retirement_age", "number", "ages")
+        )
+
+        parser.parse(ctx, properties, templates)
+
+        assertEquals(listOf("config.invalid_number"), ctx.errors.map { it.messageId })
+    }
+
+    @Test
+    fun `parse - Report an inherited value once per type that cannot read it`() {
+        // One template, two types: it is convertible for neither, and each is its own mistake to report.
+        val ctx = ConfigParsingContext()
+        val templates = mapOf(
+            DEFAULT to claimTemplate(DEFAULT, null),
+            "shared" to claimTemplate("shared", listOf(" "))
+        )
+        val properties = listOf(
+            claimProperties("age", "number", "shared"),
+            claimProperties("title", "string", "shared")
+        )
+
+        parser.parse(ctx, properties, templates)
+
+        assertEquals(
+            listOf("config.invalid_number", "config.empty"),
+            ctx.errors.map { it.messageId }
+        )
     }
 }

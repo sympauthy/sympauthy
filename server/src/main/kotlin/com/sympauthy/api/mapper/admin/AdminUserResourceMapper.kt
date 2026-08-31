@@ -5,6 +5,7 @@ import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.util.*
@@ -20,7 +21,7 @@ class AdminUserResourceMapper(
     ): AdminUserResource {
         return AdminUserResource(
             userId = user.id,
-            status = user.status.name.lowercase(),
+            status = user.status.wireName,
             createdAt = user.creationDate,
             claims = claims
         )
