@@ -7,8 +7,10 @@ import com.sympauthy.api.resource.client.ClientInvitationListResource
 import com.sympauthy.api.resource.client.ClientInvitationResource
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
+import com.sympauthy.api.util.orderedPage
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.invitation.InvitationManager
+import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
 import com.sympauthy.security.SecurityRule.CLIENT_INVITATIONS_READ
@@ -71,7 +73,8 @@ class ClientInvitationController(
     }
 
     @Operation(
-        description = "Retrieve a paginated list of invitations created by this client.",
+        description = "Retrieve a paginated list of invitations created by this client. Invitations are " +
+                "ordered by creation date, oldest first, then by identifier.",
         tags = ["client"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of invitations."),
@@ -95,16 +98,15 @@ class ClientInvitationController(
         ) size: Int?
     ): ClientInvitationListResource {
         val clientAuth = authentication.clientAuthentication
-        val (resolvedPage, resolvedSize) = paginationUtil.resolvePageParams(page, size)
+        val pageParams = paginationUtil.resolvePageParams(page, size)
         val allInvitations = invitationManager.findByCreatedById(clientAuth.clientId)
         val paged = allInvitations
-            .drop(resolvedPage * resolvedSize)
-            .take(resolvedSize)
+            .orderedPage(pageParams, compareBy<Invitation> { it.createdAt }.thenBy { it.id })
             .map(invitationMapper::toResource)
         return ClientInvitationListResource(
             invitations = paged,
-            page = resolvedPage,
-            size = resolvedSize,
+            page = pageParams.page,
+            size = pageParams.size,
             total = allInvitations.size
         )
     }

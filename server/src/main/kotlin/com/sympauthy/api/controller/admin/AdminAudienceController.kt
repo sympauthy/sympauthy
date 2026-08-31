@@ -5,6 +5,7 @@ import com.sympauthy.api.resource.admin.AdminAudienceListResource
 import com.sympauthy.api.resource.admin.AdminAudienceResource
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
+import com.sympauthy.api.util.orderedPage
 import com.sympauthy.business.manager.AudienceManager
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
@@ -31,7 +32,8 @@ class AdminAudienceController(
 ) {
 
     @Operation(
-        description = "Retrieve all configured audiences. Since audiences are defined in configuration files, this endpoint exposes them as read-only resources.",
+        description = "Retrieve all configured audiences. Since audiences are defined in configuration files, " +
+                "this endpoint exposes them as read-only resources. Audiences are ordered by identifier.",
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of audiences."),
@@ -51,17 +53,16 @@ class AdminAudienceController(
                     "with, and may not exceed its configured maximum."
         ) size: Int?
     ): AdminAudienceListResource {
-        val (page, size) = paginationUtil.resolvePageParams(page, size)
+        val pageParams = paginationUtil.resolvePageParams(page, size)
         val audiences = audienceManager.listAudiences()
         val clientCountsByAudienceId = clientManager.countClientsByAudienceId()
         val paged = audiences
-            .drop(page * size)
-            .take(size)
+            .orderedPage(pageParams, compareBy { it.id })
             .map { audienceMapper.toResource(it, clientCountsByAudienceId[it.id] ?: 0) }
         return AdminAudienceListResource(
             audiences = paged,
-            page = page,
-            size = size,
+            page = pageParams.page,
+            size = pageParams.size,
             total = audiences.size
         )
     }

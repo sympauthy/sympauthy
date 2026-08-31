@@ -37,6 +37,10 @@ class AdminClientControllerTest {
     @InjectMockKs
     lateinit var controller: AdminClientController
 
+    private fun mockClient(clientId: String): Client = mockk {
+        every { this@mockk.id } returns clientId
+    }
+
     private fun mockSummaryResource(clientId: String): AdminClientSummaryResource = AdminClientSummaryResource(
         clientId = clientId,
         type = "confidential",
@@ -58,8 +62,8 @@ class AdminClientControllerTest {
 
     @Test
     fun `listClients - Return paginated list with defaults`() = runTest {
-        val client1 = mockk<Client>()
-        val client2 = mockk<Client>()
+        val client1 = mockClient("c1")
+        val client2 = mockClient("c2")
         val resource1 = mockSummaryResource("c1")
         val resource2 = mockSummaryResource("c2")
 
@@ -79,7 +83,7 @@ class AdminClientControllerTest {
 
     @Test
     fun `listClients - Apply page and size`() = runTest {
-        val clients = (1..5).map { mockk<Client>() }
+        val clients = (1..5).map { mockClient("c$it") }
         val resources = (1..5).map { mockSummaryResource("c$it") }
 
         coEvery { clientManager.listClients() } returns clients
@@ -96,6 +100,20 @@ class AdminClientControllerTest {
         assertEquals(2, result.clients.size)
         assertSame(resources[2], result.clients[0])
         assertSame(resources[3], result.clients[1])
+    }
+
+    @Test
+    fun `listClients - Order by identifier`() = runTest {
+        val zulu = mockClient("zulu")
+        val alpha = mockClient("alpha")
+
+        coEvery { clientManager.listClients() } returns listOf(zulu, alpha)
+        every { clientMapper.toSummaryResource(zulu) } returns mockSummaryResource("zulu")
+        every { clientMapper.toSummaryResource(alpha) } returns mockSummaryResource("alpha")
+
+        val result = controller.listClients(null, null)
+
+        assertEquals(listOf("alpha", "zulu"), result.clients.map { it.clientId })
     }
 
     @Test

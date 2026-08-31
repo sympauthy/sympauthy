@@ -82,3 +82,17 @@ class PaginationUtil(
         )
     }
 }
+
+/**
+ * Order this list with [comparator], then return the page [params] names.
+ *
+ * [comparator] must leave no two elements equal: elements it ties are free to swap between two
+ * calls, and a caller walking the pages then sees one of them twice and never sees the other.
+ */
+fun <T> List<T>.orderedPage(
+    params: PageParams,
+    comparator: Comparator<T>
+): List<T> = this
+    .sortedWith(comparator)
+    .drop(params.page * params.size)
+    .take(params.size)

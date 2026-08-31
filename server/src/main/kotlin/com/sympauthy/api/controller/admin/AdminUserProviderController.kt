@@ -7,6 +7,7 @@ import com.sympauthy.api.resource.admin.AdminUserProviderListResource
 import com.sympauthy.api.resource.admin.AdminUserProviderResource
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
+import com.sympauthy.api.util.orderedPage
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.client.ClientRedirectUriManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
@@ -16,6 +17,7 @@ import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
+import com.sympauthy.business.model.provider.ProviderUserInfo
 import com.sympauthy.security.SecurityRule.ADMIN_USERS_READ
 import com.sympauthy.security.SecurityRule.ADMIN_USERS_WRITE
 import io.micronaut.http.HttpStatus
@@ -43,7 +45,8 @@ class AdminUserProviderController(
 ) {
 
     @Operation(
-        description = "Retrieve a paginated list of external identity providers linked to a user.",
+        description = "Retrieve a paginated list of external identity providers linked to a user. Providers " +
+                "are ordered by the date they were linked, oldest first, then by provider identifier.",
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of linked providers."),
@@ -67,12 +70,11 @@ class AdminUserProviderController(
                     "with, and may not exceed its configured maximum."
         ) size: Int?
     ): AdminUserProviderListResource {
-        val (page, size) = paginationUtil.resolvePageParams(page, size)
+        val pageParams = paginationUtil.resolvePageParams(page, size)
         userManager.findByIdOrNull(userId).orNotFound()
         val allProviders = providerClaimsManager.findByUserId(userId)
         val paged = allProviders
-            .drop(page * size)
-            .take(size)
+            .orderedPage(pageParams, compareBy<ProviderUserInfo> { it.linkDate }.thenBy { it.providerId })
             .map {
                 AdminUserProviderResource(
                     providerId = it.providerId,
@@ -82,8 +84,8 @@ class AdminUserProviderController(
             }
         return AdminUserProviderListResource(
             providers = paged,
-            page = page,
-            size = size,
+            page = pageParams.page,
+            size = pageParams.size,
             total = allProviders.size
         )
     }

@@ -97,6 +97,34 @@ class PaginationUtilTest {
         }
     }
 
+    @Test
+    fun `orderedPage - Order the whole list before slicing it`() {
+        val page = listOf("d", "b", "a", "c").orderedPage(PageParams(0, 2), naturalOrder())
+
+        assertEquals(listOf("a", "b"), page)
+    }
+
+    @Test
+    fun `orderedPage - Return the page the parameters name`() {
+        val page = listOf("d", "b", "a", "c").orderedPage(PageParams(1, 2), naturalOrder())
+
+        assertEquals(listOf("c", "d"), page)
+    }
+
+    @Test
+    fun `orderedPage - Return the elements a last page is short of a full one`() {
+        val page = listOf("c", "a", "b").orderedPage(PageParams(1, 2), naturalOrder())
+
+        assertEquals(listOf("c"), page)
+    }
+
+    @Test
+    fun `orderedPage - Return nothing for a page past the end`() {
+        val page = listOf("c", "a", "b").orderedPage(PageParams(5, 2), naturalOrder())
+
+        assertEquals(emptyList<String>(), page)
+    }
+
     private fun assertBadRequest(
         detailsId: String,
         executable: () -> Unit

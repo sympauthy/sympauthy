@@ -5,6 +5,7 @@ import com.sympauthy.api.resource.admin.AdminClientListResource
 import com.sympauthy.api.resource.admin.AdminClientResource
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
+import com.sympauthy.api.util.orderedPage
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.security.SecurityRule.ADMIN_CONFIG_READ
@@ -29,7 +30,9 @@ class AdminClientController(
 ) {
 
     @Operation(
-        description = "Retrieve all configured clients. Since clients are defined in configuration files, this endpoint exposes them as read-only resources. Client secrets are never included.",
+        description = "Retrieve all configured clients. Since clients are defined in configuration files, " +
+                "this endpoint exposes them as read-only resources. Client secrets are never included. " +
+                "Clients are ordered by identifier.",
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of clients."),
@@ -49,16 +52,15 @@ class AdminClientController(
                     "with, and may not exceed its configured maximum."
         ) size: Int?
     ): AdminClientListResource {
-        val (page, size) = paginationUtil.resolvePageParams(page, size)
+        val pageParams = paginationUtil.resolvePageParams(page, size)
         val clients = clientManager.listClients()
         val paged = clients
-            .drop(page * size)
-            .take(size)
+            .orderedPage(pageParams, compareBy { it.id })
             .map(clientMapper::toSummaryResource)
         return AdminClientListResource(
             clients = paged,
-            page = page,
-            size = size,
+            page = pageParams.page,
+            size = pageParams.size,
             total = clients.size
         )
     }

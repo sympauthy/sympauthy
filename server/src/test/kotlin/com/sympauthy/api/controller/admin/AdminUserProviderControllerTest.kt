@@ -86,11 +86,12 @@ class AdminUserProviderControllerTest {
 
     private fun mockProviderUserInfo(
         providerId: String = "discord",
-        subject: String = "123456789012345678"
+        subject: String = "123456789012345678",
+        linkDate: LocalDateTime = linkedAt
     ): ProviderUserInfo = ProviderUserInfo(
         providerId = providerId,
         userId = userId,
-        linkDate = linkedAt,
+        linkDate = linkDate,
         fetchDate = lastFetchedAt,
         changeDate = lastFetchedAt,
         userInfo = RawProviderClaims(subject = subject)
@@ -148,10 +149,25 @@ class AdminUserProviderControllerTest {
         val result = controller.listProviders(userId, 1, 2)
 
         assertEquals(1, result.providers.size)
-        assertEquals("github", result.providers[0].providerId)
+        assertEquals("google", result.providers[0].providerId)
         assertEquals(1, result.page)
         assertEquals(2, result.size)
         assertEquals(3, result.total)
+    }
+
+    @Test
+    fun `listProviders - Order by link date, then by provider identifier`() = runTest {
+        val providers = listOf(
+            mockProviderUserInfo(providerId = "google"),
+            mockProviderUserInfo(providerId = "discord"),
+            mockProviderUserInfo(providerId = "github", linkDate = linkedAt.minusDays(1))
+        )
+        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
+        coEvery { providerClaimsManager.findByUserId(userId) } returns providers
+
+        val result = controller.listProviders(userId, null, null)
+
+        assertEquals(listOf("github", "discord", "google"), result.providers.map { it.providerId })
     }
 
     @Test

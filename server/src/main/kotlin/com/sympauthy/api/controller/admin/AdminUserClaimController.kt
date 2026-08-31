@@ -4,6 +4,7 @@ import com.sympauthy.api.mapper.admin.AdminUserClaimResourceMapper
 import com.sympauthy.api.resource.admin.AdminUserClaimListResource
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
+import com.sympauthy.api.util.orderedPage
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
@@ -38,7 +39,8 @@ class AdminUserClaimController(
 ) {
 
     @Operation(
-        description = "Retrieve a paginated list of claims for a given user, with metadata and filtering.",
+        description = "Retrieve a paginated list of claims for a given user, with metadata and filtering. " +
+                "Claims are ordered by identifier.",
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of user claims."),
@@ -67,7 +69,7 @@ class AdminUserClaimController(
         @QueryValue @Parameter(description = "Filter by whether the claim has been verified.") verified: Boolean?,
         @QueryValue @Parameter(description = "Filter by claim origin.") origin: String?
     ): AdminUserClaimListResource {
-        val (resolvedPage, resolvedSize) = paginationUtil.resolvePageParams(page, size)
+        val pageParams = paginationUtil.resolvePageParams(page, size)
         userManager.findByIdOrNull(userId).orNotFound()
 
         val identifierClaimIds = uncheckedAuthConfig.orThrow()
@@ -117,8 +119,7 @@ class AdminUserClaimController(
 
         val total = filteredClaims.size
         val paged = filteredClaims
-            .drop(resolvedPage * resolvedSize)
-            .take(resolvedSize)
+            .orderedPage(pageParams, compareBy { it.id })
             .map { claim ->
                 val identifier = claim.id in identifierClaimIds
                 if (claim.generated) {
@@ -138,8 +139,8 @@ class AdminUserClaimController(
 
         return AdminUserClaimListResource(
             claims = paged,
-            page = resolvedPage,
-            size = resolvedSize,
+            page = pageParams.page,
+            size = pageParams.size,
             total = total
         )
     }

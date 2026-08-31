@@ -4,9 +4,11 @@ import com.sympauthy.api.mapper.admin.AdminConsentResourceMapper
 import com.sympauthy.api.resource.admin.AdminConsentListResource
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
+import com.sympauthy.api.util.orderedPage
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
+import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.oauth2.ConsentRevokedBy
 import com.sympauthy.security.SecurityRule.ADMIN_CONSENT_READ
 import com.sympauthy.security.SecurityRule.ADMIN_CONSENT_WRITE
@@ -31,7 +33,8 @@ class AdminConsentController(
 ) {
 
     @Operation(
-        description = "Retrieve a paginated list of active consents for a given user.",
+        description = "Retrieve a paginated list of active consents for a given user. Consents are ordered " +
+                "by the date they were granted, oldest first, then by identifier.",
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of consents."),
@@ -55,17 +58,16 @@ class AdminConsentController(
                     "with, and may not exceed its configured maximum."
         ) size: Int?
     ): AdminConsentListResource {
-        val (page, size) = paginationUtil.resolvePageParams(page, size)
+        val pageParams = paginationUtil.resolvePageParams(page, size)
         userManager.findByIdOrNull(userId).orNotFound()
         val allConsents = consentManager.findActiveConsentsByUser(userId)
         val paged = allConsents
-            .drop(page * size)
-            .take(size)
+            .orderedPage(pageParams, compareBy<Consent> { it.consentedAt }.thenBy { it.id })
             .map(consentMapper::toResource)
         return AdminConsentListResource(
             consents = paged,
-            page = page,
-            size = size,
+            page = pageParams.page,
+            size = pageParams.size,
             total = allConsents.size
         )
     }
