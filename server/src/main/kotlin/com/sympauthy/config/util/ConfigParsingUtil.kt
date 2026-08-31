@@ -29,13 +29,14 @@ fun <C : Any> getUriOrThrow(
     )
 }
 
+/**
+ * The name this value is spelled with in the configuration file: lowercase, and words separated by a dash.
+ */
+val Enum<*>.configName: String
+    get() = name.lowercase().replace("_", "-")
+
 inline fun <reified T : Enum<T>> convertToEnum(key: String, value: String): T {
-    val valueMap = enumValues<T>()
-        .map {
-            val configName = it.name.lowercase().replace("_", "-")
-            configName to it
-        }
-        .toMap()
+    val valueMap = enumValues<T>().associateBy { it.configName }
     return valueMap[value] ?: throw localizedExceptionOf(
         "config.invalid_enum_value",
         "key" to key,

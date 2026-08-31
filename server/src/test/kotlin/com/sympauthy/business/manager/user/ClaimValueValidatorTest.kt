@@ -2,6 +2,8 @@ package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.manager.util.assertThrowsLocalizedException
 import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.ClaimDataType.NUMBER
+import com.sympauthy.business.model.user.claim.ClaimDataType.PHONE_NUMBER
 import com.sympauthy.business.model.user.claim.ClaimDataType.STRING
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -23,6 +25,11 @@ class ClaimValueValidatorTest {
         every { dataType } returns STRING
     }
 
+    /** The one type whose value is not exchanged as a string. */
+    private fun mockNumberClaim(): Claim = mockk {
+        every { dataType } returns NUMBER
+    }
+
     // --- validateAndCleanValueForClaim ---
 
     @Test
@@ -40,6 +47,19 @@ class ClaimValueValidatorTest {
         assertThrowsLocalizedException("user.claim_value_validator.invalid_type") {
             validator.validateAndCleanValueForClaim(claim, 123)
         }
+    }
+
+    @Test
+    fun `validateAndCleanValueForClaim - Names the refused type the way the API publishes it`() {
+        // phone-number in the configuration file, PHONE_NUMBER in Kotlin, phone_number to whoever reads this.
+        val claim = mockk<Claim> {
+            every { dataType } returns PHONE_NUMBER
+            every { id } returns "phone_number"
+        }
+        val exception = assertThrowsLocalizedException("user.claim_value_validator.invalid_type") {
+            validator.validateAndCleanValueForClaim(claim, true)
+        }
+        assertEquals("phone_number", exception.values["type"])
     }
 
     @Test
@@ -69,6 +89,56 @@ class ClaimValueValidatorTest {
         assertEquals("anything", result.get())
     }
 
+    @Test
+    fun `validateAndCleanValueForClaim - Reads a number submitted as a string as a Long`() {
+        val claim = mockNumberClaim()
+        every { claim.allowedValues } returns null
+        val result = validator.validateAndCleanValueForClaim(claim, "42")
+        assertEquals(42L, result.get())
+    }
+
+    @Test
+    fun `validateAndCleanValueForClaim - Reads a number submitted as a number as a Long`() {
+        val claim = mockNumberClaim()
+        every { claim.allowedValues } returns null
+        val result = validator.validateAndCleanValueForClaim(claim, 42)
+        assertEquals(42L, result.get())
+    }
+
+    @Test
+    fun `validateAndCleanValueForClaim - Matches an allowed number however it was submitted`() {
+        // The configuration holds longs, so neither representation matches until the value is cleaned.
+        val claim = mockNumberClaim()
+        every { claim.allowedValues } returns listOf(42L)
+        assertEquals(42L, validator.validateAndCleanValueForClaim(claim, "42").get())
+        assertEquals(42L, validator.validateAndCleanValueForClaim(claim, 42).get())
+    }
+
+    @Test
+    fun `validateAndCleanValueForClaim - Throws if a number is not one of the allowed values`() {
+        val claim = mockNumberClaim()
+        every { claim.allowedValues } returns listOf(42L)
+        assertThrowsLocalizedException("user.claim_value_validator.invalid_value") {
+            validator.validateAndCleanValueForClaim(claim, 43)
+        }
+    }
+
+    @Test
+    fun `validateAndCleanValueForClaim - Consults the allowed values with the cleaned value`() {
+        val claim = mockStringClaim()
+        every { claim.allowedValues } returns listOf("allowed")
+        val result = validator.validateAndCleanValueForClaim(claim, "  allowed  ")
+        assertEquals("allowed", result.get())
+    }
+
+    @Test
+    fun `validateAndCleanValueForClaim - Clears a claim carrying allowed values on a blank value`() {
+        // A blank value clears the claim, and what is not being stored has nothing to be allowed against.
+        // It is cleared before the claim's type is looked at, which is why none is stubbed here.
+        val claim = mockk<Claim> { every { allowedValues } returns listOf("allowed") }
+        assertTrue(validator.validateAndCleanValueForClaim(claim, "   ").isEmpty)
+    }
+
     // --- validateAndCleanStringForClaim ---
 
     @Test
@@ -85,6 +155,50 @@ class ClaimValueValidatorTest {
         val result = validator.validateAndCleanStringForClaim(claim, "  hello  ")
         assertTrue(result.isPresent)
         assertEquals("hello", result.get())
+    }
+
+    @Test
+    fun `validateAndCleanStringForClaim - Trims whitespace on NUMBER claims`() {
+        val claim = mockNumberClaim()
+        val result = validator.validateAndCleanStringForClaim(claim, "  42  ")
+        assertTrue(result.isPresent)
+        assertEquals(42L, result.get())
+    }
+
+    // --- validateAndCleanNumberForClaim ---
+
+    @Test
+    fun `validateAndCleanNumberForClaim - Accepts a negative whole number`() {
+        val result = validator.validateAndCleanNumberForClaim("-7")
+        assertEquals(-7L, result.get())
+    }
+
+    @Test
+    fun `validateAndCleanNumberForClaim - Accepts a whole number written with a decimal point`() {
+        // 42.0 and 42 are the same number; which one arrives is the JSON parser's choice, not the client's.
+        assertEquals(42L, validator.validateAndCleanNumberForClaim(42.0).get())
+        assertEquals(42L, validator.validateAndCleanNumberForClaim("42.0").get())
+    }
+
+    @Test
+    fun `validateAndCleanNumberForClaim - Throws on a fraction`() {
+        assertThrowsLocalizedException("user.claim_value_validator.invalid_number") {
+            validator.validateAndCleanNumberForClaim(1.5)
+        }
+    }
+
+    @Test
+    fun `validateAndCleanNumberForClaim - Throws past the range of a Long`() {
+        assertThrowsLocalizedException("user.claim_value_validator.invalid_number") {
+            validator.validateAndCleanNumberForClaim("9223372036854775808")
+        }
+    }
+
+    @Test
+    fun `validateAndCleanNumberForClaim - Throws on a value that is not a number`() {
+        assertThrowsLocalizedException("user.claim_value_validator.invalid_number") {
+            validator.validateAndCleanNumberForClaim(true)
+        }
     }
 
     // --- validateEmailForClaim ---

@@ -3,6 +3,7 @@ package com.sympauthy.api.mapper.client
 import com.sympauthy.api.resource.client.ClientCreatedInvitationResource
 import com.sympauthy.api.resource.client.ClientInvitationResource
 import com.sympauthy.business.model.invitation.Invitation
+import com.sympauthy.util.wireName
 import jakarta.inject.Singleton
 
 @Singleton
@@ -12,7 +13,7 @@ class ClientInvitationResourceMapper {
         return ClientInvitationResource(
             invitationId = invitation.id,
             tokenPrefix = invitation.tokenPrefix,
-            status = invitation.status.name.lowercase(),
+            status = invitation.status.wireName,
             claims = invitation.claims,
             note = invitation.note,
             createdAt = invitation.createdAt,
@@ -26,7 +27,7 @@ class ClientInvitationResourceMapper {
         return ClientCreatedInvitationResource(
             invitationId = invitation.id,
             token = rawToken,
-            status = invitation.status.name.lowercase(),
+            status = invitation.status.wireName,
             claims = invitation.claims,
             note = invitation.note,
             createdAt = invitation.createdAt,

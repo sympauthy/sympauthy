@@ -6,6 +6,7 @@ import com.sympauthy.business.model.user.claim.ClaimGroup
 
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
+import com.sympauthy.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
@@ -20,15 +21,13 @@ class AdminClaimResourceMapper(
             .toSet()
         return AdminClaimResource(
             id = claim.id,
-            type = claim.dataType.name.lowercase(),
+            type = claim.dataType.wireName,
             origin = claim.origin.value,
             enabled = claim.enabled,
             required = claim.required,
             identifier = claim.id in identifierClaimIds,
             allowedValues = claim.allowedValues,
-            group = claim.group?.toGroupString()
+            group = claim.group?.wireName
         )
     }
-
-    private fun ClaimGroup.toGroupString(): String = name.lowercase()
 }

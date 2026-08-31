@@ -9,6 +9,7 @@ import com.sympauthy.business.model.user.UserWithClaims
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.UserRepository
+import com.sympauthy.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.flow.toList
@@ -76,7 +77,7 @@ class UserSearchManager(
                     "user.search.invalid_status",
                     "description.user.search.invalid_status",
                     "status" to it,
-                    "supportedValues" to UserStatus.entries.joinToString(", ") { s -> s.name.lowercase() }
+                    "supportedValues" to UserStatus.entries.joinToString(", ") { s -> s.wireName }
                 )
             }
         }

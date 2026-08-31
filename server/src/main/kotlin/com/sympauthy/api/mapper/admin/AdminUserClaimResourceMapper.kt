@@ -6,6 +6,7 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimGroup
+import com.sympauthy.util.wireName
 
 import org.mapstruct.Mapper
 import org.mapstruct.Mapping
@@ -39,11 +40,11 @@ abstract class AdminUserClaimResourceMapper {
     abstract fun toResourceFromGeneratedClaim(claim: Claim, identifier: Boolean, generatedClaimValue: Any?): AdminUserClaimResource
 
     @Named("toTypeString")
-    fun toTypeString(dataType: ClaimDataType): String = dataType.name.lowercase()
+    fun toTypeString(dataType: ClaimDataType): String = dataType.wireName
 
     @Named("toOrigin")
     fun toOrigin(claim: Claim): String = claim.origin.value
 
     @Named("toGroupString")
-    fun toGroupString(group: ClaimGroup?): String? = group?.name?.lowercase()
+    fun toGroupString(group: ClaimGroup?): String? = group?.wireName
 }

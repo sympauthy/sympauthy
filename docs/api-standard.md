@@ -106,9 +106,29 @@ and every timestamp is UTC, but nothing in the payload says so, so a client that
 will read a local time. This is a real sharp edge rather than a design: it is why the generated
 client used by the integration tests has to be told what type to decode into.
 
-Scalars otherwise: a UUID is canonical lowercase, an enum is its name in upper case — the same
-string the column stores and the Kotlin declares, so a value can be followed through the whole stack
-by grep — and a boolean is a boolean, never a string and never a number.
+**An enum reaches a client as a lowercase string, and is never serialized as one.** The property
+carrying it is declared as a string and a mapper puts the value in, so the framework never gets to
+choose the spelling. It would take the Kotlin name, in the upper case a constant is declared in, and
+a body whose keys are snake_case and whose values shout is one where the two halves disagree about
+how a name is written. Lowercase is also the only spelling available to a value a specification
+names, and splitting the convention by whether a value happens to appear in an RFC is a distinction
+no client could predict.
+
+What that costs is that the string a client reads is not the string the column stores, which is the
+Kotlin name. A value taken out of a response and put into a query has to be converted on the way,
+and neither spelling says so.
+
+**A published name that the Kotlin name cannot be lowercased into is declared on the enum.** A value
+whose published form drops a word, or whose separator a specification chose, has no rule left to
+derive it from, so it is carried by the value it belongs to and every mapper reads it from there.
+
+**The same value is spelled with dashes in the configuration file, and that is not a drift.** What a
+deployment types matches the keys it sits among, and what a client reads matches the keys *it* sits
+among. Two readers, two conventions, and one enum behind both: a value is not portable from one to
+the other by copying it.
+
+Scalars otherwise: a UUID is canonical lowercase, and a boolean is a boolean, never a string and
+never a number.
 
 ## Collections
 

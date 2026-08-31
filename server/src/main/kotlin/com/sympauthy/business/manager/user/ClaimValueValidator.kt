@@ -4,7 +4,9 @@ import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimDataType.*
+import com.sympauthy.util.wireName
 import jakarta.inject.Singleton
+import java.math.BigDecimal
 import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.time.DateTimeException
@@ -25,36 +27,42 @@ class ClaimValueValidator {
     }
 
     /**
-     * Validate the [value] provided can be assigned to the [claim] and return a cleaned [value].
+     * Validate the [value] submitted for [claim] and return it as the primitive
+     * [ClaimDataType.typeClass] names, or an empty optional where the value is blank and the claim is
+     * therefore being cleared.
      *
-     * The [value] is not valid for the [claim] if:
-     * - the type of [value] do not match the [ClaimDataType.typeClass] expected by the [Claim.dataType].
-     * - it is not part of the [Claim.allowedValues].
+     * Every claim but a number one is submitted as a string, and one submitted as anything else throws
+     * `user.claim_value_validator.invalid_type`. A number one may arrive as a string or as the number a JSON
+     * body carries, and either way it is read as a number rather than type-checked, so a value that is not
+     * one throws `user.claim_value_validator.invalid_number` whichever it arrived as. A value that does not
+     * satisfy its own type throws the code that type is checked with, and one outside [Claim.allowedValues]
+     * throws `user.claim_value_validator.invalid_value`.
+     *
+     * The allowed values are compared against the cleaned value rather than the submitted one, because the
+     * two representations a number arrives in are one value and only the cleaned one is comparable to what
+     * the configuration holds. Where cleaning changes a value at all — a string trimmed, a boolean
+     * lowercased — that comparison also stops it being refused over what was about to be removed.
      */
     fun validateAndCleanValueForClaim(claim: Claim, value: Any?): Optional<Any> {
-        if (value != null && claim.dataType.typeClass != value::class) {
-            throw recoverableBusinessExceptionOf(
+        val cleanedValue = when {
+            value == null -> Optional.empty()
+            value is String -> validateAndCleanStringForClaim(claim, value)
+            claim.dataType == NUMBER -> validateAndCleanNumberForClaim(value)
+            else -> throw recoverableBusinessExceptionOf(
                 "user.claim_value_validator.invalid_type",
                 "description.user.claim_value_validator.invalid_type",
                 "claim" to claim.id,
-                "type" to claim.dataType.name
+                "type" to claim.dataType.wireName
             )
         }
-        if (claim.allowedValues != null && value != null && !claim.allowedValues.contains(value)) {
+        val cleaned = cleanedValue.orElse(null)
+        if (claim.allowedValues != null && cleaned != null && !claim.allowedValues.contains(cleaned)) {
             throw recoverableBusinessExceptionOf(
                 "user.claim_value_validator.invalid_value",
                 "description.user.claim_value_validator.invalid_value"
             )
         }
-        return when (value) {
-            null -> Optional.empty()
-            is String -> validateAndCleanStringForClaim(claim, value)
-            else -> throw recoverableBusinessExceptionOf(
-                "user.claim_value_validator.unsupported_type",
-                "description.user.claim_value_validator.unsupported_type",
-                "claim" to claim.id
-            )
-        }
+        return cleanedValue
     }
 
     internal fun validateAndCleanStringForClaim(claim: Claim, value: String): Optional<Any> {
@@ -62,20 +70,38 @@ class ClaimValueValidator {
         if (value.isBlank()) {
             return Optional.empty()
         }
-        @Suppress("REDUNDANT_ELSE_IN_WHEN")
         return when (claim.dataType) {
             BOOLEAN -> validateBooleanForClaim(value)
             DATE -> validateDateForClaim(value)
             EMAIL -> validateEmailForClaim(value)
+            NUMBER -> validateAndCleanNumberForClaim(trimmedValue)
             PHONE_NUMBER -> validatePhoneNumberForClaim(value)
             STRING -> Optional.of(trimmedValue)
             TIMEZONE -> validateTimeZoneForClaim(value)
-            else -> throw recoverableBusinessExceptionOf(
-                "user.claim_value_validator.unsupported_type",
-                "description.user.claim_value_validator.unsupported_type",
-                "claim" to claim.id
-            )
         }
+    }
+
+    /**
+     * Validate the [value] is a number and return it as a [Long].
+     *
+     * A number claim is a [Long] everywhere else in this server — it is the type its column is read back as
+     * and the type its configured allowed values are parsed into — so a value carrying a fraction or one past
+     * the range of a [Long] throws `user.claim_value_validator.invalid_number` rather than being rounded or
+     * truncated into one.
+     *
+     * What decides that is the number itself and not how it happened to be boxed on the way in. A body
+     * carrying `42.0` and one carrying `42` are the same whole number, and a client that spells it either
+     * way should not be refused by whichever type the JSON parser reached for.
+     */
+    internal fun validateAndCleanNumberForClaim(value: Any): Optional<Any> {
+        val text = value.toString()
+        val number = text.toLongOrNull()
+            ?: text.toBigDecimalOrNull()?.toLongOrNull()
+            ?: throw recoverableBusinessExceptionOf(
+                "user.claim_value_validator.invalid_number",
+                "description.user.claim_value_validator.invalid_number"
+            )
+        return Optional.of(number)
     }
 
     internal fun validateBooleanForClaim(value: String): Optional<Any> {
@@ -157,4 +183,13 @@ class ClaimValueValidator {
         }
         return Optional.of(value)
     }
+}
+
+/**
+ * This decimal as a [Long], or null where it carries a fraction or does not fit in one.
+ */
+private fun BigDecimal.toLongOrNull(): Long? = try {
+    toBigIntegerExact().longValueExact()
+} catch (_: ArithmeticException) {
+    null
 }

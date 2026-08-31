@@ -1,6 +1,7 @@
 package com.sympauthy.config
 
 import com.sympauthy.config.exception.configExceptionOf
+import com.sympauthy.config.util.configName
 import com.sympauthy.util.toAbsoluteUri
 import io.micronaut.core.convert.ConversionService
 import io.micronaut.http.uri.UriBuilder
@@ -83,6 +84,11 @@ class ConfigParser {
         return value.toIntOrNull() ?: throw configExceptionOf(key, "config.invalid_int")
     }
 
+    fun <C : Any> getLong(config: C, key: String, value: (C) -> Any?): Long? {
+        val value = value(config)?.toString() ?: return null
+        return value.toLongOrNull() ?: throw configExceptionOf(key, "config.invalid_number")
+    }
+
     fun <C : Any> getDuration(config: C, key: String, value: (C) -> String?): Duration? {
         val value = value(config) ?: return null
         return ConversionService.SHARED.convert(value, Duration::class.java).orElse(null) ?: throw configExceptionOf(
@@ -132,12 +138,7 @@ class ConfigParser {
     }
 
     inline fun <reified T : Enum<T>> convertToEnum(key: String, value: String): T {
-        val valueMap = enumValues<T>()
-            .map {
-                val configName = it.name.lowercase().replace("_", "-")
-                configName to it
-            }
-            .toMap()
+        val valueMap = enumValues<T>().associateBy { it.configName }
         return valueMap[value] ?: throw configExceptionOf(
             key,
             "config.invalid_enum_value",
