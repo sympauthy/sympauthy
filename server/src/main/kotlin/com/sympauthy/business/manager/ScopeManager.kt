@@ -98,11 +98,15 @@ class ScopeManager(
      * Return the list of [Claim] that are protected by the given [scope].
      * A claim is protected by a scope if the scope must be requested to read the claim.
      *
-     * Only consentable scopes protect claims. Returns an empty list for grantable and client
-     * scopes, and for a scope the deployment turned off, which no claim may name.
+     * Only consentable scopes protect claims. Returns an empty list for grantable and client scopes.
+     *
+     * A scope the deployment turned off is answered for on the same terms as one it serves. The
+     * claims a deployment generates are pinned to their scope rather than validated against it, so
+     * a consentable scope that is off can still be named — and an administrator deciding whether to
+     * turn it back on is exactly who needs to be told by what.
      */
-    fun listClaimsProtectedByScope(scope: Scope): List<Claim> {
-        if (scope !is ConsentableUserScope) return emptyList()
+    suspend fun listClaimsProtectedByScope(scope: Scope): List<Claim> {
+        if (scope.type != ScopeType.CONSENTABLE) return emptyList()
         return claimManager.listAllClaims()
             .filter { it.belongsToScope(scope.scope) }
     }

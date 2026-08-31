@@ -8,6 +8,7 @@ import com.sympauthy.business.manager.provider.ProviderManager
 import com.sympauthy.business.manager.rule.ScopeGrantingRuleManager
 import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ENDPOINT
 import com.sympauthy.business.model.oauth2.isAdmin
+import com.sympauthy.business.model.oauth2.isEnabled
 import com.sympauthy.business.model.user.claim.ClaimOrigin
 import com.sympauthy.config.ConfigReadiness
 import com.sympauthy.config.model.*
@@ -139,6 +140,16 @@ class ApplicationReadinessStatusPrinter(
                 )
             })."
         )
+        // A scope turned off is not a configuration error, so this line is the only thing that says
+        // at startup that one exists.
+        val disabledScopesCount = try {
+            scopeManager.listAllScopes().count { !it.isEnabled }
+        } catch (_: Throwable) {
+            0
+        }
+        if (disabledScopesCount > 0) {
+            logger.info("- ${pluralize(disabledScopesCount, "scope")} turned off by configuration.")
+        }
 
         val enabledClaims = try {
             claimManager.listEnabledClaims()

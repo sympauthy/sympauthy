@@ -63,8 +63,8 @@ class AdminScopeControllerTest {
         val openidResource = mockResource("openid", "grantable")
 
         coEvery { scopeManager.listAllScopes() } returns scopes
-        every { scopeManager.listClaimsProtectedByScope(openid) } returns emptyList()
-        every { scopeManager.listClaimsProtectedByScope(profile) } returns profileClaims
+        coEvery { scopeManager.listClaimsProtectedByScope(openid) } returns emptyList()
+        coEvery { scopeManager.listClaimsProtectedByScope(profile) } returns profileClaims
         every { scopeMapper.toResource(openid, emptyList()) } returns openidResource
         every { scopeMapper.toResource(profile, profileClaims) } returns profileResource
 
@@ -88,7 +88,7 @@ class AdminScopeControllerTest {
         val profileResource = mockResource("profile", "consentable", listOf("name"))
 
         coEvery { scopeManager.listAllScopes() } returns listOf(profile, openid)
-        every { scopeManager.listClaimsProtectedByScope(profile) } returns profileClaims
+        coEvery { scopeManager.listClaimsProtectedByScope(profile) } returns profileClaims
         every { scopeMapper.toResource(profile, profileClaims) } returns profileResource
 
         val result = controller.listScopes(null, null, "consentable", null)
@@ -106,7 +106,7 @@ class AdminScopeControllerTest {
         val openidResource = mockResource("openid", "grantable")
 
         coEvery { scopeManager.listAllScopes() } returns listOf(profile, openid)
-        every { scopeManager.listClaimsProtectedByScope(openid) } returns emptyList()
+        coEvery { scopeManager.listClaimsProtectedByScope(openid) } returns emptyList()
         every { scopeMapper.toResource(openid, emptyList()) } returns openidResource
 
         val result = controller.listScopes(null, null, "grantable", null)
@@ -124,7 +124,7 @@ class AdminScopeControllerTest {
         val usersReadResource = mockResource("users:read", "client")
 
         coEvery { scopeManager.listAllScopes() } returns listOf(profile, usersRead)
-        every { scopeManager.listClaimsProtectedByScope(usersRead) } returns emptyList()
+        coEvery { scopeManager.listClaimsProtectedByScope(usersRead) } returns emptyList()
         every { scopeMapper.toResource(usersRead, emptyList()) } returns usersReadResource
 
         val result = controller.listScopes(null, null, "client", null)
@@ -160,7 +160,7 @@ class AdminScopeControllerTest {
         coEvery { scopeManager.listAllScopes() } returns scopes
         // Sorted by scope id, the second page of two holds openid and phone.
         listOf(2, 3).forEach { i ->
-            every { scopeManager.listClaimsProtectedByScope(scopes[i]) } returns emptyList()
+            coEvery { scopeManager.listClaimsProtectedByScope(scopes[i]) } returns emptyList()
             every { scopeMapper.toResource(scopes[i], emptyList()) } returns resources[i]
         }
 
@@ -181,8 +181,8 @@ class AdminScopeControllerTest {
 
         // Handed last-first, the first page still holds the two scopes the order puts first.
         coEvery { scopeManager.listAllScopes() } returns listOf(ConsentableUserScope("profile"), email, address)
-        every { scopeManager.listClaimsProtectedByScope(address) } returns emptyList()
-        every { scopeManager.listClaimsProtectedByScope(email) } returns emptyList()
+        coEvery { scopeManager.listClaimsProtectedByScope(address) } returns emptyList()
+        coEvery { scopeManager.listClaimsProtectedByScope(email) } returns emptyList()
         every { scopeMapper.toResource(address, emptyList()) } returns mockResource("address", "consentable")
         every { scopeMapper.toResource(email, emptyList()) } returns mockResource("email", "consentable")
 
@@ -211,8 +211,8 @@ class AdminScopeControllerTest {
         val profileClaims = listOf(mockk<Claim>())
 
         coEvery { scopeManager.listAllScopes() } returns listOf(profile, openid)
-        every { scopeManager.listClaimsProtectedByScope(profile) } returns profileClaims
-        every { scopeManager.listClaimsProtectedByScope(openid) } returns emptyList()
+        coEvery { scopeManager.listClaimsProtectedByScope(profile) } returns profileClaims
+        coEvery { scopeManager.listClaimsProtectedByScope(openid) } returns emptyList()
         every { scopeMapper.toResource(profile, profileClaims) } returns AdminScopeResource(
             id = "profile", type = "consentable", origin = "openid", enabled = true,
             claims = listOf("name")
@@ -237,8 +237,8 @@ class AdminScopeControllerTest {
         val phoneResource = mockResource("phone", "consentable", enabled = false)
 
         coEvery { scopeManager.listAllScopes() } returns listOf(profile, phone)
-        every { scopeManager.listClaimsProtectedByScope(profile) } returns emptyList()
-        every { scopeManager.listClaimsProtectedByScope(phone) } returns emptyList()
+        coEvery { scopeManager.listClaimsProtectedByScope(profile) } returns emptyList()
+        coEvery { scopeManager.listClaimsProtectedByScope(phone) } returns emptyList()
         every { scopeMapper.toResource(profile, emptyList()) } returns profileResource
         every { scopeMapper.toResource(phone, emptyList()) } returns phoneResource
 
@@ -256,7 +256,7 @@ class AdminScopeControllerTest {
         val profileResource = mockResource("profile", "consentable")
 
         coEvery { scopeManager.listAllScopes() } returns listOf(profile, phone)
-        every { scopeManager.listClaimsProtectedByScope(profile) } returns emptyList()
+        coEvery { scopeManager.listClaimsProtectedByScope(profile) } returns emptyList()
         every { scopeMapper.toResource(profile, emptyList()) } returns profileResource
 
         val result = controller.listScopes(null, null, null, true)
@@ -273,7 +273,7 @@ class AdminScopeControllerTest {
         val phoneResource = mockResource("phone", "consentable", enabled = false)
 
         coEvery { scopeManager.listAllScopes() } returns listOf(profile, phone)
-        every { scopeManager.listClaimsProtectedByScope(phone) } returns emptyList()
+        coEvery { scopeManager.listClaimsProtectedByScope(phone) } returns emptyList()
         every { scopeMapper.toResource(phone, emptyList()) } returns phoneResource
 
         val result = controller.listScopes(null, null, null, false)
@@ -290,7 +290,7 @@ class AdminScopeControllerTest {
         val phoneResource = mockResource("phone", "consentable", enabled = false)
 
         coEvery { scopeManager.listAllScopes() } returns listOf(phone, openid)
-        every { scopeManager.listClaimsProtectedByScope(phone) } returns emptyList()
+        coEvery { scopeManager.listClaimsProtectedByScope(phone) } returns emptyList()
         every { scopeMapper.toResource(phone, emptyList()) } returns phoneResource
 
         val result = controller.listScopes(null, null, "consentable", null)
@@ -308,7 +308,7 @@ class AdminScopeControllerTest {
         val phoneResource = mockResource("phone", "consentable", enabled = false)
 
         coEvery { scopeManager.listAllScopes() } returns listOf(profile, phone, disabledGrantable)
-        every { scopeManager.listClaimsProtectedByScope(phone) } returns emptyList()
+        coEvery { scopeManager.listClaimsProtectedByScope(phone) } returns emptyList()
         every { scopeMapper.toResource(phone, emptyList()) } returns phoneResource
 
         val result = controller.listScopes(null, null, "consentable", false)

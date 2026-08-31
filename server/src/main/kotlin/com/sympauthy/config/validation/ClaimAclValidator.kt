@@ -2,8 +2,9 @@ package com.sympauthy.config.validation
 
 import com.sympauthy.business.model.oauth2.BuiltInClientScope
 import com.sympauthy.business.model.oauth2.ConsentableUserScope
-import com.sympauthy.business.model.oauth2.EnabledScope
-import com.sympauthy.business.model.user.isOpenIdConnectScope
+import com.sympauthy.business.model.oauth2.DisabledScope
+import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.ScopeType
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.UnconditionalAcl
@@ -30,7 +31,7 @@ class ClaimAclValidator {
         ctx: ConfigParsingContext,
         parsed: ParsedClaimAcl,
         configKeyPrefix: String,
-        scopesById: Map<String, EnabledScope>
+        scopesById: Map<String, Scope>
     ): ClaimTemplateAcl {
         validateConsentScope(ctx, parsed.consentScope, "$configKeyPrefix.acl.consent-scope", scopesById)
         validateClientScopeList(
@@ -62,7 +63,7 @@ class ClaimAclValidator {
         ctx: ConfigParsingContext,
         parsed: ParsedClaimAcl,
         configKeyPrefix: String,
-        scopesById: Map<String, EnabledScope>
+        scopesById: Map<String, Scope>
     ): ClaimAcl {
         validateConsentScope(ctx, parsed.consentScope, "$configKeyPrefix.acl.consent-scope", scopesById)
         validateClientScopeList(
@@ -125,12 +126,14 @@ class ClaimAclValidator {
         ctx: ConfigParsingContext,
         scope: String?,
         configKey: String,
-        scopesById: Map<String, EnabledScope>
+        scopesById: Map<String, Scope>
     ) {
-        if (scope == null || scopesById[scope] is ConsentableUserScope) return
+        if (scope == null) return
+        val configuredScope = scopesById[scope]
+        if (configuredScope is ConsentableUserScope) return
         // A scope the deployment turned off is reported apart from one that was never consentable:
         // the first is fixed by enabling it or dropping the claim, the second by correcting the name.
-        val detailsId = if (scope.isOpenIdConnectScope()) {
+        val detailsId = if (configuredScope is DisabledScope && configuredScope.type == ScopeType.CONSENTABLE) {
             "config.claim.acl.disabled_consent_scope"
         } else {
             "config.claim.acl.not_consentable_scope"

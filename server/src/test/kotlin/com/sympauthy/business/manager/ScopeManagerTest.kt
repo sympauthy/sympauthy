@@ -7,6 +7,7 @@ import com.sympauthy.business.model.oauth2.DisabledScope
 import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.business.model.oauth2.GrantableUserScope
 import com.sympauthy.business.model.oauth2.ScopeType
+import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.config.model.*
 import io.mockk.coEvery
 import io.mockk.every
@@ -220,6 +221,7 @@ class ScopeManagerTest {
         val result = scopeManager.listEnabledScopes()
 
         assertEquals(listOf(email), result)
+        assertSame(email, result.single())
     }
 
     @Test
@@ -228,7 +230,9 @@ class ScopeManagerTest {
 
         val result = scopeManager.listAllScopes()
 
-        assertEquals(listOf(email, disabledPhone), result)
+        assertEquals(listOf(email.scope, disabledPhone.scope), result.map { it.scope })
+        assertInstanceOf(ConsentableUserScope::class.java, result[0])
+        assertInstanceOf(DisabledScope::class.java, result[1])
     }
 
     @Test
@@ -239,8 +243,20 @@ class ScopeManagerTest {
     }
 
     @Test
-    fun `listClaimsProtectedByScope - Return no claim for a scope the deployment turned off`() {
+    fun `listClaimsProtectedByScope - Return the claims a consentable scope that is off still gates`() = runTest {
+        val claim = mockk<Claim> { every { belongsToScope(disabledPhone.scope) } returns true }
+        every { claimManager.listAllClaims() } returns listOf(claim)
+
         val result = scopeManager.listClaimsProtectedByScope(disabledPhone)
+
+        assertEquals(listOf(claim), result)
+    }
+
+    @Test
+    fun `listClaimsProtectedByScope - Return no claim for a grantable scope that is off`() = runTest {
+        val result = scopeManager.listClaimsProtectedByScope(
+            DisabledScope("reports", type = ScopeType.GRANTABLE)
+        )
 
         assertTrue(result.isEmpty())
     }

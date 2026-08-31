@@ -1,7 +1,10 @@
 package com.sympauthy.config.factory
 
 import com.sympauthy.business.model.oauth2.ConsentableUserScope
-import com.sympauthy.business.model.oauth2.EnabledScope
+import com.sympauthy.business.model.oauth2.DisabledScope
+import com.sympauthy.business.model.oauth2.GrantableUserScope
+import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.ScopeType
 import com.sympauthy.business.model.user.OpenIdConnectScope
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
@@ -20,7 +23,7 @@ class ClaimAclFactoryTest {
     /**
      * The consentable scopes a deployment that disabled none of them serves.
      */
-    private val scopesById: Map<String, EnabledScope> = OpenIdConnectScope.entries
+    private val scopesById: Map<String, Scope> = OpenIdConnectScope.entries
         .associate { it.scope to ConsentableUserScope(scope = it.scope) }
 
     lateinit var claimAclParser: ClaimAclParser
@@ -197,10 +200,43 @@ class ClaimAclFactoryTest {
         val acl = aclProperties(consentScope = disabledScope)
 
         val parsed = claimAclParser.parseAcl(ctx, acl, null, "claims.test", null)
-        claimAclValidator.validateAcl(ctx, parsed, "claims.test", scopesById - disabledScope)
+        claimAclValidator.validateAcl(
+            ctx, parsed, "claims.test",
+            scopesById + (disabledScope to DisabledScope(disabledScope, type = ScopeType.CONSENTABLE))
+        )
 
         assertEquals(1, ctx.errors.size)
         assertTrue(ctx.errors.first().message!!.contains("config.claim.acl.disabled_consent_scope"))
+    }
+
+    @Test
+    fun `validateAcl - Error for a custom consent scope the deployment disabled`() {
+        val ctx = ConfigParsingContext()
+        val acl = aclProperties(consentScope = "my-scope")
+
+        val parsed = claimAclParser.parseAcl(ctx, acl, null, "claims.test", null)
+        claimAclValidator.validateAcl(
+            ctx, parsed, "claims.test",
+            scopesById + ("my-scope" to DisabledScope("my-scope", type = ScopeType.CONSENTABLE))
+        )
+
+        assertEquals(1, ctx.errors.size)
+        assertTrue(ctx.errors.first().message!!.contains("config.claim.acl.disabled_consent_scope"))
+    }
+
+    @Test
+    fun `validateAcl - Error for a grantable consent scope, whether it is on or off`() {
+        val grantable = GrantableUserScope("reports", discoverable = false)
+        listOf(grantable, DisabledScope("reports", type = ScopeType.GRANTABLE)).forEach { scope ->
+            val ctx = ConfigParsingContext()
+            val acl = aclProperties(consentScope = "reports")
+
+            val parsed = claimAclParser.parseAcl(ctx, acl, null, "claims.test", null)
+            claimAclValidator.validateAcl(ctx, parsed, "claims.test", scopesById + ("reports" to scope))
+
+            assertEquals(1, ctx.errors.size)
+            assertTrue(ctx.errors.first().message!!.contains("config.claim.acl.not_consentable_scope"))
+        }
     }
 
     @Test
