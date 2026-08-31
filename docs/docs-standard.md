@@ -13,7 +13,8 @@ names the types its subject is actually built from, because the subject *is* tho
 **A standard describes a rule**, so it does not name the code that happens to follow it. The rule is
 stated in the abstract and illustrated with a shape — `…Manager`, `find…OrNull()`,
 `description.{detailsId}`, `V{major}_{minor}_{patch}_{sequence}__{table}_new.sql` — never with a
-class, function, migration or message key lifted from `server/`.
+class, function, migration or message key lifted from `server/`. A place the rule sends the reader
+to is named exactly, and that is pointing rather than illustrating.
 
 ## Why a standard names no code
 
@@ -23,18 +24,24 @@ else. Nothing fails when that happens — not a test, not the build, not the com
 left is a standard arguing for itself with something that is no longer there, and a reader with no
 way to tell which half went stale.
 
-This is not hypothetical here. The configuration guide these documents replace walked a reader
-through five classes of a mail configuration domain that has never existed in this server, and
-spelled a nested provider class in a way the naming rule three paragraphs above it forbids. Both had
-been wrong for a year. Neither could fail.
-
 The shape does not rot, because it is the rule written twice.
 
-**Pointing is not illustrating.** A document may say where a rule is implemented — the security
-constants that name a role, the reflection metadata a generated mapper is registered in, the message
-bundle a code resolves against — because that is the reader's next stop, and a path that has moved
-is obviously wrong rather than quietly wrong. What it may not do is prove a rule by exhibiting a
-class that obeys it, or quote code as evidence that the rule is real.
+**Pointing is not illustrating, and a pointer is spelled in full.** Where a rule is carried out by
+editing or reading one particular place — the factory a generated mapper is registered in, the
+metadata the native image reads, the constants that name a role, the bundle a code resolves against
+— the document names that place, as the file or the class it actually is. It is the reader's next
+stop and the rule cannot be followed without finding it, so leaving it abstract buys nothing but a
+grep.
+
+**The test is whether the rule can be carried out without the name.** A shape is the whole
+instruction for `…Manager` or `find…OrNull()`, so a class exhibited beside one is proving the rule
+with a specimen — and a specimen rots in place, still there and no longer demonstrating anything. A
+place the rule demands an edit in is the opposite: there is one of it, the change is unfinished
+until it has been edited, and a name that has moved sends the reader to something that is not there,
+which is a question they ask rather than an error they inherit.
+
+What a standard may still not do is prove a rule by exhibiting a class that obeys it, or quote code
+as evidence that the rule is real.
 
 **A name that *is* the rule is vocabulary, not an example.** The exception type a layer must throw,
 the annotation a class must carry, the interface a repository must extend: a standard that refused
@@ -84,6 +91,29 @@ excused from it. And the explanation ends up where the person who needs it is no
 and in the IDE hover, a reader sees the class, never the paragraph in `docs/` that pardons it. A
 carve-out earns its place in a standard only when it is a rule in its own right — something a second
 case would also fall under — rather than a pass written for one class.
+
+## A document says what is true now
+
+**A document describes the design as it stands, not the one it replaced.** Not what a subsystem used
+to do, not the convention a standard here was derived from, not the release in which a rule changed.
+A reader is here to find out what to build today, and every sentence about a design that is gone is
+one they have to recognise as gone before they can use the rest.
+
+**A document is edited in place, and the sentence that stopped being true goes.** A reversed
+decision is rewritten, not annotated and not left standing under a note saying it no longer applies.
+One answer per question is the property being defended: a document holding two is worse than one
+holding a stale answer, because a reader who finds only the stale one at least knows to check it.
+
+**A rule explained by what it replaced is explained with something the reader cannot see.** The
+design being contrasted against is not in the tree, not in the configuration and not in these
+documents, so the contrast carries nothing a reader can check and nothing they can apply. State what
+the rule protects now — and if the thing it replaced is the only argument for it, what has been
+found is a commit message.
+
+**The history is kept where it stays accurate.** Git holds every version of a document beside the
+change that caused it, and the tracker holds the discussion that settled it, with its dates and the
+people who had it. A retelling here is an undated second copy of both, and it is the copy a reader
+finds first.
 
 ## Shape of a document
 

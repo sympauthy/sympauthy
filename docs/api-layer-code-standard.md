@@ -43,10 +43,10 @@ requires touching another row.
 ## The mapper
 
 **A model becomes a resource in a mapper, not in a controller.** They are generated the same way
-[the business mappers](business-layer-code-standard.md#the-mapper) are, registered in a factory per
-surface, and configured in opposite directions: mapping *out* treats an unmapped response property
-as an error, mapping *in* treats an unmapped model property as one. Each policy points at the side
-that would silently lose data.
+[the business mappers](business-layer-code-standard.md#the-mapper) are, registered in the surface's
+own `…ApiMapperFactory`, and configured in opposite directions: mapping *out* treats an unmapped
+response property as an error, mapping *in* treats an unmapped model property as one. Each policy
+points at the side that would silently lose data.
 
 A mapper that needs an injected collaborator to resolve part of its output is written by hand as an
 ordinary bean instead of generated. That is a normal outcome, not a failure of the pattern.
