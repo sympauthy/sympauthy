@@ -35,26 +35,24 @@ class UserSearchManager(
 ) {
 
     /**
-     * Search, filter, and sort users with their claims.
+     * Search and filter users with their claims.
      *
      * Every criterion is optional and they compose: [status] keeps the users in one [UserStatus], [query] is a
      * partial case-insensitive match across the values of every enabled claim, and [claimFilters] are
-     * exact-match values keyed by claim id. [sort] names `created_at`, `status` or a claim id, and [order] is
-     * `asc` or `desc`, ascending when it is null.
+     * exact-match values keyed by claim id.
+     *
+     * The result carries no order of its own — [getUserComparator] is what puts it in one.
      *
      * A criterion naming something that does not exist is the caller's mistake rather than an empty result: an
-     * unknown claim id, sort property or status each throw a recoverable business exception carrying
-     * `user.search.invalid_claim`, `user.search.invalid_sort` or `user.search.invalid_status`.
+     * unknown claim id or status each throw a recoverable business exception carrying
+     * `user.search.invalid_claim` or `user.search.invalid_status`.
      */
     suspend fun listUsers(
         status: String?,
         query: String?,
-        claimFilters: Map<String, String>,
-        sort: String?,
-        order: String?
+        claimFilters: Map<String, String>
     ): List<UserWithClaims> {
         val enabledClaims = claimManager.listEnabledClaims()
-        val enabledClaimIds = enabledClaims.map { it.id }.toSet()
 
         // Validate claim filter keys and deserialize filter values
         val enabledClaimMap = enabledClaims.associateBy { it.id }
@@ -67,15 +65,6 @@ class UserSearchManager(
             val value = claimValueValidator.validateAndCleanValueForClaim(claim, rawValue)
                 .orElse(null)
             claimId to value
-        }
-
-        // Validate sort property
-        if (sort != null && sort != "created_at" && sort != "status" && sort !in enabledClaimIds) {
-            throw recoverableBusinessExceptionOf(
-                "user.search.invalid_sort",
-                "description.user.search.invalid_sort",
-                "property" to sort
-            )
         }
 
         // Validate status
@@ -140,32 +129,48 @@ class UserSearchManager(
             }
         }
 
-        // Sort
-        val ascending = order?.lowercase() != "desc"
-        result = when (sort) {
-            null, "created_at" -> {
-                if (ascending) result.sortedBy { it.user.creationDate }
-                else result.sortedByDescending { it.user.creationDate }
-            }
+        return result
+    }
 
-            "status" -> {
-                if (ascending) result.sortedBy { it.user.status.name }
-                else result.sortedByDescending { it.user.status.name }
-            }
+    /**
+     * Build the order a page of [listUsers] results is returned in.
+     *
+     * [sort] names `created_at`, `status` or a claim id, and [order] is `asc` or `desc`, ascending when it is
+     * null. A [sort] naming none of those is the caller's mistake and throws a recoverable business exception
+     * carrying `user.search.invalid_sort`.
+     *
+     * What the caller asked to sort by decides nothing between two users holding the same value, so the order
+     * ends in the user's identifier and is total. That tiebreak stays ascending under `order=desc`: it is not
+     * part of what the caller asked to sort by, it is there to decide what their own key leaves undecided.
+     */
+    suspend fun getUserComparator(
+        sort: String?,
+        order: String?
+    ): Comparator<UserWithClaims> {
+        val enabledClaimIds = claimManager.listEnabledClaims().map { it.id }.toSet()
+        if (sort != null && sort != "created_at" && sort != "status" && sort !in enabledClaimIds) {
+            throw recoverableBusinessExceptionOf(
+                "user.search.invalid_sort",
+                "description.user.search.invalid_sort",
+                "property" to sort
+            )
+        }
 
-            else -> {
-                // Sort by claim value
-                val comparator = compareBy<UserWithClaims, String?>(nullsLast()) { uwc ->
-                    uwc.collectedClaims
-                        .firstOrNull { it.claim.id == sort }
-                        ?.value?.toString()
-                }
-                if (ascending) result.sortedWith(comparator)
-                else result.sortedWith(comparator.reversed())
+        val bySortProperty: Comparator<UserWithClaims> = when (sort) {
+            null, "created_at" -> compareBy { it.user.creationDate }
+            "status" -> compareBy { it.user.status.name }
+            // A claim holds at most one row per user, so the value this reads is the user's own and does not
+            // vary between two calls.
+            else -> compareBy<UserWithClaims, String?>(nullsLast()) { uwc ->
+                uwc.collectedClaims
+                    .firstOrNull { it.claim.id == sort }
+                    ?.value?.toString()
             }
         }
 
-        return result
+        val ascending = order?.lowercase() != "desc"
+        return (if (ascending) bySortProperty else bySortProperty.reversed())
+            .thenBy { it.user.id }
     }
 
     /**

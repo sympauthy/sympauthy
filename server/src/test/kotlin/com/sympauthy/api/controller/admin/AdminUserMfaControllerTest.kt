@@ -94,7 +94,8 @@ class AdminUserMfaControllerTest {
 
     private fun mockEnrollment(
         id: UUID = mfaId,
-        enrollmentUserId: UUID = userId
+        enrollmentUserId: UUID = userId,
+        confirmedDate: LocalDateTime = this.confirmedDate
     ): TotpEnrollment = TotpEnrollment(
         id = id,
         userId = enrollmentUserId,
@@ -151,7 +152,9 @@ class AdminUserMfaControllerTest {
 
     @Test
     fun `listMfaMethods - Respects pagination parameters`() = runTest {
-        val enrollments = (0 until 3).map { mockEnrollment(id = UUID.randomUUID()) }
+        val enrollments = (0 until 3).map {
+            mockEnrollment(id = UUID.randomUUID(), confirmedDate = confirmedDate.plusMinutes(it.toLong()))
+        }
         val resources = enrollments.map { mockResource(id = it.id) }
         coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
         coEvery { totpManager.findConfirmedEnrollments(userId) } returns enrollments
@@ -165,6 +168,30 @@ class AdminUserMfaControllerTest {
         assertEquals(1, result.page)
         assertEquals(2, result.size)
         assertEquals(3, result.total)
+    }
+
+    @Test
+    fun `listMfaMethods - Order by confirmation date, then by identifier`() = runTest {
+        // Two of the three were confirmed in the same instant, which is what the identifier separates.
+        val tiedSecond = mockEnrollment(id = UUID.fromString("00000000-0000-0000-0000-000000000002"))
+        val tiedFirst = mockEnrollment(id = UUID.fromString("00000000-0000-0000-0000-000000000001"))
+        val confirmedEarlier = mockEnrollment(
+            id = UUID.fromString("00000000-0000-0000-0000-000000000003"),
+            confirmedDate = confirmedDate.minusDays(1)
+        )
+        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
+        coEvery { totpManager.findConfirmedEnrollments(userId) } returns
+                listOf(tiedSecond, tiedFirst, confirmedEarlier)
+        listOf(tiedSecond, tiedFirst, confirmedEarlier).forEach {
+            every { mfaMapper.toResource(it) } returns mockResource(id = it.id)
+        }
+
+        val result = controller().listMfaMethods(userId, null, null)
+
+        assertEquals(
+            listOf(confirmedEarlier.id, tiedFirst.id, tiedSecond.id),
+            result.mfaMethods.map { it.mfaId }
+        )
     }
 
     @Test

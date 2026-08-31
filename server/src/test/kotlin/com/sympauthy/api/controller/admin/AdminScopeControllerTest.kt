@@ -168,6 +168,23 @@ class AdminScopeControllerTest {
     }
 
     @Test
+    fun `listScopes - Order the whole list before slicing it`() = runTest {
+        val address = ConsentableUserScope("address")
+        val email = ConsentableUserScope("email")
+
+        // Handed last-first, the first page still holds the two scopes the order puts first.
+        coEvery { scopeManager.listScopes() } returns listOf(ConsentableUserScope("profile"), email, address)
+        every { scopeManager.listClaimsProtectedByScope(address) } returns emptyList()
+        every { scopeManager.listClaimsProtectedByScope(email) } returns emptyList()
+        every { scopeMapper.toResource(address, emptyList()) } returns mockResource("address", "consentable")
+        every { scopeMapper.toResource(email, emptyList()) } returns mockResource("email", "consentable")
+
+        val result = controller.listScopes(0, 2, null, null)
+
+        assertEquals(listOf("address", "email"), result.scopes.map { it.id })
+    }
+
+    @Test
     fun `listScopes - Return empty page when page exceeds total`() = runTest {
         val scope = ConsentableUserScope("profile")
         coEvery { scopeManager.listScopes() } returns listOf(scope)

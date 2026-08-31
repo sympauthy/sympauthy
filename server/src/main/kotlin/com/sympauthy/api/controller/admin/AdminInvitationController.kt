@@ -7,7 +7,9 @@ import com.sympauthy.api.resource.admin.AdminInvitationListResource
 import com.sympauthy.api.resource.admin.AdminInvitationResource
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
+import com.sympauthy.api.util.orderedPage
 import com.sympauthy.business.manager.invitation.InvitationManager
+import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.security.SecurityRule.ADMIN_INVITATIONS_READ
@@ -61,7 +63,8 @@ class AdminInvitationController(
     }
 
     @Operation(
-        description = "Retrieve a paginated list of invitations, optionally filtered by audience.",
+        description = "Retrieve a paginated list of invitations, optionally filtered by audience. " +
+                "Invitations are ordered by creation date, oldest first, then by identifier.",
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of invitations."),
@@ -85,7 +88,7 @@ class AdminInvitationController(
                     "with, and may not exceed its configured maximum."
         ) size: Int?
     ): AdminInvitationListResource {
-        val (resolvedPage, resolvedSize) = paginationUtil.resolvePageParams(page, size)
+        val pageParams = paginationUtil.resolvePageParams(page, size)
         val allInvitations = if (audienceId != null) {
             invitationManager.findByAudienceId(audienceId)
         } else {
@@ -97,13 +100,12 @@ class AdminInvitationController(
             allInvitations
         }
         val paged = filtered
-            .drop(resolvedPage * resolvedSize)
-            .take(resolvedSize)
+            .orderedPage(pageParams, compareBy<Invitation> { it.createdAt }.thenBy { it.id })
             .map(invitationMapper::toResource)
         return AdminInvitationListResource(
             invitations = paged,
-            page = resolvedPage,
-            size = resolvedSize,
+            page = pageParams.page,
+            size = pageParams.size,
             total = filtered.size
         )
     }

@@ -6,6 +6,7 @@ import com.sympauthy.api.resource.admin.AdminUserDetailResource
 import com.sympauthy.api.resource.admin.AdminUserListResource
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
+import com.sympauthy.api.util.orderedPage
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
@@ -47,7 +48,9 @@ class AdminUserController(
     @Operation(
         description = "Retrieve a paginated list of users with optional filtering, search, and sorting. " +
                 "Claim values can be included in the response by specifying the 'claims' parameter. " +
-                "Dynamic query parameters matching claim identifiers are treated as exact-match filters.",
+                "Dynamic query parameters matching claim identifiers are treated as exact-match filters. " +
+                "Users are ordered by the requested sort property — creation date, oldest first, when none " +
+                "is named — then by user identifier, which stays ascending under order=desc.",
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of users."),
@@ -78,7 +81,7 @@ class AdminUserController(
         @QueryValue @Parameter(description = "Property to sort by: created_at, status, or a claim identifier.") sort: String?,
         @QueryValue @Parameter(description = "Sort direction: asc or desc.") order: String?
     ): AdminUserListResource {
-        val (page, size) = paginationUtil.resolvePageParams(page, size)
+        val pageParams = paginationUtil.resolvePageParams(page, size)
 
         // Resolve selected claims
         val selectedClaims = resolveSelectedClaims(claims)
@@ -89,19 +92,19 @@ class AdminUserController(
             .filterKeys { it !in RESERVED_PARAMS }
             .mapValues { (_, values) -> values.first() }
 
-        // Search, filter, sort
+        // Resolved before the search so an unknown sort property is refused without reading every user.
+        val comparator = userSearchManager.getUserComparator(sort, order)
+
+        // Search and filter
         val allUsers = userSearchManager.listUsers(
             status = status,
             query = q,
-            claimFilters = claimFilters,
-            sort = sort,
-            order = order
+            claimFilters = claimFilters
         )
 
         // Paginate
         val paged = allUsers
-            .drop(page * size)
-            .take(size)
+            .orderedPage(pageParams, comparator)
             .map { uwc ->
                 val generatedClaimValues = generatedClaimsManager.computeValues(uwc.user.id)
                 val claimsMap = userMapper.buildClaimsMap(uwc.collectedClaims, selectedClaims, generatedClaimValues)
@@ -110,8 +113,8 @@ class AdminUserController(
 
         return AdminUserListResource(
             users = paged,
-            page = page,
-            size = size,
+            page = pageParams.page,
+            size = pageParams.size,
             total = allUsers.size
         )
     }

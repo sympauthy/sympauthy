@@ -406,6 +406,22 @@ class AdminUserClaimControllerTest {
     }
 
     @Test
+    fun `listUserClaims - Order by claim identifier before slicing`() = runTest {
+        val ctrl = createController()
+        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
+        // Handed name-first, the first page of one still holds the claim the order puts first.
+        every { claimManager.listEnabledClaims() } returns listOf(nameClaim, customClaim)
+        coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns emptyList()
+        every {
+            userClaimMapper.toResourceFromCollectedClaim(customClaim, null, false)
+        } returns mockResource("custom_field")
+
+        val result = ctrl.listUserClaims(userId, 0, 1, null, null, null, null, null, null)
+
+        assertEquals(listOf("custom_field"), result.claims.map { it.claimId })
+    }
+
+    @Test
     fun `listUserClaims - Empty page when page exceeds total`() = runTest {
         val ctrl = createController()
         coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()

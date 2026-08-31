@@ -8,6 +8,7 @@ import com.sympauthy.api.resource.admin.AdminUserMfaEnrollmentResource
 import com.sympauthy.api.resource.admin.AdminUserMfaMethodListResource
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
+import com.sympauthy.api.util.orderedPage
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.client.ClientRedirectUriManager
@@ -16,6 +17,7 @@ import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManage
 import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaEnrollmentManager
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.manager.user.UserManager
+import com.sympauthy.business.model.mfa.TotpEnrollment
 import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.config.model.EnabledMfaConfig
 import com.sympauthy.config.model.MfaConfig
@@ -48,7 +50,8 @@ class AdminUserMfaController(
 ) {
 
     @Operation(
-        description = "Retrieve a paginated list of registered MFA methods for a given user.",
+        description = "Retrieve a paginated list of registered MFA methods for a given user. Methods are " +
+                "ordered by the date the user confirmed them, oldest first, then by identifier.",
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of MFA methods."),
@@ -72,17 +75,19 @@ class AdminUserMfaController(
                     "with, and may not exceed its configured maximum."
         ) size: Int?
     ): AdminUserMfaMethodListResource {
-        val (page, size) = paginationUtil.resolvePageParams(page, size)
+        val pageParams = paginationUtil.resolvePageParams(page, size)
         userManager.findByIdOrNull(userId).orNotFound()
         val allEnrollments = totpManager.findConfirmedEnrollments(userId)
+        // The list holds confirmed enrollments only, so confirming is what appends to it. Ordering on the
+        // enrollment date would insert an enrollment started last week and confirmed today into a page a
+        // caller has already walked.
         val paged = allEnrollments
-            .drop(page * size)
-            .take(size)
+            .orderedPage(pageParams, compareBy<TotpEnrollment> { it.confirmedDate }.thenBy { it.id })
             .map(mfaMapper::toResource)
         return AdminUserMfaMethodListResource(
             mfaMethods = paged,
-            page = page,
-            size = size,
+            page = pageParams.page,
+            size = pageParams.size,
             total = allEnrollments.size
         )
     }
