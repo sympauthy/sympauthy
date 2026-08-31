@@ -12,7 +12,8 @@ has that failure shape.
 ## Anything constructed reflectively is declared
 
 **A class the application only ever instantiates by name must be registered in the reflection
-metadata**, under `META-INF/native-image/`, with the constructor the application actually calls.
+metadata**, with the constructor the application actually calls. The server's own entries are in
+`server/src/main/resources/META-INF/native-image/com.sympauthy/server/reflect-config.json`.
 Nothing else finds it: the compiler sees no call site, so the class is not reachable and is not
 compiled into the image at all.
 

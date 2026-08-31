@@ -13,7 +13,8 @@ names the types its subject is actually built from, because the subject *is* tho
 **A standard describes a rule**, so it does not name the code that happens to follow it. The rule is
 stated in the abstract and illustrated with a shape — `…Manager`, `find…OrNull()`,
 `description.{detailsId}`, `V{major}_{minor}_{patch}_{sequence}__{table}_new.sql` — never with a
-class, function, migration or message key lifted from `server/`.
+class, function, migration or message key lifted from `server/`. A place the rule sends the reader
+to is named exactly, and that is pointing rather than illustrating.
 
 ## Why a standard names no code
 
@@ -25,11 +26,22 @@ way to tell which half went stale.
 
 The shape does not rot, because it is the rule written twice.
 
-**Pointing is not illustrating.** A document may say where a rule is implemented — the security
-constants that name a role, the reflection metadata a generated mapper is registered in, the message
-bundle a code resolves against — because that is the reader's next stop, and a path that has moved
-is obviously wrong rather than quietly wrong. What it may not do is prove a rule by exhibiting a
-class that obeys it, or quote code as evidence that the rule is real.
+**Pointing is not illustrating, and a pointer is spelled in full.** Where a rule is carried out by
+editing or reading one particular place — the factory a generated mapper is registered in, the
+metadata the native image reads, the constants that name a role, the bundle a code resolves against
+— the document names that place, as the file or the class it actually is. It is the reader's next
+stop and the rule cannot be followed without finding it, so leaving it abstract buys nothing but a
+grep.
+
+**The test is whether the rule can be carried out without the name.** A shape is the whole
+instruction for `…Manager` or `find…OrNull()`, so a class exhibited beside one is proving the rule
+with a specimen — and a specimen rots in place, still there and no longer demonstrating anything. A
+place the rule demands an edit in is the opposite: there is one of it, the change is unfinished
+until it has been edited, and a name that has moved sends the reader to something that is not there,
+which is a question they ask rather than an error they inherit.
+
+What a standard may still not do is prove a rule by exhibiting a class that obeys it, or quote code
+as evidence that the rule is real.
 
 **A name that *is* the rule is vocabulary, not an example.** The exception type a layer must throw,
 the annotation a class must carry, the interface a repository must extend: a standard that refused

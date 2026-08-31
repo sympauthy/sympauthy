@@ -48,9 +48,9 @@ that can issue a query per element from inside a loop nobody thought was doing I
 
 **A generated mapper is registered in a factory, and that is not optional.** The generator produces
 a class with a no-argument constructor, so it is not a bean and its collaborators are not injected;
-the factory is what publishes it and what sets those collaborators on the instance. A mapper that
-exists but is not registered fails at startup, on the first bean that asks for it — and the
-generated class must also be declared to
+the factory is what publishes it and what sets those collaborators on the instance. That factory
+is `BusinessMapperFactory`, and a mapper that exists but is not registered there fails at startup,
+on the first bean that asks for it — and the generated class must also be declared to
 [the native image](native-image-standard.md), which fails much later and only in production.
 
 ## The manager
