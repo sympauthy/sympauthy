@@ -1,6 +1,7 @@
 package com.sympauthy.api.controller.flow.auth
 
 import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
+import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.exception.httpExceptionOf
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.flow.FailedVerifyEncodedStateResult
@@ -327,10 +328,11 @@ class InteractiveAuthFlowSessionControllerUtil(
             is FailedVerifyEncodedStateResult -> {
                 // We cannot redirect the user to a proper error page, we throw to let the error handler still
                 // respond with an error but without a redirect uri.
-                throw httpExceptionOf(
+                throw LocalizedHttpException(
                     status = HttpStatus.BAD_REQUEST,
                     detailsId = verifyResult.detailsId,
                     descriptionId = verifyResult.descriptionId,
+                    values = verifyResult.values,
                 )
             }
         }
