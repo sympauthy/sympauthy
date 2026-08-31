@@ -69,7 +69,7 @@ class AdminScopeController(
         )
     }
 
-    private fun filterByType(scopes: List<Scope>, type: String?): List<Scope> {
+    private fun filterByType(scopes: List<EnabledScope>, type: String?): List<EnabledScope> {
         return when (type?.lowercase()) {
             "consentable" -> scopes.filterIsInstance<ConsentableUserScope>()
             "grantable" -> scopes.filterIsInstance<GrantableUserScope>()

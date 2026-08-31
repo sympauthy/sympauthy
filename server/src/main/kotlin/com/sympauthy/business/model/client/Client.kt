@@ -2,7 +2,7 @@ package com.sympauthy.business.model.client
 
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.flow.AuthorizationFlow
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 
 data class Client(
     val id: String,
@@ -42,16 +42,16 @@ data class Client(
     val allowedRedirectUris: List<String> = emptyList(),
 
     /**
-     * Set of [Scope] that can be issued to a token request by this [Client].
+     * Set of [EnabledScope] that can be issued to a token request by this [Client].
      * When null, all scopes are allowed.
      */
-    val allowedScopes: Set<Scope>? = null,
+    val allowedScopes: Set<EnabledScope>? = null,
 
     /**
-     * List of [Scope] that are issued by default to a token request by this [Client] if the [Client] did not provide
+     * List of [EnabledScope] that are issued by default to a token request by this [Client] if the [Client] did not provide
      * them explicitly to the authorization endpoint.
      */
-    val defaultScopes: List<Scope>? = null,
+    val defaultScopes: List<EnabledScope>? = null,
 
     /**
      * Optional webhook configuration for delegating authorization decisions to an external server.

@@ -8,7 +8,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.GrantableUserScope
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.config.model.EnabledFeaturesConfig
 import io.mockk.coEvery
@@ -65,14 +65,14 @@ class UserScopeGrantingManagerTest {
         coEvery { scopeManager.findOrThrow("declinedScope1") } returns declinedScope1
         coEvery { scopeManager.findOrThrow("declinedScope2") } returns declinedScope2
 
-        val method1: suspend (session: InteractiveFlowSession, requestedScopes: List<Scope>, collectedClaims: List<CollectedClaim>) -> ScopeGrantingMethodResult =
+        val method1: suspend (session: InteractiveFlowSession, requestedScopes: List<EnabledScope>, collectedClaims: List<CollectedClaim>) -> ScopeGrantingMethodResult =
             { _, _, _ ->
                 ScopeGrantingMethodResult(
                     grantedScopes = listOf(grantedScope1),
                     declinedScopes = listOf(declinedScope1)
                 )
             }
-        val declineAllMethod: suspend (session: InteractiveFlowSession, requestedScopes: List<Scope>, collectedClaims: List<CollectedClaim>) -> ScopeGrantingMethodResult =
+        val declineAllMethod: suspend (session: InteractiveFlowSession, requestedScopes: List<EnabledScope>, collectedClaims: List<CollectedClaim>) -> ScopeGrantingMethodResult =
             { _, requestedScopes, _ ->
                 ScopeGrantingMethodResult(
                     grantedScopes = emptyList(),
@@ -94,9 +94,9 @@ class UserScopeGrantingManagerTest {
 
     @Test
     fun getUnhandledRequestedScopes() {
-        val grantedScope = mockk<Scope>()
-        val declinedScope = mockk<Scope>()
-        val unhandledScope = mockk<Scope>()
+        val grantedScope = mockk<EnabledScope>()
+        val declinedScope = mockk<EnabledScope>()
+        val unhandledScope = mockk<EnabledScope>()
 
         val result = ScopeGrantingMethodResult(
             grantedScopes = listOf(grantedScope),
@@ -112,7 +112,7 @@ class UserScopeGrantingManagerTest {
 
     @Test
     fun `applyDefaultBehavior - decline all requested scopes when grantUnhandledScopes is disabled`() = runBlocking {
-        val scope = mockk<Scope>()
+        val scope = mockk<EnabledScope>()
         every { featuresConfig.grantUnhandledScopes } returns false
 
         val result = scopeGrantingManager.applyDefaultBehavior(
@@ -126,7 +126,7 @@ class UserScopeGrantingManagerTest {
 
     @Test
     fun `applyDefaultBehavior - grant all requested scopes when grantUnhandledScopes is enabled`() = runBlocking {
-        val scope = mockk<Scope>()
+        val scope = mockk<EnabledScope>()
         every { featuresConfig.grantUnhandledScopes } returns true
 
         val result = scopeGrantingManager.applyDefaultBehavior(
@@ -140,9 +140,9 @@ class UserScopeGrantingManagerTest {
 
     @Test
     fun `UserGrantScopesResult - grantedScopes - List all scopes granted in result of different methods`() {
-        val grantedScope1 = mockk<Scope>()
-        val grantedScope2 = mockk<Scope>()
-        val grantedScope3 = mockk<Scope>()
+        val grantedScope1 = mockk<EnabledScope>()
+        val grantedScope2 = mockk<EnabledScope>()
+        val grantedScope3 = mockk<EnabledScope>()
 
         val result1 = ScopeGrantingMethodResult(
             grantedScopes = listOf(grantedScope1),
@@ -161,9 +161,9 @@ class UserScopeGrantingManagerTest {
 
     @Test
     fun `UserGrantScopesResult - declineScope - List all scopes declined in result of different methods`() {
-        val declinedScope1 = mockk<Scope>()
-        val declinedScope2 = mockk<Scope>()
-        val declinedScope3 = mockk<Scope>()
+        val declinedScope1 = mockk<EnabledScope>()
+        val declinedScope2 = mockk<EnabledScope>()
+        val declinedScope3 = mockk<EnabledScope>()
 
         val result1 = ScopeGrantingMethodResult(
             declinedScopes = listOf(declinedScope1),

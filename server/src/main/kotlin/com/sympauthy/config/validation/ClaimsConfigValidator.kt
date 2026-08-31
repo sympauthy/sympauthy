@@ -1,7 +1,7 @@
 package com.sympauthy.config.validation
 
 import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
 import com.sympauthy.config.ConfigParsingContext
@@ -22,7 +22,7 @@ class ClaimsConfigValidator(
         parsed: List<ParsedClaim>,
         templates: Map<String, ClaimTemplate>,
         audiencesById: Map<String, Audience>,
-        scopesById: Map<String, Scope>,
+        scopesById: Map<String, EnabledScope>,
         identifierClaims: List<String>?,
         userMergingEnabled: Boolean?
     ): List<Claim> {
@@ -53,7 +53,7 @@ class ClaimsConfigValidator(
         ctx: ConfigParsingContext,
         parsed: ParsedClaim,
         audiencesById: Map<String, Audience>,
-        scopesById: Map<String, Scope>
+        scopesById: Map<String, EnabledScope>
     ): Claim? {
         val configKeyPrefix = "$CLAIMS_KEY.${parsed.id}"
 

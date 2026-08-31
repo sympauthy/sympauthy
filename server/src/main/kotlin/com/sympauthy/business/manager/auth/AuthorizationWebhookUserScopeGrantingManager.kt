@@ -50,7 +50,7 @@ class AuthorizationWebhookUserScopeGrantingManager(
      */
     suspend fun applyAuthorizationWebhookScopeGranting(
         session: InteractiveFlowSession,
-        requestedScopes: List<Scope>,
+        requestedScopes: List<EnabledScope>,
         collectedClaims: List<CollectedClaim>
     ): ScopeGrantingMethodResult {
         val onGoingSession = session as OnGoingInteractiveFlowSession
@@ -69,8 +69,8 @@ class AuthorizationWebhookUserScopeGrantingManager(
         return when (val result = authorizationWebhookClient.callWebhook(authorizationWebhook, request)) {
             is AuthorizationWebhookResult.Success -> {
                 val response = result.response
-                val granted = mutableListOf<Scope>()
-                val declined = mutableListOf<Scope>()
+                val granted = mutableListOf<EnabledScope>()
+                val declined = mutableListOf<EnabledScope>()
 
                 // Process requested scopes
                 requestedScopes.forEach { scope ->

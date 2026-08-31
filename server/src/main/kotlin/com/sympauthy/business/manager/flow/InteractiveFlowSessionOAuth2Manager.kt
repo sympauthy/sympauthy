@@ -52,7 +52,7 @@ open class InteractiveFlowSessionOAuth2Manager(
         clientState: String? = null,
         clientNonce: String? = null,
         flow: AuthorizationFlow? = null,
-        scopes: List<Scope>? = null,
+        scopes: List<EnabledScope>? = null,
         redirectUri: URI? = null,
         codeChallenge: String? = null,
         codeChallengeMethod: CodeChallengeMethod? = null,
@@ -81,7 +81,7 @@ open class InteractiveFlowSessionOAuth2Manager(
             sessionId = session.id,
             clientId = client?.id,
             redirectUri = redirectUri?.toString(),
-            requestedScopes = (scopes ?: emptyList()).map(Scope::scope).toTypedArray(),
+            requestedScopes = (scopes ?: emptyList()).map(EnabledScope::scope).toTypedArray(),
             state = clientState,
             nonce = clientNonce,
             codeChallenge = codeChallenge,
@@ -89,7 +89,7 @@ open class InteractiveFlowSessionOAuth2Manager(
 
             invitationId = invitationId,
 
-            consentedScopes = consentableScopes?.map(Scope::scope)?.toTypedArray(),
+            consentedScopes = consentableScopes?.map(EnabledScope::scope)?.toTypedArray(),
             consentedAt = consentableScopes?.let { now },
             consentedBy = consentableScopes?.let { ConsentedBy.AUTO.name },
         )
@@ -148,10 +148,10 @@ open class InteractiveFlowSessionOAuth2Manager(
      */
     suspend fun setConsentedScopes(
         session: OnGoingInteractiveFlowSession,
-        consentedScopes: List<Scope>,
+        consentedScopes: List<EnabledScope>,
         consentedBy: ConsentedBy
     ): InteractiveFlowSessionOAuth2 {
-        val consentedScopeIds = consentedScopes.map(Scope::scope)
+        val consentedScopeIds = consentedScopes.map(EnabledScope::scope)
         val consentedAt = LocalDateTime.now()
         oauth2Repository.updateConsentedScopes(
             sessionId = session.id,
@@ -167,10 +167,10 @@ open class InteractiveFlowSessionOAuth2Manager(
      */
     suspend fun setGrantedScopes(
         session: OnGoingInteractiveFlowSession,
-        grantedScopes: List<Scope>,
+        grantedScopes: List<EnabledScope>,
         grantedBy: GrantedBy
     ): InteractiveFlowSessionOAuth2 {
-        val grantedScopeIds = grantedScopes.map(Scope::scope)
+        val grantedScopeIds = grantedScopes.map(EnabledScope::scope)
         val grantedAt = LocalDateTime.now()
         oauth2Repository.updateGrantedScopes(
             sessionId = session.id,

@@ -8,7 +8,7 @@ import com.sympauthy.business.model.client.AuthorizationWebhook
 import com.sympauthy.business.model.client.AuthorizationWebhookOnFailure
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import org.mapstruct.Mapper
 import org.mapstruct.Mapping
 import org.mapstruct.NullValueMappingStrategy
@@ -33,7 +33,7 @@ abstract class AdminClientResourceMapper {
     @org.mapstruct.Named("toClientType")
     fun toClientType(public: Boolean): String = if (public) "public" else "confidential"
 
-    fun toScope(scope: Scope): String = scope.scope
+    fun toScope(scope: EnabledScope): String = scope.scope
 
     fun toGrantType(grantType: GrantType): String = grantType.value
 

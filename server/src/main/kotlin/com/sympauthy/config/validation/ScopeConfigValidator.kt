@@ -7,7 +7,7 @@ import com.sympauthy.business.model.oauth2.BuiltInGrantableScope
 import com.sympauthy.business.model.oauth2.ClientScope
 import com.sympauthy.business.model.oauth2.ConsentableUserScope
 import com.sympauthy.business.model.oauth2.GrantableUserScope
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.business.model.oauth2.isAdminScope
 import com.sympauthy.business.model.oauth2.isBuiltInClientScope
 import com.sympauthy.business.model.oauth2.isBuiltInGrantableScope
@@ -30,11 +30,11 @@ import jakarta.inject.Singleton
 @Singleton
 class ScopeConfigValidator {
 
-    private val builtInGrantableScopes: List<Scope> = BuiltInGrantableScope.entries.map { builtIn ->
+    private val builtInGrantableScopes: List<EnabledScope> = BuiltInGrantableScope.entries.map { builtIn ->
         GrantableUserScope(scope = builtIn.scope, discoverable = builtIn.discoverable)
     }
 
-    private val clientScopes: List<Scope> = BuiltInClientScope.entries.map { builtIn ->
+    private val clientScopes: List<EnabledScope> = BuiltInClientScope.entries.map { builtIn ->
         ClientScope(scope = builtIn.scope)
     }
 
@@ -49,7 +49,7 @@ class ScopeConfigValidator {
         parsed: List<ParsedScopeConfig>,
         audiencesById: Map<String, Audience>,
         adminAudienceId: String?
-    ): List<Scope> {
+    ): List<EnabledScope> {
         val configurable = parsed.filter { isConfigurable(ctx, it) }
 
         val disabledOpenIdConnectScopes = configurable
@@ -154,7 +154,7 @@ class ScopeConfigValidator {
         ctx: ConfigParsingContext,
         parsed: ParsedScopeConfig,
         audiencesById: Map<String, Audience>
-    ): Scope? {
+    ): EnabledScope? {
         val configKeyPrefix = "$SCOPES_KEY.${parsed.id}"
 
         val audienceId = validateAudienceId(
@@ -207,13 +207,13 @@ class ScopeConfigValidator {
         return "$TEMPLATES_SCOPES_KEY.$templateId.audience"
     }
 
-    private fun openIdConnectScopes(disabledScopes: Set<String>): List<Scope> {
+    private fun openIdConnectScopes(disabledScopes: Set<String>): List<EnabledScope> {
         return OpenIdConnectScope.entries
             .filterNot { it.scope in disabledScopes }
             .map { ConsentableUserScope(scope = it.scope, discoverable = true) }
     }
 
-    private fun adminScopes(adminAudienceId: String?): List<Scope> {
+    private fun adminScopes(adminAudienceId: String?): List<EnabledScope> {
         if (adminAudienceId == null) return emptyList()
         return AdminScope.entries.map { adminScope ->
             GrantableUserScope(

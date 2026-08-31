@@ -1,7 +1,7 @@
 package com.sympauthy.config.factory
 
 import com.sympauthy.business.model.flow.AuthorizationFlow
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.AuthorizationFlowsConfig
 import com.sympauthy.config.model.ClientTemplatesConfig
@@ -47,7 +47,7 @@ class ClientTemplatesConfigFactory(
             val parsed = clientTemplatesParser.parse(ctx, templatesList, rootUri)
             val templates = clientTemplatesValidator.validate(
                 ctx, parsed,
-                scopesConfig.scopes.associateBy(Scope::scope),
+                scopesConfig.scopes.associateBy(EnabledScope::scope),
                 flowsConfig.flows.associateBy(AuthorizationFlow::id)
             )
             val config = if (ctx.hasErrors) DisabledClientTemplatesConfig(ctx.errors)

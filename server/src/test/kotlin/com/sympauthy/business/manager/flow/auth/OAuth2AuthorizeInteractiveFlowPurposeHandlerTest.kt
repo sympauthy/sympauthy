@@ -20,7 +20,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.TerminalEffectResult
 import com.sympauthy.business.model.oauth2.ConsentedBy
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.config.model.EnabledFeaturesConfig
 import com.sympauthy.config.model.EnabledMfaConfig
 import io.mockk.coEvery
@@ -236,7 +236,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     fun `applyTerminalEffect - Saves consent and proceeds when scopes are granted`() = runTest {
         val userId = UUID.randomUUID()
         val clientId = "client-id"
-        val grantedScopeObjects = listOf(mockk<Scope>())
+        val grantedScopeObjects = listOf(mockk<EnabledScope>())
         val session = createOnGoingSession(userId = userId)
         val oauth2AfterGranted = oauth2Of(clientId = clientId, grantedScopes = listOf("read"))
 
@@ -355,7 +355,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         )
     }
 
-    private fun grantScopesResultOf(grantedScopes: List<Scope>): UserGrantScopesResult {
+    private fun grantScopesResultOf(grantedScopes: List<EnabledScope>): UserGrantScopesResult {
         return UserGrantScopesResult(
             requestedScopes = grantedScopes,
             results = listOf(

@@ -1,6 +1,6 @@
 package com.sympauthy.config.model
 
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.config.exception.ConfigurationException
 
 sealed class ScopesConfig(
@@ -12,7 +12,7 @@ data class EnabledScopesConfig(
      * Every scope this authorization server serves: the ones the deployment defined, and the
      * built-in ones the server contributes itself.
      */
-    val scopes: List<Scope>
+    val scopes: List<EnabledScope>
 ) : ScopesConfig()
 
 class DisabledScopesConfig(

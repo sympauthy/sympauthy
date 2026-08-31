@@ -1,7 +1,7 @@
 package com.sympauthy.config.factory
 
 import com.sympauthy.business.model.flow.AuthorizationFlow
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.*
 import com.sympauthy.config.parsing.ClientsConfigParser
@@ -48,7 +48,7 @@ class ClientsConfigFactory(
             val clients = clientsValidator.validate(
                 ctx, parsed,
                 audiencesConfig.audiences.associateBy { it.id },
-                scopesConfig.scopes.associateBy(Scope::scope),
+                scopesConfig.scopes.associateBy(EnabledScope::scope),
                 flowsConfig.flows.associateBy(AuthorizationFlow::id)
             )
             val config = if (ctx.hasErrors) DisabledClientsConfig(ctx.errors)

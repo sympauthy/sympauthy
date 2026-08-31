@@ -7,7 +7,7 @@ import com.sympauthy.business.model.oauth2.BuiltInGrantableScope
 import com.sympauthy.business.model.oauth2.ClientScope
 import com.sympauthy.business.model.oauth2.ConsentableUserScope
 import com.sympauthy.business.model.oauth2.GrantableUserScope
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.business.model.user.OpenIdConnectScope
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
@@ -64,7 +64,7 @@ class ScopeConfigFactoryTest {
         }
     }
 
-    private fun ScopesConfig.scopeNamed(id: String): Scope? {
+    private fun ScopesConfig.scopeNamed(id: String): EnabledScope? {
         return (this as EnabledScopesConfig).scopes.firstOrNull { it.scope == id }
     }
 

@@ -17,36 +17,36 @@ class ScopeManager(
 ) {
 
     /**
-     * List of every [Scope] this authorization server serves.
+     * List of every [EnabledScope] this authorization server serves.
      */
-    suspend fun listScopes(): List<Scope> {
+    suspend fun listScopes(): List<EnabledScope> {
         return uncheckedScopesConfig.orThrow().scopes
     }
 
     /**
-     * List all [Scope] visible for the given [audienceId].
+     * List all [EnabledScope] visible for the given [audienceId].
      * A scope is visible if it has no audience restriction or is restricted to this audience.
      */
-    suspend fun listScopesForAudience(audienceId: String): List<Scope> {
+    suspend fun listScopesForAudience(audienceId: String): List<EnabledScope> {
         return listScopes().filter { it.audienceId == null || it.audienceId == audienceId }
     }
 
     /**
-     * Return the [Scope], otherwise null, if:
+     * Return the [EnabledScope], otherwise null, if:
      * - [scope] is an OpenID Connect scope and has not been explicitly disabled by configuration.
      * - [scope] is a custom scope and has been properly defined in the configuration.
      */
-    suspend fun find(scope: String): Scope? {
+    suspend fun find(scope: String): EnabledScope? {
         return listScopes().firstOrNull { it.scope == scope }
     }
 
     /**
-     * Return the [Scope] if:
+     * Return the [EnabledScope] if:
      * - [scope] is an OpenID Connect scope and has not been explicitly disabled by configuration.
      * - [scope] is a custom scope and has been properly defined in the configuration.
      * Otherwise, throws an unrecoverable "scope.unsupported" exception.
      */
-    suspend fun findOrThrow(scope: String): Scope {
+    suspend fun findOrThrow(scope: String): EnabledScope {
         return find(scope) ?: throw businessExceptionOf(
             detailsId = "scope.unsupported",
             values = arrayOf("scope" to scope)
@@ -54,10 +54,10 @@ class ScopeManager(
     }
 
     /**
-     * Return the [Scope] if [scope] is a scope that exists and is allowed by the [client] in [Client.allowedScopes].
+     * Return the [EnabledScope] if [scope] is a scope that exists and is allowed by the [client] in [Client.allowedScopes].
      * Otherwise, throws an unrecoverable "scope.unsupported" exception.
      */
-    suspend fun findForClientOrThrow(client: Client, scope: String): Scope {
+    suspend fun findForClientOrThrow(client: Client, scope: String): EnabledScope {
         val foundScope = findOrThrow(scope)
 
         // Validate that the scope's audience matches the client's audience (or scope has no audience)
@@ -89,7 +89,7 @@ class ScopeManager(
      *
      * Only consentable scopes protect claims. Returns an empty list for grantable and client scopes.
      */
-    fun listClaimsProtectedByScope(scope: Scope): List<Claim> {
+    fun listClaimsProtectedByScope(scope: EnabledScope): List<Claim> {
         if (scope !is ConsentableUserScope) return emptyList()
         return claimManager.listAllClaims()
             .filter { it.belongsToScope(scope.scope) }
@@ -108,7 +108,7 @@ class ScopeManager(
     suspend fun parseRequestedScopes(
         client: Client,
         uncheckedScopes: String?
-    ): List<Scope> {
+    ): List<EnabledScope> {
         return if (uncheckedScopes.isNullOrBlank()) {
             client.defaultScopes ?: emptyList()
         } else {

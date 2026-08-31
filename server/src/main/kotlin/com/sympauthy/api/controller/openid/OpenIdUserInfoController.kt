@@ -4,7 +4,7 @@ import com.sympauthy.api.controller.openid.OpenIdUserInfoController.Companion.OP
 import com.sympauthy.api.mapper.UserInfoResourceMapper
 import com.sympauthy.api.resource.openid.UserInfoResource
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.security.SecurityRule.IS_USER
 import com.sympauthy.security.consentedScopes
 import com.sympauthy.security.userId
@@ -40,7 +40,7 @@ class OpenIdUserInfoController(
         // by a bearer token without client authentication, so the caller may be the end-user directly.
         val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByUser(
             userId = authentication.userId,
-            consentedScopes = authentication.consentedScopes.map(Scope::scope)
+            consentedScopes = authentication.consentedScopes.map(EnabledScope::scope)
         )
         return userInfoMapper.toResource(authentication.userId, claims)
     }

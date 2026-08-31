@@ -1,6 +1,6 @@
 package com.sympauthy.business.model.rule
 
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 
 /**
  * A rule granting/declining a scope requested by a user authenticating through a flow.
@@ -22,9 +22,9 @@ class ScopeGrantingRule(
      */
     val order: Int,
     /**
-     * List of [Scope] that will be granted/declined by this rule.
+     * List of [EnabledScope] that will be granted/declined by this rule.
      */
-    val scopes: List<Scope>,
+    val scopes: List<EnabledScope>,
     /**
      * List of user-defined expressions that will be evaluated to check if an authorization attempt matches this rule.
      */
@@ -44,13 +44,13 @@ class ScopeGrantingRule(
      * @see name
      */
     val generatedName: String
-        get() = "$order - ${behavior.name} ${scopes.joinToString(separator = ", ", transform = Scope::scope)}"
+        get() = "$order - ${behavior.name} ${scopes.joinToString(separator = ", ", transform = EnabledScope::scope)}"
 
     /**
      * Return the intersection of scopes that are both in the [requestedScopes] list and in the list of [scopes]
      * granted/declined by this rule.
      */
-    fun getApplicableScopes(requestedScopes: List<Scope>): List<Scope> {
+    fun getApplicableScopes(requestedScopes: List<EnabledScope>): List<EnabledScope> {
         return requestedScopes.filter { scopes.contains(it) }
     }
 }

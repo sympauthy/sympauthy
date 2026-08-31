@@ -1,6 +1,6 @@
 package com.sympauthy.config.factory
 
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.DisabledScopeGrantingRulesConfig
 import com.sympauthy.config.model.EnabledScopeGrantingRulesConfig
@@ -35,7 +35,7 @@ class ScopeGrantingRulesConfigFactory(
                 emit(DisabledScopeGrantingRulesConfig(emptyList()))
                 return@flow
             }
-            val scopesById = scopesConfig.scopes.associateBy(Scope::scope)
+            val scopesById = scopesConfig.scopes.associateBy(EnabledScope::scope)
 
             val ctx = ConfigParsingContext()
 

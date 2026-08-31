@@ -3,7 +3,7 @@ package com.sympauthy.business.manager
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.model.oauth2.AdminScope
 import com.sympauthy.business.model.oauth2.GrantableUserScope
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.config.model.*
 import io.mockk.coEvery
 import io.mockk.every
@@ -35,7 +35,7 @@ class ScopeManagerTest {
     @Test
     fun `findOrThrow - Find scope`() = runTest {
         val scope = "scope"
-        val foundScope = mockk<Scope>()
+        val foundScope = mockk<EnabledScope>()
         coEvery { scopeManager.find(scope) } returns foundScope
         val result = scopeManager.findOrThrow(scope)
         assertSame(foundScope, result)
@@ -53,7 +53,7 @@ class ScopeManagerTest {
     @Test
     fun `findForClientOrThrow - Return scope when found and client has no allowedScopes`() = runTest {
         val scope = "openid"
-        val foundScope = mockk<Scope> { every { audienceId } returns null }
+        val foundScope = mockk<EnabledScope> { every { audienceId } returns null }
         val client = mockk<com.sympauthy.business.model.client.Client> {
             every { allowedScopes } returns null
         }
@@ -69,7 +69,7 @@ class ScopeManagerTest {
     @Test
     fun `findForClientOrThrow - Return scope when found and client allows it`() = runTest {
         val scope = "openid"
-        val foundScope = mockk<Scope> { every { audienceId } returns null }
+        val foundScope = mockk<EnabledScope> { every { audienceId } returns null }
         val client = mockk<com.sympauthy.business.model.client.Client> {
             every { allowedScopes } returns setOf(foundScope)
         }
@@ -96,8 +96,8 @@ class ScopeManagerTest {
     @Test
     fun `findForClientOrThrow - Throw when scope not allowed by client`() = runTest {
         val scope = "openid"
-        val foundScope = mockk<Scope> { every { audienceId } returns null }
-        val otherScope = mockk<Scope>()
+        val foundScope = mockk<EnabledScope> { every { audienceId } returns null }
+        val otherScope = mockk<EnabledScope>()
         val client = mockk<com.sympauthy.business.model.client.Client> {
             every { allowedScopes } returns setOf(otherScope)
         }
@@ -112,7 +112,7 @@ class ScopeManagerTest {
     @Test
     fun `findForClientOrThrow - Throw when scope audience does not match client audience`() = runTest {
         val scope = "admin:users:read"
-        val foundScope = mockk<Scope> {
+        val foundScope = mockk<EnabledScope> {
             every { audienceId } returns "admin"
         }
         val client = mockk<com.sympauthy.business.model.client.Client> {
@@ -130,8 +130,8 @@ class ScopeManagerTest {
     fun `parseRequestedScopes - Parse and return scopes allowed by client`() = runTest {
         val scopeOne = "openid"
         val scopeTwo = "profile"
-        val foundScopeOne = mockk<Scope> { every { audienceId } returns null }
-        val foundScopeTwo = mockk<Scope> { every { audienceId } returns null }
+        val foundScopeOne = mockk<EnabledScope> { every { audienceId } returns null }
+        val foundScopeTwo = mockk<EnabledScope> { every { audienceId } returns null }
         val client = mockk<com.sympauthy.business.model.client.Client> {
             every { allowedScopes } returns setOf(foundScopeOne, foundScopeTwo)
         }
@@ -150,8 +150,8 @@ class ScopeManagerTest {
     fun `parseRequestedScopes - Parse scopes with whitespace`() = runTest {
         val scopeOne = "openid"
         val scopeTwo = "profile"
-        val foundScopeOne = mockk<Scope> { every { audienceId } returns null }
-        val foundScopeTwo = mockk<Scope> { every { audienceId } returns null }
+        val foundScopeOne = mockk<EnabledScope> { every { audienceId } returns null }
+        val foundScopeTwo = mockk<EnabledScope> { every { audienceId } returns null }
         val client = mockk<com.sympauthy.business.model.client.Client> {
             every { allowedScopes } returns setOf(foundScopeOne, foundScopeTwo)
         }
@@ -169,7 +169,7 @@ class ScopeManagerTest {
     @Test
     fun `parseRequestedScopes - Throw when scope audience does not match client audience`() = runTest {
         val scope = "admin:users:read"
-        val foundScope = mockk<Scope> {
+        val foundScope = mockk<EnabledScope> {
             every { audienceId } returns "admin"
         }
         val client = mockk<com.sympauthy.business.model.client.Client> {
@@ -185,7 +185,7 @@ class ScopeManagerTest {
 
     @Test
     fun `parseRequestedScopes - Return default scopes uncheckedScopes is blank`() = runTest {
-        val defaultScope = mockk<Scope>()
+        val defaultScope = mockk<EnabledScope>()
         val client = mockk<com.sympauthy.business.model.client.Client> {
             every { defaultScopes } returns listOf(defaultScope)
         }
@@ -197,7 +197,7 @@ class ScopeManagerTest {
 
     @Test
     fun `parseRequestedScopes - Return default scopes uncheckedScopes is null`() = runTest {
-        val defaultScope = mockk<Scope>()
+        val defaultScope = mockk<EnabledScope>()
         val client = mockk<com.sympauthy.business.model.client.Client> {
             every { defaultScopes } returns listOf(defaultScope)
         }
@@ -225,7 +225,7 @@ class ScopeManagerTest {
         assertEquals(AdminScope.entries.size, result.size)
     }
 
-    private fun adminScopes(audienceId: String): List<Scope> {
+    private fun adminScopes(audienceId: String): List<EnabledScope> {
         return AdminScope.entries.map {
             GrantableUserScope(scope = it.scope, discoverable = false, audienceId = audienceId)
         }

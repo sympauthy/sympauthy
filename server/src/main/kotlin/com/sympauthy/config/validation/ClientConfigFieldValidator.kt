@@ -3,7 +3,7 @@ package com.sympauthy.config.validation
 import com.sympauthy.business.model.client.AuthorizationWebhook
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.flow.AuthorizationFlow
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.parsing.ParsedAuthorizationWebhook
@@ -71,9 +71,9 @@ class ClientConfigFieldValidator {
         ctx: ConfigParsingContext,
         key: String,
         scopes: List<String>?,
-        scopesById: Map<String, Scope>,
+        scopesById: Map<String, EnabledScope>,
         audienceId: String? = null
-    ): List<Scope>? {
+    ): List<EnabledScope>? {
         if (scopes == null) return null
 
         return scopes.mapIndexedNotNull { index, scope ->
