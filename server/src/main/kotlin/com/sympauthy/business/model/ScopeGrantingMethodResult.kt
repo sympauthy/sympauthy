@@ -1,7 +1,7 @@
 package com.sympauthy.business.model
 
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.business.model.oauth2.GrantedBy
-import com.sympauthy.business.model.oauth2.Scope
 
 /**
  * Result containing all granted/declined scopes be the application of a scope granting method.
@@ -14,6 +14,6 @@ data class ScopeGrantingMethodResult(
      * null for the auto-granted partition which is not a granting method.
      */
     val source: GrantedBy? = null,
-    val grantedScopes: List<Scope> = emptyList(),
-    val declinedScopes: List<Scope> = emptyList()
+    val grantedScopes: List<EnabledScope> = emptyList(),
+    val declinedScopes: List<EnabledScope> = emptyList()
 )

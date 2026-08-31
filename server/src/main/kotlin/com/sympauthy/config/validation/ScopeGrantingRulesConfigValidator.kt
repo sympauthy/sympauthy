@@ -2,8 +2,8 @@ package com.sympauthy.config.validation
 
 import com.sympauthy.business.model.oauth2.ClientScope
 import com.sympauthy.business.model.oauth2.ConsentableUserScope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.business.model.oauth2.GrantableUserScope
-import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.rule.ScopeGrantingRule
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
@@ -18,7 +18,7 @@ class ScopeGrantingRulesConfigValidator {
     suspend fun validateUserRules(
         ctx: ConfigParsingContext,
         parsed: List<ParsedScopeGrantingRule>,
-        scopesById: Map<String, Scope>
+        scopesById: Map<String, EnabledScope>
     ): List<ScopeGrantingRule> {
         return parsed.mapNotNull { rule ->
             validateRule(
@@ -34,7 +34,7 @@ class ScopeGrantingRulesConfigValidator {
     suspend fun validateClientRules(
         ctx: ConfigParsingContext,
         parsed: List<ParsedScopeGrantingRule>,
-        scopesById: Map<String, Scope>
+        scopesById: Map<String, EnabledScope>
     ): List<ScopeGrantingRule> {
         return parsed.mapNotNull { rule ->
             validateRule(
@@ -50,8 +50,8 @@ class ScopeGrantingRulesConfigValidator {
     private suspend fun validateRule(
         ctx: ConfigParsingContext,
         parsed: ParsedScopeGrantingRule,
-        scopesById: Map<String, Scope>,
-        scopeValidator: (Scope, String, Int, ConfigParsingContext) -> Unit,
+        scopesById: Map<String, EnabledScope>,
+        scopeValidator: (EnabledScope, String, Int, ConfigParsingContext) -> Unit,
         expressionValidator: (String) -> Unit
     ): ScopeGrantingRule? {
         val subCtx = ctx.child()
@@ -100,7 +100,7 @@ class ScopeGrantingRulesConfigValidator {
         )
     }
 
-    private fun validateUserRuleScope(scope: Scope, key: String, index: Int, ctx: ConfigParsingContext) {
+    private fun validateUserRuleScope(scope: EnabledScope, key: String, index: Int, ctx: ConfigParsingContext) {
         when (scope) {
             is ConsentableUserScope -> ctx.addError(
                 configExceptionOf("$key[$index]", "config.rule.scope.consentable_not_allowed", "scope" to scope.scope)
@@ -114,7 +114,7 @@ class ScopeGrantingRulesConfigValidator {
         }
     }
 
-    private fun validateClientRuleScope(scope: Scope, key: String, index: Int, ctx: ConfigParsingContext) {
+    private fun validateClientRuleScope(scope: EnabledScope, key: String, index: Int, ctx: ConfigParsingContext) {
         if (scope !is ClientScope) {
             ctx.addError(
                 configExceptionOf("$key[$index]", "config.rule.scope.user_scope_not_allowed", "scope" to scope.scope)

@@ -1,7 +1,7 @@
 package com.sympauthy.config.validation
 
 import com.sympauthy.business.model.flow.AuthorizationFlow
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.ClientTemplate
 import com.sympauthy.config.parsing.ParsedClientTemplate
@@ -17,7 +17,7 @@ class ClientTemplatesConfigValidator(
     fun validate(
         ctx: ConfigParsingContext,
         parsed: List<ParsedClientTemplate>,
-        scopesById: Map<String, Scope>,
+        scopesById: Map<String, EnabledScope>,
         flowsById: Map<String, AuthorizationFlow>
     ): Map<String, ClientTemplate> {
         val templates = parsed.mapNotNull { template ->
@@ -29,7 +29,7 @@ class ClientTemplatesConfigValidator(
     private fun validateTemplate(
         ctx: ConfigParsingContext,
         parsed: ParsedClientTemplate,
-        scopesById: Map<String, Scope>,
+        scopesById: Map<String, EnabledScope>,
         flowsById: Map<String, AuthorizationFlow>
     ): ClientTemplate? {
         val configKeyPrefix = "$TEMPLATES_CLIENTS_KEY.${parsed.id}"

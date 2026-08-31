@@ -2,7 +2,7 @@ package com.sympauthy.security
 
 import com.sympauthy.api.exception.httpExceptionOf
 import com.sympauthy.business.model.oauth2.AuthenticationToken
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.business.model.oauth2.isAdmin
 import com.sympauthy.security.SecurityRule.IS_ADMIN
 import com.sympauthy.security.SecurityRule.IS_USER
@@ -21,11 +21,11 @@ class UserAuthentication(
     /**
      * Scopes obtained through user consent (e.g., profile, email).
      */
-    val consentedScopes: List<Scope>,
+    val consentedScopes: List<EnabledScope>,
     /**
      * Scopes granted through granting rules or auto-granted (e.g., openid, admin scopes).
      */
-    val grantedScopes: List<Scope>
+    val grantedScopes: List<EnabledScope>
 ) : Authentication {
 
     override fun getName(): String = authenticationToken.userId?.toString()
@@ -54,10 +54,10 @@ val Authentication.userAuthentication: UserAuthentication
         else -> throw httpExceptionOf(FORBIDDEN, "authentication.wrong")
     }
 
-val Authentication.consentedScopes: List<Scope>
+val Authentication.consentedScopes: List<EnabledScope>
     get() = this.userAuthentication.consentedScopes
 
-val Authentication.grantedScopes: List<Scope>
+val Authentication.grantedScopes: List<EnabledScope>
     get() = this.userAuthentication.grantedScopes
 
 val Authentication.userId: UUID

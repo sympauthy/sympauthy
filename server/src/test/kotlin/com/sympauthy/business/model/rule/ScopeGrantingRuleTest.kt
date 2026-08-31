@@ -1,6 +1,6 @@
 package com.sympauthy.business.model.rule
 
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.business.model.rule.ScopeGrantingRuleBehavior.GRANT
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
@@ -14,7 +14,7 @@ import kotlin.test.assertEquals
 class ScopeGrantingRuleTest {
 
     @MockK
-    lateinit var scope: Scope
+    lateinit var scope: EnabledScope
 
     @Test
     fun generatedName() {
@@ -32,9 +32,9 @@ class ScopeGrantingRuleTest {
 
     @Test
     fun `getApplicableScopes - Return scopes present in both lists`() {
-        val scope1 = mockk<Scope>()
-        val scope2 = mockk<Scope>()
-        val scope3 = mockk<Scope>()
+        val scope1 = mockk<EnabledScope>()
+        val scope2 = mockk<EnabledScope>()
+        val scope3 = mockk<EnabledScope>()
 
         val rule = ScopeGrantingRule(
             userDefinedName = null,
@@ -51,9 +51,9 @@ class ScopeGrantingRuleTest {
 
     @Test
     fun `getApplicableScopes - Return all matching scopes`() {
-        val scope1 = mockk<Scope>()
-        val scope2 = mockk<Scope>()
-        val scope3 = mockk<Scope>()
+        val scope1 = mockk<EnabledScope>()
+        val scope2 = mockk<EnabledScope>()
+        val scope3 = mockk<EnabledScope>()
 
         val rule = ScopeGrantingRule(
             userDefinedName = null,
@@ -70,9 +70,9 @@ class ScopeGrantingRuleTest {
 
     @Test
     fun `getApplicableScopes - Return empty list when no scopes match`() {
-        val scope1 = mockk<Scope>()
-        val scope2 = mockk<Scope>()
-        val scope3 = mockk<Scope>()
+        val scope1 = mockk<EnabledScope>()
+        val scope2 = mockk<EnabledScope>()
+        val scope3 = mockk<EnabledScope>()
 
         val rule = ScopeGrantingRule(
             userDefinedName = null,
@@ -89,7 +89,7 @@ class ScopeGrantingRuleTest {
 
     @Test
     fun `getApplicableScopes - Return empty list when requested scopes is empty`() {
-        val scope1 = mockk<Scope>()
+        val scope1 = mockk<EnabledScope>()
 
         val rule = ScopeGrantingRule(
             userDefinedName = null,

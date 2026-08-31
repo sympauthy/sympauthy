@@ -1,6 +1,6 @@
 package com.sympauthy.business.manager.rule
 
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.business.model.rule.ScopeGrantingRule
 import com.sympauthy.business.model.rule.ScopeGrantingRuleBehavior.DECLINE
 import com.sympauthy.business.model.rule.ScopeGrantingRuleBehavior.GRANT
@@ -30,7 +30,7 @@ class ScopeGrantingRuleManagerTest {
 
     @Test
     fun `mergeResult - no rule applicable to requested scopes`() {
-        val unruledScope = mockk<Scope>()
+        val unruledScope = mockk<EnabledScope>()
         val result = scopeGrantingRuleManager.mergeResult(
             requestedScopes = listOf(unruledScope),
             results = emptyList()
@@ -41,7 +41,7 @@ class ScopeGrantingRuleManagerTest {
 
     @Test
     fun `mergeResult - decline win over grant at same order`() {
-        val scope = mockk<Scope>()
+        val scope = mockk<EnabledScope>()
 
         val grantRule = mockk<ScopeGrantingRule>()
         every { grantRule.order } returns 0
@@ -71,7 +71,7 @@ class ScopeGrantingRuleManagerTest {
 
     @Test
     fun `mergeResult - higer order win over lower order`() {
-        val scope = mockk<Scope>()
+        val scope = mockk<EnabledScope>()
 
         val grantRule = mockk<ScopeGrantingRule>()
         every { grantRule.order } returns 1

@@ -6,7 +6,7 @@ import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.oauth2.GrantedBy
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.business.model.rule.ScopeGrantingRule
 import com.sympauthy.business.model.rule.ScopeGrantingRuleBehavior.DECLINE
 import com.sympauthy.business.model.rule.ScopeGrantingRuleBehavior.GRANT
@@ -42,7 +42,7 @@ class ScopeGrantingRuleManager(
      */
     suspend fun applyUserScopeGrantingRules(
         @Suppress("UNUSED_PARAMETER") session: InteractiveFlowSession,
-        requestedScopes: List<Scope>,
+        requestedScopes: List<EnabledScope>,
         collectedClaims: List<CollectedClaim>,
     ): ScopeGrantingMethodResult {
         val configuration = scopeGrantingRuleExpressionExecutor.getConfiguration(collectedClaims)
@@ -68,7 +68,7 @@ class ScopeGrantingRuleManager(
      */
     suspend fun applyClientScopeGrantingRules(
         client: Client,
-        requestedScopes: List<Scope>,
+        requestedScopes: List<EnabledScope>,
     ): ScopeGrantingMethodResult {
         val configuration = scopeGrantingRuleExpressionExecutor.getClientConfiguration(client)
         val results = findApplicableScopeGrantingRulesAccordingToScopes(
@@ -95,7 +95,7 @@ class ScopeGrantingRuleManager(
      */
     internal fun findApplicableScopeGrantingRulesAccordingToScopes(
         rules: List<ScopeGrantingRule>,
-        requestedScopes: List<Scope>,
+        requestedScopes: List<EnabledScope>,
     ): List<ApplicableScopeGrantingRule> {
         return rules.mapNotNull { rule ->
             val applicableRequestedScopes = rule.getApplicableScopes(requestedScopes)
@@ -116,7 +116,7 @@ class ScopeGrantingRuleManager(
      */
     suspend fun isRuleApplicableAccordingToExpressions(
         rule: ScopeGrantingRule,
-        applicableRequestedScopes: List<Scope>,
+        applicableRequestedScopes: List<EnabledScope>,
         configuration: ExpressionConfiguration,
     ): ScopeGrantingRuleIsApplicableResult {
         val applicable = rule.expressions.all { expression ->
@@ -146,7 +146,7 @@ class ScopeGrantingRuleManager(
      *   any number of [ScopeGrantingRule] of same or lower [ScopeGrantingRule.order].
      */
     fun mergeResult(
-        requestedScopes: List<Scope>,
+        requestedScopes: List<EnabledScope>,
         results: List<ScopeGrantingRuleIsApplicableResult>
     ): ScopeGrantingMethodResult {
         val sortedApplicableResults = results
@@ -161,8 +161,8 @@ class ScopeGrantingRuleManager(
                     }
             )
 
-        val grantedScopes = mutableSetOf<Scope>()
-        val declinedScopes = mutableSetOf<Scope>()
+        val grantedScopes = mutableSetOf<EnabledScope>()
+        val declinedScopes = mutableSetOf<EnabledScope>()
 
         requestedScopes.forEach { scope ->
             val result = sortedApplicableResults.firstOrNull { it.applicableRequestedScopes.contains(scope) }
@@ -187,9 +187,9 @@ data class ApplicableScopeGrantingRule(
      */
     val rule: ScopeGrantingRule,
     /**
-     * List of [Scope] that where requested and applicable to the [rule].
+     * List of [EnabledScope] that where requested and applicable to the [rule].
      */
-    val applicableRequestedScopes: List<Scope>
+    val applicableRequestedScopes: List<EnabledScope>
 )
 
 /**
@@ -201,9 +201,9 @@ data class ScopeGrantingRuleIsApplicableResult(
      */
     val rule: ScopeGrantingRule,
     /**
-     * List of [Scope] that where requested and that the [rule] can grant or decline.
+     * List of [EnabledScope] that where requested and that the [rule] can grant or decline.
      */
-    val applicableRequestedScopes: List<Scope>,
+    val applicableRequestedScopes: List<EnabledScope>,
     /**
      * True if the [rule] applies according to the result of the evaluation of the
      * [ScopeGrantingRule.expressions].

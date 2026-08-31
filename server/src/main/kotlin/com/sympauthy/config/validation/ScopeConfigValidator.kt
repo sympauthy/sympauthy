@@ -6,8 +6,11 @@ import com.sympauthy.business.model.oauth2.BuiltInClientScope
 import com.sympauthy.business.model.oauth2.BuiltInGrantableScope
 import com.sympauthy.business.model.oauth2.ClientScope
 import com.sympauthy.business.model.oauth2.ConsentableUserScope
+import com.sympauthy.business.model.oauth2.DisabledScope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.business.model.oauth2.GrantableUserScope
 import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.ScopeType
 import com.sympauthy.business.model.oauth2.isAdminScope
 import com.sympauthy.business.model.oauth2.isBuiltInClientScope
 import com.sympauthy.business.model.oauth2.isBuiltInGrantableScope
@@ -21,25 +24,29 @@ import com.sympauthy.config.properties.ScopeTemplateConfigurationProperties.Comp
 import jakarta.inject.Singleton
 
 /**
- * Assembles the complete set of scopes the server serves.
+ * Assembles the complete set of scopes the server knows about.
  *
- * A deployment only ever adds custom scopes and turns OpenID Connect ones off; every other scope is
- * one the server defines itself and no configuration can name. Both halves are put together here so
- * that nothing downstream has to know the difference.
+ * A deployment only ever adds custom scopes and turns scopes off; every other scope is one the
+ * server defines itself and no configuration can name. Both halves are put together here so that
+ * nothing downstream has to know the difference.
+ *
+ * A scope the deployment turned off is built as a [DisabledScope] rather than left out, so that the
+ * administration API can list it. Its configuration is validated all the same: an unknown audience
+ * or an invalid type is an error whether or not the scope is on.
  */
 @Singleton
 class ScopeConfigValidator {
 
-    private val builtInGrantableScopes: List<Scope> = BuiltInGrantableScope.entries.map { builtIn ->
+    private val builtInGrantableScopes: List<EnabledScope> = BuiltInGrantableScope.entries.map { builtIn ->
         GrantableUserScope(scope = builtIn.scope, discoverable = builtIn.discoverable)
     }
 
-    private val clientScopes: List<Scope> = BuiltInClientScope.entries.map { builtIn ->
+    private val clientScopes: List<EnabledScope> = BuiltInClientScope.entries.map { builtIn ->
         ClientScope(scope = builtIn.scope)
     }
 
     /**
-     * Build every scope the server serves.
+     * Build every scope the server knows about, the ones the deployment turned off included.
      *
      * [adminAudienceId] is the audience the administration scopes are bound to, or null when the
      * deployment configured no administration API, in which case none of them are served.
@@ -52,7 +59,7 @@ class ScopeConfigValidator {
     ): List<Scope> {
         val configurable = parsed.filter { isConfigurable(ctx, it) }
 
-        val disabledOpenIdConnectScopes = configurable
+        val disabledOpenIdConnectScopeIds = configurable
             .filter { it.isOpenIdConnect }
             .mapNotNull { validateOpenIdConnectScope(ctx, it) }
             .toSet()
@@ -63,7 +70,7 @@ class ScopeConfigValidator {
         return builtInGrantableScopes +
                 adminScopes(adminAudienceId) +
                 clientScopes +
-                openIdConnectScopes(disabledOpenIdConnectScopes) +
+                openIdConnectScopes(disabledOpenIdConnectScopeIds) +
                 customScopes
     }
 
@@ -163,10 +170,10 @@ class ScopeConfigValidator {
         )
 
         val type = parsed.type?.value
-        val consentable = when (type) {
-            null, "grantable" -> false
-            "consentable" -> true
-            "client" -> {
+        val scopeType = when (type) {
+            null, ScopeType.GRANTABLE.value -> ScopeType.GRANTABLE
+            ScopeType.CONSENTABLE.value -> ScopeType.CONSENTABLE
+            ScopeType.CLIENT.value -> {
                 ctx.addError(
                     configExceptionOf(
                         "$configKeyPrefix.type",
@@ -190,10 +197,24 @@ class ScopeConfigValidator {
             }
         }
 
-        return if (consentable) {
-            ConsentableUserScope(scope = parsed.id, discoverable = true, audienceId = audienceId)
-        } else {
-            GrantableUserScope(scope = parsed.id, discoverable = true, audienceId = audienceId)
+        return when {
+            parsed.enabled == false -> DisabledScope(
+                scope = parsed.id,
+                type = scopeType,
+                audienceId = audienceId
+            )
+
+            scopeType == ScopeType.CONSENTABLE -> ConsentableUserScope(
+                scope = parsed.id,
+                discoverable = true,
+                audienceId = audienceId
+            )
+
+            else -> GrantableUserScope(
+                scope = parsed.id,
+                discoverable = true,
+                audienceId = audienceId
+            )
         }
     }
 
@@ -207,13 +228,17 @@ class ScopeConfigValidator {
         return "$TEMPLATES_SCOPES_KEY.$templateId.audience"
     }
 
-    private fun openIdConnectScopes(disabledScopes: Set<String>): List<Scope> {
-        return OpenIdConnectScope.entries
-            .filterNot { it.scope in disabledScopes }
-            .map { ConsentableUserScope(scope = it.scope, discoverable = true) }
+    private fun openIdConnectScopes(disabledScopeIds: Set<String>): List<Scope> {
+        return OpenIdConnectScope.entries.map {
+            if (it.scope in disabledScopeIds) {
+                DisabledScope(scope = it.scope, type = ScopeType.CONSENTABLE)
+            } else {
+                ConsentableUserScope(scope = it.scope, discoverable = true)
+            }
+        }
     }
 
-    private fun adminScopes(adminAudienceId: String?): List<Scope> {
+    private fun adminScopes(adminAudienceId: String?): List<EnabledScope> {
         if (adminAudienceId == null) return emptyList()
         return AdminScope.entries.map { adminScope ->
             GrantableUserScope(

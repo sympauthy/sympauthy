@@ -50,6 +50,13 @@ it is called. A scope the person agrees to is one kind; a scope a configured rul
 another; a scope a client holds in its own right is a third. The sealed type is the source of truth,
 and a new kind of scope has to answer the same question: who decides that a caller has it.
 
+**A scope the deployment turned off is a shape of its own, not an absence.** Those three kinds are
+the `EnabledScope` half of the hierarchy, and a `DisabledScope` is the other: a scope this server
+knows about and does not serve. Everything that consents, grants, resolves a request or issues a
+token takes the enabled type, so a scope that is off cannot be handed to any of them — the compiler
+refuses it, rather than each of those paths remembering to filter it out. Only the administration
+API asks for the whole set, because an operator has to be able to see what they turned off.
+
 **A grantable scope cannot be asked for, and that is the point.** Anything a client could request it
 would request; a scope that represents authority — administrating, acting as another user — is
 decided by a rule evaluated against the user and the client, never by the request. Making it a

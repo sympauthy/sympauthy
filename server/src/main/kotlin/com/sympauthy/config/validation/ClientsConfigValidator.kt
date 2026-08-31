@@ -4,7 +4,7 @@ import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.flow.AuthorizationFlow
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.parsing.ParsedClient
@@ -21,7 +21,7 @@ class ClientsConfigValidator(
         ctx: ConfigParsingContext,
         parsed: List<ParsedClient>,
         audiencesById: Map<String, Audience>,
-        scopesById: Map<String, Scope>,
+        scopesById: Map<String, EnabledScope>,
         flowsById: Map<String, AuthorizationFlow>
     ): List<Client> {
         return parsed.mapNotNull { client ->
@@ -33,7 +33,7 @@ class ClientsConfigValidator(
         ctx: ConfigParsingContext,
         parsed: ParsedClient,
         audiencesById: Map<String, Audience>,
-        scopesById: Map<String, Scope>,
+        scopesById: Map<String, EnabledScope>,
         flowsById: Map<String, AuthorizationFlow>
     ): Client? {
         val subCtx = ctx.child()

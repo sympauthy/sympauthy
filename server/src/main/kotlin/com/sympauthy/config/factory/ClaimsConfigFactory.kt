@@ -1,6 +1,6 @@
 package com.sympauthy.config.factory
 
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.*
 import com.sympauthy.config.parsing.ClaimsConfigParser
@@ -37,7 +37,7 @@ class ClaimsConfigFactory(
         val claims = claimsValidator.validate(
             ctx, parsed, enabledTemplatesConfig.templates,
             enabledAudiencesConfig.audiences.associateBy { it.id },
-            enabledScopesConfig.scopes.associateBy(Scope::scope),
+            enabledScopesConfig.enabledScopes.associateBy(EnabledScope::scope),
             authProperties.identifierClaims,
             authProperties.userMergingEnabled
         )
