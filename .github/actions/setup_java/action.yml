@@ -35,7 +35,7 @@ runs:
 
     - name: Setup ${{ inputs.distribution }} JDK ${{ steps.extract.outputs.version }}
       if: inputs.distribution != 'graalvm'
-      uses: actions/setup-java@v5
+      uses: actions/setup-java@v6
       with:
         java-version: ${{ steps.extract.outputs.version }}
         distribution: ${{ inputs.distribution }}
