@@ -45,10 +45,17 @@ once that session ends.
 
 ## Scopes
 
-`Scope` is a sealed hierarchy, and **the split is about where a scope comes from** rather than what
-it is called. A scope the person agrees to is one kind; a scope a configured rule decides is
-another; a scope a client holds in its own right is a third. The sealed type is the source of truth,
-and a new kind of scope has to answer the same question: who decides that a caller has it.
+**A scope has two shapes, and only one of them can reach a token.** `Scope` is every scope this
+server knows about; `EnabledScope` is the half it serves, and it is what every signature that
+resolves, grants, consents to or issues a scope is written in terms of. A scope a deployment turned
+off is a `DisabledScope`: the administration API describes it, nothing else can act on it, and what
+holds that line is the type rather than each call site remembering to test a flag.
+
+`EnabledScope` is itself a sealed hierarchy, and **the split is about where a scope comes from**
+rather than what it is called. A scope the person agrees to is one kind; a scope a configured rule
+decides is another; a scope a client holds in its own right is a third. The sealed type is the
+source of truth, and a new kind of scope has to answer the same question: who decides that a caller
+has it.
 
 **A grantable scope cannot be asked for, and that is the point.** Anything a client could request it
 would request; a scope that represents authority — administrating, acting as another user — is

@@ -47,7 +47,7 @@ class ClientTemplatesConfigFactory(
             val parsed = clientTemplatesParser.parse(ctx, templatesList, rootUri)
             val templates = clientTemplatesValidator.validate(
                 ctx, parsed,
-                scopesConfig.scopes.associateBy(EnabledScope::scope),
+                scopesConfig.enabledScopes.associateBy(EnabledScope::scope),
                 flowsConfig.flows.associateBy(AuthorizationFlow::id)
             )
             val config = if (ctx.hasErrors) DisabledClientTemplatesConfig(ctx.errors)

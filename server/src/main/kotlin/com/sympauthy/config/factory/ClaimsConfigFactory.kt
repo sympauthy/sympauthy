@@ -37,7 +37,7 @@ class ClaimsConfigFactory(
         val claims = claimsValidator.validate(
             ctx, parsed, enabledTemplatesConfig.templates,
             enabledAudiencesConfig.audiences.associateBy { it.id },
-            enabledScopesConfig.scopes.associateBy(EnabledScope::scope),
+            enabledScopesConfig.enabledScopes.associateBy(EnabledScope::scope),
             authProperties.identifierClaims,
             authProperties.userMergingEnabled
         )

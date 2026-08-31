@@ -6,8 +6,11 @@ import com.sympauthy.business.model.oauth2.BuiltInClientScope
 import com.sympauthy.business.model.oauth2.BuiltInGrantableScope
 import com.sympauthy.business.model.oauth2.ClientScope
 import com.sympauthy.business.model.oauth2.ConsentableUserScope
-import com.sympauthy.business.model.oauth2.GrantableUserScope
+import com.sympauthy.business.model.oauth2.DisabledScope
 import com.sympauthy.business.model.oauth2.EnabledScope
+import com.sympauthy.business.model.oauth2.GrantableUserScope
+import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.ScopeType
 import com.sympauthy.business.model.oauth2.isAdminScope
 import com.sympauthy.business.model.oauth2.isBuiltInClientScope
 import com.sympauthy.business.model.oauth2.isBuiltInGrantableScope
@@ -21,11 +24,15 @@ import com.sympauthy.config.properties.ScopeTemplateConfigurationProperties.Comp
 import jakarta.inject.Singleton
 
 /**
- * Assembles the complete set of scopes the server serves.
+ * Assembles the complete set of scopes the server knows about.
  *
- * A deployment only ever adds custom scopes and turns OpenID Connect ones off; every other scope is
- * one the server defines itself and no configuration can name. Both halves are put together here so
- * that nothing downstream has to know the difference.
+ * A deployment only ever adds custom scopes and turns scopes off; every other scope is one the
+ * server defines itself and no configuration can name. Both halves are put together here so that
+ * nothing downstream has to know the difference.
+ *
+ * A scope the deployment turned off is built as a [DisabledScope] rather than left out, so that an
+ * administrator can be shown what this server would serve. Nothing else reads it: what the rest of
+ * the application is given is the enabled half of this list.
  */
 @Singleton
 class ScopeConfigValidator {
@@ -39,7 +46,7 @@ class ScopeConfigValidator {
     }
 
     /**
-     * Build every scope the server serves.
+     * Build every scope the server knows about, including the ones the deployment turned off.
      *
      * [adminAudienceId] is the audience the administration scopes are bound to, or null when the
      * deployment configured no administration API, in which case none of them are served.
@@ -49,7 +56,7 @@ class ScopeConfigValidator {
         parsed: List<ParsedScopeConfig>,
         audiencesById: Map<String, Audience>,
         adminAudienceId: String?
-    ): List<EnabledScope> {
+    ): List<Scope> {
         val configurable = parsed.filter { isConfigurable(ctx, it) }
 
         val disabledOpenIdConnectScopes = configurable
@@ -150,22 +157,48 @@ class ScopeConfigValidator {
         ctx.addError(error)
     }
 
+    /**
+     * A scope the deployment defined, disabled when it turned it off.
+     *
+     * What the entry says is validated either way: a scope that is off is one an operator means to
+     * turn back on, so an audience that does not exist or a type nothing can be built from is
+     * reported now rather than on the day it is needed.
+     */
     private fun validateCustomScope(
         ctx: ConfigParsingContext,
         parsed: ParsedScopeConfig,
         audiencesById: Map<String, Audience>
-    ): EnabledScope? {
-        val configKeyPrefix = "$SCOPES_KEY.${parsed.id}"
-
+    ): Scope? {
         val audienceId = validateAudienceId(
             ctx, parsed.audience?.value, audiencesById,
             audienceKey(parsed), "config.scope.audience.not_found"
         )
 
-        val type = parsed.type?.value
-        val consentable = when (type) {
-            null, "grantable" -> false
-            "consentable" -> true
+        val type = validateCustomType(ctx, parsed) ?: return null
+
+        if (parsed.enabled == false) {
+            return DisabledScope(scope = parsed.id, type = type, audienceId = audienceId)
+        }
+        return if (type == ScopeType.CONSENTABLE) {
+            ConsentableUserScope(scope = parsed.id, discoverable = true, audienceId = audienceId)
+        } else {
+            GrantableUserScope(scope = parsed.id, discoverable = true, audienceId = audienceId)
+        }
+    }
+
+    /**
+     * The [ScopeType] of a scope the deployment defined, or null when the entry names one a custom
+     * scope cannot have. A scope with no type of its own is grantable.
+     */
+    private fun validateCustomType(
+        ctx: ConfigParsingContext,
+        parsed: ParsedScopeConfig
+    ): ScopeType? {
+        val configKeyPrefix = "$SCOPES_KEY.${parsed.id}"
+
+        return when (val type = parsed.type?.value) {
+            null, "grantable" -> ScopeType.GRANTABLE
+            "consentable" -> ScopeType.CONSENTABLE
             "client" -> {
                 ctx.addError(
                     configExceptionOf(
@@ -174,7 +207,7 @@ class ScopeConfigValidator {
                         "scope" to parsed.id
                     )
                 )
-                return null
+                null
             }
 
             else -> {
@@ -186,14 +219,8 @@ class ScopeConfigValidator {
                         "type" to type
                     )
                 )
-                return null
+                null
             }
-        }
-
-        return if (consentable) {
-            ConsentableUserScope(scope = parsed.id, discoverable = true, audienceId = audienceId)
-        } else {
-            GrantableUserScope(scope = parsed.id, discoverable = true, audienceId = audienceId)
         }
     }
 
@@ -207,10 +234,14 @@ class ScopeConfigValidator {
         return "$TEMPLATES_SCOPES_KEY.$templateId.audience"
     }
 
-    private fun openIdConnectScopes(disabledScopes: Set<String>): List<EnabledScope> {
-        return OpenIdConnectScope.entries
-            .filterNot { it.scope in disabledScopes }
-            .map { ConsentableUserScope(scope = it.scope, discoverable = true) }
+    private fun openIdConnectScopes(disabledScopes: Set<String>): List<Scope> {
+        return OpenIdConnectScope.entries.map {
+            if (it.scope in disabledScopes) {
+                DisabledScope(scope = it.scope, type = ScopeType.CONSENTABLE)
+            } else {
+                ConsentableUserScope(scope = it.scope, discoverable = true)
+            }
+        }
     }
 
     private fun adminScopes(adminAudienceId: String?): List<EnabledScope> {

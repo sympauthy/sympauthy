@@ -27,9 +27,10 @@ class AdminScopeController(
 ) {
 
     @Operation(
-        description = "Retrieve all configured scopes (consentable, grantable, client). Since scopes are " +
-                "defined in configuration, this endpoint exposes them as read-only resources. Scopes are " +
-                "ordered by scope.",
+        description = "Retrieve all configured scopes (consentable, grantable, client), including the ones " +
+                "this deployment turned off, which carry enabled=false and are served to no one. Since " +
+                "scopes are defined in configuration, this endpoint exposes them as read-only resources. " +
+                "Scopes are ordered by scope.",
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of scopes."),
@@ -49,12 +50,15 @@ class AdminScopeController(
                     "with, and may not exceed its configured maximum."
         ) size: Int?,
         @QueryValue @Parameter(description = "Filter by scope type.") type: String?,
-        @QueryValue @Parameter(description = "Filter by enabled status.") enabled: Boolean?
+        @QueryValue @Parameter(
+            description = "Filter by enabled status: true for the scopes this server serves, false for " +
+                    "the ones the deployment turned off."
+        ) enabled: Boolean?
     ): AdminScopeListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
-        val scopes = scopeManager.listScopes()
+        val scopes = scopeManager.listAllScopes()
             .let { list -> filterByType(list, type) }
-            .let { list -> if (enabled != null) list.filter { enabled } else list }
+            .let { list -> if (enabled != null) list.filter { it.isEnabled == enabled } else list }
         val paged = scopes
             .orderedPage(pageParams, compareBy { it.scope })
             .map { scope ->
@@ -69,13 +73,8 @@ class AdminScopeController(
         )
     }
 
-    private fun filterByType(scopes: List<EnabledScope>, type: String?): List<EnabledScope> {
-        return when (type?.lowercase()) {
-            "consentable" -> scopes.filterIsInstance<ConsentableUserScope>()
-            "grantable" -> scopes.filterIsInstance<GrantableUserScope>()
-            "client" -> scopes.filterIsInstance<ClientScope>()
-            null -> scopes
-            else -> emptyList()
-        }
+    private fun filterByType(scopes: List<Scope>, type: String?): List<Scope> {
+        val requestedType = type?.lowercase() ?: return scopes
+        return scopes.filter { it.type.value == requestedType }
     }
 }

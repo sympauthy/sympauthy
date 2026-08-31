@@ -8,19 +8,13 @@ import jakarta.inject.Singleton
 @Singleton
 class AdminScopeResourceMapper {
 
-    fun toResource(scope: EnabledScope, claims: List<Claim>): AdminScopeResource {
+    fun toResource(scope: Scope, claims: List<Claim>): AdminScopeResource {
         return AdminScopeResource(
             id = scope.scope,
-            type = toTypeString(scope),
+            type = scope.type.value,
             origin = scope.origin.value,
-            enabled = true,
-            claims = if (scope is ConsentableUserScope) claims.map { it.id } else null
+            enabled = scope.isEnabled,
+            claims = if (scope.type == ScopeType.CONSENTABLE) claims.map { it.id } else null
         )
-    }
-
-    private fun toTypeString(scope: EnabledScope): String = when (scope) {
-        is ConsentableUserScope -> "consentable"
-        is GrantableUserScope -> "grantable"
-        is ClientScope -> "client"
     }
 }

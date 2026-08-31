@@ -116,7 +116,7 @@ class ApplicationReadinessStatusPrinter(
         logger.info("- ${pluralize(clientsCount, "client")}.")
 
         val scopes = try {
-            scopeManager.listScopes()
+            scopeManager.listEnabledScopes()
         } catch (_: Throwable) {
             emptyList()
         }

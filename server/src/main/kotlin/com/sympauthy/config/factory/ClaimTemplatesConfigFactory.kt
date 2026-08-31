@@ -31,7 +31,7 @@ class ClaimTemplatesConfigFactory(
         val ctx = ConfigParsingContext()
         val parsed = claimTemplatesParser.parse(ctx, templatesList)
         val templates = claimTemplatesValidator.validate(
-            ctx, parsed, enabledScopesConfig.scopes.associateBy(EnabledScope::scope)
+            ctx, parsed, enabledScopesConfig.enabledScopes.associateBy(EnabledScope::scope)
         )
         return if (ctx.hasErrors) DisabledClaimTemplatesConfig(ctx.errors)
         else EnabledClaimTemplatesConfig(templates)

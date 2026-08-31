@@ -48,7 +48,7 @@ class ClientsConfigFactory(
             val clients = clientsValidator.validate(
                 ctx, parsed,
                 audiencesConfig.audiences.associateBy { it.id },
-                scopesConfig.scopes.associateBy(EnabledScope::scope),
+                scopesConfig.enabledScopes.associateBy(EnabledScope::scope),
                 flowsConfig.flows.associateBy(AuthorizationFlow::id)
             )
             val config = if (ctx.hasErrors) DisabledClientsConfig(ctx.errors)

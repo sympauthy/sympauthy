@@ -35,7 +35,7 @@ class ScopeGrantingRulesConfigFactory(
                 emit(DisabledScopeGrantingRulesConfig(emptyList()))
                 return@flow
             }
-            val scopesById = scopesConfig.scopes.associateBy(EnabledScope::scope)
+            val scopesById = scopesConfig.enabledScopes.associateBy(EnabledScope::scope)
 
             val ctx = ConfigParsingContext()
 

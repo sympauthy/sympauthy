@@ -2,8 +2,11 @@ package com.sympauthy.business.manager
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.model.oauth2.AdminScope
-import com.sympauthy.business.model.oauth2.GrantableUserScope
+import com.sympauthy.business.model.oauth2.ConsentableUserScope
+import com.sympauthy.business.model.oauth2.DisabledScope
 import com.sympauthy.business.model.oauth2.EnabledScope
+import com.sympauthy.business.model.oauth2.GrantableUserScope
+import com.sympauthy.business.model.oauth2.ScopeType
 import com.sympauthy.config.model.*
 import io.mockk.coEvery
 import io.mockk.every
@@ -30,6 +33,9 @@ class ScopeManagerTest {
     @SpyK
     @InjectMockKs
     lateinit var scopeManager: ScopeManager
+
+    private val email = ConsentableUserScope("email")
+    private val disabledPhone = DisabledScope("phone", type = ScopeType.CONSENTABLE)
 
 
     @Test
@@ -208,19 +214,51 @@ class ScopeManagerTest {
     }
 
     @Test
-    fun `listScopesForAudience - Excludes admin scopes from non-admin audience`() = runTest {
-        coEvery { scopeManager.listScopes() } returns adminScopes(audienceId = "admin")
+    fun `listEnabledScopes - Return only the scopes the deployment did not turn off`() = runTest {
+        every { scopesConfig.enabledScopes } returns listOf(email)
 
-        val result = scopeManager.listScopesForAudience("default")
+        val result = scopeManager.listEnabledScopes()
+
+        assertEquals(listOf(email), result)
+    }
+
+    @Test
+    fun `listAllScopes - Return the scopes the deployment turned off as well`() = runTest {
+        every { scopesConfig.scopes } returns listOf(email, disabledPhone)
+
+        val result = scopeManager.listAllScopes()
+
+        assertEquals(listOf(email, disabledPhone), result)
+    }
+
+    @Test
+    fun `find - Return null for a scope the deployment turned off`() = runTest {
+        every { scopesConfig.enabledScopes } returns listOf(email)
+
+        assertNull(scopeManager.find(disabledPhone.scope))
+    }
+
+    @Test
+    fun `listClaimsProtectedByScope - Return no claim for a scope the deployment turned off`() {
+        val result = scopeManager.listClaimsProtectedByScope(disabledPhone)
 
         assertTrue(result.isEmpty())
     }
 
     @Test
-    fun `listScopesForAudience - Includes admin scopes for admin audience`() = runTest {
-        coEvery { scopeManager.listScopes() } returns adminScopes(audienceId = "admin")
+    fun `listEnabledScopesForAudience - Excludes admin scopes from non-admin audience`() = runTest {
+        coEvery { scopeManager.listEnabledScopes() } returns adminScopes(audienceId = "admin")
 
-        val result = scopeManager.listScopesForAudience("admin")
+        val result = scopeManager.listEnabledScopesForAudience("default")
+
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun `listEnabledScopesForAudience - Includes admin scopes for admin audience`() = runTest {
+        coEvery { scopeManager.listEnabledScopes() } returns adminScopes(audienceId = "admin")
+
+        val result = scopeManager.listEnabledScopesForAudience("admin")
 
         assertEquals(AdminScope.entries.size, result.size)
     }

@@ -6,8 +6,11 @@ import com.sympauthy.business.model.oauth2.BuiltInClientScope
 import com.sympauthy.business.model.oauth2.BuiltInGrantableScope
 import com.sympauthy.business.model.oauth2.ClientScope
 import com.sympauthy.business.model.oauth2.ConsentableUserScope
-import com.sympauthy.business.model.oauth2.GrantableUserScope
+import com.sympauthy.business.model.oauth2.DisabledScope
 import com.sympauthy.business.model.oauth2.EnabledScope
+import com.sympauthy.business.model.oauth2.GrantableUserScope
+import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.ScopeType
 import com.sympauthy.business.model.user.OpenIdConnectScope
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
@@ -64,8 +67,12 @@ class ScopeConfigFactoryTest {
         }
     }
 
-    private fun ScopesConfig.scopeNamed(id: String): EnabledScope? {
+    private fun ScopesConfig.scopeNamed(id: String): Scope? {
         return (this as EnabledScopesConfig).scopes.firstOrNull { it.scope == id }
+    }
+
+    private fun ScopesConfig.enabledScopeNamed(id: String): EnabledScope? {
+        return (this as EnabledScopesConfig).enabledScopes.firstOrNull { it.scope == id }
     }
 
     private fun ScopesConfig.onlyError(): ConfigurationException {
@@ -95,7 +102,18 @@ class ScopeConfigFactoryTest {
         val result = factory.provideScopes(listOf(scopeProperties(id = "profile", template = "my-template")))
 
         assertInstanceOf(EnabledScopesConfig::class.java, result)
-        assertNull(result.scopeNamed("profile"))
+        assertInstanceOf(DisabledScope::class.java, result.scopeNamed("profile"))
+        assertNull(result.enabledScopeNamed("profile"))
+    }
+
+    @Test
+    fun `provideScopes - Take an OpenID Connect scope off from its own entry`() {
+        val result = factory.provideScopes(listOf(scopeProperties(id = "profile", enabled = "false")))
+
+        assertInstanceOf(EnabledScopesConfig::class.java, result)
+        val scope = assertInstanceOf(DisabledScope::class.java, result.scopeNamed("profile"))
+        assertEquals(ScopeType.CONSENTABLE, scope.type)
+        assertNull(result.enabledScopeNamed("profile"))
     }
 
     @Test
@@ -191,9 +209,8 @@ class ScopeConfigFactoryTest {
         val result = factory.provideScopes(emptyList())
 
         BuiltInGrantableScope.entries.forEach {
-            val scope = result.scopeNamed(it.scope)
-            assertInstanceOf(GrantableUserScope::class.java, scope)
-            assertEquals(it.discoverable, scope!!.discoverable)
+            val scope = assertInstanceOf(GrantableUserScope::class.java, result.scopeNamed(it.scope))
+            assertEquals(it.discoverable, scope.discoverable)
         }
         BuiltInClientScope.entries.forEach {
             assertInstanceOf(ClientScope::class.java, result.scopeNamed(it.scope))
@@ -209,9 +226,8 @@ class ScopeConfigFactoryTest {
         val result = factory.provideScopes(emptyList())
 
         AdminScope.entries.forEach { adminScope ->
-            val scope = result.scopeNamed(adminScope.scope)
-            assertInstanceOf(GrantableUserScope::class.java, scope)
-            assertFalse(scope!!.discoverable)
+            val scope = assertInstanceOf(GrantableUserScope::class.java, result.scopeNamed(adminScope.scope))
+            assertFalse(scope.discoverable)
             assertEquals("admin", scope.audienceId)
         }
     }
@@ -342,6 +358,51 @@ class ScopeConfigFactoryTest {
             ),
             result.errorsByKey()
         )
+    }
+
+    // --- Custom scopes the deployment turned off ---
+
+    @Test
+    fun `provideScopes - Take a custom scope off without forgetting what it is`() {
+        val factory = factoryWith(audiences = listOf("partners"))
+
+        val result = factory.provideScopes(
+            listOf(
+                scopeProperties(
+                    id = "my-scope", type = "consentable", audience = "partners", enabled = "false"
+                )
+            )
+        )
+
+        assertInstanceOf(EnabledScopesConfig::class.java, result)
+        val scope = assertInstanceOf(DisabledScope::class.java, result.scopeNamed("my-scope"))
+        assertEquals(ScopeType.CONSENTABLE, scope.type)
+        assertEquals("partners", scope.audienceId)
+        assertNull(result.enabledScopeNamed("my-scope"))
+    }
+
+    @Test
+    fun `provideScopes - Take a custom scope off from the template it names`() {
+        val factory = factoryWith(
+            templates = listOf(ScopeTemplate(id = "my-template", enabled = false, type = null, audienceId = null))
+        )
+
+        val result = factory.provideScopes(listOf(scopeProperties(id = "my-scope", template = "my-template")))
+
+        assertInstanceOf(EnabledScopesConfig::class.java, result)
+        val scope = assertInstanceOf(DisabledScope::class.java, result.scopeNamed("my-scope"))
+        assertEquals(ScopeType.GRANTABLE, scope.type)
+    }
+
+    @Test
+    fun `provideScopes - Report what is wrong with a custom scope that is off`() {
+        val result = factory.provideScopes(
+            listOf(scopeProperties(id = "my-scope", audience = "nonexistent", enabled = "false"))
+        )
+
+        val error = result.onlyError()
+        assertEquals("scopes.my-scope.audience", error.key)
+        assertEquals("config.scope.audience.not_found", error.messageId)
     }
 
     // --- Template validation errors ---

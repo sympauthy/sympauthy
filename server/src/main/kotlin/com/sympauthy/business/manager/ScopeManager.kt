@@ -19,7 +19,18 @@ class ScopeManager(
     /**
      * List of every [EnabledScope] this authorization server serves.
      */
-    suspend fun listScopes(): List<EnabledScope> {
+    suspend fun listEnabledScopes(): List<EnabledScope> {
+        return uncheckedScopesConfig.orThrow().enabledScopes
+    }
+
+    /**
+     * List of every [Scope] this authorization server knows about, including the ones the
+     * deployment turned off.
+     *
+     * A caller doing anything with a scope other than describing it wants [listEnabledScopes]:
+     * what this returns cannot be granted, consented to or put in a token.
+     */
+    suspend fun listAllScopes(): List<Scope> {
         return uncheckedScopesConfig.orThrow().scopes
     }
 
@@ -27,8 +38,8 @@ class ScopeManager(
      * List all [EnabledScope] visible for the given [audienceId].
      * A scope is visible if it has no audience restriction or is restricted to this audience.
      */
-    suspend fun listScopesForAudience(audienceId: String): List<EnabledScope> {
-        return listScopes().filter { it.audienceId == null || it.audienceId == audienceId }
+    suspend fun listEnabledScopesForAudience(audienceId: String): List<EnabledScope> {
+        return listEnabledScopes().filter { it.audienceId == null || it.audienceId == audienceId }
     }
 
     /**
@@ -37,7 +48,7 @@ class ScopeManager(
      * - [scope] is a custom scope and has been properly defined in the configuration.
      */
     suspend fun find(scope: String): EnabledScope? {
-        return listScopes().firstOrNull { it.scope == scope }
+        return listEnabledScopes().firstOrNull { it.scope == scope }
     }
 
     /**
@@ -87,9 +98,10 @@ class ScopeManager(
      * Return the list of [Claim] that are protected by the given [scope].
      * A claim is protected by a scope if the scope must be requested to read the claim.
      *
-     * Only consentable scopes protect claims. Returns an empty list for grantable and client scopes.
+     * Only consentable scopes protect claims. Returns an empty list for grantable and client
+     * scopes, and for a scope the deployment turned off, which no claim may name.
      */
-    fun listClaimsProtectedByScope(scope: EnabledScope): List<Claim> {
+    fun listClaimsProtectedByScope(scope: Scope): List<Claim> {
         if (scope !is ConsentableUserScope) return emptyList()
         return claimManager.listAllClaims()
             .filter { it.belongsToScope(scope.scope) }
