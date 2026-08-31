@@ -23,11 +23,6 @@ else. Nothing fails when that happens — not a test, not the build, not the com
 left is a standard arguing for itself with something that is no longer there, and a reader with no
 way to tell which half went stale.
 
-This is not hypothetical here. The configuration guide these documents replace walked a reader
-through five classes of a mail configuration domain that has never existed in this server, and
-spelled a nested provider class in a way the naming rule three paragraphs above it forbids. Both had
-been wrong for a year. Neither could fail.
-
 The shape does not rot, because it is the rule written twice.
 
 **Pointing is not illustrating.** A document may say where a rule is implemented — the security
@@ -84,6 +79,29 @@ excused from it. And the explanation ends up where the person who needs it is no
 and in the IDE hover, a reader sees the class, never the paragraph in `docs/` that pardons it. A
 carve-out earns its place in a standard only when it is a rule in its own right — something a second
 case would also fall under — rather than a pass written for one class.
+
+## A document says what is true now
+
+**A document describes the design as it stands, not the one it replaced.** Not what a subsystem used
+to do, not the convention a standard here was derived from, not the release in which a rule changed.
+A reader is here to find out what to build today, and every sentence about a design that is gone is
+one they have to recognise as gone before they can use the rest.
+
+**A document is edited in place, and the sentence that stopped being true goes.** A reversed
+decision is rewritten, not annotated and not left standing under a note saying it no longer applies.
+One answer per question is the property being defended: a document holding two is worse than one
+holding a stale answer, because a reader who finds only the stale one at least knows to check it.
+
+**A rule explained by what it replaced is explained with something the reader cannot see.** The
+design being contrasted against is not in the tree, not in the configuration and not in these
+documents, so the contrast carries nothing a reader can check and nothing they can apply. State what
+the rule protects now — and if the thing it replaced is the only argument for it, what has been
+found is a commit message.
+
+**The history is kept where it stays accurate.** Git holds every version of a document beside the
+change that caused it, and the tracker holds the discussion that settled it, with its dates and the
+people who had it. A retelling here is an undated second copy of both, and it is the copy a reader
+finds first.
 
 ## Shape of a document
 

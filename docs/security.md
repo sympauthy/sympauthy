@@ -1,9 +1,9 @@
 # Security
 
 How a credential becomes an authentication, what a scope is allowed to mean, and what each of
-[the five surfaces](architecture.md#surfaces) is actually protected by. The rules
-for writing a secured controller are [the `api` layer standard](api-layer-code-standard.md); this
-document is what those annotations are annotating.
+[the surfaces](architecture.md#surfaces) is actually protected by. The rules for writing a secured
+controller are [the `api` layer standard](api-layer-code-standard.md); this document is what those
+annotations are annotating.
 
 ## A credential becomes an authentication
 

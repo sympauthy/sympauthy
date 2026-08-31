@@ -10,9 +10,8 @@ someone about to break it. A choice is something that was decided once, could de
 the other way, and does not generalise: it is only ever read by someone asking "why is it like
 this?"
 
-Each entry names the decision, the options that lost, and why. An entry may be reopened; it is
-edited in place when it is, so the document says what is true now rather than accumulating a
-history.
+Each entry names the decision, the options that lost, and why. An entry may be reopened, and is
+[edited in place](docs-standard.md#a-document-says-what-is-true-now) when it is.
 
 ---
 

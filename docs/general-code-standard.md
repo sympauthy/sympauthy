@@ -15,7 +15,7 @@ with its own components is a standard per layer:
 | [Testing](testing-standard.md) | what is tested where, and how a test is named |
 
 They are separate files because they are read separately: a change touches one layer at a time, and
-a standard nobody can open without loading the other six is one that gets skimmed.
+a standard nobody can open without loading all the others is one that gets skimmed.
 
 ## What a feature is made of
 
