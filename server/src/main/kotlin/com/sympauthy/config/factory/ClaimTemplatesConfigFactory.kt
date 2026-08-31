@@ -1,6 +1,6 @@
 package com.sympauthy.config.factory
 
-import com.sympauthy.business.model.oauth2.EnabledScope
+import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.ClaimTemplatesConfig
 import com.sympauthy.config.model.DisabledClaimTemplatesConfig
@@ -32,7 +32,7 @@ class ClaimTemplatesConfigFactory(
         val parsed = claimTemplatesParser.parse(ctx, templatesList)
         val templates = claimTemplatesValidator.validate(
             ctx, parsed,
-            enabledScopesConfig.enabledScopes.associateBy(EnabledScope::scope)
+            enabledScopesConfig.scopes.associateBy(Scope::scope)
         )
         return if (ctx.hasErrors) DisabledClaimTemplatesConfig(ctx.errors)
         else EnabledClaimTemplatesConfig(templates)

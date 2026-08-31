@@ -99,18 +99,21 @@ class DisabledScope(
 
 /**
  * True if this scope is an admin scope granting access to administration APIs.
+ *
+ * Asked of a scope this server serves, because what it answers is what the scope grants: a
+ * [DisabledScope] grants nothing, whatever its [Scope.type] says it would be.
  */
-val Scope.isAdmin: Boolean get() = type == ScopeType.GRANTABLE && scope.isAdminScope()
+val EnabledScope.isAdmin: Boolean get() = this is GrantableUserScope && scope.isAdminScope()
 
 /**
  * True if this scope is a user scope (either consentable or grantable).
  */
-val Scope.isUserScope: Boolean get() = type == ScopeType.CONSENTABLE || type == ScopeType.GRANTABLE
+val EnabledScope.isUserScope: Boolean get() = this is ConsentableUserScope || this is GrantableUserScope
 
 /**
  * True if this scope is a client scope for `client_credentials` flows.
  */
-val Scope.isClientScope: Boolean get() = type == ScopeType.CLIENT
+val EnabledScope.isClientScope: Boolean get() = this is ClientScope
 
 /**
  * True if this authorization server serves this scope.

@@ -49,7 +49,10 @@ class AdminScopeController(
             description = "Number of results per page. Defaults to the size this server is configured " +
                     "with, and may not exceed its configured maximum."
         ) size: Int?,
-        @QueryValue @Parameter(description = "Filter by scope type.") type: String?,
+        @QueryValue @Parameter(
+            description = "Filter by scope type: consentable, grantable or client. A value that is none " +
+                    "of them matches no scope."
+        ) type: String?,
         @QueryValue @Parameter(
             description = "Filter by whether this deployment serves the scope. Omit to list both."
         ) enabled: Boolean?
