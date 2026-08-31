@@ -7,6 +7,7 @@ import com.sympauthy.api.util.orderedPage
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.security.SecurityRule.ADMIN_CONFIG_READ
+import com.sympauthy.util.wireName
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
 import io.micronaut.http.annotation.QueryValue
@@ -73,7 +74,7 @@ class AdminScopeController(
 
     private fun filterByType(scopes: List<Scope>, type: String?): List<Scope> {
         val requested = type?.lowercase() ?: return scopes
-        val scopeType = ScopeType.entries.firstOrNull { it.value == requested } ?: return emptyList()
+        val scopeType = ScopeType.entries.firstOrNull { it.wireName == requested } ?: return emptyList()
         return scopes.filter { it.type == scopeType }
     }
 }

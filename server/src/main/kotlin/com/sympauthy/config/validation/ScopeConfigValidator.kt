@@ -171,9 +171,9 @@ class ScopeConfigValidator {
 
         val type = parsed.type?.value
         val scopeType = when (type) {
-            null, ScopeType.GRANTABLE.value -> ScopeType.GRANTABLE
-            ScopeType.CONSENTABLE.value -> ScopeType.CONSENTABLE
-            ScopeType.CLIENT.value -> {
+            null, "grantable" -> ScopeType.GRANTABLE
+            "consentable" -> ScopeType.CONSENTABLE
+            "client" -> {
                 ctx.addError(
                     configExceptionOf(
                         "$configKeyPrefix.type",

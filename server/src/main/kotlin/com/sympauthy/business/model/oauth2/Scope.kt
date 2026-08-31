@@ -120,29 +120,29 @@ val Scope.isEnabled: Boolean get() = this is EnabledScope
 /**
  * What a scope is for, which decides how a caller comes to hold it.
  */
-enum class ScopeType(val value: String) {
+enum class ScopeType {
     /** Scope an end-user consents to. */
-    CONSENTABLE("consentable"),
+    CONSENTABLE,
 
     /** Scope granted by a scope granting rule, or auto-granted. */
-    GRANTABLE("grantable"),
+    GRANTABLE,
 
     /** Scope a client obtains for itself in a `client_credentials` flow. */
-    CLIENT("client")
+    CLIENT
 }
 
 /**
  * Origin of a scope, indicating which specification or system defines it.
  */
-enum class ScopeOrigin(val value: String) {
+enum class ScopeOrigin {
     /** Scope defined by the OpenID Connect specification. */
-    OPENID("openid"),
+    OPENID,
 
     /** Scope defined by SympAuthy for administration or client APIs. */
-    SYSTEM("system"),
+    SYSTEM,
 
     /** Scope defined by the operator in configuration. */
-    CUSTOM("custom")
+    CUSTOM
 }
 
 /**
