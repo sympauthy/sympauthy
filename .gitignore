@@ -9,6 +9,9 @@ config/*.yml
 **/build/
 !core/src/**/build/
 
+# Kotlin compiler's project-local session and error caches
+.kotlin/
+
 # Ignore Gradle GUI config
 gradle-app.setting
 
