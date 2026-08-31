@@ -16,7 +16,7 @@ jakarta-persistence = "3.2.0"
 # Test
 junit-jupiter = "6.1.3"
 mockk = "1.14.11"
-mock-webserver = "5.4.0"
+mock-webserver = "5.5.0"
 # Integration tests (integration-tests module). testcontainers, nimbus-jose-jwt and slf4j are
 # intentionally unversioned: the module imports the Micronaut Platform BOM so those stay in sync with
 # the server. Only testcontainers-sympauthy (absent from the BOM) is pinned here.
