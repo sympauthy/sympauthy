@@ -60,6 +60,7 @@ Result containing either:
                             recoverable = false,
                             detailsId = session.errorDetailsId,
                             descriptionId = session.errorDescriptionId,
+                            values = session.errorValues.orEmpty(),
                         )
                         flowErrorResourceMapper.toResource(exception, request.locale.orDefault())
                     }
@@ -83,7 +84,8 @@ Result containing either:
                 val exception = BusinessException(
                     recoverable = false,
                     detailsId = verifyResult.detailsId,
-                    descriptionId = verifyResult.descriptionId
+                    descriptionId = verifyResult.descriptionId,
+                    values = verifyResult.values.orEmpty()
                 )
                 flowErrorResourceMapper.toResource(exception, request.locale.orDefault())
             }

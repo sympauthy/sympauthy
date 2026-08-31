@@ -60,6 +60,7 @@ class InteractiveFlowSessionMapperTest {
         assertEquals(id, session.id)
         assertEquals("auth.interactive_flow_session.validate.expired", session.errorDetailsId)
         assertEquals("description.oauth2.expired", session.errorDescriptionId)
+        assertEquals(mapOf("expirationDate" to expirationDate.toString()), session.errorValues)
         assertEquals(expirationDate, session.errorDate)
     }
 

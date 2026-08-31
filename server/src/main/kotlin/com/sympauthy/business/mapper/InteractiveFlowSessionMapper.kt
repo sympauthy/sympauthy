@@ -106,7 +106,7 @@ abstract class InteractiveFlowSessionMapper {
             flowId = entity.flowId,
             errorDetailsId = "auth.interactive_flow_session.validate.expired",
             errorDescriptionId = "description.oauth2.expired",
-            errorValues = emptyMap(),
+            errorValues = mapOf("expirationDate" to entity.expirationDate.toString()),
             expirationDate = entity.expirationDate,
             errorDate = entity.expirationDate,
         )
