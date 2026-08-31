@@ -10,6 +10,8 @@ import com.sympauthy.config.model.ClaimTemplate
 import com.sympauthy.config.properties.ClaimConfigurationProperties
 import com.sympauthy.config.properties.ClaimConfigurationProperties.Companion.CLAIMS_KEY
 import com.sympauthy.config.properties.ClaimTemplateConfigurationProperties.Companion.DEFAULT
+import com.sympauthy.config.properties.ClaimTemplateConfigurationProperties.Companion.TEMPLATES_CLAIMS_KEY
+import com.sympauthy.config.util.configName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
@@ -120,11 +122,14 @@ class ClaimsConfigParser(
 
         val audienceId = properties.audience ?: template?.audienceId
 
-        val allowedValues = if (properties.allowedValues != null) {
-            parseAllowedValues(ctx, properties, configKeyPrefix, dataType)
-        } else {
-            template?.allowedValues
-        }
+        val declaredAllowedValues = properties.allowedValues
+        val allowedValues = if (declaredAllowedValues != null) {
+            parseAllowedValues(ctx, declaredAllowedValues, "$configKeyPrefix.allowed-values", dataType)
+        } else if (template != null) {
+            parseAllowedValues(
+                ctx, template.allowedValues, "$TEMPLATES_CLAIMS_KEY.${template.id}.allowed-values", dataType
+            )
+        } else null
 
         val acl = claimAclParser.parseAcl(ctx, properties.acl, template, configKeyPrefix, null)
 
@@ -142,21 +147,31 @@ class ClaimsConfigParser(
         )
     }
 
-    private fun parseAllowedValues(
+    /**
+     * Convert each of the [values] into the primitive the claim's [type] is exchanged as, recording an error
+     * against [key] for every entry that cannot be. Returns null when [values] is null, and otherwise the
+     * entries that converted.
+     *
+     * [values] may be the ones a claim declares or the ones it inherits from a template, and [key] names
+     * whichever of the two they are written under. A template carries no type of its own, so its entries can
+     * only be converted once a claim naming the template supplies one — which also means the same template
+     * can convert for one claim and fail for another.
+     */
+    internal fun parseAllowedValues(
         ctx: ConfigParsingContext,
-        properties: ClaimConfigurationProperties,
-        configKeyPrefix: String,
+        values: List<Any>?,
+        key: String,
         type: ClaimDataType
     ): List<Any>? {
-        val key = "$configKeyPrefix.allowed-values"
-        return properties.allowedValues?.mapIndexedNotNull { index, value ->
-            val itemKey = "${key}[$index]"
+        return values?.mapIndexedNotNull { index, value ->
+            val itemKey = "$key[$index]"
             ctx.parse {
                 when (type.typeClass) {
-                    String::class -> parser.getString(properties, itemKey) { value }
+                    String::class -> parser.getString(value, itemKey) { it }
+                    Long::class -> parser.getLong(value, itemKey) { it }
                     else -> throw configExceptionOf(
-                        itemKey, "config.claim.allowed_values.invalid_type",
-                        "type" to type.typeClass.javaObjectType.simpleName
+                        itemKey, "config.claim.allowed_values.unsupported_type",
+                        "type" to type.configName
                     )
                 }
             }

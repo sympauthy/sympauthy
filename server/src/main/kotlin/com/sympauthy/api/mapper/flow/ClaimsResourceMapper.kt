@@ -5,6 +5,7 @@ import com.sympauthy.api.resource.flow.ClaimsFlowResource
 import com.sympauthy.business.model.provider.ProviderUserInfo
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.wireName
 import com.sympauthy.server.DisplayMessages
 import io.micronaut.context.MessageSource
 import jakarta.inject.Inject
@@ -50,7 +51,7 @@ class ClaimsResourceMapper(
             id = claim.id,
             required = claim.required,
             name = displayMessageSource.getMessage("claims.${claim.id}.name", claim.id, locale),
-            type = claim.dataType.name.lowercase(),
+            type = claim.dataType.wireName,
             group = claim.group?.name?.lowercase(),
             collected = collectedClaim != null,
             value = collectedClaim?.value,

@@ -21,3 +21,9 @@ enum class ClaimDataType(
     STRING(String::class),
     TIMEZONE(String::class)
 }
+
+/**
+ * The name this type is published under, and the one a failure naming a type interpolates.
+ */
+val ClaimDataType.wireName: String
+    get() = name.lowercase()
