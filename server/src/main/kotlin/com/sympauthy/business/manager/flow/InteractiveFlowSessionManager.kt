@@ -438,5 +438,5 @@ class SuccessVerifyEncodedStateResult(
 class FailedVerifyEncodedStateResult(
     val detailsId: String,
     val descriptionId: String? = null,
-    val values: Map<String, String>? = null
+    val values: Map<String, String> = emptyMap()
 ) : VerifyEncodedStateResult()

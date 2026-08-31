@@ -55,15 +55,12 @@ Result containing either:
         return when (verifyResult) {
             is SuccessVerifyEncodedStateResult -> {
                 when (val session = verifyResult.session) {
-                    is FailedInteractiveFlowSession -> {
-                        val exception = BusinessException(
-                            recoverable = false,
-                            detailsId = session.errorDetailsId,
-                            descriptionId = session.errorDescriptionId,
-                            values = session.errorValues.orEmpty(),
-                        )
-                        flowErrorResourceMapper.toResource(exception, request.locale.orDefault())
-                    }
+                    is FailedInteractiveFlowSession -> toErrorResource(
+                        request = request,
+                        detailsId = session.errorDetailsId,
+                        descriptionId = session.errorDescriptionId,
+                        values = session.errorValues.orEmpty()
+                    )
 
                     else -> {
                         val flow = interactiveAuthFlowSessionManager.findById(
@@ -80,15 +77,35 @@ Result containing either:
                 }
             }
 
-            is FailedVerifyEncodedStateResult -> {
-                val exception = BusinessException(
-                    recoverable = false,
-                    detailsId = verifyResult.detailsId,
-                    descriptionId = verifyResult.descriptionId,
-                    values = verifyResult.values.orEmpty()
-                )
-                flowErrorResourceMapper.toResource(exception, request.locale.orDefault())
-            }
+            is FailedVerifyEncodedStateResult -> toErrorResource(
+                request = request,
+                detailsId = verifyResult.detailsId,
+                descriptionId = verifyResult.descriptionId,
+                values = verifyResult.values
+            )
         }
+    }
+
+    /**
+     * Render the failure named by [detailsId] and [descriptionId] against the locale [request] asks
+     * for, interpolating [values] into both messages.
+     *
+     * Stated once rather than at each of the two branches that reach it: a failure carries the values
+     * its messages name, and a branch rebuilding the exception on its own is a branch that can be
+     * written without them.
+     */
+    private fun toErrorResource(
+        request: HttpRequest<*>,
+        detailsId: String,
+        descriptionId: String?,
+        values: Map<String, String>
+    ): FlowErrorResource {
+        val exception = BusinessException(
+            recoverable = false,
+            detailsId = detailsId,
+            descriptionId = descriptionId,
+            values = values
+        )
+        return flowErrorResourceMapper.toResource(exception, request.locale.orDefault())
     }
 }
