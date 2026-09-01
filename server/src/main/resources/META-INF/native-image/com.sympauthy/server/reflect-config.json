@@ -17,15 +17,6 @@
     ]
   },
   {
-    "name": "com.sympauthy.api.mapper.CollectedClaimUpdateMapperImpl",
-    "methods": [
-      {
-        "name": "<init>",
-        "parameterTypes": []
-      }
-    ]
-  },
-  {
     "name": "com.sympauthy.api.mapper.admin.AdminAudienceResourceMapperImpl",
     "methods": [
       {
