@@ -3,7 +3,7 @@ package com.sympauthy.security
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
 import com.sympauthy.business.model.oauth2.ClientScope
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.security.SecurityRule.IS_CLIENT
 import io.mockk.every
 import io.mockk.junit5.MockKExtension
@@ -16,7 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 class ClientAuthenticationTest {
 
     /** The roles are derived from the scopes alone; only the name is read off the token. */
-    private fun createAuthentication(scopes: List<Scope>): ClientAuthentication =
+    private fun createAuthentication(scopes: List<EnabledScope>): ClientAuthentication =
         ClientAuthentication(authenticationToken = mockk(), scopes = scopes)
 
     @Test

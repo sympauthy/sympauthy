@@ -11,7 +11,7 @@ import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.GrantableUserScope
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.client.authorization.webhook.AuthorizationWebhookClient
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookRequest
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookResponse
@@ -81,7 +81,7 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
     private fun mockClient(
         id: String = "test-client",
         authorizationWebhook: AuthorizationWebhook? = null,
-        allowedScopes: Set<Scope>? = null
+        allowedScopes: Set<EnabledScope>? = null
     ): Client {
         return Client(
             id = id,

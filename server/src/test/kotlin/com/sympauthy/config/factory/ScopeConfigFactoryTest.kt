@@ -6,8 +6,10 @@ import com.sympauthy.business.model.oauth2.BuiltInClientScope
 import com.sympauthy.business.model.oauth2.BuiltInGrantableScope
 import com.sympauthy.business.model.oauth2.ClientScope
 import com.sympauthy.business.model.oauth2.ConsentableUserScope
+import com.sympauthy.business.model.oauth2.DisabledScope
 import com.sympauthy.business.model.oauth2.GrantableUserScope
 import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.ScopeType
 import com.sympauthy.business.model.user.OpenIdConnectScope
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
@@ -95,7 +97,16 @@ class ScopeConfigFactoryTest {
         val result = factory.provideScopes(listOf(scopeProperties(id = "profile", template = "my-template")))
 
         assertInstanceOf(EnabledScopesConfig::class.java, result)
-        assertNull(result.scopeNamed("profile"))
+        val scope = assertInstanceOf(DisabledScope::class.java, result.scopeNamed("profile"))
+        assertEquals(ScopeType.CONSENTABLE, scope.type)
+    }
+
+    @Test
+    fun `provideScopes - Take an OpenID Connect scope off from its own entry`() {
+        val result = factory.provideScopes(listOf(scopeProperties(id = "profile", enabled = "false")))
+
+        assertInstanceOf(EnabledScopesConfig::class.java, result)
+        assertInstanceOf(DisabledScope::class.java, result.scopeNamed("profile"))
     }
 
     @Test
@@ -184,6 +195,45 @@ class ScopeConfigFactoryTest {
         assertInstanceOf(ConsentableUserScope::class.java, result.scopeNamed("my-scope"))
     }
 
+    @Test
+    fun `provideScopes - Take a custom scope off from its own entry`() {
+        val factory = factoryWith(audiences = listOf("partners"))
+
+        val result = factory.provideScopes(
+            listOf(
+                scopeProperties(id = "my-scope", type = "consentable", enabled = "false", audience = "partners")
+            )
+        )
+
+        assertInstanceOf(EnabledScopesConfig::class.java, result)
+        val scope = assertInstanceOf(DisabledScope::class.java, result.scopeNamed("my-scope"))
+        assertEquals(ScopeType.CONSENTABLE, scope.type)
+        assertEquals("partners", scope.audienceId)
+    }
+
+    @Test
+    fun `provideScopes - Take a custom scope off from the template it names`() {
+        val factory = factoryWith(
+            templates = listOf(ScopeTemplate(id = "my-template", enabled = false, type = null, audienceId = null))
+        )
+
+        val result = factory.provideScopes(listOf(scopeProperties(id = "my-scope", template = "my-template")))
+
+        assertInstanceOf(EnabledScopesConfig::class.java, result)
+        assertInstanceOf(DisabledScope::class.java, result.scopeNamed("my-scope"))
+    }
+
+    @Test
+    fun `provideScopes - Report what is wrong with a custom scope the deployment turned off`() {
+        val result = factory.provideScopes(
+            listOf(scopeProperties(id = "my-scope", enabled = "false", audience = "nonexistent"))
+        )
+
+        val error = result.onlyError()
+        assertEquals("scopes.my-scope.audience", error.key)
+        assertEquals("config.scope.audience.not_found", error.messageId)
+    }
+
     // --- Scopes the server defines itself ---
 
     @Test
@@ -191,9 +241,8 @@ class ScopeConfigFactoryTest {
         val result = factory.provideScopes(emptyList())
 
         BuiltInGrantableScope.entries.forEach {
-            val scope = result.scopeNamed(it.scope)
-            assertInstanceOf(GrantableUserScope::class.java, scope)
-            assertEquals(it.discoverable, scope!!.discoverable)
+            val scope = assertInstanceOf(GrantableUserScope::class.java, result.scopeNamed(it.scope))
+            assertEquals(it.discoverable, scope.discoverable)
         }
         BuiltInClientScope.entries.forEach {
             assertInstanceOf(ClientScope::class.java, result.scopeNamed(it.scope))
@@ -209,9 +258,8 @@ class ScopeConfigFactoryTest {
         val result = factory.provideScopes(emptyList())
 
         AdminScope.entries.forEach { adminScope ->
-            val scope = result.scopeNamed(adminScope.scope)
-            assertInstanceOf(GrantableUserScope::class.java, scope)
-            assertFalse(scope!!.discoverable)
+            val scope = assertInstanceOf(GrantableUserScope::class.java, result.scopeNamed(adminScope.scope))
+            assertFalse(scope.discoverable)
             assertEquals("admin", scope.audienceId)
         }
     }

@@ -3,7 +3,7 @@ package com.sympauthy.config.model
 import com.sympauthy.business.model.client.AuthorizationWebhook
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.flow.AuthorizationFlow
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.exception.localizedExceptionOf
 import kotlinx.coroutines.flow.Flow
@@ -49,7 +49,7 @@ data class ClientTemplate(
     val allowedGrantTypes: Set<GrantType>?,
     val authorizationFlow: AuthorizationFlow?,
     val allowedRedirectUris: List<String>?,
-    val allowedScopes: Set<Scope>?,
-    val defaultScopes: List<Scope>?,
+    val allowedScopes: Set<EnabledScope>?,
+    val defaultScopes: List<EnabledScope>?,
     val authorizationWebhook: AuthorizationWebhook?
 )

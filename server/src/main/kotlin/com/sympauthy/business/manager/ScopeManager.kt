@@ -17,36 +17,49 @@ class ScopeManager(
 ) {
 
     /**
-     * List of every [Scope] this authorization server serves.
+     * List of every [EnabledScope] this authorization server serves.
      */
-    suspend fun listScopes(): List<Scope> {
+    suspend fun listEnabledScopes(): List<EnabledScope> {
+        return uncheckedScopesConfig.orThrow().enabledScopes
+    }
+
+    /**
+     * List of every [Scope] this authorization server knows about, including the ones the
+     * deployment turned off.
+     *
+     * Only an administrator reading the configuration has any use for those: everything that
+     * decides what a token may carry lists the enabled ones instead.
+     */
+    suspend fun listAllScopes(): List<Scope> {
         return uncheckedScopesConfig.orThrow().scopes
     }
 
     /**
-     * List all [Scope] visible for the given [audienceId].
+     * List all [EnabledScope] visible for the given [audienceId].
      * A scope is visible if it has no audience restriction or is restricted to this audience.
      */
-    suspend fun listScopesForAudience(audienceId: String): List<Scope> {
-        return listScopes().filter { it.audienceId == null || it.audienceId == audienceId }
+    suspend fun listEnabledScopesForAudience(audienceId: String): List<EnabledScope> {
+        return listEnabledScopes().filter { it.audienceId == null || it.audienceId == audienceId }
     }
 
     /**
-     * Return the [Scope], otherwise null, if:
+     * Return the [EnabledScope], otherwise null, if:
      * - [scope] is an OpenID Connect scope and has not been explicitly disabled by configuration.
-     * - [scope] is a custom scope and has been properly defined in the configuration.
+     * - [scope] is a custom scope that has been properly defined in the configuration and has not
+     *   been explicitly disabled by it.
      */
-    suspend fun find(scope: String): Scope? {
-        return listScopes().firstOrNull { it.scope == scope }
+    suspend fun find(scope: String): EnabledScope? {
+        return listEnabledScopes().firstOrNull { it.scope == scope }
     }
 
     /**
-     * Return the [Scope] if:
+     * Return the [EnabledScope] if:
      * - [scope] is an OpenID Connect scope and has not been explicitly disabled by configuration.
-     * - [scope] is a custom scope and has been properly defined in the configuration.
+     * - [scope] is a custom scope that has been properly defined in the configuration and has not
+     *   been explicitly disabled by it.
      * Otherwise, throws an unrecoverable "scope.unsupported" exception.
      */
-    suspend fun findOrThrow(scope: String): Scope {
+    suspend fun findOrThrow(scope: String): EnabledScope {
         return find(scope) ?: throw businessExceptionOf(
             detailsId = "scope.unsupported",
             values = arrayOf("scope" to scope)
@@ -54,10 +67,11 @@ class ScopeManager(
     }
 
     /**
-     * Return the [Scope] if [scope] is a scope that exists and is allowed by the [client] in [Client.allowedScopes].
+     * Return the [EnabledScope] if [scope] is a scope that this server serves and is allowed by the
+     * [client] in [Client.allowedScopes].
      * Otherwise, throws an unrecoverable "scope.unsupported" exception.
      */
-    suspend fun findForClientOrThrow(client: Client, scope: String): Scope {
+    suspend fun findForClientOrThrow(client: Client, scope: String): EnabledScope {
         val foundScope = findOrThrow(scope)
 
         // Validate that the scope's audience matches the client's audience (or scope has no audience)
@@ -87,10 +101,16 @@ class ScopeManager(
      * Return the list of [Claim] that are protected by the given [scope].
      * A claim is protected by a scope if the scope must be requested to read the claim.
      *
-     * Only consentable scopes protect claims. Returns an empty list for grantable and client scopes.
+     * Only consentable scopes protect claims. Returns an empty list for grantable and client
+     * scopes.
+     *
+     * A scope the deployment turned off is answered by what it would be rather than by what it is,
+     * so a disabled consentable scope reports the claims that name it — which is the whole of what
+     * an administrator looking at it needs to know, since those claims can no longer be consented
+     * to by anyone.
      */
-    fun listClaimsProtectedByScope(scope: Scope): List<Claim> {
-        if (scope !is ConsentableUserScope) return emptyList()
+    suspend fun listClaimsProtectedByScope(scope: Scope): List<Claim> {
+        if (scope.type != ScopeType.CONSENTABLE) return emptyList()
         return claimManager.listAllClaims()
             .filter { it.belongsToScope(scope.scope) }
     }
@@ -108,7 +128,7 @@ class ScopeManager(
     suspend fun parseRequestedScopes(
         client: Client,
         uncheckedScopes: String?
-    ): List<Scope> {
+    ): List<EnabledScope> {
         return if (uncheckedScopes.isNullOrBlank()) {
             client.defaultScopes ?: emptyList()
         } else {

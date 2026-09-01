@@ -21,8 +21,8 @@ import java.util.*
 class UserAuthenticationTest {
 
     private fun createAuthentication(
-        consentedScopes: List<com.sympauthy.business.model.oauth2.Scope> = emptyList(),
-        grantedScopes: List<com.sympauthy.business.model.oauth2.Scope> = emptyList()
+        consentedScopes: List<com.sympauthy.business.model.oauth2.EnabledScope> = emptyList(),
+        grantedScopes: List<com.sympauthy.business.model.oauth2.EnabledScope> = emptyList()
     ): UserAuthentication {
         return UserAuthentication(
             // Only the name of an authentication is read off its token, and nothing here asks for it.

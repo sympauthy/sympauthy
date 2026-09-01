@@ -21,7 +21,10 @@ data class AdminScopeResource(
         allowableValues = ["openid", "system", "custom"]
     )
     val origin: String,
-    @get:Schema(description = "Whether the scope is enabled.")
+    @get:Schema(
+        description = "Whether this deployment serves the scope. False when it was turned off: the scope " +
+                "is listed here and nothing else, and no token will ever carry it."
+    )
     val enabled: Boolean,
     @get:Schema(
         description = "Array of claim identifiers protected by this scope. Only present for consentable scopes.",

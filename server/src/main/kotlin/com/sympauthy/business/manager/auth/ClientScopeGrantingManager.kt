@@ -4,7 +4,7 @@ import com.sympauthy.business.manager.rule.ScopeGrantingRuleManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.ClientScope
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.config.model.FeaturesConfig
 import com.sympauthy.config.model.orThrow
 import jakarta.inject.Inject
@@ -50,9 +50,9 @@ class ClientScopeGrantingManager(
     }
 
     private fun getUnhandledRequestedScopes(
-        requestedScopes: List<Scope>,
+        requestedScopes: List<EnabledScope>,
         results: List<ScopeGrantingMethodResult>
-    ): List<Scope> {
+    ): List<EnabledScope> {
         val unhandledRequestedScopes = requestedScopes.toMutableSet()
         results.forEach {
             unhandledRequestedScopes.removeAll(it.grantedScopes)
@@ -62,7 +62,7 @@ class ClientScopeGrantingManager(
     }
 
     private fun applyDefaultBehavior(
-        requestedScopes: List<Scope>
+        requestedScopes: List<EnabledScope>
     ): ScopeGrantingMethodResult {
         val grantUnhandledScopes = featuresConfig.orThrow().grantUnhandledScopes
         return if (grantUnhandledScopes) {
@@ -80,17 +80,17 @@ class ClientScopeGrantingManager(
 }
 
 data class ClientGrantScopesResult(
-    val requestedScopes: List<Scope>,
+    val requestedScopes: List<EnabledScope>,
     val results: List<ScopeGrantingMethodResult>
 ) {
 
     /**
-     * List of [Scope] that have been granted after all scope-granting methods have been applied.
+     * List of [EnabledScope] that have been granted after all scope-granting methods have been applied.
      */
-    val grantedScopes = results.fold(emptyList<Scope>()) { acc, result -> acc + result.grantedScopes }
+    val grantedScopes = results.fold(emptyList<EnabledScope>()) { acc, result -> acc + result.grantedScopes }
 
     /**
-     * List of [Scope] that have been declined after all scope-granting methods have been applied.
+     * List of [EnabledScope] that have been declined after all scope-granting methods have been applied.
      */
-    val declinedScopes = results.fold(emptyList<Scope>()) { acc, result -> acc + result.declinedScopes }
+    val declinedScopes = results.fold(emptyList<EnabledScope>()) { acc, result -> acc + result.declinedScopes }
 }

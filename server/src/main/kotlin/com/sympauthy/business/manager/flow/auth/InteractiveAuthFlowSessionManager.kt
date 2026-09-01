@@ -139,10 +139,10 @@ class InteractiveAuthFlowSessionManager(
                     uncheckedScopes = uncheckedScopes
                 ) to null
             } catch (e: BusinessException) {
-                emptyList<Scope>() to e
+                emptyList<EnabledScope>() to e
             }
         } else {
-            emptyList<Scope>() to null
+            emptyList<EnabledScope>() to null
         }
 
         val (redirectUri, redirectUriException) = if (client != null) {

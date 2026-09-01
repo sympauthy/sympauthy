@@ -15,7 +15,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.NonInteractiveAuthorizationFlow
 import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.config.model.ClientTemplate
 import com.sympauthy.config.model.ClientTemplatesConfig
 import com.sympauthy.config.model.EnabledClientTemplatesConfig
@@ -279,7 +279,7 @@ class InteractiveAuthFlowSessionManagerTest {
 
     private fun setupValidClient(
         client: Client,
-        scopes: List<Scope> = emptyList(),
+        scopes: List<EnabledScope> = emptyList(),
         redirectUri: URI = URI("https://example.com/callback")
     ) {
         coEvery { clientManager.parseRequestedClient(any()) } returns client

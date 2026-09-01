@@ -2,7 +2,7 @@ package com.sympauthy.security
 
 import com.sympauthy.api.exception.httpExceptionOf
 import com.sympauthy.business.model.oauth2.AuthenticationToken
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.business.model.oauth2.isClientScope
 import com.sympauthy.security.SecurityRule.IS_CLIENT
 import io.micronaut.http.HttpStatus.FORBIDDEN
@@ -20,7 +20,7 @@ class ClientAuthentication(
     /**
      * List of client scopes granted to the client.
      */
-    val scopes: List<Scope>
+    val scopes: List<EnabledScope>
 ) : Authentication {
 
     val clientId: String get() = authenticationToken.clientId

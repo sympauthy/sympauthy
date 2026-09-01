@@ -51,6 +51,18 @@ points at the side that would silently lose data.
 A mapper that needs an injected collaborator to resolve part of its output is written by hand as an
 ordinary bean instead of generated. That is a normal outcome, not a failure of the pattern.
 
+**An enum is published through the shared `wireName`, never through a spelling the mapper or the
+enum repeats.** [The API standard](api-standard.md#json) fixes the published form at the lowercased
+Kotlin name, so it is derivable, and one extension deriving it is the whole implementation of that
+rule. A property carrying the same string on each enum is one copy per enum of an answer there is
+only one of; `name.lowercase()` written at the mapper is the same copy with no name on it, and
+neither is findable from the other when the rule changes.
+
+The exception is where the rule cannot reach: a published name the Kotlin name does not lowercase
+into is declared on the enum itself, and that declaration then reads as what it is — this value is
+spelled differently on purpose. A declaration on every value says nothing, and the one that matters
+is invisible among them.
+
 ## The controller
 
 **Controllers route and translate. They hold no logic.** Bind the request, call one manager method,

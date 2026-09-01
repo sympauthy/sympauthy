@@ -7,6 +7,7 @@ import com.sympauthy.api.util.orderedPage
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.security.SecurityRule.ADMIN_CONFIG_READ
+import com.sympauthy.util.wireName
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
 import io.micronaut.http.annotation.QueryValue
@@ -27,9 +28,9 @@ class AdminScopeController(
 ) {
 
     @Operation(
-        description = "Retrieve all configured scopes (consentable, grantable, client). Since scopes are " +
-                "defined in configuration, this endpoint exposes them as read-only resources. Scopes are " +
-                "ordered by scope.",
+        description = "Retrieve all the scopes this server knows about (consentable, grantable, client), " +
+                "including the ones this deployment turned off. Since scopes are defined in configuration, " +
+                "this endpoint exposes them as read-only resources. Scopes are ordered by scope.",
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of scopes."),
@@ -48,13 +49,18 @@ class AdminScopeController(
             description = "Number of results per page. Defaults to the size this server is configured " +
                     "with, and may not exceed its configured maximum."
         ) size: Int?,
-        @QueryValue @Parameter(description = "Filter by scope type.") type: String?,
-        @QueryValue @Parameter(description = "Filter by enabled status.") enabled: Boolean?
+        @QueryValue @Parameter(
+            description = "Filter by scope type: consentable, grantable or client. A value that is none " +
+                    "of them matches no scope."
+        ) type: String?,
+        @QueryValue @Parameter(
+            description = "Filter by whether this deployment serves the scope. Omit to list both."
+        ) enabled: Boolean?
     ): AdminScopeListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
-        val scopes = scopeManager.listScopes()
+        val scopes = scopeManager.listAllScopes()
             .let { list -> filterByType(list, type) }
-            .let { list -> if (enabled != null) list.filter { enabled } else list }
+            .let { list -> if (enabled != null) list.filter { it.isEnabled == enabled } else list }
         val paged = scopes
             .orderedPage(pageParams, compareBy { it.scope })
             .map { scope ->
@@ -70,12 +76,8 @@ class AdminScopeController(
     }
 
     private fun filterByType(scopes: List<Scope>, type: String?): List<Scope> {
-        return when (type?.lowercase()) {
-            "consentable" -> scopes.filterIsInstance<ConsentableUserScope>()
-            "grantable" -> scopes.filterIsInstance<GrantableUserScope>()
-            "client" -> scopes.filterIsInstance<ClientScope>()
-            null -> scopes
-            else -> emptyList()
-        }
+        val requested = type?.lowercase() ?: return scopes
+        val scopeType = ScopeType.entries.firstOrNull { it.wireName == requested } ?: return emptyList()
+        return scopes.filter { it.type == scopeType }
     }
 }

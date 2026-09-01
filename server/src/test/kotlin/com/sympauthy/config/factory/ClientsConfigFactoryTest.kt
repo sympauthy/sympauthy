@@ -4,6 +4,10 @@ import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.flow.InteractiveFlow
+import com.sympauthy.business.model.oauth2.ConsentableUserScope
+import com.sympauthy.business.model.oauth2.DisabledScope
+import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.ScopeType
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.model.*
@@ -56,7 +60,8 @@ class ClientsConfigFactoryTest {
         public: Boolean? = null,
         secret: String? = null,
         allowedGrantTypes: List<String>? = null,
-        allowedRedirectUris: List<String>? = null
+        allowedRedirectUris: List<String>? = null,
+        allowedScopes: List<String>? = null
     ): ClientConfigurationProperties {
         return ClientConfigurationProperties(id).apply {
             this.template = template
@@ -64,6 +69,7 @@ class ClientsConfigFactoryTest {
             this.secret = secret
             this.allowedGrantTypes = allowedGrantTypes
             this.allowedRedirectUris = allowedRedirectUris
+            this.allowedScopes = allowedScopes
         }
     }
 
@@ -104,6 +110,64 @@ class ClientsConfigFactoryTest {
             EnabledAuthorizationFlowsConfig(mockk<InteractiveFlow>(relaxed = true), emptyList()),
             EnabledUrlsConfig(root = URI.create("https://auth.example.com"))
         )
+    }
+
+    /**
+     * A factory resolving a client's scopes against [scopes] for real, which the other tests double
+     * out. It is what decides whether a client may name a scope the deployment turned off.
+     */
+    private fun factoryServing(scopes: List<Scope>, vararg templates: ClientTemplate): ClientsConfigFactory {
+        val templatesConfig = EnabledClientTemplatesConfig(templates.associateBy { it.id })
+        return ClientsConfigFactory(
+            ClientsConfigParser(parser, fieldParser),
+            ClientsConfigValidator(ClientConfigFieldValidator()),
+            flowOf<ClientTemplatesConfig>(templatesConfig),
+            EnabledAudiencesConfig(listOf(testAudience)),
+            EnabledScopesConfig(scopes),
+            EnabledAuthorizationFlowsConfig(mockk<InteractiveFlow>(relaxed = true), emptyList()),
+            EnabledUrlsConfig(root = URI.create("https://auth.example.com"))
+        )
+    }
+
+    // --- Scopes a client may name ---
+
+    @Test
+    fun `Client may name a scope this deployment serves`() = runTest {
+        val factory = factoryServing(
+            listOf(ConsentableUserScope("my-scope")),
+            clientTemplate(
+                id = "default",
+                allowedGrantTypes = setOf(GrantType.AUTHORIZATION_CODE),
+                allowedRedirectUris = listOf("https://example.com/callback")
+            )
+        )
+        val clients = listOf(clientProperties(id = "my-app", secret = "secret", allowedScopes = listOf("my-scope")))
+
+        val result = factory.provideClients(clients).first()
+
+        assertInstanceOf(EnabledClientsConfig::class.java, result)
+        assertEquals(
+            listOf("my-scope"),
+            (result as EnabledClientsConfig).clients.first().allowedScopes?.map { it.scope }
+        )
+    }
+
+    @Test
+    fun `Client may not name a scope this deployment turned off`() = runTest {
+        val factory = factoryServing(
+            listOf(DisabledScope("my-scope", ScopeType.CONSENTABLE)),
+            clientTemplate(
+                id = "default",
+                allowedGrantTypes = setOf(GrantType.AUTHORIZATION_CODE),
+                allowedRedirectUris = listOf("https://example.com/callback")
+            )
+        )
+        val clients = listOf(clientProperties(id = "my-app", secret = "secret", allowedScopes = listOf("my-scope")))
+
+        val result = factory.provideClients(clients).first()
+
+        val error = assertInstanceOf(DisabledClientsConfig::class.java, result).configurationErrors!!.first()
+        assertTrue(error.message!!.contains("config.client.scope.invalid"))
     }
 
     // --- Default template resolution ---

@@ -38,7 +38,7 @@ class OpenIdConfigurationController(
         val urlsConfig = uncheckedUrlsConfig.orThrow()
         val advancedConfig = uncheckedAdvancedConfig.orThrow()
 
-        val scopes = scopeManager.listScopes()
+        val scopes = scopeManager.listEnabledScopes()
             .filter { it.discoverable }
             .map { it.scope }
         val claims = claimManager.listEnabledOpenIdConnectClaims()

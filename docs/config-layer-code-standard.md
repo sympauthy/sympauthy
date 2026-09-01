@@ -82,6 +82,18 @@ unambiguous.
 mistakes reports four mistakes. Failing fast here would mean four restarts to find them, and the
 fourth is the one that finally shows the operator what the third broke.
 
+## Nothing is carried across a restart
+
+**A stored record naming something the new configuration no longer offers fails when it is next
+resolved.** A scope a deployment turned off, a flow it removed: the record keeps the name it was
+written with, the lookup finds nothing, and the person holding it starts again. Nothing sweeps those
+records ahead of the change and nothing holds the old value for them.
+
+That is the other half of configuration being read once. Keeping the previous file alongside the new
+one would put two answers in the server at the same moment, and pinning each record to the values it
+was created under would make every resolved value nullable — a cost paid on every read, in every
+manager, to spare a restart that is otherwise free.
+
 ## Configuration validates input, and nothing else
 
 **A factory never makes a network call.** Fetching a third-party provider's discovery document,
