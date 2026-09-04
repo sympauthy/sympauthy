@@ -2,7 +2,9 @@ package com.sympauthy.api.controller.admin
 
 import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
 import com.sympauthy.api.exception.LocalizedHttpException
+import com.sympauthy.api.mapper.admin.AdminUserProviderResourceMapper
 import com.sympauthy.api.resource.admin.AdminUserProviderLinkInputResource
+import com.sympauthy.api.resource.admin.AdminUserProviderResource
 import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.client.ClientRedirectUriManager
@@ -36,6 +38,7 @@ import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -76,6 +79,9 @@ class AdminUserProviderControllerTest {
     @MockK
     lateinit var stepUriMapper: InteractiveFlowStepUriMapper
 
+    @MockK
+    lateinit var userProviderMapper: AdminUserProviderResourceMapper
+
     @Suppress("unused")
     private val paginationUtil = defaultPaginationUtil()
 
@@ -85,9 +91,6 @@ class AdminUserProviderControllerTest {
     private val userId: UUID = UUID.randomUUID()
     private val linkedAt: LocalDateTime = LocalDateTime.of(2026, 1, 15, 14, 30, 0)
 
-    /**
-     * A later sign-in with the same provider, so a resource fed from the fetch date fails the assertion.
-     */
     private val lastFetchedAt: LocalDateTime = LocalDateTime.of(2026, 3, 2, 9, 0, 0)
 
     private fun mockProviderUserInfo(
@@ -104,18 +107,22 @@ class AdminUserProviderControllerTest {
     )
 
     @Test
-    fun `listProviders - Publish every provider the page holds, and the page it came in`() = runTest {
+    fun `listProviders - Map every provider the page holds, and the page it came in`() = runTest {
         val providerInfo = mockProviderUserInfo()
+        val resource = AdminUserProviderResource(
+            providerId = "discord",
+            subject = "123456789012345678",
+            linkedAt = linkedAt
+        )
         coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
         coEvery {
             userProviderSearchManager.listUserProviders(userId, PageParams(0, 20))
         } returns Page(items = listOf(providerInfo), page = 3, size = 7, total = 42)
+        every { userProviderMapper.toResource(providerInfo) } returns resource
 
         val result = controller.listProviders(userId, null, null)
 
-        assertEquals("discord", result.providers.single().providerId)
-        assertEquals("123456789012345678", result.providers.single().subject)
-        assertEquals(linkedAt, result.providers.single().linkedAt)
+        assertSame(resource, result.providers.single())
         assertEquals(3, result.page)
         assertEquals(7, result.size)
         assertEquals(42, result.total)
