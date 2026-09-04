@@ -180,5 +180,4 @@ class ClaimTest {
         val claim = claim(writableWithClientScopes = listOf("users:claims:write"))
         assertFalse(claim.canBeWrittenByClient(listOf("users:claims:write"), emptyList()))
     }
-
 }

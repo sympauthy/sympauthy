@@ -360,5 +360,4 @@ class ClaimAclFactoryTest {
 
         assertEquals(1, ctx.errors.size)
     }
-
 }

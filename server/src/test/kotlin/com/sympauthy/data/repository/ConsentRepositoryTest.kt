@@ -40,7 +40,8 @@ class ConsentRepositoryTest {
     lateinit var userRepository: UserRepository
 
     /**
-     * The audience every row this class writes belongs to, and every query below is scoped to.
+     * The audience the consents carry, and the two providers their users are linked under. Each names
+     * this test class, so no other class's rows fall inside the queries below.
      */
     private val audienceId = "consent-repository-test"
     private val providerId = "consent-repository-test-provider"

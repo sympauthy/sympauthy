@@ -300,7 +300,6 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         assertTrue(handler.computeStatus(session, oauth2).missingMediaForClaimValidation.isNotEmpty())
     }
 
-    // --- helpers ---
 
     private fun onGoingSessionMock(userId: UUID) = mockk<OnGoingInteractiveFlowSession> {
         every { this@mockk.userId } returns userId

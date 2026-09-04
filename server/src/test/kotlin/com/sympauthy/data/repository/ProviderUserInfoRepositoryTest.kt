@@ -34,7 +34,7 @@ class ProviderUserInfoRepositoryTest {
     @Inject
     lateinit var userRepository: UserRepository
 
-    private val providerId = "discord"
+    private val providerId = "provider-user-info-repository-test"
     private lateinit var userId: UUID
 
     private val linkDate: LocalDateTime = LocalDateTime.of(2026, 1, 15, 14, 30, 0)

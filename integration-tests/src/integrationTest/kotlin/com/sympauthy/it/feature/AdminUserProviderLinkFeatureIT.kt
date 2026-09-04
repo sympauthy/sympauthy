@@ -136,7 +136,6 @@ class AdminUserProviderLinkFeatureIT : AbstractSympauthyIT() {
         }
     }
 
-    // --- Helpers ------------------------------------------------------------------------------------
 
     /**
      * Builds the admin-enabled container for [registry]: password auth, the first-admin bootstrap, an admin

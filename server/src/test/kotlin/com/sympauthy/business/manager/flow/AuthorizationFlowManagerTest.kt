@@ -123,7 +123,6 @@ class AuthorizationFlowManagerTest {
         assertSame(oauth2, resultOAuth2)
     }
 
-    // --- helpers ---
 
     /** A client only identified where the check gets as far as comparing it with the session's. */
     private fun mockClient(id: String): Client = mockk {

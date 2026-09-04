@@ -215,7 +215,6 @@ class ClientMfaEnrollmentFeatureIT : AbstractSympauthyIT() {
         }
     }
 
-    // --- Helpers ------------------------------------------------------------------------------------
 
     /** Builds the standard single-client MFA-enrollment container for [registry] (a confidential client). */
     private fun mfaEnrollmentContainer(

@@ -313,5 +313,4 @@ class ClaimsConfigFactoryTest {
         val claim = (result as EnabledClaimsConfig).claims.first { it.id == "department" }
         assertEquals(ClaimOrigin.CUSTOM, claim.origin)
     }
-
 }
