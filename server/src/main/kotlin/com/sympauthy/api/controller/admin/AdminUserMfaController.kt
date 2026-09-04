@@ -8,16 +8,15 @@ import com.sympauthy.api.resource.admin.AdminUserMfaEnrollmentResource
 import com.sympauthy.api.resource.admin.AdminUserMfaMethodListResource
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.api.util.orderedPage
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.client.ClientRedirectUriManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
 import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaEnrollmentManager
+import com.sympauthy.business.manager.mfa.MfaEnrollmentSearchManager
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.manager.user.UserManager
-import com.sympauthy.business.model.mfa.TotpEnrollment
 import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.config.model.EnabledMfaConfig
 import com.sympauthy.config.model.MfaConfig
@@ -38,6 +37,7 @@ import java.util.*
 class AdminUserMfaController(
     @Inject private val userManager: UserManager,
     @Inject private val totpManager: TotpManager,
+    @Inject private val mfaEnrollmentSearchManager: MfaEnrollmentSearchManager,
     @Inject private val mfaMapper: AdminUserMfaMethodResourceMapper,
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
     @Inject private val clientRedirectUriManager: ClientRedirectUriManager,
@@ -77,18 +77,12 @@ class AdminUserMfaController(
     ): AdminUserMfaMethodListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
         userManager.findByIdOrNull(userId).orNotFound()
-        val allEnrollments = totpManager.findConfirmedEnrollments(userId)
-        // The list holds confirmed enrollments only, so confirming is what appends to it. Ordering on the
-        // enrollment date would insert an enrollment started last week and confirmed today into a page a
-        // caller has already walked.
-        val paged = allEnrollments
-            .orderedPage(pageParams, compareBy<TotpEnrollment> { it.confirmedDate }.thenBy { it.id })
-            .map(mfaMapper::toResource)
+        val enrollments = mfaEnrollmentSearchManager.listConfirmedEnrollments(userId, pageParams)
         return AdminUserMfaMethodListResource(
-            mfaMethods = paged,
-            page = pageParams.page,
-            size = pageParams.size,
-            total = allEnrollments.size
+            mfaMethods = enrollments.items.map(mfaMapper::toResource),
+            page = enrollments.page,
+            size = enrollments.size,
+            total = enrollments.total
         )
     }
 

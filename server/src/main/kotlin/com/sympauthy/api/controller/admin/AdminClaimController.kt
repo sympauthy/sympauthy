@@ -3,10 +3,10 @@ package com.sympauthy.api.controller.admin
 import com.sympauthy.api.mapper.admin.AdminClaimResourceMapper
 import com.sympauthy.api.resource.admin.AdminClaimListResource
 import com.sympauthy.api.util.PaginationUtil
-import com.sympauthy.api.util.orderedPage
-import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.api.util.valueFilterOf
+import com.sympauthy.business.manager.ClaimSearchManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.ClaimOrigin
 import com.sympauthy.security.SecurityRule.ADMIN_CONFIG_READ
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
@@ -22,7 +22,7 @@ import jakarta.inject.Inject
 @Secured(ADMIN_CONFIG_READ)
 @SecurityRequirement(name = "admin", scopes = [AdminScopeId.CONFIG_READ])
 class AdminClaimController(
-    @Inject private val claimManager: ClaimManager,
+    @Inject private val claimSearchManager: ClaimSearchManager,
     @Inject private val claimMapper: AdminClaimResourceMapper,
     @Inject private val paginationUtil: PaginationUtil
 ) {
@@ -43,7 +43,7 @@ class AdminClaimController(
         ]
     )
     @Get
-    fun listClaims(
+    suspend fun listClaims(
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
         @QueryValue @Parameter(
             description = "Number of results per page. Defaults to the size this server is configured " +
@@ -54,18 +54,17 @@ class AdminClaimController(
         @QueryValue @Parameter(description = "Filter by claim origin.") origin: String?
     ): AdminClaimListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
-        val claims = claimManager.listAllClaims()
-            .let { list -> if (enabled != null) list.filter { it.enabled == enabled } else list }
-            .let { list -> if (required != null) list.filter { it.required == required } else list }
-            .let { list -> if (origin != null) list.filter { it.origin.value == origin.lowercase() } else list }
-        val paged = claims
-            .orderedPage(pageParams, compareByDescending<Claim> { it.enabled }.thenBy { it.id })
-            .map(claimMapper::toResource)
+        val claims = claimSearchManager.listClaims(
+            enabled = enabled,
+            required = required,
+            origin = valueFilterOf<ClaimOrigin>(origin) { it.value },
+            pageParams = pageParams
+        )
         return AdminClaimListResource(
-            claims = paged,
-            page = pageParams.page,
-            size = pageParams.size,
-            total = claims.size
+            claims = claims.items.map(claimMapper::toResource),
+            page = claims.page,
+            size = claims.size,
+            total = claims.total
         )
     }
 }

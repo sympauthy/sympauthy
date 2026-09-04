@@ -1,6 +1,7 @@
 package com.sympauthy.api.util
 
 import com.sympauthy.api.exception.httpExceptionOf
+import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.orThrow
 import io.micronaut.http.HttpStatus.BAD_REQUEST
@@ -8,11 +9,6 @@ import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
 const val DEFAULT_PAGE = 0
-
-data class PageParams(
-    val page: Int,
-    val size: Int
-)
 
 /**
  * Resolves the paging query parameters for every paged endpoint, so that all of them answer a caller
@@ -82,17 +78,3 @@ class PaginationUtil(
         )
     }
 }
-
-/**
- * Order this list with [comparator], then return the page [params] names.
- *
- * [comparator] must leave no two elements equal: elements it ties are free to swap between two
- * calls, and a caller walking the pages then sees one of them twice and never sees the other.
- */
-fun <T> List<T>.orderedPage(
-    params: PageParams,
-    comparator: Comparator<T>
-): List<T> = this
-    .sortedWith(comparator)
-    .drop(params.page * params.size)
-    .take(params.size)

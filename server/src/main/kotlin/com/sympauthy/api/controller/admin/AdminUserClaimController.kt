@@ -4,14 +4,11 @@ import com.sympauthy.api.mapper.admin.AdminUserClaimResourceMapper
 import com.sympauthy.api.resource.admin.AdminUserClaimListResource
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.api.util.orderedPage
-import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.GeneratedClaimsManager
-import com.sympauthy.business.manager.user.CollectedClaimManager
+import com.sympauthy.api.util.valueFilterOf
+import com.sympauthy.business.manager.user.UserClaimSearchManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
-import com.sympauthy.config.model.AuthConfig
-import com.sympauthy.config.model.orThrow
+import com.sympauthy.business.model.user.claim.ClaimOrigin
 import com.sympauthy.security.SecurityRule.ADMIN_USERS_READ
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
@@ -20,7 +17,6 @@ import io.micronaut.http.annotation.QueryValue
 import io.micronaut.security.annotation.Secured
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
-import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
@@ -30,10 +26,7 @@ import java.util.*
 @SecurityRequirement(name = "admin", scopes = [AdminScopeId.USERS_READ])
 class AdminUserClaimController(
     @Inject private val userManager: UserManager,
-    @Inject private val claimManager: ClaimManager,
-    @Inject private val collectedClaimManager: CollectedClaimManager,
-    @Inject private val generatedClaimsManager: GeneratedClaimsManager,
-    @Inject private val uncheckedAuthConfig: AuthConfig,
+    @Inject private val userClaimSearchManager: UserClaimSearchManager,
     @Inject private val userClaimMapper: AdminUserClaimResourceMapper,
     @Inject private val paginationUtil: PaginationUtil
 ) {
@@ -72,76 +65,22 @@ class AdminUserClaimController(
         val pageParams = paginationUtil.resolvePageParams(page, size)
         userManager.findByIdOrNull(userId).orNotFound()
 
-        val identifierClaimIds = uncheckedAuthConfig.orThrow()
-            .identifierClaims
-            .toSet()
-
-        // Get all enabled claims and filter out *_verified claims
-        val allVerifiedIds = claimManager.listEnabledClaims()
-            .mapNotNull { it.verifiedId }
-            .toSet()
-        var filteredClaims = claimManager.listEnabledClaims()
-            .filter { it.id !in allVerifiedIds }
-
-        // Apply claim-metadata-only filters
-        if (claimId != null) {
-            filteredClaims = filteredClaims.filter { it.id == claimId }
-        }
-        if (identifier != null) {
-            filteredClaims = filteredClaims.filter { (it.id in identifierClaimIds) == identifier }
-        }
-        if (required != null) {
-            filteredClaims = filteredClaims.filter { it.required == required }
-        }
-        if (origin != null) {
-            filteredClaims = filteredClaims.filter { it.origin.value == origin.lowercase() }
-        }
-
-        // Fetch collected claims only for the filtered set
-        val collectedClaimMap = collectedClaimManager.findByUserIdAndClaims(userId, filteredClaims)
-            .associateBy { it.claim.id }
-
-        // Apply collected-data-dependent filters
-        if (collected != null) {
-            filteredClaims = filteredClaims.filter { claim ->
-                val hasValue = collectedClaimMap[claim.id]?.value != null
-                hasValue == collected
-            }
-        }
-        if (verified != null) {
-            filteredClaims = filteredClaims.filter { claim ->
-                val isVerified = collectedClaimMap[claim.id]?.verificationDate != null
-                isVerified == verified
-            }
-        }
-
-        val generatedClaimValues = generatedClaimsManager.computeValues(userId)
-
-        val total = filteredClaims.size
-        val paged = filteredClaims
-            .orderedPage(pageParams, compareBy { it.id })
-            .map { claim ->
-                val identifier = claim.id in identifierClaimIds
-                if (claim.generated) {
-                    userClaimMapper.toResourceFromGeneratedClaim(
-                        claim = claim,
-                        identifier = identifier,
-                        generatedClaimValue = generatedClaimValues[claim.id]
-                    )
-                } else {
-                    userClaimMapper.toResourceFromCollectedClaim(
-                        claim = claim,
-                        collectedClaim = collectedClaimMap[claim.id],
-                        identifier = identifier
-                    )
-                }
-            }
+        val claims = userClaimSearchManager.listUserClaims(
+            userId = userId,
+            claimId = claimId,
+            identifier = identifier,
+            required = required,
+            collected = collected,
+            verified = verified,
+            origin = valueFilterOf<ClaimOrigin>(origin) { it.value },
+            pageParams = pageParams
+        )
 
         return AdminUserClaimListResource(
-            claims = paged,
-            page = pageParams.page,
-            size = pageParams.size,
-            total = total
+            claims = claims.items.map(userClaimMapper::toResource),
+            page = claims.page,
+            size = claims.size,
+            total = claims.total
         )
     }
 }

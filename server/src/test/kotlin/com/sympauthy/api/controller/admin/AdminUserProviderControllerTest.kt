@@ -12,6 +12,7 @@ import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManage
 import com.sympauthy.business.manager.flow.link.InteractiveFlowSessionLinkProviderManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderManager
+import com.sympauthy.business.manager.provider.UserProviderSearchManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.InteractiveFlow
@@ -19,6 +20,8 @@ import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.InteractiveFlowStepResult
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.provider.EnabledProvider
+import com.sympauthy.business.model.page.Page
+import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.provider.ProviderUserInfo
 import com.sympauthy.business.model.user.RawProviderClaims
 import com.sympauthy.business.model.user.User
@@ -48,6 +51,9 @@ class AdminUserProviderControllerTest {
 
     @MockK
     lateinit var providerClaimsManager: ProviderClaimsManager
+
+    @MockK
+    lateinit var userProviderSearchManager: UserProviderSearchManager
 
     @MockK
     lateinit var interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager
@@ -98,20 +104,21 @@ class AdminUserProviderControllerTest {
     )
 
     @Test
-    fun `listProviders - Returns paginated list of linked providers`() = runTest {
+    fun `listProviders - Publish every provider the page holds, and the page it came in`() = runTest {
         val providerInfo = mockProviderUserInfo()
         coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
-        coEvery { providerClaimsManager.findByUserId(userId) } returns listOf(providerInfo)
+        coEvery {
+            userProviderSearchManager.listUserProviders(userId, PageParams(0, 20))
+        } returns Page(items = listOf(providerInfo), page = 3, size = 7, total = 42)
 
         val result = controller.listProviders(userId, null, null)
 
-        assertEquals(1, result.providers.size)
-        assertEquals("discord", result.providers[0].providerId)
-        assertEquals("123456789012345678", result.providers[0].subject)
-        assertEquals(linkedAt, result.providers[0].linkedAt)
-        assertEquals(0, result.page)
-        assertEquals(20, result.size)
-        assertEquals(1, result.total)
+        assertEquals("discord", result.providers.single().providerId)
+        assertEquals("123456789012345678", result.providers.single().subject)
+        assertEquals(linkedAt, result.providers.single().linkedAt)
+        assertEquals(3, result.page)
+        assertEquals(7, result.size)
+        assertEquals(42, result.total)
     }
 
     @Test
@@ -128,46 +135,14 @@ class AdminUserProviderControllerTest {
     @Test
     fun `listProviders - Returns empty list when user has no providers`() = runTest {
         coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
-        coEvery { providerClaimsManager.findByUserId(userId) } returns emptyList()
+        coEvery {
+            userProviderSearchManager.listUserProviders(userId, PageParams(0, 20))
+        } returns Page(items = emptyList(), page = 0, size = 20, total = 0)
 
         val result = controller.listProviders(userId, null, null)
 
         assertTrue(result.providers.isEmpty())
         assertEquals(0, result.total)
-    }
-
-    @Test
-    fun `listProviders - Respects pagination parameters`() = runTest {
-        val providers = listOf(
-            mockProviderUserInfo(providerId = "discord"),
-            mockProviderUserInfo(providerId = "google", subject = "109876543210"),
-            mockProviderUserInfo(providerId = "github", subject = "42")
-        )
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
-        coEvery { providerClaimsManager.findByUserId(userId) } returns providers
-
-        val result = controller.listProviders(userId, 1, 2)
-
-        assertEquals(1, result.providers.size)
-        assertEquals("google", result.providers[0].providerId)
-        assertEquals(1, result.page)
-        assertEquals(2, result.size)
-        assertEquals(3, result.total)
-    }
-
-    @Test
-    fun `listProviders - Order by link date, then by provider identifier`() = runTest {
-        val providers = listOf(
-            mockProviderUserInfo(providerId = "google"),
-            mockProviderUserInfo(providerId = "discord"),
-            mockProviderUserInfo(providerId = "github", linkDate = linkedAt.minusDays(1))
-        )
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
-        coEvery { providerClaimsManager.findByUserId(userId) } returns providers
-
-        val result = controller.listProviders(userId, null, null)
-
-        assertEquals(listOf("github", "discord", "google"), result.providers.map { it.providerId })
     }
 
     @Test

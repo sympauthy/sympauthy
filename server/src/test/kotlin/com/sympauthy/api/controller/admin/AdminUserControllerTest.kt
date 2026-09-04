@@ -5,12 +5,14 @@ import com.sympauthy.api.mapper.admin.AdminUserDetailResourceMapper
 import com.sympauthy.api.mapper.admin.AdminUserResourceMapper
 import com.sympauthy.api.resource.admin.AdminUserDetailResource
 import com.sympauthy.api.resource.admin.AdminUserResource
+import com.sympauthy.api.util.DEFAULT_PAGE
+import com.sympauthy.api.util.TEST_DEFAULT_PAGE_SIZE
 import com.sympauthy.api.util.defaultPaginationUtil
-import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.manager.user.UserSearchManager
+import com.sympauthy.business.model.page.Page
+import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
@@ -24,13 +26,13 @@ import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import java.time.LocalDateTime
+import java.util.*
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
-import java.time.LocalDateTime
-import java.util.*
 
 @ExtendWith(MockKExtension::class)
 class AdminUserControllerTest {
@@ -43,12 +45,6 @@ class AdminUserControllerTest {
 
     @MockK
     lateinit var collectedClaimManager: CollectedClaimManager
-
-    @MockK
-    lateinit var claimManager: ClaimManager
-
-    @MockK(relaxed = true)
-    lateinit var generatedClaimsManager: GeneratedClaimsManager
 
     @MockK
     lateinit var userMapper: AdminUserResourceMapper
@@ -65,41 +61,138 @@ class AdminUserControllerTest {
     private val userId: UUID = UUID.randomUUID()
     private val creationDate: LocalDateTime = LocalDateTime.of(2025, 1, 1, 0, 0)
 
-    private fun userWithClaims(creationDate: LocalDateTime) = UserWithClaims(
-        user = User(id = UUID.randomUUID(), status = UserStatus.ENABLED, creationDate = creationDate),
-        collectedClaims = emptyList()
+    private val defaultPage = PageParams(DEFAULT_PAGE, TEST_DEFAULT_PAGE_SIZE)
+
+    private fun pageOf(vararg users: UserWithClaims) = Page(
+        items = users.toList(),
+        page = DEFAULT_PAGE,
+        size = TEST_DEFAULT_PAGE_SIZE,
+        total = users.size
     )
 
-    @Test
-    fun `listUsers - Order with the comparator the search builds, then slice`() = runTest {
-        val older = userWithClaims(creationDate)
-        val newer = userWithClaims(creationDate.plusDays(1))
+    private fun requestWithoutClaimFilter(): HttpRequest<*> {
         val parameters = mockk<HttpParameters> {
             every { asMap() } returns emptyMap()
         }
-        val request = mockk<HttpRequest<*>> {
+        return mockk {
             every { this@mockk.parameters } returns parameters
         }
-        val olderResource = AdminUserResource(
-            userId = older.user.id,
+    }
+
+    private fun userWithClaims(creationDate: LocalDateTime) = UserWithClaims(
+        user = User(id = UUID.randomUUID(), status = UserStatus.ENABLED, creationDate = creationDate),
+        collectedClaims = emptyList(),
+        generatedClaimValues = emptyMap()
+    )
+
+    @Test
+    fun `listUsers - Map every user the page holds, in the order it holds them`() = runTest {
+        val first = userWithClaims(creationDate)
+        val second = userWithClaims(creationDate.plusDays(1))
+        val firstResource = AdminUserResource(
+            userId = first.user.id,
+            status = "enabled",
+            createdAt = creationDate,
+            claims = null
+        )
+        val secondResource = AdminUserResource(
+            userId = second.user.id,
+            status = "enabled",
+            createdAt = creationDate.plusDays(1),
+            claims = null
+        )
+
+        coEvery { userSearchManager.listSelectedClaims(null) } returns emptyList()
+        coEvery {
+            userSearchManager.listUsers(null, null, emptyMap(), null, null, defaultPage)
+        } returns pageOf(first, second)
+        every { userMapper.toResource(first, emptyList()) } returns firstResource
+        every { userMapper.toResource(second, emptyList()) } returns secondResource
+
+        val result = controller.listUsers(requestWithoutClaimFilter(), null, null, null, null, null, null, null)
+
+        assertEquals(listOf(first.user.id, second.user.id), result.users.map { it.userId })
+    }
+
+    @Test
+    fun `listUsers - Ask the search for the order and the page the parameters name`() = runTest {
+        val user = userWithClaims(creationDate)
+        val resource = AdminUserResource(
+            userId = user.user.id,
             status = "enabled",
             createdAt = creationDate,
             claims = null
         )
 
-        every { claimManager.listEnabledClaims() } returns emptyList()
+        coEvery { userSearchManager.listSelectedClaims(null) } returns emptyList()
         coEvery {
-            userSearchManager.getUserComparator(null, null)
-        } returns compareBy<UserWithClaims> { it.user.creationDate }
-        // Handed newest first, the first page of one still holds the user the comparator puts first.
-        coEvery { userSearchManager.listUsers(null, null, emptyMap()) } returns listOf(newer, older)
-        every { userMapper.buildClaimsMap(emptyList(), emptyList(), any()) } returns null
-        every { userMapper.toResource(older.user, null) } returns olderResource
+            userSearchManager.listUsers("enabled", "jane", emptyMap(), "email", "desc", PageParams(1, 2))
+        } returns pageOf(user)
+        every { userMapper.toResource(user, emptyList()) } returns resource
 
-        val result = controller.listUsers(request, 0, 1, null, null, null, null, null)
+        val result = controller.listUsers(
+            requestWithoutClaimFilter(), 1, 2, "enabled", null, "jane", "email", "desc"
+        )
 
-        assertEquals(listOf(older.user.id), result.users.map { it.userId })
-        assertEquals(2, result.total)
+        assertSame(resource, result.users.single())
+    }
+
+    @Test
+    fun `listUsers - Select the claims the parameter names`() = runTest {
+        val user = userWithClaims(creationDate)
+        val resource = AdminUserResource(
+            userId = user.user.id,
+            status = "enabled",
+            createdAt = creationDate,
+            claims = null
+        )
+
+        coEvery { userSearchManager.listSelectedClaims(listOf("email", "name")) } returns emptyList()
+        coEvery {
+            userSearchManager.listUsers(null, null, emptyMap(), null, null, defaultPage)
+        } returns pageOf(user)
+        every { userMapper.toResource(user, emptyList()) } returns resource
+
+        val result = controller.listUsers(
+            requestWithoutClaimFilter(), null, null, null, " email , name ", null, null, null
+        )
+
+        assertEquals(listOf(user.user.id), result.users.map { it.userId })
+    }
+
+    @Test
+    fun `listUsers - Select no claim where the parameter is empty`() = runTest {
+        val user = userWithClaims(creationDate)
+        val resource = AdminUserResource(
+            userId = user.user.id,
+            status = "enabled",
+            createdAt = creationDate,
+            claims = null
+        )
+
+        coEvery { userSearchManager.listSelectedClaims(emptyList()) } returns null
+        coEvery {
+            userSearchManager.listUsers(null, null, emptyMap(), null, null, defaultPage)
+        } returns pageOf(user)
+        every { userMapper.toResource(user, null) } returns resource
+
+        val result = controller.listUsers(requestWithoutClaimFilter(), null, null, null, "", null, null, null)
+
+        assertEquals(listOf(user.user.id), result.users.map { it.userId })
+    }
+
+    @Test
+    fun `listUsers - Publish the page the search answered, not the one that was asked for`() = runTest {
+        coEvery { userSearchManager.listSelectedClaims(null) } returns emptyList()
+        coEvery {
+            userSearchManager.listUsers(null, null, emptyMap(), null, null, defaultPage)
+        } returns Page(items = emptyList(), page = 3, size = 7, total = 42)
+
+        val result = controller.listUsers(requestWithoutClaimFilter(), null, null, null, null, null, null, null)
+
+        assertEquals(3, result.page)
+        assertEquals(7, result.size)
+        assertEquals(42, result.total)
     }
 
     @Test

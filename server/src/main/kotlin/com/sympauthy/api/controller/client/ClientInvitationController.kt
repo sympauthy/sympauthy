@@ -7,9 +7,9 @@ import com.sympauthy.api.resource.client.ClientInvitationListResource
 import com.sympauthy.api.resource.client.ClientInvitationResource
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.api.util.orderedPage
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.invitation.InvitationManager
+import com.sympauthy.business.manager.invitation.InvitationSearchManager
 import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
@@ -32,6 +32,7 @@ import java.util.*
 class ClientInvitationController(
     @Inject private val clientManager: ClientManager,
     @Inject private val invitationManager: InvitationManager,
+    @Inject private val invitationSearchManager: InvitationSearchManager,
     @Inject private val invitationMapper: ClientInvitationResourceMapper,
     @Inject private val paginationUtil: PaginationUtil
 ) {
@@ -99,15 +100,12 @@ class ClientInvitationController(
     ): ClientInvitationListResource {
         val clientAuth = authentication.clientAuthentication
         val pageParams = paginationUtil.resolvePageParams(page, size)
-        val allInvitations = invitationManager.findByCreatedById(clientAuth.clientId)
-        val paged = allInvitations
-            .orderedPage(pageParams, compareBy<Invitation> { it.createdAt }.thenBy { it.id })
-            .map(invitationMapper::toResource)
+        val invitations = invitationSearchManager.listInvitationsCreatedBy(clientAuth.clientId, pageParams)
         return ClientInvitationListResource(
-            invitations = paged,
-            page = pageParams.page,
-            size = pageParams.size,
-            total = allInvitations.size
+            invitations = invitations.items.map(invitationMapper::toResource),
+            page = invitations.page,
+            size = invitations.size,
+            total = invitations.total
         )
     }
 

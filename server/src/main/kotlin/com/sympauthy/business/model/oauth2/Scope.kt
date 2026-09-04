@@ -1,5 +1,6 @@
 package com.sympauthy.business.model.oauth2
 
+import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.isOpenIdConnectScope
 
 /**
@@ -96,6 +97,17 @@ class DisabledScope(
     type: ScopeType,
     audienceId: String? = null
 ) : Scope(scope, type, audienceId)
+
+/**
+ * A scope, and the claims that requesting it protects.
+ *
+ * What a scope protects is what an administrator reading the configuration asks about it, so a
+ * listing answers with both rather than leaving its caller to ask again once per scope it published.
+ */
+data class ScopeWithClaims(
+    val scope: Scope,
+    val protectedClaims: List<Claim>
+)
 
 /**
  * True if this scope is an admin scope granting access to administration APIs.

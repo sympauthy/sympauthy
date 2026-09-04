@@ -1,8 +1,10 @@
 package com.sympauthy.business.manager
 
+import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.data.repository.CollectedClaimRepository
 import jakarta.inject.Singleton
+import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.util.*
 
@@ -19,18 +21,28 @@ class GeneratedClaimsManager(
     /**
      * Compute values for all enabled generated claims for the given user.
      */
-    suspend fun computeValues(userId: UUID): Map<String, Any?> {
-        val generatedClaims = claimManager.listEnabledClaims().filter { it.generated }
-        return generatedClaims.associate { claim ->
-            claim.id to computeValue(claim.id, userId)
-        }
+    suspend fun computeValues(userId: UUID): Map<String, Any?> = computeValues(userId) {
+        computeUpdatedAt(userId)
     }
 
-    private suspend fun computeValue(claimId: String, userId: UUID): Any? {
-        return when (claimId) {
-            OpenIdConnectClaimId.SUB -> computeSubject(userId)
-            OpenIdConnectClaimId.UPDATED_AT -> computeUpdatedAt(userId)
-            else -> null
+    /**
+     * Compute values for all enabled generated claims of the user [userId], reading `updated_at`
+     * from the claims the caller already holds instead of querying for it.
+     *
+     * [collectedClaims] must be every claim collected from that user: `updated_at` is the date of
+     * the most recent of them, and a subset of them answers with a date that is too old.
+     */
+    suspend fun computeValues(userId: UUID, collectedClaims: List<CollectedClaim>): Map<String, Any?> =
+        computeValues(userId) { computeUpdatedAt(collectedClaims) }
+
+    private suspend fun computeValues(userId: UUID, updatedAt: suspend () -> Long?): Map<String, Any?> {
+        val generatedClaims = claimManager.listEnabledClaims().filter { it.generated }
+        return generatedClaims.associate { claim ->
+            claim.id to when (claim.id) {
+                OpenIdConnectClaimId.SUB -> computeSubject(userId)
+                OpenIdConnectClaimId.UPDATED_AT -> updatedAt()
+                else -> null
+            }
         }
     }
 
@@ -45,6 +57,15 @@ class GeneratedClaimsManager(
      * have been collected.
      */
     suspend fun computeUpdatedAt(userId: UUID): Long? =
-        collectedClaimRepository.findMaxCollectionDateByUserId(userId)
-            ?.toInstant(ZoneOffset.UTC)?.epochSecond
+        collectedClaimRepository.findMaxCollectionDateByUserId(userId)?.epochSecond
+
+    /**
+     * Compute the value of the `updated_at` claim from every claim collected from a user.
+     * Returns the timestamp (as Unix epoch seconds) of the most recent of them, or null if the
+     * user has none.
+     */
+    fun computeUpdatedAt(collectedClaims: List<CollectedClaim>): Long? =
+        collectedClaims.maxOfOrNull { it.collectionDate }?.epochSecond
+
+    private val LocalDateTime.epochSecond: Long get() = toInstant(ZoneOffset.UTC).epochSecond
 }

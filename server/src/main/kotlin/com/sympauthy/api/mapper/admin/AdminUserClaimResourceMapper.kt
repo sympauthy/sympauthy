@@ -3,6 +3,9 @@ package com.sympauthy.api.mapper.admin
 import com.sympauthy.api.mapper.config.OutputResourceMapperConfig
 import com.sympauthy.api.resource.admin.AdminUserClaimResource
 import com.sympauthy.business.model.user.CollectedClaim
+import com.sympauthy.business.model.user.CollectedUserClaim
+import com.sympauthy.business.model.user.GeneratedUserClaim
+import com.sympauthy.business.model.user.UserClaim
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimGroup
@@ -16,6 +19,23 @@ import org.mapstruct.Named
     config = OutputResourceMapperConfig::class
 )
 abstract class AdminUserClaimResourceMapper {
+
+    /**
+     * Publish [userClaim], reading its value from where its shape holds it.
+     */
+    fun toResource(userClaim: UserClaim): AdminUserClaimResource = when (userClaim) {
+        is CollectedUserClaim -> toResourceFromCollectedClaim(
+            claim = userClaim.claim,
+            collectedClaim = userClaim.collectedClaim,
+            identifier = userClaim.identifier
+        )
+
+        is GeneratedUserClaim -> toResourceFromGeneratedClaim(
+            claim = userClaim.claim,
+            identifier = userClaim.identifier,
+            generatedClaimValue = userClaim.value
+        )
+    }
 
     @Mapping(source = "claim.id", target = "claimId")
     @Mapping(source = "claim.dataType", target = "type", qualifiedByName = ["toTypeString"])

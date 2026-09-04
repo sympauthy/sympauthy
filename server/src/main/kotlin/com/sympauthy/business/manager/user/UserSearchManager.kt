@@ -2,8 +2,12 @@ package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.mapper.CollectedClaimMapper
 import com.sympauthy.business.mapper.UserMapper
+import com.sympauthy.business.model.page.Page
+import com.sympauthy.business.model.page.PageParams
+import com.sympauthy.business.model.page.orderedPage
 import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.business.model.user.UserWithClaims
 import com.sympauthy.business.model.user.claim.Claim
@@ -21,7 +25,7 @@ import kotlinx.coroutines.flow.toList
  * This design choice is driven by the fact that claim values are stored in a separate table (collected_claims)
  * with a generic key-value structure, making SQL-based cross-claim filtering and sorting impractical — especially
  * across different database engines (H2 and PostgreSQL). This approach is consistent with the pattern used by
- * other admin endpoints (ex. [com.sympauthy.api.controller.admin.AdminClaimController]).
+ * the other admin listings (ex. [com.sympauthy.business.manager.ClaimSearchManager]).
  *
  * This design should remain sustainable up to thousands of users, which is beyond the intended scale for SympAuthy.
  */
@@ -30,29 +34,34 @@ class UserSearchManager(
     @Inject private val userRepository: UserRepository,
     @Inject private val collectedClaimRepository: CollectedClaimRepository,
     @Inject private val claimManager: ClaimManager,
+    @Inject private val generatedClaimsManager: GeneratedClaimsManager,
     @Inject private val claimValueValidator: ClaimValueValidator,
     @Inject private val userMapper: UserMapper,
     @Inject private val collectedClaimMapper: CollectedClaimMapper
 ) {
 
     /**
-     * Search and filter users with their claims.
+     * Read the page [pageParams] names of the users the criteria keep, each with their claims.
      *
      * Every criterion is optional and they compose: [status] keeps the users in one [UserStatus], [query] is a
      * partial case-insensitive match across the values of every enabled claim, and [claimFilters] are
-     * exact-match values keyed by claim id.
-     *
-     * The result carries no order of its own — [getUserComparator] is what puts it in one.
+     * exact-match values keyed by claim id. [sort] and [order] are the order the page is read in, which
+     * [getUserComparator] builds.
      *
      * A criterion naming something that does not exist is the caller's mistake rather than an empty result: an
-     * unknown claim id or status each throw a recoverable business exception carrying
-     * `user.search.invalid_claim` or `user.search.invalid_status`.
+     * unknown claim id, status or sort property each throw a recoverable business exception carrying
+     * `user.search.invalid_claim`, `user.search.invalid_status` or `user.search.invalid_sort`.
      */
     suspend fun listUsers(
         status: String?,
         query: String?,
-        claimFilters: Map<String, String>
-    ): List<UserWithClaims> {
+        claimFilters: Map<String, String>,
+        sort: String?,
+        order: String?,
+        pageParams: PageParams
+    ): Page<UserWithClaims> {
+        // Built before the search so a sort property naming nothing is refused without reading every user.
+        val comparator = getUserComparator(sort, order)
         val enabledClaims = claimManager.listEnabledClaims()
 
         // Validate claim filter keys and deserialize filter values
@@ -90,7 +99,7 @@ class UserSearchManager(
         }
 
         if (userEntities.isEmpty()) {
-            return emptyList()
+            return emptyList<UserWithClaims>().orderedPage(pageParams, comparator)
         }
 
         val users = userEntities.map(userMapper::toUser)
@@ -103,9 +112,11 @@ class UserSearchManager(
 
         // Build UserWithClaims
         var result = users.map { user ->
+            val userClaims = claimsByUserId[user.id] ?: emptyList()
             UserWithClaims(
                 user = user,
-                collectedClaims = claimsByUserId[user.id] ?: emptyList()
+                collectedClaims = userClaims,
+                generatedClaimValues = generatedClaimsManager.computeValues(user.id, userClaims)
             )
         }
 
@@ -130,7 +141,7 @@ class UserSearchManager(
             }
         }
 
-        return result
+        return result.orderedPage(pageParams, comparator)
     }
 
     /**
@@ -144,7 +155,7 @@ class UserSearchManager(
      * ends in the user's identifier and is total. That tiebreak stays ascending under `order=desc`: it is not
      * part of what the caller asked to sort by, it is there to decide what their own key leaves undecided.
      */
-    suspend fun getUserComparator(
+    internal suspend fun getUserComparator(
         sort: String?,
         order: String?
     ): Comparator<UserWithClaims> {
@@ -175,10 +186,24 @@ class UserSearchManager(
     }
 
     /**
+     * List the claims a caller asked to read the values of, or null where they asked for none.
+     *
+     * A null [claimIds] is every enabled claim, since a caller naming none is answered with all of
+     * them, and an empty [claimIds] is a caller who asked for no claim at all. Otherwise every one
+     * of [claimIds] must name an enabled claim, and one that does not throws
+     * `user.search.invalid_claim`.
+     */
+    suspend fun listSelectedClaims(claimIds: List<String>?): List<Claim>? = when {
+        claimIds == null -> claimManager.listEnabledClaims()
+        claimIds.isEmpty() -> null
+        else -> validateAndResolveClaimIds(claimIds)
+    }
+
+    /**
      * Validate that the given claim IDs reference valid enabled claims.
      * Returns the list of matching [Claim] objects.
      */
-    fun validateAndResolveClaimIds(claimIds: List<String>): List<Claim> {
+    internal fun validateAndResolveClaimIds(claimIds: List<String>): List<Claim> {
         val enabledClaims = claimManager.listEnabledClaims()
         val enabledClaimMap = enabledClaims.associateBy { it.id }
         return claimIds.map { id ->

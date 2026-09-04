@@ -6,27 +6,28 @@ import com.sympauthy.api.resource.admin.AdminUserClaimResource
 import com.sympauthy.api.util.DEFAULT_PAGE
 import com.sympauthy.api.util.TEST_DEFAULT_PAGE_SIZE
 import com.sympauthy.api.util.defaultPaginationUtil
-import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.GeneratedClaimsManager
-import com.sympauthy.business.manager.user.CollectedClaimManager
+import com.sympauthy.business.manager.user.UserClaimSearchManager
 import com.sympauthy.business.manager.user.UserManager
-import com.sympauthy.business.model.user.CollectedClaim
+import com.sympauthy.business.model.filter.ValueFilter
+import com.sympauthy.business.model.page.Page
+import com.sympauthy.business.model.page.PageParams
+import com.sympauthy.business.model.user.CollectedUserClaim
 import com.sympauthy.business.model.user.User
+import com.sympauthy.business.model.user.UserClaim
 import com.sympauthy.business.model.user.claim.*
-import com.sympauthy.config.model.EnabledAuthConfig
 import io.micronaut.http.HttpStatus
 import io.mockk.coEvery
 import io.mockk.every
+import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import java.util.*
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
-import java.time.LocalDateTime
-import java.util.*
 
 @ExtendWith(MockKExtension::class)
 class AdminUserClaimControllerTest {
@@ -35,42 +36,20 @@ class AdminUserClaimControllerTest {
     lateinit var userManager: UserManager
 
     @MockK
-    lateinit var claimManager: ClaimManager
-
-    @MockK
-    lateinit var collectedClaimManager: CollectedClaimManager
-
-    @MockK(relaxed = true)
-    lateinit var generatedClaimsManager: GeneratedClaimsManager
+    lateinit var userClaimSearchManager: UserClaimSearchManager
 
     @MockK
     lateinit var userClaimMapper: AdminUserClaimResourceMapper
 
-    private val userId = UUID.randomUUID()
+    @Suppress("unused")
+    private val paginationUtil = defaultPaginationUtil()
 
-    private val openIdAcl = ClaimAcl(
-        consent = ConsentAcl(
-            scope = "email",
-            readableByUser = true,
-            writableByUser = true,
-            readableByClient = true,
-            writableByClient = false
-        ),
-        unconditional = UnconditionalAcl(emptyList(), emptyList())
-    )
+    @InjectMockKs
+    lateinit var controller: AdminUserClaimController
 
-    private val profileAcl = ClaimAcl(
-        consent = ConsentAcl(
-            scope = "profile",
-            readableByUser = true,
-            writableByUser = true,
-            readableByClient = true,
-            writableByClient = false
-        ),
-        unconditional = UnconditionalAcl(emptyList(), emptyList())
-    )
+    private val userId: UUID = UUID.randomUUID()
 
-    private val customAcl = ClaimAcl(
+    private val acl = ClaimAcl(
         consent = ConsentAcl(
             scope = null,
             readableByUser = false,
@@ -78,70 +57,29 @@ class AdminUserClaimControllerTest {
             readableByClient = false,
             writableByClient = false
         ),
-        unconditional = UnconditionalAcl(
-            readableWithClientScopes = listOf("users:claims:read"),
-            writableWithClientScopes = listOf("users:claims:write")
-        )
+        unconditional = UnconditionalAcl(emptyList(), emptyList())
     )
 
-    private val emailClaim = Claim(
-        id = OpenIdConnectClaimId.EMAIL,
-        enabled = true,
-        verifiedId = "email_verified",
-        dataType = ClaimDataType.EMAIL,
-        group = null,
-        required = true,
-        generated = false,
-        userInputted = true,
-        allowedValues = null,
-        acl = openIdAcl
+    private fun userClaim(claimId: String): UserClaim = CollectedUserClaim(
+        claim = Claim(
+            id = claimId,
+            enabled = true,
+            verifiedId = null,
+            dataType = ClaimDataType.STRING,
+            group = null,
+            required = false,
+            generated = false,
+            userInputted = false,
+            allowedValues = null,
+            acl = acl
+        ),
+        identifier = false,
+        collectedClaim = null
     )
 
-    private val nameClaim = Claim(
-        id = OpenIdConnectClaimId.NAME,
-        enabled = true,
-        verifiedId = null,
-        dataType = ClaimDataType.STRING,
-        group = ClaimGroup.IDENTITY,
-        required = false,
-        generated = false,
-        userInputted = true,
-        allowedValues = null,
-        acl = profileAcl
-    )
-
-    // email_verified — should be filtered out
-    private val emailVerifiedClaim = Claim(
-        id = "email_verified",
-
-        enabled = true,
-        verifiedId = null,
-        dataType = ClaimDataType.STRING,
-        group = null,
-        required = false,
-        generated = false,
-        userInputted = false,
-        allowedValues = null,
-        acl = customAcl
-    )
-
-    private val customClaim = Claim(
-        id = "custom_field",
-
-        enabled = true,
-        verifiedId = null,
-        dataType = ClaimDataType.STRING,
-        group = null,
-        required = false,
-        generated = false,
-        userInputted = false,
-        allowedValues = null,
-        acl = customAcl
-    )
-
-    private fun mockResource(claimId: String, value: Any? = null): AdminUserClaimResource = AdminUserClaimResource(
+    private fun mockResource(claimId: String): AdminUserClaimResource = AdminUserClaimResource(
         claimId = claimId,
-        value = value,
+        value = null,
         type = "string",
         origin = "openid",
         required = false,
@@ -151,287 +89,104 @@ class AdminUserClaimControllerTest {
         verifiedAt = null
     )
 
-    private fun mockCollectedClaim(
-        claim: Claim,
-        value: Any? = "test-value",
-        verificationDate: LocalDateTime? = null
-    ): CollectedClaim = CollectedClaim(
-        userId = userId,
-        claim = claim,
-        value = value,
-        verified = verificationDate != null,
-        collectionDate = LocalDateTime.now(),
-        verificationDate = verificationDate
+    private val defaultPage = PageParams(DEFAULT_PAGE, TEST_DEFAULT_PAGE_SIZE)
+
+    private fun pageOf(vararg claims: UserClaim) = Page(
+        items = claims.toList(),
+        page = DEFAULT_PAGE,
+        size = TEST_DEFAULT_PAGE_SIZE,
+        total = claims.size
     )
 
-    private fun createController(): AdminUserClaimController {
-        val enabledConfig = EnabledAuthConfig(
-            issuer = "test",
-            token = mockk(),
-            authorizationCode = mockk(),
-            identifierClaims = listOf(OpenIdConnectClaimId.EMAIL),
-            userMergingEnabled = false,
-            byPassword = mockk()
-        )
-        return AdminUserClaimController(
-            userManager = userManager,
-            claimManager = claimManager,
-            collectedClaimManager = collectedClaimManager,
-            generatedClaimsManager = generatedClaimsManager,
-            uncheckedAuthConfig = enabledConfig,
-            userClaimMapper = userClaimMapper,
-            paginationUtil = defaultPaginationUtil()
-        )
+    private fun foundUser() {
+        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
+    }
+
+    private fun searchAnswers(vararg claims: UserClaim) {
+        coEvery {
+            userClaimSearchManager.listUserClaims(
+                userId, null, null, null, null, null, ValueFilter.Unfiltered, defaultPage
+            )
+        } returns pageOf(*claims)
     }
 
     @Test
-    fun `listUserClaims - Return paginated list with defaults`() = runTest {
-        val ctrl = createController()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
-        every { claimManager.listEnabledClaims() } returns listOf(emailClaim, nameClaim)
-        coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns emptyList()
-
+    fun `listUserClaims - Map every claim the page holds, in the order it holds them`() = runTest {
+        val email = userClaim("email")
+        val name = userClaim("name")
         val emailResource = mockResource("email")
         val nameResource = mockResource("name")
-        every { userClaimMapper.toResourceFromCollectedClaim(emailClaim, null, true) } returns emailResource
-        every { userClaimMapper.toResourceFromCollectedClaim(nameClaim, null, false) } returns nameResource
 
-        val result = ctrl.listUserClaims(userId, null, null, null, null, null, null, null, null)
+        foundUser()
+        searchAnswers(email, name)
+        every { userClaimMapper.toResource(email) } returns emailResource
+        every { userClaimMapper.toResource(name) } returns nameResource
 
-        assertEquals(DEFAULT_PAGE, result.page)
-        assertEquals(TEST_DEFAULT_PAGE_SIZE, result.size)
-        assertEquals(2, result.total)
-        assertEquals(2, result.claims.size)
-        assertSame(emailResource, result.claims[0])
-        assertSame(nameResource, result.claims[1])
+        val result = controller.listUserClaims(userId, null, null, null, null, null, null, null, null)
+
+        assertEquals(listOf(emailResource, nameResource), result.claims)
     }
 
     @Test
-    fun `listUserClaims - Verified claims are excluded`() = runTest {
-        val ctrl = createController()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
-        // emailClaim has verifiedId = "email_verified", so emailVerifiedClaim should be excluded
-        every { claimManager.listEnabledClaims() } returns listOf(emailClaim, emailVerifiedClaim, nameClaim)
-        coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns emptyList()
+    fun `listUserClaims - Ask the manager for the claims the parameters name, on the page they name`() = runTest {
+        val custom = userClaim("custom_field")
+        val resource = mockResource("custom_field")
 
-        val emailResource = mockResource("email")
-        val nameResource = mockResource("name")
-        every { userClaimMapper.toResourceFromCollectedClaim(emailClaim, null, true) } returns emailResource
-        every { userClaimMapper.toResourceFromCollectedClaim(nameClaim, null, false) } returns nameResource
+        foundUser()
+        coEvery {
+            userClaimSearchManager.listUserClaims(
+                userId, "custom_field", false, true, true, false,
+                ValueFilter.Matching(ClaimOrigin.CUSTOM), PageParams(1, 2)
+            )
+        } returns pageOf(custom)
+        every { userClaimMapper.toResource(custom) } returns resource
 
-        val result = ctrl.listUserClaims(userId, null, null, null, null, null, null, null, null)
-
-        assertEquals(2, result.total)
-        assertEquals(listOf("email", "name"), result.claims.map { it.claimId })
-    }
-
-    @Test
-    fun `listUserClaims - Filter by claimId`() = runTest {
-        val ctrl = createController()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
-        every { claimManager.listEnabledClaims() } returns listOf(emailClaim, nameClaim)
-        coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns emptyList()
-
-        val emailResource = mockResource("email")
-        every { userClaimMapper.toResourceFromCollectedClaim(emailClaim, null, true) } returns emailResource
-
-        val result = ctrl.listUserClaims(userId, null, null, "email", null, null, null, null, null)
-
-        assertEquals(1, result.total)
-        assertEquals("email", result.claims[0].claimId)
-    }
-
-    @Test
-    fun `listUserClaims - Filter by identifier`() = runTest {
-        val ctrl = createController()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
-        every { claimManager.listEnabledClaims() } returns listOf(emailClaim, nameClaim)
-        coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns emptyList()
-
-        val emailResource = mockResource("email")
-        every { userClaimMapper.toResourceFromCollectedClaim(emailClaim, null, true) } returns emailResource
-
-        val result = ctrl.listUserClaims(userId, null, null, null, true, null, null, null, null)
-
-        assertEquals(1, result.total)
-        assertEquals("email", result.claims[0].claimId)
-    }
-
-    @Test
-    fun `listUserClaims - Filter by required`() = runTest {
-        val ctrl = createController()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
-        every { claimManager.listEnabledClaims() } returns listOf(emailClaim, nameClaim)
-        coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns emptyList()
-
-        val emailResource = mockResource("email")
-        every { userClaimMapper.toResourceFromCollectedClaim(emailClaim, null, true) } returns emailResource
-
-        val result = ctrl.listUserClaims(userId, null, null, null, null, true, null, null, null)
-
-        assertEquals(1, result.total)
-        assertEquals("email", result.claims[0].claimId)
-    }
-
-    @Test
-    fun `listUserClaims - Filter by origin`() = runTest {
-        val ctrl = createController()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
-        every { claimManager.listEnabledClaims() } returns listOf(emailClaim, customClaim)
-        coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns emptyList()
-
-        val customResource = mockResource("custom_field")
-        every { userClaimMapper.toResourceFromCollectedClaim(customClaim, null, false) } returns customResource
-
-        val result = ctrl.listUserClaims(userId, null, null, null, null, null, null, null, "custom")
-
-        assertEquals(1, result.total)
-        assertEquals("custom_field", result.claims[0].claimId)
-    }
-
-    @Test
-    fun `listUserClaims - Filter by collected`() = runTest {
-        val ctrl = createController()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
-        every { claimManager.listEnabledClaims() } returns listOf(emailClaim, nameClaim)
-
-        val collectedEmail = mockCollectedClaim(emailClaim, "user@test.com")
-        coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns listOf(collectedEmail)
-
-        val emailResource = mockResource("email", "user@test.com")
-        every { userClaimMapper.toResourceFromCollectedClaim(emailClaim, collectedEmail, true) } returns emailResource
-
-        val result = ctrl.listUserClaims(userId, null, null, null, null, null, true, null, null)
-
-        assertEquals(1, result.total)
-        assertEquals("email", result.claims[0].claimId)
-    }
-
-    @Test
-    fun `listUserClaims - Filter by verified`() = runTest {
-        val ctrl = createController()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
-        every { claimManager.listEnabledClaims() } returns listOf(emailClaim, nameClaim)
-
-        val verifiedDate = LocalDateTime.of(2025, 1, 1, 0, 0)
-        val collectedEmail = mockCollectedClaim(emailClaim, "user@test.com", verifiedDate)
-        coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns listOf(collectedEmail)
-
-        val emailResource = mockResource("email", "user@test.com")
-        every { userClaimMapper.toResourceFromCollectedClaim(emailClaim, collectedEmail, true) } returns emailResource
-
-        val result = ctrl.listUserClaims(userId, null, null, null, null, null, null, true, null)
-
-        assertEquals(1, result.total)
-        assertEquals("email", result.claims[0].claimId)
-    }
-
-    @Test
-    fun `listUserClaims - Claims without collected values show null metadata`() = runTest {
-        val ctrl = createController()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
-        every { claimManager.listEnabledClaims() } returns listOf(nameClaim)
-        coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns emptyList()
-
-        val nameResource = AdminUserClaimResource(
-            claimId = "name",
-            value = null,
-            type = "string",
-            origin = "openid",
-            required = false,
-            identifier = false,
-            group = "identity",
-            collectedAt = null,
-            verifiedAt = null
+        val result = controller.listUserClaims(
+            userId, 1, 2, "custom_field", false, true, true, false, "custom"
         )
-        every { userClaimMapper.toResourceFromCollectedClaim(nameClaim, null, false) } returns nameResource
 
-        val result = ctrl.listUserClaims(userId, null, null, null, null, null, null, null, null)
+        assertSame(resource, result.claims.single())
+    }
 
-        assertEquals(1, result.total)
-        assertNull(result.claims[0].value)
-        assertNull(result.claims[0].collectedAt)
-        assertNull(result.claims[0].verifiedAt)
+    @Test
+    fun `listUserClaims - Ask the manager for nothing when the origin names no origin`() = runTest {
+        foundUser()
+        coEvery {
+            userClaimSearchManager.listUserClaims(
+                userId, null, null, null, null, null, ValueFilter.MatchesNothing, defaultPage
+            )
+        } returns pageOf()
+
+        val result = controller.listUserClaims(userId, null, null, null, null, null, null, null, "openid_connect")
+
+        assertEquals(0, result.total)
+        assertTrue(result.claims.isEmpty())
+    }
+
+    @Test
+    fun `listUserClaims - Publish the page the manager answered, not the one that was asked for`() = runTest {
+        foundUser()
+        coEvery {
+            userClaimSearchManager.listUserClaims(
+                userId, null, null, null, null, null, ValueFilter.Unfiltered, defaultPage
+            )
+        } returns Page(items = emptyList(), page = 3, size = 7, total = 42)
+
+        val result = controller.listUserClaims(userId, null, null, null, null, null, null, null, null)
+
+        assertEquals(3, result.page)
+        assertEquals(7, result.size)
+        assertEquals(42, result.total)
     }
 
     @Test
     fun `listUserClaims - Throw 404 when user not found`() = runTest {
-        val ctrl = createController()
         coEvery { userManager.findByIdOrNull(userId) } returns null
 
         val exception = assertThrows<LocalizedHttpException> {
-            ctrl.listUserClaims(userId, null, null, null, null, null, null, null, null)
+            controller.listUserClaims(userId, null, null, null, null, null, null, null, null)
         }
 
         assertEquals(HttpStatus.NOT_FOUND, exception.status)
-    }
-
-    @Test
-    fun `listUserClaims - Pagination works correctly`() = runTest {
-        val ctrl = createController()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
-
-        val claims = (1..5).map {
-            Claim(
-                id = "claim_$it",
-
-                enabled = true,
-                verifiedId = null,
-                dataType = ClaimDataType.STRING,
-                group = null,
-                required = false,
-                generated = false,
-                userInputted = false,
-                allowedValues = null,
-                acl = customAcl
-            )
-        }
-        every { claimManager.listEnabledClaims() } returns claims
-        coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns emptyList()
-
-        val resources = claims.map { mockResource(it.id) }
-        // The second page of two holds the third and fourth claim.
-        listOf(2, 3).forEach { i ->
-            every { userClaimMapper.toResourceFromCollectedClaim(claims[i], null, false) } returns resources[i]
-        }
-
-        val result = ctrl.listUserClaims(userId, 1, 2, null, null, null, null, null, null)
-
-        assertEquals(1, result.page)
-        assertEquals(2, result.size)
-        assertEquals(5, result.total)
-        assertEquals(2, result.claims.size)
-        assertSame(resources[2], result.claims[0])
-        assertSame(resources[3], result.claims[1])
-    }
-
-    @Test
-    fun `listUserClaims - Order by claim identifier before slicing`() = runTest {
-        val ctrl = createController()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
-        // Handed name-first, the first page of one still holds the claim the order puts first.
-        every { claimManager.listEnabledClaims() } returns listOf(nameClaim, customClaim)
-        coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns emptyList()
-        every {
-            userClaimMapper.toResourceFromCollectedClaim(customClaim, null, false)
-        } returns mockResource("custom_field")
-
-        val result = ctrl.listUserClaims(userId, 0, 1, null, null, null, null, null, null)
-
-        assertEquals(listOf("custom_field"), result.claims.map { it.claimId })
-    }
-
-    @Test
-    fun `listUserClaims - Empty page when page exceeds total`() = runTest {
-        val ctrl = createController()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
-        every { claimManager.listEnabledClaims() } returns listOf(emailClaim)
-        coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns emptyList()
-
-        val result = ctrl.listUserClaims(userId, 5, 20, null, null, null, null, null, null)
-
-        assertEquals(5, result.page)
-        assertEquals(1, result.total)
-        assertTrue(result.claims.isEmpty())
     }
 }

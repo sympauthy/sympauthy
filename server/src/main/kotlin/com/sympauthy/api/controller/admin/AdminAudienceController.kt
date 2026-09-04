@@ -5,8 +5,8 @@ import com.sympauthy.api.resource.admin.AdminAudienceListResource
 import com.sympauthy.api.resource.admin.AdminAudienceResource
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.api.util.orderedPage
 import com.sympauthy.business.manager.AudienceManager
+import com.sympauthy.business.manager.AudienceSearchManager
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.security.SecurityRule.ADMIN_CONFIG_READ
@@ -26,6 +26,7 @@ import jakarta.inject.Inject
 @SecurityRequirement(name = "admin", scopes = [AdminScopeId.CONFIG_READ])
 class AdminAudienceController(
     @Inject private val audienceManager: AudienceManager,
+    @Inject private val audienceSearchManager: AudienceSearchManager,
     @Inject private val clientManager: ClientManager,
     @Inject private val audienceMapper: AdminAudienceResourceMapper,
     @Inject private val paginationUtil: PaginationUtil
@@ -54,16 +55,12 @@ class AdminAudienceController(
         ) size: Int?
     ): AdminAudienceListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
-        val audiences = audienceManager.listAudiences()
-        val clientCountsByAudienceId = clientManager.countClientsByAudienceId()
-        val paged = audiences
-            .orderedPage(pageParams, compareBy { it.id })
-            .map { audienceMapper.toResource(it, clientCountsByAudienceId[it.id] ?: 0) }
+        val audiences = audienceSearchManager.listAudiences(pageParams)
         return AdminAudienceListResource(
-            audiences = paged,
-            page = pageParams.page,
-            size = pageParams.size,
-            total = audiences.size
+            audiences = audiences.items.map { audienceMapper.toResource(it.audience, it.clientCount) },
+            page = audiences.page,
+            size = audiences.size,
+            total = audiences.total
         )
     }
 

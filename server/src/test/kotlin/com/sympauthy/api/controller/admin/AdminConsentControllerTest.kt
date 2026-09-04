@@ -4,6 +4,9 @@ import com.sympauthy.api.mapper.admin.AdminConsentResourceMapper
 import com.sympauthy.api.resource.admin.AdminConsentResource
 import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.business.manager.consent.ConsentManager
+import com.sympauthy.business.manager.consent.ConsentSearchManager
+import com.sympauthy.business.model.page.Page
+import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.user.User
@@ -14,7 +17,7 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import java.time.LocalDateTime
@@ -28,6 +31,9 @@ class AdminConsentControllerTest {
 
     @MockK
     lateinit var consentManager: ConsentManager
+
+    @MockK
+    lateinit var consentSearchManager: ConsentSearchManager
 
     @MockK
     lateinit var consentMapper: AdminConsentResourceMapper
@@ -68,21 +74,24 @@ class AdminConsentControllerTest {
     )
 
     @Test
-    fun `listConsents - Order by consent date, then by identifier`() = runTest {
-        // Two of the three were granted in the same instant, which is what the identifier separates.
-        val tiedFirst = consent(id(1), consentedAt)
-        val tiedSecond = consent(id(2), consentedAt)
-        val earlier = consent(id(3), consentedAt.minusDays(1))
+    fun `listConsents - Map every consent the page holds, and publish the page it came in`() = runTest {
+        val consent = consent(id(1), consentedAt)
+        val resource = mockResource(consent.id)
 
         coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
-        coEvery { consentManager.findActiveConsentsByUser(userId) } returns
-                listOf(tiedSecond, tiedFirst, earlier)
-        listOf(tiedFirst, tiedSecond, earlier).forEach {
-            every { consentMapper.toResource(it) } returns mockResource(it.id)
-        }
+        coEvery { consentSearchManager.listUserConsents(userId, PageParams(0, 20)) } returns Page(
+            items = listOf(consent),
+            page = 3,
+            size = 7,
+            total = 42
+        )
+        every { consentMapper.toResource(consent) } returns resource
 
         val result = controller.listConsents(userId, null, null)
 
-        assertEquals(listOf(earlier.id, tiedFirst.id, tiedSecond.id), result.consents.map { it.consentId })
+        assertSame(resource, result.consents.single())
+        assertEquals(3, result.page)
+        assertEquals(7, result.size)
+        assertEquals(42, result.total)
     }
 }

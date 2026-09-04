@@ -7,7 +7,6 @@ import com.sympauthy.api.resource.admin.AdminUserProviderListResource
 import com.sympauthy.api.resource.admin.AdminUserProviderResource
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.api.util.orderedPage
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.client.ClientRedirectUriManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
@@ -15,9 +14,9 @@ import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManage
 import com.sympauthy.business.manager.flow.link.InteractiveFlowSessionLinkProviderManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderManager
+import com.sympauthy.business.manager.provider.UserProviderSearchManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
-import com.sympauthy.business.model.provider.ProviderUserInfo
 import com.sympauthy.security.SecurityRule.ADMIN_USERS_READ
 import com.sympauthy.security.SecurityRule.ADMIN_USERS_WRITE
 import io.micronaut.http.HttpStatus
@@ -34,6 +33,7 @@ import java.util.*
 class AdminUserProviderController(
     @Inject private val userManager: UserManager,
     @Inject private val providerClaimsManager: ProviderClaimsManager,
+    @Inject private val userProviderSearchManager: UserProviderSearchManager,
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
     @Inject private val clientRedirectUriManager: ClientRedirectUriManager,
     @Inject private val clientManager: ClientManager,
@@ -72,21 +72,18 @@ class AdminUserProviderController(
     ): AdminUserProviderListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
         userManager.findByIdOrNull(userId).orNotFound()
-        val allProviders = providerClaimsManager.findByUserId(userId)
-        val paged = allProviders
-            .orderedPage(pageParams, compareBy<ProviderUserInfo> { it.linkDate }.thenBy { it.providerId })
-            .map {
+        val providers = userProviderSearchManager.listUserProviders(userId, pageParams)
+        return AdminUserProviderListResource(
+            providers = providers.items.map {
                 AdminUserProviderResource(
                     providerId = it.providerId,
                     subject = it.userInfo.subject,
                     linkedAt = it.linkDate
                 )
-            }
-        return AdminUserProviderListResource(
-            providers = paged,
-            page = pageParams.page,
-            size = pageParams.size,
-            total = allProviders.size
+            },
+            page = providers.page,
+            size = providers.size,
+            total = providers.total
         )
     }
 
