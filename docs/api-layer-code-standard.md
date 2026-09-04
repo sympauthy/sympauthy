@@ -57,6 +57,16 @@ into is declared on the enum itself, and that declaration then reads as what it 
 spelled differently on purpose. A declaration on every value says nothing, and the one that matters
 is invisible among them.
 
+**An enum holding such a value implements `PublishedUnderAnotherName`, and only that value
+declares a name.** `wireName` reads the declaration before it derives anything, so a mapper and a
+filter call the one extension whether the set holds an exception or not.
+
+**An enum whose declared words are a specification's record keeps them on every value.**
+`OAuth2ErrorCode` holds the status, the token and the default description RFC 6749 names together,
+and deriving the token would let a rename of a Kotlin constant rename what a client branches on.
+`CodeChallengeMethod` keeps its declaration because that is the form the flow session row stores and
+PKCE parses back, rather than a published name.
+
 ## The controller
 
 **Controllers route and translate.** Bind the request, call one manager method, map the result,

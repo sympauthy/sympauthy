@@ -9,6 +9,7 @@ import com.sympauthy.business.model.client.AuthorizationWebhookOnFailure
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.util.wireName
 import org.mapstruct.Mapper
 import org.mapstruct.Mapping
 import org.mapstruct.NullValueMappingStrategy
@@ -35,7 +36,7 @@ abstract class AdminClientResourceMapper {
 
     fun toScope(scope: Scope): String = scope.scope
 
-    fun toGrantType(grantType: GrantType): String = grantType.value
+    fun toGrantType(grantType: GrantType): String = grantType.wireName
 
     fun toWebhookResource(webhook: AuthorizationWebhook?): AdminAuthorizationWebhookResource? {
         return webhook?.let {

@@ -7,6 +7,7 @@ import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.data.model.AuthenticationTokenEntity
+import com.sympauthy.util.wireName
 import org.mapstruct.AfterMapping
 import org.mapstruct.Mapper
 import org.mapstruct.Mapping
@@ -29,7 +30,7 @@ abstract class AuthenticationTokenMapper {
     @AfterMapping
     protected fun validateTokenCoherence(@MappingTarget token: AuthenticationToken) {
         when (token.grantType) {
-            "client_credentials" -> {
+            GrantType.CLIENT_CREDENTIALS.wireName -> {
                 if (token.userId != null) {
                     throw internalBusinessExceptionOf(
                         "mapper.authentication_token.client_credentials.invalid_user_id",
@@ -45,7 +46,7 @@ abstract class AuthenticationTokenMapper {
                 requireNoActorTokenId(token)
             }
 
-            GrantType.TOKEN_EXCHANGE.value -> {
+            GrantType.TOKEN_EXCHANGE.wireName -> {
                 // Act-as tokens carry a target user but are not tied to an authorization flow.
                 if (token.userId == null) {
                     throw internalBusinessExceptionOf(

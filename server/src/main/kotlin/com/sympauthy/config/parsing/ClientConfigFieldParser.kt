@@ -8,6 +8,7 @@ import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.ConfigTemplateResolver
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.properties.ClientConfigurationProperties.AuthorizationWebhookConfig
+import com.sympauthy.util.wireName
 import io.micronaut.http.uri.UriBuilder
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -44,13 +45,13 @@ class ClientConfigFieldParser(
 
         val parsed = allowedGrantTypes.mapIndexedNotNull { index, value ->
             val itemKey = "$configKey[$index]"
-            val grantType = GrantType.fromValueOrNull(value)
+            val grantType = GrantType.fromWireNameOrNull(value)
             if (grantType == null) {
                 ctx.addError(
                     configExceptionOf(
                         itemKey, "config.client.allowed_grant_types.invalid",
                         "grantType" to value,
-                        "supportedValues" to GrantType.entries.joinToString(", ") { it.value }
+                        "supportedValues" to GrantType.entries.joinToString(", ") { it.wireName }
                     )
                 )
             }
