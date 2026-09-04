@@ -12,6 +12,7 @@ import com.sympauthy.business.manager.client.ClientRedirectUriManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
 import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaEnrollmentManager
+import com.sympauthy.business.manager.mfa.MfaEnrollmentSearchManager
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.client.Client
@@ -20,6 +21,8 @@ import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.InteractiveFlowStepResult
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.mfa.TotpEnrollment
+import com.sympauthy.business.model.page.Page
+import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.DisabledMfaConfig
 import com.sympauthy.config.model.EnabledMfaConfig
@@ -33,7 +36,6 @@ import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -64,6 +66,9 @@ class AdminUserMfaControllerTest {
     lateinit var clientManager: ClientManager
 
     @MockK
+    lateinit var mfaEnrollmentSearchManager: MfaEnrollmentSearchManager
+
+    @MockK
     lateinit var mfaEnrollmentManager: InteractiveFlowSessionMfaEnrollmentManager
 
     @MockK
@@ -77,6 +82,7 @@ class AdminUserMfaControllerTest {
     ) = AdminUserMfaController(
         userManager = userManager,
         totpManager = totpManager,
+        mfaEnrollmentSearchManager = mfaEnrollmentSearchManager,
         mfaMapper = mfaMapper,
         interactiveAuthFlowSessionManager = interactiveAuthFlowSessionManager,
         clientRedirectUriManager = clientRedirectUriManager,
@@ -111,21 +117,21 @@ class AdminUserMfaControllerTest {
     )
 
     @Test
-    fun `listMfaMethods - Returns paginated list of confirmed enrollments`() = runTest {
+    fun `listMfaMethods - Map every enrollment the page holds, and publish the page it came in`() = runTest {
         val enrollment = mockEnrollment()
         val resource = mockResource()
         coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
-        coEvery { totpManager.findConfirmedEnrollments(userId) } returns listOf(enrollment)
+        coEvery {
+            mfaEnrollmentSearchManager.listConfirmedEnrollments(userId, PageParams(0, 20))
+        } returns Page(items = listOf(enrollment), page = 3, size = 7, total = 42)
         every { mfaMapper.toResource(enrollment) } returns resource
 
         val result = controller().listMfaMethods(userId, null, null)
 
-        assertEquals(1, result.mfaMethods.size)
-        assertEquals(mfaId, result.mfaMethods[0].mfaId)
-        assertEquals("totp", result.mfaMethods[0].type)
-        assertEquals(0, result.page)
-        assertEquals(20, result.size)
-        assertEquals(1, result.total)
+        assertEquals(mfaId, result.mfaMethods.single().mfaId)
+        assertEquals(3, result.page)
+        assertEquals(7, result.size)
+        assertEquals(42, result.total)
     }
 
     @Test
@@ -142,56 +148,14 @@ class AdminUserMfaControllerTest {
     @Test
     fun `listMfaMethods - Returns empty list when user has no MFA`() = runTest {
         coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
-        coEvery { totpManager.findConfirmedEnrollments(userId) } returns emptyList()
+        coEvery {
+            mfaEnrollmentSearchManager.listConfirmedEnrollments(userId, PageParams(0, 20))
+        } returns Page(items = emptyList(), page = 0, size = 20, total = 0)
 
         val result = controller().listMfaMethods(userId, null, null)
 
         assertTrue(result.mfaMethods.isEmpty())
         assertEquals(0, result.total)
-    }
-
-    @Test
-    fun `listMfaMethods - Respects pagination parameters`() = runTest {
-        val enrollments = (0 until 3).map {
-            mockEnrollment(id = UUID.randomUUID(), confirmedDate = confirmedDate.plusMinutes(it.toLong()))
-        }
-        val resources = enrollments.map { mockResource(id = it.id) }
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
-        coEvery { totpManager.findConfirmedEnrollments(userId) } returns enrollments
-        // The second page of two holds the third enrollment alone.
-        every { mfaMapper.toResource(enrollments[2]) } returns resources[2]
-
-        val result = controller().listMfaMethods(userId, 1, 2)
-
-        assertEquals(1, result.mfaMethods.size)
-        assertSame(resources[2], result.mfaMethods[0])
-        assertEquals(1, result.page)
-        assertEquals(2, result.size)
-        assertEquals(3, result.total)
-    }
-
-    @Test
-    fun `listMfaMethods - Order by confirmation date, then by identifier`() = runTest {
-        // Two of the three were confirmed in the same instant, which is what the identifier separates.
-        val tiedSecond = mockEnrollment(id = UUID.fromString("00000000-0000-0000-0000-000000000002"))
-        val tiedFirst = mockEnrollment(id = UUID.fromString("00000000-0000-0000-0000-000000000001"))
-        val confirmedEarlier = mockEnrollment(
-            id = UUID.fromString("00000000-0000-0000-0000-000000000003"),
-            confirmedDate = confirmedDate.minusDays(1)
-        )
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
-        coEvery { totpManager.findConfirmedEnrollments(userId) } returns
-                listOf(tiedSecond, tiedFirst, confirmedEarlier)
-        listOf(tiedSecond, tiedFirst, confirmedEarlier).forEach {
-            every { mfaMapper.toResource(it) } returns mockResource(id = it.id)
-        }
-
-        val result = controller().listMfaMethods(userId, null, null)
-
-        assertEquals(
-            listOf(confirmedEarlier.id, tiedFirst.id, tiedSecond.id),
-            result.mfaMethods.map { it.mfaId }
-        )
     }
 
     @Test

@@ -5,8 +5,8 @@ import com.sympauthy.api.resource.admin.AdminClientListResource
 import com.sympauthy.api.resource.admin.AdminClientResource
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.api.util.orderedPage
 import com.sympauthy.business.manager.ClientManager
+import com.sympauthy.business.manager.ClientSearchManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.security.SecurityRule.ADMIN_CONFIG_READ
 import io.micronaut.http.annotation.Controller
@@ -25,6 +25,7 @@ import jakarta.inject.Inject
 @SecurityRequirement(name = "admin", scopes = [AdminScopeId.CONFIG_READ])
 class AdminClientController(
     @Inject private val clientManager: ClientManager,
+    @Inject private val clientSearchManager: ClientSearchManager,
     @Inject private val clientMapper: AdminClientResourceMapper,
     @Inject private val paginationUtil: PaginationUtil
 ) {
@@ -53,15 +54,12 @@ class AdminClientController(
         ) size: Int?
     ): AdminClientListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
-        val clients = clientManager.listClients()
-        val paged = clients
-            .orderedPage(pageParams, compareBy { it.id })
-            .map(clientMapper::toSummaryResource)
+        val clients = clientSearchManager.listClients(pageParams)
         return AdminClientListResource(
-            clients = paged,
-            page = pageParams.page,
-            size = pageParams.size,
-            total = clients.size
+            clients = clients.items.map(clientMapper::toSummaryResource),
+            page = clients.page,
+            size = clients.size,
+            total = clients.total
         )
     }
 

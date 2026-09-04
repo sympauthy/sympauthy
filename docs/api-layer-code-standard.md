@@ -62,6 +62,14 @@ is invisible among them.
 **Controllers route and translate.** Bind the request, call one manager method, map the result,
 return it.
 
+**A listing's filters are resolved into domain criteria, and its page is read by a manager.** The
+controller binds the parameters, resolves the paging bounds and maps the page it gets back; the
+criteria, the order and the slice are the manager's.
+
+**A filter naming one value out of a closed set crosses as a `ValueFilter`, resolved by
+`valueFilterOf`.** A wire word naming no member of that set becomes the criterion that matches
+nothing, never an absent one.
+
 **Every handler is `suspend`**, for [the reason the general standard
 gives](general-code-standard.md#concurrency).
 

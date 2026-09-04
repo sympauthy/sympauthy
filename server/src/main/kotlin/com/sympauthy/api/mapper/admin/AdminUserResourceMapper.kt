@@ -1,48 +1,45 @@
 package com.sympauthy.api.mapper.admin
 
 import com.sympauthy.api.resource.admin.AdminUserResource
-import com.sympauthy.business.manager.GeneratedClaimsManager
-import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.business.model.user.User
+import com.sympauthy.business.manager.user.UserSearchManager.UserWithClaims
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.util.wireName
-import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import java.util.*
 
 @Singleton
-class AdminUserResourceMapper(
-    @Inject private val generatedClaimsManager: GeneratedClaimsManager
-) {
+class AdminUserResourceMapper {
 
+    /**
+     * Publish [userWithClaims], carrying the values it holds for [selectedClaims].
+     */
     fun toResource(
-        user: User,
-        claims: Map<String, Any?>? = null
+        userWithClaims: UserWithClaims,
+        selectedClaims: List<Claim>?
     ): AdminUserResource {
         return AdminUserResource(
-            userId = user.id,
-            status = user.status.wireName,
-            createdAt = user.creationDate,
-            claims = claims
+            userId = userWithClaims.user.id,
+            status = userWithClaims.user.status.wireName,
+            createdAt = userWithClaims.user.creationDate,
+            claims = buildClaimsMap(userWithClaims, selectedClaims)
         )
     }
 
     /**
-     * Build the claims map from collected claims, filtered by the selected claim IDs.
-     * Returns null if [selectedClaims] is null (meaning claims were explicitly omitted).
-     * Generated claim values are overlaid from [generatedClaimValues].
+     * The value the user holds for each of [selectedClaims], or null where the caller selected none
+     * and the resource publishes no claim at all.
+     *
+     * A selected claim is in the map whether or not the user has a value for it, and a generated
+     * claim takes the value computed for the user over anything collected under the same identifier.
      */
-    fun buildClaimsMap(
-        collectedClaims: List<CollectedClaim>,
-        selectedClaims: List<Claim>?,
-        generatedClaimValues: Map<String, Any?>
+    private fun buildClaimsMap(
+        userWithClaims: UserWithClaims,
+        selectedClaims: List<Claim>?
     ): Map<String, Any?>? {
         if (selectedClaims == null) return null
         val selectedIds = selectedClaims.map { it.id }.toSet()
-        val claimValueMap = collectedClaims
+        val collectedValues = userWithClaims.collectedClaims
             .filter { it.claim.id in selectedIds }
             .associate { it.claim.id to it.value }
-        // Include all selected claims, even if no value was collected
-        return selectedIds.associateWith { generatedClaimValues[it] ?: claimValueMap[it] }
+        return selectedIds.associateWith { userWithClaims.generatedClaimValues[it] ?: collectedValues[it] }
     }
 }

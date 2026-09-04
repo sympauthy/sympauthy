@@ -4,15 +4,19 @@ import com.sympauthy.api.mapper.admin.AdminAudienceResourceMapper
 import com.sympauthy.api.resource.admin.AdminAudienceResource
 import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.business.manager.AudienceManager
+import com.sympauthy.business.manager.AudienceSearchManager
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.manager.AudienceSearchManager.AudienceWithClientCount
+import com.sympauthy.business.model.page.Page
+import com.sympauthy.business.model.page.PageParams
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 
@@ -21,6 +25,9 @@ class AdminAudienceControllerTest {
 
     @MockK
     lateinit var audienceManager: AudienceManager
+
+    @MockK
+    lateinit var audienceSearchManager: AudienceSearchManager
 
     @MockK
     lateinit var clientManager: ClientManager
@@ -45,17 +52,23 @@ class AdminAudienceControllerTest {
     )
 
     @Test
-    fun `listAudiences - Order by identifier before slicing`() = runTest {
+    fun `listAudiences - Map every audience the page holds, with the count it carries`() = runTest {
         val admin = audience("admin")
+        val resource = mockResource("admin")
 
-        // Handed last-first, the first page of one still holds the audience the order puts first.
-        every { audienceManager.listAudiences() } returns listOf(audience("default"), admin)
-        coEvery { clientManager.countClientsByAudienceId() } returns emptyMap()
-        every { audienceMapper.toResource(admin, 0) } returns mockResource("admin")
+        coEvery { audienceSearchManager.listAudiences(PageParams(0, 20)) } returns Page(
+            items = listOf(AudienceWithClientCount(admin, 4)),
+            page = 3,
+            size = 7,
+            total = 42
+        )
+        every { audienceMapper.toResource(admin, 4) } returns resource
 
-        val result = controller.listAudiences(0, 1)
+        val result = controller.listAudiences(null, null)
 
-        assertEquals(listOf("admin"), result.audiences.map { it.audienceId })
-        assertEquals(2, result.total)
+        assertSame(resource, result.audiences.single())
+        assertEquals(3, result.page)
+        assertEquals(7, result.size)
+        assertEquals(42, result.total)
     }
 }

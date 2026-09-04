@@ -3,6 +3,9 @@ package com.sympauthy.api.mapper.admin
 import com.sympauthy.api.mapper.config.OutputResourceMapperConfig
 import com.sympauthy.api.resource.admin.AdminUserClaimResource
 import com.sympauthy.business.model.user.CollectedClaim
+import com.sympauthy.business.manager.user.UserClaimSearchManager.CollectedUserClaim
+import com.sympauthy.business.manager.user.UserClaimSearchManager.GeneratedUserClaim
+import com.sympauthy.business.manager.user.UserClaimSearchManager.UserClaim
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimGroup
@@ -17,6 +20,23 @@ import org.mapstruct.Named
 )
 abstract class AdminUserClaimResourceMapper {
 
+    /**
+     * Publish [userClaim], reading its value from where its shape holds it.
+     */
+    fun toResource(userClaim: UserClaim): AdminUserClaimResource = when (userClaim) {
+        is CollectedUserClaim -> toResourceFromCollectedClaim(
+            claim = userClaim.claim,
+            collectedClaim = userClaim.collectedClaim,
+            identifier = userClaim.identifier
+        )
+
+        is GeneratedUserClaim -> toResourceFromGeneratedClaim(
+            claim = userClaim.claim,
+            identifier = userClaim.identifier,
+            generatedClaimValue = userClaim.value
+        )
+    }
+
     @Mapping(source = "claim.id", target = "claimId")
     @Mapping(source = "claim.dataType", target = "type", qualifiedByName = ["toTypeString"])
     @Mapping(source = "claim", target = "origin", qualifiedByName = ["toOrigin"])
@@ -26,7 +46,7 @@ abstract class AdminUserClaimResourceMapper {
     @Mapping(source = "collectedClaim.value", target = "value")
     @Mapping(source = "collectedClaim.collectionDate", target = "collectedAt")
     @Mapping(source = "collectedClaim.verificationDate", target = "verifiedAt")
-    abstract fun toResourceFromCollectedClaim(claim: Claim, collectedClaim: CollectedClaim?, identifier: Boolean): AdminUserClaimResource
+    protected abstract fun toResourceFromCollectedClaim(claim: Claim, collectedClaim: CollectedClaim?, identifier: Boolean): AdminUserClaimResource
 
     @Mapping(source = "claim.id", target = "claimId")
     @Mapping(source = "claim.dataType", target = "type", qualifiedByName = ["toTypeString"])
@@ -37,7 +57,7 @@ abstract class AdminUserClaimResourceMapper {
     @Mapping(source = "generatedClaimValue", target = "value")
     @Mapping(target = "collectedAt", ignore = true)
     @Mapping(target = "verifiedAt", ignore = true)
-    abstract fun toResourceFromGeneratedClaim(claim: Claim, identifier: Boolean, generatedClaimValue: Any?): AdminUserClaimResource
+    protected abstract fun toResourceFromGeneratedClaim(claim: Claim, identifier: Boolean, generatedClaimValue: Any?): AdminUserClaimResource
 
     @Named("toTypeString")
     fun toTypeString(dataType: ClaimDataType): String = dataType.wireName

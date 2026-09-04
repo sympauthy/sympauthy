@@ -6,9 +6,6 @@ import com.sympauthy.api.resource.admin.AdminUserDetailResource
 import com.sympauthy.api.resource.admin.AdminUserListResource
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.api.util.orderedPage
-import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.manager.user.UserSearchManager
@@ -34,8 +31,6 @@ class AdminUserController(
     @Inject private val userManager: UserManager,
     @Inject private val userSearchManager: UserSearchManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
-    @Inject private val claimManager: ClaimManager,
-    @Inject private val generatedClaimsManager: GeneratedClaimsManager,
     @Inject private val userMapper: AdminUserResourceMapper,
     @Inject private val userDetailMapper: AdminUserDetailResourceMapper,
     @Inject private val paginationUtil: PaginationUtil
@@ -82,40 +77,27 @@ class AdminUserController(
         @QueryValue @Parameter(description = "Sort direction: asc or desc.") order: String?
     ): AdminUserListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
+        val selectedClaims = userSearchManager.listSelectedClaims(claimIdsOf(claims))
 
-        // Resolve selected claims
-        val selectedClaims = resolveSelectedClaims(claims)
-
-        // Extract dynamic claim filters from query params
         val claimFilters = request.parameters
             .asMap()
             .filterKeys { it !in RESERVED_PARAMS }
             .mapValues { (_, values) -> values.first() }
 
-        // Resolved before the search so an unknown sort property is refused without reading every user.
-        val comparator = userSearchManager.getUserComparator(sort, order)
-
-        // Search and filter
-        val allUsers = userSearchManager.listUsers(
+        val users = userSearchManager.listUsers(
             status = status,
             query = q,
-            claimFilters = claimFilters
+            claimFilters = claimFilters,
+            sort = sort,
+            order = order,
+            pageParams = pageParams
         )
 
-        // Paginate
-        val paged = allUsers
-            .orderedPage(pageParams, comparator)
-            .map { uwc ->
-                val generatedClaimValues = generatedClaimsManager.computeValues(uwc.user.id)
-                val claimsMap = userMapper.buildClaimsMap(uwc.collectedClaims, selectedClaims, generatedClaimValues)
-                userMapper.toResource(uwc.user, claimsMap)
-            }
-
         return AdminUserListResource(
-            users = paged,
-            page = pageParams.page,
-            size = pageParams.size,
-            total = allUsers.size
+            users = users.items.map { userMapper.toResource(it, selectedClaims) },
+            page = users.page,
+            size = users.size,
+            total = users.total
         )
     }
 
@@ -142,17 +124,11 @@ class AdminUserController(
     }
 
     /**
-     * Resolve the 'claims' query parameter:
-     * - absent (null) → all enabled claims
-     * - empty string → null (omit claims from response)
-     * - comma-separated → validate and return selected claims
+     * Split the comma-separated `claims` parameter, keeping a caller who named none apart from one
+     * who named no claim at all: the first sends nothing and the second an empty value.
      */
-    private fun resolveSelectedClaims(claims: String?) = when {
-        claims == null -> claimManager.listEnabledClaims()
-        claims.isBlank() -> null
-        else -> {
-            val claimIds = claims.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-            userSearchManager.validateAndResolveClaimIds(claimIds)
-        }
-    }
+    private fun claimIdsOf(claims: String?): List<String>? = claims
+        ?.split(",")
+        ?.map(String::trim)
+        ?.filter(String::isNotEmpty)
 }

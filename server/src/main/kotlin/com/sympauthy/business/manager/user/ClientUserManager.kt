@@ -3,6 +3,8 @@ package com.sympauthy.business.manager.user
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.model.oauth2.Consent
+import com.sympauthy.business.model.page.Page
+import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.provider.ProviderUserInfo
 import com.sympauthy.business.model.user.ClientUser
 import com.sympauthy.business.model.user.CollectedClaim
@@ -25,8 +27,8 @@ class ClientUserManager(
 ) {
 
     /**
-     * List one page of the users who have an active consent for the given [audienceId], oldest consent first,
-     * paired with the total number of users the filter matches.
+     * Read the page [pageParams] names of the users who have an active consent for the given
+     * [audienceId], oldest consent first, out of every user the filter matches.
      *
      * [providerId] restricts the page to users linked to that provider, and [subject] narrows it further to the
      * account bearing it. A [subject] without a [providerId] is refused before reaching here.
@@ -38,9 +40,8 @@ class ClientUserManager(
         audienceId: String,
         providerId: String?,
         subject: String?,
-        page: Int,
-        size: Int
-    ): Pair<List<ClientUser>, Int> = coroutineScope {
+        pageParams: PageParams
+    ): Page<ClientUser> = coroutineScope {
         val deferredTotal = async {
             consentManager.countActiveConsentsByAudience(
                 audienceId = audienceId,
@@ -52,11 +53,11 @@ class ClientUserManager(
             audienceId = audienceId,
             providerId = providerId,
             subject = subject,
-            page = page,
-            size = size
+            page = pageParams.page,
+            size = pageParams.size
         )
         if (consents.isEmpty()) {
-            return@coroutineScope emptyList<ClientUser>() to deferredTotal.await()
+            return@coroutineScope pageOf(emptyList(), pageParams, deferredTotal.await())
         }
 
         val userIds = consents.map(Consent::userId)
@@ -80,8 +81,18 @@ class ClientUserManager(
             )
         }
 
-        clientUsers to deferredTotal.await()
+        pageOf(clientUsers, pageParams, deferredTotal.await())
     }
+
+    /**
+     * The page the database already sliced, which is ordered by the query rather than by a comparator.
+     */
+    private fun pageOf(clientUsers: List<ClientUser>, pageParams: PageParams, total: Int) = Page(
+        items = clientUsers,
+        page = pageParams.page,
+        size = pageParams.size,
+        total = total
+    )
 
     /**
      * Find a specific user if they have an active consent for the given [audienceId], or null.

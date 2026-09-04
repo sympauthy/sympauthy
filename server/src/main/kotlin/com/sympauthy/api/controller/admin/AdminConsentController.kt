@@ -4,11 +4,10 @@ import com.sympauthy.api.mapper.admin.AdminConsentResourceMapper
 import com.sympauthy.api.resource.admin.AdminConsentListResource
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.api.util.orderedPage
 import com.sympauthy.business.manager.consent.ConsentManager
+import com.sympauthy.business.manager.consent.ConsentSearchManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
-import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.oauth2.ConsentRevokedBy
 import com.sympauthy.security.SecurityRule.ADMIN_CONSENT_READ
 import com.sympauthy.security.SecurityRule.ADMIN_CONSENT_WRITE
@@ -28,6 +27,7 @@ import java.util.*
 class AdminConsentController(
     @Inject private val userManager: UserManager,
     @Inject private val consentManager: ConsentManager,
+    @Inject private val consentSearchManager: ConsentSearchManager,
     @Inject private val consentMapper: AdminConsentResourceMapper,
     @Inject private val paginationUtil: PaginationUtil
 ) {
@@ -60,15 +60,12 @@ class AdminConsentController(
     ): AdminConsentListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
         userManager.findByIdOrNull(userId).orNotFound()
-        val allConsents = consentManager.findActiveConsentsByUser(userId)
-        val paged = allConsents
-            .orderedPage(pageParams, compareBy<Consent> { it.consentedAt }.thenBy { it.id })
-            .map(consentMapper::toResource)
+        val consents = consentSearchManager.listUserConsents(userId, pageParams)
         return AdminConsentListResource(
-            consents = paged,
-            page = pageParams.page,
-            size = pageParams.size,
-            total = allConsents.size
+            consents = consents.items.map(consentMapper::toResource),
+            page = consents.page,
+            size = consents.size,
+            total = consents.total
         )
     }
 

@@ -21,6 +21,10 @@ granted by a rule and one only a client may hold each become a type under one su
 **A configured item that failed validation is a disabled variant carrying the reason.** The caller
 then has to say what it does about the disabled case in order to compile.
 
+**A model one manager alone builds is declared inside it.** `ScopeSearchManager.ScopeWithClaims` is
+a row of that manager's answer and nothing else assembles one, so the model package keeps what more
+than one caller shares.
+
 ## The mapper
 
 **The mapper is the only door into a model, and the only place a row is rejected.** A column outside
@@ -93,6 +97,14 @@ have the assertion call it.
 
 **Managers are split by domain and compose by injection.** One manager per concept, and a use case
 spanning two injects the other rather than reaching into its repository.
+
+**Reading a collection a surface pages is one method.** It takes one parameter per criterion plus
+the `PageParams` the caller asked for, and answers a `Page` it ordered itself, so that the criteria,
+the order and the slice can become one query.
+
+**A listing that is a concept of its own is a `…SearchManager`**, composing the manager that owns
+the concept or reading the repositories where it is that manager. A manager whose whole subject is
+that one collection keeps its listing, the way `ClientUserManager` does.
 
 **A manager takes a record the caller already holds as a parameter.** Fetch once at the top of the
 flow and thread the record downward, usually as a nullable parameter the first method validates and

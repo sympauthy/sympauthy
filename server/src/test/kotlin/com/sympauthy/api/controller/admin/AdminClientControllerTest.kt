@@ -8,6 +8,9 @@ import com.sympauthy.api.util.DEFAULT_PAGE
 import com.sympauthy.api.util.TEST_DEFAULT_PAGE_SIZE
 import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.business.manager.ClientManager
+import com.sympauthy.business.manager.ClientSearchManager
+import com.sympauthy.business.model.page.Page
+import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.client.Client
 import io.micronaut.http.HttpStatus
 import io.mockk.coEvery
@@ -29,6 +32,9 @@ class AdminClientControllerTest {
     lateinit var clientManager: ClientManager
 
     @MockK
+    lateinit var clientSearchManager: ClientSearchManager
+
+    @MockK
     lateinit var clientMapper: AdminClientResourceMapper
 
     @Suppress("unused")
@@ -36,10 +42,6 @@ class AdminClientControllerTest {
 
     @InjectMockKs
     lateinit var controller: AdminClientController
-
-    private fun mockClient(clientId: String): Client = mockk {
-        every { this@mockk.id } returns clientId
-    }
 
     private fun mockSummaryResource(clientId: String): AdminClientSummaryResource = AdminClientSummaryResource(
         clientId = clientId,
@@ -61,81 +63,24 @@ class AdminClientControllerTest {
     )
 
     @Test
-    fun `listClients - Return paginated list with defaults`() = runTest {
-        val client1 = mockClient("c1")
-        val client2 = mockClient("c2")
-        val resource1 = mockSummaryResource("c1")
-        val resource2 = mockSummaryResource("c2")
-
-        coEvery { clientManager.listClients() } returns listOf(client1, client2)
-        every { clientMapper.toSummaryResource(client1) } returns resource1
-        every { clientMapper.toSummaryResource(client2) } returns resource2
-
-        val result = controller.listClients(null, null)
-
-        assertEquals(DEFAULT_PAGE, result.page)
-        assertEquals(TEST_DEFAULT_PAGE_SIZE, result.size)
-        assertEquals(2, result.total)
-        assertEquals(2, result.clients.size)
-        assertSame(resource1, result.clients[0])
-        assertSame(resource2, result.clients[1])
-    }
-
-    @Test
-    fun `listClients - Apply page and size`() = runTest {
-        val clients = (1..5).map { mockClient("c$it") }
-        val resources = (1..5).map { mockSummaryResource("c$it") }
-
-        coEvery { clientManager.listClients() } returns clients
-        // The second page of two holds the third and fourth client.
-        listOf(2, 3).forEach { i ->
-            every { clientMapper.toSummaryResource(clients[i]) } returns resources[i]
-        }
-
-        val result = controller.listClients(1, 2)
-
-        assertEquals(1, result.page)
-        assertEquals(2, result.size)
-        assertEquals(5, result.total)
-        assertEquals(2, result.clients.size)
-        assertSame(resources[2], result.clients[0])
-        assertSame(resources[3], result.clients[1])
-    }
-
-    @Test
-    fun `listClients - Order by identifier`() = runTest {
-        val zulu = mockClient("zulu")
-        val alpha = mockClient("alpha")
-
-        coEvery { clientManager.listClients() } returns listOf(zulu, alpha)
-        every { clientMapper.toSummaryResource(zulu) } returns mockSummaryResource("zulu")
-        every { clientMapper.toSummaryResource(alpha) } returns mockSummaryResource("alpha")
-
-        val result = controller.listClients(null, null)
-
-        assertEquals(listOf("alpha", "zulu"), result.clients.map { it.clientId })
-    }
-
-    @Test
-    fun `listClients - Return empty list when no clients`() = runTest {
-        coEvery { clientManager.listClients() } returns emptyList()
-
-        val result = controller.listClients(null, null)
-
-        assertEquals(0, result.total)
-        assertTrue(result.clients.isEmpty())
-    }
-
-    @Test
-    fun `listClients - Return empty page when page exceeds total`() = runTest {
+    fun `listClients - Map every client the page holds, and publish the page it came in`() = runTest {
         val client = mockk<Client>()
-        coEvery { clientManager.listClients() } returns listOf(client)
+        val resource = mockSummaryResource("c1")
 
-        val result = controller.listClients(5, 20)
+        coEvery { clientSearchManager.listClients(PageParams(DEFAULT_PAGE, TEST_DEFAULT_PAGE_SIZE)) } returns Page(
+            items = listOf(client),
+            page = 3,
+            size = 7,
+            total = 42
+        )
+        every { clientMapper.toSummaryResource(client) } returns resource
 
-        assertEquals(5, result.page)
-        assertEquals(1, result.total)
-        assertTrue(result.clients.isEmpty())
+        val result = controller.listClients(null, null)
+
+        assertSame(resource, result.clients.single())
+        assertEquals(3, result.page)
+        assertEquals(7, result.size)
+        assertEquals(42, result.total)
     }
 
     @Test

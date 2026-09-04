@@ -7,10 +7,11 @@ import com.sympauthy.api.resource.admin.AdminInvitationListResource
 import com.sympauthy.api.resource.admin.AdminInvitationResource
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.api.util.orderedPage
+import com.sympauthy.api.util.valueFilterOf
 import com.sympauthy.business.manager.invitation.InvitationManager
-import com.sympauthy.business.model.invitation.Invitation
+import com.sympauthy.business.manager.invitation.InvitationSearchManager
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
+import com.sympauthy.business.model.invitation.InvitationStatus
 import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.security.SecurityRule.ADMIN_INVITATIONS_READ
 import com.sympauthy.security.SecurityRule.ADMIN_INVITATIONS_WRITE
@@ -28,6 +29,7 @@ import java.util.*
 @Controller("/api/v1/admin/invitations")
 class AdminInvitationController(
     @Inject private val invitationManager: InvitationManager,
+    @Inject private val invitationSearchManager: InvitationSearchManager,
     @Inject private val invitationMapper: AdminInvitationResourceMapper,
     @Inject private val paginationUtil: PaginationUtil
 ) {
@@ -89,24 +91,16 @@ class AdminInvitationController(
         ) size: Int?
     ): AdminInvitationListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
-        val allInvitations = if (audienceId != null) {
-            invitationManager.findByAudienceId(audienceId)
-        } else {
-            invitationManager.findAll()
-        }
-        val filtered = if (status != null) {
-            allInvitations.filter { it.status.name.equals(status, ignoreCase = true) }
-        } else {
-            allInvitations
-        }
-        val paged = filtered
-            .orderedPage(pageParams, compareBy<Invitation> { it.createdAt }.thenBy { it.id })
-            .map(invitationMapper::toResource)
+        val invitations = invitationSearchManager.listInvitations(
+            audienceId = audienceId,
+            status = valueFilterOf<InvitationStatus>(status),
+            pageParams = pageParams
+        )
         return AdminInvitationListResource(
-            invitations = paged,
-            page = pageParams.page,
-            size = pageParams.size,
-            total = filtered.size
+            invitations = invitations.items.map(invitationMapper::toResource),
+            page = invitations.page,
+            size = invitations.size,
+            total = invitations.total
         )
     }
 

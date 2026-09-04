@@ -3,11 +3,10 @@ package com.sympauthy.api.controller.admin
 import com.sympauthy.api.mapper.admin.AdminScopeResourceMapper
 import com.sympauthy.api.resource.admin.AdminScopeListResource
 import com.sympauthy.api.util.PaginationUtil
-import com.sympauthy.api.util.orderedPage
-import com.sympauthy.business.manager.ScopeManager
+import com.sympauthy.api.util.valueFilterOf
+import com.sympauthy.business.manager.ScopeSearchManager
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.security.SecurityRule.ADMIN_CONFIG_READ
-import com.sympauthy.util.wireName
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
 import io.micronaut.http.annotation.QueryValue
@@ -22,7 +21,7 @@ import jakarta.inject.Inject
 @Secured(ADMIN_CONFIG_READ)
 @SecurityRequirement(name = "admin", scopes = [AdminScopeId.CONFIG_READ])
 class AdminScopeController(
-    @Inject private val scopeManager: ScopeManager,
+    @Inject private val scopeSearchManager: ScopeSearchManager,
     @Inject private val scopeMapper: AdminScopeResourceMapper,
     @Inject private val paginationUtil: PaginationUtil
 ) {
@@ -58,26 +57,16 @@ class AdminScopeController(
         ) enabled: Boolean?
     ): AdminScopeListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
-        val scopes = scopeManager.listAllScopes()
-            .let { list -> filterByType(list, type) }
-            .let { list -> if (enabled != null) list.filter { it.isEnabled == enabled } else list }
-        val paged = scopes
-            .orderedPage(pageParams, compareBy { it.scope })
-            .map { scope ->
-                val claims = scopeManager.listClaimsProtectedByScope(scope)
-                scopeMapper.toResource(scope, claims)
-            }
-        return AdminScopeListResource(
-            scopes = paged,
-            page = pageParams.page,
-            size = pageParams.size,
-            total = scopes.size
+        val scopes = scopeSearchManager.listScopes(
+            type = valueFilterOf<ScopeType>(type),
+            enabled = enabled,
+            pageParams = pageParams
         )
-    }
-
-    private fun filterByType(scopes: List<Scope>, type: String?): List<Scope> {
-        val requested = type?.lowercase() ?: return scopes
-        val scopeType = ScopeType.entries.firstOrNull { it.wireName == requested } ?: return emptyList()
-        return scopes.filter { it.type == scopeType }
+        return AdminScopeListResource(
+            scopes = scopes.items.map { scopeMapper.toResource(it.scope, it.protectedClaims) },
+            page = scopes.page,
+            size = scopes.size,
+            total = scopes.total
+        )
     }
 }
