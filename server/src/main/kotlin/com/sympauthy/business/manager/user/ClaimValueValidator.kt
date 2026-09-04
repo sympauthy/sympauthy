@@ -7,20 +7,22 @@ import com.sympauthy.business.model.user.claim.ClaimDataType.*
 import com.sympauthy.util.wireName
 import jakarta.inject.Singleton
 import java.math.BigDecimal
-import java.text.ParseException
-import java.text.SimpleDateFormat
 import java.time.DateTimeException
+import java.time.LocalDate
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 import java.time.zone.ZoneRulesException
 import java.util.*
 
 /**
  * Component in charge of validating and cleaning claim value received from end-users.
+ *
+ * A value submitted as a string is trimmed by [validateAndCleanStringForClaim] before its type is looked at,
+ * so every check below it is given a value carrying no surrounding whitespace and none of them trims again.
  */
 @Singleton
 class ClaimValueValidator {
-
-    private val dateFormat = SimpleDateFormat("yyyy-MM-dd")
 
     companion object {
         private val E164_PATTERN = Regex("^\\+[0-9]{1,15}$")
@@ -65,19 +67,29 @@ class ClaimValueValidator {
         return cleanedValue
     }
 
+    /**
+     * Validate the [value] submitted for [claim] against the claim's own type and return it cleaned, or an
+     * empty optional where it holds nothing but whitespace and the claim is therefore being cleared.
+     *
+     * The value is trimmed here, once, and every check below is given the trimmed one. Whitespace a person
+     * typed around a value is never part of the value: an email or a date padded with it would otherwise be
+     * stored padded, and a phone number or a time zone refused for a reason that names the wrong thing. It
+     * settles that a `string` claim cannot hold a deliberately padded value, which nothing asks for and which
+     * would want a type saying so rather than this one keeping the padding by omission.
+     */
     internal fun validateAndCleanStringForClaim(claim: Claim, value: String): Optional<Any> {
         val trimmedValue = value.trim()
-        if (value.isBlank()) {
+        if (trimmedValue.isEmpty()) {
             return Optional.empty()
         }
         return when (claim.dataType) {
-            BOOLEAN -> validateBooleanForClaim(value)
-            DATE -> validateDateForClaim(value)
-            EMAIL -> validateEmailForClaim(value)
+            BOOLEAN -> validateBooleanForClaim(trimmedValue)
+            DATE -> validateDateForClaim(trimmedValue)
+            EMAIL -> validateEmailForClaim(trimmedValue)
             NUMBER -> validateAndCleanNumberForClaim(trimmedValue)
-            PHONE_NUMBER -> validatePhoneNumberForClaim(value)
+            PHONE_NUMBER -> validatePhoneNumberForClaim(trimmedValue)
             STRING -> Optional.of(trimmedValue)
-            TIMEZONE -> validateTimeZoneForClaim(value)
+            TIMEZONE -> validateTimeZoneForClaim(trimmedValue)
         }
     }
 
@@ -105,7 +117,7 @@ class ClaimValueValidator {
     }
 
     internal fun validateBooleanForClaim(value: String): Optional<Any> {
-        val normalized = value.trim().lowercase()
+        val normalized = value.lowercase()
         if (normalized != "true" && normalized != "false") {
             throw recoverableBusinessExceptionOf(
                 "user.claim_value_validator.invalid_boolean",
@@ -115,10 +127,18 @@ class ClaimValueValidator {
         return Optional.of(normalized)
     }
 
+    /**
+     * Validate the [value] is a date, and return it as the `yyyy-MM-dd` it was submitted as.
+     *
+     * A date claim is exchanged and stored as that string rather than as a date, so a value the parser
+     * accepts is one a client reads back. It is parsed strictly and in full: a lenient parser rolls the
+     * thirty-first of February into March and reads a date off the front of a value carrying anything
+     * after it, and either way what is stored is the value as submitted rather than what was parsed.
+     */
     internal fun validateDateForClaim(value: String): Optional<Any> {
         try {
-            dateFormat.parse(value)
-        } catch (e: ParseException) {
+            LocalDate.parse(value, DateTimeFormatter.ISO_LOCAL_DATE)
+        } catch (e: DateTimeParseException) {
             throw recoverableBusinessExceptionOf(
                 "user.claim_value_validator.invalid_date",
                 "description.user.claim_value_validator.invalid_date"
