@@ -8,7 +8,7 @@ package com.sympauthy.config.properties
  *
  * Each `@EachProperty` class must declare its own `@ConfigurationProperties("acl")` inner
  * interface (Micronaut requirement), but both extend this shared interface so that the
- * [com.sympauthy.config.factory.ClaimAclFactory] can accept either.
+ * [com.sympauthy.config.parsing.ClaimAclParser] can accept either.
  */
 interface ClaimAclProperties {
     val consentScope: String?
