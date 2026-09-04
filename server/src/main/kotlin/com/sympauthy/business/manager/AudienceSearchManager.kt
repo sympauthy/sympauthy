@@ -29,8 +29,21 @@ class AudienceSearchManager(
         val clientCountsByAudienceId = clientManager.countClientsByAudienceId()
         return audienceManager.listAudiences()
             .orderedPage(pageParams, compareBy { it.id })
-            .map { AudienceWithClientCount(it, clientCountsByAudienceId[it.id] ?: 0) }
+            .map { it.withClientCount(clientCountsByAudienceId) }
     }
+
+    /**
+     * Read the audience identified by [audienceId], with the number of clients that belong to it.
+     * Otherwise, return null if no audience matches.
+     */
+    suspend fun findAudienceByIdOrNull(audienceId: String): AudienceWithClientCount? {
+        val audience = audienceManager.findAudienceByIdOrNull(audienceId) ?: return null
+        return audience.withClientCount(clientManager.countClientsByAudienceId())
+    }
+
+    internal fun Audience.withClientCount(
+        clientCountsByAudienceId: Map<String, Int>
+    ) = AudienceWithClientCount(this, clientCountsByAudienceId[id] ?: 0)
 
     /**
      * An audience, and the number of clients that belong to it.

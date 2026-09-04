@@ -9,6 +9,7 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 
@@ -51,5 +52,36 @@ class AudienceSearchManagerTest {
 
         assertEquals(0, result.items.first { it.audience.id == "admin" }.clientCount)
         assertEquals(3, result.items.first { it.audience == default }.clientCount)
+    }
+
+    @Test
+    fun `findAudienceByIdOrNull - Answer the audience with the number of clients it groups`() = runTest {
+        val default = audience("default")
+        every { audienceManager.findAudienceByIdOrNull("default") } returns default
+        coEvery { clientManager.countClientsByAudienceId() } returns mapOf("default" to 3)
+
+        val result = audienceSearchManager.findAudienceByIdOrNull("default")
+
+        assertEquals(default, result?.audience)
+        assertEquals(3, result?.clientCount)
+    }
+
+    @Test
+    fun `findAudienceByIdOrNull - Answer an audience no client names with 0`() = runTest {
+        val admin = audience("admin")
+        every { audienceManager.findAudienceByIdOrNull("admin") } returns admin
+        coEvery { clientManager.countClientsByAudienceId() } returns mapOf("default" to 3)
+
+        val result = audienceSearchManager.findAudienceByIdOrNull("admin")
+
+        assertEquals(0, result?.clientCount)
+    }
+
+    @Test
+    fun `findAudienceByIdOrNull - Return null when no audience matches`() = runTest {
+        // The clients are left unstubbed: answering without reading them is what this holds.
+        every { audienceManager.findAudienceByIdOrNull("unknown") } returns null
+
+        assertNull(audienceSearchManager.findAudienceByIdOrNull("unknown"))
     }
 }
