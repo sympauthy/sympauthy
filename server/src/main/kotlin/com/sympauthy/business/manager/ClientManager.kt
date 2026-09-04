@@ -40,6 +40,7 @@ class ClientManager(
     suspend fun findClientById(id: String): Client {
         return findClientByIdOrNull(id) ?: throw businessExceptionOf(
             detailsId = "client.invalid_client_id",
+            descriptionId = "description.client.invalid_client_id",
             values = arrayOf("clientId" to id)
         )
     }

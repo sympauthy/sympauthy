@@ -48,6 +48,25 @@ fun businessExceptionOf(
 )
 
 /**
+ * Factory method to create a business exception that cannot be recovered by an end-user action, and that
+ * names in [descriptionId] the message the end-user is shown instead of the generic one.
+ *
+ * Note: this method should always be preferred over the constructor for creating instances as it provides a convenient
+ * vararg for [values].
+ */
+fun businessExceptionOf(
+    detailsId: String,
+    descriptionId: String,
+    vararg values: Pair<String, String>
+): BusinessException = BusinessException(
+    recoverable = false,
+    detailsId = detailsId,
+    descriptionId = descriptionId,
+    recommendedStatus = BAD_REQUEST,
+    values = mapOf(*values)
+)
+
+/**
  * Factory method to create a business exception that can be recovered by an end-user action.
  *
  * Note: this method should always be preferred over the constructor for creating instances as it provides a convenient
