@@ -2,9 +2,14 @@ package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.manager.util.assertThrowsLocalizedException
 import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.ClaimDataType
+import com.sympauthy.business.model.user.claim.ClaimDataType.BOOLEAN
+import com.sympauthy.business.model.user.claim.ClaimDataType.DATE
+import com.sympauthy.business.model.user.claim.ClaimDataType.EMAIL
 import com.sympauthy.business.model.user.claim.ClaimDataType.NUMBER
 import com.sympauthy.business.model.user.claim.ClaimDataType.PHONE_NUMBER
 import com.sympauthy.business.model.user.claim.ClaimDataType.STRING
+import com.sympauthy.business.model.user.claim.ClaimDataType.TIMEZONE
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.junit5.MockKExtension
@@ -21,14 +26,14 @@ class ClaimValueValidatorTest {
     lateinit var validator: ClaimValueValidator
 
     /** A claim of the type the validator checks a value against; the rest is read per path. */
-    private fun mockStringClaim(): Claim = mockk {
-        every { dataType } returns STRING
+    private fun mockClaimOfType(type: ClaimDataType): Claim = mockk {
+        every { dataType } returns type
     }
 
+    private fun mockStringClaim(): Claim = mockClaimOfType(STRING)
+
     /** The one type whose value is not exchanged as a string. */
-    private fun mockNumberClaim(): Claim = mockk {
-        every { dataType } returns NUMBER
-    }
+    private fun mockNumberClaim(): Claim = mockClaimOfType(NUMBER)
 
     @Test
     fun `validateAndCleanValueForClaim - Returns empty Optional for null value`() {
@@ -130,6 +135,16 @@ class ClaimValueValidatorTest {
     }
 
     @Test
+    fun `validateAndCleanValueForClaim - Consults the allowed values with the cleaned value of a typed claim`() {
+        // The padding was left on the value until it was compared, and the comparison refused what the
+        // configuration plainly allows.
+        val claim = mockClaimOfType(EMAIL)
+        every { claim.allowedValues } returns listOf("user@example.com")
+        val result = validator.validateAndCleanValueForClaim(claim, "  user@example.com  ")
+        assertEquals("user@example.com", result.get())
+    }
+
+    @Test
     fun `validateAndCleanValueForClaim - Clears a claim carrying allowed values on a blank value`() {
         // A blank value clears the claim, and what is not being stored has nothing to be allowed against.
         // It is cleared before the claim's type is looked at, which is why none is stubbed here.
@@ -159,6 +174,48 @@ class ClaimValueValidatorTest {
         val result = validator.validateAndCleanStringForClaim(claim, "  42  ")
         assertTrue(result.isPresent)
         assertEquals(42L, result.get())
+    }
+
+    @Test
+    fun `validateAndCleanStringForClaim - Trims whitespace on BOOLEAN claims`() {
+        val claim = mockClaimOfType(BOOLEAN)
+        val result = validator.validateAndCleanStringForClaim(claim, "  TRUE  ")
+        assertTrue(result.isPresent)
+        assertEquals("true", result.get())
+    }
+
+    @Test
+    fun `validateAndCleanStringForClaim - Trims whitespace on DATE claims`() {
+        val claim = mockClaimOfType(DATE)
+        val result = validator.validateAndCleanStringForClaim(claim, "  2024-01-15  ")
+        assertTrue(result.isPresent)
+        assertEquals("2024-01-15", result.get())
+    }
+
+    @Test
+    fun `validateAndCleanStringForClaim - Trims whitespace on EMAIL claims`() {
+        val claim = mockClaimOfType(EMAIL)
+        val result = validator.validateAndCleanStringForClaim(claim, "  user@example.com  ")
+        assertTrue(result.isPresent)
+        assertEquals("user@example.com", result.get())
+    }
+
+    @Test
+    fun `validateAndCleanStringForClaim - Trims whitespace on PHONE_NUMBER claims`() {
+        // The padded number was refused as not conforming to E.164, which it does.
+        val claim = mockClaimOfType(PHONE_NUMBER)
+        val result = validator.validateAndCleanStringForClaim(claim, "  +15551234567  ")
+        assertTrue(result.isPresent)
+        assertEquals("+15551234567", result.get())
+    }
+
+    @Test
+    fun `validateAndCleanStringForClaim - Trims whitespace on TIMEZONE claims`() {
+        // The padded time zone was refused as not being one, which it is.
+        val claim = mockClaimOfType(TIMEZONE)
+        val result = validator.validateAndCleanStringForClaim(claim, "  Europe/Paris  ")
+        assertTrue(result.isPresent)
+        assertEquals("Europe/Paris", result.get())
     }
 
     @Test
