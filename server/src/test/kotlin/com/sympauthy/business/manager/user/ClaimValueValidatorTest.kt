@@ -344,6 +344,36 @@ class ClaimValueValidatorTest {
     }
 
     @Test
+    fun `validateDateForClaim - Throws on a day the month does not have`() {
+        // A lenient parser rolls it into the following month and stores the day that does not exist.
+        assertThrowsLocalizedException("user.claim_value_validator.invalid_date") {
+            validator.validateDateForClaim("2024-02-31")
+        }
+    }
+
+    @Test
+    fun `validateDateForClaim - Throws on a month that is not one`() {
+        assertThrowsLocalizedException("user.claim_value_validator.invalid_date") {
+            validator.validateDateForClaim("2024-13-01")
+        }
+    }
+
+    @Test
+    fun `validateDateForClaim - Throws on a date carrying anything after it`() {
+        // The value is stored as submitted, so a parser stopping at the end of the date stores the rest.
+        assertThrowsLocalizedException("user.claim_value_validator.invalid_date") {
+            validator.validateDateForClaim("2024-01-15 and more")
+        }
+    }
+
+    @Test
+    fun `validateDateForClaim - Throws on a month and a day written without their leading zero`() {
+        assertThrowsLocalizedException("user.claim_value_validator.invalid_date") {
+            validator.validateDateForClaim("2024-1-5")
+        }
+    }
+
+    @Test
     fun `validateTimeZoneForClaim - Accepts valid timezone`() {
         val result = validator.validateTimeZoneForClaim("Europe/Paris")
         assertTrue(result.isPresent)

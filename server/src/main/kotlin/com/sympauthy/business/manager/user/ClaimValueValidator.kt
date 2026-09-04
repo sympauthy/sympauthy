@@ -7,10 +7,11 @@ import com.sympauthy.business.model.user.claim.ClaimDataType.*
 import com.sympauthy.util.wireName
 import jakarta.inject.Singleton
 import java.math.BigDecimal
-import java.text.ParseException
-import java.text.SimpleDateFormat
 import java.time.DateTimeException
+import java.time.LocalDate
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 import java.time.zone.ZoneRulesException
 import java.util.*
 
@@ -22,8 +23,6 @@ import java.util.*
  */
 @Singleton
 class ClaimValueValidator {
-
-    private val dateFormat = SimpleDateFormat("yyyy-MM-dd")
 
     companion object {
         private val E164_PATTERN = Regex("^\\+[0-9]{1,15}$")
@@ -128,10 +127,18 @@ class ClaimValueValidator {
         return Optional.of(normalized)
     }
 
+    /**
+     * Validate the [value] is a date, and return it as the `yyyy-MM-dd` it was submitted as.
+     *
+     * A date claim is exchanged and stored as that string rather than as a date, so a value the parser
+     * accepts is one a client reads back. It is parsed strictly and in full: a lenient parser rolls the
+     * thirty-first of February into March and reads a date off the front of a value carrying anything
+     * after it, and either way what is stored is the value as submitted rather than what was parsed.
+     */
     internal fun validateDateForClaim(value: String): Optional<Any> {
         try {
-            dateFormat.parse(value)
-        } catch (e: ParseException) {
+            LocalDate.parse(value, DateTimeFormatter.ISO_LOCAL_DATE)
+        } catch (e: DateTimeParseException) {
             throw recoverableBusinessExceptionOf(
                 "user.claim_value_validator.invalid_date",
                 "description.user.claim_value_validator.invalid_date"
