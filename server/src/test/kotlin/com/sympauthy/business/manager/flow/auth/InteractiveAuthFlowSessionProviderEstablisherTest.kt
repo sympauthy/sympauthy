@@ -75,8 +75,6 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
         )
     }
 
-    // --- createOrAssociateUserWithProviderUserInfo ---
-
     @Test
     fun `createOrAssociateUserWithProviderUserInfo - Merge when merging enabled and user exists with matching identifier claims`() =
         runTest {

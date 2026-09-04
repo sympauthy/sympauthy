@@ -41,8 +41,6 @@ class InteractiveFlowSessionTotpChallengeManagerTest {
         every { user.id } returns userId
     }
 
-    // --- validateTotpChallenge ---
-
     @Test
     fun `validateTotpChallenge - Records mfaPassedDate and returns updated session when code is valid`() = runTest {
         val updatedSession = mockk<OnGoingInteractiveFlowSession>()

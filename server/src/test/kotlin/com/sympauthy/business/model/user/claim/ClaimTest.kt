@@ -39,8 +39,6 @@ class ClaimTest {
         )
     )
 
-    // region origin
-
     @Test
     fun `origin - OPENID_CONNECT for known OpenID claim id`() {
         val claim = claim(id = OpenIdConnectClaimId.EMAIL)
@@ -52,10 +50,6 @@ class ClaimTest {
         val claim = claim(id = "custom_field")
         assertEquals(ClaimOrigin.CUSTOM, claim.origin)
     }
-
-    // endregion
-
-    // region belongsToScope
 
     @Test
     fun `belongsToScope - true when consent scope matches`() {
@@ -74,10 +68,6 @@ class ClaimTest {
         val claim = claim(consentScope = null)
         assertFalse(claim.belongsToScope("profile"))
     }
-
-    // endregion
-
-    // region canBeReadByUser
 
     @Test
     fun `canBeReadByUser - true when readable and no scope required`() {
@@ -103,10 +93,6 @@ class ClaimTest {
         assertFalse(claim.canBeReadByUser(listOf("email")))
     }
 
-    // endregion
-
-    // region canBeWrittenByUser
-
     @Test
     fun `canBeWrittenByUser - true when writable and no scope required`() {
         val claim = claim(writableByUser = true, consentScope = null)
@@ -130,10 +116,6 @@ class ClaimTest {
         val claim = claim(writableByUser = true, consentScope = "profile")
         assertFalse(claim.canBeWrittenByUser(listOf("email")))
     }
-
-    // endregion
-
-    // region canBeReadByClient
 
     @Test
     fun `canBeReadByClient - true via consent path when readable and scope consented`() {
@@ -175,10 +157,6 @@ class ClaimTest {
         assertFalse(claim.canBeReadByClient(listOf("email"), emptyList()))
     }
 
-    // endregion
-
-    // region canBeWrittenByClient
-
     @Test
     fun `canBeWrittenByClient - true via consent path when writable and scope consented`() {
         val claim = claim(writableByClient = true, consentScope = "profile")
@@ -202,6 +180,4 @@ class ClaimTest {
         val claim = claim(writableWithClientScopes = listOf("users:claims:write"))
         assertFalse(claim.canBeWrittenByClient(listOf("users:claims:write"), emptyList()))
     }
-
-    // endregion
 }

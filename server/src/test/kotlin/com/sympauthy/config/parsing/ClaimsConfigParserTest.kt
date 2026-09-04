@@ -34,8 +34,6 @@ class ClaimsConfigParserTest {
             template = templateId
         }
 
-    // --- parseAllowedValues ---
-
     @Test
     fun `parseAllowedValues - Return null when there are none`() {
         val ctx = ConfigParsingContext()
@@ -77,8 +75,6 @@ class ClaimsConfigParserTest {
         assertEquals(listOf("mr", "mrs"), values)
         assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
     }
-
-    // --- parse ---
 
     @Test
     fun `parse - Read the values a claim inherits from a template as its own type`() {

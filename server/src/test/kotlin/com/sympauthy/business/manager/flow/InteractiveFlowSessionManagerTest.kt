@@ -170,8 +170,6 @@ class InteractiveFlowSessionManagerTest {
         assertSame(session, result.session)
     }
 
-    // region setAuthenticatedUserId
-
     @Test
     fun `setAuthenticatedUserId - Persists the user and bumps the version`() = runTest {
         val session = ongoingSession(userId = null)
@@ -202,10 +200,6 @@ class InteractiveFlowSessionManagerTest {
         assertFalse(exception.recoverable)
     }
 
-    // endregion
-
-    // region setMfaPassed
-
     @Test
     fun `setMfaPassed - Persists the date and bumps the version`() = runTest {
         val session = ongoingSession()
@@ -231,10 +225,6 @@ class InteractiveFlowSessionManagerTest {
         }
         assertEquals(concurrentModificationDetailsId, exception.detailsId)
     }
-
-    // endregion
-
-    // region insertPurposeAfter
 
     @Test
     fun `insertPurposeAfter - Inserts right after the given purpose, persists the list and bumps the version`() = runTest {
@@ -300,10 +290,6 @@ class InteractiveFlowSessionManagerTest {
         assertEquals(concurrentModificationDetailsId, exception.detailsId)
     }
 
-    // endregion
-
-    // region markPurposeAsCompleted
-
     @Test
     fun `markPurposeAsCompleted - Records the purpose, bumps the version and stays ongoing`() = runTest {
         val session = ongoingSession(
@@ -360,10 +346,6 @@ class InteractiveFlowSessionManagerTest {
         assertEquals(concurrentModificationDetailsId, exception.detailsId)
     }
 
-    // endregion
-
-    // region markAsCompleted
-
     @Test
     fun `markAsCompleted - Persists the complete date and returns a completed session`() = runTest {
         val userId = UUID.randomUUID()
@@ -395,10 +377,6 @@ class InteractiveFlowSessionManagerTest {
         }
         assertEquals(concurrentModificationDetailsId, exception.detailsId)
     }
-
-    // endregion
-
-    // region markAsCancelled
 
     @Test
     fun `markAsCancelled - Persists the cancel date and returns a cancelled session`() = runTest {
@@ -449,10 +427,6 @@ class InteractiveFlowSessionManagerTest {
         coVerify(exactly = 0) { sessionRepository.updateCancelDate(any(), any(), any()) }
     }
 
-    // endregion
-
-    // region markAsFailedIfNotRecoverable
-
     @Test
     fun `markAsFailedIfNotRecoverable - Leaves a recoverable error ongoing without persisting`() = runTest {
         val session = ongoingSession()
@@ -496,8 +470,6 @@ class InteractiveFlowSessionManagerTest {
         assertEquals("some.detail", result.errorDetailsId)
         coVerify(exactly = 0) { sessionRepository.updateError(any(), any(), any(), any(), any()) }
     }
-
-    // endregion
 
     companion object {
         /**

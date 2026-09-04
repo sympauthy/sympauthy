@@ -105,8 +105,6 @@ class ClaimsConfigFactoryTest {
         }
     }
 
-    // region Template resolution
-
     @Test
     fun `provideClaims - Default template applied when no template set`() {
         val properties = listOf(
@@ -159,10 +157,6 @@ class ClaimsConfigFactoryTest {
         assertInstanceOf(DisabledClaimsConfig::class.java, result)
     }
 
-    // endregion
-
-    // region Claim field resolution
-
     @Test
     fun `provideClaims - Claim fields override template`() {
         val properties = listOf(
@@ -214,10 +208,6 @@ class ClaimsConfigFactoryTest {
         assertEquals("email_verified", emailClaim.verifiedId)
     }
 
-    // endregion
-
-    // region Generated claims
-
     @Test
     fun `provideClaims - Generated claims are always present and enabled`() {
         val result = factory.provideClaims(emptyList())
@@ -248,13 +238,8 @@ class ClaimsConfigFactoryTest {
         assertEquals(1, subClaims.size)
     }
 
-    // endregion
-
-    // region userInputted
-
     @Test
     fun `provideClaims - userInputted is true when ACL allows user write`() {
-        // Use a default template with writableByUser=true to produce writable ACL.
         val writableTemplateAcl = ClaimTemplateAcl(
             consentScope = null,
             readableByUserWhenConsented = null,
@@ -303,10 +288,6 @@ class ClaimsConfigFactoryTest {
         assertFalse(claim.userInputted)
     }
 
-    // endregion
-
-    // region Origin
-
     @Test
     fun `provideClaims - OpenID claim has OPENID_CONNECT origin`() {
         val properties = listOf(
@@ -332,6 +313,4 @@ class ClaimsConfigFactoryTest {
         val claim = (result as EnabledClaimsConfig).claims.first { it.id == "department" }
         assertEquals(ClaimOrigin.CUSTOM, claim.origin)
     }
-
-    // endregion
 }

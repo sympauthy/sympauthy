@@ -149,8 +149,6 @@ class TokenControllerTest {
         every { it.expirationDate } returns expirationDate
     }
 
-    // --- getTokens routing tests ---
-
     @Test
     fun `getTokens - client_credentials uses resolveClient, not resolveClientAllowingPublic`() = runTest {
         val request = mockRequest()
@@ -316,8 +314,6 @@ class TokenControllerTest {
         }
         assertEquals(UNSUPPORTED_GRANT_TYPE, exception.errorCode)
     }
-
-    // --- getTokensUsingAuthorizationCode tests ---
 
     @Test
     fun `getTokensUsingAuthorizationCode - Throws when code is missing`() = runTest {
@@ -505,8 +501,6 @@ class TokenControllerTest {
         assertEquals("id-jwt", result.idToken)
     }
 
-    // --- getTokensUsingRefreshToken tests ---
-
     @Test
     fun `getTokensUsingRefreshToken - Throws when refresh_token is missing`() = runTest {
         val request = mockRequest()
@@ -587,8 +581,6 @@ class TokenControllerTest {
         assertEquals("old-refresh", result.refreshToken)
     }
 
-    // --- getTokensUsingClientCredentials tests ---
-
     @Test
     fun `getTokensUsingClientCredentials - Returns access token without refresh or id token`() = runTest {
         val request = mockRequest()
@@ -629,8 +621,6 @@ class TokenControllerTest {
         assertNull(result.idToken)
         assertNull(result.expiresIn, "a token without an expiration date has no lifetime to report")
     }
-
-    // --- expires_in tests ---
 
     @Test
     fun `getTokens - Returns the lifetime of the access token in seconds`() = runTest {

@@ -34,15 +34,12 @@ class ProviderUserInfoRepositoryTest {
     @Inject
     lateinit var userRepository: UserRepository
 
-    private val providerId = "discord"
+    private val providerId = "provider-user-info-repository-test"
     private lateinit var userId: UUID
 
     private val linkDate: LocalDateTime = LocalDateTime.of(2026, 1, 15, 14, 30, 0)
     private val lastFetchedAt: LocalDateTime = LocalDateTime.of(2026, 3, 2, 9, 0, 0)
 
-    // This @MicronautTest shares its H2 database with the other @MicronautTest classes, so we must not
-    // deleteAll() — other tests' rows reference these tables via foreign keys. tearDown removes only the
-    // link this test created, then the user it references.
     @BeforeEach
     fun setUp() = runTest {
         userId = UserEntity(status = "enabled", creationDate = LocalDateTime.now())

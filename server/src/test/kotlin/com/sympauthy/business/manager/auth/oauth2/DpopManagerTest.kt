@@ -77,8 +77,6 @@ class DpopManagerTest {
         return signedJwt.serialize()
     }
 
-    // --- validateDpopProof tests ---
-
     @Test
     fun `validateDpopProof - Returns null when no DPoP header`() = runTest {
         assertNull(dpopManager.validateDpopProof(emptyList(), boundRequest()))
@@ -114,8 +112,6 @@ class DpopManagerTest {
         return signedJwt.serialize()
     }
 
-    // --- validateProof: malformed ---
-
     @Test
     fun `validateProof - Throws on malformed JWT`() = runTest {
         val request = boundRequest()
@@ -124,8 +120,6 @@ class DpopManagerTest {
         }
         assertEquals("dpop.malformed", exception.detailsId)
     }
-
-    // --- validateProof: typ ---
 
     @Test
     fun `validateProof - Throws when typ is not dpop+jwt`() = runTest {
@@ -137,11 +131,8 @@ class DpopManagerTest {
         assertEquals("dpop.invalid_type", exception.detailsId)
     }
 
-    // --- validateProof: alg ---
-
     @Test
     fun `validateProof - Throws on unsupported algorithm`() = runTest {
-        // Create a proof with HS256 (symmetric, not allowed)
         val publicJwk = ecKey.toPublicJWK()
         val header = JWSHeader.Builder(JWSAlgorithm.HS256)
             .type(JOSEObjectType("dpop+jwt"))
@@ -164,13 +155,10 @@ class DpopManagerTest {
         assertEquals("dpop.unsupported_algorithm", exception.detailsId)
     }
 
-    // --- validateProof: missing claims ---
-
     @Test
     fun `validateProof - Throws when jti is missing`() = runTest {
         val proof = createDpopProofWithClaims(
             JWTClaimsSet.Builder()
-                // no jti
                 .claim("htm", "POST")
                 .claim("htu", "https://auth.example.com/api/oauth2/token")
                 .issueTime(Date())
@@ -189,7 +177,6 @@ class DpopManagerTest {
         val proof = createDpopProofWithClaims(
             JWTClaimsSet.Builder()
                 .jwtID(UUID.randomUUID().toString())
-                // no htm
                 .claim("htu", "https://auth.example.com/api/oauth2/token")
                 .issueTime(Date())
                 .build()
@@ -208,7 +195,6 @@ class DpopManagerTest {
             JWTClaimsSet.Builder()
                 .jwtID(UUID.randomUUID().toString())
                 .claim("htm", "POST")
-                // no htu
                 .issueTime(Date())
                 .build()
         )
@@ -227,7 +213,6 @@ class DpopManagerTest {
                 .jwtID(UUID.randomUUID().toString())
                 .claim("htm", "POST")
                 .claim("htu", "https://auth.example.com/api/oauth2/token")
-                // no iat
                 .build()
         )
         val request = boundRequest()
@@ -237,8 +222,6 @@ class DpopManagerTest {
         }
         assertEquals("dpop.missing_claims", exception.detailsId)
     }
-
-    // --- validateProof: htm mismatch ---
 
     @Test
     fun `validateProof - Throws when htm does not match request method`() = runTest {
@@ -250,8 +233,6 @@ class DpopManagerTest {
         }
         assertEquals("dpop.invalid_htm", exception.detailsId)
     }
-
-    // --- validateProof: htu mismatch ---
 
     @Test
     fun `validateProof - Throws when htu does not match request URI`() = runTest {
@@ -272,8 +253,6 @@ class DpopManagerTest {
         val result = dpopManager.validateProof(proof, request)
         assertNotNull(result)
     }
-
-    // --- validateProof: iat window ---
 
     @Test
     fun `validateProof - Throws when iat is too old`() = runTest {
@@ -306,12 +285,9 @@ class DpopManagerTest {
         assertNotNull(result)
     }
 
-    // --- validateProof: signature ---
-
     @Test
     fun `validateProof - Throws when signature is invalid`() = runTest {
         val proof = createValidDpopProof()
-        // Tamper with the payload to invalidate the signature
         val parts = proof.split(".")
         val tamperedPayload = Base64.getUrlEncoder().withoutPadding()
             .encodeToString("{\"jti\":\"tampered\",\"htm\":\"POST\",\"htu\":\"https://auth.example.com/api/oauth2/token\",\"iat\":${Instant.now().epochSecond}}".toByteArray())
@@ -323,8 +299,6 @@ class DpopManagerTest {
         }
         assertEquals("dpop.invalid_signature", exception.detailsId)
     }
-
-    // --- validateProof: happy path ---
 
     @Test
     fun `validateProof - Returns consistent jkt for the same key`() = runTest {
@@ -358,8 +332,6 @@ class DpopManagerTest {
 
         assertNotEquals(result1!!.jkt, result2!!.jkt)
     }
-
-    // --- getRequestUri ---
 
     @Test
     fun `getRequestUri - Strips query from request path`() = runTest {

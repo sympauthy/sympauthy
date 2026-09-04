@@ -40,10 +40,8 @@ class ConsentRepositoryTest {
     lateinit var userRepository: UserRepository
 
     /**
-     * The audience every row this class writes belongs to, and every query below is scoped to.
-     *
-     * This @MicronautTest shares its H2 database with the other @MicronautTest classes, so it must not
-     * deleteAll(): tearDown removes only the rows setUp created, named by the three lists tracking them.
+     * The audience the consents carry, and the two providers their users are linked under. Each names
+     * this test class, so no other class's rows fall inside the queries below.
      */
     private val audienceId = "consent-repository-test"
     private val providerId = "consent-repository-test-provider"
@@ -82,11 +80,6 @@ class ConsentRepositoryTest {
         saveLink(providerId, userIds[4], "subject-4")
     }
 
-    /**
-     * Removes whatever setUp managed to write, including when it failed part-way: a row left behind here is a
-     * foreign-key violation in whichever class next clears the shared database, which is a failure with
-     * nothing in its own file to explain it.
-     */
     @AfterEach
     fun tearDown() = runTest {
         consentIds.forEach { consentRepository.deleteById(it) }

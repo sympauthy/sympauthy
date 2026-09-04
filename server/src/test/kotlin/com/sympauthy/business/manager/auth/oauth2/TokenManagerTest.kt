@@ -494,8 +494,6 @@ class TokenManagerTest {
         coVerify(exactly = 1) { tokenRepository.updateRevokedAt(tokenId, any(), "CLIENT", null) }
     }
 
-    // --- introspectToken tests ---
-
     @Test
     fun `introspectToken - Returns token for active access token with hint`() = runTest {
         val clientId = "test-client"

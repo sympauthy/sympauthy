@@ -34,8 +34,6 @@ class AuthorizationFlowManagerTest {
     @InjectMockKs
     lateinit var manager: AuthorizationFlowManager
 
-    // --- checkCanIssueToken tests ---
-
     @Test
     fun `checkCanIssueToken - Throws when session is null`() = runTest {
         val client = mockk<Client>()
@@ -125,7 +123,6 @@ class AuthorizationFlowManagerTest {
         assertSame(oauth2, resultOAuth2)
     }
 
-    // --- helpers ---
 
     /** A client only identified where the check gets as far as comparing it with the session's. */
     private fun mockClient(id: String): Client = mockk {

@@ -92,7 +92,6 @@ class AuthorizationWebhookClientTest {
         )
         assertEquals("application/json", recordedRequest.getHeader("Content-Type"))
 
-        // Verify the body is valid JSON with expected fields
         val body = recordedRequest.body.readUtf8()
         assertTrue(body.contains("\"user_id\""))
         assertTrue(body.contains("\"client_id\""))

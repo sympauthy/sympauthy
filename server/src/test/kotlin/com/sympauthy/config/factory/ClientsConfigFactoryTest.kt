@@ -129,10 +129,8 @@ class ClientsConfigFactoryTest {
         )
     }
 
-    // --- Scopes a client may name ---
-
     @Test
-    fun `Client may name a scope this deployment serves`() = runTest {
+    fun `provideClients - Client may name a scope this deployment serves`() = runTest {
         val factory = factoryServing(
             listOf(ConsentableUserScope("my-scope")),
             clientTemplate(
@@ -153,7 +151,7 @@ class ClientsConfigFactoryTest {
     }
 
     @Test
-    fun `Client may not name a scope this deployment turned off`() = runTest {
+    fun `provideClients - Client may not name a scope this deployment turned off`() = runTest {
         val factory = factoryServing(
             listOf(DisabledScope("my-scope", ScopeType.CONSENTABLE)),
             clientTemplate(
@@ -170,10 +168,8 @@ class ClientsConfigFactoryTest {
         assertTrue(error.message!!.contains("config.client.scope.invalid"))
     }
 
-    // --- Default template resolution ---
-
     @Test
-    fun `Client inherits grant types from default template`() = runTest {
+    fun `provideClients - Client inherits grant types from default template`() = runTest {
         val grantTypes = setOf(GrantType.AUTHORIZATION_CODE)
         val redirectUris = listOf("https://example.com/callback")
 
@@ -199,7 +195,7 @@ class ClientsConfigFactoryTest {
     }
 
     @Test
-    fun `Client property overrides default template`() = runTest {
+    fun `provideClients - Client property overrides default template`() = runTest {
         val templateGrantTypes = setOf(GrantType.AUTHORIZATION_CODE)
         val clientGrantTypes = setOf(GrantType.CLIENT_CREDENTIALS)
         val redirectUris = listOf("https://example.com/callback")
@@ -230,10 +226,8 @@ class ClientsConfigFactoryTest {
         assertEquals(clientGrantTypes, client.allowedGrantTypes)
     }
 
-    // --- Explicit custom template ---
-
     @Test
-    fun `Client with explicit template uses that template instead of default`() = runTest {
+    fun `provideClients - Client with explicit template uses that template instead of default`() = runTest {
         val defaultFlow = mockk<AuthorizationFlow>()
         val customFlow = mockk<AuthorizationFlow>()
         val grantTypes = setOf(GrantType.CLIENT_CREDENTIALS)
@@ -256,10 +250,8 @@ class ClientsConfigFactoryTest {
         assertSame(customFlow, client.authorizationFlow)
     }
 
-    // --- Template validation errors ---
-
     @Test
-    fun `Referencing default template by name produces error`() = runTest {
+    fun `provideClients - Referencing default template by name produces error`() = runTest {
         val factory = factory(
             clientTemplate(id = "default", allowedGrantTypes = setOf(GrantType.AUTHORIZATION_CODE))
         )
@@ -276,7 +268,7 @@ class ClientsConfigFactoryTest {
     }
 
     @Test
-    fun `Referencing nonexistent template produces error`() = runTest {
+    fun `provideClients - Referencing nonexistent template produces error`() = runTest {
         val factory = factory()
         val clients = listOf(
             clientProperties(id = "my-app", template = "nonexistent", secret = "secret")
@@ -290,10 +282,8 @@ class ClientsConfigFactoryTest {
         assertEquals("config.client.template.not_found", error.messageId)
     }
 
-    // --- No template ---
-
     @Test
-    fun `Client without template and no default requires all fields`() = runTest {
+    fun `provideClients - Client without template and no default requires all fields`() = runTest {
         val factory = factory()
         val clients = listOf(
             clientProperties(id = "my-app", secret = "secret")
@@ -305,7 +295,7 @@ class ClientsConfigFactoryTest {
     }
 
     @Test
-    fun `Public client inherits public from default template`() = runTest {
+    fun `provideClients - Public client inherits public from default template`() = runTest {
         val grantTypes = setOf(GrantType.CLIENT_CREDENTIALS)
 
         passGrantTypesThrough()

@@ -189,7 +189,6 @@ class ClientProviderLinkFeatureIT : AbstractSympauthyIT() {
         }
     }
 
-    // --- Helpers ------------------------------------------------------------------------------------
 
     /** The `return_uri` a provider-link flow redirects the end-user to on success. */
     private fun providerLinkReturnUri(registry: InteractiveFlowRegistry): String =

@@ -38,8 +38,6 @@ class AuthorizeControllerTest {
     @InjectMockKs
     lateinit var controller: AuthorizeController
 
-    // --- response_type validation ---
-
     @Test
     fun `authorize - Throws UNSUPPORTED_RESPONSE_TYPE when response_type is null`() = runTest {
         val exception = assertThrows<OAuth2Exception> {
@@ -134,8 +132,6 @@ class AuthorizeControllerTest {
         assertEquals(UNSUPPORTED_RESPONSE_TYPE, exception.errorCode)
         assertEquals("authorize.response_type.invalid", exception.detailsId)
     }
-
-    // --- Successful delegation ---
 
     @Test
     fun `authorize - Returns 303 redirect to sign-in URI on valid code request`() = runTest {

@@ -1,6 +1,6 @@
 ---
-description: What each kind of subject is tested with, where the test lives, and what a test is
-  expected to prove.
+description: What each kind of subject is tested with, where the test lives, what a test is
+  expected to prove, and how little of that a comment has left to say.
 paths:
   - "server/src/test/**"
   - "integration-tests/src/**"
@@ -8,8 +8,9 @@ paths:
 
 # Testing standard
 
-What each kind of subject is tested with, where the test lives, how it is named, and what a test is
-expected to prove. The components being tested are [the code standards](general-code-standard.md).
+What each kind of subject is tested with, where the test lives, how it is named, what a test is
+expected to prove, and how little of that a comment has left to say. The components being tested are
+[the code standards](general-code-standard.md).
 
 | Subject | Tested with | Where |
 | --- | --- | --- |
@@ -85,6 +86,35 @@ context closes.
 
 **A green run against a JVM image is necessary and not sufficient.** The native run in continuous
 integration is the source of truth for [the native-image rules](native-image-standard.md).
+
+## Comments
+
+**Silence is the standard.** [The comment standard](comment-standard.md) governs a test as it
+governs everything else, and a test following the conventions above leaves it almost nothing to
+carry: the name says the method and the case, the fixture says the setup, the assertion message says
+the expectation. A test reading as though it needs explaining is usually one that needs splitting.
+
+**A comment that repeats the test's own name is not written.** Restating the method, the case, or
+the expectation the assertion message already states writes the sentence twice — and the copy
+nothing runs is the one that drifts.
+
+**A test file carries no section headers.** `// --- confirmEnrollment ---` over a run of tests each
+named `` `confirmEnrollment - …` `` spells the method once more per group, and drifts on its own.
+`@Test` is what marks a test, so a header separating the tests from the helpers around them says
+nothing either. A file holding no test of its own — a shared base class — may still group its
+helpers by family.
+
+**An integration test narrates its scenario once, in the class documentation.** Repeating the steps
+beside the calls writes the sequence three times — the documentation, the comment, the assertion
+message — and only the failing one is checked.
+
+**A rule these documents state is not restated in a test file.** That every repository test shares
+one in-memory database, and that `deleteAll()` is forbidden because of it, is a rule of this
+document; a file repeating it is one more place to edit the day the rule changes.
+
+**A comment a test keeps carries what neither the name nor the code shows.** That is a stub left
+out on purpose, where reaching the assertion is itself proof the call was never made; a fixture
+value the assertion turns on that never appears; a departure a reader would take for a mistake.
 
 ## What this standard does not cover
 

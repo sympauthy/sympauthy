@@ -38,11 +38,9 @@ class CancelledFlowStateNotReplayableIT : AbstractSympauthyIT() {
                 val internalState = queryParam(authorize.location ?: error("authorize 303 had no Location"), "state")
                     ?: error("authorize redirect did not carry a state: ${authorize.location}")
 
-                // Cancel the flow: the session becomes terminal.
                 val cancel = flow.cancel(internalState)
                 assertEquals(200, cancel.status, "the first cancel should succeed, body=${cancel.body}")
 
-                // Replaying the now-spent state against an ongoing-required step must be rejected.
                 val replay = flow.get("/api/v1/flow/mfa/challenge?state=${encode(internalState)}")
                 assertEquals(
                     400, replay.status,

@@ -81,8 +81,6 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     @InjectMockKs
     lateinit var handler: OAuth2AuthorizeInteractiveFlowPurposeHandler
 
-    // --- nextStepOrNull ---
-
     @Test
     fun `nextStepOrNull - Missing user without invitation returns SignIn`() = runTest {
         val session = mockk<OnGoingInteractiveFlowSession>()
@@ -133,8 +131,6 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         assertNull(handler.nextStepOrNull(session))
     }
 
-    // --- followUpPurposes ---
-
     @Test
     fun `followUpPurposes - Returns the required MFA purpose when none is present`() = runTest {
         val session = mockk<OnGoingInteractiveFlowSession> {
@@ -168,8 +164,6 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
 
         assertTrue(handler.followUpPurposes(session).isEmpty())
     }
-
-    // --- requiredMfaPurpose ---
 
     @Test
     fun `requiredMfaPurpose - Returns null when MFA is disabled`() = runTest {
@@ -230,8 +224,6 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         assertNull(handler.requiredMfaPurpose(session))
     }
 
-    // --- applyTerminalEffect ---
-
     @Test
     fun `applyTerminalEffect - Saves consent and proceeds when scopes are granted`() = runTest {
         val userId = UUID.randomUUID()
@@ -287,8 +279,6 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         assertEquals(TerminalEffectResult.Proceed, result)
     }
 
-    // --- computeStatus (status computation used by nextStepOrNull) ---
-
     @Test
     fun `computeStatus - Missing required claims when not all are collected`() = runTest {
         val userId = UUID.randomUUID()
@@ -310,7 +300,6 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         assertTrue(handler.computeStatus(session, oauth2).missingMediaForClaimValidation.isNotEmpty())
     }
 
-    // --- helpers ---
 
     private fun onGoingSessionMock(userId: UUID) = mockk<OnGoingInteractiveFlowSession> {
         every { this@mockk.userId } returns userId

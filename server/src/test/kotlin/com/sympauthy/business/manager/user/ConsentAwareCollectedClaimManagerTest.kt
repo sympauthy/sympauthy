@@ -288,7 +288,6 @@ class ConsentAwareCollectedClaimManagerTest {
             every { claim } returns claim1
         }
 
-        // Only update1 should pass the filter
         coEvery { collectedClaimManager.applyUpdates(user, listOf(update1)) } returns listOf(collectedClaim1)
 
         val result = manager.updateByClient(user, listOf(update1, update2), consentedScopes)

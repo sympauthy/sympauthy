@@ -18,8 +18,6 @@ class ClientRedirectUriManagerTest {
 
     private val manager = ClientRedirectUriManager()
 
-    // --- parseRequestedRedirectUri tests ---
-
     @Test
     fun `parseRequestedRedirectUri - Throws when redirect_uri is null`() {
         val client = mockk<Client>()
@@ -111,8 +109,6 @@ class ClientRedirectUriManagerTest {
         assertEquals("client.redirect_uri.not_allowed", exception.detailsId)
     }
 
-    // --- recoverable flag ---
-
     @Test
     fun `parseRequestedRedirectUri - Surfaces a recoverable error when recoverable is true`() {
         val client = mockk<Client> {
@@ -134,8 +130,6 @@ class ClientRedirectUriManagerTest {
         }
         assertFalse(exception.recoverable, "the authorize flow keeps a non-recoverable (500) error")
     }
-
-    // --- matchesAllowedRedirectUri loopback tests ---
 
     @Test
     fun `matchesAllowedRedirectUri - Allows different port on 127_0_0_1 loopback`() {

@@ -41,14 +41,12 @@ class IntrospectionActiveFalseForOtherClientsTokenIT : AbstractSympauthyIT() {
         )
 
         withContainer(database, otherClient) { sympauthy, registry ->
-            // A real access token owned by the public client `test-app`.
             val tokens = registry.newFlow()
                 .withSignUpHandler { mapOf("email" to "ada@example.com", "password" to "Str0ngP@ssw0rd!") }
                 .run()
                 .exchange()
             val foreignAccessToken = checkNotNull(tokens.accessToken()) { "expected an access token from exchange" }
 
-            // Introspect it while authenticated as a *different* client.
             val response = httpPostForm(
                 discovery(sympauthy).introspectionEndpoint!!,
                 mapOf("token" to foreignAccessToken),

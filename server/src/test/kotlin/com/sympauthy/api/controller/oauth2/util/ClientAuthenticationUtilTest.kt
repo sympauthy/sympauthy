@@ -46,8 +46,6 @@ class ClientAuthenticationUtilTest {
         }
     }
 
-    // --- resolveClient tests ---
-
     @Test
     fun `resolveClient - Authenticates with form params`() = runTest {
         val client = mockk<Client>()
@@ -75,8 +73,6 @@ class ClientAuthenticationUtilTest {
         }
         assertEquals("authentication.wrong", exception.detailsId)
     }
-
-    // --- resolveClientAllowingPublic tests ---
 
     @Test
     fun `resolveClientAllowingPublic - Authenticates confidential client`() = runTest {

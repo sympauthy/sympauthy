@@ -86,8 +86,6 @@ class ScopeConfigFactoryTest {
         return (this as DisabledScopesConfig).configurationErrors!!.map { it as ConfigurationException }
     }
 
-    // --- OpenID Connect scope templates ---
-
     @Test
     fun `provideScopes - Take an OpenID Connect scope off from the template it names`() {
         val factory = factoryWith(
@@ -140,8 +138,6 @@ class ScopeConfigFactoryTest {
         }
     }
 
-    // --- Custom scope with default_custom template ---
-
     @Test
     fun `provideScopes - Apply default_custom template type to a custom scope`() {
         val factory = factoryWith(
@@ -177,8 +173,6 @@ class ScopeConfigFactoryTest {
         assertInstanceOf(EnabledScopesConfig::class.java, result)
         assertInstanceOf(GrantableUserScope::class.java, result.scopeNamed("my-scope"))
     }
-
-    // --- Explicit custom template ---
 
     @Test
     fun `provideScopes - Use the template a custom scope names`() {
@@ -234,8 +228,6 @@ class ScopeConfigFactoryTest {
         assertEquals("config.scope.audience.not_found", error.messageId)
     }
 
-    // --- Scopes the server defines itself ---
-
     @Test
     fun `provideScopes - Serve the built-in grantable and client scopes`() {
         val result = factory.provideScopes(emptyList())
@@ -281,8 +273,6 @@ class ScopeConfigFactoryTest {
         val error = (result as DisabledScopesConfig).configurationErrors!!.first()
         assertTrue(error.message!!.contains("config.scope.builtin_not_configurable"))
     }
-
-    // --- Audience ---
 
     @Test
     fun `provideScopes - Bind a custom scope to the audience it names`() {
@@ -391,8 +381,6 @@ class ScopeConfigFactoryTest {
             result.errorsByKey()
         )
     }
-
-    // --- Template validation errors ---
 
     @Test
     fun `provideScopes - Reject a scope referencing a default template by name`() {

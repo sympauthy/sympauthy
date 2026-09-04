@@ -33,7 +33,7 @@ they are *not* is a user manual: how to configure and integrate with a running S
 - **[Comment standard](comment-standard.md)** — what a KDoc carries, and where the rationale that
   does not belong in one goes instead.
 - **[Testing standard](testing-standard.md)** — what each kind of subject is tested with, where its
-  test lives, how it is named, and what an integration test is expected to prove.
+  test lives, how it is named, what it is expected to prove, and why it carries almost no comment.
 - **[Native image standard](native-image-standard.md)** — the closed-world rules that compile
   cleanly, pass every test, and then fail in production.
 - **[The interactive flow](interactive-flow.md)** — the session, the purposes an engine sequences

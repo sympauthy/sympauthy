@@ -38,10 +38,6 @@ class InteractiveFlowSessionRepositoryTest {
     private lateinit var userId: UUID
     private val createdSessionIds = mutableListOf<UUID>()
 
-    // This @MicronautTest shares its H2 database with the other @MicronautTest classes, so we must not
-    // deleteAll() — other tests' rows reference these tables via foreign keys. Every assertion below is
-    // scoped to a session this test created, and tearDown removes only those rows (children-free
-    // sessions first, then the user they may reference).
     @BeforeEach
     fun setUp() = runTest {
         userId = UserEntity(status = "enabled", creationDate = LocalDateTime.now())

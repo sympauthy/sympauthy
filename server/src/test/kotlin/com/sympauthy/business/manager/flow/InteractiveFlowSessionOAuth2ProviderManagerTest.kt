@@ -89,8 +89,6 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
         )
     }
 
-    // --- getOAuth2 ---
-
     @Test
     fun `getOAuth2 - Return config when provider uses OAuth2`() {
         val oauth2Config = mockk<ProviderOAuth2Config>()
@@ -105,8 +103,6 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
 
         assertSame(oauth2Config, result)
     }
-
-    // --- authorizeWithProvider (re-authentication guard) ---
 
     @Test
     fun `authorizeWithProvider - Re-authentication rejects a provider not linked to the session user`() = runTest {
@@ -125,8 +121,6 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
         assertTrue(exception.recoverable)
         coVerify(exactly = 0) { providerManager.setProvider(any(), any(), any()) }
     }
-
-    // --- signInOrSignUpUsingProvider (re-authentication branch) ---
 
     /**
      * Stub the provider callback chain (token exchange, claim resolution, stored-subject lookup) up to the
@@ -212,8 +206,6 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             coVerify(exactly = 0) { reauthenticationManager.markPrimaryCredentialProven(any()) }
             coVerify(exactly = 0) { providerClaimsManager.refreshUserInfo(any(), any()) }
         }
-
-    // --- authorizeWithProvider / signInOrSignUpUsingProvider (LINK_PROVIDER branch) ---
 
     @Test
     fun `authorizeWithProvider - Rejects a provider that is not the link target under LINK_PROVIDER`() = runTest {

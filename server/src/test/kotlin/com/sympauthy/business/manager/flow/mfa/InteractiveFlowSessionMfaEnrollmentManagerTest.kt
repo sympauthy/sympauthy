@@ -55,8 +55,6 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
     private val optionalMfa = EnabledMfaConfig(totp = true, required = false)
     private val requiredMfa = EnabledMfaConfig(totp = true, required = true)
 
-    // --- startMfaEnrollmentSession ---
-
     @Test
     fun `startMfaEnrollmentSession - Creates a PLAIN session with the return and cancel URIs, and sets the user`() = runTest {
         val manager = managerWith(optionalMfa)
@@ -142,8 +140,6 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
             assertSame(withUser, result)
         }
 
-    // --- getEnrollmentRoutingResult ---
-
     @Test
     fun `getEnrollmentRoutingResult - optional and not standalone - offers TOTP enrollment with skip`() = runTest {
         val manager = managerWith(optionalMfa)
@@ -179,8 +175,6 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
         assertEquals(MfaAutoRedirect(InteractiveFlowStep.MfaTotpEnroll), result)
     }
 
-    // --- isEnrollmentSkippable ---
-
     @Test
     fun `isEnrollmentSkippable - false when MFA is required`() = runTest {
         val manager = managerWith(requiredMfa)
@@ -203,8 +197,6 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
 
         assertTrue(manager.isEnrollmentSkippable(session))
     }
-
-    // --- skipMfa ---
 
     @Test
     fun `skipMfa - Sets mfaPassed and returns updated session when optional and not enrolled`() = runTest {
