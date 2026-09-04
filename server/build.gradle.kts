@@ -110,11 +110,18 @@ dependencies {
     // Testing
     kspTest("io.micronaut:micronaut-inject-java")
     testImplementation("io.micronaut.test:micronaut-test-junit5")
+    testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
+    // UtcTimeZoneListener is a launcher service, so the launcher API has to be compiled against.
+    testImplementation(libs.junit.platform.launcher)
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.mock.webserver)
     testImplementation(kotlin("test"))
+    // A repository test runs against a real database of each supported dialect. H2 is embedded; PostgreSQL
+    // is a container, which is why the default `test` task requires Docker. See docs/testing-standard.md.
+    testImplementation(libs.testcontainers)
+    testImplementation(libs.testcontainers.postgresql)
 }
 
 application {

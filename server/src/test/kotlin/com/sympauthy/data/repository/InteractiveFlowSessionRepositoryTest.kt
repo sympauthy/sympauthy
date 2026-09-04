@@ -1,197 +1,280 @@
 package com.sympauthy.data.repository
 
-import com.sympauthy.data.model.InteractiveFlowSessionEntity
-import com.sympauthy.data.model.UserEntity
-import io.micronaut.test.extensions.junit5.annotation.MicronautTest
-import jakarta.inject.Inject
-import kotlinx.coroutines.test.runTest
+import com.sympauthy.data.BASE_DATE
+import com.sympauthy.data.Database
+import com.sympauthy.data.withFixture
+import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import java.time.LocalDateTime
-import java.util.*
 
 /**
- * H2-backed test of the versioned optimistic-concurrency updates on [InteractiveFlowSessionRepository].
+ * The versioned optimistic-concurrency updates on [InteractiveFlowSessionRepository].
  *
  * Beyond the compare-and-swap semantics (affected-row count `1` vs `0`, version increment), this
- * exercises the two bindings that have no other precedent in the codebase: the `text array` columns
- * (`purposes`, `completed_purposes`) and the `json` column (`error_values`) bound as parameters inside
- * a raw `@Query`.
+ * exercises the array columns `purposes` and `completed_purposes` bound as parameters inside a raw
+ * `@Query`, and `error_values` written through the derived [InteractiveFlowSessionRepository.updateError]
+ * — a `json` column has to be, since a map bound into a raw query is stored as its `toString()`.
  */
-@MicronautTest(
-    environments = ["default", "test"],
-    startApplication = false,
-    transactional = false
-)
 class InteractiveFlowSessionRepositoryTest {
 
-    @Inject
-    lateinit var sessionRepository: InteractiveFlowSessionRepository
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `save - Round-trips the purpose arrays and the error values`(database: Database) = withFixture(database) {
+        val sessions = repository<InteractiveFlowSessionRepository>()
+        val session = newSession(purposes = arrayOf("OAUTH2_AUTHORIZE", "MFA_CHALLENGE"))
 
-    @Inject
-    lateinit var userRepository: UserRepository
+        val stored = sessions.findById(session.id!!)
 
-    private lateinit var userId: UUID
-    private val createdSessionIds = mutableListOf<UUID>()
-
-    @BeforeEach
-    fun setUp() = runTest {
-        userId = UserEntity(status = "enabled", creationDate = LocalDateTime.now())
-            .also { userRepository.save(it) }
-            .id!!
+        assertNotNull(stored)
+        assertArrayEquals(arrayOf("OAUTH2_AUTHORIZE", "MFA_CHALLENGE"), stored!!.purposes)
+        assertArrayEquals(emptyArray<String>(), stored.completedPurposes)
+        assertEquals("OAUTH2_AUTHORIZE", stored.initiatingPurpose)
+        assertEquals(BASE_DATE, stored.sessionDate)
+        assertEquals(0L, stored.version)
+        assertNull(stored.errorValues)
     }
 
-    @AfterEach
-    fun tearDown() = runTest {
-        if (createdSessionIds.isNotEmpty()) {
-            sessionRepository.deleteByIds(createdSessionIds)
-            createdSessionIds.clear()
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findByCode - Joins the authorization code back to its session`(database: Database) =
+        withFixture(database) {
+            val sessions = repository<InteractiveFlowSessionRepository>()
+            val session = newSession()
+            newCode(session.id!!, "interactive-flow-session-repository-test-code")
+
+            val found = sessions.findByCode("interactive-flow-session-repository-test-code")
+
+            assertEquals(session.id, found?.id)
         }
-        userRepository.deleteById(userId)
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findByCode - Returns null when no code holds that value`(database: Database) = withFixture(database) {
+        val sessions = repository<InteractiveFlowSessionRepository>()
+        newSession()
+
+        assertNull(sessions.findByCode("interactive-flow-session-repository-test-absent"))
     }
 
-    private suspend fun newSession(
-        purposes: Array<String> = arrayOf("OAUTH2_AUTHORIZE"),
-    ): InteractiveFlowSessionEntity {
-        val now = LocalDateTime.now()
-        return InteractiveFlowSessionEntity(
-            purposes = purposes,
-            initiatingPurpose = purposes.first(),
-            sessionDate = now,
-            flowId = "flow",
-            expirationDate = now.plusMinutes(10),
-        ).also {
-            sessionRepository.save(it)
-            createdSessionIds.add(it.id!!)
+    /**
+     * `CURRENT_TIMESTAMP` is the database's clock, not the JVM's, so the two sessions are dated a year
+     * either side of now rather than around [BASE_DATE].
+     */
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findExpired - Returns the sessions whose expiration has passed`(database: Database) =
+        withFixture(database) {
+            val sessions = repository<InteractiveFlowSessionRepository>()
+            val now = LocalDateTime.now()
+            val expired = newSession(expirationDate = now.minusYears(1))
+            val ongoing = newSession(expirationDate = now.plusYears(1))
+
+            val found = sessions.findExpired().map { it.id }
+
+            assertTrue(found.contains(expired.id))
+            assertTrue(!found.contains(ongoing.id))
         }
-    }
 
-    @Test
-    fun `updatePurposes - binds the array, applies at the expected version and increments it`() = runTest {
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `updatePurposes - Binds the array, applies at the expected version and increments it`(
+        database: Database
+    ) = withFixture(database) {
+        val sessions = repository<InteractiveFlowSessionRepository>()
         val session = newSession()
 
-        val updated = sessionRepository.updatePurposes(
+        val updated = sessions.updatePurposes(
             id = session.id!!,
             purposes = arrayOf("OAUTH2_AUTHORIZE", "MFA_CHALLENGE"),
             expectedVersion = 0
         )
 
         assertEquals(1, updated)
-        val reloaded = sessionRepository.findById(session.id!!)!!
-        assertTrue(arrayOf("OAUTH2_AUTHORIZE", "MFA_CHALLENGE").contentEquals(reloaded.purposes))
+        val reloaded = sessions.findById(session.id!!)!!
+        assertArrayEquals(arrayOf("OAUTH2_AUTHORIZE", "MFA_CHALLENGE"), reloaded.purposes)
         assertEquals(1L, reloaded.version)
     }
 
-    @Test
-    fun `updatePurposes - a stale expected version affects no rows and leaves the row untouched`() = runTest {
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `updatePurposes - A stale expected version affects no rows and leaves the row untouched`(
+        database: Database
+    ) = withFixture(database) {
+        val sessions = repository<InteractiveFlowSessionRepository>()
         val session = newSession()
         // Advance the row to version 1 so the original snapshot (version 0) is now stale.
-        sessionRepository.updatePurposes(session.id!!, arrayOf("MFA_CHALLENGE"), expectedVersion = 0)
+        sessions.updatePurposes(session.id!!, arrayOf("MFA_CHALLENGE"), expectedVersion = 0)
 
-        val updated = sessionRepository.updatePurposes(
+        val updated = sessions.updatePurposes(
             id = session.id!!,
             purposes = arrayOf("OAUTH2_AUTHORIZE"),
             expectedVersion = 0
         )
 
         assertEquals(0, updated)
-        val reloaded = sessionRepository.findById(session.id!!)!!
-        assertTrue(arrayOf("MFA_CHALLENGE").contentEquals(reloaded.purposes))
+        val reloaded = sessions.findById(session.id!!)!!
+        assertArrayEquals(arrayOf("MFA_CHALLENGE"), reloaded.purposes)
         assertEquals(1L, reloaded.version)
     }
 
-    @Test
-    fun `updateCompletedPurposes - binds the array and increments the version`() = runTest {
-        val session = newSession()
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `updateCompletedPurposes - Binds the array and increments the version`(database: Database) =
+        withFixture(database) {
+            val sessions = repository<InteractiveFlowSessionRepository>()
+            val session = newSession()
 
-        val updated = sessionRepository.updateCompletedPurposes(
-            id = session.id!!,
-            completedPurposes = arrayOf("OAUTH2_AUTHORIZE"),
-            expectedVersion = 0
-        )
+            val updated = sessions.updateCompletedPurposes(
+                id = session.id!!,
+                completedPurposes = arrayOf("OAUTH2_AUTHORIZE"),
+                expectedVersion = 0
+            )
 
-        assertEquals(1, updated)
-        val reloaded = sessionRepository.findById(session.id!!)!!
-        assertTrue(arrayOf("OAUTH2_AUTHORIZE").contentEquals(reloaded.completedPurposes))
-        assertEquals(1L, reloaded.version)
+            assertEquals(1, updated)
+            val reloaded = sessions.findById(session.id!!)!!
+            assertArrayEquals(arrayOf("OAUTH2_AUTHORIZE"), reloaded.completedPurposes)
+            assertEquals(1L, reloaded.version)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `updateError - The derived write binds and round-trips the json values`(database: Database) =
+        withFixture(database) {
+            val sessions = repository<InteractiveFlowSessionRepository>()
+            val session = newSession()
+
+            sessions.updateError(
+                id = session.id!!,
+                errorDate = BASE_DATE.plusMinutes(1),
+                errorDetailsId = "some.error",
+                errorDescriptionId = "some.description",
+                errorValues = mapOf("key" to "value")
+            )
+
+            val reloaded = sessions.findById(session.id!!)!!
+            assertEquals(BASE_DATE.plusMinutes(1), reloaded.errorDate)
+            assertEquals("some.error", reloaded.errorDetailsId)
+            assertEquals("some.description", reloaded.errorDescriptionId)
+            assertEquals(mapOf("key" to "value"), reloaded.errorValues)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `failIfOngoing - Bumps the version while ongoing and refuses once terminal`(database: Database) =
+        withFixture(database) {
+            val sessions = repository<InteractiveFlowSessionRepository>()
+            val id = newSession().id!!
+
+            // Ongoing: the guard bumps the version regardless of its current value.
+            assertEquals(1, sessions.failIfOngoing(id))
+            assertEquals(1L, sessions.findById(id)!!.version)
+
+            // Drive it to a terminal (completed) state; the guard must then refuse.
+            sessions.updateCompleteDate(id, BASE_DATE.plusMinutes(2), expectedVersion = 1)
+            assertEquals(0, sessions.failIfOngoing(id))
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `updateUserId - Applies against the user foreign key and increments the version`(database: Database) =
+        withFixture(database) {
+            val sessions = repository<InteractiveFlowSessionRepository>()
+            val userId = newUser()
+            val session = newSession()
+
+            val updated = sessions.updateUserId(
+                id = session.id!!,
+                userId = userId,
+                signedUp = true,
+                expectedVersion = 0
+            )
+
+            assertEquals(1, updated)
+            val reloaded = sessions.findById(session.id!!)!!
+            assertEquals(userId, reloaded.userId)
+            assertTrue(reloaded.signedUp)
+            assertEquals(1L, reloaded.version)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `updateMfaPassedDate - Applies at the expected version and increments it`(database: Database) =
+        withFixture(database) {
+            val sessions = repository<InteractiveFlowSessionRepository>()
+            val id = newSession().id!!
+
+            val updated = sessions.updateMfaPassedDate(id, BASE_DATE.plusMinutes(1), expectedVersion = 0)
+
+            assertEquals(1, updated)
+            val reloaded = sessions.findById(id)!!
+            assertEquals(BASE_DATE.plusMinutes(1), reloaded.mfaPassedDate)
+            assertEquals(1L, reloaded.version)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `updateCompleteDate - Completes the session at the expected version`(database: Database) =
+        withFixture(database) {
+            val sessions = repository<InteractiveFlowSessionRepository>()
+            val id = newSession().id!!
+
+            val updated = sessions.updateCompleteDate(id, BASE_DATE.plusMinutes(1), expectedVersion = 0)
+
+            assertEquals(1, updated)
+            val reloaded = sessions.findById(id)!!
+            assertEquals(BASE_DATE.plusMinutes(1), reloaded.completeDate)
+            assertEquals(1L, reloaded.version)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `updateCancelDate - Cancels the session at the expected version`(database: Database) =
+        withFixture(database) {
+            val sessions = repository<InteractiveFlowSessionRepository>()
+            val id = newSession().id!!
+
+            val updated = sessions.updateCancelDate(id, BASE_DATE.plusMinutes(1), expectedVersion = 0)
+
+            assertEquals(1, updated)
+            val reloaded = sessions.findById(id)!!
+            assertEquals(BASE_DATE.plusMinutes(1), reloaded.cancelDate)
+            assertEquals(1L, reloaded.version)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `updateMfaPassedDate - A stale expected version never mutates the row`(database: Database) =
+        withFixture(database) {
+            val sessions = repository<InteractiveFlowSessionRepository>()
+            val id = newSession().id!!
+
+            val updated = sessions.updateMfaPassedDate(id, BASE_DATE.plusMinutes(1), expectedVersion = 99)
+
+            assertEquals(0, updated)
+            val reloaded = sessions.findById(id)!!
+            assertNull(reloaded.mfaPassedDate)
+            assertEquals(0L, reloaded.version)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `deleteByIds - Removes every session named and counts them`(database: Database) = withFixture(database) {
+        val sessions = repository<InteractiveFlowSessionRepository>()
+        val deleted = newSession().id!!
+        val alsoDeleted = newSession().id!!
+        val kept = newSession().id!!
+
+        val count = sessions.deleteByIds(listOf(deleted, alsoDeleted))
+
+        assertEquals(2, count)
+        assertNull(sessions.findById(deleted))
+        assertNull(sessions.findById(alsoDeleted))
+        assertNotNull(sessions.findById(kept))
     }
 
-    @Test
-    fun `updateError - the derived write binds and round-trips the json values`() = runTest {
-        val session = newSession()
-
-        sessionRepository.updateError(
-            id = session.id!!,
-            errorDate = LocalDateTime.now(),
-            errorDetailsId = "some.error",
-            errorDescriptionId = "some.description",
-            errorValues = mapOf("key" to "value"),
-        )
-
-        val reloaded = sessionRepository.findById(session.id!!)!!
-        assertEquals("some.error", reloaded.errorDetailsId)
-        assertEquals(mapOf("key" to "value"), reloaded.errorValues)
-    }
-
-    @Test
-    fun `failIfOngoing - bumps the version while ongoing and refuses once terminal`() = runTest {
-        val session = newSession()
-        val id = session.id!!
-
-        // Ongoing: the guard bumps the version regardless of its current value.
-        assertEquals(1, sessionRepository.failIfOngoing(id))
-        assertEquals(1L, sessionRepository.findById(id)!!.version)
-
-        // Drive it to a terminal (completed) state; the guard must then refuse.
-        sessionRepository.updateCompleteDate(id, LocalDateTime.now(), expectedVersion = 1)
-        assertEquals(0, sessionRepository.failIfOngoing(id))
-    }
-
-    @Test
-    fun `updateUserId - applies against the user foreign key and increments the version`() = runTest {
-        val session = newSession()
-
-        val updated = sessionRepository.updateUserId(
-            id = session.id!!,
-            userId = userId,
-            signedUp = true,
-            expectedVersion = 0
-        )
-
-        assertEquals(1, updated)
-        val reloaded = sessionRepository.findById(session.id!!)!!
-        assertEquals(userId, reloaded.userId)
-        assertTrue(reloaded.signedUp)
-        assertEquals(1L, reloaded.version)
-    }
-
-    @Test
-    fun `scalar updates - each applies at the expected version and increments it`() = runTest {
-        val session = newSession()
-        val id = session.id!!
-
-        assertEquals(1, sessionRepository.updateMfaPassedDate(id, LocalDateTime.now(), expectedVersion = 0))
-        assertEquals(1, sessionRepository.updateCompleteDate(id, LocalDateTime.now(), expectedVersion = 1))
-        assertEquals(1, sessionRepository.updateCancelDate(id, LocalDateTime.now(), expectedVersion = 2))
-
-        val reloaded = sessionRepository.findById(id)!!
-        assertEquals(3L, reloaded.version)
-    }
-
-    @Test
-    fun `a stale expected version never mutates the row`() = runTest {
-        val session = newSession()
-        val id = session.id!!
-
-        val updated = sessionRepository.updateMfaPassedDate(id, LocalDateTime.now(), expectedVersion = 99)
-
-        assertEquals(0, updated)
-        val reloaded = sessionRepository.findById(id)!!
-        assertNull(reloaded.mfaPassedDate)
-        assertEquals(0L, reloaded.version)
-    }
 }

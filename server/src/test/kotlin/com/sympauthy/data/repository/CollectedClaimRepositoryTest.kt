@@ -1,44 +1,31 @@
 package com.sympauthy.data.repository
 
 import com.sympauthy.business.mapper.ClaimValueMapper
+import com.sympauthy.data.BASE_DATE
+import com.sympauthy.data.Database
+import com.sympauthy.data.RepositoryFixture
 import com.sympauthy.data.model.CollectedClaimEntity
-import com.sympauthy.data.model.UserEntity
-import io.micronaut.test.extensions.junit5.annotation.MicronautTest
-import jakarta.inject.Inject
-import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.AfterEach
+import com.sympauthy.data.withFixture
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import java.time.LocalDateTime
 import java.util.*
 
 /**
- * H2-backed test of [findUserIdsMatchingAllClaims], the criteria query no unit test can reach.
+ * The claims collected against a user: the two queries [CollectedClaimRepository] writes as raw SQL, and
+ * the three criteria queries its file declares as extensions, none of which a unit test can reach.
  *
- * That a user matches only when every claim in the map matches is what the query has to prove, and it
- * compiles either way.
+ * What they have to prove compiles either way — that a user matches only when every claim in the map
+ * matches, that a scalar projection over `MAX` comes back typed, and that setting a claim verified twice
+ * keeps the first date.
  */
-@MicronautTest(
-    environments = ["default", "test"],
-    startApplication = false,
-    transactional = false
-)
 class CollectedClaimRepositoryTest {
 
-    @Inject
-    lateinit var collectedClaimRepository: CollectedClaimRepository
-
-    @Inject
-    lateinit var userRepository: UserRepository
-
-    @Inject
-    lateinit var claimValueMapper: ClaimValueMapper
-
-    /**
-     * Every claim value this class writes and queries by carries the test class's own name.
-     */
+    /** Every claim value this class writes and queries by carries the test class's own name. */
     private val qualifier = "collected-claim-repository-test"
     private val aliceEmail = "alice@$qualifier.test"
     private val bobEmail = "bob@$qualifier.test"
@@ -46,116 +33,289 @@ class CollectedClaimRepositoryTest {
     private val bobName = "Bob-$qualifier"
     private val charlieName = "Charlie-$qualifier"
 
-    private val userIds = mutableListOf<UUID>()
-    private val claimIds = mutableListOf<UUID>()
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `save - Round-trips a claim, and an absent value as null`(database: Database) = withFixture(database) {
+        val claims = repository<CollectedClaimRepository>()
+        val userId = newUser()
+        val collected = saveClaim(userId, "email", aliceEmail)
+        val absent = saveClaim(userId, "phone_number", value = null)
 
-    private lateinit var user1Id: UUID
-    private lateinit var user2Id: UUID
-    private lateinit var user3Id: UUID
+        val storedCollected = claims.findById(collected)
+        val storedAbsent = claims.findById(absent)
+
+        assertNotNull(storedCollected)
+        assertEquals(encoded(aliceEmail), storedCollected!!.value)
+        assertEquals(true, storedCollected.verified)
+        assertEquals(BASE_DATE, storedCollected.collectionDate)
+        assertEquals(BASE_DATE, storedCollected.verificationDate)
+        assertNotNull(storedAbsent)
+        assertNull(storedAbsent!!.value)
+        assertNull(storedAbsent.verified)
+        assertNull(storedAbsent.verificationDate)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findByUserId - Returns every claim of the user`(database: Database) = withFixture(database) {
+        val users = seedUsers()
+
+        val found = repository<CollectedClaimRepository>().findByUserId(users.aliceId)
+
+        assertEquals(setOf("email", "name"), found.map { it.claim }.toSet())
+    }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findByUserIdAndClaimInList - Narrows to the named claims`(database: Database) = withFixture(database) {
+        val users = seedUsers()
+
+        val found = repository<CollectedClaimRepository>()
+            .findByUserIdAndClaimInList(users.aliceId, listOf("email"))
+
+        assertEquals(listOf("email"), found.map { it.claim })
+    }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findByUserIdInList - Returns the claims of every user in the list`(database: Database) =
+        withFixture(database) {
+            val users = seedUsers()
+
+            val found = repository<CollectedClaimRepository>()
+                .findByUserIdInList(listOf(users.aliceId, users.bobId))
+
+            assertEquals(setOf(users.aliceId, users.bobId), found.map { it.userId }.toSet())
+            assertEquals(4, found.size)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findByUserIdInListAndClaimInList - Narrows on both lists at once`(database: Database) =
+        withFixture(database) {
+            val users = seedUsers()
+
+            val found = repository<CollectedClaimRepository>()
+                .findByUserIdInListAndClaimInList(listOf(users.aliceId, users.bobId), listOf("name"))
+
+            assertEquals(setOf(users.aliceId, users.bobId), found.map { it.userId }.toSet())
+            assertEquals(listOf("name", "name"), found.map { it.claim })
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findMaxCollectionDateByUserId - Returns the latest collection date`(database: Database) =
+        withFixture(database) {
+            val claims = repository<CollectedClaimRepository>()
+            val userId = newUser()
+            saveClaim(userId, "email", aliceEmail, collectedAt = BASE_DATE)
+            saveClaim(userId, "name", aliceName, collectedAt = BASE_DATE.plusDays(2))
+
+            val latest = claims.findMaxCollectionDateByUserId(userId)
+
+            assertEquals(BASE_DATE.plusDays(2), latest)
+        }
+
+    /**
+     * The aggregate answers for a user with no claim at all, where `MAX` over no row is a null the
+     * projection has to carry back rather than an empty result the mapper would reject.
+     */
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findMaxCollectionDateByUserId - Returns null when the user has no claim`(database: Database) =
+        withFixture(database) {
+            val userId = newUser()
+
+            val latest = repository<CollectedClaimRepository>().findMaxCollectionDateByUserId(userId)
+
+            assertNull(latest)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `updateClaimsToVerified - Verifies the claim and dates it`(database: Database) = withFixture(database) {
+        val claims = repository<CollectedClaimRepository>()
+        val userId = newUser()
+        val id = saveClaim(userId, "email", aliceEmail, verified = null)
+        val verifiedAt = BASE_DATE.plusDays(1)
+
+        claims.updateClaimsToVerified(userId, "email", verifiedAt)
+
+        val stored = claims.findById(id)
+        assertEquals(true, stored?.verified)
+        assertEquals(verifiedAt, stored?.verificationDate)
+    }
+
+    /**
+     * The `CASE WHEN verified IS TRUE` is the whole point of the statement: a second verification must
+     * leave the date the first one wrote.
+     */
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `updateClaimsToVerified - Keeps the date of an already verified claim`(database: Database) =
+        withFixture(database) {
+            val claims = repository<CollectedClaimRepository>()
+            val userId = newUser()
+            val id = saveClaim(userId, "email", aliceEmail, verified = null)
+            val firstVerification = BASE_DATE.plusDays(1)
+
+            claims.updateClaimsToVerified(userId, "email", firstVerification)
+            claims.updateClaimsToVerified(userId, "email", BASE_DATE.plusDays(5))
+
+            val stored = claims.findById(id)
+            assertEquals(true, stored?.verified)
+            assertEquals(firstVerification, stored?.verificationDate)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `updateClaimsToVerified - Leaves another claim of the user alone`(database: Database) =
+        withFixture(database) {
+            val claims = repository<CollectedClaimRepository>()
+            val userId = newUser()
+            saveClaim(userId, "email", aliceEmail, verified = null)
+            val untouched = saveClaim(userId, "name", aliceName, verified = null)
+
+            claims.updateClaimsToVerified(userId, "email", BASE_DATE.plusDays(1))
+
+            val stored = claims.findById(untouched)!!
+            assertNull(stored.verified)
+            assertNull(stored.verificationDate)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findAnyClaimMatching - Finds one claim of the named ids holding the value`(database: Database) =
+        withFixture(database) {
+            val users = seedUsers()
+            val claims = repository<CollectedClaimRepository>()
+
+            val found = claims.findAnyClaimMatching(listOf("email", "phone_number"), encoded(bobEmail)!!)
+
+            assertEquals(users.bobId, found?.userId)
+            assertNull(claims.findAnyClaimMatching(listOf("name"), encoded(bobEmail)!!))
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findAnyClaimMatching - Returns every claim matching any of the values`(database: Database) =
+        withFixture(database) {
+            val users = seedUsers()
+            val claims = repository<CollectedClaimRepository>()
+
+            val found = claims.findAnyClaimMatching(
+                listOf("email", "name"),
+                listOfNotNull(encoded(aliceEmail), encoded(bobName))
+            )
+
+            assertEquals(setOf(users.aliceId, users.bobId, users.charlieId), found.map { it.userId }.toSet())
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findAnyClaimMatching - Returns nothing when either list is empty`(database: Database) =
+        withFixture(database) {
+            seedUsers()
+            val claims = repository<CollectedClaimRepository>()
+
+            assertTrue(claims.findAnyClaimMatching(emptyList(), listOfNotNull(encoded(aliceEmail))).isEmpty())
+            assertTrue(claims.findAnyClaimMatching(listOf("email"), emptyList()).isEmpty())
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findUserIdsMatchingAllClaims - Returns nothing when no claim is given`(database: Database) =
+        withFixture(database) {
+            assertTrue(repository<CollectedClaimRepository>().findUserIdsMatchingAllClaims(emptyMap()).isEmpty())
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findUserIdsMatchingAllClaims - Returns every user matching one claim`(database: Database) =
+        withFixture(database) {
+            val users = seedUsers()
+
+            val found = repository<CollectedClaimRepository>()
+                .findUserIdsMatchingAllClaims(mapOf("email" to encoded(aliceEmail)))
+
+            assertEquals(setOf(users.aliceId, users.charlieId), found.toSet())
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findUserIdsMatchingAllClaims - Returns only the users matching all claims`(database: Database) =
+        withFixture(database) {
+            val users = seedUsers()
+
+            val found = repository<CollectedClaimRepository>().findUserIdsMatchingAllClaims(
+                mapOf("email" to encoded(aliceEmail), "name" to encoded(aliceName))
+            )
+
+            assertEquals(listOf(users.aliceId), found)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findUserIdsMatchingAllClaims - Returns nothing when one claim misses`(database: Database) =
+        withFixture(database) {
+            seedUsers()
+            val claims = repository<CollectedClaimRepository>()
+
+            val mismatched = claims.findUserIdsMatchingAllClaims(
+                mapOf("email" to encoded(aliceEmail), "name" to encoded(bobName))
+            )
+            val unknownValue = claims.findUserIdsMatchingAllClaims(
+                mapOf("email" to encoded("nobody@$qualifier.test"))
+            )
+            val unknownClaim = claims.findUserIdsMatchingAllClaims(
+                mapOf("phone_number" to encoded("phone-$qualifier"))
+            )
+
+            assertTrue(mismatched.isEmpty())
+            assertTrue(unknownValue.isEmpty())
+            assertTrue(unknownClaim.isEmpty())
+        }
 
     /**
      * Three users, of which the first and the third share an email and differ by name, so that a query
      * over both claims separates them and a query over the email alone does not.
      */
-    @BeforeEach
-    fun setUp() = runTest {
-        val now = LocalDateTime.now()
-
-        user1Id = saveUser(now)
-        user2Id = saveUser(now)
-        user3Id = saveUser(now)
-
-        saveClaim(user1Id, "email", aliceEmail, now)
-        saveClaim(user1Id, "name", aliceName, now)
-
-        saveClaim(user2Id, "email", bobEmail, now)
-        saveClaim(user2Id, "name", bobName, now)
-
-        saveClaim(user3Id, "email", aliceEmail, now)
-        saveClaim(user3Id, "name", charlieName, now)
+    private suspend fun RepositoryFixture.seedUsers(): SeededUsers {
+        val aliceId = newUser()
+        val bobId = newUser()
+        val charlieId = newUser()
+        saveClaim(aliceId, "email", aliceEmail)
+        saveClaim(aliceId, "name", aliceName)
+        saveClaim(bobId, "email", bobEmail)
+        saveClaim(bobId, "name", bobName)
+        saveClaim(charlieId, "email", aliceEmail)
+        saveClaim(charlieId, "name", charlieName)
+        return SeededUsers(aliceId, bobId, charlieId)
     }
 
-    @AfterEach
-    fun tearDown() = runTest {
-        claimIds.forEach { collectedClaimRepository.deleteById(it) }
-        userIds.forEach { userRepository.deleteById(it) }
-        claimIds.clear()
-        userIds.clear()
-    }
+    private class SeededUsers(val aliceId: UUID, val bobId: UUID, val charlieId: UUID)
 
-    @Test
-    fun `findUserIdsMatchingAllClaims - returns empty list when claimValues is empty`() = runTest {
-        val result = collectedClaimRepository.findUserIdsMatchingAllClaims(emptyMap())
-        assertTrue(result.isEmpty())
-    }
-
-    @Test
-    fun `findUserIdsMatchingAllClaims - returns users matching a single claim`() = runTest {
-        val result = collectedClaimRepository.findUserIdsMatchingAllClaims(
-            mapOf("email" to claimValueMapper.toEntity(aliceEmail))
-        )
-        assertEquals(setOf(user1Id, user3Id), result.toSet())
-    }
-
-    @Test
-    fun `findUserIdsMatchingAllClaims - returns only users matching ALL claims`() = runTest {
-        val result = collectedClaimRepository.findUserIdsMatchingAllClaims(
-            mapOf(
-                "email" to claimValueMapper.toEntity(aliceEmail),
-                "name" to claimValueMapper.toEntity(aliceName)
+    private suspend fun RepositoryFixture.saveClaim(
+        userId: UUID,
+        claim: String,
+        value: String?,
+        collectedAt: LocalDateTime = BASE_DATE,
+        verified: Boolean? = if (claim == "email") true else null
+    ): UUID {
+        val claims = repository<CollectedClaimRepository>()
+        return claims.save(
+            CollectedClaimEntity(
+                userId = userId,
+                claim = claim,
+                value = value?.let { encoded(it) },
+                verified = verified,
+                collectionDate = collectedAt,
+                verificationDate = if (verified == true) collectedAt else null
             )
-        )
-        assertEquals(listOf(user1Id), result)
+        ).id!!.also { id -> deleteOnEnd { claims.deleteById(id) } }
     }
 
-    @Test
-    fun `findUserIdsMatchingAllClaims - returns empty when no user matches all claims`() = runTest {
-        val result = collectedClaimRepository.findUserIdsMatchingAllClaims(
-            mapOf(
-                "email" to claimValueMapper.toEntity(aliceEmail),
-                "name" to claimValueMapper.toEntity(bobName),
-            )
-        )
-        assertTrue(result.isEmpty())
-    }
-
-    @Test
-    fun `findUserIdsMatchingAllClaims - returns empty when claim value does not exist`() = runTest {
-        val result = collectedClaimRepository.findUserIdsMatchingAllClaims(
-            mapOf("email" to claimValueMapper.toEntity("nonexistent@$qualifier.test"))
-        )
-        assertTrue(result.isEmpty())
-    }
-
-    @Test
-    fun `findUserIdsMatchingAllClaims - returns empty when claim id does not exist`() = runTest {
-        val result = collectedClaimRepository.findUserIdsMatchingAllClaims(
-            mapOf("phone" to claimValueMapper.toEntity("phone-$qualifier"))
-        )
-        assertTrue(result.isEmpty())
-    }
-
-    @Test
-    fun `findUserIdsMatchingAllClaims - returns single user matching by name`() = runTest {
-        val result = collectedClaimRepository.findUserIdsMatchingAllClaims(
-            mapOf("name" to claimValueMapper.toEntity(bobName))
-        )
-        assertEquals(listOf(user2Id), result)
-    }
-
-    private suspend fun saveUser(now: LocalDateTime): UUID = UserEntity(status = "enabled", creationDate = now)
-        .let { userRepository.save(it).id!! }
-        .also(userIds::add)
-
-    private suspend fun saveClaim(userId: UUID, claim: String, value: String, now: LocalDateTime) {
-        CollectedClaimEntity(
-            userId = userId,
-            claim = claim,
-            value = claimValueMapper.toEntity(value),
-            verified = if (claim == "email") true else null,
-            collectionDate = now,
-            verificationDate = if (claim == "email") now else null
-        ).let { collectedClaimRepository.save(it).id!! }
-            .also(claimIds::add)
-    }
+    /** A claim is stored as the JSON its mapper writes, so a query by value has to be given the same. */
+    private fun RepositoryFixture.encoded(value: Any?): String? =
+        repository<ClaimValueMapper>().toEntity(value)
 }

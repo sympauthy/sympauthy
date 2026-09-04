@@ -7,7 +7,7 @@ suites. What the server *is* is [the index](index.md); how to configure a real d
 ## Requirements
 
 - **Oracle GraalVM 25** — the JDK. A standard JDK 25 runs everything except the native build.
-- **Docker**, for the integration tests only.
+- **Docker**. The repository tests start a PostgreSQL container, so `./gradlew test` needs it too.
 - **A GitHub Packages token with `read:packages`**, for the integration tests only. The
   Testcontainers helper library they use is published there and needs authentication even to read.
 
@@ -137,7 +137,7 @@ reflection or resource loading is not finished until this has run.
 ## Tests
 
 ```sh
-./gradlew test                          # unit tests — fast, no Docker
+./gradlew test                          # unit tests; needs Docker for the repository tests
 ./gradlew test --tests 'com.sympauthy.business.manager.ScopeManagerTest'
 ./gradlew compileKotlin                 # compile only
 ./gradlew build                         # compile, test, package
