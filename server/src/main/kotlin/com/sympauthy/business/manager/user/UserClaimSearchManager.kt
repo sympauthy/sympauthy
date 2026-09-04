@@ -2,7 +2,6 @@ package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.GeneratedClaimsManager
-import com.sympauthy.business.model.filter.ValueFilter
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.page.Page
@@ -37,9 +36,9 @@ class UserClaimSearchManager(
      * by claim identifier.
      *
      * Every criterion is optional and they compose. [claimId], [identifier], [required] and
-     * [origin] are the claim's own, and an [origin] naming no [ClaimOrigin] keeps nothing rather
-     * than everything. [collected] is whether the user has a value for the claim and [verified]
-     * whether this server verified it, both read from what was collected from that user.
+     * [origin] are the claim's own. [collected] is whether the user has a value for the claim and
+     * [verified] whether this server verified it, both read from what was collected from that
+     * user.
      */
     suspend fun listUserClaims(
         userId: UUID,
@@ -48,7 +47,7 @@ class UserClaimSearchManager(
         required: Boolean?,
         collected: Boolean?,
         verified: Boolean?,
-        origin: ValueFilter<ClaimOrigin>,
+        origin: ClaimOrigin?,
         pageParams: PageParams
     ): Page<UserClaim> {
         val identifierClaimIds = uncheckedAuthConfig.orThrow()
@@ -62,7 +61,7 @@ class UserClaimSearchManager(
             .filter { claimId == null || it.id == claimId }
             .filter { identifier == null || (it.id in identifierClaimIds) == identifier }
             .filter { required == null || it.required == required }
-            .filter { origin.matches(it.origin) }
+            .filter { origin == null || it.origin == origin }
 
         // Only the claims the criteria above kept are worth reading a value for.
         val collectedClaims = collectedClaimManager.findByUserIdAndClaims(userId, claims)

@@ -1,6 +1,5 @@
 package com.sympauthy.business.manager.invitation
 
-import com.sympauthy.business.model.filter.ValueFilter
 import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.invitation.InvitationStatus
 import com.sympauthy.business.model.page.Page
@@ -28,11 +27,11 @@ class InvitationSearchManager(
      * ties broken by identifier.
      *
      * [audienceId] and [status] compose, and each keeps every invitation where the caller named no
-     * criterion. A [status] naming no [InvitationStatus] keeps nothing rather than everything.
+     * criterion.
      */
     suspend fun listInvitations(
         audienceId: String?,
-        status: ValueFilter<InvitationStatus>,
+        status: InvitationStatus?,
         pageParams: PageParams
     ): Page<Invitation> {
         val invitations = if (audienceId != null) {
@@ -41,7 +40,7 @@ class InvitationSearchManager(
             invitationManager.findAll()
         }
         return invitations
-            .filter { status.matches(it.status) }
+            .filter { status == null || it.status == status }
             .orderedPage(pageParams, oldestFirst)
     }
 

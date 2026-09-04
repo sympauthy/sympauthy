@@ -8,7 +8,6 @@ import com.sympauthy.api.util.TEST_DEFAULT_PAGE_SIZE
 import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.business.manager.user.UserClaimSearchManager
 import com.sympauthy.business.manager.user.UserManager
-import com.sympauthy.business.model.filter.ValueFilter
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.manager.user.UserClaimSearchManager.CollectedUserClaim
@@ -105,7 +104,7 @@ class AdminUserClaimControllerTest {
     private fun searchAnswers(vararg claims: UserClaim) {
         coEvery {
             userClaimSearchManager.listUserClaims(
-                userId, null, null, null, null, null, ValueFilter.Unfiltered(), defaultPage
+                userId, null, null, null, null, null, null, defaultPage
             )
         } returns pageOf(*claims)
     }
@@ -136,7 +135,7 @@ class AdminUserClaimControllerTest {
         coEvery {
             userClaimSearchManager.listUserClaims(
                 userId, "custom_field", false, true, true, false,
-                ValueFilter.Matching(ClaimOrigin.CUSTOM), PageParams(1, 2)
+                ClaimOrigin.CUSTOM, PageParams(1, 2)
             )
         } returns pageOf(custom)
         every { userClaimMapper.toResource(custom) } returns resource
@@ -149,18 +148,15 @@ class AdminUserClaimControllerTest {
     }
 
     @Test
-    fun `listUserClaims - Ask the manager for nothing when the origin names no origin`() = runTest {
+    fun `listUserClaims - Refuse an origin the set does not hold`() = runTest {
         foundUser()
-        coEvery {
-            userClaimSearchManager.listUserClaims(
-                userId, null, null, null, null, null, ValueFilter.MatchesNothing(), defaultPage
-            )
-        } returns pageOf()
+        // The search is left unstubbed on purpose: reaching the assertion is proof it was never asked.
+        val exception = assertThrows<LocalizedHttpException> {
+            controller.listUserClaims(userId, null, null, null, null, null, null, null, "openid_connect")
+        }
 
-        val result = controller.listUserClaims(userId, null, null, null, null, null, null, null, "openid_connect")
-
-        assertEquals(0, result.total)
-        assertTrue(result.claims.isEmpty())
+        assertEquals(HttpStatus.BAD_REQUEST, exception.status)
+        assertEquals("filter.value.unsupported", exception.detailsId)
     }
 
     @Test
@@ -168,7 +164,7 @@ class AdminUserClaimControllerTest {
         foundUser()
         coEvery {
             userClaimSearchManager.listUserClaims(
-                userId, null, null, null, null, null, ValueFilter.Unfiltered(), defaultPage
+                userId, null, null, null, null, null, null, defaultPage
             )
         } returns Page(items = emptyList(), page = 3, size = 7, total = 42)
 

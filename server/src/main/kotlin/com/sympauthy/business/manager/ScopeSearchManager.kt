@@ -1,6 +1,5 @@
 package com.sympauthy.business.manager
 
-import com.sympauthy.business.model.filter.ValueFilter
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.oauth2.ScopeType
@@ -32,16 +31,15 @@ class ScopeSearchManager(
      * with the claims requesting it protects.
      *
      * [type] and [enabled] compose, and each keeps every scope where the caller named no criterion.
-     * [enabled] is whether this deployment serves the scope, and a [type] naming no [ScopeType]
-     * keeps nothing rather than everything.
+     * [enabled] is whether this deployment serves the scope.
      */
     suspend fun listScopes(
-        type: ValueFilter<ScopeType>,
+        type: ScopeType?,
         enabled: Boolean?,
         pageParams: PageParams
     ): Page<ScopeWithClaims> {
         return scopeManager.listAllScopes()
-            .filter { type.matches(it.type) }
+            .filter { type == null || it.type == type }
             .filter { enabled == null || it.isEnabled == enabled }
             .orderedPage(pageParams, compareBy { it.scope })
             .map { ScopeWithClaims(it, scopeManager.listClaimsProtectedByScope(it)) }

@@ -1,15 +1,16 @@
 package com.sympauthy.api.controller.admin
 
+import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.mapper.admin.AdminClaimResourceMapper
 import com.sympauthy.api.resource.admin.AdminClaimResource
 import com.sympauthy.api.util.DEFAULT_PAGE
 import com.sympauthy.api.util.TEST_DEFAULT_PAGE_SIZE
 import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.business.manager.ClaimSearchManager
-import com.sympauthy.business.model.filter.ValueFilter
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.user.claim.*
+import io.micronaut.http.HttpStatus
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -17,6 +18,7 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 
@@ -84,7 +86,7 @@ class AdminClaimControllerTest {
         val enabled = claim("a", enabled = true)
         val disabled = claim("_disabled", enabled = false)
 
-        coEvery { claimSearchManager.listClaims(null, null, ValueFilter.Unfiltered(), defaultPage) } returns
+        coEvery { claimSearchManager.listClaims(null, null, null, defaultPage) } returns
                 pageOf(enabled, disabled)
         listOf(enabled, disabled).forEach {
             every { claimMapper.toResource(it) } returns mockResource(it.id, it.enabled)
@@ -102,7 +104,7 @@ class AdminClaimControllerTest {
 
         coEvery {
             claimSearchManager.listClaims(
-                true, false, ValueFilter.Matching(ClaimOrigin.OPENID_CONNECT), PageParams(1, 2)
+                true, false, ClaimOrigin.OPENID_CONNECT, PageParams(1, 2)
             )
         } returns pageOf(email)
         every { claimMapper.toResource(email) } returns resource
@@ -113,20 +115,19 @@ class AdminClaimControllerTest {
     }
 
     @Test
-    fun `listClaims - Ask the manager for nothing when the origin names no origin`() = runTest {
-        coEvery {
-            claimSearchManager.listClaims(null, null, ValueFilter.MatchesNothing(), defaultPage)
-        } returns pageOf()
+    fun `listClaims - Refuse an origin the set does not hold`() = runTest {
+        // The search is left unstubbed on purpose: reaching the assertion is proof it was never asked.
+        val exception = assertThrows<LocalizedHttpException> {
+            controller.listClaims(null, null, null, null, "openid_connect")
+        }
 
-        val result = controller.listClaims(null, null, null, null, "openid_connect")
-
-        assertEquals(0, result.total)
-        assertTrue(result.claims.isEmpty())
+        assertEquals(HttpStatus.BAD_REQUEST, exception.status)
+        assertEquals("filter.value.unsupported", exception.detailsId)
     }
 
     @Test
     fun `listClaims - Publish the page the manager answered, not the one that was asked for`() = runTest {
-        coEvery { claimSearchManager.listClaims(null, null, ValueFilter.Unfiltered(), defaultPage) } returns Page(
+        coEvery { claimSearchManager.listClaims(null, null, null, defaultPage) } returns Page(
             items = emptyList(),
             page = 3,
             size = 7,

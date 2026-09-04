@@ -2,7 +2,6 @@ package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.GeneratedClaimsManager
-import com.sympauthy.business.model.filter.ValueFilter
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.manager.user.UserClaimSearchManager.CollectedUserClaim
@@ -106,7 +105,7 @@ class UserClaimSearchManagerTest {
         required: Boolean? = null,
         collected: Boolean? = null,
         verified: Boolean? = null,
-        origin: ValueFilter<ClaimOrigin> = ValueFilter.Unfiltered(),
+        origin: ClaimOrigin? = null,
         pageParams: PageParams = PageParams(page = 0, size = 20)
     ) = manager().listUserClaims(userId, claimId, identifier, required, collected, verified, origin, pageParams)
 
@@ -160,18 +159,9 @@ class UserClaimSearchManagerTest {
     fun `listUserClaims - Keep the claims of the origin the criterion names`() = runTest {
         enabledClaims(nameClaim, customClaim)
 
-        val result = listUserClaims(origin = ValueFilter.Matching(ClaimOrigin.CUSTOM))
+        val result = listUserClaims(origin = ClaimOrigin.CUSTOM)
 
         assertEquals(listOf(customClaim), result.items.map { it.claim })
-    }
-
-    @Test
-    fun `listUserClaims - Keep no claim when the origin criterion matches nothing`() = runTest {
-        enabledClaims(nameClaim, customClaim)
-
-        val result = listUserClaims(origin = ValueFilter.MatchesNothing())
-
-        assertTrue(result.items.isEmpty())
     }
 
     @Test

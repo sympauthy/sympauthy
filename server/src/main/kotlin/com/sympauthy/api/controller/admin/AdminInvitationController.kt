@@ -7,7 +7,7 @@ import com.sympauthy.api.resource.admin.AdminInvitationListResource
 import com.sympauthy.api.resource.admin.AdminInvitationResource
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.api.util.valueFilterOf
+import com.sympauthy.api.util.filterOf
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.invitation.InvitationSearchManager
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
@@ -93,7 +93,7 @@ class AdminInvitationController(
         val pageParams = paginationUtil.resolvePageParams(page, size)
         val invitations = invitationSearchManager.listInvitations(
             audienceId = audienceId,
-            status = valueFilterOf<InvitationStatus>(status),
+            status = filterOf<InvitationStatus>("status", status),
             pageParams = pageParams
         )
         return AdminInvitationListResource(
