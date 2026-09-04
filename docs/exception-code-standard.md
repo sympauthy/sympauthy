@@ -58,6 +58,15 @@ and whether a retry is worth suggesting; the description decides what the reader
 `400` takes a second code for the end-user's message either way. A `500` takes none: the caller is
 not at fault and has nothing to do but report it.
 
+**Inside an interactive flow, recoverable decides whether the flow survives.** `handleException`
+rethrows a recoverable failure to the caller, so the end-user stays on the step and can send
+something else; a non-recoverable one fails the session and routes them to the error page, which
+reads the two codes and their values and no status at all.
+
+**A failure whose recoverability its caller decides is built with the constructor.** The flag is a
+parameter of the method that throws, no factory takes it as one, and the method says so in
+[its own KDoc](comment-standard.md).
+
 ## The OAuth2 carve-out
 
 **A manager implementing an OAuth2 endpoint throws the protocol's exception directly**, so that the
