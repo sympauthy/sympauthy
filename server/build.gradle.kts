@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.kotlin.allopen)
     alias(libs.plugins.ksp)
     alias(libs.plugins.micronaut.application)
+    alias(libs.plugins.kover)
 }
 
 dependencies {
@@ -238,4 +239,46 @@ artifacts {
     add(openApiSpec.name, layout.buildDirectory.file("openapi/openapi.yml")) {
         builtBy(syncOpenApiSpec)
     }
+}
+
+// --- Static analysis ----------------------------------------------------------------------------
+// detekt runs as a forked JavaExec against its CLI rather than through its Gradle plugin. The plugin
+// analyses inside the Gradle daemon's own JVM, and detekt 1.23.8 refuses this build's JDK: it first
+// derives --jvm-target=25, which its embedded Kotlin 2.0.21 does not accept (the ceiling is 22), and
+// then — with the target pinned lower — fails in detekt-core's EnvironmentFacade reading the running
+// JVM's version string. Its Detekt task exposes no javaLauncher, so the analysis cannot be pointed at
+// an older JDK. The CLI defaults its target instead of interrogating the JDK, so a forked process
+// analyses the same sources against the same rule set without any of that.
+//
+// Only the hand-written sources are analysed. The KSP and kapt output under build/generated is
+// deliberately out of scope: no rule here is actionable against generated code.
+val detektCli = configurations.create("detektCli")
+
+dependencies {
+    detektCli(libs.detekt.cli)
+}
+
+val detektReport = layout.buildDirectory.file("reports/detekt/detekt.html")
+
+tasks.register<JavaExec>("detekt") {
+    description = "Analyses the Kotlin sources against the rule set in detekt.yml."
+    group = "verification"
+    classpath = detektCli
+    mainClass.set("io.gitlab.arturbosch.detekt.cli.Main")
+    args(
+        "--config", rootProject.file("detekt.yml").absolutePath,
+        "--build-upon-default-config",
+        "--input", listOf("src/main/kotlin", "src/test/kotlin")
+            .joinToString(",") { file(it).absolutePath },
+        "--report", "html:${detektReport.get().asFile}"
+    )
+    // Declared so the analysis is skipped when neither the sources nor the rule set have changed.
+    inputs.dir("src/main/kotlin")
+    inputs.dir("src/test/kotlin")
+    inputs.file(rootProject.file("detekt.yml"))
+    outputs.file(detektReport)
+}
+
+tasks.named("check") {
+    dependsOn("detekt")
 }

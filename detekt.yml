@@ -1,0 +1,51 @@
+# detekt rule set for SympAuthy.
+#
+# This file holds only the deviations from detekt's own default configuration; the task runs with
+# --build-upon-default-config, so every rule not named here keeps its default state. detekt validates
+# each key against the rules it knows, which means a rule renamed or removed by an upgrade fails the
+# run rather than silently ceasing to apply.
+#
+# A rule is disabled here because this codebase deliberately does the thing it forbids, and the
+# reason is written next to it. Nothing is disabled to make a number go down.
+
+complexity:
+  # A manager's constructor parameters are Micronaut dependency injection, not an argument list
+  # anyone passes by hand.
+  LongParameterList:
+    active: false
+  # Size and complexity thresholds are a taste call. They stay off until one of them is argued for
+  # in docs/general-code-standard.md, so that the threshold and its rationale arrive together.
+  LongMethod:
+    active: false
+  TooManyFunctions:
+    active: false
+  CyclomaticComplexMethod:
+    active: false
+  LargeClass:
+    active: false
+  ComplexCondition:
+    active: false
+
+performance:
+  # The spread operator is used where a vararg is forwarded; the copy it costs is not measurable at
+  # the sizes involved here.
+  SpreadOperator:
+    active: false
+
+style:
+  # The tests import org.junit.jupiter.api.Assertions.* wholesale, as house style.
+  WildcardImport:
+    active: false
+  # Guard clauses are the documented idiom, so several returns and several throws per function are
+  # expected rather than exceptional. See docs/exception-code-standard.md.
+  ReturnCount:
+    active: false
+  ThrowsCount:
+    active: false
+  MagicNumber:
+    active: false
+  # Codifies the width the sources already hold themselves to: the median line is 35 characters and
+  # the 99th percentile is 113.
+  MaxLineLength:
+    active: true
+    maxLineLength: 120
