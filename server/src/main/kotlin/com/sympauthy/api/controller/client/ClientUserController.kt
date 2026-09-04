@@ -5,7 +5,7 @@ import com.sympauthy.api.resource.client.ClientUserListResource
 import com.sympauthy.api.resource.client.ClientUserResource
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.user.ClientUserManager
 import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
@@ -62,7 +62,10 @@ class ClientUserController(
         @QueryValue @Parameter(description = "Filter by provider subject ID. Must be used together with provider_id.") subject: String?
     ): ClientUserListResource {
         if (subject != null && providerId == null) {
-            throw businessExceptionOf("client.subject_without_provider")
+            throw recoverableBusinessExceptionOf(
+                "client.subject_without_provider",
+                "description.client.subject_without_provider"
+            )
         }
 
         val clientAuth = authentication.clientAuthentication

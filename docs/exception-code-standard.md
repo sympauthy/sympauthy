@@ -48,11 +48,15 @@ the offending scope as data.
 | `internalBusinessExceptionOf` | no | `500` | the server failed, and the caller is not at fault |
 
 **Ask the question from the caller's side: can they send something else?** A wrong password, a claim
-that fails validation and a scope the client may not ask for are recoverable, and recoverable is the
-only one that takes a second code for the end-user's message.
+that fails validation and a scope the client may not ask for are recoverable.
 
 **A failure nothing the caller sent would have prevented is internal.** A key that will not load, a
 row that cannot become a model and a provider that answered something unparseable are `500`.
+
+**Recoverable and having something to say are separate questions.** Recoverable decides the status
+and whether a retry is worth suggesting; the description decides what the reader is told, and a
+`400` takes a second code for the end-user's message either way. A `500` takes none: the caller is
+not at fault and has nothing to do but report it.
 
 ## The OAuth2 carve-out
 
@@ -68,8 +72,8 @@ the contract.
 **An error code is a message-bundle key.** The code names the technical message an operator reads,
 and the same code prefixed with `description.` names the one an end-user is shown.
 
-**A code that is thrown has its technical message in the bundle, and a recoverable one has its
-`description.` message too.** A description the bundle does not hold renders as null and is
+**A code that is thrown has its technical message in the bundle, and one named with a description
+has its `description.` message too.** A description the bundle does not hold renders as null and is
 [dropped from the body](api-standard.md#json), so the caller is told nothing at all.
 
 **The bundle holds a message for every code and no message besides**, and
@@ -111,6 +115,12 @@ happen.
 ## What this standard does not cover
 
 **Retryability as a wire signal.** The status is the only signal; no header says how long to wait.
+
+**A generic description that varies by status.** A failure with nothing of its own to say falls back
+to one sentence, and `description.bad_request` holds the same sentence as
+`description.internal_server_error`. Branching them apart would also not reach the reader this is
+for: a failed interactive flow session persists the two codes and their values and no status, so the
+failure the error page renders has none to branch on.
 
 **Error aggregation.** One request reports one failure, except for the per-property validation
 errors [the API standard](api-standard.md#errors) describes.
