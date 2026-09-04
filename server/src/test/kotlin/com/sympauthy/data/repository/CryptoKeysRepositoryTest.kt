@@ -40,10 +40,11 @@ class CryptoKeysRepositoryTest {
         }
 
     /**
-     * A symmetric secret has no public half, and [com.sympauthy.business.model.key.HMACKeyImpl] spells
-     * that as an empty array rather than as the null the column and the entity both admit: PostgreSQL
-     * types a null `ByteArray` parameter as `smallint[]` and refuses it against a `bytea` (#379). What
-     * is proved here is the empty array that stands in for it, not the null it avoids.
+     * A symmetric secret has no public half, and the row spells that as an empty array rather than
+     * as a null: Micronaut Data binds a null `ByteArray` as a `Byte[]`, which PostgreSQL types
+     * `smallint[]` and refuses against a `bytea`, so `public_key` is `NOT NULL`.
+     * [com.sympauthy.business.mapper.StoredPublicKeyMapper] is what turns the empty array back into
+     * the null the domain says absence with.
      */
     @ParameterizedTest
     @EnumSource(Database::class)
@@ -73,14 +74,14 @@ class CryptoKeysRepositoryTest {
 
     private suspend fun RepositoryFixture.saveKeys(
         name: String,
-        publicKey: ByteArray? = byteArrayOf(1, 2, 3)
+        publicKey: ByteArray = byteArrayOf(1, 2, 3)
     ) {
         val keys = repository<CryptoKeysRepository>()
         keys.save(
             CryptoKeysEntity(
                 algorithm = "RS256",
                 publicKey = publicKey,
-                publicKeyFormat = "X.509".takeIf { publicKey?.isNotEmpty() == true },
+                publicKeyFormat = "X.509".takeIf { publicKey.isNotEmpty() },
                 privateKey = byteArrayOf(4, 5, 6, 7),
                 privateKeyFormat = "PKCS#8",
                 creationDate = BASE_DATE

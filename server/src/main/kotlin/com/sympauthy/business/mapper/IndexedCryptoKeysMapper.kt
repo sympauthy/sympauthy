@@ -10,13 +10,15 @@ import org.mapstruct.Mappings
 @Mapper(
     config = ToBusinessMapperConfig::class
 )
-interface IndexedCryptoKeysMapper {
+abstract class IndexedCryptoKeysMapper : StoredPublicKeyMapper() {
 
-    fun toCryptoKeys(entity: IndexedCryptoKeysEntity): CryptoKeys
+    @Mapping(source = "publicKey", target = "publicKey", qualifiedByName = ["toPublicKey"])
+    abstract fun toCryptoKeys(entity: IndexedCryptoKeysEntity): CryptoKeys
 
     @Mappings(
+        Mapping(source = "publicKey", target = "publicKey", qualifiedByName = ["toStoredPublicKey"]),
         Mapping(target = "index", ignore = true),
         Mapping(target = "creationDate", expression = "java(java.time.LocalDateTime.now())")
     )
-    fun toEntity(keys: CryptoKeys): IndexedCryptoKeysEntity
+    abstract fun toEntity(keys: CryptoKeys): IndexedCryptoKeysEntity
 }

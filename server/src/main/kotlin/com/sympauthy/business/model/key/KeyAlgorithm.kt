@@ -164,9 +164,7 @@ class HMACKeyImpl : KeyAlgorithmImpl() {
         return CryptoKeys(
             name = name,
             algorithm = "HMAC",
-            // Empty array instead of null: R2DBC PostgreSQL cannot infer the bytea type
-            // for a null ByteArray and falls back to smallint[], causing a type mismatch.
-            publicKey = ByteArray(0),
+            publicKey = null,
             publicKeyFormat = null,
             privateKey = secret,
             privateKeyFormat = "RAW"

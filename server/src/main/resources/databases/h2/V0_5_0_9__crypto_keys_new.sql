@@ -3,7 +3,7 @@ CREATE TABLE crypto_keys
     name               text      NOT NULL,
     algorithm          text      NOT NULL,
 
-    public_key         bytea,
+    public_key         bytea     NOT NULL,
     public_key_format  text,
 
     private_key        bytea     NOT NULL,
