@@ -16,6 +16,18 @@ class CollectedClaimUpdateMapper(
     @Inject private val claimValueValidator: ClaimValueValidator
 ) {
 
+    /**
+     * The updates the [values] of a payload ask for, one per claim this deployment declares, with each
+     * value validated and cleaned by [ClaimValueValidator]. A key naming no claim is ignored.
+     *
+     * Every value is validated before any of them is refused, and a payload with one or more refused
+     * throws `flow.claims.invalid` carrying [LocalizedHttpException.propertyErrors] — the failure of
+     * each claim by its id, so the caller is told which values to correct rather than the first.
+     *
+     * That failure is an `api` one and not a [com.sympauthy.business.exception.BusinessException], so
+     * `handleException` never sees it and the interactive flow session survives it: the end-user stays
+     * on the step and sends the values again.
+     */
     fun toUpdates(values: Map<String, Any?>): List<CollectedClaimUpdate> {
         val claimUpdates = ArrayList<CollectedClaimUpdate>(values.size)
         val exceptionByClaimMap = mutableMapOf<Claim, LocalizedException>()

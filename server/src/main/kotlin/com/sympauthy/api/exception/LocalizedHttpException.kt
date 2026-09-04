@@ -10,6 +10,10 @@ import io.micronaut.http.HttpStatus
  * A failure the `api` layer raises names both of its messages, since it is the layer that knows
  * which caller is reading. The factories below take the description for that reason, and the one
  * null [descriptionId] left is a business failure converted by [toHttpException].
+ *
+ * Note: one of those factories should be preferred over this constructor, which is for a failure
+ * carrying more than a code and its values — the [propertyErrors] of a payload, or the codes and
+ * values another result is being forwarded under.
  */
 open class LocalizedHttpException(
     val status: HttpStatus,
