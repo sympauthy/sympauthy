@@ -66,8 +66,10 @@ return it.
 controller binds the parameters, resolves the paging bounds and maps the page it gets back; the
 criteria, the order and the slice are the manager's.
 
-**A filter naming one value out of a closed set is resolved by `filterOf`.** A wire word naming no
-member of that set is refused there, so what reaches the manager is the domain value or nothing.
+**A filter naming one value out of a closed set is resolved by `filterOf`, and a sort direction by
+`orderOf`.** A wire word naming no member of that set is refused there, so what reaches the manager
+is the domain value or nothing. The two sit over one resolution and name a code apiece: the
+description a caller reads says which parameter they got wrong, and an ordering is not a filter.
 
 **Every handler is `suspend`**, for [the reason the general standard
 gives](general-code-standard.md#concurrency).

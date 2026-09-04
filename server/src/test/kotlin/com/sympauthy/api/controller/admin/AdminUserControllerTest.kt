@@ -13,6 +13,7 @@ import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.manager.user.UserSearchManager
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
+import com.sympauthy.business.model.page.SortOrder
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
@@ -126,7 +127,9 @@ class AdminUserControllerTest {
 
         coEvery { userSearchManager.listSelectedClaims(null) } returns emptyList()
         coEvery {
-            userSearchManager.listUsers(UserStatus.ENABLED, "jane", emptyMap(), "email", "desc", PageParams(1, 2))
+            userSearchManager.listUsers(
+                UserStatus.ENABLED, "jane", emptyMap(), "email", SortOrder.DESC, PageParams(1, 2)
+            )
         } returns pageOf(user)
         every { userMapper.toResource(user, emptyList()) } returns resource
 
@@ -205,6 +208,18 @@ class AdminUserControllerTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.status)
         assertEquals("filter.value.unsupported", exception.detailsId)
+    }
+
+    @Test
+    fun `listUsers - Refuse an order naming neither direction`() = runTest {
+        // Unstubbed for the same reason: a direction naming nothing is refused before anything is read,
+        // rather than sorting the page the other way around in silence.
+        val exception = assertThrows<LocalizedHttpException> {
+            controller.listUsers(mockk(), null, null, null, null, null, null, "ascending")
+        }
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.status)
+        assertEquals("order.value.unsupported", exception.detailsId)
     }
 
     @Test

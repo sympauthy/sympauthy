@@ -6,6 +6,7 @@ import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.mapper.CollectedClaimMapper
 import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.page.PageParams
+import com.sympauthy.business.model.page.SortOrder
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
@@ -264,12 +265,25 @@ class UserSearchManagerTest {
     }
 
     @Test
+    fun `getUserComparator - Order by creation date, oldest first, under asc`() = runTest {
+        every { claimManager.listEnabledClaims() } returns emptyList()
+        val older = searchedUser(mockUser(creationDate = NOW.minusDays(1)))
+        val newer = searchedUser(mockUser(creationDate = NOW))
+
+        val sorted = listOf(newer, older)
+            .sortedWith(manager.getUserComparator(sort = "created_at", order = SortOrder.ASC))
+
+        assertEquals(listOf(older, newer), sorted)
+    }
+
+    @Test
     fun `getUserComparator - Order by creation date, most recent first, under desc`() = runTest {
         every { claimManager.listEnabledClaims() } returns emptyList()
         val older = searchedUser(mockUser(creationDate = NOW.minusDays(1)))
         val newer = searchedUser(mockUser(creationDate = NOW))
 
-        val sorted = listOf(older, newer).sortedWith(manager.getUserComparator(sort = "created_at", order = "desc"))
+        val sorted = listOf(older, newer)
+            .sortedWith(manager.getUserComparator(sort = "created_at", order = SortOrder.DESC))
 
         assertEquals(listOf(newer, older), sorted)
     }
@@ -350,7 +364,7 @@ class UserSearchManagerTest {
         val one = searchedUser(mockUser(creationDate = NOW))
         val other = searchedUser(mockUser(creationDate = NOW))
 
-        assertOrderedById(one, other, manager.getUserComparator(sort = "created_at", order = "desc"))
+        assertOrderedById(one, other, manager.getUserComparator(sort = "created_at", order = SortOrder.DESC))
     }
 
     /**
