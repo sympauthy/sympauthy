@@ -128,7 +128,11 @@ class ClientRedirectUriManagerTest {
         val exception = assertThrows<BusinessException> {
             manager.parseRequestedRedirectUri(client, "https://other.com/callback", recoverable = false)
         }
-        assertFalse(exception.recoverable, "the authorize flow keeps a non-recoverable (500) error")
+        assertFalse(
+            exception.recoverable,
+            "the authorize flow keeps a non-recoverable error, which fails the session rather " +
+                    "than answering the caller"
+        )
     }
 
     @Test

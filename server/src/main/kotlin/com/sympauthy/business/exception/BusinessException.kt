@@ -97,3 +97,20 @@ fun internalBusinessExceptionOf(
     recommendedStatus = INTERNAL_SERVER_ERROR,
     values = mapOf(*values)
 )
+
+/**
+ * Factory method to create a non-recoverable [BusinessException] not caused by the end-user, keeping the
+ * [throwable] that caused it for the log.
+ */
+fun internalBusinessExceptionOf(
+    detailsId: String,
+    throwable: Throwable?,
+    vararg values: Pair<String, String>
+) = BusinessException(
+    recoverable = false,
+    detailsId = detailsId,
+    descriptionId = null,
+    recommendedStatus = INTERNAL_SERVER_ERROR,
+    values = mapOf(*values),
+    throwable = throwable
+)

@@ -1,6 +1,6 @@
 package com.sympauthy.business.manager.flow.auth
 
-import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.auth.UserScopeGrantingManager
@@ -173,8 +173,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
         if (!hasAnyScope && !featuresConfig.allowAccessToClientWithoutScope) {
             // No scope has been granted and the end-user is not allowed to continue to the client in this state.
             return TerminalEffectResult.Fail(
-                BusinessException(
-                    recoverable = false,
+                businessExceptionOf(
                     detailsId = "flow.authorization_flow.complete.no_scope",
                     descriptionId = "description.flow.unauthorized_to_access_client",
                 )

@@ -109,8 +109,7 @@ class InteractiveAuthFlowSessionManager(
         val (client, clientException) = try {
             val client = clientManager.parseRequestedClient(uncheckedClientId)
             if (!client.supportsGrantType(GrantType.AUTHORIZATION_CODE)) {
-                throw BusinessException(
-                    recoverable = false,
+                throw businessExceptionOf(
                     detailsId = "authorize.unauthorized_grant_type",
                     descriptionId = "description.authorize.unauthorized_grant_type"
                 )
@@ -209,8 +208,7 @@ class InteractiveAuthFlowSessionManager(
     ): Triple<String?, CodeChallengeMethod?, BusinessException?> {
         if (uncheckedCodeChallenge.isNullOrBlank()) {
             return Triple(
-                null, null, BusinessException(
-                    recoverable = false,
+                null, null, businessExceptionOf(
                     detailsId = "authorize.pkce.missing_code_challenge",
                     descriptionId = "description.authorize.pkce.missing_code_challenge"
                 )
@@ -222,11 +220,10 @@ class InteractiveAuthFlowSessionManager(
         } else {
             CodeChallengeMethod.fromValueOrNull(uncheckedCodeChallengeMethod)
                 ?: return Triple(
-                    null, null, BusinessException(
-                        recoverable = false,
+                    null, null, businessExceptionOf(
                         detailsId = "authorize.pkce.unsupported_method",
                         descriptionId = "description.authorize.pkce.unsupported_method",
-                        values = mapOf("method" to uncheckedCodeChallengeMethod)
+                        values = arrayOf("method" to uncheckedCodeChallengeMethod)
                     )
                 )
         }
@@ -263,9 +260,13 @@ class InteractiveAuthFlowSessionManager(
      * Takes the already-fetched [oauth2] record (rather than the session) so a caller that also needs it —
      * e.g. for the invitation id — fetches it once.
      *
-     * [recoverable] is the flag that exception carries. Password sign-up passes `true`, because the person is
-     * in front of the page and can supply something else; provider sign-up passes `false`, because that leg of
-     * the flow is non-interactive and there is nothing for anyone to retry.
+     * [recoverable] is the flag that exception carries, and it decides where the rejection goes. Password
+     * sign-up passes `true`, because the person is in front of the page and can supply something else, so
+     * the failure is rethrown to them; provider sign-up passes `false`, because that leg of the flow is
+     * non-interactive and there is nothing for anyone to retry, so the session is failed instead.
+     *
+     * The exception is built with the constructor rather than a factory because the flag is a parameter
+     * here, and no factory takes it as one.
      */
     suspend fun checkSignUpAllowed(
         oauth2: InteractiveFlowSessionOAuth2,
