@@ -25,6 +25,12 @@ recover. The root type is extended and rendered, never thrown.
 | `api` | `OAuth2Exception` | a protocol error, whose code the specification names |
 | `config` | `ConfigurationException` | a value in the deployment's YAML is wrong |
 
+**A layer's type is subclassed where a caller has to catch one of its failures and not the others.**
+`InvalidJwtException` is the three ways a token fails to decode, which a token endpoint answers with
+`invalid_grant`, split from the key that will not load and travels out of the same call as a `500`.
+The alternative is a list of codes at every catch: the contract restated once per caller, and wide
+by default the day one caller stops restating it.
+
 ## An exception carries keys, never a sentence
 
 **A failure holds a code and its values, and rendering happens once, at the edge**, against the

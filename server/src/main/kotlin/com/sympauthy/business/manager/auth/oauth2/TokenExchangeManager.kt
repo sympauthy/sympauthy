@@ -1,6 +1,8 @@
 package com.sympauthy.business.manager.auth.oauth2
 
 import com.sympauthy.api.exception.oauth2ExceptionOf
+import com.sympauthy.api.exception.toOAuth2Exception
+import com.sympauthy.business.exception.InvalidJwtException
 import com.sympauthy.business.manager.actas.ActAsRuleManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
@@ -15,7 +17,6 @@ import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TARGET
 import com.sympauthy.config.model.AudiencesConfig
 import com.sympauthy.config.model.orThrow
-import com.sympauthy.exception.LocalizedException
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.util.*
@@ -99,8 +100,8 @@ class TokenExchangeManager(
     ): AuthenticationToken {
         val decodedToken = try {
             jwtManager.decodeAndVerify(ACCESS_KEY, subjectToken)
-        } catch (e: LocalizedException) {
-            throw oauth2ExceptionOf(INVALID_GRANT, e.detailsId)
+        } catch (e: InvalidJwtException) {
+            throw e.toOAuth2Exception(INVALID_GRANT)
         }
 
         // getAuthenticationToken throws if the token is unknown, revoked or its subject does not match.

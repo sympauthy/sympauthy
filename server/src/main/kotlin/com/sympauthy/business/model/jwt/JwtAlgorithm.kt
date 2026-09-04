@@ -14,6 +14,7 @@ import com.sympauthy.business.model.key.*
 import com.sympauthy.business.model.key.KeyAlgorithm.EC
 import com.sympauthy.business.model.key.KeyAlgorithm.HMAC
 import com.sympauthy.business.model.key.KeyAlgorithm.RSA
+import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 
 /**
  * Enumeration of all JWT signing algorithms supported by the project.
@@ -69,6 +70,7 @@ sealed class JwtAlgorithmImpl {
                 values = mapOf(
                     "name" to cryptoKeys.name
                 ),
+                recommendedStatus = INTERNAL_SERVER_ERROR,
                 throwable = t
             )
         }

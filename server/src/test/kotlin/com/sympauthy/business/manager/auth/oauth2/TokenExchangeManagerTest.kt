@@ -1,6 +1,8 @@
 package com.sympauthy.business.manager.auth.oauth2
 
 import com.sympauthy.api.exception.OAuth2Exception
+import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.exception.InvalidJwtException
 import com.sympauthy.business.manager.actas.ActAsRuleManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
@@ -17,6 +19,7 @@ import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TARGET
 import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.EnabledAudiencesConfig
+import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -28,6 +31,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertSame
 
 @ExtendWith(MockKExtension::class)
 class TokenExchangeManagerTest {
@@ -93,6 +97,34 @@ class TokenExchangeManagerTest {
             manager().exchangeForActAsToken(actingClient, SUBJECT_TOKEN, "unexpected", userId.toString(), null)
         }
         assertEquals(INVALID_REQUEST, ex.errorCode)
+    }
+
+    @Test
+    fun `subject_token that does not verify is rejected`() = runTest {
+        coEvery { jwtManager.decodeAndVerify(ACCESS_KEY, SUBJECT_TOKEN) } throws InvalidJwtException("jwt.expired")
+        val ex = assertFailsWith<OAuth2Exception> {
+            manager().exchangeForActAsToken(actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), null)
+        }
+        assertEquals(INVALID_GRANT, ex.errorCode)
+        assertEquals("jwt.expired", ex.detailsId)
+    }
+
+    @Test
+    fun `a signing key that will not load is not reported as a bad subject_token`() = runTest {
+        val keyFailure = BusinessException(
+            recoverable = false,
+            detailsId = "jwt.invalid_key",
+            values = mapOf("name" to ACCESS_KEY),
+            recommendedStatus = INTERNAL_SERVER_ERROR
+        )
+        coEvery { jwtManager.decodeAndVerify(ACCESS_KEY, SUBJECT_TOKEN) } throws keyFailure
+
+        val ex = assertFailsWith<BusinessException> {
+            manager().exchangeForActAsToken(actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), null)
+        }
+
+        assertSame(keyFailure, ex)
+        assertEquals(mapOf("name" to ACCESS_KEY), ex.values)
     }
 
     @Test

@@ -6,13 +6,13 @@ import com.nimbusds.jose.JWSHeader
 import com.nimbusds.jose.jwk.JWKSet
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
+import com.sympauthy.business.exception.InvalidJwtException
 import com.sympauthy.business.manager.key.CryptoKeysManager
 import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.business.model.jwt.JwtSigningConfig
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
-import com.sympauthy.exception.LocalizedException
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.text.ParseException
@@ -56,9 +56,12 @@ class JwtManager(
 
     /**
      * Decode the [token] and return its claims, having checked that it parses, that it was signed by the key
-     * registered under [name], and that it has not expired. A token failing any of those three throws a
-     * [LocalizedException] carrying the code that says which: `jwt.malformed`, `jwt.invalid_signature` or
+     * registered under [name], and that it has not expired. A token failing any of those three throws an
+     * [InvalidJwtException] carrying the code that says which: `jwt.malformed`, `jwt.invalid_signature` or
      * `jwt.expired`.
+     *
+     * Every other failure this call can raise — the signing key named [name] not loading above all — is the
+     * server's and travels out as itself.
      */
     suspend fun decodeAndVerify(
         name: String,
@@ -67,7 +70,7 @@ class JwtManager(
         val signedJwt = try {
             SignedJWT.parse(token)
         } catch (e: ParseException) {
-            throw LocalizedException(
+            throw InvalidJwtException(
                 detailsId = "jwt.malformed",
                 throwable = e
             )
@@ -77,19 +80,19 @@ class JwtManager(
         val verified = try {
             signedJwt.verify(signingConfig.verifier)
         } catch (e: JOSEException) {
-            throw LocalizedException(
+            throw InvalidJwtException(
                 detailsId = "jwt.invalid_signature",
                 throwable = e
             )
         }
 
         if (!verified) {
-            throw LocalizedException(detailsId = "jwt.invalid_signature")
+            throw InvalidJwtException(detailsId = "jwt.invalid_signature")
         }
 
         val claimsSet = signedJwt.jwtClaimsSet
         if (claimsSet.expirationTime != null && claimsSet.expirationTime.before(Date())) {
-            throw LocalizedException(detailsId = "jwt.expired")
+            throw InvalidJwtException(detailsId = "jwt.expired")
         }
 
         return DecodedJwt(
@@ -101,11 +104,8 @@ class JwtManager(
 
     suspend fun decodeAndVerifyOrNull(name: String, token: String) = try {
         decodeAndVerify(name, token)
-    } catch (e: LocalizedException) {
-        when (e.detailsId) {
-            "jwt.expired", "jwt.malformed", "jwt.invalid_signature" -> null
-            else -> throw e
-        }
+    } catch (e: InvalidJwtException) {
+        null
     }
 
     /**
