@@ -105,7 +105,7 @@ class AdminUserClaimControllerTest {
     private fun searchAnswers(vararg claims: UserClaim) {
         coEvery {
             userClaimSearchManager.listUserClaims(
-                userId, null, null, null, null, null, ValueFilter.Unfiltered, defaultPage
+                userId, null, null, null, null, null, ValueFilter.Unfiltered(), defaultPage
             )
         } returns pageOf(*claims)
     }
@@ -153,7 +153,7 @@ class AdminUserClaimControllerTest {
         foundUser()
         coEvery {
             userClaimSearchManager.listUserClaims(
-                userId, null, null, null, null, null, ValueFilter.MatchesNothing, defaultPage
+                userId, null, null, null, null, null, ValueFilter.MatchesNothing(), defaultPage
             )
         } returns pageOf()
 
@@ -168,7 +168,7 @@ class AdminUserClaimControllerTest {
         foundUser()
         coEvery {
             userClaimSearchManager.listUserClaims(
-                userId, null, null, null, null, null, ValueFilter.Unfiltered, defaultPage
+                userId, null, null, null, null, null, ValueFilter.Unfiltered(), defaultPage
             )
         } returns Page(items = emptyList(), page = 3, size = 7, total = 42)
 

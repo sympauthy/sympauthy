@@ -65,7 +65,6 @@ class UserSearchManager(
         val comparator = getUserComparator(sort, order)
         val enabledClaims = claimManager.listEnabledClaims()
 
-        // Validate claim filter keys and deserialize filter values
         val enabledClaimMap = enabledClaims.associateBy { it.id }
         val deserializedFilters = claimFilters.map { (claimId, rawValue) ->
             val claim = enabledClaimMap[claimId] ?: throw recoverableBusinessExceptionOf(
@@ -78,7 +77,6 @@ class UserSearchManager(
             claimId to value
         }
 
-        // Validate status
         val resolvedStatus = status?.let {
             try {
                 UserStatus.valueOf(it.uppercase())
@@ -92,7 +90,6 @@ class UserSearchManager(
             }
         }
 
-        // Load users
         val userEntities = if (resolvedStatus != null) {
             userRepository.findByStatus(resolvedStatus.name).toList()
         } else {
@@ -106,22 +103,26 @@ class UserSearchManager(
         val users = userEntities.map(userMapper::toUser)
         val userIds = users.map { it.id }
 
-        // Batch-load all claims
         val claimEntities = collectedClaimRepository.findByUserIdInList(userIds)
         val collectedClaims = claimEntities.mapNotNull(collectedClaimMapper::toCollectedClaim)
         val claimsByUserId = collectedClaims.groupBy { it.userId }
+        // Read from the rows rather than from the claims they became: a row whose claim the
+        // configuration no longer declares does not map, and it still dates the user's last update.
+        val latestCollectionDates = claimEntities
+            .groupBy { it.userId }
+            .mapValues { (_, rows) -> rows.maxOf { it.collectionDate } }
 
-        // Build UserWithClaims
         var result = users.map { user ->
-            val userClaims = claimsByUserId[user.id] ?: emptyList()
             UserWithClaims(
                 user = user,
-                collectedClaims = userClaims,
-                generatedClaimValues = generatedClaimsManager.computeValues(user.id, userClaims)
+                collectedClaims = claimsByUserId[user.id] ?: emptyList(),
+                generatedClaimValues = generatedClaimsManager.computeValues(
+                    userId = user.id,
+                    latestCollectionDate = latestCollectionDates[user.id]
+                )
             )
         }
 
-        // Apply exact claim filters
         if (deserializedFilters.isNotEmpty()) {
             result = result.filter { uwc ->
                 deserializedFilters.all { (claimId, expectedValue) ->
@@ -132,7 +133,6 @@ class UserSearchManager(
             }
         }
 
-        // Apply text search
         if (!query.isNullOrBlank()) {
             val lowerQuery = query.lowercase()
             result = result.filter { uwc ->

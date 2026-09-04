@@ -38,7 +38,7 @@ class ScopeSearchManagerTest {
     fun `listScopes - Keep every scope when the criteria name nothing`() = runTest {
         knownScopes(enabledScope, disabledScope, grantableScope)
 
-        val result = scopeSearchManager.listScopes(ValueFilter.Unfiltered, null, firstPage)
+        val result = scopeSearchManager.listScopes(ValueFilter.Unfiltered(), null, firstPage)
 
         assertEquals(listOf(disabledScope, grantableScope, enabledScope), result.items.map { it.scope })
     }
@@ -56,7 +56,7 @@ class ScopeSearchManagerTest {
     fun `listScopes - Keep no scope when the type criterion matches nothing`() = runTest {
         coEvery { scopeManager.listAllScopes() } returns listOf(enabledScope, grantableScope)
 
-        val result = scopeSearchManager.listScopes(ValueFilter.MatchesNothing, null, firstPage)
+        val result = scopeSearchManager.listScopes(ValueFilter.MatchesNothing(), null, firstPage)
 
         assertTrue(result.items.isEmpty())
     }
@@ -65,7 +65,7 @@ class ScopeSearchManagerTest {
     fun `listScopes - Keep the scopes the deployment serves`() = runTest {
         knownScopes(enabledScope, disabledScope)
 
-        val result = scopeSearchManager.listScopes(ValueFilter.Unfiltered, true, firstPage)
+        val result = scopeSearchManager.listScopes(ValueFilter.Unfiltered(), true, firstPage)
 
         assertEquals(listOf(enabledScope), result.items.map { it.scope })
     }
@@ -74,7 +74,7 @@ class ScopeSearchManagerTest {
     fun `listScopes - Keep the scopes the deployment turned off`() = runTest {
         knownScopes(enabledScope, disabledScope)
 
-        val result = scopeSearchManager.listScopes(ValueFilter.Unfiltered, false, firstPage)
+        val result = scopeSearchManager.listScopes(ValueFilter.Unfiltered(), false, firstPage)
 
         assertEquals(listOf(disabledScope), result.items.map { it.scope })
     }
@@ -95,7 +95,7 @@ class ScopeSearchManagerTest {
         coEvery { scopeManager.listClaimsProtectedByScope(enabledScope) } returns listOf(gatedClaim)
         coEvery { scopeManager.listClaimsProtectedByScope(grantableScope) } returns emptyList()
 
-        val result = scopeSearchManager.listScopes(ValueFilter.Unfiltered, null, firstPage)
+        val result = scopeSearchManager.listScopes(ValueFilter.Unfiltered(), null, firstPage)
 
         assertEquals(listOf(gatedClaim), result.items.first { it.scope == enabledScope }.protectedClaims)
         assertTrue(result.items.first { it.scope == grantableScope }.protectedClaims.isEmpty())
@@ -106,7 +106,7 @@ class ScopeSearchManagerTest {
         // Handed last-first, the first page of two still holds the two scopes the order puts first.
         knownScopes(enabledScope, grantableScope, disabledScope)
 
-        val result = scopeSearchManager.listScopes(ValueFilter.Unfiltered, null, PageParams(page = 0, size = 2))
+        val result = scopeSearchManager.listScopes(ValueFilter.Unfiltered(), null, PageParams(page = 0, size = 2))
 
         assertEquals(listOf(disabledScope, grantableScope), result.items.map { it.scope })
     }
@@ -115,7 +115,7 @@ class ScopeSearchManagerTest {
     fun `listScopes - Return the page the parameters name, out of everything the criteria kept`() = runTest {
         knownScopes(enabledScope, grantableScope, disabledScope)
 
-        val result = scopeSearchManager.listScopes(ValueFilter.Unfiltered, null, PageParams(page = 1, size = 2))
+        val result = scopeSearchManager.listScopes(ValueFilter.Unfiltered(), null, PageParams(page = 1, size = 2))
 
         assertEquals(listOf(enabledScope), result.items.map { it.scope })
         assertEquals(1, result.page)

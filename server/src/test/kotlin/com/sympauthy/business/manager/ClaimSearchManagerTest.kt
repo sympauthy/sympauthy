@@ -57,7 +57,7 @@ class ClaimSearchManagerTest {
     fun `listClaims - Keep every claim when the criteria name nothing`() = runTest {
         knownClaims(customClaim, disabledClaim, requiredClaim, openIdClaim)
 
-        val result = claimSearchManager.listClaims(null, null, ValueFilter.Unfiltered, firstPage)
+        val result = claimSearchManager.listClaims(null, null, ValueFilter.Unfiltered(), firstPage)
 
         assertEquals(listOf(customClaim, requiredClaim, openIdClaim, disabledClaim), result.items)
     }
@@ -66,7 +66,7 @@ class ClaimSearchManagerTest {
     fun `listClaims - Keep the claims this deployment serves`() = runTest {
         knownClaims(customClaim, disabledClaim)
 
-        val result = claimSearchManager.listClaims(true, null, ValueFilter.Unfiltered, firstPage)
+        val result = claimSearchManager.listClaims(true, null, ValueFilter.Unfiltered(), firstPage)
 
         assertEquals(listOf(customClaim), result.items)
     }
@@ -75,7 +75,7 @@ class ClaimSearchManagerTest {
     fun `listClaims - Keep the claims this deployment turned off`() = runTest {
         knownClaims(customClaim, disabledClaim)
 
-        val result = claimSearchManager.listClaims(false, null, ValueFilter.Unfiltered, firstPage)
+        val result = claimSearchManager.listClaims(false, null, ValueFilter.Unfiltered(), firstPage)
 
         assertEquals(listOf(disabledClaim), result.items)
     }
@@ -84,7 +84,7 @@ class ClaimSearchManagerTest {
     fun `listClaims - Keep the claims the end-user must provide`() = runTest {
         knownClaims(customClaim, requiredClaim)
 
-        val result = claimSearchManager.listClaims(null, true, ValueFilter.Unfiltered, firstPage)
+        val result = claimSearchManager.listClaims(null, true, ValueFilter.Unfiltered(), firstPage)
 
         assertEquals(listOf(requiredClaim), result.items)
     }
@@ -102,7 +102,7 @@ class ClaimSearchManagerTest {
     fun `listClaims - Keep no claim when the origin criterion matches nothing`() = runTest {
         knownClaims(customClaim, openIdClaim)
 
-        val result = claimSearchManager.listClaims(null, null, ValueFilter.MatchesNothing, firstPage)
+        val result = claimSearchManager.listClaims(null, null, ValueFilter.MatchesNothing(), firstPage)
 
         assertTrue(result.items.isEmpty())
     }
@@ -123,7 +123,7 @@ class ClaimSearchManagerTest {
         val enabledFirst = claim("a")
         knownClaims(disabledFirstByIdentifier, enabledSecond, enabledFirst)
 
-        val result = claimSearchManager.listClaims(null, null, ValueFilter.Unfiltered, firstPage)
+        val result = claimSearchManager.listClaims(null, null, ValueFilter.Unfiltered(), firstPage)
 
         assertEquals(listOf("a", "b", "a_disabled"), result.items.map { it.id })
     }
@@ -132,7 +132,7 @@ class ClaimSearchManagerTest {
     fun `listClaims - Return the page the parameters name, out of everything the criteria kept`() = runTest {
         knownClaims(claim("a"), claim("b"), claim("c"))
 
-        val result = claimSearchManager.listClaims(null, null, ValueFilter.Unfiltered, PageParams(1, 2))
+        val result = claimSearchManager.listClaims(null, null, ValueFilter.Unfiltered(), PageParams(1, 2))
 
         assertEquals(listOf("c"), result.items.map { it.id })
         assertEquals(1, result.page)

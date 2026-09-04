@@ -18,9 +18,9 @@ inline fun <reified T : Enum<T>> valueFilterOf(
     value: String?,
     publishedName: (T) -> String = { it.wireName }
 ): ValueFilter<T> {
-    if (value == null) return ValueFilter.Unfiltered
+    if (value == null) return ValueFilter.Unfiltered()
     return enumValues<T>()
         .firstOrNull { publishedName(it).equals(value, ignoreCase = true) }
         ?.let { ValueFilter.Matching(it) }
-        ?: ValueFilter.MatchesNothing
+        ?: ValueFilter.MatchesNothing()
 }

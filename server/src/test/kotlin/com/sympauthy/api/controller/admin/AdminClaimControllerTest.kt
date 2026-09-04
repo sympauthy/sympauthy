@@ -84,7 +84,7 @@ class AdminClaimControllerTest {
         val enabled = claim("a", enabled = true)
         val disabled = claim("_disabled", enabled = false)
 
-        coEvery { claimSearchManager.listClaims(null, null, ValueFilter.Unfiltered, defaultPage) } returns
+        coEvery { claimSearchManager.listClaims(null, null, ValueFilter.Unfiltered(), defaultPage) } returns
                 pageOf(enabled, disabled)
         listOf(enabled, disabled).forEach {
             every { claimMapper.toResource(it) } returns mockResource(it.id, it.enabled)
@@ -115,7 +115,7 @@ class AdminClaimControllerTest {
     @Test
     fun `listClaims - Ask the manager for nothing when the origin names no origin`() = runTest {
         coEvery {
-            claimSearchManager.listClaims(null, null, ValueFilter.MatchesNothing, defaultPage)
+            claimSearchManager.listClaims(null, null, ValueFilter.MatchesNothing(), defaultPage)
         } returns pageOf()
 
         val result = controller.listClaims(null, null, null, null, "openid_connect")
@@ -126,7 +126,7 @@ class AdminClaimControllerTest {
 
     @Test
     fun `listClaims - Publish the page the manager answered, not the one that was asked for`() = runTest {
-        coEvery { claimSearchManager.listClaims(null, null, ValueFilter.Unfiltered, defaultPage) } returns Page(
+        coEvery { claimSearchManager.listClaims(null, null, ValueFilter.Unfiltered(), defaultPage) } returns Page(
             items = emptyList(),
             page = 3,
             size = 7,

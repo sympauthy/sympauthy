@@ -67,20 +67,19 @@ class ClientUserController(
 
         val clientAuth = authentication.clientAuthentication
         val client = clientManager.findClientById(clientAuth.clientId)
-        val (resolvedPage, resolvedSize) = paginationUtil.resolvePageParams(page, size)
-        val (users, total) = clientUserManager.listUsersForAudience(
+        val pageParams = paginationUtil.resolvePageParams(page, size)
+        val users = clientUserManager.listUsersForAudience(
             audienceId = client.audience.id,
             providerId = providerId,
             subject = subject,
-            page = resolvedPage,
-            size = resolvedSize
+            pageParams = pageParams
         )
 
         return ClientUserListResource(
-            users = users.map(userMapper::toResource),
-            page = resolvedPage,
-            size = resolvedSize,
-            total = total
+            users = users.items.map(userMapper::toResource),
+            page = users.page,
+            size = users.size,
+            total = users.total
         )
     }
 

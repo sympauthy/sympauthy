@@ -58,7 +58,7 @@ class InvitationSearchManagerTest {
     fun `listInvitations - Read every invitation when the caller named no audience`() = runTest {
         coEvery { invitationManager.findAll() } returns listOf(pending, otherAudience)
 
-        val result = invitationSearchManager.listInvitations(null, ValueFilter.Unfiltered, firstPage)
+        val result = invitationSearchManager.listInvitations(null, ValueFilter.Unfiltered(), firstPage)
 
         assertEquals(listOf(pending, otherAudience), result.items)
     }
@@ -67,7 +67,7 @@ class InvitationSearchManagerTest {
     fun `listInvitations - Read the invitations of the audience the caller named`() = runTest {
         coEvery { invitationManager.findByAudienceId("other") } returns listOf(otherAudience)
 
-        val result = invitationSearchManager.listInvitations("other", ValueFilter.Unfiltered, firstPage)
+        val result = invitationSearchManager.listInvitations("other", ValueFilter.Unfiltered(), firstPage)
 
         assertEquals(listOf(otherAudience), result.items)
     }
@@ -87,7 +87,7 @@ class InvitationSearchManagerTest {
     fun `listInvitations - Keep no invitation when the status criterion matches nothing`() = runTest {
         coEvery { invitationManager.findAll() } returns listOf(pending, revoked)
 
-        val result = invitationSearchManager.listInvitations(null, ValueFilter.MatchesNothing, firstPage)
+        val result = invitationSearchManager.listInvitations(null, ValueFilter.MatchesNothing(), firstPage)
 
         assertTrue(result.items.isEmpty())
     }
@@ -112,7 +112,7 @@ class InvitationSearchManagerTest {
         val earlier = invitation(id = id(3)).copy(createdAt = createdAt.minusDays(1))
         coEvery { invitationManager.findAll() } returns listOf(tiedLater, tied, earlier)
 
-        val result = invitationSearchManager.listInvitations(null, ValueFilter.Unfiltered, firstPage)
+        val result = invitationSearchManager.listInvitations(null, ValueFilter.Unfiltered(), firstPage)
 
         assertEquals(listOf(earlier.id, tied.id, tiedLater.id), result.items.map { it.id })
     }
@@ -121,7 +121,7 @@ class InvitationSearchManagerTest {
     fun `listInvitations - Return the page the parameters name, out of everything the criteria kept`() = runTest {
         coEvery { invitationManager.findAll() } returns listOf(pending, revoked, otherAudience)
 
-        val result = invitationSearchManager.listInvitations(null, ValueFilter.Unfiltered, PageParams(1, 2))
+        val result = invitationSearchManager.listInvitations(null, ValueFilter.Unfiltered(), PageParams(1, 2))
 
         assertEquals(1, result.items.size)
         assertEquals(1, result.page)

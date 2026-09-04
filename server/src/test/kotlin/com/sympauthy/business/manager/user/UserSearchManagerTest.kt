@@ -91,6 +91,16 @@ class UserSearchManagerTest {
         coEvery { generatedClaimsManager.computeValues(any(), any()) } returns emptyMap()
     }
 
+    private fun claimEntity(userId: UUID, collectionDate: LocalDateTime = LocalDateTime.now()) =
+        CollectedClaimEntity(
+            userId = userId,
+            claim = "email",
+            value = null,
+            verified = null,
+            collectionDate = collectionDate,
+            verificationDate = null
+        )
+
     private fun mockCollectedClaim(userId: UUID, claim: Claim, value: Any?): CollectedClaim {
         return CollectedClaim(
             userId = userId,
@@ -109,7 +119,7 @@ class UserSearchManagerTest {
         val user2 = mockUser()
         val entity1 = mockk<UserEntity>()
         val entity2 = mockk<UserEntity>()
-        val claimEntity = mockk<CollectedClaimEntity>()
+        val claimEntity = claimEntity(user1.id)
         val collectedClaim = mockCollectedClaim(user1.id, emailClaim, "test@test.com")
 
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim)
@@ -187,8 +197,8 @@ class UserSearchManagerTest {
         val user2 = mockUser()
         val entity1 = mockk<UserEntity>()
         val entity2 = mockk<UserEntity>()
-        val claimEntity1 = mockk<CollectedClaimEntity>()
-        val claimEntity2 = mockk<CollectedClaimEntity>()
+        val claimEntity1 = claimEntity(user1.id)
+        val claimEntity2 = claimEntity(user2.id)
         val cc1 = mockCollectedClaim(user1.id, emailClaim, "jane@example.com")
         val cc2 = mockCollectedClaim(user2.id, emailClaim, "john@example.com")
 
@@ -220,8 +230,8 @@ class UserSearchManagerTest {
         val user2 = mockUser()
         val entity1 = mockk<UserEntity>()
         val entity2 = mockk<UserEntity>()
-        val claimEntity1 = mockk<CollectedClaimEntity>()
-        val claimEntity2 = mockk<CollectedClaimEntity>()
+        val claimEntity1 = claimEntity(user1.id)
+        val claimEntity2 = claimEntity(user2.id)
         val cc1 = mockCollectedClaim(user1.id, emailClaim, "jane@example.com")
         val cc2 = mockCollectedClaim(user2.id, emailClaim, "john@example.com")
 
@@ -378,7 +388,8 @@ class UserSearchManagerTest {
         val emailClaim = mockClaim("email")
         val user = mockUser()
         val entity = mockk<UserEntity>()
-        val claimEntity = mockk<CollectedClaimEntity>()
+        val collectedAt = LocalDateTime.of(2025, 6, 1, 0, 0)
+        val claimEntity = claimEntity(user.id, collectedAt)
         val collectedClaim = mockCollectedClaim(user.id, emailClaim, "jane@example.com")
 
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim)
@@ -387,7 +398,7 @@ class UserSearchManagerTest {
         coEvery { collectedClaimRepository.findByUserIdInList(any()) } returns listOf(claimEntity)
         every { collectedClaimMapper.toCollectedClaim(claimEntity) } returns collectedClaim
         coEvery {
-            generatedClaimsManager.computeValues(user.id, listOf(collectedClaim))
+            generatedClaimsManager.computeValues(user.id, collectedAt)
         } returns mapOf("sub" to user.id.toString())
 
         val result = manager.listUsers(
@@ -484,5 +495,34 @@ class UserSearchManagerTest {
 
         assertEquals("user.search.invalid_claim", exception.detailsId)
         assertTrue(exception.recoverable)
+    }
+
+    @Test
+    fun `listUsers - Date the last update from a row whose claim the configuration dropped`() = runTest {
+        val emailClaim = mockClaim("email")
+        val user = mockUser()
+        val entity = mockk<UserEntity>()
+        val collectedAt = LocalDateTime.of(2025, 6, 1, 0, 0)
+        val droppedAt = collectedAt.plusDays(1)
+        val mapped = claimEntity(user.id, collectedAt)
+        // The claim this row carries is no longer configured, so it never becomes a model — and it
+        // is still the last thing collected from the user.
+        val unmappable = claimEntity(user.id, droppedAt)
+
+        every { claimManager.listEnabledClaims() } returns listOf(emailClaim)
+        coEvery { userRepository.findAll() } returns flowOf(entity)
+        every { userMapper.toUser(entity) } returns user
+        coEvery { collectedClaimRepository.findByUserIdInList(any()) } returns listOf(mapped, unmappable)
+        every { collectedClaimMapper.toCollectedClaim(mapped) } returns
+                mockCollectedClaim(user.id, emailClaim, "jane@example.com")
+        every { collectedClaimMapper.toCollectedClaim(unmappable) } returns null
+        coEvery { generatedClaimsManager.computeValues(user.id, droppedAt) } returns emptyMap()
+
+        val result = manager.listUsers(
+            status = null, query = null, claimFilters = emptyMap(),
+            sort = null, order = null, pageParams = firstPage
+        )
+
+        assertEquals(1, result.items.size)
     }
 }

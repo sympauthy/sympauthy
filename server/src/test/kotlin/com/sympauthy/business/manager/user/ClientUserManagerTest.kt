@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.user
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.model.oauth2.Consent
+import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.provider.ProviderUserInfo
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.RawProviderClaims
@@ -82,10 +83,10 @@ class ClientUserManagerTest {
         coEvery { consentManager.listActiveConsentsByAudience(audienceId, null, null, 0, 20) } returns emptyList()
         coEvery { consentManager.countActiveConsentsByAudience(audienceId, null, null) } returns 0
 
-        val (users, total) = manager.listUsersForAudience(audienceId, null, null, 0, 20)
+        val page = manager.listUsersForAudience(audienceId, null, null, PageParams(0, 20))
 
-        assertTrue(users.isEmpty())
-        assertEquals(0, total)
+        assertTrue(page.items.isEmpty())
+        assertEquals(0, page.total)
     }
 
     @Test
@@ -93,10 +94,10 @@ class ClientUserManagerTest {
         coEvery { consentManager.listActiveConsentsByAudience(audienceId, null, null, 5, 20) } returns emptyList()
         coEvery { consentManager.countActiveConsentsByAudience(audienceId, null, null) } returns 42
 
-        val (users, total) = manager.listUsersForAudience(audienceId, null, null, 5, 20)
+        val page = manager.listUsersForAudience(audienceId, null, null, PageParams(5, 20))
 
-        assertTrue(users.isEmpty())
-        assertEquals(42, total)
+        assertTrue(page.items.isEmpty())
+        assertEquals(42, page.total)
     }
 
     @Test
@@ -111,12 +112,12 @@ class ClientUserManagerTest {
         coEvery { collectedClaimManager.listIdentifierByUserIds(listOf(userId)) } returns emptyList()
         coEvery { providerClaimsManager.listByUserIds(listOf(userId)) } returns emptyList()
 
-        val (users, total) = manager.listUsersForAudience(audienceId, null, null, 0, 20)
+        val page = manager.listUsersForAudience(audienceId, null, null, PageParams(0, 20))
 
-        assertEquals(1, users.size)
-        assertEquals(userId, users[0].user.id)
-        assertSame(consent, users[0].consent)
-        assertEquals(1, total)
+        assertEquals(1, page.items.size)
+        assertEquals(userId, page.items[0].user.id)
+        assertSame(consent, page.items[0].consent)
+        assertEquals(1, page.total)
     }
 
     @Test
@@ -141,12 +142,12 @@ class ClientUserManagerTest {
         } returns listOf(claim1)
         coEvery { providerClaimsManager.listByUserIds(listOf(userId1, userId2)) } returns listOf(provider2)
 
-        val (users, _) = manager.listUsersForAudience(audienceId, null, null, 0, 20)
+        val page = manager.listUsersForAudience(audienceId, null, null, PageParams(0, 20))
 
-        assertEquals(listOf(claim1), users[0].identifierClaims)
-        assertTrue(users[0].providers.isEmpty())
-        assertTrue(users[1].identifierClaims.isEmpty())
-        assertEquals(listOf(provider2), users[1].providers)
+        assertEquals(listOf(claim1), page.items[0].identifierClaims)
+        assertTrue(page.items[0].providers.isEmpty())
+        assertTrue(page.items[1].identifierClaims.isEmpty())
+        assertEquals(listOf(provider2), page.items[1].providers)
     }
 
     /**
@@ -164,9 +165,9 @@ class ClientUserManagerTest {
         coEvery { collectedClaimManager.listIdentifierByUserIds(userIds) } returns emptyList()
         coEvery { providerClaimsManager.listByUserIds(userIds) } returns emptyList()
 
-        val (users, _) = manager.listUsersForAudience(audienceId, null, null, 0, 20)
+        val page = manager.listUsersForAudience(audienceId, null, null, PageParams(0, 20))
 
-        assertEquals(userIds, users.map { it.user.id })
+        assertEquals(userIds, page.items.map { it.user.id })
     }
 
     @Test
@@ -181,9 +182,9 @@ class ClientUserManagerTest {
         coEvery { collectedClaimManager.listIdentifierByUserIds(listOf(userId1, userId2)) } returns emptyList()
         coEvery { providerClaimsManager.listByUserIds(listOf(userId1, userId2)) } returns emptyList()
 
-        val (users, _) = manager.listUsersForAudience(audienceId, null, null, 0, 20)
+        val page = manager.listUsersForAudience(audienceId, null, null, PageParams(0, 20))
 
-        assertEquals(listOf(userId2), users.map { it.user.id })
+        assertEquals(listOf(userId2), page.items.map { it.user.id })
     }
 
     @Test
@@ -200,10 +201,10 @@ class ClientUserManagerTest {
         coEvery { collectedClaimManager.listIdentifierByUserIds(listOf(userId)) } returns emptyList()
         coEvery { providerClaimsManager.listByUserIds(listOf(userId)) } returns listOf(provider)
 
-        val (users, total) = manager.listUsersForAudience(audienceId, "discord", "123", 1, 2)
+        val page = manager.listUsersForAudience(audienceId, "discord", "123", PageParams(1, 2))
 
-        assertEquals(listOf(userId), users.map { it.user.id })
-        assertEquals(3, total)
+        assertEquals(listOf(userId), page.items.map { it.user.id })
+        assertEquals(3, page.total)
     }
 
     @Test

@@ -1,7 +1,6 @@
 package com.sympauthy.business.manager.invitation
 
 import com.sympauthy.business.model.filter.ValueFilter
-import com.sympauthy.business.model.filter.matches
 import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.invitation.InvitationStatus
 import com.sympauthy.business.model.page.Page

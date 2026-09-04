@@ -72,7 +72,7 @@ class AdminScopeControllerTest {
         val profileResource = mockResource("profile", "consentable", listOf("name", "family_name"))
         val openidResource = mockResource("openid", "grantable")
 
-        coEvery { scopeSearchManager.listScopes(ValueFilter.Unfiltered, null, defaultPage) } returns pageOf(
+        coEvery { scopeSearchManager.listScopes(ValueFilter.Unfiltered(), null, defaultPage) } returns pageOf(
             ScopeWithClaims(openid, emptyList()),
             ScopeWithClaims(profile, profileClaims)
         )
@@ -102,7 +102,7 @@ class AdminScopeControllerTest {
     @Test
     fun `listScopes - Ask the manager for nothing when the type names no type`() = runTest {
         coEvery {
-            scopeSearchManager.listScopes(ValueFilter.MatchesNothing, null, defaultPage)
+            scopeSearchManager.listScopes(ValueFilter.MatchesNothing(), null, defaultPage)
         } returns pageOf()
 
         val result = controller.listScopes(null, null, "consentible", null)
@@ -113,7 +113,7 @@ class AdminScopeControllerTest {
 
     @Test
     fun `listScopes - Publish the page the manager answered, not the one that was asked for`() = runTest {
-        coEvery { scopeSearchManager.listScopes(ValueFilter.Unfiltered, null, defaultPage) } returns Page(
+        coEvery { scopeSearchManager.listScopes(ValueFilter.Unfiltered(), null, defaultPage) } returns Page(
             items = emptyList(),
             page = 3,
             size = 7,

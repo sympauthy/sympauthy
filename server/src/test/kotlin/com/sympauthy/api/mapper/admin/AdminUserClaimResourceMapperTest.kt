@@ -84,4 +84,20 @@ class AdminUserClaimResourceMapperTest {
         assertNull(resource.collectedAt)
         assertNull(resource.verifiedAt)
     }
+
+    @Test
+    fun `toResource - Publish a claim nothing has been collected for, with no value and no date`() {
+        val resource = mapper.toResource(
+            CollectedUserClaim(
+                claim = claim(OpenIdConnectClaimId.NAME),
+                identifier = false,
+                collectedClaim = null
+            )
+        )
+
+        assertEquals("name", resource.claimId)
+        assertNull(resource.value)
+        assertNull(resource.collectedAt)
+        assertNull(resource.verifiedAt)
+    }
 }

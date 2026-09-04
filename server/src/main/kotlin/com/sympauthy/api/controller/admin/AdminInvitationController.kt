@@ -10,7 +10,6 @@ import com.sympauthy.api.util.orNotFound
 import com.sympauthy.api.util.valueFilterOf
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.invitation.InvitationSearchManager
-import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.invitation.InvitationStatus
 import com.sympauthy.business.model.oauth2.AdminScopeId

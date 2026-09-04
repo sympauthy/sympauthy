@@ -93,7 +93,7 @@ class AdminInvitationControllerTest {
         val second = invitation(id(2), createdAt)
 
         coEvery {
-            invitationSearchManager.listInvitations(null, ValueFilter.Unfiltered, defaultPage)
+            invitationSearchManager.listInvitations(null, ValueFilter.Unfiltered(), defaultPage)
         } returns pageOf(first, second)
         listOf(first, second).forEach {
             every { invitationMapper.toResource(it) } returns mockResource(it.id)
@@ -125,7 +125,7 @@ class AdminInvitationControllerTest {
     @Test
     fun `listInvitations - Ask the manager for nothing when the status names no status`() = runTest {
         coEvery {
-            invitationSearchManager.listInvitations(null, ValueFilter.MatchesNothing, defaultPage)
+            invitationSearchManager.listInvitations(null, ValueFilter.MatchesNothing(), defaultPage)
         } returns pageOf()
 
         val result = controller.listInvitations(null, "cancelled", null, null)
@@ -137,7 +137,7 @@ class AdminInvitationControllerTest {
     @Test
     fun `listInvitations - Publish the page the manager answered, not the one that was asked for`() = runTest {
         coEvery {
-            invitationSearchManager.listInvitations(null, ValueFilter.Unfiltered, defaultPage)
+            invitationSearchManager.listInvitations(null, ValueFilter.Unfiltered(), defaultPage)
         } returns Page(items = emptyList(), page = 3, size = 7, total = 42)
 
         val result = controller.listInvitations(null, null, null, null)

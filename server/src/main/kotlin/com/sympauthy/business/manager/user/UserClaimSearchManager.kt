@@ -5,7 +5,6 @@ import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.model.filter.ValueFilter
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.business.model.filter.matches
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.page.map

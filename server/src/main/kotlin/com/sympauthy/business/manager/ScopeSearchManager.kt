@@ -1,7 +1,6 @@
 package com.sympauthy.business.manager
 
 import com.sympauthy.business.model.filter.ValueFilter
-import com.sympauthy.business.model.filter.matches
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.oauth2.ScopeType

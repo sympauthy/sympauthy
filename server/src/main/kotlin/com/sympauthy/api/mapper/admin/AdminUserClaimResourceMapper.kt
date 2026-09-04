@@ -46,7 +46,7 @@ abstract class AdminUserClaimResourceMapper {
     @Mapping(source = "collectedClaim.value", target = "value")
     @Mapping(source = "collectedClaim.collectionDate", target = "collectedAt")
     @Mapping(source = "collectedClaim.verificationDate", target = "verifiedAt")
-    abstract fun toResourceFromCollectedClaim(claim: Claim, collectedClaim: CollectedClaim?, identifier: Boolean): AdminUserClaimResource
+    protected abstract fun toResourceFromCollectedClaim(claim: Claim, collectedClaim: CollectedClaim?, identifier: Boolean): AdminUserClaimResource
 
     @Mapping(source = "claim.id", target = "claimId")
     @Mapping(source = "claim.dataType", target = "type", qualifiedByName = ["toTypeString"])
@@ -57,7 +57,7 @@ abstract class AdminUserClaimResourceMapper {
     @Mapping(source = "generatedClaimValue", target = "value")
     @Mapping(target = "collectedAt", ignore = true)
     @Mapping(target = "verifiedAt", ignore = true)
-    abstract fun toResourceFromGeneratedClaim(claim: Claim, identifier: Boolean, generatedClaimValue: Any?): AdminUserClaimResource
+    protected abstract fun toResourceFromGeneratedClaim(claim: Claim, identifier: Boolean, generatedClaimValue: Any?): AdminUserClaimResource
 
     @Named("toTypeString")
     fun toTypeString(dataType: ClaimDataType): String = dataType.wireName

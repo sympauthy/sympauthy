@@ -8,7 +8,6 @@ import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.consent.ConsentSearchManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
-import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.oauth2.ConsentRevokedBy
 import com.sympauthy.security.SecurityRule.ADMIN_CONSENT_READ
 import com.sympauthy.security.SecurityRule.ADMIN_CONSENT_WRITE

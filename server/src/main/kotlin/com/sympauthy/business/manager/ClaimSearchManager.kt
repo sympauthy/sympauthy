@@ -1,7 +1,6 @@
 package com.sympauthy.business.manager
 
 import com.sympauthy.business.model.filter.ValueFilter
-import com.sympauthy.business.model.filter.matches
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.page.orderedPage

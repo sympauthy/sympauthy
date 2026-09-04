@@ -106,7 +106,7 @@ class UserClaimSearchManagerTest {
         required: Boolean? = null,
         collected: Boolean? = null,
         verified: Boolean? = null,
-        origin: ValueFilter<ClaimOrigin> = ValueFilter.Unfiltered,
+        origin: ValueFilter<ClaimOrigin> = ValueFilter.Unfiltered(),
         pageParams: PageParams = PageParams(page = 0, size = 20)
     ) = manager().listUserClaims(userId, claimId, identifier, required, collected, verified, origin, pageParams)
 
@@ -169,7 +169,7 @@ class UserClaimSearchManagerTest {
     fun `listUserClaims - Keep no claim when the origin criterion matches nothing`() = runTest {
         enabledClaims(nameClaim, customClaim)
 
-        val result = listUserClaims(origin = ValueFilter.MatchesNothing)
+        val result = listUserClaims(origin = ValueFilter.MatchesNothing())
 
         assertTrue(result.items.isEmpty())
     }

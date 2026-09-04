@@ -10,7 +10,7 @@ class ValueFilterUtilTest {
 
     @Test
     fun `valueFilterOf - Filter nothing when the parameter is absent`() {
-        assertEquals(ValueFilter.Unfiltered, valueFilterOf<ScopeType>(null))
+        assertEquals(ValueFilter.Unfiltered<ScopeType>(), valueFilterOf<ScopeType>(null))
     }
 
     @Test
@@ -25,12 +25,12 @@ class ValueFilterUtilTest {
 
     @Test
     fun `valueFilterOf - Match nothing when the parameter names no value`() {
-        assertEquals(ValueFilter.MatchesNothing, valueFilterOf<ScopeType>("consentible"))
+        assertEquals(ValueFilter.MatchesNothing<ScopeType>(), valueFilterOf<ScopeType>("consentible"))
     }
 
     @Test
     fun `valueFilterOf - Match nothing when the parameter is empty`() {
-        assertEquals(ValueFilter.MatchesNothing, valueFilterOf<ScopeType>(""))
+        assertEquals(ValueFilter.MatchesNothing<ScopeType>(), valueFilterOf<ScopeType>(""))
     }
 
     @Test
@@ -39,6 +39,9 @@ class ValueFilterUtilTest {
             ValueFilter.Matching(ClaimOrigin.OPENID_CONNECT),
             valueFilterOf<ClaimOrigin>("openid") { it.value }
         )
-        assertEquals(ValueFilter.MatchesNothing, valueFilterOf<ClaimOrigin>("openid_connect") { it.value })
+        assertEquals(
+            ValueFilter.MatchesNothing<ClaimOrigin>(),
+            valueFilterOf<ClaimOrigin>("openid_connect") { it.value }
+        )
     }
 }
