@@ -66,6 +66,19 @@ and the same code prefixed with `description.` names the one an end-user is show
 `description.` message too.** A description the bundle does not hold renders as null and is
 [dropped from the body](api-standard.md#json), so the caller is told nothing at all.
 
+**The bundle holds a message for every code and no message besides**, and
+`ErrorMessageBundleTest` [holds the two sets equal](testing-standard.md#unit-tests). Neither half
+degrades visibly on its own: a missing message is dropped from the body, which reads exactly like
+the flag that gates it being off, and a message nothing throws is invisible by construction.
+
+**A code is written where it is named, as a literal**, so that the set of codes can be read off the
+sources. A site forwarding a code another site named is the exception, and forwards one already
+checked.
+
+**A parameter carrying a code is named for what it carries** — `…DetailsId`, `…DescriptionId` or
+`…MessageId`. The name is what the check reads, so a parameter named for anything else takes its
+code out of the set.
+
 **A placeholder a message names is supplied at every throw site of that code.** An unsupplied name
 [reaches the reader as the bare word](i18n-standard.md#keys) rather than as a failure.
 
@@ -95,6 +108,10 @@ happen.
 
 **Error aggregation.** One request reports one failure, except for the per-property validation
 errors [the API standard](api-standard.md#errors) describes.
+
+**Whether a placeholder is supplied.** The rule above is stated and nothing enforces it: the set of
+codes is readable from the sources, the set of values each throw site passes is not, and a name with
+no value fails silently exactly as a missing message did.
 
 ---
 

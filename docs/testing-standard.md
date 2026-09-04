@@ -18,6 +18,7 @@ expected to prove, and how little of that a comment has left to say. The compone
 | a manager | JUnit and MockK doubles | `server/src/test` |
 | a flow purpose handler | JUnit and MockK doubles | `server/src/test` |
 | a repository, a migration | a real H2, started by the test | `server/src/test` |
+| a rule holding two files to each other | JUnit, reading both | `server/src/test` |
 | an endpoint, a whole flow, a protocol rule | the server in a container | `integration-tests` |
 
 ## Unit tests
@@ -30,6 +31,10 @@ expected to prove, and how little of that a comment has left to say. The compone
 @Test
 fun `findByIdOrNull - Return null when id is null`() { … }
 ```
+
+**A test with no method to name is named for the invariant it holds** — `` `Every code named in the
+sources has a message in the bundle` ``. The subject of a rule holding two files to each other is
+the pair, not a call, so there is nothing to put before the dash.
 
 **A suspending subject is tested inside a coroutine test scope**, with suspending stubs and
 verifications.
@@ -53,6 +58,11 @@ satisfied.
 **A bundle message is not rendered in a test.** Assert the code and the values at the throw site; a
 bundle is content, edited for editorial reasons, so a test reading one fails on a rewrite that broke
 nothing.
+
+**A bundle's keys are its contract rather than its content, and they are checked.**
+[The exception standard](exception-code-standard.md#a-code-names-two-messages) holds the error
+bundle's set of keys equal to the codes the sources name. Rewording a message leaves that set
+untouched, which is what makes this rule and the one above compatible.
 
 **A repository test proves what is not in the Kotlin** — that an array column binds as an array,
 that a derived update method updates the row it was meant to. Run it against a real database.
