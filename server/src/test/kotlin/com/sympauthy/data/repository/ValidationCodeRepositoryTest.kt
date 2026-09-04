@@ -18,8 +18,7 @@ import java.util.*
  * collection of identifiers.
  *
  * Every code belongs to a session and no two of a session's codes share a value: `session_id` is
- * `NOT NULL` and `(session_id, code)` unique, whatever the entity's nullable `sessionId` suggests
- * (#379).
+ * `NOT NULL` and `(session_id, code)` unique.
  */
 class ValidationCodeRepositoryTest {
 
