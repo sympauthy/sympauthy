@@ -63,7 +63,7 @@ abstract class AdminUserClaimResourceMapper {
     fun toTypeString(dataType: ClaimDataType): String = dataType.wireName
 
     @Named("toOrigin")
-    fun toOrigin(claim: Claim): String = claim.origin.value
+    fun toOrigin(claim: Claim): String = claim.origin.wireName
 
     @Named("toGroupString")
     fun toGroupString(group: ClaimGroup?): String? = group?.wireName

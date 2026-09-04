@@ -78,7 +78,8 @@ generated client has to be told which type to decode into.
 a mapper fills in. The framework never chooses the spelling.
 
 **A published name the Kotlin name cannot be lowercased into is declared on the enum value**, and
-every mapper reads it from there.
+every mapper reads it from there. Only that value declares one; the rest of the set is spelled by
+the rule.
 
 **A value is spelled with dashes in the configuration file and lowercase on the wire.** Two readers,
 two conventions, and one enum behind both: converted on the way from a response into a query.

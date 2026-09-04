@@ -28,6 +28,7 @@ import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.*
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.util.nullIfBlank
+import com.sympauthy.util.wireName
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.MediaType.APPLICATION_FORM_URLENCODED
 import io.micronaut.http.annotation.Controller
@@ -186,8 +187,8 @@ Client authentication is supported via:
             throw oauth2ExceptionOf(INVALID_DPOP_PROOF, "dpop.missing_header")
         }
 
-        return when (grantType) {
-            "authorization_code" -> {
+        return when (GrantType.fromWireNameOrNull(grantType)) {
+            GrantType.AUTHORIZATION_CODE -> {
                 val client = clientAuthenticationUtil.resolveClientAllowingPublic(
                     request, clientId, clientSecret
                 )
@@ -201,7 +202,7 @@ Client authentication is supported via:
                 )
             }
 
-            "refresh_token" -> {
+            GrantType.REFRESH_TOKEN -> {
                 val client = clientAuthenticationUtil.resolveClientAllowingPublic(request, clientId, clientSecret)
                 checkClientSupportsGrantType(client, GrantType.REFRESH_TOKEN)
                 getTokensUsingRefreshToken(
@@ -211,7 +212,7 @@ Client authentication is supported via:
                 )
             }
 
-            "client_credentials" -> {
+            GrantType.CLIENT_CREDENTIALS -> {
                 val client = clientAuthenticationUtil.resolveClient(request, clientId, clientSecret)
                 checkClientSupportsGrantType(client, GrantType.CLIENT_CREDENTIALS)
                 getTokensUsingClientCredentials(
@@ -221,7 +222,7 @@ Client authentication is supported via:
                 )
             }
 
-            GrantType.TOKEN_EXCHANGE.value -> {
+            GrantType.TOKEN_EXCHANGE -> {
                 val client = clientAuthenticationUtil.resolveClient(request, clientId, clientSecret)
                 checkClientSupportsGrantType(client, GrantType.TOKEN_EXCHANGE)
                 getTokensUsingTokenExchange(
@@ -236,7 +237,7 @@ Client authentication is supported via:
                 )
             }
 
-            else -> throw oauth2ExceptionOf(
+            null -> throw oauth2ExceptionOf(
                 UNSUPPORTED_GRANT_TYPE, "token.unsupported_grant_type",
                 "grantType" to (grantType ?: "")
             )
@@ -391,7 +392,7 @@ Client authentication is supported via:
                 OAuth2ErrorCode.UNAUTHORIZED_CLIENT,
                 "token.unauthorized_grant_type",
                 "description.token.unauthorized_grant_type",
-                "grantType" to grantType.value
+                "grantType" to grantType.wireName
             )
         }
     }
