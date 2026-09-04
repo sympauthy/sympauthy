@@ -106,11 +106,6 @@ class DisabledScope(
 val EnabledScope.isAdmin: Boolean get() = this is GrantableUserScope && scope.isAdminScope()
 
 /**
- * True if this scope is a user scope (either consentable or grantable).
- */
-val EnabledScope.isUserScope: Boolean get() = this is ConsentableUserScope || this is GrantableUserScope
-
-/**
  * True if this scope is a client scope for `client_credentials` flows.
  */
 val EnabledScope.isClientScope: Boolean get() = this is ClientScope
