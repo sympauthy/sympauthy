@@ -47,7 +47,8 @@ class ClientRedirectUriManager {
                 recoverable = recoverable,
                 detailsId = "client.redirect_uri.invalid",
                 descriptionId = "description.client.redirect_uri.invalid",
-                values = mapOf("redirect_uri" to uncheckedRedirectUri, "message" to (e.message ?: ""))
+                values = mapOf("redirect_uri" to uncheckedRedirectUri, "message" to (e.message ?: "")),
+                throwable = e
             )
         }
 

@@ -39,12 +39,14 @@ open class BusinessException(
  */
 fun businessExceptionOf(
     detailsId: String,
-    vararg values: Pair<String, String>
+    vararg values: Pair<String, String>,
+    throwable: Throwable? = null
 ): BusinessException = BusinessException(
     recoverable = false,
     detailsId = detailsId,
     recommendedStatus = BAD_REQUEST,
-    values = mapOf(*values)
+    values = mapOf(*values),
+    throwable = throwable
 )
 
 /**
@@ -56,13 +58,15 @@ fun businessExceptionOf(
 fun recoverableBusinessExceptionOf(
     detailsId: String,
     descriptionId: String,
-    vararg values: Pair<String, String>
+    vararg values: Pair<String, String>,
+    throwable: Throwable? = null
 ) = BusinessException(
     recoverable = true,
     detailsId = detailsId,
     descriptionId = descriptionId,
     recommendedStatus = BAD_REQUEST,
-    values = mapOf(*values)
+    values = mapOf(*values),
+    throwable = throwable
 )
 
 /**
@@ -70,11 +74,13 @@ fun recoverableBusinessExceptionOf(
  */
 fun internalBusinessExceptionOf(
     detailsId: String,
-    vararg values: Pair<String, String>
+    vararg values: Pair<String, String>,
+    throwable: Throwable? = null
 ) = BusinessException(
     recoverable = false,
     detailsId = detailsId,
     descriptionId = null,
     recommendedStatus = INTERNAL_SERVER_ERROR,
-    values = mapOf(*values)
+    values = mapOf(*values),
+    throwable = throwable
 )

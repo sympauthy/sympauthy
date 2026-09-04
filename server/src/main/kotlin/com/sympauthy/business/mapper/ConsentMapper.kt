@@ -21,7 +21,7 @@ abstract class ConsentMapper {
     fun toConsentRevokedBy(value: String?): ConsentRevokedBy? = value?.let {
         try {
             ConsentRevokedBy.valueOf(it)
-        } catch (e: IllegalArgumentException) {
+        } catch (_: IllegalArgumentException) {
             throw businessExceptionOf(
                 detailsId = "mapper.consent.invalid_property",
                 values = arrayOf("property" to "revokedBy")

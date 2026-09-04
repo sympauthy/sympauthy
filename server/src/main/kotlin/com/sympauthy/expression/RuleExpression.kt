@@ -1,3 +1,8 @@
+// Named for the concept the file holds rather than for its one class: the exception, the
+// configuration factory and the evaluation function are one subject, and a file named after the
+// exception would say the two functions beside it were an afterthought.
+@file:Suppress("MatchingDeclarationName")
+
 package com.sympauthy.expression
 
 import com.ezylang.evalex.Expression

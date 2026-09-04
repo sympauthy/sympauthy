@@ -10,5 +10,5 @@ val PostgresqlConnectionFactory.configurationProxy: PostgresqlConnectionConfigur
         if (field.trySetAccessible()) {
             return (field.get(this) as PostgresqlConnectionConfiguration)
                 .let(::PostgresqlConnectionConfigurationProxy)
-        } else throw IllegalStateException("Unable to access configuration of PostgreSQL connection factory")
+        } else error("Unable to access configuration of PostgreSQL connection factory")
     }

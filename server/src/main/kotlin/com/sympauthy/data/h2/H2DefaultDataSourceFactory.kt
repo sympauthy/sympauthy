@@ -55,9 +55,8 @@ class H2DefaultDataSourceFactory(
     private fun createJDBCConnectionString(options: ConnectionFactoryOptions): String {
         return buildString {
             append("jdbc:h2:")
-            getUrl(options)?.let(this::append) ?: throw IllegalStateException(
-                "Unable to initiate H2 connection using R2DBC options ({$options})."
-            )
+            getUrl(options)?.let(this::append)
+                ?: error("Unable to initiate H2 connection using R2DBC options ({$options}).")
             getOptions(options).forEach { append(";$it") }
         }
     }

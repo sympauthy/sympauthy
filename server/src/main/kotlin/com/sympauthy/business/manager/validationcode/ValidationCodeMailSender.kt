@@ -39,8 +39,8 @@ class ValidationCodeMailSender(
         val uiConfig = uncheckedUIConfig.orThrow()
 
         val email = collectedClaim.value?.toString()
-        if (collectedClaim.claim.id != media.claim || email.isNullOrBlank()) {
-            throw IllegalArgumentException("${this::class.simpleName} requires a ${media.claim} claim as parameter.")
+        require(collectedClaim.claim.id == media.claim && !email.isNullOrBlank()) {
+            "${this::class.simpleName} requires a ${media.claim} claim as parameter."
         }
 
         val maxAge = Duration.between(LocalDateTime.now(), validationCode.expirationDate)

@@ -234,7 +234,7 @@ open class TokenManager(
 
         val tokenId = try {
             UUID.fromString(decodedToken.id)
-        } catch (e: IllegalArgumentException) {
+        } catch (_: IllegalArgumentException) {
             return
         }
 
@@ -291,7 +291,7 @@ open class TokenManager(
 
         val tokenId = try {
             UUID.fromString(decodedToken.id)
-        } catch (e: IllegalArgumentException) {
+        } catch (_: IllegalArgumentException) {
             return null
         }
 
@@ -301,7 +301,7 @@ open class TokenManager(
         return try {
             actorTokenValidator.validateActorToken(token)
             token
-        } catch (e: OAuth2Exception) {
+        } catch (_: OAuth2Exception) {
             null
         }
     }
@@ -318,7 +318,7 @@ open class TokenManager(
     suspend fun getAuthenticationToken(decodedToken: DecodedJwt): AuthenticationToken {
         val id = try {
             UUID.fromString(decodedToken.id)
-        } catch (e: IllegalArgumentException) {
+        } catch (_: IllegalArgumentException) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token.invalid_token_id")
         }
         val token = findById(id)

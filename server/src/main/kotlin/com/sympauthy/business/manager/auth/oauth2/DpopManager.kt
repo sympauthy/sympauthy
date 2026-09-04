@@ -145,7 +145,7 @@ class DpopManager(
             }
         } catch (e: com.sympauthy.api.exception.OAuth2Exception) {
             throw e
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             throw oauth2ExceptionOf(INVALID_DPOP_PROOF, "dpop.invalid_signature")
         }
     }

@@ -12,7 +12,6 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
-import java.time.zone.ZoneRulesException
 import java.util.*
 
 /**
@@ -190,12 +189,7 @@ class ClaimValueValidator {
     internal fun validateTimeZoneForClaim(value: String): Optional<Any> {
         try {
             ZoneId.of(value)
-        } catch (e: DateTimeException) {
-            throw recoverableBusinessExceptionOf(
-                "user.claim_value_validator.invalid_time_zone",
-                "description.user.claim_value_validator.invalid_time_zone"
-            )
-        } catch (e: ZoneRulesException) {
+        } catch (_: DateTimeException) {
             throw recoverableBusinessExceptionOf(
                 "user.claim_value_validator.invalid_time_zone",
                 "description.user.claim_value_validator.invalid_time_zone"

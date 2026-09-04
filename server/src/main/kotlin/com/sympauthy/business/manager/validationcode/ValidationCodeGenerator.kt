@@ -83,9 +83,8 @@ open class ValidationCodeGenerator(
             }
         }
 
-        return savedEntity?.let(validationCodeMapper::toValidationCode) ?: throw IllegalStateException(
-            "Unable to generate code in $tryCount attempts."
-        )
+        return savedEntity?.let(validationCodeMapper::toValidationCode)
+            ?: error("Unable to generate code in $tryCount attempts.")
     }
 
     internal fun generateCode(): String {

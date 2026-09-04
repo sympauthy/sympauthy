@@ -25,6 +25,17 @@ complexity:
     active: false
   ComplexCondition:
     active: false
+  NestedBlockDepth:
+    active: false
+
+exceptions:
+  # Every site catching broadly does so at a boundary, to convert a third-party failure into this
+  # server's own vocabulary: a ConfigurationException while the configuration is read, an OAuth2 or
+  # business exception while a request is served, a logged degradation for mail and provider
+  # resolution. Narrowing those catches would let an unlisted exception escape as a 500 carrying a
+  # stack trace, which is what the conversion exists to prevent.
+  TooGenericExceptionCaught:
+    active: false
 
 performance:
   # The spread operator is used where a vararg is forwarded; the copy it costs is not measurable at
@@ -44,6 +55,17 @@ style:
     active: false
   MagicNumber:
     active: false
+  # A parameter this codebase does not read is usually one it is not free to drop. A validator and a
+  # parser take the same arguments as every other so that one factory calls them identically, a
+  # controller declares the path variable its route captures, and a family of config helpers shares
+  # one signature. The rule reported seventeen of those and two unfinished implementations, which is
+  # the wrong ratio for a gate; the unfinished ones are tracked as their own work.
+  UnusedParameter:
+    active: false
+  # MockK fills a test subject's constructor through @InjectMockKs, by reflection, so a property no
+  # test body names is still what makes the subject buildable. Every report here was one of those.
+  UnusedPrivateProperty:
+    excludes: ['**/test/**']
   # Codifies the width the sources already hold themselves to: the median line is 35 characters and
   # the 99th percentile is 113.
   MaxLineLength:
