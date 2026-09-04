@@ -10,7 +10,7 @@ import com.sympauthy.business.model.filter.ValueFilter
 import com.sympauthy.business.model.oauth2.ConsentableUserScope
 import com.sympauthy.business.model.oauth2.GrantableUserScope
 import com.sympauthy.business.model.oauth2.ScopeType
-import com.sympauthy.business.model.oauth2.ScopeWithClaims
+import com.sympauthy.business.manager.ScopeSearchManager.ScopeWithClaims
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.user.claim.Claim

@@ -3,9 +3,9 @@ package com.sympauthy.api.mapper.admin
 import com.sympauthy.api.mapper.config.OutputResourceMapperConfig
 import com.sympauthy.api.resource.admin.AdminUserClaimResource
 import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.business.model.user.CollectedUserClaim
-import com.sympauthy.business.model.user.GeneratedUserClaim
-import com.sympauthy.business.model.user.UserClaim
+import com.sympauthy.business.manager.user.UserClaimSearchManager.CollectedUserClaim
+import com.sympauthy.business.manager.user.UserClaimSearchManager.GeneratedUserClaim
+import com.sympauthy.business.manager.user.UserClaimSearchManager.UserClaim
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimGroup

@@ -21,6 +21,10 @@ granted by a rule and one only a client may hold each become a type under one su
 **A configured item that failed validation is a disabled variant carrying the reason.** The caller
 then has to say what it does about the disabled case in order to compile.
 
+**A model one manager alone builds is declared inside it.** `ScopeSearchManager.ScopeWithClaims` is
+a row of that manager's answer and nothing else assembles one, so the model package keeps what more
+than one caller shares.
+
 ## The mapper
 
 **The mapper is the only door into a model, and the only place a row is rejected.** A column outside

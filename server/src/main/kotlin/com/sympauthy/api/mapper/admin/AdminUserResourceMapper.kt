@@ -1,7 +1,7 @@
 package com.sympauthy.api.mapper.admin
 
 import com.sympauthy.api.resource.admin.AdminUserResource
-import com.sympauthy.business.model.user.UserWithClaims
+import com.sympauthy.business.manager.user.UserSearchManager.UserWithClaims
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.util.wireName
 import jakarta.inject.Singleton

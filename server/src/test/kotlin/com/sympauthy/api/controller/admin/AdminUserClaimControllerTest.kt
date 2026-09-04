@@ -11,9 +11,9 @@ import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.filter.ValueFilter
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
-import com.sympauthy.business.model.user.CollectedUserClaim
+import com.sympauthy.business.manager.user.UserClaimSearchManager.CollectedUserClaim
 import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.UserClaim
+import com.sympauthy.business.manager.user.UserClaimSearchManager.UserClaim
 import com.sympauthy.business.model.user.claim.*
 import io.micronaut.http.HttpStatus
 import io.mockk.coEvery

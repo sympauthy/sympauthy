@@ -27,14 +27,3 @@ data class Audience(
      */
     val invitationEnabled: Boolean = false
 )
-
-/**
- * An audience, and the number of clients that belong to it.
- *
- * How many clients an audience groups is what an administrator reading the configuration asks about
- * it, so a listing answers with both rather than leaving its caller to count them per audience.
- */
-data class AudienceWithClientCount(
-    val audience: Audience,
-    val clientCount: Int
-)

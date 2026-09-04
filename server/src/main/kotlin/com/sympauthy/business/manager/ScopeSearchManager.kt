@@ -3,8 +3,8 @@ package com.sympauthy.business.manager
 import com.sympauthy.business.model.filter.ValueFilter
 import com.sympauthy.business.model.filter.matches
 import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.oauth2.ScopeType
-import com.sympauthy.business.model.oauth2.ScopeWithClaims
 import com.sympauthy.business.model.oauth2.isEnabled
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
@@ -47,4 +47,16 @@ class ScopeSearchManager(
             .orderedPage(pageParams, compareBy { it.scope })
             .map { ScopeWithClaims(it, scopeManager.listClaimsProtectedByScope(it)) }
     }
+
+    /**
+     * A scope, and the claims that requesting it protects.
+     *
+     * What a scope protects is what an administrator reading the configuration asks about it, so a
+     * listing answers with both rather than leaving its caller to ask again once per scope it
+     * published.
+     */
+    data class ScopeWithClaims(
+        val scope: Scope,
+        val protectedClaims: List<Claim>
+    )
 }

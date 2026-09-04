@@ -1,6 +1,6 @@
 package com.sympauthy.business.manager
 
-import com.sympauthy.business.model.audience.AudienceWithClientCount
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.page.map
@@ -31,4 +31,16 @@ class AudienceSearchManager(
             .orderedPage(pageParams, compareBy { it.id })
             .map { AudienceWithClientCount(it, clientCountsByAudienceId[it.id] ?: 0) }
     }
+
+    /**
+     * An audience, and the number of clients that belong to it.
+     *
+     * How many clients an audience groups is what an administrator reading the configuration asks
+     * about it, so a listing answers with both rather than leaving its caller to count them per
+     * audience.
+     */
+    data class AudienceWithClientCount(
+        val audience: Audience,
+        val clientCount: Int
+    )
 }

@@ -5,8 +5,8 @@ import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.model.filter.ValueFilter
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.business.model.user.CollectedUserClaim
-import com.sympauthy.business.model.user.GeneratedUserClaim
+import com.sympauthy.business.manager.user.UserClaimSearchManager.CollectedUserClaim
+import com.sympauthy.business.manager.user.UserClaimSearchManager.GeneratedUserClaim
 import com.sympauthy.business.model.user.claim.*
 import com.sympauthy.config.model.EnabledAuthConfig
 import io.mockk.coEvery

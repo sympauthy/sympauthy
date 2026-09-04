@@ -3,14 +3,13 @@ package com.sympauthy.business.manager.user
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.model.filter.ValueFilter
+import com.sympauthy.business.model.user.CollectedClaim
+import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.filter.matches
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.page.map
 import com.sympauthy.business.model.page.orderedPage
-import com.sympauthy.business.model.user.CollectedUserClaim
-import com.sympauthy.business.model.user.GeneratedUserClaim
-import com.sympauthy.business.model.user.UserClaim
 import com.sympauthy.business.model.user.claim.ClaimOrigin
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
@@ -85,4 +84,38 @@ class UserClaimSearchManager(
                 }
             }
     }
+
+    /**
+     * A claim of this authorization server, seen through one user.
+     *
+     * It has two shapes, and which one a claim takes is [Claim.generated]: a value this server
+     * computes for the user, or a value collected from them.
+     */
+    sealed interface UserClaim {
+        val claim: Claim
+
+        /**
+         * Whether this claim is one of the claims a user is identified by.
+         */
+        val identifier: Boolean
+    }
+
+    /**
+     * A claim whose value this server computes for the user rather than collecting it.
+     */
+    data class GeneratedUserClaim(
+        override val claim: Claim,
+        override val identifier: Boolean,
+        val value: Any?
+    ) : UserClaim
+
+    /**
+     * A claim collected from the user, or one nothing has been collected for yet, which is what a
+     * null [collectedClaim] says.
+     */
+    data class CollectedUserClaim(
+        override val claim: Claim,
+        override val identifier: Boolean,
+        val collectedClaim: CollectedClaim?
+    ) : UserClaim
 }

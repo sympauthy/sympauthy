@@ -1,8 +1,8 @@
 package com.sympauthy.api.mapper.admin
 
 import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.business.model.user.CollectedUserClaim
-import com.sympauthy.business.model.user.GeneratedUserClaim
+import com.sympauthy.business.manager.user.UserClaimSearchManager.CollectedUserClaim
+import com.sympauthy.business.manager.user.UserClaimSearchManager.GeneratedUserClaim
 import com.sympauthy.business.model.user.claim.*
 import java.time.LocalDateTime
 import java.util.*
