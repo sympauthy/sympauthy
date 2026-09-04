@@ -162,10 +162,9 @@ specification here and they do not agree; the published one is what an integrato
 
 ## Breaking a contract
 
-**A contract is reshaped rather than versioned until a release ships it.** The server release is
-what this turns on and not the surface prefix in the path;
-[the database standard](database-standard.md#migrations) holds the same rule for the schema
-underneath.
+**A contract is reshaped rather than versioned until a release ships it.** The surface prefix in the
+path is not what this turns on — [the database standard](database-standard.md#migrations) names what
+a release is, and holds the same rule for the schema underneath.
 
 **A change to a resource the flow configuration is built from ships with a release of
 `testcontainers-sympauthy`.** The library parses that response into a model of its own, and the

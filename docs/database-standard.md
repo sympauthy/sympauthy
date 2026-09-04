@@ -60,8 +60,8 @@ change to a table that already exists.
 **A migration whose version is unreleased is edited in place** and a development database is wiped
 rather than migrated. One file goes on describing its table completely.
 
-**A nightly build is not a release.** The version it carries is still open, and its migrations are
-still edited in place.
+**A version is released when it is published as a GitHub release**, and a nightly build is not one.
+The version a nightly carries is still open, and its migrations are still edited in place.
 
 **A deployment that follows the nightly recreates its schema rather than migrating it.** An edited
 migration no longer matches the checksum the previous nightly recorded, so the next start fails
