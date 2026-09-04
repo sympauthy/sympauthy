@@ -2,8 +2,6 @@ package com.sympauthy.data.repository
 
 import com.sympauthy.data.BASE_DATE
 import com.sympauthy.data.Database
-import com.sympauthy.data.RepositoryFixture
-import com.sympauthy.data.model.AuthorizationCodeEntity
 import com.sympauthy.data.withFixture
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -13,19 +11,18 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import java.time.LocalDateTime
-import java.util.*
 
 /**
  * The versioned optimistic-concurrency updates on [InteractiveFlowSessionRepository].
  *
  * Beyond the compare-and-swap semantics (affected-row count `1` vs `0`, version increment), this
- * exercises the two bindings that have no other precedent in the codebase: the `text array` columns
- * (`purposes`, `completed_purposes`) and the `json` column (`error_values`) bound as parameters inside
- * a raw `@Query`.
+ * exercises the array columns `purposes` and `completed_purposes` bound as parameters inside a raw
+ * `@Query`, and `error_values` written through the derived [InteractiveFlowSessionRepository.updateError]
+ * — a `json` column has to be, since a map bound into a raw query is stored as its `toString()`.
  */
 class InteractiveFlowSessionRepositoryTest {
 
-    @ParameterizedTest(name = "save - Round-trips the purpose arrays and the error values on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Round-trips the purpose arrays and the error values`(database: Database) = withFixture(database) {
         val sessions = repository<InteractiveFlowSessionRepository>()
@@ -42,20 +39,20 @@ class InteractiveFlowSessionRepositoryTest {
         assertNull(stored.errorValues)
     }
 
-    @ParameterizedTest(name = "findByCode - Joins the authorization code back to its session on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByCode - Joins the authorization code back to its session`(database: Database) =
         withFixture(database) {
             val sessions = repository<InteractiveFlowSessionRepository>()
             val session = newSession()
-            saveCode(session.id!!, "interactive-flow-session-repository-test-code")
+            newCode(session.id!!, "interactive-flow-session-repository-test-code")
 
             val found = sessions.findByCode("interactive-flow-session-repository-test-code")
 
             assertEquals(session.id, found?.id)
         }
 
-    @ParameterizedTest(name = "findByCode - Returns null when no code holds that value on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByCode - Returns null when no code holds that value`(database: Database) = withFixture(database) {
         val sessions = repository<InteractiveFlowSessionRepository>()
@@ -68,7 +65,7 @@ class InteractiveFlowSessionRepositoryTest {
      * `CURRENT_TIMESTAMP` is the database's clock, not the JVM's, so the two sessions are dated a year
      * either side of now rather than around [BASE_DATE].
      */
-    @ParameterizedTest(name = "findExpired - Returns the sessions whose expiration has passed on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findExpired - Returns the sessions whose expiration has passed`(database: Database) =
         withFixture(database) {
@@ -83,7 +80,7 @@ class InteractiveFlowSessionRepositoryTest {
             assertTrue(!found.contains(ongoing.id))
         }
 
-    @ParameterizedTest(name = "updatePurposes - Binds the array, applies at the expected version on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `updatePurposes - Binds the array, applies at the expected version and increments it`(
         database: Database
@@ -103,7 +100,7 @@ class InteractiveFlowSessionRepositoryTest {
         assertEquals(1L, reloaded.version)
     }
 
-    @ParameterizedTest(name = "updatePurposes - A stale expected version affects no rows on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `updatePurposes - A stale expected version affects no rows and leaves the row untouched`(
         database: Database
@@ -125,7 +122,7 @@ class InteractiveFlowSessionRepositoryTest {
         assertEquals(1L, reloaded.version)
     }
 
-    @ParameterizedTest(name = "updateCompletedPurposes - Binds the array and increments the version on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `updateCompletedPurposes - Binds the array and increments the version`(database: Database) =
         withFixture(database) {
@@ -144,7 +141,7 @@ class InteractiveFlowSessionRepositoryTest {
             assertEquals(1L, reloaded.version)
         }
 
-    @ParameterizedTest(name = "updateError - The derived write round-trips the json values on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `updateError - The derived write binds and round-trips the json values`(database: Database) =
         withFixture(database) {
@@ -166,7 +163,7 @@ class InteractiveFlowSessionRepositoryTest {
             assertEquals(mapOf("key" to "value"), reloaded.errorValues)
         }
 
-    @ParameterizedTest(name = "failIfOngoing - Bumps the version while ongoing, refuses once terminal on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `failIfOngoing - Bumps the version while ongoing and refuses once terminal`(database: Database) =
         withFixture(database) {
@@ -182,7 +179,7 @@ class InteractiveFlowSessionRepositoryTest {
             assertEquals(0, sessions.failIfOngoing(id))
         }
 
-    @ParameterizedTest(name = "updateUserId - Applies against the user foreign key on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `updateUserId - Applies against the user foreign key and increments the version`(database: Database) =
         withFixture(database) {
@@ -204,7 +201,7 @@ class InteractiveFlowSessionRepositoryTest {
             assertEquals(1L, reloaded.version)
         }
 
-    @ParameterizedTest(name = "updateMfaPassedDate - Applies at the expected version on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `updateMfaPassedDate - Applies at the expected version and increments it`(database: Database) =
         withFixture(database) {
@@ -219,7 +216,7 @@ class InteractiveFlowSessionRepositoryTest {
             assertEquals(1L, reloaded.version)
         }
 
-    @ParameterizedTest(name = "updateCompleteDate - Completes the session at the expected version on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `updateCompleteDate - Completes the session at the expected version`(database: Database) =
         withFixture(database) {
@@ -234,7 +231,7 @@ class InteractiveFlowSessionRepositoryTest {
             assertEquals(1L, reloaded.version)
         }
 
-    @ParameterizedTest(name = "updateCancelDate - Cancels the session at the expected version on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `updateCancelDate - Cancels the session at the expected version`(database: Database) =
         withFixture(database) {
@@ -249,7 +246,7 @@ class InteractiveFlowSessionRepositoryTest {
             assertEquals(1L, reloaded.version)
         }
 
-    @ParameterizedTest(name = "updateMfaPassedDate - A stale expected version never mutates the row on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `updateMfaPassedDate - A stale expected version never mutates the row`(database: Database) =
         withFixture(database) {
@@ -264,7 +261,7 @@ class InteractiveFlowSessionRepositoryTest {
             assertEquals(0L, reloaded.version)
         }
 
-    @ParameterizedTest(name = "deleteByIds - Removes every session named and counts them on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `deleteByIds - Removes every session named and counts them`(database: Database) = withFixture(database) {
         val sessions = repository<InteractiveFlowSessionRepository>()
@@ -280,16 +277,4 @@ class InteractiveFlowSessionRepositoryTest {
         assertNotNull(sessions.findById(kept))
     }
 
-    private suspend fun RepositoryFixture.saveCode(sessionId: UUID, code: String) {
-        val codes = repository<AuthorizationCodeRepository>()
-        codes.save(
-            AuthorizationCodeEntity(
-                sessionId = sessionId,
-                code = code,
-                creationDate = BASE_DATE,
-                expirationDate = BASE_DATE.plusMinutes(10)
-            )
-        )
-        deleteOnEnd { codes.deleteByCode(code) }
-    }
 }

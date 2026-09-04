@@ -33,7 +33,7 @@ class CollectedClaimRepositoryTest {
     private val bobName = "Bob-$qualifier"
     private val charlieName = "Charlie-$qualifier"
 
-    @ParameterizedTest(name = "save - Round-trips a claim, and an absent value as null on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Round-trips a claim, and an absent value as null`(database: Database) = withFixture(database) {
         val claims = repository<CollectedClaimRepository>()
@@ -55,7 +55,7 @@ class CollectedClaimRepositoryTest {
         assertNull(storedAbsent.verificationDate)
     }
 
-    @ParameterizedTest(name = "findByUserId - Returns every claim of the user on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByUserId - Returns every claim of the user`(database: Database) = withFixture(database) {
         val users = seedUsers()
@@ -65,7 +65,7 @@ class CollectedClaimRepositoryTest {
         assertEquals(setOf("email", "name"), found.map { it.claim }.toSet())
     }
 
-    @ParameterizedTest(name = "findByUserIdAndClaimInList - Narrows to the named claims on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByUserIdAndClaimInList - Narrows to the named claims`(database: Database) = withFixture(database) {
         val users = seedUsers()
@@ -76,7 +76,7 @@ class CollectedClaimRepositoryTest {
         assertEquals(listOf("email"), found.map { it.claim })
     }
 
-    @ParameterizedTest(name = "findByUserIdInList - Returns the claims of every user in the list on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByUserIdInList - Returns the claims of every user in the list`(database: Database) =
         withFixture(database) {
@@ -89,7 +89,7 @@ class CollectedClaimRepositoryTest {
             assertEquals(4, found.size)
         }
 
-    @ParameterizedTest(name = "findByUserIdInListAndClaimInList - Narrows on both lists at once on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByUserIdInListAndClaimInList - Narrows on both lists at once`(database: Database) =
         withFixture(database) {
@@ -102,7 +102,7 @@ class CollectedClaimRepositoryTest {
             assertEquals(listOf("name", "name"), found.map { it.claim })
         }
 
-    @ParameterizedTest(name = "findMaxCollectionDateByUserId - Returns the latest collection date on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findMaxCollectionDateByUserId - Returns the latest collection date`(database: Database) =
         withFixture(database) {
@@ -120,7 +120,7 @@ class CollectedClaimRepositoryTest {
      * The aggregate answers for a user with no claim at all, where `MAX` over no row is a null the
      * projection has to carry back rather than an empty result the mapper would reject.
      */
-    @ParameterizedTest(name = "findMaxCollectionDateByUserId - Returns null when the user has no claim on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findMaxCollectionDateByUserId - Returns null when the user has no claim`(database: Database) =
         withFixture(database) {
@@ -131,7 +131,7 @@ class CollectedClaimRepositoryTest {
             assertNull(latest)
         }
 
-    @ParameterizedTest(name = "updateClaimsToVerified - Verifies the claim and dates it on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `updateClaimsToVerified - Verifies the claim and dates it`(database: Database) = withFixture(database) {
         val claims = repository<CollectedClaimRepository>()
@@ -150,7 +150,7 @@ class CollectedClaimRepositoryTest {
      * The `CASE WHEN verified IS TRUE` is the whole point of the statement: a second verification must
      * leave the date the first one wrote.
      */
-    @ParameterizedTest(name = "updateClaimsToVerified - Keeps the date of an already verified claim on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `updateClaimsToVerified - Keeps the date of an already verified claim`(database: Database) =
         withFixture(database) {
@@ -167,7 +167,7 @@ class CollectedClaimRepositoryTest {
             assertEquals(firstVerification, stored?.verificationDate)
         }
 
-    @ParameterizedTest(name = "updateClaimsToVerified - Leaves another claim of the user alone on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `updateClaimsToVerified - Leaves another claim of the user alone`(database: Database) =
         withFixture(database) {
@@ -178,12 +178,12 @@ class CollectedClaimRepositoryTest {
 
             claims.updateClaimsToVerified(userId, "email", BASE_DATE.plusDays(1))
 
-            val stored = claims.findById(untouched)
-            assertNull(stored?.verified)
-            assertNull(stored?.verificationDate)
+            val stored = claims.findById(untouched)!!
+            assertNull(stored.verified)
+            assertNull(stored.verificationDate)
         }
 
-    @ParameterizedTest(name = "findAnyClaimMatching - Finds one claim of the named ids holding the value on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findAnyClaimMatching - Finds one claim of the named ids holding the value`(database: Database) =
         withFixture(database) {
@@ -196,7 +196,7 @@ class CollectedClaimRepositoryTest {
             assertNull(claims.findAnyClaimMatching(listOf("name"), encoded(bobEmail)!!))
         }
 
-    @ParameterizedTest(name = "findAnyClaimMatching - Returns every claim matching any of the values on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findAnyClaimMatching - Returns every claim matching any of the values`(database: Database) =
         withFixture(database) {
@@ -211,7 +211,7 @@ class CollectedClaimRepositoryTest {
             assertEquals(setOf(users.aliceId, users.bobId, users.charlieId), found.map { it.userId }.toSet())
         }
 
-    @ParameterizedTest(name = "findAnyClaimMatching - Returns nothing when either list is empty on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findAnyClaimMatching - Returns nothing when either list is empty`(database: Database) =
         withFixture(database) {
@@ -222,14 +222,14 @@ class CollectedClaimRepositoryTest {
             assertTrue(claims.findAnyClaimMatching(listOf("email"), emptyList()).isEmpty())
         }
 
-    @ParameterizedTest(name = "findUserIdsMatchingAllClaims - Returns nothing when no claim is given on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findUserIdsMatchingAllClaims - Returns nothing when no claim is given`(database: Database) =
         withFixture(database) {
             assertTrue(repository<CollectedClaimRepository>().findUserIdsMatchingAllClaims(emptyMap()).isEmpty())
         }
 
-    @ParameterizedTest(name = "findUserIdsMatchingAllClaims - Returns every user matching one claim on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findUserIdsMatchingAllClaims - Returns every user matching one claim`(database: Database) =
         withFixture(database) {
@@ -241,7 +241,7 @@ class CollectedClaimRepositoryTest {
             assertEquals(setOf(users.aliceId, users.charlieId), found.toSet())
         }
 
-    @ParameterizedTest(name = "findUserIdsMatchingAllClaims - Returns only the users matching all claims on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findUserIdsMatchingAllClaims - Returns only the users matching all claims`(database: Database) =
         withFixture(database) {
@@ -254,7 +254,7 @@ class CollectedClaimRepositoryTest {
             assertEquals(listOf(users.aliceId), found)
         }
 
-    @ParameterizedTest(name = "findUserIdsMatchingAllClaims - Returns nothing when one claim misses on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findUserIdsMatchingAllClaims - Returns nothing when one claim misses`(database: Database) =
         withFixture(database) {

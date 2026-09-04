@@ -22,7 +22,7 @@ class TotpEnrollmentRepositoryTest {
 
     private val secret = byteArrayOf(11, 22, 33, 44, 55)
 
-    @ParameterizedTest(name = "save - Round-trips the secret and leaves it unconfirmed on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Round-trips the secret and leaves it unconfirmed`(database: Database) = withFixture(database) {
         val enrollments = repository<TotpEnrollmentRepository>()
@@ -38,7 +38,7 @@ class TotpEnrollmentRepositoryTest {
         assertNull(stored.confirmedDate)
     }
 
-    @ParameterizedTest(name = "findByUserId - Returns every enrollment of the user on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByUserId - Returns every enrollment of the user`(database: Database) = withFixture(database) {
         val enrollments = repository<TotpEnrollmentRepository>()
@@ -53,7 +53,7 @@ class TotpEnrollmentRepositoryTest {
         assertEquals(setOf(pending, confirmed), found.map { it.id!! }.toSet())
     }
 
-    @ParameterizedTest(name = "findByUserIdAndConfirmedDateIsNotNull - Keeps the confirmed enrollment on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByUserIdAndConfirmedDateIsNotNull - Keeps the confirmed enrollment`(database: Database) =
         withFixture(database) {
@@ -67,7 +67,7 @@ class TotpEnrollmentRepositoryTest {
             assertEquals(listOf(confirmed), found.map { it.id!! })
         }
 
-    @ParameterizedTest(name = "findByUserIdAndConfirmedDateIsNull - Keeps the pending enrollment on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByUserIdAndConfirmedDateIsNull - Keeps the pending enrollment`(database: Database) =
         withFixture(database) {
@@ -81,7 +81,7 @@ class TotpEnrollmentRepositoryTest {
             assertEquals(listOf(pending), found.map { it.id!! })
         }
 
-    @ParameterizedTest(name = "updateConfirmedDate - Confirms the enrollment on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `updateConfirmedDate - Confirms the enrollment`(database: Database) = withFixture(database) {
         val enrollments = repository<TotpEnrollmentRepository>()

@@ -23,7 +23,7 @@ class AuthenticationTokenRepositoryTest {
     private val otherClientId = "authentication-token-repository-test-other-client"
     private val revokedAt = BASE_DATE.plusHours(1)
 
-    @ParameterizedTest(name = "save - Round-trips the three scope arrays on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Round-trips the three scope arrays`(database: Database) = withFixture(database) {
         val tokens = repository<AuthenticationTokenRepository>()
@@ -45,7 +45,7 @@ class AuthenticationTokenRepositoryTest {
     }
 
     /** A client-credentials token carries neither a user nor a session, and both columns admit null. */
-    @ParameterizedTest(name = "save - Round-trips a token bound to no user and no session on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Round-trips a token bound to no user and no session`(database: Database) = withFixture(database) {
         val tokens = repository<AuthenticationTokenRepository>()
@@ -60,7 +60,7 @@ class AuthenticationTokenRepositoryTest {
         assertNull(stored.revokedAt)
     }
 
-    @ParameterizedTest(name = "updateRevokedAt - Revokes the token it names on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `updateRevokedAt - Revokes the token it names`(database: Database) = withFixture(database) {
         val tokens = repository<AuthenticationTokenRepository>()
@@ -73,10 +73,10 @@ class AuthenticationTokenRepositoryTest {
         assertEquals(revokedAt, tokens.findById(id)?.revokedAt)
         assertEquals("administrator", tokens.findById(id)?.revokedBy)
         assertEquals(userId, tokens.findById(id)?.revokedById)
-        assertNull(tokens.findById(untouched)?.revokedAt)
+        assertNull(tokens.findById(untouched)!!.revokedAt)
     }
 
-    @ParameterizedTest(name = "updateRevokedAtBySessionId - Revokes every token of the session on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `updateRevokedAtBySessionId - Revokes every token of the session`(database: Database) =
         withFixture(database) {
@@ -91,11 +91,11 @@ class AuthenticationTokenRepositoryTest {
 
             assertEquals(revokedAt, tokens.findById(first)?.revokedAt)
             assertEquals(revokedAt, tokens.findById(second)?.revokedAt)
-            assertNull(tokens.findById(other)?.revokedAt)
-            assertNull(tokens.findById(first)?.revokedById)
+            assertNull(tokens.findById(other)!!.revokedAt)
+            assertNull(tokens.findById(first)!!.revokedById)
         }
 
-    @ParameterizedTest(name = "updateRevokedAtByActorTokenId - Revokes the derived tokens and counts them on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `updateRevokedAtByActorTokenId - Revokes the derived tokens and counts them`(database: Database) =
         withFixture(database) {
@@ -109,10 +109,10 @@ class AuthenticationTokenRepositoryTest {
 
             assertEquals(1, count)
             assertEquals(revokedAt, tokens.findById(derived)?.revokedAt)
-            assertNull(tokens.findById(unrelated)?.revokedAt)
+            assertNull(tokens.findById(unrelated)!!.revokedAt)
         }
 
-    @ParameterizedTest(name = "updateRevokedAtByUserIdAndClientId - Revokes on both keys at once on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `updateRevokedAtByUserIdAndClientId - Revokes on both keys at once`(database: Database) =
         withFixture(database) {
@@ -129,11 +129,11 @@ class AuthenticationTokenRepositoryTest {
 
             assertEquals(1, count)
             assertEquals(revokedAt, tokens.findById(revoked)?.revokedAt)
-            assertNull(tokens.findById(otherClient)?.revokedAt)
-            assertNull(tokens.findById(otherUser)?.revokedAt)
+            assertNull(tokens.findById(otherClient)!!.revokedAt)
+            assertNull(tokens.findById(otherUser)!!.revokedAt)
         }
 
-    @ParameterizedTest(name = "updateRevokedAtByUserId - Revokes every token of the user on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `updateRevokedAtByUserId - Revokes every token of the user`(database: Database) = withFixture(database) {
         val tokens = repository<AuthenticationTokenRepository>()
@@ -148,7 +148,7 @@ class AuthenticationTokenRepositoryTest {
         assertEquals(2, count)
         assertEquals(revokedAt, tokens.findById(first)?.revokedAt)
         assertEquals(revokedAt, tokens.findById(second)?.revokedAt)
-        assertNull(tokens.findById(other)?.revokedAt)
+        assertNull(tokens.findById(other)!!.revokedAt)
     }
 
     private suspend fun RepositoryFixture.saveToken(

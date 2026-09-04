@@ -110,7 +110,10 @@ dependencies {
     // Testing
     kspTest("io.micronaut:micronaut-inject-java")
     testImplementation("io.micronaut.test:micronaut-test-junit5")
+    testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
+    // UtcTimeZoneListener is a launcher service, so the launcher API has to be compiled against.
+    testImplementation(libs.junit.platform.launcher)
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.mock.webserver)
@@ -189,10 +192,6 @@ tasks {
     }
     withType<Test> {
         useJUnitPlatform()
-        // Application.main forces the zone to UTC, and no test runs it. Without this a date column
-        // round-trips through whichever zone the machine is in, and an assertion on one passes or
-        // fails by geography.
-        systemProperty("user.timezone", "UTC")
         testLogging {
             events(
                 PASSED, SKIPPED, FAILED, STANDARD_ERROR, STANDARD_OUT

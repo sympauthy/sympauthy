@@ -21,7 +21,7 @@ class PasswordRepositoryTest {
     private val salt = byteArrayOf(1, 2, 3, 4)
     private val hashedPassword = byteArrayOf(9, 8, 7, 6, 5)
 
-    @ParameterizedTest(name = "save - Round-trips the salt and the hash on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Round-trips the salt and the hash`(database: Database) = withFixture(database) {
         val passwords = repository<PasswordRepository>()
@@ -38,7 +38,7 @@ class PasswordRepositoryTest {
         assertNull(stored.expirationDate)
     }
 
-    @ParameterizedTest(name = "findByUserId - Returns the passwords of the user on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByUserId - Returns the passwords of the user`(database: Database) = withFixture(database) {
         val passwords = repository<PasswordRepository>()
@@ -52,7 +52,7 @@ class PasswordRepositoryTest {
         assertEquals(listOf(id), found.map { it.id!! })
     }
 
-    @ParameterizedTest(name = "findByUserId - Returns nothing for a user with no password on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByUserId - Returns nothing for a user with no password`(database: Database) =
         withFixture(database) {

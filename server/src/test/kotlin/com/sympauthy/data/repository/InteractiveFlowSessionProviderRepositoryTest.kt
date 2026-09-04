@@ -16,7 +16,7 @@ class InteractiveFlowSessionProviderRepositoryTest {
 
     private val providerId = "interactive-flow-session-provider-repository-test-provider"
 
-    @ParameterizedTest(name = "save - Carries the assigned key and round-trips the row on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Carries the assigned key and round-trips the row`(database: Database) = withFixture(database) {
         val records = repository<InteractiveFlowSessionProviderRepository>()
@@ -32,7 +32,7 @@ class InteractiveFlowSessionProviderRepositoryTest {
         assertEquals(nonceId, stored.providerNonceJsonWebTokenId)
     }
 
-    @ParameterizedTest(name = "save - Round-trips a record carrying no nonce on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Round-trips a record carrying no nonce`(database: Database) = withFixture(database) {
         val records = repository<InteractiveFlowSessionProviderRepository>()
@@ -40,10 +40,10 @@ class InteractiveFlowSessionProviderRepositoryTest {
 
         saveRecord(session.id!!, nonceId = null)
 
-        assertNull(records.findById(session.id!!)?.providerNonceJsonWebTokenId)
+        assertNull(records.findById(session.id!!)!!.providerNonceJsonWebTokenId)
     }
 
-    @ParameterizedTest(name = "findBySessionId - Finds the record of the session on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findBySessionId - Finds the record of the session`(database: Database) = withFixture(database) {
         val records = repository<InteractiveFlowSessionProviderRepository>()
@@ -55,7 +55,7 @@ class InteractiveFlowSessionProviderRepositoryTest {
         assertNull(records.findBySessionId(other.id!!))
     }
 
-    @ParameterizedTest(name = "deleteBySessionIdIn - Removes the records and counts them on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `deleteBySessionIdIn - Removes the records and counts them`(database: Database) = withFixture(database) {
         val records = repository<InteractiveFlowSessionProviderRepository>()

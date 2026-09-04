@@ -4,8 +4,6 @@ import com.sympauthy.data.BASE_DATE
 import com.sympauthy.data.Database
 import com.sympauthy.data.RepositoryFixture
 import com.sympauthy.data.model.ConsentEntity
-import com.sympauthy.data.model.ProviderUserInfoEntity
-import com.sympauthy.data.model.ProviderUserInfoEntityId
 import com.sympauthy.data.withFixture
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -35,7 +33,7 @@ class ConsentRepositoryTest {
     private val providerId = "consent-repository-test-provider"
     private val otherProviderId = "consent-repository-test-other-provider"
 
-    @ParameterizedTest(name = "save - Round-trips the scope array on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Round-trips the scope array`(database: Database) = withFixture(database) {
         val consents = repository<ConsentRepository>()
@@ -47,7 +45,7 @@ class ConsentRepositoryTest {
         assertArrayEquals(arrayOf("openid", "profile", "email"), stored!!.scopes)
     }
 
-    @ParameterizedTest(name = "save - Round-trips an empty scope array on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Round-trips an empty scope array`(database: Database) = withFixture(database) {
         val id = saveConsent(newUser(), BASE_DATE, scopes = emptyArray())
@@ -58,7 +56,7 @@ class ConsentRepositoryTest {
         assertArrayEquals(emptyArray<String>(), stored!!.scopes)
     }
 
-    @ParameterizedTest(name = "findActiveByAudienceId - Orders by consent date on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findActiveByAudienceId - Orders by consent date`(database: Database) = withFixture(database) {
         val audience = seedAudience()
@@ -74,17 +72,18 @@ class ConsentRepositoryTest {
      * as unsigned bytes and Kotlin compares it signed, so naming which of the tied pair comes first would
      * pin a collation this query does not care about. What it needs is that the pair does not swap.
      */
-    @ParameterizedTest(name = "findActiveByAudienceId - Breaks a tied consent date on the identifier on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findActiveByAudienceId - Breaks a tied consent date on the identifier, so two reads agree`(
         database: Database
     ) = withFixture(database) {
         seedAudience()
 
+        assertEquals(4, readWholeAudience().size)
         assertEquals(readWholeAudience(), readWholeAudience())
     }
 
-    @ParameterizedTest(name = "findActiveByAudienceId - Walking pages of one yields every consent once on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findActiveByAudienceId - Walking pages of one yields every consent exactly once`(database: Database) =
         withFixture(database) {
@@ -98,7 +97,7 @@ class ConsentRepositoryTest {
             assertEquals(readWholeAudience(), walked)
         }
 
-    @ParameterizedTest(name = "findActiveByAudienceId - Excludes revoked consents on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findActiveByAudienceId - Excludes revoked consents`(database: Database) = withFixture(database) {
         val audience = seedAudience()
@@ -108,7 +107,7 @@ class ConsentRepositoryTest {
         assertFalse(page.any { it.userId == audience.userIds[4] })
     }
 
-    @ParameterizedTest(name = "findActiveByAudienceId - Returns nothing past the last page on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findActiveByAudienceId - Returns nothing past the last page`(database: Database) = withFixture(database) {
         seedAudience()
@@ -118,17 +117,18 @@ class ConsentRepositoryTest {
         assertEquals(emptyList<UUID>(), page.map { it.id!! })
     }
 
-    @ParameterizedTest(name = "countActiveByAudienceId - Counts the rows the pages walk on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `countActiveByAudienceId - Counts the rows the pages walk`(database: Database) = withFixture(database) {
         seedAudience()
 
         val count = repository<ConsentRepository>().countActiveByAudienceId(audienceId)
 
+        assertEquals(4L, count)
         assertEquals(readWholeAudience().size.toLong(), count)
     }
 
-    @ParameterizedTest(name = "findActiveByAudienceIdAndProvider - Keeps only the linked users on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findActiveByAudienceIdAndProvider - Keeps only the users linked to the provider`(database: Database) =
         withFixture(database) {
@@ -145,7 +145,7 @@ class ConsentRepositoryTest {
             assertEquals(listOf(audience.userIds[1], audience.userIds[2]), page.map { it.userId })
         }
 
-    @ParameterizedTest(name = "findActiveByAudienceIdAndProvider - Narrows to the account bearing the subject on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findActiveByAudienceIdAndProvider - Narrows to the account bearing the subject`(database: Database) =
         withFixture(database) {
@@ -162,7 +162,7 @@ class ConsentRepositoryTest {
             assertEquals(listOf(audience.userIds[2]), page.map { it.userId })
         }
 
-    @ParameterizedTest(name = "findActiveByAudienceIdAndProvider - Pages the filtered rows in order on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findActiveByAudienceIdAndProvider - Pages the filtered rows in the same order`(database: Database) =
         withFixture(database) {
@@ -182,7 +182,7 @@ class ConsentRepositoryTest {
             assertEquals(listOf(audience.userIds[1], audience.userIds[2]), walked)
         }
 
-    @ParameterizedTest(name = "countActiveByAudienceIdAndProvider - Counts the filtered rows on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `countActiveByAudienceIdAndProvider - Counts the rows the filtered pages walk`(database: Database) =
         withFixture(database) {
@@ -196,7 +196,7 @@ class ConsentRepositoryTest {
             assertEquals(1L, withSubject)
         }
 
-    @ParameterizedTest(name = "findByUserIdAndAudienceIdAndRevokedAtIsNull - Skips a revoked consent on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByUserIdAndAudienceIdAndRevokedAtIsNull - Skips a revoked consent`(database: Database) =
         withFixture(database) {
@@ -210,7 +210,7 @@ class ConsentRepositoryTest {
             assertNull(revoked)
         }
 
-    @ParameterizedTest(name = "findByUserIdAndRevokedAtIsNull - Returns the active consents of the user on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByUserIdAndRevokedAtIsNull - Returns the user's active consents`(database: Database) =
         withFixture(database) {
@@ -221,7 +221,7 @@ class ConsentRepositoryTest {
             assertEquals(listOf(audience.consentIds[1]), found.map { it.id!! })
         }
 
-    @ParameterizedTest(name = "findByAudienceIdAndRevokedAtIsNull - Returns every active consent on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByAudienceIdAndRevokedAtIsNull - Returns every active consent of the audience`(database: Database) =
         withFixture(database) {
@@ -232,7 +232,7 @@ class ConsentRepositoryTest {
             assertEquals(audience.consentIds.take(4).toSet(), found.map { it.id!! }.toSet())
         }
 
-    @ParameterizedTest(name = "updateRevokedAt - Revokes the consent and counts the row on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `updateRevokedAt - Revokes the consent and counts the row`(database: Database) = withFixture(database) {
         val consents = repository<ConsentRepository>()
@@ -266,10 +266,10 @@ class ConsentRepositoryTest {
             saveConsent(userIds[3], BASE_DATE.plusMinutes(2)),
             saveConsent(userIds[4], BASE_DATE.plusMinutes(3), revokedAt = BASE_DATE.plusMinutes(4))
         )
-        saveLink(providerId, userIds[1], "subject-1")
-        saveLink(providerId, userIds[2], "subject-2")
-        saveLink(otherProviderId, userIds[3], "subject-3")
-        saveLink(providerId, userIds[4], "subject-4")
+        newProviderLink(providerId, userIds[1], "subject-1")
+        newProviderLink(providerId, userIds[2], "subject-2")
+        newProviderLink(otherProviderId, userIds[3], "subject-3")
+        newProviderLink(providerId, userIds[4], "subject-4")
         return SeededAudience(userIds, consentIds)
     }
 
@@ -298,17 +298,4 @@ class ConsentRepositoryTest {
         ).id!!.also { id -> deleteOnEnd { consents.deleteById(id) } }
     }
 
-    private suspend fun RepositoryFixture.saveLink(providerId: String, userId: UUID, subject: String) {
-        val links = repository<ProviderUserInfoRepository>()
-        links.save(
-            ProviderUserInfoEntity(
-                id = ProviderUserInfoEntityId(providerId = providerId, userId = userId),
-                linkDate = BASE_DATE,
-                fetchDate = BASE_DATE,
-                changeDate = BASE_DATE,
-                subject = subject
-            )
-        )
-        deleteOnEnd { links.deleteByProviderIdAndUserId(providerId, userId) }
-    }
 }

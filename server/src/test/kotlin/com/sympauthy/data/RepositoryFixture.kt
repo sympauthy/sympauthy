@@ -1,8 +1,13 @@
 package com.sympauthy.data
 
+import com.sympauthy.data.model.AuthorizationCodeEntity
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
+import com.sympauthy.data.model.ProviderUserInfoEntity
+import com.sympauthy.data.model.ProviderUserInfoEntityId
 import com.sympauthy.data.model.UserEntity
+import com.sympauthy.data.repository.AuthorizationCodeRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
+import com.sympauthy.data.repository.ProviderUserInfoRepository
 import com.sympauthy.data.repository.UserRepository
 import kotlinx.coroutines.test.runTest
 import java.time.LocalDateTime
@@ -11,19 +16,21 @@ import java.util.*
 /** The instant every fixture dates its rows from, so no assertion turns on the clock. */
 val BASE_DATE: LocalDateTime = LocalDateTime.of(2026, 1, 1, 12, 0, 0)
 
-/**
- * Runs [block] against [database], deleting the rows it created once it ends.
- *
- * A repository test seeds inside its test rather than in a `@BeforeEach`, which cannot see the
- * parameter naming the database.
- */
+/** Runs [block] against [database], deleting the rows it created once it ends. */
 fun withFixture(database: Database, block: suspend RepositoryFixture.() -> Unit) {
     val fixture = RepositoryFixture(database)
     runTest {
+        var failure: Throwable? = null
         try {
             fixture.block()
+        } catch (thrown: Throwable) {
+            failure = thrown
+            throw thrown
         } finally {
-            fixture.deleteCreatedRows()
+            // Attached rather than thrown: a cleanup that fails while the test was already failing must
+            // not replace the assertion that explains why.
+            runCatching { fixture.deleteCreatedRows() }
+                .onFailure { failure?.addSuppressed(it) ?: throw it }
         }
     }
 }
@@ -55,10 +62,14 @@ class RepositoryFixture(val database: Database) {
         .id!!
         .also { id -> deleteOnEnd { users.deleteById(id) } }
 
-    /** Saves a session to hang rows off, expiring after [BASE_DATE] unless [expirationDate] says otherwise. */
+    /**
+     * Saves a session to hang rows off. It expires an hour from now rather than after [BASE_DATE],
+     * which is long past: a session dated from there is already expired against the database's clock,
+     * and any query gated on one still being valid would be handed the opposite of what it asked for.
+     */
     suspend fun newSession(
         purposes: Array<String> = arrayOf("OAUTH2_AUTHORIZE"),
-        expirationDate: LocalDateTime = BASE_DATE.plusMinutes(10),
+        expirationDate: LocalDateTime = LocalDateTime.now().plusHours(1),
         userId: UUID? = null
     ): InteractiveFlowSessionEntity {
         val sessions = database.bean<InteractiveFlowSessionRepository>()
@@ -74,5 +85,44 @@ class RepositoryFixture(val database: Database) {
         ).also { session -> deleteOnEnd { sessions.deleteById(session.id!!) } }
     }
 
-    suspend fun deleteCreatedRows() = deletions.forEach { it() }
+    /** Saves the authorization code a session was handed back. */
+    suspend fun newCode(sessionId: UUID, code: String) {
+        val codes = database.bean<AuthorizationCodeRepository>()
+        codes.save(
+            AuthorizationCodeEntity(
+                sessionId = sessionId,
+                code = code,
+                creationDate = BASE_DATE,
+                expirationDate = BASE_DATE.plusMinutes(10)
+            )
+        )
+        deleteOnEnd { codes.deleteBySessionIdIn(listOf(sessionId)) }
+    }
+
+    /** Links a user to a provider under [subject]. */
+    suspend fun newProviderLink(providerId: String, userId: UUID, subject: String) {
+        val links = database.bean<ProviderUserInfoRepository>()
+        links.save(
+            ProviderUserInfoEntity(
+                id = ProviderUserInfoEntityId(providerId = providerId, userId = userId),
+                linkDate = BASE_DATE,
+                fetchDate = BASE_DATE,
+                changeDate = BASE_DATE,
+                subject = subject
+            )
+        )
+        deleteOnEnd { links.deleteByProviderIdAndUserId(providerId, userId) }
+    }
+
+    /**
+     * Runs every registered deletion before rethrowing, so one failure does not leak the rows behind it
+     * into a database the whole run shares.
+     */
+    suspend fun deleteCreatedRows() {
+        var failure: Throwable? = null
+        deletions.forEach { delete ->
+            runCatching { delete() }.onFailure { failure?.addSuppressed(it) ?: run { failure = it } }
+        }
+        failure?.let { throw it }
+    }
 }

@@ -16,7 +16,7 @@ class InteractiveFlowSessionLinkProviderRepositoryTest {
 
     private val providerId = "interactive-flow-session-link-provider-repository-test-provider"
 
-    @ParameterizedTest(name = "save - Carries the assigned key and round-trips the row on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Carries the assigned key and round-trips the row`(database: Database) = withFixture(database) {
         val records = repository<InteractiveFlowSessionLinkProviderRepository>()
@@ -30,7 +30,7 @@ class InteractiveFlowSessionLinkProviderRepositoryTest {
         assertEquals(providerId, stored.providerId)
     }
 
-    @ParameterizedTest(name = "findBySessionId - Finds the record of the session on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findBySessionId - Finds the record of the session`(database: Database) = withFixture(database) {
         val records = repository<InteractiveFlowSessionLinkProviderRepository>()
@@ -42,7 +42,7 @@ class InteractiveFlowSessionLinkProviderRepositoryTest {
         assertNull(records.findBySessionId(other.id!!))
     }
 
-    @ParameterizedTest(name = "deleteBySessionIdIn - Removes the records and counts them on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `deleteBySessionIdIn - Removes the records and counts them`(database: Database) = withFixture(database) {
         val records = repository<InteractiveFlowSessionLinkProviderRepository>()

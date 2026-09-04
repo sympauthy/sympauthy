@@ -80,6 +80,10 @@ schedules next.
 which database the parameter named. Register a deletion as the row is created and the fixture
 unwinds them in order.
 
+**A test that wants a datasource without naming a dialect asks for the `h2` environment.** The
+`test` environment carries no `r2dbc.datasources.default`, because PostgreSQL's url holds a mapped
+port and arrives programmatically; a context started without either has no repository bean at all.
+
 **A key a test queries by names the test class**, so no other class's rows fall inside the query
 under test.
 

@@ -27,7 +27,7 @@ class InvitationRepositoryTest {
     private val lookupHash = byteArrayOf(1, 2, 3, 4, 5, 6, 7, 8)
     private val otherLookupHash = byteArrayOf(8, 7, 6, 5, 4, 3, 2, 1)
 
-    @ParameterizedTest(name = "save - Round-trips the byte arrays and the claim map on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Round-trips the byte arrays and the claim map`(database: Database) = withFixture(database) {
         val invitations = repository<InvitationRepository>()
@@ -44,7 +44,7 @@ class InvitationRepositoryTest {
         assertEquals(BASE_DATE, stored.createdAt)
     }
 
-    @ParameterizedTest(name = "save - Round-trips an invitation carrying no claim on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Round-trips an invitation carrying no claim`(database: Database) = withFixture(database) {
         val invitations = repository<InvitationRepository>()
@@ -60,7 +60,7 @@ class InvitationRepositoryTest {
         assertNull(stored.revokedAt)
     }
 
-    @ParameterizedTest(name = "findByTokenLookupHash - Finds the invitation by its hash on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByTokenLookupHash - Finds the invitation by its hash`(database: Database) = withFixture(database) {
         val invitations = repository<InvitationRepository>()
@@ -72,7 +72,7 @@ class InvitationRepositoryTest {
         assertEquals(id, found?.id)
     }
 
-    @ParameterizedTest(name = "findByTokenLookupHash - Returns null when no hash matches on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByTokenLookupHash - Returns null when no hash matches`(database: Database) = withFixture(database) {
         val invitations = repository<InvitationRepository>()
@@ -81,7 +81,7 @@ class InvitationRepositoryTest {
         assertNull(invitations.findByTokenLookupHash(byteArrayOf(99, 98, 97)))
     }
 
-    @ParameterizedTest(name = "findByAudienceId - Returns the invitations of the audience on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByAudienceId - Returns the invitations of the audience`(database: Database) = withFixture(database) {
         val invitations = repository<InvitationRepository>()
@@ -93,7 +93,7 @@ class InvitationRepositoryTest {
         assertEquals(listOf(id), found.map { it.id!! })
     }
 
-    @ParameterizedTest(name = "findByCreatedById - Returns the invitations that author created on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByCreatedById - Returns the invitations that author created`(database: Database) =
         withFixture(database) {
@@ -106,7 +106,7 @@ class InvitationRepositoryTest {
             assertEquals(listOf(id), found.map { it.id!! })
         }
 
-    @ParameterizedTest(name = "updateStatus - Consumes the invitation on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `updateStatus - Consumes the invitation`(database: Database) = withFixture(database) {
         val invitations = repository<InvitationRepository>()
@@ -122,7 +122,7 @@ class InvitationRepositoryTest {
         assertEquals(consumedAt, stored?.consumedAt)
     }
 
-    @ParameterizedTest(name = "updateRevokedAt - Revokes the invitation on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `updateRevokedAt - Revokes the invitation`(database: Database) = withFixture(database) {
         val invitations = repository<InvitationRepository>()

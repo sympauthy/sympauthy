@@ -19,7 +19,7 @@ class InteractiveFlowSessionConfirmRepositoryTest {
     private val action = "MFA_ENROLLMENT"
     private val clientId = "interactive-flow-session-confirm-repository-test-client"
 
-    @ParameterizedTest(name = "save - Carries the assigned key and round-trips the row on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Carries the assigned key and round-trips the row`(database: Database) = withFixture(database) {
         val records = repository<InteractiveFlowSessionConfirmRepository>()
@@ -36,7 +36,7 @@ class InteractiveFlowSessionConfirmRepositoryTest {
     }
 
     /** An administrator initiates the action with no client to name, and the column admits that. */
-    @ParameterizedTest(name = "save - Round-trips a record naming no client on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Round-trips a record naming no client`(database: Database) = withFixture(database) {
         val records = repository<InteractiveFlowSessionConfirmRepository>()
@@ -49,7 +49,7 @@ class InteractiveFlowSessionConfirmRepositoryTest {
         assertNull(stored!!.clientId)
     }
 
-    @ParameterizedTest(name = "save - Round-trips the confirmation date on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Round-trips the confirmation date`(database: Database) = withFixture(database) {
         val records = repository<InteractiveFlowSessionConfirmRepository>()
@@ -61,7 +61,7 @@ class InteractiveFlowSessionConfirmRepositoryTest {
         assertEquals(confirmedDate, records.findById(session.id!!)?.confirmedDate)
     }
 
-    @ParameterizedTest(name = "findBySessionId - Finds the record of the session on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findBySessionId - Finds the record of the session`(database: Database) = withFixture(database) {
         val records = repository<InteractiveFlowSessionConfirmRepository>()
@@ -73,7 +73,7 @@ class InteractiveFlowSessionConfirmRepositoryTest {
         assertNull(records.findBySessionId(other.id!!))
     }
 
-    @ParameterizedTest(name = "deleteBySessionIdIn - Removes the records and counts them on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `deleteBySessionIdIn - Removes the records and counts them`(database: Database) = withFixture(database) {
         val records = repository<InteractiveFlowSessionConfirmRepository>()

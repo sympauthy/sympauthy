@@ -19,7 +19,7 @@ class UserRepositoryTest {
     private val status = "user-repository-test-enabled"
     private val otherStatus = "user-repository-test-locked"
 
-    @ParameterizedTest(name = "save - Generates the identifier and round-trips the row on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Generates the identifier and round-trips the row`(database: Database) = withFixture(database) {
         val users = repository<UserRepository>()
@@ -33,7 +33,7 @@ class UserRepositoryTest {
         assertEquals(BASE_DATE, stored.creationDate)
     }
 
-    @ParameterizedTest(name = "findByStatus - Streams the users holding the status on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByStatus - Streams the users holding the status`(database: Database) = withFixture(database) {
         val users = repository<UserRepository>()
@@ -46,7 +46,7 @@ class UserRepositoryTest {
         assertEquals(setOf(first, second), found.toSet())
     }
 
-    @ParameterizedTest(name = "findByStatus - Streams nothing when no user holds the status on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByStatus - Streams nothing when no user holds the status`(database: Database) =
         withFixture(database) {
@@ -57,7 +57,7 @@ class UserRepositoryTest {
             assertTrue(found.isEmpty())
         }
 
-    @ParameterizedTest(name = "findByIdInList - Returns every user in the list on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByIdInList - Returns every user in the list`(database: Database) = withFixture(database) {
         val users = repository<UserRepository>()
@@ -71,7 +71,7 @@ class UserRepositoryTest {
         assertTrue(!found.contains(unlisted))
     }
 
-    @ParameterizedTest(name = "findByIdInList - Returns nothing when the list is empty on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByIdInList - Returns nothing when the list is empty`(database: Database) = withFixture(database) {
         newUser(status = status)

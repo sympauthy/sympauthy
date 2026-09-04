@@ -23,7 +23,7 @@ import java.util.*
  */
 class ValidationCodeRepositoryTest {
 
-    @ParameterizedTest(name = "save - Round-trips the reason array on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Round-trips the reason array`(database: Database) = withFixture(database) {
         val codes = repository<ValidationCodeRepository>()
@@ -41,7 +41,7 @@ class ValidationCodeRepositoryTest {
         assertNull(stored.validationDate)
     }
 
-    @ParameterizedTest(name = "findBySessionId - Returns the codes of the session on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findBySessionId - Returns the codes of the session`(database: Database) = withFixture(database) {
         val codes = repository<ValidationCodeRepository>()
@@ -56,7 +56,7 @@ class ValidationCodeRepositoryTest {
         assertEquals(listOf(id), found.map { it.id!! })
     }
 
-    @ParameterizedTest(name = "findBySessionIdAndMedia - Narrows the session codes to one medium on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findBySessionIdAndMedia - Narrows the session codes to one medium`(database: Database) =
         withFixture(database) {
@@ -71,7 +71,7 @@ class ValidationCodeRepositoryTest {
             assertEquals(listOf(byEmail), found.map { it.id!! })
         }
 
-    @ParameterizedTest(name = "deleteByIds - Removes every code named on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `deleteByIds - Removes every code named`(database: Database) = withFixture(database) {
         val codes = repository<ValidationCodeRepository>()
@@ -88,7 +88,7 @@ class ValidationCodeRepositoryTest {
         assertNotNull(codes.findById(kept))
     }
 
-    @ParameterizedTest(name = "deleteBySessionIdIn - Removes the codes of every session and counts them on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `deleteBySessionIdIn - Removes the codes of every session and counts them`(database: Database) =
         withFixture(database) {

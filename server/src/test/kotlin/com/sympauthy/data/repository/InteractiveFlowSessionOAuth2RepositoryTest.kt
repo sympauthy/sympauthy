@@ -22,7 +22,7 @@ class InteractiveFlowSessionOAuth2RepositoryTest {
 
     private val clientId = "interactive-flow-session-oauth2-repository-test-client"
 
-    @ParameterizedTest(name = "save - Carries the assigned key and round-trips the scope arrays on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Carries the assigned key and round-trips the scope arrays`(database: Database) =
         withFixture(database) {
@@ -40,7 +40,7 @@ class InteractiveFlowSessionOAuth2RepositoryTest {
         }
 
     /** A failed authorize request keeps its state without a client, a redirect uri or any scope decision. */
-    @ParameterizedTest(name = "save - Round-trips a record whose optional columns are all absent on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Round-trips a record whose optional columns are all absent`(database: Database) =
         withFixture(database) {
@@ -60,7 +60,7 @@ class InteractiveFlowSessionOAuth2RepositoryTest {
             assertArrayEquals(emptyArray<String>(), stored.requestedScopes)
         }
 
-    @ParameterizedTest(name = "findBySessionId - Finds the record of the session on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findBySessionId - Finds the record of the session`(database: Database) = withFixture(database) {
         val records = repository<InteractiveFlowSessionOAuth2Repository>()
@@ -72,7 +72,7 @@ class InteractiveFlowSessionOAuth2RepositoryTest {
         assertNull(records.findBySessionId(other.id!!))
     }
 
-    @ParameterizedTest(name = "findByState - Finds the record bearing the state on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByState - Finds the record bearing the state`(database: Database) = withFixture(database) {
         val records = repository<InteractiveFlowSessionOAuth2Repository>()
@@ -85,7 +85,7 @@ class InteractiveFlowSessionOAuth2RepositoryTest {
         assertNull(records.findByState("interactive-flow-session-oauth2-repository-test-absent"))
     }
 
-    @ParameterizedTest(name = "updateConsentedScopes - Writes the list into the array column on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `updateConsentedScopes - Writes the list into the array column`(database: Database) =
         withFixture(database) {
@@ -103,7 +103,7 @@ class InteractiveFlowSessionOAuth2RepositoryTest {
             assertNull(stored.grantedScopes)
         }
 
-    @ParameterizedTest(name = "updateGrantedScopes - Writes the list into the array column on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `updateGrantedScopes - Writes the list into the array column`(database: Database) =
         withFixture(database) {
@@ -120,7 +120,7 @@ class InteractiveFlowSessionOAuth2RepositoryTest {
             assertEquals("rule", stored.grantedBy)
         }
 
-    @ParameterizedTest(name = "deleteBySessionIdIn - Removes the records and counts them on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `deleteBySessionIdIn - Removes the records and counts them`(database: Database) = withFixture(database) {
         val records = repository<InteractiveFlowSessionOAuth2Repository>()

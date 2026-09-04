@@ -19,7 +19,7 @@ import java.util.*
  */
 class InteractiveFlowSessionReauthenticationRepositoryTest {
 
-    @ParameterizedTest(name = "save - Carries the assigned key and leaves the marker unset on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Carries the assigned key and leaves the marker unset`(database: Database) =
         withFixture(database) {
@@ -34,7 +34,7 @@ class InteractiveFlowSessionReauthenticationRepositoryTest {
             assertNull(stored.primaryCredentialProvenDate)
         }
 
-    @ParameterizedTest(name = "save - Round-trips the date the credential was proven on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Round-trips the date the credential was proven`(database: Database) = withFixture(database) {
         val records = repository<InteractiveFlowSessionReauthenticationRepository>()
@@ -46,7 +46,7 @@ class InteractiveFlowSessionReauthenticationRepositoryTest {
         assertEquals(provenDate, records.findById(session.id!!)?.primaryCredentialProvenDate)
     }
 
-    @ParameterizedTest(name = "findBySessionId - Finds the record of the session on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findBySessionId - Finds the record of the session`(database: Database) = withFixture(database) {
         val records = repository<InteractiveFlowSessionReauthenticationRepository>()
@@ -58,7 +58,7 @@ class InteractiveFlowSessionReauthenticationRepositoryTest {
         assertNull(records.findBySessionId(other.id!!))
     }
 
-    @ParameterizedTest(name = "deleteBySessionIdIn - Removes the records and counts them on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `deleteBySessionIdIn - Removes the records and counts them`(database: Database) = withFixture(database) {
         val records = repository<InteractiveFlowSessionReauthenticationRepository>()

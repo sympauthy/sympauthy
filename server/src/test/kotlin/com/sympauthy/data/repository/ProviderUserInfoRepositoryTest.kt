@@ -27,7 +27,7 @@ class ProviderUserInfoRepositoryTest {
 
     private val fetchedAt: LocalDateTime = BASE_DATE.plusMonths(2)
 
-    @ParameterizedTest(name = "save - Round-trips every column it was given on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Round-trips every column it was given`(database: Database) = withFixture(database) {
         val userId = newUser()
@@ -49,7 +49,7 @@ class ProviderUserInfoRepositoryTest {
         assertEquals("Europe/London", stored.zoneInfo)
     }
 
-    @ParameterizedTest(name = "update - Carries the link date back unchanged while the fetch date moves on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `update - Carries the link date back unchanged while the fetch date moves`(database: Database) =
         withFixture(database) {
@@ -67,7 +67,7 @@ class ProviderUserInfoRepositoryTest {
             assertEquals(fetchedAt, refreshed.changeDate)
         }
 
-    @ParameterizedTest(name = "findByProviderIdAndSubject - Finds the link bearing the subject on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByProviderIdAndSubject - Finds the link bearing the subject`(database: Database) =
         withFixture(database) {
@@ -81,7 +81,7 @@ class ProviderUserInfoRepositoryTest {
             assertNull(links.findByProviderIdAndSubject(otherProviderId, "123456789012345678"))
         }
 
-    @ParameterizedTest(name = "findByUserId - Returns every provider the user is linked to on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByUserId - Returns every provider the user is linked to`(database: Database) =
         withFixture(database) {
@@ -94,7 +94,7 @@ class ProviderUserInfoRepositoryTest {
             assertEquals(setOf(providerId, otherProviderId), found.map { it.id.providerId }.toSet())
         }
 
-    @ParameterizedTest(name = "findByUserIdInList - Returns the links of every user in the list on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByUserIdInList - Returns the links of every user in the list`(database: Database) =
         withFixture(database) {
@@ -110,7 +110,7 @@ class ProviderUserInfoRepositoryTest {
             assertEquals(setOf(linked, alsoLinked), found.map { it.id.userId }.toSet())
         }
 
-    @ParameterizedTest(name = "deleteByProviderIdAndUserId - Removes one link and counts it on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `deleteByProviderIdAndUserId - Removes one link and counts it`(database: Database) =
         withFixture(database) {

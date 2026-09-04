@@ -21,7 +21,7 @@ class CryptoKeysRepositoryTest {
     private val name = "crypto-keys-repository-test"
     private val otherName = "crypto-keys-repository-test-other"
 
-    @ParameterizedTest(name = "save - Carries the assigned name and round-trips the key bytes on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Carries the assigned name and round-trips the key bytes`(database: Database) =
         withFixture(database) {
@@ -42,10 +42,10 @@ class CryptoKeysRepositoryTest {
     /**
      * A symmetric secret has no public half, and [com.sympauthy.business.model.key.HMACKeyImpl] spells
      * that as an empty array rather than as the null the column and the entity both admit: PostgreSQL
-     * types a null `ByteArray` parameter as `smallint[]` and refuses it against a `bytea`. This holds
-     * the workaround in place — restore the null and the PostgreSQL run fails here.
+     * types a null `ByteArray` parameter as `smallint[]` and refuses it against a `bytea` (#379). What
+     * is proved here is the empty array that stands in for it, not the null it avoids.
      */
-    @ParameterizedTest(name = "save - Round-trips the empty public half of a symmetric key on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Round-trips the empty public half of a symmetric key`(database: Database) =
         withFixture(database) {
@@ -60,7 +60,7 @@ class CryptoKeysRepositoryTest {
             assertArrayEquals(byteArrayOf(4, 5, 6, 7), stored.privateKey)
         }
 
-    @ParameterizedTest(name = "findByName - Finds the keys stored under the name on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByName - Finds the keys stored under the name`(database: Database) = withFixture(database) {
         val keys = repository<CryptoKeysRepository>()

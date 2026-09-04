@@ -23,7 +23,7 @@ class IndexedCryptoKeysRepositoryTest {
     private val name = "indexed-crypto-keys-repository-test"
     private val otherName = "indexed-crypto-keys-repository-test-other"
 
-    @ParameterizedTest(name = "save - Generates the index and round-trips the key bytes on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Generates the index and round-trips the key bytes`(database: Database) = withFixture(database) {
         val keys = repository<IndexedCryptoKeysRepository>()
@@ -39,7 +39,7 @@ class IndexedCryptoKeysRepositoryTest {
         assertEquals(BASE_DATE, stored.creationDate)
     }
 
-    @ParameterizedTest(name = "save - Hands each row a distinct index on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Hands each row a distinct index`(database: Database) = withFixture(database) {
         val first = saveKeys(name)
@@ -48,7 +48,7 @@ class IndexedCryptoKeysRepositoryTest {
         assertTrue(first != second)
     }
 
-    @ParameterizedTest(name = "findByNameAndAlgorithm - Returns the series under both keys on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByNameAndAlgorithm - Returns the series under both keys`(database: Database) =
         withFixture(database) {
@@ -63,7 +63,7 @@ class IndexedCryptoKeysRepositoryTest {
             assertEquals(setOf(first, second), found.map { it.index!! }.toSet())
         }
 
-    @ParameterizedTest(name = "findByNameAndAlgorithm - Returns nothing when the series is unknown on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByNameAndAlgorithm - Returns nothing when the series is unknown`(database: Database) =
         withFixture(database) {
@@ -76,7 +76,7 @@ class IndexedCryptoKeysRepositoryTest {
         }
 
     /** The empty public half a symmetric key carries, for the reason [CryptoKeysRepositoryTest] gives. */
-    @ParameterizedTest(name = "save - Round-trips the empty public half of a symmetric key on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Round-trips the empty public half of a symmetric key`(database: Database) =
         withFixture(database) {

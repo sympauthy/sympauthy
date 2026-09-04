@@ -25,7 +25,7 @@ class MailQueueRepositoryTest {
     private val receiver = "mail-queue-repository-test@example.org"
     private val otherReceiver = "mail-queue-repository-test-other@example.org"
 
-    @ParameterizedTest(name = "save - Round-trips the parameter map on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Round-trips the parameter map`(database: Database) = withFixture(database) {
         val mails = repository<MailQueueRepository>()
@@ -41,7 +41,7 @@ class MailQueueRepositoryTest {
     }
 
     /** The column is non-null, so an empty map has to survive as an empty map rather than as a null. */
-    @ParameterizedTest(name = "save - Round-trips an empty parameter map on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Round-trips an empty parameter map`(database: Database) = withFixture(database) {
         val mails = repository<MailQueueRepository>()
@@ -53,7 +53,7 @@ class MailQueueRepositoryTest {
         assertEquals(emptyMap<String, String>(), stored!!.parameters)
     }
 
-    @ParameterizedTest(name = "findByExpirationDateIsNullOrExpirationDateAfter - Keeps the pending mail on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `findByExpirationDateIsNullOrExpirationDateAfter - Keeps the mail that has not expired`(
         database: Database
@@ -72,16 +72,19 @@ class MailQueueRepositoryTest {
         assertFalse(found.contains(expired))
     }
 
-    @ParameterizedTest(name = "deleteByExpirationDateBefore - Removes the expired mail and counts it on {0}")
+    @ParameterizedTest
     @EnumSource(Database::class)
     fun `deleteByExpirationDateBefore - Removes the expired mail and counts it`(database: Database) =
         withFixture(database) {
             val mails = repository<MailQueueRepository>()
-            val expired = saveMail(expirationDate = BASE_DATE.minusDays(2), receiver = otherReceiver)
+            // This delete takes no key that could name the test class, so the window is put decades
+            // before any row another class would write rather than counting a neighbour's mail.
+            val longExpired = BASE_DATE.minusYears(50)
+            val expired = saveMail(expirationDate = longExpired, receiver = otherReceiver)
             val neverExpires = saveMail(expirationDate = null, receiver = otherReceiver)
             val stillPending = saveMail(expirationDate = BASE_DATE.plusDays(2), receiver = otherReceiver)
 
-            val count = mails.deleteByExpirationDateBefore(BASE_DATE)
+            val count = mails.deleteByExpirationDateBefore(longExpired.plusDays(1))
 
             assertEquals(1, count)
             assertNull(mails.findById(expired))
