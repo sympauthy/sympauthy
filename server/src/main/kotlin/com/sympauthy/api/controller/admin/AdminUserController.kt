@@ -6,6 +6,7 @@ import com.sympauthy.api.resource.admin.AdminUserDetailResource
 import com.sympauthy.api.resource.admin.AdminUserListResource
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.filterOf
+import com.sympauthy.api.util.orderOf
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
@@ -51,7 +52,10 @@ class AdminUserController(
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of users."),
-            ApiResponse(responseCode = "400", description = "Invalid page, size, claim ID, status, or sort property."),
+            ApiResponse(
+                responseCode = "400",
+                description = "Invalid page, size, claim ID, status, sort property, or sort direction."
+            ),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
                 responseCode = "403",
@@ -76,11 +80,12 @@ class AdminUserController(
             description = "Partial case-insensitive text search across all enabled claim values."
         ) q: String?,
         @QueryValue @Parameter(description = "Property to sort by: created_at, status, or a claim identifier.") sort: String?,
-        @QueryValue @Parameter(description = "Sort direction: asc or desc.") order: String?
+        @QueryValue @Parameter(description = "Sort direction: asc or desc. Defaults to asc.") order: String?
     ): AdminUserListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
-        // Resolved before anything is read, so a status naming nothing is refused on its own.
+        // Resolved before anything is read, so a status or a direction naming nothing is refused on its own.
         val resolvedStatus = filterOf<UserStatus>("status", status)
+        val resolvedOrder = orderOf("order", order)
         val selectedClaims = userSearchManager.listSelectedClaims(claimIdsOf(claims))
 
         val claimFilters = request.parameters
@@ -93,7 +98,7 @@ class AdminUserController(
             query = q,
             claimFilters = claimFilters,
             sort = sort,
-            order = order,
+            order = resolvedOrder,
             pageParams = pageParams
         )
 

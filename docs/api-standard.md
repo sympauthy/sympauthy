@@ -121,6 +121,10 @@ tail and a client walking pages 0..N is never shifted under.
 **An endpoint sorting on a column the row rewrites says so where it is documented.** Two calls still
 agree on a snapshot; a walk in progress can skip a row or see it twice.
 
+**A sort direction is `asc` or `desc`, and a word naming neither is a `400` naming the parameter.**
+A caller who named no direction takes the endpoint's own; one who named a direction and spelled it
+wrong is told so, rather than handed the opposite of what they asked for.
+
 **The order is named in the endpoint's own description**, which is what an integrator reads.
 
 ## Errors

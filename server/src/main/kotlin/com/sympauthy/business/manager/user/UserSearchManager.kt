@@ -7,6 +7,7 @@ import com.sympauthy.business.mapper.CollectedClaimMapper
 import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
+import com.sympauthy.business.model.page.SortOrder
 import com.sympauthy.business.model.page.map
 import com.sympauthy.business.model.page.orderedPage
 import com.sympauthy.business.model.user.CollectedClaim
@@ -59,7 +60,7 @@ class UserSearchManager(
         query: String?,
         claimFilters: Map<String, String>,
         sort: String?,
-        order: String?,
+        order: SortOrder?,
         pageParams: PageParams
     ): Page<UserWithClaims> {
         // Built before the search so a sort property naming nothing is refused without reading every user.
@@ -150,9 +151,9 @@ class UserSearchManager(
     /**
      * Build the order a page of [listUsers] results is returned in.
      *
-     * [sort] names `created_at`, `status` or a claim id, and [order] is `asc` or `desc`, ascending when it is
-     * null. A [sort] naming none of those is the caller's mistake and throws a recoverable business exception
-     * carrying `user.search.invalid_sort`.
+     * [sort] names `created_at`, `status` or a claim id, and [order] is the direction it is read in, ascending
+     * where the caller named none. A [sort] naming none of those is the caller's mistake and throws a recoverable
+     * business exception carrying `user.search.invalid_sort`.
      *
      * What the caller asked to sort by decides nothing between two users holding the same value, so the order
      * ends in the user's identifier and is total. That tiebreak stays ascending under `order=desc`: it is not
@@ -160,7 +161,7 @@ class UserSearchManager(
      */
     internal suspend fun getUserComparator(
         sort: String?,
-        order: String?
+        order: SortOrder?
     ): Comparator<SearchedUser> {
         val enabledClaimIds = claimManager.listEnabledClaims().map { it.id }.toSet()
         if (sort != null && sort != "created_at" && sort != "status" && sort !in enabledClaimIds) {
@@ -183,8 +184,7 @@ class UserSearchManager(
             }
         }
 
-        val ascending = order?.lowercase() != "desc"
-        return (if (ascending) bySortProperty else bySortProperty.reversed())
+        return (if (order == SortOrder.DESC) bySortProperty.reversed() else bySortProperty)
             .thenBy { it.user.id }
     }
 
