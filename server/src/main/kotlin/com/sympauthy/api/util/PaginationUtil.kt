@@ -1,6 +1,6 @@
 package com.sympauthy.api.util
 
-import com.sympauthy.api.exception.httpExceptionOf
+import com.sympauthy.api.exception.recoverableHttpExceptionOf
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.orThrow
@@ -43,19 +43,19 @@ class PaginationUtil(
         val resolvedSize = size ?: pagination.defaultSize
 
         if (resolvedPage < 0) {
-            throw httpExceptionOf(
+            throw recoverableHttpExceptionOf(
                 BAD_REQUEST, "pagination.page.negative", "description.pagination.page.negative",
                 "page" to resolvedPage.toString()
             )
         }
         if (resolvedSize < 1) {
-            throw httpExceptionOf(
+            throw recoverableHttpExceptionOf(
                 BAD_REQUEST, "pagination.size.too_small", "description.pagination.size.too_small",
                 "size" to resolvedSize.toString()
             )
         }
         if (resolvedSize > pagination.maxSize) {
-            throw httpExceptionOf(
+            throw recoverableHttpExceptionOf(
                 BAD_REQUEST, "pagination.size.too_large", "description.pagination.size.too_large",
                 "size" to resolvedSize.toString(),
                 "maxSize" to pagination.maxSize.toString()
@@ -64,7 +64,7 @@ class PaginationUtil(
 
         val maxPage = Int.MAX_VALUE.toLong() / resolvedSize
         if (resolvedPage > maxPage) {
-            throw httpExceptionOf(
+            throw recoverableHttpExceptionOf(
                 BAD_REQUEST, "pagination.page.too_large", "description.pagination.page.too_large",
                 "page" to resolvedPage.toString(),
                 "size" to resolvedSize.toString(),

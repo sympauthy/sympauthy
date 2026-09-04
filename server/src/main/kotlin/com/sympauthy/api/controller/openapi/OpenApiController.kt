@@ -35,7 +35,7 @@ class OpenApiController(
         if (annotation != null) {
             it.onSuccess("${annotation.info.title.lowercase()}-${annotation.info.version}.yml")
         } else {
-            it.onError(httpExceptionOf(NOT_FOUND, "not_found"))
+            it.onError(httpExceptionOf(NOT_FOUND, "not_found", "description.not_found"))
         }
     }.cache()
 
@@ -52,7 +52,7 @@ class OpenApiController(
                 it.readAllBytes().toString(Charset.forName("UTF-8"))
                     .replace("{rootUrl}", rootUrl)
             }
-        } ?: throw httpExceptionOf(NOT_FOUND, "not_found")
+        } ?: throw httpExceptionOf(NOT_FOUND, "not_found", "description.not_found")
     }
 
     companion object {

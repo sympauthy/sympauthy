@@ -63,6 +63,7 @@ class InteractiveAuthFlowSessionControllerUtil(
         val onGoingSession = (session as? OnGoingInteractiveFlowSession) ?: throw httpExceptionOf(
             status = HttpStatus.BAD_REQUEST,
             detailsId = "ctrl.flow.not_ongoing",
+            descriptionId = "description.ctrl.flow.not_ongoing",
         )
         return run(onGoingSession, flow)
     }
@@ -330,6 +331,7 @@ class InteractiveAuthFlowSessionControllerUtil(
                 // respond with an error but without a redirect uri.
                 throw LocalizedHttpException(
                     status = HttpStatus.BAD_REQUEST,
+                    recoverable = false,
                     detailsId = verifyResult.detailsId,
                     descriptionId = verifyResult.descriptionId,
                     values = verifyResult.values,

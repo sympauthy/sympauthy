@@ -2,6 +2,7 @@ package com.sympauthy.api.errorhandler
 
 import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.exception.httpExceptionOf
+import com.sympauthy.api.exception.recoverableHttpExceptionOf
 import com.sympauthy.api.exception.toHttpException
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.exception.LocalizedException
@@ -42,7 +43,7 @@ class ExceptionNormalizer {
                 descriptionId = "description.forbidden"
             )
         } else {
-            httpExceptionOf(
+            recoverableHttpExceptionOf(
                 status = UNAUTHORIZED,
                 detailsId = "unauthorized",
                 descriptionId = "description.unauthorized"

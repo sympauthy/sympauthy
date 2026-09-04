@@ -1,6 +1,6 @@
 package com.sympauthy.api.util
 
-import com.sympauthy.api.exception.httpExceptionOf
+import com.sympauthy.api.exception.recoverableHttpExceptionOf
 import com.sympauthy.business.model.page.SortOrder
 import com.sympauthy.util.wireName
 import io.micronaut.http.HttpStatus.BAD_REQUEST
@@ -25,7 +25,7 @@ inline fun <reified T : Enum<T>> queryValueOf(
 ): T? {
     if (value == null) return null
     return enumValues<T>().firstOrNull { it.wireName.equals(value, ignoreCase = true) }
-        ?: throw httpExceptionOf(
+        ?: throw recoverableHttpExceptionOf(
             BAD_REQUEST, detailsId, descriptionId,
             "parameter" to name,
             "value" to value,

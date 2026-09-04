@@ -51,7 +51,7 @@ class UserAuthentication(
 val Authentication.userAuthentication: UserAuthentication
     get() = when (this) {
         is UserAuthentication -> this
-        else -> throw httpExceptionOf(FORBIDDEN, "authentication.wrong")
+        else -> throw httpExceptionOf(FORBIDDEN, "authentication.wrong", "description.authentication.wrong")
     }
 
 val Authentication.consentedScopes: List<EnabledScope>
