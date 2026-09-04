@@ -5,11 +5,13 @@ import com.sympauthy.api.mapper.admin.AdminUserResourceMapper
 import com.sympauthy.api.resource.admin.AdminUserDetailResource
 import com.sympauthy.api.resource.admin.AdminUserListResource
 import com.sympauthy.api.util.PaginationUtil
+import com.sympauthy.api.util.filterOf
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.manager.user.UserSearchManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
+import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.security.SecurityRule.ADMIN_USERS_READ
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.annotation.Controller
@@ -77,6 +79,8 @@ class AdminUserController(
         @QueryValue @Parameter(description = "Sort direction: asc or desc.") order: String?
     ): AdminUserListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
+        // Resolved before anything is read, so a status naming nothing is refused on its own.
+        val resolvedStatus = filterOf<UserStatus>("status", status)
         val selectedClaims = userSearchManager.listSelectedClaims(claimIdsOf(claims))
 
         val claimFilters = request.parameters
@@ -85,7 +89,7 @@ class AdminUserController(
             .mapValues { (_, values) -> values.first() }
 
         val users = userSearchManager.listUsers(
-            status = status,
+            status = resolvedStatus,
             query = q,
             claimFilters = claimFilters,
             sort = sort,

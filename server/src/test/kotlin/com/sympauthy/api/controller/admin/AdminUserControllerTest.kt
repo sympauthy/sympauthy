@@ -126,7 +126,7 @@ class AdminUserControllerTest {
 
         coEvery { userSearchManager.listSelectedClaims(null) } returns emptyList()
         coEvery {
-            userSearchManager.listUsers("enabled", "jane", emptyMap(), "email", "desc", PageParams(1, 2))
+            userSearchManager.listUsers(UserStatus.ENABLED, "jane", emptyMap(), "email", "desc", PageParams(1, 2))
         } returns pageOf(user)
         every { userMapper.toResource(user, emptyList()) } returns resource
 
@@ -193,6 +193,18 @@ class AdminUserControllerTest {
         assertEquals(3, result.page)
         assertEquals(7, result.size)
         assertEquals(42, result.total)
+    }
+
+    @Test
+    fun `listUsers - Refuse a status the set does not hold`() = runTest {
+        // Neither the request nor the search is stubbed on purpose: reaching the assertion is proof
+        // that a status naming nothing is refused before either of them is read.
+        val exception = assertThrows<LocalizedHttpException> {
+            controller.listUsers(mockk(), null, null, "disabl", null, null, null, null)
+        }
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.status)
+        assertEquals("filter.value.unsupported", exception.detailsId)
     }
 
     @Test

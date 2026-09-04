@@ -151,27 +151,12 @@ class UserSearchManagerTest {
         coEvery { collectedClaimRepository.findByUserIdInList(any()) } returns emptyList()
 
         val result = manager.listUsers(
-            status = "enabled", query = null, claimFilters = emptyMap(),
+            status = UserStatus.ENABLED, query = null, claimFilters = emptyMap(),
             sort = null, order = null, pageParams = firstPage
         )
 
         assertEquals(1, result.items.size)
         coVerify { userRepository.findByStatus("ENABLED") }
-    }
-
-    @Test
-    fun `listUsers - throws on invalid status`() = runTest {
-        every { claimManager.listEnabledClaims() } returns emptyList()
-
-        val exception = assertThrows<BusinessException> {
-            manager.listUsers(
-                status = "invalid", query = null, claimFilters = emptyMap(),
-                sort = null, order = null, pageParams = firstPage
-            )
-        }
-
-        assertEquals("user.search.invalid_status", exception.detailsId)
-        assertTrue(exception.recoverable)
     }
 
     @Test

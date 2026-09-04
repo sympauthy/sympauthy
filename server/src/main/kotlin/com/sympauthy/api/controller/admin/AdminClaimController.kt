@@ -3,7 +3,7 @@ package com.sympauthy.api.controller.admin
 import com.sympauthy.api.mapper.admin.AdminClaimResourceMapper
 import com.sympauthy.api.resource.admin.AdminClaimListResource
 import com.sympauthy.api.util.PaginationUtil
-import com.sympauthy.api.util.valueFilterOf
+import com.sympauthy.api.util.filterOf
 import com.sympauthy.business.manager.ClaimSearchManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.business.model.user.claim.ClaimOrigin
@@ -57,7 +57,7 @@ class AdminClaimController(
         val claims = claimSearchManager.listClaims(
             enabled = enabled,
             required = required,
-            origin = valueFilterOf<ClaimOrigin>(origin) { it.value },
+            origin = filterOf<ClaimOrigin>("origin", origin) { it.value },
             pageParams = pageParams
         )
         return AdminClaimListResource(

@@ -101,6 +101,11 @@ ordinary query parameters and both are optional.
 below one, and a page whose offset overflows the integer the layer below counts rows with are each
 refused rather than clamped.
 
+**A filter value naming nothing the set holds is a `400` naming the parameter.** A caller asking for
+something this deployment cannot have is told so, rather than handed an empty page that reads as a
+deployment holding none of it; an identifier filter is not a set, and one naming no row still
+answers with an empty page.
+
 **`size` has a ceiling, and a deployment sets it.** The default size and the ceiling are
 configuration, and the shipped values are in the default configuration file.
 

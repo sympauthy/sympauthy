@@ -14,7 +14,6 @@ import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.UserRepository
-import com.sympauthy.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.flow.toList
@@ -44,17 +43,17 @@ class UserSearchManager(
     /**
      * Read the page [pageParams] names of the users the criteria keep, each with their claims.
      *
-     * Every criterion is optional and they compose: [status] keeps the users in one [UserStatus], [query] is a
+     * Every criterion is optional and they compose: [status] keeps the users in one status, [query] is a
      * partial case-insensitive match across the values of every enabled claim, and [claimFilters] are
      * exact-match values keyed by claim id. [sort] and [order] are the order the page is read in, which
      * [getUserComparator] builds.
      *
      * A criterion naming something that does not exist is the caller's mistake rather than an empty result: an
-     * unknown claim id, status or sort property each throw a recoverable business exception carrying
-     * `user.search.invalid_claim`, `user.search.invalid_status` or `user.search.invalid_sort`.
+     * unknown claim id or sort property each throw a recoverable business exception carrying
+     * `user.search.invalid_claim` or `user.search.invalid_sort`.
      */
     suspend fun listUsers(
-        status: String?,
+        status: UserStatus?,
         query: String?,
         claimFilters: Map<String, String>,
         sort: String?,
@@ -77,21 +76,8 @@ class UserSearchManager(
             claimId to value
         }
 
-        val resolvedStatus = status?.let {
-            try {
-                UserStatus.valueOf(it.uppercase())
-            } catch (_: IllegalArgumentException) {
-                throw recoverableBusinessExceptionOf(
-                    "user.search.invalid_status",
-                    "description.user.search.invalid_status",
-                    "status" to it,
-                    "supportedValues" to UserStatus.entries.joinToString(", ") { s -> s.wireName }
-                )
-            }
-        }
-
-        val userEntities = if (resolvedStatus != null) {
-            userRepository.findByStatus(resolvedStatus.name).toList()
+        val userEntities = if (status != null) {
+            userRepository.findByStatus(status.name).toList()
         } else {
             userRepository.findAll().toList()
         }

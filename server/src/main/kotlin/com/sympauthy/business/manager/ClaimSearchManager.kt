@@ -1,6 +1,5 @@
 package com.sympauthy.business.manager
 
-import com.sympauthy.business.model.filter.ValueFilter
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.page.orderedPage
@@ -28,18 +27,18 @@ class ClaimSearchManager(
      * serves first and each group ordered by identifier.
      *
      * [enabled], [required] and [origin] compose, and each keeps every claim where the caller named
-     * no criterion. An [origin] naming no [ClaimOrigin] keeps nothing rather than everything.
+     * no criterion.
      */
     suspend fun listClaims(
         enabled: Boolean?,
         required: Boolean?,
-        origin: ValueFilter<ClaimOrigin>,
+        origin: ClaimOrigin?,
         pageParams: PageParams
     ): Page<Claim> {
         return claimManager.listAllClaims()
             .filter { enabled == null || it.enabled == enabled }
             .filter { required == null || it.required == required }
-            .filter { origin.matches(it.origin) }
+            .filter { origin == null || it.origin == origin }
             .orderedPage(pageParams, compareByDescending<Claim> { it.enabled }.thenBy { it.id })
     }
 }

@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.admin
 
+import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.mapper.admin.AdminInvitationResourceMapper
 import com.sympauthy.api.resource.admin.AdminInvitationResource
 import com.sympauthy.api.util.DEFAULT_PAGE
@@ -7,12 +8,12 @@ import com.sympauthy.api.util.TEST_DEFAULT_PAGE_SIZE
 import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.invitation.InvitationSearchManager
-import com.sympauthy.business.model.filter.ValueFilter
 import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.invitation.InvitationStatus
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
+import io.micronaut.http.HttpStatus
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -22,6 +23,7 @@ import java.time.LocalDateTime
 import java.util.*
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 
@@ -93,7 +95,7 @@ class AdminInvitationControllerTest {
         val second = invitation(id(2), createdAt)
 
         coEvery {
-            invitationSearchManager.listInvitations(null, ValueFilter.Unfiltered(), defaultPage)
+            invitationSearchManager.listInvitations(null, null, defaultPage)
         } returns pageOf(first, second)
         listOf(first, second).forEach {
             every { invitationMapper.toResource(it) } returns mockResource(it.id)
@@ -112,7 +114,7 @@ class AdminInvitationControllerTest {
 
             coEvery {
                 invitationSearchManager.listInvitations(
-                    "other", ValueFilter.Matching(InvitationStatus.REVOKED), PageParams(1, 2)
+                    "other", InvitationStatus.REVOKED, PageParams(1, 2)
                 )
             } returns pageOf(revoked)
             every { invitationMapper.toResource(revoked) } returns resource
@@ -123,21 +125,20 @@ class AdminInvitationControllerTest {
         }
 
     @Test
-    fun `listInvitations - Ask the manager for nothing when the status names no status`() = runTest {
-        coEvery {
-            invitationSearchManager.listInvitations(null, ValueFilter.MatchesNothing(), defaultPage)
-        } returns pageOf()
+    fun `listInvitations - Refuse a status the set does not hold`() = runTest {
+        // The search is left unstubbed on purpose: reaching the assertion is proof it was never asked.
+        val exception = assertThrows<LocalizedHttpException> {
+            controller.listInvitations(null, "cancelled", null, null)
+        }
 
-        val result = controller.listInvitations(null, "cancelled", null, null)
-
-        assertEquals(0, result.total)
-        assertTrue(result.invitations.isEmpty())
+        assertEquals(HttpStatus.BAD_REQUEST, exception.status)
+        assertEquals("filter.value.unsupported", exception.detailsId)
     }
 
     @Test
     fun `listInvitations - Publish the page the manager answered, not the one that was asked for`() = runTest {
         coEvery {
-            invitationSearchManager.listInvitations(null, ValueFilter.Unfiltered(), defaultPage)
+            invitationSearchManager.listInvitations(null, null, defaultPage)
         } returns Page(items = emptyList(), page = 3, size = 7, total = 42)
 
         val result = controller.listInvitations(null, null, null, null)

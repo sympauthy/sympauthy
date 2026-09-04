@@ -3,7 +3,7 @@ package com.sympauthy.api.controller.admin
 import com.sympauthy.api.mapper.admin.AdminScopeResourceMapper
 import com.sympauthy.api.resource.admin.AdminScopeListResource
 import com.sympauthy.api.util.PaginationUtil
-import com.sympauthy.api.util.valueFilterOf
+import com.sympauthy.api.util.filterOf
 import com.sympauthy.business.manager.ScopeSearchManager
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.security.SecurityRule.ADMIN_CONFIG_READ
@@ -50,7 +50,7 @@ class AdminScopeController(
         ) size: Int?,
         @QueryValue @Parameter(
             description = "Filter by scope type: consentable, grantable or client. A value that is none " +
-                    "of them matches no scope."
+                    "of them is refused."
         ) type: String?,
         @QueryValue @Parameter(
             description = "Filter by whether this deployment serves the scope. Omit to list both."
@@ -58,7 +58,7 @@ class AdminScopeController(
     ): AdminScopeListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
         val scopes = scopeSearchManager.listScopes(
-            type = valueFilterOf<ScopeType>(type),
+            type = filterOf<ScopeType>("type", type),
             enabled = enabled,
             pageParams = pageParams
         )

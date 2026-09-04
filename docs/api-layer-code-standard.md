@@ -66,9 +66,8 @@ return it.
 controller binds the parameters, resolves the paging bounds and maps the page it gets back; the
 criteria, the order and the slice are the manager's.
 
-**A filter naming one value out of a closed set crosses as a `ValueFilter`, resolved by
-`valueFilterOf`.** A wire word naming no member of that set becomes the criterion that matches
-nothing, never an absent one.
+**A filter naming one value out of a closed set is resolved by `filterOf`.** A wire word naming no
+member of that set is refused there, so what reaches the manager is the domain value or nothing.
 
 **Every handler is `suspend`**, for [the reason the general standard
 gives](general-code-standard.md#concurrency).

@@ -4,7 +4,7 @@ import com.sympauthy.api.mapper.admin.AdminUserClaimResourceMapper
 import com.sympauthy.api.resource.admin.AdminUserClaimListResource
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.api.util.valueFilterOf
+import com.sympauthy.api.util.filterOf
 import com.sympauthy.business.manager.user.UserClaimSearchManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
@@ -72,7 +72,7 @@ class AdminUserClaimController(
             required = required,
             collected = collected,
             verified = verified,
-            origin = valueFilterOf<ClaimOrigin>(origin) { it.value },
+            origin = filterOf<ClaimOrigin>("origin", origin) { it.value },
             pageParams = pageParams
         )
 
