@@ -16,6 +16,7 @@ data class ParsedScopeConfig(
     val id: String,
     val isOpenIdConnect: Boolean,
     val enabled: Boolean?,
+    val discoverable: Boolean?,
     val type: ParsedScopeSetting?,
     val audience: ParsedScopeSetting?
 )
@@ -51,11 +52,18 @@ class ScopeConfigParser(
                     ScopeConfigurationProperties::enabled
                 )
             } ?: template?.enabled
+            val discoverable = ctx.parse {
+                parser.getBoolean(
+                    properties, "$configKeyPrefix.discoverable",
+                    ScopeConfigurationProperties::discoverable
+                )
+            } ?: template?.discoverable
 
             ParsedScopeConfig(
                 id = properties.id,
                 isOpenIdConnect = isOpenIdConnect,
                 enabled = enabled,
+                discoverable = discoverable,
                 type = resolveType(properties, template),
                 audience = resolveAudience(properties, template)
             )
