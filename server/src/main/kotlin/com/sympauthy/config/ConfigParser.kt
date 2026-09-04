@@ -1,7 +1,7 @@
 package com.sympauthy.config
 
 import com.sympauthy.config.exception.configExceptionOf
-import com.sympauthy.config.util.configName
+import com.sympauthy.util.configName
 import com.sympauthy.util.toAbsoluteUri
 import io.micronaut.core.convert.ConversionService
 import io.micronaut.http.uri.UriBuilder
