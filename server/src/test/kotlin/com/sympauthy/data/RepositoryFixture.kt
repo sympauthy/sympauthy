@@ -1,6 +1,8 @@
 package com.sympauthy.data
 
+import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.model.UserEntity
+import com.sympauthy.data.repository.InteractiveFlowSessionRepository
 import com.sympauthy.data.repository.UserRepository
 import kotlinx.coroutines.test.runTest
 import java.time.LocalDateTime
@@ -52,6 +54,25 @@ class RepositoryFixture(val database: Database) {
         .save(UserEntity(status = status, creationDate = BASE_DATE))
         .id!!
         .also { id -> deleteOnEnd { users.deleteById(id) } }
+
+    /** Saves a session to hang rows off, expiring after [BASE_DATE] unless [expirationDate] says otherwise. */
+    suspend fun newSession(
+        purposes: Array<String> = arrayOf("OAUTH2_AUTHORIZE"),
+        expirationDate: LocalDateTime = BASE_DATE.plusMinutes(10),
+        userId: UUID? = null
+    ): InteractiveFlowSessionEntity {
+        val sessions = database.bean<InteractiveFlowSessionRepository>()
+        return sessions.save(
+            InteractiveFlowSessionEntity(
+                purposes = purposes,
+                initiatingPurpose = purposes.first(),
+                sessionDate = BASE_DATE,
+                flowId = "flow",
+                expirationDate = expirationDate,
+                userId = userId
+            )
+        ).also { session -> deleteOnEnd { sessions.deleteById(session.id!!) } }
+    }
 
     suspend fun deleteCreatedRows() = deletions.forEach { it() }
 }
