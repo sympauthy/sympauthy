@@ -95,13 +95,15 @@ would be a second copy of the domain, and the two copies would drift.
 
 Every repository interface has an empty implementation per dialect, selected by a condition on the
 configured datasource; every migration exists once per dialect folder, under the same name.
-PostgreSQL is what a deployment runs; H2 is what a developer and the unit tests run.
+PostgreSQL is what a deployment runs; H2 is what a developer runs with nothing to install.
 
 The cost is real — a schema change is a file per dialect, and a raw query has to be expressible in
 each of them — and it is paid deliberately, so that trying SympAuthy out needs no database at all.
-The [database standard](database-standard.md) holds the rules that keep them in step, and the
-[integration tests](testing-standard.md) run every scenario against each, which is what stops them
-diverging in practice rather than in principle.
+The [database standard](database-standard.md) holds the rules that keep them in step. What stops
+them diverging in practice rather than in principle is that
+[both suites run against each](testing-standard.md): a repository test starts a real database of
+every dialect, and an integration test boots the server against every dialect. The repository tests
+are where a spelling is caught, and starting a PostgreSQL for them is why `test` needs Docker.
 
 ## The interactive flow is an engine, not a script
 

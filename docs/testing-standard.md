@@ -17,7 +17,7 @@ expected to prove, and how little of that a comment has left to say. The compone
 | a mapper, a parser, a validator | JUnit, no doubles | `server/src/test` |
 | a manager | JUnit and MockK doubles | `server/src/test` |
 | a flow purpose handler | JUnit and MockK doubles | `server/src/test` |
-| a repository, a migration | a real H2, started by the test | `server/src/test` |
+| a repository, a migration | a real database of each dialect, started by the test | `server/src/test` |
 | a rule holding two files to each other | JUnit, reading both | `server/src/test` |
 | an endpoint, a whole flow, a protocol rule | the server in a container | `integration-tests` |
 
@@ -65,11 +65,20 @@ bundle's set of keys equal to the codes the sources name. Rewording a message le
 untouched, which is what makes this rule and the one above compatible.
 
 **A repository test proves what is not in the Kotlin** — that an array column binds as an array,
-that a derived update method updates the row it was meant to. Run it against a real database.
+that a derived update method updates the row it was meant to. Prove its queries and its entity's
+mapping; an index and a constraint are the database keeping its own promise.
 
-**A repository test deletes the rows it created, and never calls `deleteAll()`.** Every one of them
-runs against the same in-memory database, so a wiped table breaks whichever class the runner
+**A repository test runs against every dialect**, as a parameterized test over `Database`. The
+spellings that differ are the ones a repository touches, so a query is proved against the dialects
+it ran on and no others.
+
+**A repository test deletes the rows it created, and never calls `deleteAll()`.** Each dialect's
+database is shared by every class in the run, so a wiped table breaks whichever class the runner
 schedules next.
+
+**A repository test seeds inside the test**, through `withFixture`, because `@BeforeEach` cannot see
+which database the parameter named. Register a deletion as the row is created and the fixture
+unwinds them in order.
 
 **A key a test queries by names the test class**, so no other class's rows fall inside the query
 under test.
@@ -119,7 +128,7 @@ beside the calls writes the sequence three times — the documentation, the comm
 message — and only the failing one is checked.
 
 **A rule these documents state is not restated in a test file.** That every repository test shares
-one in-memory database, and that `deleteAll()` is forbidden because of it, is a rule of this
+one database per dialect, and that `deleteAll()` is forbidden because of it, is a rule of this
 document; a file repeating it is one more place to edit the day the rule changes.
 
 **A comment a test keeps carries what neither the name nor the code shows.** That is a stub left
@@ -130,6 +139,9 @@ value the assertion turns on that never appears; a departure a reader would take
 
 **Coverage as a number.** Nothing measures it and nothing gates on it; the table above decides what
 is worth testing.
+
+**A dialect a test does not name.** `Database` holds the two the server supports, and adding a third
+is a change to it before it is a change to any test.
 
 **Load and performance testing.** No benchmark, no budget, no regression gate.
 

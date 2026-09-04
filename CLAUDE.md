@@ -24,7 +24,7 @@ does not cover. If you end a deferral, say there why.
 ## Commands
 
 ```sh
-./gradlew test                   # unit tests — fast, no Docker
+./gradlew test                   # unit tests; the repository ones start a PostgreSQL container
 ./gradlew compileKotlin          # compile only
 ./gradlew build                  # compile, test, package
 ./gradlew nativeCompile          # the production artifact; slow
@@ -35,8 +35,8 @@ MICRONAUT_CONFIG_FILES=$(pwd)/config/application.yml \
 ./gradlew test --tests 'com.sympauthy.business.manager.ScopeManagerTest'
 ```
 
-Integration tests need Docker and never run in `build`/`check`/`test`. They point at an image tag,
-not at your source, so **rebuild the image after every code change**:
+Integration tests never run in `build`/`check`/`test`. They point at an image tag, not at your
+source, so **rebuild the image after every code change**:
 
 ```sh
 ./gradlew :server:dockerBuild

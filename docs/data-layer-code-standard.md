@@ -74,8 +74,8 @@ bound into a raw query is the case that occurs here.
 raw-query parameter is stored as its `toString()` and fails on the next read; where a raw statement
 is also needed, pair it with the derived write inside one transaction.
 
-**Anything raw is covered by a repository test against a real database.** See
-[the testing standard](testing-standard.md).
+**Anything raw is covered by a repository test against a real database of every dialect.** A green
+run against one of them proves half the query. See [the testing standard](testing-standard.md).
 
 **A criteria query is an extension function on the repository interface**, in the same file.
 
