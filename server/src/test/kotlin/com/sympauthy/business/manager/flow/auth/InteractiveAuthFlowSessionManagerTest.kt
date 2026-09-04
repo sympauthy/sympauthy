@@ -131,8 +131,6 @@ class InteractiveAuthFlowSessionManagerTest {
         assertFalse(exception.recoverable)
     }
 
-    // --- PKCE parseCodeChallenge tests ---
-
     @Test
     fun `parseCodeChallenge - Returns challenge and S256 method when both provided`() {
         val (challenge, method, error) = manager.parseCodeChallenge("test-challenge", "S256")
@@ -170,8 +168,6 @@ class InteractiveAuthFlowSessionManagerTest {
         assertNotNull(error)
         assertEquals("authorize.pkce.missing_code_challenge", error!!.detailsId)
     }
-
-    // --- getDefaultInteractiveFlow tests ---
 
     @Test
     fun `getDefaultInteractiveFlow - Returns template flow when default template has a InteractiveFlow`() =
@@ -268,8 +264,6 @@ class InteractiveAuthFlowSessionManagerTest {
 
             assertSame(hardcodedFlow, result)
         }
-
-    // --- startAuthorizationWith tests ---
 
     private val defaultFlow = mockk<InteractiveFlow>()
 
@@ -750,8 +744,6 @@ class InteractiveAuthFlowSessionManagerTest {
 
         assertEquals("my-nonce-value", nonceSlot.captured)
     }
-
-    // --- checkSignUpAllowed ---
 
     private fun oauth2AndClient(
         clientId: String = "test-client",

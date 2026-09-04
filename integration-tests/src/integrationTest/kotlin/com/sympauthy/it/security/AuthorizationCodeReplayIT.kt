@@ -36,11 +36,9 @@ class AuthorizationCodeReplayIT : AbstractSympauthyIT() {
                 .run()
             val code = checkNotNull(result.code()) { "expected an authorization code from sign-up" }
 
-            // First exchange succeeds (the mock frontend replays the matching PKCE verifier).
             val tokens = result.exchange()
             assertNotNull(tokens.accessToken(), "the first exchange should succeed and return an access token")
 
-            // Replaying the very same code must now be denied.
             val replay = httpPostForm(
                 discovery(sympauthy).tokenEndpoint,
                 mapOf(

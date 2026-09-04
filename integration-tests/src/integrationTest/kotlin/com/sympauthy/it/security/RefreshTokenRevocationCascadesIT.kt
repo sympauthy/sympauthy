@@ -45,14 +45,12 @@ class RefreshTokenRevocationCascadesIT : AbstractSympauthyIT() {
             val introspectionEndpoint = discovery.introspectionEndpoint!!
             val auth = mapOf("Authorization" to basicAuth(registry.clientId(), checkNotNull(registry.clientSecret())))
 
-            // The access token is active before revocation.
             val before = httpPostForm(introspectionEndpoint, mapOf("token" to accessToken), auth)
             assertTrue(
                 before.body().contains("\"active\":true"),
                 "the freshly issued access token should introspect as active, body=${before.body()}",
             )
 
-            // Revoke the *refresh* token.
             val revoke = httpPostForm(
                 discovery.revocationEndpoint!!,
                 mapOf("token" to refreshToken, "token_type_hint" to "refresh_token"),
@@ -60,7 +58,6 @@ class RefreshTokenRevocationCascadesIT : AbstractSympauthyIT() {
             )
             assertEquals(200, revoke.statusCode(), "revocation should return 200, body=${revoke.body()}")
 
-            // Cascading revocation: the access token from the same session is now inactive too.
             val after = httpPostForm(introspectionEndpoint, mapOf("token" to accessToken), auth)
             assertTrue(
                 after.body().contains("\"active\":false"),

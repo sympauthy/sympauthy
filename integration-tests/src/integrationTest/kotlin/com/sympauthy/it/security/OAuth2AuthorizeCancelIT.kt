@@ -35,14 +35,13 @@ class OAuth2AuthorizeCancelIT : AbstractSympauthyIT() {
     fun cancellingAuthorizationReturnsAccessDenied(database: Database) {
         withContainer(database) { sympauthy, registry ->
             withFlowClient(sympauthy) { flow ->
-                // Start the authorization: the server redirects (303) to the sign-in page, carrying the
-                // signed internal state that authenticates the flow endpoints.
+                // The state carried on the redirect is signed, and is what authenticates every flow
+                // endpoint called below.
                 val authorize = flow.get(authorizeUrl(sympauthy, registry))
                 assertEquals(303, authorize.status, "authorize should redirect to the first flow step")
                 val internalState = queryParam(authorize.location ?: error("authorize 303 had no Location"), "state")
                     ?: error("authorize redirect did not carry a state: ${authorize.location}")
 
-                // The user declines: cancel the ongoing flow.
                 val cancel = flow.cancel(internalState)
                 assertEquals(200, cancel.status, "cancel should succeed, body=${cancel.body}")
                 val redirect = cancel.fields["redirect_url"]

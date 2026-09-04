@@ -37,8 +37,6 @@ class TotpManagerTest {
         val RFC_SECRET = "12345678901234567890".toByteArray(Charsets.US_ASCII)
     }
 
-    // --- generateCode ---
-
     @Test
     fun `generateCode - Returns correct code for RFC 4226 counter 0`() {
         assertEquals("755224", manager.generateCode(RFC_SECRET, 0))
@@ -62,8 +60,6 @@ class TotpManagerTest {
             assertTrue(code.all { it.isDigit() }, "Code for counter $counter should be numeric")
         }
     }
-
-    // --- isCodeValid ---
 
     @Test
     fun `isCodeValid - Returns true for code at current step`() {
@@ -90,8 +86,6 @@ class TotpManagerTest {
         assertFalse(manager.isCodeValid(RFC_SECRET, manager.generateCode(RFC_SECRET, tooOldStep)))
     }
 
-    // --- encodeSecretToBase32 ---
-
     @Test
     fun `encodeSecretToBase32 - Encodes RFC 4226 test secret correctly`() {
         // The Base32 encoding of "12345678901234567890" is a well-known RFC test value
@@ -104,8 +98,6 @@ class TotpManagerTest {
         assertEquals(0, encoded.length % 8)
         assertEquals("AA======", encoded)
     }
-
-    // --- buildOtpauthUri ---
 
     @Test
     fun `buildOtpauthUri - Builds correctly formatted URI`() {
@@ -120,8 +112,6 @@ class TotpManagerTest {
         val uri = manager.buildOtpauthUri("SympAuthy", "user@example.com", RFC_SECRET)
         assertTrue(uri.contains("user%40example.com"))
     }
-
-    // --- initiateEnrollment ---
 
     @Test
     fun `initiateEnrollment - Deletes pending enrollments before creating a new one`() = runTest {
@@ -163,8 +153,6 @@ class TotpManagerTest {
         assertSame(enrollment, result)
     }
 
-    // --- confirmEnrollment ---
-
     @Test
     fun `confirmEnrollment - Returns null and does not update for invalid code`() = runTest {
         val currentStep = System.currentTimeMillis() / 1000 / TotpManager.TIME_STEP_SECONDS
@@ -199,8 +187,6 @@ class TotpManagerTest {
         assertSame(updatedEnrollment, result)
     }
 
-    // --- isCodeValidForUser ---
-
     @Test
     fun `isCodeValidForUser - Returns false when there are no confirmed enrollments`() = runTest {
         val userId = UUID.randomUUID()
@@ -232,8 +218,6 @@ class TotpManagerTest {
 
         assertFalse(manager.isCodeValidForUser(userId, invalidCode))
     }
-
-    // --- findConfirmedEnrollmentOrNull ---
 
     @Test
     fun `findConfirmedEnrollmentOrNull - Returns enrollment when found and confirmed`() = runTest {
@@ -272,8 +256,6 @@ class TotpManagerTest {
         assertNull(manager.findConfirmedEnrollmentOrNull(enrollmentId))
     }
 
-    // --- deleteEnrollment ---
-
     @Test
     fun `deleteEnrollment - Deletes enrollment by id`() = runTest {
         val enrollmentId = UUID.randomUUID()
@@ -285,8 +267,6 @@ class TotpManagerTest {
 
         coVerify { totpEnrollmentRepository.deleteById(enrollmentId) }
     }
-
-    // --- findConfirmedEnrollments ---
 
     @Test
     fun `findConfirmedEnrollments - Returns mapped list of confirmed enrollments`() = runTest {

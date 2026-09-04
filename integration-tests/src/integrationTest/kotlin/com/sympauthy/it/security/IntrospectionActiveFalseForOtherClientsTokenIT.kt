@@ -48,7 +48,6 @@ class IntrospectionActiveFalseForOtherClientsTokenIT : AbstractSympauthyIT() {
                 .exchange()
             val foreignAccessToken = checkNotNull(tokens.accessToken()) { "expected an access token from exchange" }
 
-            // Introspect it while authenticated as a *different* client.
             val response = httpPostForm(
                 discovery(sympauthy).introspectionEndpoint!!,
                 mapOf("token" to foreignAccessToken),

@@ -37,8 +37,6 @@ class ReauthenticationInteractiveFlowPurposeHandlerTest {
 
     private val session = mockk<OnGoingInteractiveFlowSession>()
 
-    // --- nextStepOrNull ---
-
     @Test
     fun `nextStepOrNull - Returns SignIn when the session carries no re-authentication record`() = runTest {
         coEvery { reauthenticationManager.fetchReauthenticationOrNull(session) } returns null
@@ -65,8 +63,6 @@ class ReauthenticationInteractiveFlowPurposeHandlerTest {
 
         assertNull(handler.nextStepOrNull(session))
     }
-
-    // --- followUpPurposes ---
 
     @Test
     fun `followUpPurposes - Appends MFA_CHALLENGE when MFA is enabled and the account is enrolled`() = runTest {

@@ -38,10 +38,6 @@ class CollectedClaimRepositoryTest {
 
     /**
      * Every claim value this class writes and queries by carries the test class's own name.
-     *
-     * This @MicronautTest shares its H2 database with the other @MicronautTest classes, so it must not
-     * deleteAll(): tearDown removes only the rows setUp created, and a value no other class writes is
-     * what keeps the assertions below exact against rows those classes leave behind.
      */
     private val qualifier = "collected-claim-repository-test"
     private val aliceEmail = "alice@$qualifier.test"
@@ -79,11 +75,6 @@ class CollectedClaimRepositoryTest {
         saveClaim(user3Id, "name", charlieName, now)
     }
 
-    /**
-     * Removes whatever setUp managed to write, including when it failed part-way: a claim left behind
-     * here is a row another class's query can match, which is a failure with nothing in its own file to
-     * explain it.
-     */
     @AfterEach
     fun tearDown() = runTest {
         claimIds.forEach { collectedClaimRepository.deleteById(it) }

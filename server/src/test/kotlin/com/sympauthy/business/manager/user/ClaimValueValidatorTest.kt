@@ -30,8 +30,6 @@ class ClaimValueValidatorTest {
         every { dataType } returns NUMBER
     }
 
-    // --- validateAndCleanValueForClaim ---
-
     @Test
     fun `validateAndCleanValueForClaim - Returns empty Optional for null value`() {
         // A null value is never type-checked, but the allowed values are still consulted.
@@ -139,8 +137,6 @@ class ClaimValueValidatorTest {
         assertTrue(validator.validateAndCleanValueForClaim(claim, "   ").isEmpty)
     }
 
-    // --- validateAndCleanStringForClaim ---
-
     @Test
     fun `validateAndCleanStringForClaim - Returns empty Optional for blank string`() {
         // A blank string is refused before the claim is looked at at all.
@@ -164,8 +160,6 @@ class ClaimValueValidatorTest {
         assertTrue(result.isPresent)
         assertEquals(42L, result.get())
     }
-
-    // --- validateAndCleanNumberForClaim ---
 
     @Test
     fun `validateAndCleanNumberForClaim - Accepts a negative whole number`() {
@@ -201,8 +195,6 @@ class ClaimValueValidatorTest {
         }
     }
 
-    // --- validateEmailForClaim ---
-
     @Test
     fun `validateEmailForClaim - Accepts valid email`() {
         val result = validator.validateEmailForClaim("user@example.com")
@@ -230,8 +222,6 @@ class ClaimValueValidatorTest {
             validator.validateEmailForClaim("user@")
         }
     }
-
-    // --- validatePhoneNumberForClaim ---
 
     @Test
     fun `validatePhoneNumberForClaim - Accepts valid phone number`() {
@@ -282,8 +272,6 @@ class ClaimValueValidatorTest {
         }
     }
 
-    // --- validateDateForClaim ---
-
     @Test
     fun `validateDateForClaim - Accepts valid date`() {
         val result = validator.validateDateForClaim("2024-01-15")
@@ -297,8 +285,6 @@ class ClaimValueValidatorTest {
             validator.validateDateForClaim("15/01/2024")
         }
     }
-
-    // --- validateTimeZoneForClaim ---
 
     @Test
     fun `validateTimeZoneForClaim - Accepts valid timezone`() {

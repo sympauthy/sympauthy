@@ -52,8 +52,6 @@ class InteractiveFlowSessionTotpEnrollmentManagerTest {
     private val userId = UUID.randomUUID()
     private val user = mockk<User> { every { id } returns userId }
 
-    // --- getEnrollmentData / getAccount ---
-
     @Test
     fun `getAccount - uses the first configured identifier claim regardless of collected order`() = runTest {
         // Config order (username before email) must win over collection/DB order (email first).
@@ -131,8 +129,6 @@ class InteractiveFlowSessionTotpEnrollmentManagerTest {
             assertEquals("otpauth://totp/stub", data.uri)
             assertEquals("BASE32SECRET", data.secret)
         }
-
-    // --- confirmEnrollment ---
 
     @Test
     fun `confirmEnrollment - marks the MFA step as passed when the pending enrollment is confirmed`() = runTest {

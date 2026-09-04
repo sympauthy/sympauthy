@@ -47,23 +47,19 @@ class RevokedTokenBecomesInactiveIT : AbstractSympauthyIT() {
             val revocationEndpoint = discovery.revocationEndpoint!!
             val auth = mapOf("Authorization" to basicAuth(CLIENT_ID, CLIENT_SECRET))
 
-            // Issue a token via client_credentials.
             val tokenResponse = httpPostForm(tokenEndpoint, mapOf("grant_type" to "client_credentials"), auth)
             assertEquals(200, tokenResponse.statusCode(), "client_credentials must issue a token, body=${tokenResponse.body()}")
             val accessToken = JSONObjectUtils.parse(tokenResponse.body())["access_token"] as String
 
-            // It introspects as active before revocation.
             val beforeRevoke = httpPostForm(introspectionEndpoint, mapOf("token" to accessToken), auth)
             assertTrue(
                 beforeRevoke.body().contains("\"active\":true"),
                 "the freshly issued token should introspect as active, body=${beforeRevoke.body()}",
             )
 
-            // Revoke it.
             val revoke = httpPostForm(revocationEndpoint, mapOf("token" to accessToken), auth)
             assertEquals(200, revoke.statusCode(), "revocation should return 200, body=${revoke.body()}")
 
-            // It now introspects as inactive.
             val afterRevoke = httpPostForm(introspectionEndpoint, mapOf("token" to accessToken), auth)
             assertTrue(
                 afterRevoke.body().contains("\"active\":false"),

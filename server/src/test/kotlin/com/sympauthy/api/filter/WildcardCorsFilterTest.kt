@@ -21,8 +21,6 @@ class WildcardCorsFilterTest : AbstractFlowIntegrationTest() {
     /** Mandatory headers, then cors.allowed-headers as declared in application-default.yml. */
     private val expectedAllowedHeaders = "Content-Type, Authorization, DPoP, X-Requested-With"
 
-    // -- Discovery endpoints --
-
     @Test
     fun `discovery - OPTIONS preflight returns 200 with wildcard CORS headers`() {
         val request = HttpRequest.OPTIONS<Any>(discoveryPath)
@@ -67,8 +65,6 @@ class WildcardCorsFilterTest : AbstractFlowIntegrationTest() {
         // DPoP is advertised on every tier, not only on the token endpoint.
         assertEquals(expectedAllowedHeaders, response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS])
     }
-
-    // -- OAuth2 endpoints --
 
     @Test
     fun `oauth2 - OPTIONS preflight on token endpoint returns wildcard CORS headers`() {
@@ -119,8 +115,6 @@ class WildcardCorsFilterTest : AbstractFlowIntegrationTest() {
         // DPoP is advertised on every tier, not only on the token endpoint.
         assertEquals(expectedAllowedHeaders, response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS])
     }
-
-    // -- OpenID Connect UserInfo --
 
     @Test
     fun `openid - OPTIONS preflight on userinfo returns wildcard CORS headers`() {

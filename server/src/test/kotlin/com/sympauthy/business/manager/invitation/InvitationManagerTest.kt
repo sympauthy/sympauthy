@@ -84,8 +84,6 @@ class InvitationManagerTest {
         )
     }
 
-    // --- validateAndCleanClaims ---
-
     @Test
     fun `validateAndCleanClaims - Returns null when claims are null`() {
         val result = manager.validateAndCleanClaims(null, null)
@@ -170,8 +168,6 @@ class InvitationManagerTest {
         assertEquals(mapOf("custom_role" to "admin"), result)
         verify(exactly = 0) { claim.canBeWrittenByClient(any(), any()) }
     }
-
-    // --- validateToken ---
 
     private fun mockTokenLookup(rawToken: String, invitation: Invitation) {
         val tokenBytes = byteArrayOf(1, 2, 3)
@@ -258,8 +254,6 @@ class InvitationManagerTest {
         assertEquals("invitation.audience_mismatch", exception.detailsId)
     }
 
-    // --- revokeInvitation ---
-
     @Test
     fun `revokeInvitation - Throws when invitation is not pending`() = runTest {
         val invitationId = UUID.randomUUID()
@@ -273,8 +267,6 @@ class InvitationManagerTest {
         }
         assertEquals("invitation.cannot_revoke", exception.detailsId)
     }
-
-    // --- applyInvitationClaimsAndConsume ---
 
     @Test
     fun `applyInvitationClaimsAndConsume - Does nothing when invitationId is null`() = runTest {

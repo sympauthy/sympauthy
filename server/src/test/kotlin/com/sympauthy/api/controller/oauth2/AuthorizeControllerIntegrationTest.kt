@@ -21,8 +21,6 @@ class AuthorizeControllerIntegrationTest : AbstractFlowIntegrationTest() {
         return HttpClient.create(embeddedServer.url, config)
     }
 
-    // --- response_type validation ---
-
     @Test
     fun `GET authorize - Returns 400 when response_type is missing`() {
         val client = noRedirectClient()
@@ -46,8 +44,6 @@ class AuthorizeControllerIntegrationTest : AbstractFlowIntegrationTest() {
         }
         assertEquals(HttpStatus.BAD_REQUEST, exception.status)
     }
-
-    // --- Successful authorization ---
 
     @Test
     fun `GET authorize - Returns 303 with Location header for valid code request`() {
@@ -76,8 +72,6 @@ class AuthorizeControllerIntegrationTest : AbstractFlowIntegrationTest() {
         assertTrue(query!!.contains("state="))
     }
 
-    // --- Client validation ---
-
     @Test
     fun `GET authorize - Returns 303 to error page when client_id is missing`() {
         val client = noRedirectClient()
@@ -101,8 +95,6 @@ class AuthorizeControllerIntegrationTest : AbstractFlowIntegrationTest() {
         assertEquals(HttpStatus.SEE_OTHER, response.status)
         assertNotNull(response.header(HttpHeaders.LOCATION))
     }
-
-    // --- Redirect URI ---
 
     @Test
     fun `GET authorize - Returns 303 to error page when redirect_uri is missing`() {

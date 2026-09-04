@@ -64,8 +64,6 @@ class ClaimAclFactoryTest {
         acl = acl
     )
 
-    // region parseAcl + validateAcl
-
     @Test
     fun `validateAcl - Resolves all fields from properties`() {
         val ctx = ConfigParsingContext()
@@ -249,12 +247,8 @@ class ClaimAclFactoryTest {
         assertEquals(1, ctx.errors.size)
     }
 
-    // endregion
-
-    // region parseGeneratedClaimAcl + validateGeneratedClaimAcl
-
     @Test
-    fun `buildGeneratedClaimAcl - Always read-only with hardcoded consent`() {
+    fun `validateGeneratedClaimAcl - Always read-only with hardcoded consent`() {
         val ctx = ConfigParsingContext()
 
         val parsed = claimAclParser.parseGeneratedClaimAcl(ctx, null, null, "claims.sub")
@@ -270,7 +264,7 @@ class ClaimAclFactoryTest {
     }
 
     @Test
-    fun `buildGeneratedClaimAcl - Resolves readable client scopes from properties`() {
+    fun `validateGeneratedClaimAcl - Resolves readable client scopes from properties`() {
         val ctx = ConfigParsingContext()
         val acl = aclProperties(readableWithClientScopes = listOf("users:claims:read"))
 
@@ -282,7 +276,7 @@ class ClaimAclFactoryTest {
     }
 
     @Test
-    fun `buildGeneratedClaimAcl - Falls back to template for readable client scopes`() {
+    fun `validateGeneratedClaimAcl - Falls back to template for readable client scopes`() {
         val ctx = ConfigParsingContext()
         val template = template(
             acl = ClaimTemplateAcl(
@@ -302,10 +296,6 @@ class ClaimAclFactoryTest {
         assertFalse(ctx.hasErrors)
         assertEquals(listOf("users:claims:read"), result.unconditional.readableWithClientScopes)
     }
-
-    // endregion
-
-    // region parseTemplateAcl + validateTemplateAcl
 
     @Test
     fun `validateTemplateAcl - Returns all nulls when acl is null`() {
@@ -371,5 +361,4 @@ class ClaimAclFactoryTest {
         assertEquals(1, ctx.errors.size)
     }
 
-    // endregion
 }

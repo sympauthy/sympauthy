@@ -129,8 +129,6 @@ class ClientsConfigFactoryTest {
         )
     }
 
-    // --- Scopes a client may name ---
-
     @Test
     fun `Client may name a scope this deployment serves`() = runTest {
         val factory = factoryServing(
@@ -169,8 +167,6 @@ class ClientsConfigFactoryTest {
         val error = assertInstanceOf(DisabledClientsConfig::class.java, result).configurationErrors!!.first()
         assertTrue(error.message!!.contains("config.client.scope.invalid"))
     }
-
-    // --- Default template resolution ---
 
     @Test
     fun `Client inherits grant types from default template`() = runTest {
@@ -230,8 +226,6 @@ class ClientsConfigFactoryTest {
         assertEquals(clientGrantTypes, client.allowedGrantTypes)
     }
 
-    // --- Explicit custom template ---
-
     @Test
     fun `Client with explicit template uses that template instead of default`() = runTest {
         val defaultFlow = mockk<AuthorizationFlow>()
@@ -255,8 +249,6 @@ class ClientsConfigFactoryTest {
         val client = config.clients.first()
         assertSame(customFlow, client.authorizationFlow)
     }
-
-    // --- Template validation errors ---
 
     @Test
     fun `Referencing default template by name produces error`() = runTest {
@@ -289,8 +281,6 @@ class ClientsConfigFactoryTest {
         val error = config.configurationErrors!!.filterIsInstance<ConfigurationException>().first()
         assertEquals("config.client.template.not_found", error.messageId)
     }
-
-    // --- No template ---
 
     @Test
     fun `Client without template and no default requires all fields`() = runTest {
