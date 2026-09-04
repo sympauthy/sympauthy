@@ -8,18 +8,15 @@ paths:
 
 # Exception code standard
 
-How a failure travels from the layer that notices it to what a caller finally sees: which exception
-each layer may throw, what a failure carries instead of a rendered sentence, and how a code names
-both the message an operator reads and the one an end-user does. The components doing the throwing
-are [the code standards](general-code-standard.md); the **body** the caller receives is
-[the API standard](api-standard.md#errors).
+How a failure travels from the layer that notices it to what a caller finally sees. The components
+doing the throwing are [the code standards](general-code-standard.md); the body the caller receives
+is [the API standard](api-standard.md#errors).
 
-## One root, three layers
+## One root, a type per layer
 
-**Every failure in this server extends one localized exception type**, which lives above all three
-layers because two of them throw. It carries no message. It carries a code, an optional second code
-for the end-user's version, a map of values to interpolate, and whether the situation is one the
-caller could recover from.
+**Every failure extends one localized exception type**, which carries a code, an optional second
+code for the end-user's version, a map of values to interpolate, and whether the caller could
+recover. The root type is extended and rendered, never thrown.
 
 | Layer | Throws | Meaning |
 | --- | --- | --- |
@@ -28,21 +25,15 @@ caller could recover from.
 | `api` | `OAuth2Exception` | a protocol error, whose code the specification names |
 | `config` | `ConfigurationException` | a value in the deployment's YAML is wrong |
 
-The root type is never thrown directly. It exists to be extended and to be rendered.
-
 ## An exception carries keys, never a sentence
 
-**A failure holds a code and values; rendering happens once, at the edge, against the caller's
-locale.** That is what keeps `business` free of both the request and the message source — a manager
-has to stay callable from a scheduled job that has no `Accept-Language` behind it — and it is what
-makes the same failure serve an English operator log and a French error page without either being
-translated twice.
+**A failure holds a code and its values, and rendering happens once, at the edge**, against the
+caller's locale. A manager stays callable from a scheduled job with no `Accept-Language` behind it.
 
-The consequence worth stating: **a value that belongs in the message is a value, not string
-concatenation.** A code with the offending scope interpolated is one code an alert can group on; the
-same message built by hand is as many distinct strings as there are scopes.
+**A value that belongs in the message is passed as a value.** One code an alert can group on carries
+the offending scope as data.
 
-## Three business failures, and the question that tells them apart
+## The question that tells the business failures apart
 
 | Factory | Recoverable | Becomes | For |
 | --- | --- | --- | --- |
@@ -50,80 +41,53 @@ same message built by hand is as many distinct strings as there are scopes.
 | `businessExceptionOf` | no | `400` | the request was wrong, and retrying it will not help |
 | `internalBusinessExceptionOf` | no | `500` | the server failed, and the caller is not at fault |
 
-**The question is asked from the caller's side: can they send something else?** A wrong password, a
-claim that fails validation, a scope the client may not ask for — the caller is entitled to try
-again with different input, and the message they get should tell them how. That is the recoverable
-one, and it is the only one that takes a second code for the end-user's message, because it is the
-only one where an end-user has anything to do.
+**Ask the question from the caller's side: can they send something else?** A wrong password, a claim
+that fails validation and a scope the client may not ask for are recoverable, and recoverable is the
+only one that takes a second code for the end-user's message.
 
-**The third exists because "not the caller's fault" is a different operational problem.** A key that
-will not load, a row that cannot become a model, a provider that answered something unparseable:
-nothing the caller sent would have helped. Returning `400` for those blames the caller for a bug
-they cannot fix and — worse — keeps a monitored error rate flat while the server quietly rots.
-
-Three factories rather than one with two flags, because a flag has a default and the default would
-be whichever case was written first. Three names make the question unskippable at the throw site,
-which is the only place it can be answered.
+**A failure nothing the caller sent would have prevented is internal.** A key that will not load, a
+row that cannot become a model and a provider that answered something unparseable are `500`.
 
 ## The OAuth2 carve-out
 
-**A manager implementing an OAuth2 endpoint throws the protocol's exception directly.** This is the
-one place `business` is allowed to import `api`, and it is not a convenience.
+**A manager implementing an OAuth2 endpoint throws the protocol's exception directly**, so that the
+code the specification names — `invalid_grant`, `invalid_request`, `invalid_target` — reaches the
+client. This is the one place `business` imports `api`.
 
-The OAuth2 and token-exchange specifications name the error a client receives — `invalid_grant`,
-`invalid_request`, `invalid_target`, `access_denied` — and a client library branches on exactly
-those strings. Routing them through a business exception would flatten every one of them into a
-single code at the boundary, and the endpoint would stop being conformant: the client would have to
-read a human-readable description to find out what happened, which is precisely what the
-specification exists to avoid.
-
-It applies to the OAuth2 managers and nothing else. Anywhere else, a protocol code is not the
-contract and the three factories above are.
+**It applies to the OAuth2 managers and nothing else.** Everywhere else, the factories above are
+the contract.
 
 ## A code names two messages
 
-**An error code is a message-bundle key, and the key is the contract.** The code names the technical
-message an operator reads; the same code prefixed with `description.` names the one shown to an
-end-user. There is one string, not two files kept in step, which means a code cannot exist without a
-message — and it means renaming a key is a **breaking change**, because the key is also what a
-client branches on.
+**An error code is a message-bundle key.** The code names the technical message an operator reads,
+and the same code prefixed with `description.` names the one an end-user is shown.
+
+**A code is renamed as a breaking change.** A client branches on the key.
 
 **The technical message is for troubleshooting; the description is for a person who cannot fix it.**
-The first may name a scope, a claim, a provider or an algorithm. The second says what the reader
-should do next, in their own words, and never names anything internal.
+The first may name a scope, a claim, a provider or an algorithm; the second says what the reader
+does next, in their own words.
 
-**A code reads `<domain>.<thing>.<condition>`**, most general first, so that a sorted bundle groups
-by what failed rather than by how. A code with no domain is one nothing specific was thrown for —
-the per-status generics — and that absence is itself a signal: a scoped code means a rule of ours
-refused something, a bare one means the framework did.
+**A code reads `<domain>.<thing>.<condition>`**, most general first. A code with no domain is one
+the framework refused rather than a rule of ours.
 
-**The condition never names a status.** The status is already in the response and in the handler
-table; a code that repeats it says the same thing twice and makes the status impossible to change
-without a rename that breaks clients.
+**The condition names what failed.** The status is already in the response and in the handler table.
 
-**A `5xx` says nothing to the caller.** The technical half of a failure — the row, the key, the
-provider, the step — belongs in the log and behind the flag that gates it. A caller learns that the
-server failed, because there is nothing else they could act on.
+**A `5xx` tells the caller that the server failed.** Keep the row, the key, the provider and the
+step in the log, behind the flag that gates them.
 
 ## The apostrophe rule
 
-**Never write `'` immediately before `{` in a message.** The message source treats a quoted brace
-expression as a literal, so `'{scope}'` is emitted verbatim, interpolation silently does not happen,
-and the reader is shown the placeholder instead of the value. Write the placeholder bare.
-
-This is the rule in this document most likely to be broken by someone trying to make a message read
-better, and the failure is invisible in review: the code compiles, the test that asserts the code
-passes, and only the rendered message is wrong.
+**A placeholder is written bare**, as `{scope}` and never as `'{scope}'`. The message source reads a
+quoted brace expression as a literal and emits it verbatim, so interpolation silently does not
+happen.
 
 ## What this standard does not cover
 
-**Retryability as a wire signal.** Whether a caller should retry is expressed today only as the
-choice of status. No header says how long to wait, and nothing distinguishes "retry this exact
-request" from "change something first" beyond the description.
+**Retryability as a wire signal.** The status is the only signal; no header says how long to wait.
 
 **Error aggregation.** One request reports one failure, except for the per-property validation
-errors the API standard describes. A partial success that needs to report several is a shape nothing
-here has needed.
+errors [the API standard](api-standard.md#errors) describes.
 
 ---
 

@@ -91,16 +91,16 @@ model whether an administrator asked for it or the person did, so managers are d
 — user, client, consent, token, flow — never by caller. An `admin/` package below the HTTP boundary
 would be a second copy of the domain, and the two copies would drift.
 
-## Two databases, one schema
+## One schema, more than one database
 
-Every repository interface has two empty implementations, one per dialect, selected by a condition
-on the configured datasource; every migration exists twice, once per dialect folder, with the same
-name. PostgreSQL is what a deployment runs; H2 is what a developer and the unit tests run.
+Every repository interface has an empty implementation per dialect, selected by a condition on the
+configured datasource; every migration exists once per dialect folder, under the same name.
+PostgreSQL is what a deployment runs; H2 is what a developer and the unit tests run.
 
-The cost is real — a schema change is two files, and a raw query has to be expressible in both — and
-it is paid deliberately, so that trying SympAuthy out needs no database at all. The
-[database standard](database-standard.md) holds the rules that keep the two in step, and the
-[integration tests](testing-standard.md) run every scenario against both, which is what stops them
+The cost is real — a schema change is a file per dialect, and a raw query has to be expressible in
+each of them — and it is paid deliberately, so that trying SympAuthy out needs no database at all.
+The [database standard](database-standard.md) holds the rules that keep them in step, and the
+[integration tests](testing-standard.md) run every scenario against each, which is what stops them
 diverging in practice rather than in principle.
 
 ## The interactive flow is an engine, not a script
