@@ -2,6 +2,8 @@ package com.sympauthy.business.manager.auth.oauth2
 
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.exception.oauth2ExceptionOf
+import com.sympauthy.api.exception.toOAuth2Exception
+import com.sympauthy.business.exception.InvalidJwtException
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
@@ -19,7 +21,6 @@ import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.oauth2.TokenRevokedBy
 import com.sympauthy.data.repository.AuthenticationTokenRepository
-import com.sympauthy.exception.LocalizedException
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -142,9 +143,12 @@ open class TokenManager(
      * Additionally, a new refresh token may be issued if the refresh token expires
      * before the expiration of the new access token.
      *
-     * Throws an [LocalizedException] if the refresh token validation fails:
+     * Throws an [OAuth2Exception] carrying `invalid_grant` if the refresh token validation fails:
      * - one of the validation of [JwtManager.decodeAndVerify].
      * - the [client] does not match the one we have issued the token too.
+     *
+     * A failure of this server rather than of the token — a signing key that will not load — travels out as
+     * itself, so that it is answered as the `5xx` it is.
      */
     @Transactional
     open suspend fun refreshToken(
@@ -154,8 +158,8 @@ open class TokenManager(
     ): List<EncodedAuthenticationToken> = supervisorScope {
         val decodedToken = try {
             jwtManager.decodeAndVerify(REFRESH_KEY, encodedRefreshToken)
-        } catch (e: LocalizedException) {
-            throw oauth2ExceptionOf(INVALID_GRANT, e.detailsId)
+        } catch (e: InvalidJwtException) {
+            throw e.toOAuth2Exception(INVALID_GRANT)
         }
 
         val refreshToken = getAuthenticationToken(decodedToken)

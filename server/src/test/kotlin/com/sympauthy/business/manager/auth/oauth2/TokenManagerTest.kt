@@ -2,6 +2,8 @@ package com.sympauthy.business.manager.auth.oauth2
 
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.exception.oauth2ExceptionOf
+import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.exception.InvalidJwtException
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
@@ -18,7 +20,7 @@ import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.data.repository.AuthenticationTokenRepository
-import com.sympauthy.exception.localizedExceptionOf
+import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -121,12 +123,33 @@ class TokenManagerTest {
     }
 
     @Test
-    fun `refreshToken - Throws if token is invalid`() = runTest {
-        val exception = localizedExceptionOf("test")
-        coEvery { jwtManager.decodeAndVerify(any(), any()) } throws exception
-        assertThrows<OAuth2Exception> {
+    fun `refreshToken - Throws invalid_grant if the token does not verify`() = runTest {
+        coEvery { jwtManager.decodeAndVerify(any(), any()) } throws InvalidJwtException("jwt.expired")
+
+        val exception = assertThrows<OAuth2Exception> {
             tokenManager.refreshToken(mockk(), "test")
         }
+
+        assertEquals(INVALID_GRANT, exception.errorCode)
+        assertEquals("jwt.expired", exception.detailsId)
+    }
+
+    @Test
+    fun `refreshToken - Lets a signing key failure through rather than blaming the grant`() = runTest {
+        val keyFailure = BusinessException(
+            recoverable = false,
+            detailsId = "jwt.invalid_key",
+            values = mapOf("name" to REFRESH_KEY),
+            recommendedStatus = INTERNAL_SERVER_ERROR
+        )
+        coEvery { jwtManager.decodeAndVerify(any(), any()) } throws keyFailure
+
+        val exception = assertThrows<BusinessException> {
+            tokenManager.refreshToken(mockk(), "test")
+        }
+
+        assertSame(keyFailure, exception)
+        assertEquals(mapOf("name" to REFRESH_KEY), exception.values)
     }
 
     @Test
