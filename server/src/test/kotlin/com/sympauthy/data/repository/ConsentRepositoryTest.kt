@@ -24,7 +24,7 @@ import java.util.*
  * bound as a null the driver has to type, and the `COALESCE` is what gives it a single typed usage.
  */
 @MicronautTest(
-    environments = ["default", "test"],
+    environments = ["default", "test", "h2"],
     startApplication = false,
     transactional = false
 )

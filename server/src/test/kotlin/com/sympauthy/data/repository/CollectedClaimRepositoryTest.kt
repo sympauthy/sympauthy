@@ -21,7 +21,7 @@ import java.util.*
  * compiles either way.
  */
 @MicronautTest(
-    environments = ["default", "test"],
+    environments = ["default", "test", "h2"],
     startApplication = false,
     transactional = false
 )

@@ -26,7 +26,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 @MicronautTest(
-    environments = ["default", "test"],
+    environments = ["default", "test", "h2"],
     startApplication = false
 )
 @ExtendWith(MockKExtension::class)

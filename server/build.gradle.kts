@@ -115,6 +115,10 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.mock.webserver)
     testImplementation(kotlin("test"))
+    // A repository test runs against a real database of each supported dialect. H2 is embedded; PostgreSQL
+    // is a container, which is why the default `test` task requires Docker. See docs/testing-standard.md.
+    testImplementation(libs.testcontainers)
+    testImplementation(libs.testcontainers.postgresql)
 }
 
 application {
@@ -185,6 +189,10 @@ tasks {
     }
     withType<Test> {
         useJUnitPlatform()
+        // Application.main forces the zone to UTC, and no test runs it. Without this a date column
+        // round-trips through whichever zone the machine is in, and an assertion on one passes or
+        // fails by geography.
+        systemProperty("user.timezone", "UTC")
         testLogging {
             events(
                 PASSED, SKIPPED, FAILED, STANDARD_ERROR, STANDARD_OUT

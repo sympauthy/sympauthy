@@ -23,7 +23,7 @@ import java.net.URI
  *   subsequent request. Call this in a `@BeforeEach` method and pass the state to the endpoints under test.
  */
 @MicronautTest(
-    environments = ["default", "test"],
+    environments = ["default", "test", "h2"],
     startApplication = true
 )
 abstract class AbstractFlowIntegrationTest {

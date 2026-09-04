@@ -23,7 +23,7 @@ import java.util.*
  * a raw `@Query`.
  */
 @MicronautTest(
-    environments = ["default", "test"],
+    environments = ["default", "test", "h2"],
     startApplication = false,
     transactional = false
 )
