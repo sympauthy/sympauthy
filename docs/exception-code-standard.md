@@ -67,6 +67,22 @@ reads the two codes and their values and no status at all.
 parameter of the method that throws, no factory takes it as one, and the method says so in
 [its own KDoc](comment-standard.md).
 
+**An `api` failure answers the same question, with the same pair of factories** —
+`httpExceptionOf` and `recoverableHttpExceptionOf`. It names its status rather than recommending
+one, and it names its description at the throw site: the layer holding the request is the one that
+knows which caller is reading.
+
+## A failure per property
+
+**A failure refusing several properties of one payload carries a failure per property**, by the path
+to it, and each of them is the exception that property failed with rather than a copy of part of it.
+A value the failure carries then reaches the sentence the reader is shown, because the exception
+carrying it is what gets rendered. The body is [the API standard's](api-standard.md#errors).
+
+**A path is a wire path, so it is the `api` exception that carries them.** A manager refusing a
+value does not know what the payload called the field, and one that did would be a manager holding
+a request.
+
 ## The OAuth2 carve-out
 
 **A manager implementing an OAuth2 endpoint throws the protocol's exception directly**, so that the
@@ -131,8 +147,10 @@ to one sentence, and `description.bad_request` holds the same sentence as
 for: a failed interactive flow session persists the two codes and their values and no status, so the
 failure the error page renders has none to branch on.
 
-**Error aggregation.** One request reports one failure, except for the per-property validation
-errors [the API standard](api-standard.md#errors) describes.
+**Aggregating failures one pass did not compute together.** [A failure per
+property](#a-failure-per-property) reports what a single validation refused. Two rules refusing two
+different things in the same request are still two failures, and the first to throw wins — a claim
+a client may not write is refused before any value is validated.
 
 **Whether a placeholder is supplied.** The rule above is stated and nothing enforces it: the set of
 codes is readable from the sources, the set of values each throw site passes is not, and a name with

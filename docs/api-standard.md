@@ -136,7 +136,7 @@ section is the body:
 ```json
 { "status": 404, "error_code": "user.not_found",
   "description": "This account no longer exists.",
-  "details": "No user with id … .", "properties": null }
+  "details": "No user with id … ." }
 ```
 
 **`error_code` is the contract.** A client branches on it, `status` repeats the HTTP status so a
@@ -147,7 +147,26 @@ any release.
 name a row, a claim, a provider or a key; what the caller sees never depends on it.
 
 **`properties` carries per-field validation**, one entry per violated property, each with the path
-to it and what is wrong.
+to it and what is wrong. It is the only place a single response reports more than one failure, and
+it is absent rather than empty where the failure refuses no property in particular:
+
+```json
+{ "status": 400, "error_code": "flow.claims.invalid",
+  "description": "One or more of the values you submitted were refused. Please correct them.",
+  "properties": [
+    { "path": "birthdate", "error_code": "user.claim_value_validator.invalid_date",
+      "description": "Please provide a date formatted as YYYY-MM-DD." },
+    { "path": "email", "error_code": "user.claim_value_validator.invalid_type",
+      "description": "The value provided is not of the expected type (email)." } ] }
+```
+
+**An entry is the error's own triple minus the status** — a code to branch on, a description to
+show, and the technical message behind the same flag. The status belongs to the request; a caller
+correcting a form needs to know which field carries which failure, not only that one of them did.
+
+**An entry carries no description where the failure names none.** The generic sentence answers for
+the response as a whole, and printed against a single field it says less than the path and the code
+already do.
 
 **An OAuth2 error is the body RFC 6749 defines**, snake_case by specification, with the codes the
 specification names.
