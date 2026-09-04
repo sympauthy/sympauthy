@@ -50,11 +50,11 @@ class QueryValueUtilTest {
     }
 
     @Test
-    fun `filterOf - Resolve against the name the caller says the value publishes`() {
-        assertEquals(ClaimOrigin.OPENID_CONNECT, filterOf<ClaimOrigin>("origin", "openid") { it.value })
+    fun `filterOf - Resolve against the name the value declares it publishes`() {
+        assertEquals(ClaimOrigin.OPENID_CONNECT, filterOf<ClaimOrigin>("origin", "openid"))
 
         val exception = assertThrows<LocalizedHttpException> {
-            filterOf<ClaimOrigin>("origin", "openid_connect") { it.value }
+            filterOf<ClaimOrigin>("origin", "openid_connect")
         }
 
         assertEquals("openid, custom", exception.values["supportedValues"])
