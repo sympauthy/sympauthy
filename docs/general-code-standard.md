@@ -1,3 +1,10 @@
+---
+description: What a feature is made of, and what holds across every layer — dependency rules,
+  naming, concurrency.
+paths:
+  - "server/src/main/kotlin/**"
+---
+
 # General code standard
 
 [Architecture](architecture.md) says what the layers are and why each owns its own model. This

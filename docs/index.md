@@ -42,8 +42,8 @@ they are *not* is a user manual: how to configure and integrate with a running S
   to mean, and what each surface's gate does and does not protect.
 - **[Technology](technology.md)** — the frameworks and runtime the server is built on, and why each
   was picked.
-- **[Documentation standard](docs-standard.md)** — how these documents are written, and why a
-  standard states a rule rather than pointing at the code that happens to follow it.
+- **[Documentation standard](docs-standard.md)** — how a standard here is written, and what it
+  states in place of the code that happens to follow it.
 - **[Design FAQ](design-faq.md)** — decisions taken once, with the options that lost.
 - **[Running locally](running-locally.md)** — setting the project up, running it on the JVM and as a
   native image, and running both test suites.

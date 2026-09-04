@@ -1,3 +1,12 @@
+---
+description: What a comment carries, and where the rationale that does not belong in one goes
+  instead.
+paths:
+  - "**/*.kt"
+  - "**/*.sql"
+  - "**/*.yml"
+---
+
 # Comment standard
 
 What a comment in this codebase carries, and where the rationale that does not belong in one goes

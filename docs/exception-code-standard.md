@@ -1,3 +1,11 @@
+---
+description: Which exception each layer throws, what a failure carries instead of a sentence, and
+  how an error code names its two messages.
+paths:
+  - "server/src/main/kotlin/com/sympauthy/exception/**"
+  - "server/src/main/resources/error_messages*.properties"
+---
+
 # Exception code standard
 
 How a failure travels from the layer that notices it to what a caller finally sees: which exception

@@ -1,3 +1,11 @@
+---
+description: Where a string a person reads comes from — which bundle, how its keys are named, and
+  how a locale is resolved.
+paths:
+  - "server/src/main/resources/*_messages*.properties"
+  - "server/src/main/resources/views/**"
+---
+
 # Internationalization standard
 
 Every string a person reads comes from a bundle, resolved against their own locale at the moment it

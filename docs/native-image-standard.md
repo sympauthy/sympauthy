@@ -1,3 +1,11 @@
+---
+description: What a closed-world image has to be told about, and why a green run on the JVM proves
+  none of it.
+paths:
+  - "server/src/main/resources/META-INF/native-image/**"
+  - "server/build.gradle.kts"
+---
+
 # Native image standard
 
 The artifact a deployment runs is a GraalVM native image, compiled ahead of time with a closed

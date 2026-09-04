@@ -1,151 +1,134 @@
+---
+description: How a standard in `docs/` is written — the shape of a rule, and what a standard
+  states in place of code.
+paths:
+  - "docs/*-standard.md"
+  - ".claude/rules/*-standard.md"
+---
+
 # Documentation standard
 
-How a document in `docs/` is written. What each one covers is [the index](index.md).
+How a standard in `docs/` is written — a document named `<subject>-standard.md`. The other documents
+there are descriptions, and [the index](index.md) says what each of them covers.
 
-## Two kinds of document
+## Shape of a standard
 
-**[Architecture](architecture.md) describes the system**, so it names the system's parts — the
-packages, the layers, the engine that sequences an interactive flow. A reader arrives there to find
-out what exists and where, and a description that named nothing would answer neither.
-[The interactive flow](interactive-flow.md) and [security](security.md) are descriptions too: each
-names the types its subject is actually built from, because the subject *is* those types.
+**A standard is named `<subject>-standard.md` and holds one subject's rules.** Link to the standard
+that owns a neighbouring rule.
 
-**A standard describes a rule**, so it does not name the code that happens to follow it. The rule is
-stated in the abstract and illustrated with a shape — `…Manager`, `find…OrNull()`,
-`description.{detailsId}`, `V{major}_{minor}_{patch}_{sequence}__{table}_new.sql` — never with a
-class, function, migration or message key lifted from `server/`. A place the rule sends the reader
-to is named exactly, and that is pointing rather than illustrating.
+**A rule leads in bold, and at most two sentences follow it.** Those sentences carry further
+directive — what to write, what to name, what to do next.
 
-## Why a standard names no code
+```markdown
+**A migration is named `V{major}_{minor}_{patch}_{sequence}__{table}_{new|edit}.sql`.** The version
+is the release the change ships in. The sequence orders the migrations within that release.
+```
 
-An example taken from the codebase rots quietly. The rule stays true while the example stops being
-one: the class is renamed, the method is inlined, the quoted snippet is rewritten to say something
-else. Nothing fails when that happens — not a test, not the build, not the compiler — so what is
-left is a standard arguing for itself with something that is no longer there, and a reader with no
-way to tell which half went stale.
+**A rule is written as what to do.** State the form the reader has to produce.
 
-The shape does not rot, because it is the rule written twice.
+**An example shows a compliant case, in five lines or fewer.** Add one where showing the form is
+shorter than stating it.
 
-**Pointing is not illustrating, and a pointer is spelled in full.** Where a rule is carried out by
-editing or reading one particular place — the factory a generated mapper is registered in, the
-metadata the native image reads, the constants that name a role, the bundle a code resolves against
-— the document names that place, as the file or the class it actually is. It is the reader's next
-stop and the rule cannot be followed without finding it, so leaving it abstract buys nothing but a
-grep.
+**Enumerable rules go in a table.** Keep a cell to a value or a short phrase, and write anything
+longer as a paragraph.
 
-**The test is whether the rule can be carried out without the name.** A shape is the whole
-instruction for `…Manager` or `find…OrNull()`, so a class exhibited beside one is proving the rule
-with a specimen — and a specimen rots in place, still there and no longer demonstrating anything. A
-place the rule demands an edit in is the opposite: there is one of it, the change is unfinished
-until it has been edited, and a name that has moved sends the reader to something that is not there,
-which is a question they ask rather than an error they inherit.
+**What a standard deliberately leaves open is written down in a closing section.** Name the subject
+and say that it is open.
 
-What a standard may still not do is prove a rule by exhibiting a class that obeys it, or quote code
-as evidence that the rule is real.
+**A standard ends with a horizontal rule and a link back to the index.**
 
-**A name that *is* the rule is vocabulary, not an example.** The exception type a layer must throw,
-the annotation a class must carry, the interface a repository must extend: a standard that refused
-to name these would have no way to state its rule at all, and none of them can rot into a lie
-without the rule itself changing. What a standard still may not do is name a class that merely
-*obeys* a rule.
+## Frontmatter
 
-**A rule that cannot be stated without pointing at code is not a rule yet.** Write the shape it must
-have instead; if there is no shape, what has been found is a fact about one class, and it belongs in
-that class as a [comment](comment-standard.md).
+**A standard opens with frontmatter.** The block carries two keys, and the heading under it names
+the standard.
 
-**Do not enumerate a set that will grow.** Not the count, and not the members. A list of what exists
-today — the purposes a flow can have, the surfaces the server exposes, the providers that ship, the
-message bundles — reads as the complete set whether or not it says so, and it is silently wrong the
-day the set is extended, which is the day nobody rereads the document. A count in prose is the worst
-form of it: "the five purposes" is already a lie the moment a sixth is added, and it is a lie no
-test can catch. A table of all five is the same lie with more surface area.
+```yaml
+---
+description: <what the standard governs, in one line>
+paths:
+  - "<a glob from the repository root>"
+---
+```
 
-Describe the **criterion for membership** instead, and name the source of truth as authoritative —
-the sealed type, the enum and its KDoc, the configuration. A reader who needs the current members
-reads them where they cannot be out of date; a reader who needs to know whether a *new* member
-belongs needs the criterion, which is the thing only a document can give them.
+**`description` says what the standard governs, in one line.** Write it so that it stays true when a
+rule inside changes. Continue it on an indented line past 100 columns.
 
-Members may still be named, as **illustrations of the criterion** rather than as the elements of a
-complete list — and the difference has to be visible in the writing. "Confirming an action is a
-gate" survives a seventh purpose; a table with a row per purpose does not.
+**`paths` lists quoted globs, and it is what loads the standard.** A standard reaches an agent when
+a file one of its globs matches is read. Keep every glob matching something, and move a glob when
+the package it names moves.
 
-**A deviation is not documented either.** Where the code breaks a rule this set states, the rule is
-still written as the rule, and the breach goes to an issue. Listing today's offenders in a standard
-is exhibiting code by another name, and the list is wrong the moment one of them is fixed.
+**The key is spelled `paths`, the way the tooling that reads it spells it.** Rename it here when
+what reads it renames it.
 
-**Before a follow-up is proposed, the tracker is searched for one that already covers it.** That
-holds for the issue a breach goes to, for anything a review turns up, and for a gap noticed in
-passing — the check is a search, and it is cheaper than what it prevents. A second issue for a known
-defect splits the discussion in two, and the half carrying the design is not the half the next
-reader finds; worse, proposing work that is already filed reads as new information and gets planned
-a second time. Where an issue exists and is too narrow, it is broadened rather than duplicated.
+## What a standard names
 
-**A departure is documented where it departs, not here.** Where something deliberately does not
-follow a rule — the one component that is not per-domain, the class that had to break the pattern —
-the reason goes in [its own documentation](comment-standard.md), and the standard goes on stating
-the rule unqualified.
+**A shape carries the rule.** Write the pattern a name, a path or a key must match — `…Manager`,
+`find…OrNull()`, `V{major}_{minor}_{patch}_{sequence}__{table}_{new|edit}.sql`. The shape is the
+whole instruction.
 
-Writing the exception into the standard instead costs twice. The rule stops being something a reader
-can apply, because applying it now means first checking whether they are holding one of the things
-excused from it. And the explanation ends up where the person who needs it is not: at the call site
-and in the IDE hover, a reader sees the class, never the paragraph in `docs/` that pardons it. A
-carve-out earns its place in a standard only when it is a rule in its own right — something a second
-case would also fall under — rather than a pass written for one class.
+**A name that is itself the rule is written as it is.** The exception type a layer must throw, the
+annotation a class must carry and the interface a repository must extend are named directly.
 
-## A document says what is true now
+**A place the rule sends the reader to is named in full.** Spell out the file, the class or the
+directory the change is unfinished without — the factory a generated mapper is registered in, the
+metadata the native image reads.
 
-**A document describes the design as it stands, not the one it replaced.** Not what a subsystem used
-to do, not the convention a standard here was derived from, not the release in which a rule changed.
-A reader is here to find out what to build today, and every sentence about a design that is gone is
-one they have to recognise as gone before they can use the rest.
+**A set that will grow is described by its criterion**, with the source of truth named as
+authoritative: the sealed type, the enum and its KDoc, the configuration. Name a member as an
+illustration of the criterion.
 
-**A document is edited in place, and the sentence that stopped being true goes.** A reversed
-decision is rewritten, not annotated and not left standing under a note saying it no longer applies.
-One answer per question is the property being defended: a document holding two is worse than one
-holding a stale answer, because a reader who finds only the stale one at least knows to check it.
+```markdown
+**A purpose that confirms an action before it proceeds is a gate.** Which purposes exist is the
+sealed type's KDoc.
+```
 
-**A rule explained by what it replaced is explained with something the reader cannot see.** The
-design being contrasted against is not in the tree, not in the configuration and not in these
-documents, so the contrast carries nothing a reader can check and nothing they can apply. State what
-the rule protects now — and if the thing it replaced is the only argument for it, what has been
-found is a commit message.
+## What a standard sends elsewhere
 
-**The history is kept where it stays accurate.** Git holds every version of a document beside the
-change that caused it, and the tracker holds the discussion that settled it, with its dates and the
-people who had it. A retelling here is an undated second copy of both, and it is the copy a reader
-finds first.
+**A rule the code breaks is still written as the rule.** File the breach as an issue and leave the
+standard unqualified.
 
-## Shape of a document
+**A follow-up is filed once the tracker has been searched for one that covers it.** Broaden an
+existing issue where it is too narrow.
 
-- **One subject per document**, cross-linked rather than restated. A rule written in two places is a
-  rule that will eventually disagree with itself — the same reason a [comment](comment-standard.md)
-  does not repeat what is written here.
-- **A rule leads in bold, its reasoning follows in plain text.** The bold sentence is what a reader
-  scanning for the rule needs; the paragraph under it is why, and is what makes the rule arguable
-  rather than arbitrary.
-- **Enumerable rules go in a table**, prose rules in paragraphs. A table with one column of prose is
-  a list wearing a costume.
-- **The reasoning is part of the document, not an appendix.** A standard that only lists rules gets
-  followed until the first inconvenience; one that says what it is protecting gets applied to cases
-  it never listed.
-- **What a standard deliberately leaves open is written down**, in a closing section. An absence
-  that is a decision and an absence that is an oversight look identical, and only one of them should
-  survive review a second time.
+**A departure is documented where it departs.** The class that breaks a pattern carries the reason
+in [its own documentation](comment-standard.md). A carve-out belongs in a standard when a second
+case would also fall under it.
+
+**A fact about one class is documented in that class**, as a [comment](comment-standard.md). A
+standard carries what has a shape.
+
+## A standard says what is true now
+
+**A standard describes the design as it stands.** Write what to build today.
+
+**A standard is edited in place.** Rewrite the sentence that stopped being true, so that one
+question has one answer.
+
+**The history stays in git and in the tracker.** Both hold the previous version beside the change
+that caused it and the discussion that settled it.
 
 ## Mechanics
 
-Wrapped at 100 columns, to match the code. Headings are sentence case. Plain Markdown: these files
-are read on GitHub and in an IDE, where a VitePress admonition renders as the literal characters
-that spell it. Links between documents are relative and keep their `.md`, so they resolve in both;
-links to the [public documentation](https://sympauthy.github.io) are absolute, because that site is
-built from another repository and nothing here can check them.
+**Wrap at 100 columns and write headings in sentence case.**
 
-Every document ends with a rule and a link back to the index.
+**Write plain Markdown.** Keep to what GitHub and an IDE both render.
 
-A new document is added in the same commit to two places: the [index](index.md)'s contents, and
-`.claude/rules/`, as a symlink to the file here. The symlink is what puts the standard in front of
-an agent working in this repository, and a document only here is one only humans read. Descriptions
-are not symlinked — an agent needs the rules it must hold to, not a tour of the system it can read.
+**Link between documents relatively, keeping the `.md`.** Link to the [public
+documentation](https://sympauthy.github.io) with an absolute URL.
+
+**A new standard joins [the index](index.md)'s contents in the same commit, and is symlinked into
+`.claude/rules/`.** The symlink carries the [frontmatter](#frontmatter) with it.
+
+## What this standard does not cover
+
+**Descriptions.** [The index](index.md) names them, and nothing here says how one is written.
+
+**The public documentation.** It is written in another repository, and nothing here governs it.
+
+**Diagrams.** No document draws one, and no format is set for the first that does.
+
+**Checking.** Nothing verifies a link, a glob or an anchor; each is kept true by whoever moves what
+it names.
 
 ---
 

@@ -1,3 +1,11 @@
+---
+description: The four classes a configuration domain is written as, and the sealed model they
+  produce.
+paths:
+  - "server/src/main/kotlin/com/sympauthy/config/**"
+  - "server/src/main/resources/application*.yml"
+---
+
 # The `config` layer code standard
 
 One of the [code standards](general-code-standard.md), which hold the components a feature is made

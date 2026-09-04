@@ -1,3 +1,9 @@
+---
+description: The schema every migration builds up, written twice — once per dialect.
+paths:
+  - "server/src/main/resources/databases/**"
+---
+
 # Database standard
 
 Everything durable this server owns lives in one relational schema, built up one

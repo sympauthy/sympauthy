@@ -11,7 +11,7 @@ the other way, and does not generalise: it is only ever read by someone asking "
 this?"
 
 Each entry names the decision, the options that lost, and why. An entry may be reopened, and is
-[edited in place](docs-standard.md#a-document-says-what-is-true-now) when it is.
+edited in place when it is.
 
 ---
 

@@ -1,3 +1,10 @@
+---
+description: The entity and the repository, what each may hold, and the dialect twins every
+  repository needs.
+paths:
+  - "server/src/main/kotlin/com/sympauthy/data/**"
+---
+
 # The `data` layer code standard
 
 One of the [code standards](general-code-standard.md), which hold the components a feature is made

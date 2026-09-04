@@ -1,3 +1,10 @@
+---
+description: The Kotlin an API surface is made of — resources, mappers, controllers, filters and
+  error handlers.
+paths:
+  - "server/src/main/kotlin/com/sympauthy/api/**"
+---
+
 # The `api` layer code standard
 
 One of the [code standards](general-code-standard.md), which hold the components a feature is made

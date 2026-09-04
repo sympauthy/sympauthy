@@ -1,3 +1,10 @@
+---
+description: What a client sees — how a route is spelled, what the JSON looks like, how a collection
+  is paged, and the shape of a failure.
+paths:
+  - "server/src/main/kotlin/com/sympauthy/api/**"
+---
+
 # API standard
 
 [The code standards](general-code-standard.md) say what a feature looks like once it is written.

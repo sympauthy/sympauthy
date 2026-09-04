@@ -11,8 +11,8 @@ compiled to a GraalVM native image.
 
 **`docs/` is the authority** (start at `docs/index.md`). Read the document governing a change before
 the code it governs, and put a new design decision there before or alongside its code. The standards
-are symlinked into `.claude/rules/` and load alongside this file, so a rule one of them states is
-not restated here — it would be a second copy, and the copy that drifts.
+are symlinked into `.claude/rules/`, each loaded when a file it governs is read, so a rule one of
+them states is not restated here — it would be a second copy, and the copy that drifts.
 
 **Rules, not inventory.** What exists is answered by the package tree, `git log` and `docs/`. What
 belongs here is what no symlinked standard carries: how the project is run, and the shape of the

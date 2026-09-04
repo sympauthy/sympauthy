@@ -1,3 +1,10 @@
+---
+description: What the `business` layer contributes — the model, the mapper, and the manager that
+  owns the transaction.
+paths:
+  - "server/src/main/kotlin/com/sympauthy/business/**"
+---
+
 # The `business` layer code standard
 
 One of the [code standards](general-code-standard.md), which hold the components a feature is made

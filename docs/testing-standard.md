@@ -1,3 +1,11 @@
+---
+description: What each kind of subject is tested with, where the test lives, and what a test is
+  expected to prove.
+paths:
+  - "server/src/test/**"
+  - "integration-tests/src/**"
+---
+
 # Testing standard
 
 What each kind of subject is tested with, where the test lives, how it is named, and what a test is
