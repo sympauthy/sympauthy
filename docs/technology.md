@@ -14,7 +14,7 @@ choices live in [the code standards](general-code-standard.md); this is the list
   **PostgreSQL** and **H2** — reactive, non-blocking data access, which is what lets a repository
   method be `suspend` rather than a blocking call wrapped in a dispatcher. Two databases because a
   deployment should be able to try this server with no database to install; [what that
-  costs](database-standard.md#two-dialects-one-schema) is paid in the schema.
+  costs](database-standard.md#one-schema-spelled-per-dialect) is paid in the schema.
 - **[Flyway](https://documentation.red-gate.com/flyway)** — schema migration, run at startup against
   whichever dialect is configured.
 - **[GraalVM native image](https://www.graalvm.org/reference-manual/native-image/)** — the
