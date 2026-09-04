@@ -49,6 +49,11 @@ Give a column a default where a value is merely inconvenient to supply at insert
 
 **Absence is spelled `NULL`.** Every other value a column admits means itself.
 
+**A `bytea` column is `NOT NULL`.** A null one cannot be written — the R2DBC binding types it
+`smallint[]`, which PostgreSQL refuses against a `bytea` — so give the absent value a spelling of
+its own and translate it in the mapper. [The design FAQ](design-faq.md) holds the case that settled
+it.
+
 ## Migrations
 
 **A migration is named `V{major}_{minor}_{patch}_{sequence}__{table}_{new|edit}.sql`.** The version

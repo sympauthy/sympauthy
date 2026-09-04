@@ -59,8 +59,9 @@ schema takes its description from.
 **A migration carries no comment.** It exists once per dialect, and
 [the database standard](database-standard.md#one-schema-spelled-per-dialect) owns the shape of both.
 
-**The rationale a migration would have carried goes on the business model.** The model is the
-declaration every value passes through on its way to the table.
+**The rationale a migration would have carried goes on the entity that mirrors the column.** What
+is true of the value rather than of the shape it is stored in is documented on the business model
+instead.
 
 **A message in a bundle is documented by being written well.** The technical half already explains
 the failure.

@@ -29,7 +29,7 @@ class CryptoKeys(
 
     /**
      * Private key serialized in a binary form.
-     * Only present if the algorithm supports public key.
+     * Always present: a symmetric algorithm keeps its one secret here.
      */
     val privateKey: ByteArray,
 
