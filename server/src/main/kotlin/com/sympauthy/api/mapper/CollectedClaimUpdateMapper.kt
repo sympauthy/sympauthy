@@ -1,6 +1,5 @@
 package com.sympauthy.api.mapper
 
-import com.sympauthy.api.exception.LocalizedAdditionalMessage
 import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.user.ClaimValueValidator
@@ -39,13 +38,10 @@ class CollectedClaimUpdateMapper(
         if (exceptionByClaimMap.isNotEmpty()) {
             throw LocalizedHttpException(
                 status = BAD_REQUEST,
+                recoverable = true,
                 detailsId = "flow.claims.invalid",
-                additionalInfo = exceptionByClaimMap.map { (claim, ex) ->
-                    LocalizedAdditionalMessage(
-                        path = claim.id,
-                        descriptionId = ex.descriptionId ?: ex.detailsId
-                    )
-                }
+                descriptionId = "description.flow.claims.invalid",
+                propertyErrors = exceptionByClaimMap.mapKeys { (claim, _) -> claim.id }
             )
         }
         return claimUpdates

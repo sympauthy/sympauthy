@@ -25,7 +25,7 @@ class VersionController(
         if (annotation != null) {
             it.onSuccess(annotation.info.version)
         } else {
-            it.onError(httpExceptionOf(HttpStatus.NOT_FOUND, "not_found"))
+            it.onError(httpExceptionOf(HttpStatus.NOT_FOUND, "not_found", "description.not_found"))
         }
     }.cache()
 

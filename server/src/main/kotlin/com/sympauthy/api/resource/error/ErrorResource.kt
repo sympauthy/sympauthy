@@ -44,6 +44,9 @@ Details about an error caused by a property.
 
 It is mostly used by this authorization server to add details on validation error. 
 It contains the path to the invalid property and the reason why the property is invalid (missing, wrong type, etc.). 
+
+Apart from the HTTP status, which belongs to the response as a whole, it carries the same information as the error 
+containing it: a code to branch on, a description to display and, when enabled, the technical details behind it.
 """
 )
 @Serdeable
@@ -51,11 +54,18 @@ data class PropertyErrorResource(
     @get:Schema(description = "Path to one of the property of the payload causing the error.")
     val path: String,
 
+    @get:Schema(description = "A code identifying the reason why this property was refused.")
+    @get:JsonProperty("error_code")
+    val errorCode: String,
+
     @get:Schema(
         description = """
 A human-readable message explaining the error to the end-user.
 It is intended to be displayed to the end-user, in order for him to correct its input and retry the operation.
 """
     )
-    val description: String?
+    val description: String?,
+
+    @get:Schema(description = "A message containing technical details about the error.")
+    val details: String?
 )
