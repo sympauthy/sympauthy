@@ -25,7 +25,8 @@ class ClaimFunction(
         }
         val claim = parameterValues[0].stringValue
         val collectedClaim = collectedClaims.find { it.claim.id == claim } ?: return EvaluationValue.NULL_VALUE
-        return EvaluationValue.stringValue(collectedClaim.value?.toString() ?: "")
+        val value = collectedClaim.value ?: return EvaluationValue.NULL_VALUE
+        return EvaluationValue.stringValue(value.toString())
     }
 
     companion object {

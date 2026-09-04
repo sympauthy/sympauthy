@@ -175,6 +175,32 @@ class InteractiveFlowSessionTotpEnrollmentManagerTest {
         coVerify(exactly = 0) { sessionManager.setMfaPassed(any()) }
     }
 
+    @Test
+    fun `confirmEnrollment - throws when no code is submitted`() = runTest {
+        val session = mockk<OnGoingInteractiveFlowSession>()
+        coEvery { totpManager.findPendingEnrollmentOrNull(userId) } returns enrollment()
+
+        val exception = assertThrows<BusinessException> {
+            manager.confirmEnrollment(session, user, null)
+        }
+        assertEquals("flow.mfa.totp.enroll.invalid_code", exception.detailsId)
+        coVerify(exactly = 0) { totpManager.confirmEnrollment(any(), any()) }
+        coVerify(exactly = 0) { sessionManager.setMfaPassed(any()) }
+    }
+
+    @Test
+    fun `confirmEnrollment - throws when the submitted code is blank`() = runTest {
+        val session = mockk<OnGoingInteractiveFlowSession>()
+        coEvery { totpManager.findPendingEnrollmentOrNull(userId) } returns enrollment()
+
+        val exception = assertThrows<BusinessException> {
+            manager.confirmEnrollment(session, user, " ")
+        }
+        assertEquals("flow.mfa.totp.enroll.invalid_code", exception.detailsId)
+        coVerify(exactly = 0) { totpManager.confirmEnrollment(any(), any()) }
+        coVerify(exactly = 0) { sessionManager.setMfaPassed(any()) }
+    }
+
     /**
      * Sets up [getEnrollmentData] with the given identifier claims and collected claims,
      * runs it, and returns the account label passed to [TotpManager.buildOtpauthUri].

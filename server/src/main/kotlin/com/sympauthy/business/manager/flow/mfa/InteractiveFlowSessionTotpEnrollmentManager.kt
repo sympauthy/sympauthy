@@ -54,12 +54,12 @@ class InteractiveFlowSessionTotpEnrollmentManager(
      *
      * Throws a recoverable [com.sympauthy.business.exception.BusinessException] if:
      * - no pending enrollment exists (the user has not initiated enrollment).
-     * - the [code] is invalid.
+     * - the [code] is missing or invalid.
      */
     suspend fun confirmEnrollment(
         session: OnGoingInteractiveFlowSession,
         user: User,
-        code: String
+        code: String?
     ): OnGoingInteractiveFlowSession {
         val pendingEnrollment = totpManager.findPendingEnrollmentOrNull(user.id)
             ?: throw recoverableBusinessExceptionOf(
@@ -67,11 +67,12 @@ class InteractiveFlowSessionTotpEnrollmentManager(
                 descriptionId = "description.flow.mfa.totp.enroll.no_pending_enrollment"
             )
 
-        totpManager.confirmEnrollment(pendingEnrollment, code)
-            ?: throw recoverableBusinessExceptionOf(
+        if (code.isNullOrBlank() || totpManager.confirmEnrollment(pendingEnrollment, code) == null) {
+            throw recoverableBusinessExceptionOf(
                 detailsId = "flow.mfa.totp.enroll.invalid_code",
                 descriptionId = "description.flow.mfa.totp.enroll.invalid_code"
             )
+        }
 
         return sessionManager.setMfaPassed(session)
     }

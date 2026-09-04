@@ -70,6 +70,10 @@ them, so keep every construct to what each of them understands.
 **A parameter whose type the driver cannot infer carries an explicit type definition.** An array
 bound into a raw query is the case that occurs here.
 
+**A `json` column is written through a derived method, never through a raw query.** A map bound as a
+raw-query parameter is stored as its `toString()` and fails on the next read; where a raw statement
+is also needed, pair it with the derived write inside one transaction.
+
 **Anything raw is covered by a repository test against a real database.** See
 [the testing standard](testing-standard.md).
 

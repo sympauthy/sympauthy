@@ -62,6 +62,13 @@ the contract.
 **An error code is a message-bundle key.** The code names the technical message an operator reads,
 and the same code prefixed with `description.` names the one an end-user is shown.
 
+**A code that is thrown has its technical message in the bundle, and a recoverable one has its
+`description.` message too.** A description the bundle does not hold renders as null and is
+[dropped from the body](api-standard.md#json), so the caller is told nothing at all.
+
+**A placeholder a message names is supplied at every throw site of that code.** An unsupplied name
+[reaches the reader as the bare word](i18n-standard.md#keys) rather than as a failure.
+
 **A code is renamed as a breaking change.** A client branches on the key.
 
 **The technical message is for troubleshooting; the description is for a person who cannot fix it.**
