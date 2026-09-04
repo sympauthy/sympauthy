@@ -57,6 +57,13 @@ token takes the enabled type, so a scope that is off cannot be handed to any of 
 refuses it, rather than each of those paths remembering to filter it out. Only the administration
 API asks for the whole set, because an operator has to be able to see what they turned off.
 
+**Being advertised is not being served.** The discovery document lists what a client that has not
+been told what to ask for could ask for, and nothing consults that list when a request arrives. A
+scope is served whether or not it appears there — the admin and the client scopes are the built-in
+case, real and never listed — so a deployment may hide one it serves, and every client already
+naming it is answered exactly as before. Turning a scope off is the other question, and it is
+answered by the other half of the hierarchy.
+
 **A grantable scope cannot be asked for, and that is the point.** Anything a client could request it
 would request; a scope that represents authority — administrating, acting as another user — is
 decided by a rule evaluated against the user and the client, never by the request. Making it a

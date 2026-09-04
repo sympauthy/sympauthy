@@ -56,15 +56,31 @@ class ScopeConfigFactoryTest {
         type: String? = null,
         template: String? = null,
         enabled: String? = null,
+        discoverable: String? = null,
         audience: String? = null
     ): ScopeConfigurationProperties {
         return ScopeConfigurationProperties(id).apply {
             this.type = type
             this.template = template
             this.enabled = enabled
+            this.discoverable = discoverable
             this.audience = audience
         }
     }
+
+    private fun scopeTemplate(
+        id: String,
+        enabled: Boolean? = null,
+        discoverable: Boolean? = null,
+        type: String? = null,
+        audienceId: String? = null
+    ) = ScopeTemplate(
+        id = id,
+        enabled = enabled,
+        discoverable = discoverable,
+        type = type,
+        audienceId = audienceId
+    )
 
     private fun ScopesConfig.scopeNamed(id: String): Scope? {
         return (this as EnabledScopesConfig).scopes.firstOrNull { it.scope == id }
@@ -89,7 +105,7 @@ class ScopeConfigFactoryTest {
     @Test
     fun `provideScopes - Take an OpenID Connect scope off from the template it names`() {
         val factory = factoryWith(
-            templates = listOf(ScopeTemplate(id = "my-template", enabled = false, type = null, audienceId = null))
+            templates = listOf(scopeTemplate(id = "my-template", enabled = false))
         )
 
         val result = factory.provideScopes(listOf(scopeProperties(id = "profile", template = "my-template")))
@@ -110,7 +126,7 @@ class ScopeConfigFactoryTest {
     @Test
     fun `provideScopes - Let an OpenID Connect scope property override its template`() {
         val factory = factoryWith(
-            templates = listOf(ScopeTemplate(id = "my-template", enabled = false, type = null, audienceId = null))
+            templates = listOf(scopeTemplate(id = "my-template", enabled = false))
         )
 
         val result = factory.provideScopes(
@@ -138,11 +154,82 @@ class ScopeConfigFactoryTest {
         }
     }
 
+
+    @Test
+    fun `provideScopes - Advertise a custom scope the deployment said nothing about`() {
+        val result = factory.provideScopes(listOf(scopeProperties(id = "my-scope")))
+
+        assertInstanceOf(EnabledScopesConfig::class.java, result)
+        assertTrue(assertInstanceOf(GrantableUserScope::class.java, result.scopeNamed("my-scope")).discoverable)
+    }
+
+    @Test
+    fun `provideScopes - Keep a custom scope out of the discovery document`() {
+        val result = factory.provideScopes(
+            listOf(
+                scopeProperties(id = "my-grantable", discoverable = "false"),
+                scopeProperties(id = "my-consentable", type = "consentable", discoverable = "false")
+            )
+        )
+
+        assertInstanceOf(EnabledScopesConfig::class.java, result)
+        assertFalse(assertInstanceOf(GrantableUserScope::class.java, result.scopeNamed("my-grantable")).discoverable)
+        assertFalse(
+            assertInstanceOf(ConsentableUserScope::class.java, result.scopeNamed("my-consentable")).discoverable
+        )
+    }
+
+    @Test
+    fun `provideScopes - Take the discoverability of a custom scope from the template it names`() {
+        val factory = factoryWith(
+            templates = listOf(
+                scopeTemplate(id = "my-template", discoverable = false)
+            )
+        )
+
+        val result = factory.provideScopes(listOf(scopeProperties(id = "my-scope", template = "my-template")))
+
+        assertInstanceOf(EnabledScopesConfig::class.java, result)
+        assertFalse(assertInstanceOf(GrantableUserScope::class.java, result.scopeNamed("my-scope")).discoverable)
+    }
+
+    @Test
+    fun `provideScopes - Let a custom scope property override its template discoverability`() {
+        val factory = factoryWith(
+            templates = listOf(
+                scopeTemplate(id = "my-template", discoverable = false)
+            )
+        )
+
+        val result = factory.provideScopes(
+            listOf(scopeProperties(id = "my-scope", template = "my-template", discoverable = "true"))
+        )
+
+        assertInstanceOf(EnabledScopesConfig::class.java, result)
+        assertTrue(assertInstanceOf(GrantableUserScope::class.java, result.scopeNamed("my-scope")).discoverable)
+    }
+
+    @Test
+    fun `provideScopes - Keep an OpenID Connect scope out of the discovery document`() {
+        val result = factory.provideScopes(listOf(scopeProperties(id = "profile", discoverable = "false")))
+
+        assertInstanceOf(EnabledScopesConfig::class.java, result)
+        assertFalse(assertInstanceOf(ConsentableUserScope::class.java, result.scopeNamed("profile")).discoverable)
+        assertTrue(assertInstanceOf(ConsentableUserScope::class.java, result.scopeNamed("email")).discoverable)
+    }
+
+    @Test
+    fun `provideScopes - Report a discoverability that is not a boolean`() {
+        val result = factory.provideScopes(listOf(scopeProperties(id = "my-scope", discoverable = "maybe")))
+
+        assertEquals(mapOf("scopes.my-scope.discoverable" to "config.invalid_boolean"), result.errorsByKey())
+    }
+
     @Test
     fun `provideScopes - Apply default_custom template type to a custom scope`() {
         val factory = factoryWith(
             templates = listOf(
-                ScopeTemplate(id = "default_custom", enabled = null, type = "consentable", audienceId = null)
+                scopeTemplate(id = "default_custom", type = "consentable")
             )
         )
 
@@ -156,7 +243,7 @@ class ScopeConfigFactoryTest {
     fun `provideScopes - Let a custom scope property override its template type`() {
         val factory = factoryWith(
             templates = listOf(
-                ScopeTemplate(id = "default_custom", enabled = null, type = "consentable", audienceId = null)
+                scopeTemplate(id = "default_custom", type = "consentable")
             )
         )
 
@@ -178,8 +265,8 @@ class ScopeConfigFactoryTest {
     fun `provideScopes - Use the template a custom scope names`() {
         val factory = factoryWith(
             templates = listOf(
-                ScopeTemplate(id = "default_custom", enabled = null, type = "grantable", audienceId = null),
-                ScopeTemplate(id = "my-template", enabled = null, type = "consentable", audienceId = null)
+                scopeTemplate(id = "default_custom", type = "grantable"),
+                scopeTemplate(id = "my-template", type = "consentable")
             )
         )
 
@@ -208,7 +295,7 @@ class ScopeConfigFactoryTest {
     @Test
     fun `provideScopes - Take a custom scope off from the template it names`() {
         val factory = factoryWith(
-            templates = listOf(ScopeTemplate(id = "my-template", enabled = false, type = null, audienceId = null))
+            templates = listOf(scopeTemplate(id = "my-template", enabled = false))
         )
 
         val result = factory.provideScopes(listOf(scopeProperties(id = "my-scope", template = "my-template")))
@@ -289,7 +376,7 @@ class ScopeConfigFactoryTest {
         val factory = factoryWith(
             audiences = listOf("partners"),
             templates = listOf(
-                ScopeTemplate(id = "default_custom", enabled = null, type = null, audienceId = "partners")
+                scopeTemplate(id = "default_custom", audienceId = "partners")
             )
         )
 
@@ -303,7 +390,7 @@ class ScopeConfigFactoryTest {
     fun `provideScopes - Report an audience a custom scope inherits from a template at that template`() {
         val factory = factoryWith(
             templates = listOf(
-                ScopeTemplate(id = "default_custom", enabled = null, type = null, audienceId = "nonexistent")
+                scopeTemplate(id = "default_custom", audienceId = "nonexistent")
             )
         )
 
@@ -330,7 +417,7 @@ class ScopeConfigFactoryTest {
         val factory = factoryWith(
             audiences = listOf("partners"),
             templates = listOf(
-                ScopeTemplate(id = "my-template", enabled = null, type = null, audienceId = "partners")
+                scopeTemplate(id = "my-template", audienceId = "partners")
             )
         )
 
@@ -354,7 +441,7 @@ class ScopeConfigFactoryTest {
     fun `provideScopes - Refuse a type an OpenID Connect scope inherits from the template it names`() {
         val factory = factoryWith(
             templates = listOf(
-                ScopeTemplate(id = "my-template", enabled = null, type = "grantable", audienceId = null)
+                scopeTemplate(id = "my-template", type = "grantable")
             )
         )
 
@@ -385,7 +472,7 @@ class ScopeConfigFactoryTest {
     @Test
     fun `provideScopes - Reject a scope referencing a default template by name`() {
         val factory = factoryWith(
-            templates = listOf(ScopeTemplate(id = "default_openid", enabled = null, type = null, audienceId = null))
+            templates = listOf(scopeTemplate(id = "default_openid"))
         )
 
         val result = factory.provideScopes(listOf(scopeProperties(id = "my-scope", template = "default_openid")))

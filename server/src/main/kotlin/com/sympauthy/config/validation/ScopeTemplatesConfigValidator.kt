@@ -43,6 +43,7 @@ class ScopeTemplatesConfigValidator {
         return ScopeTemplate(
             id = parsed.id,
             enabled = parsed.enabled,
+            discoverable = parsed.discoverable,
             type = parsed.type,
             audienceId = parsed.audienceId
         )
@@ -54,9 +55,9 @@ class ScopeTemplatesConfigValidator {
      *
      * The specification names those scopes and decides what they are, so there is nothing here for
      * a default to say: an audience and a type cannot apply to them at all, and a deployment that
-     * no longer wants one turns that scope off by name rather than turning the set off at once.
-     * Every setting is reported, rather than the first, so that one startup names every line to
-     * delete.
+     * no longer wants one turns that scope off — or stops advertising it — by name rather than
+     * taking the set at once. Every setting is reported, rather than the first, so that one startup
+     * names every line to delete.
      */
     private fun refuseOpenIdConnectDefaults(
         ctx: ConfigParsingContext,
@@ -64,6 +65,9 @@ class ScopeTemplatesConfigValidator {
     ): Boolean {
         val refusals = listOfNotNull(
             parsed.enabled?.let { "enabled" to "config.scope.template.enabled_not_allowed_on_default_openid" },
+            parsed.discoverable?.let {
+                "discoverable" to "config.scope.template.discoverable_not_allowed_on_default_openid"
+            },
             parsed.type?.let { "type" to "config.scope.template.type_not_allowed_on_default_openid" },
             parsed.audienceId?.let { "audience" to "config.scope.template.audience_not_allowed_on_default_openid" }
         )
