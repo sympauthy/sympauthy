@@ -49,8 +49,19 @@ refused caller never reached the write, that a failure short-circuited before th
 row failed before anything acted on it, that a session was left untouched when the purpose was not
 satisfied.
 
+**A bundle message is not rendered in a test.** Assert the code and the values at the throw site; a
+bundle is content, edited for editorial reasons, so a test reading one fails on a rewrite that broke
+nothing.
+
 **A repository test proves what is not in the Kotlin** — that an array column binds as an array,
 that a derived update method updates the row it was meant to. Run it against a real database.
+
+**A repository test deletes the rows it created, and never calls `deleteAll()`.** Every one of them
+runs against the same in-memory database, so a wiped table breaks whichever class the runner
+schedules next.
+
+**A key a test queries by names the test class**, so no other class's rows fall inside the query
+under test.
 
 ## Integration tests
 

@@ -33,7 +33,7 @@ class StateAuthenticationFetcherTest {
     }
 
     @Test
-    fun `GET to flow path without state returns StateAuthentication with null state`() = runTest {
+    fun `GET to flow path without state publishes nothing`() = runTest {
         val request = mockk<HttpRequest<*>>()
         every { request.path } returns "/api/v1/flow/sign-in"
         every { request.method } returns HttpMethod.GET
@@ -41,8 +41,7 @@ class StateAuthenticationFetcherTest {
 
         val result = fetcher.fetchAuthentication(request).asFlow().toList()
 
-        assertEquals(1, result.size)
-        assertNull((result[0] as StateAuthentication).state)
+        assertEquals(0, result.size)
     }
 
     @Test
@@ -60,7 +59,7 @@ class StateAuthenticationFetcherTest {
     }
 
     @Test
-    fun `POST to flow path with Bearer authorization header returns StateAuthentication with null state`() = runTest {
+    fun `POST to flow path with Bearer authorization header publishes nothing`() = runTest {
         val request = mockk<HttpRequest<*>>()
         every { request.path } returns "/api/v1/flow/sign-in"
         every { request.method } returns HttpMethod.POST
@@ -68,12 +67,11 @@ class StateAuthenticationFetcherTest {
 
         val result = fetcher.fetchAuthentication(request).asFlow().toList()
 
-        assertEquals(1, result.size)
-        assertNull((result[0] as StateAuthentication).state)
+        assertEquals(0, result.size)
     }
 
     @Test
-    fun `POST to flow path without Authorization header returns StateAuthentication with null state`() = runTest {
+    fun `POST to flow path without Authorization header publishes nothing`() = runTest {
         val request = mockk<HttpRequest<*>>()
         every { request.path } returns "/api/v1/flow/sign-in"
         every { request.method } returns HttpMethod.POST
@@ -81,8 +79,7 @@ class StateAuthenticationFetcherTest {
 
         val result = fetcher.fetchAuthentication(request).asFlow().toList()
 
-        assertEquals(1, result.size)
-        assertNull((result[0] as StateAuthentication).state)
+        assertEquals(0, result.size)
     }
 
     @Test

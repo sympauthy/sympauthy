@@ -2,10 +2,8 @@ package com.sympauthy.util
 
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.exception.localizedExceptionOf
-import com.sympauthy.server.MessageSourceFactory
 import io.micronaut.context.StaticMessageSource
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.util.*
 
@@ -56,21 +54,5 @@ class ExceptionUtilTest {
             "Audience nonexistent-audience does not exist. Available audiences: default, admin.",
             message
         )
-    }
-
-    @Test
-    fun `getKeyAndLocalizedMessage - Interpolates into the message the error bundle ships`() {
-        val exception = configExceptionOf(
-            "claims.email.audience", "config.claim.audience.not_found",
-            "audience" to "nonexistent-audience",
-            "availableAudiences" to "default, admin"
-        )
-
-        val (_, message) = exception.getKeyAndLocalizedMessage(
-            MessageSourceFactory().provideErrorMessageSource()
-        )
-
-        assertTrue(message!!.contains("nonexistent-audience"), message)
-        assertTrue(message.contains("default, admin"), message)
     }
 }

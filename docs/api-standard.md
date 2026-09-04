@@ -160,6 +160,17 @@ serving it substitutes the configured public URL on the way out.
 **A client is generated from the published document.** Two annotation processors produce a
 specification here and they do not agree; the published one is what an integrator gets.
 
+## Breaking a contract
+
+**A contract is reshaped rather than versioned until a release ships it.** The server release is
+what this turns on and not the surface prefix in the path;
+[the database standard](database-standard.md#migrations) holds the same rule for the schema
+underneath.
+
+**A change to a resource the flow configuration is built from ships with a release of
+`testcontainers-sympauthy`.** The library parses that response into a model of its own, and the
+version the integration tests run against is pinned in `gradle/libs.versions.toml`.
+
 ## What this standard does not cover
 
 **Caching.** No validator, no cache header and no conditional request, including on the discovery
@@ -170,8 +181,9 @@ document and the key set.
 **Bulk operations and long-running work.** Nothing creates many rows in one request, and nothing
 takes long enough to need a job resource.
 
-**Deprecating a version.** How long a version lives once its successor ships is a policy invented
-with no second version in sight.
+**Deprecating a version.** [Breaking a contract](#breaking-a-contract) covers one still unreleased,
+and how long a released version lives once its successor ships is a policy invented with no second
+version in sight.
 
 ---
 

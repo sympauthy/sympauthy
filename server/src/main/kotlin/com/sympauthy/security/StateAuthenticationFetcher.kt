@@ -32,7 +32,7 @@ class StateAuthenticationFetcher : AuthenticationFetcher<HttpRequest<*>> {
             } else {
                 request.parameters["state"]?.takeIf { it.isNotBlank() }
             }
-            this.send(StateAuthentication(state))
+            state?.let { this.send(StateAuthentication(it)) }
         }
     }
 }

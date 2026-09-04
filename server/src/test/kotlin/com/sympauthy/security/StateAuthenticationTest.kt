@@ -19,13 +19,6 @@ class StateAuthenticationTest {
     }
 
     @Test
-    fun `getRoles returns empty collection when state is null`() {
-        val auth = StateAuthentication(null)
-
-        assertTrue(auth.roles.isEmpty())
-    }
-
-    @Test
     fun `stateOrNull returns state when instance is StateAuthentication`() {
         val state = "some-jwt"
         val auth = StateAuthentication(state)

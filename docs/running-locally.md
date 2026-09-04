@@ -83,9 +83,9 @@ PostgreSQL, which is what a deployment runs:
 url: r2dbc:postgresql://localhost:5432/sympauthy
 ```
 
-The schema is migrated at startup against whichever is configured. Before 1.0 a migration may be
-[edited in place](database-standard.md#migrations), so pulling a change to one means recreating the
-database rather than migrating it.
+The schema is migrated at startup against whichever is configured. A migration whose version is
+unreleased may be [edited in place](database-standard.md#migrations), so pulling a change to one
+means recreating the database rather than migrating it.
 
 ## Running the server
 

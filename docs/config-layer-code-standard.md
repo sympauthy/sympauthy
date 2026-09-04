@@ -24,6 +24,9 @@ with a YAML file, so every mistake in it is made by an operator who cannot read 
 **Every value the YAML offers arrives as a nullable string-shaped property**, including what looks
 like a boolean, a number or a duration. The parser converts it, and names the key when it cannot.
 
+**A value that cannot apply where it was written is refused, not ignored.** The validator records an
+error naming the key, so a setting that will not take effect is never accepted in silence.
+
 **The parser only converts.** Route every call through the context so a failure is recorded, and
 return an intermediate type whose fields are all nullable.
 

@@ -81,6 +81,14 @@ deployment types it by hand.
 **A method that can answer "there is none" ends in `…OrNull` and returns a nullable type.** Its
 non-null twin has the same name without the suffix, delegates to it, and owns the error code.
 
+**A missing value is passed as `null`, never as a substituted empty one.** Push the nullability into
+the signature so the callee decides what absence means; `?: ""` turns a missing secret into an empty
+one that may match.
+
+**The values interpolated into a message are the exception.** That map may not admit a null — a
+nullable one binds a different overload and drops every named value — so an absent value goes in as
+an empty string where the exception is built.
+
 **A name says what a thing is.** A collection of claims a user consented to is `consentedClaims` and
 the same list unfiltered is `allClaims`; where two lists of one type coexist, the filter is in the
 name.

@@ -80,7 +80,7 @@ On failure, a recoverable 4xx error is returned so the end-user can retry with t
         interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionWithUserThenUpdateAndRedirect(
             state = authentication.stateOrNull,
             update = { session, _, user ->
-                enrollmentManager.confirmEnrollment(session, user, inputResource.code.orEmpty())
+                enrollmentManager.confirmEnrollment(session, user, inputResource.code)
             },
             mapRedirectUriToResource = { redirectUri -> SimpleFlowResource(redirectUri.toString()) }
         )

@@ -36,6 +36,13 @@ without its extension.
 **A placeholder is written bare.** [The apostrophe
 rule](exception-code-standard.md#the-apostrophe-rule) holds in every bundle.
 
+**A message interpolates a value as its `toString()`.** The message source is a hand-rolled `{name}`
+substitution rather than a format, so a bundle sentence needing a formatted number, a duration or a
+plural is reworded rather than parameterised.
+
+**A name with no value is written out as the bare word.** Nothing fails and no brace survives, so a
+message naming a placeholder nobody supplies reads as a sentence with a stray identifier in it.
+
 ## Locale
 
 **The locale comes from the request.** A request stating no preference, and a preference with no
@@ -61,8 +68,9 @@ nothing here.
 
 **Translation tooling and workflow.** The bundles are edited by hand in this repository.
 
-**Locale-sensitive formatting.** Dates and numbers are formatted by whatever renders them, and the
-sign-in pages make their own choices.
+**Locale-sensitive formatting.** The message source cannot format a number, a duration or a plural,
+and nothing preformats one before handing it over; the pages and the mail templates make their own
+choices.
 
 **Right-to-left and per-locale layout.** A concern of the pages, not of the server that supplies
 their strings.

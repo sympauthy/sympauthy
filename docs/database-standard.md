@@ -57,11 +57,18 @@ is the server version the change ships in, and the sequence orders the migration
 **`_new` carries the whole table**, its columns, its constraints and its indexes; `_edit` carries a
 change to a table that already exists.
 
-**Before 1.0, a `_new` file is edited in place** and a development database is wiped rather than
-migrated. One file goes on describing its table completely.
+**A migration whose version is unreleased is edited in place** and a development database is wiped
+rather than migrated. One file goes on describing its table completely.
 
-**After 1.0, an applied migration stays as it was applied**, and a change ships as an `_edit`.
-Record that switch as a decision when it happens.
+**A nightly build is not a release.** The version it carries is still open, and its migrations are
+still edited in place.
+
+**A deployment that follows the nightly recreates its schema rather than migrating it.** An edited
+migration no longer matches the checksum the previous nightly recorded, so the next start fails
+validation until the schema is dropped.
+
+**A migration that went out in a release stays as it was applied**, and a change to its table ships
+as an `_edit` under the version that carries the change.
 
 **One table per file.**
 
