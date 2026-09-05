@@ -8,6 +8,10 @@
 # same-repo pull request, and a regression a merge introduces is visible on the merge rather than at
 # the next release — the nightly runs against `main` but runs no unit tests. The cost is that a
 # branch pushed with no pull request open is untested until the pull request exists. See #406.
+#
+# The three jobs are independent and run concurrently. None gates another: a run reports the
+# analysis, the coverage and the test result whatever the other two did, which is worth more than
+# the runner time saved by stopping the rest at the first finding.
 
 name: Test
 
@@ -45,19 +49,16 @@ jobs:
 
   kover:
     name: Measure what the tests reach
-    # Deliberately not behind detekt: the measurement is wanted beside the analysis rather than
-    # after it. That is a decision with a price — this job runs the whole suite a second time,
-    # alongside the one below that runs it for its own sake, and it starts its containers whether
-    # or not detekt has already rejected the sources.
+    # Coverage is a measurement of what the tests reached, so every Kover report task depends on
+    # `:server:test` and there is no way to have the figure without running the suite. This job
+    # therefore runs it a second time, alongside the one below that runs it for its own sake.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup_gradle
 
-      # koverLog prints the figure and little else, but it reaches it by running the tests: every
-      # Kover report task depends on `:server:test`, because coverage is a measurement of what the
-      # tests reached. `shell: bash` is what sets pipefail — the runner's default shell would let
-      # tee's success hide a failing build.
+      # `shell: bash` is what sets pipefail — the runner's default shell would let tee's success
+      # hide a failing build.
       - name: Measure the coverage
         shell: bash
         run: ./gradlew :server:koverLog --no-daemon | tee kover.log
@@ -80,9 +81,6 @@ jobs:
 
   test:
     name: Run tests on all projects
-    # The analysis costs seconds and needs no container, while the tests start PostgreSQL. There is
-    # nothing to learn from running them against sources detekt has already rejected.
-    needs: detekt
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
