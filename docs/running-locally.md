@@ -140,7 +140,9 @@ reflection or resource loading is not finished until this has run.
 ./gradlew test                          # unit tests; needs Docker for the repository tests
 ./gradlew test --tests 'com.sympauthy.business.manager.ScopeManagerTest'
 ./gradlew compileKotlin                 # compile only
-./gradlew build                         # compile, test, package
+./gradlew detekt                        # static analysis; the rule set is detekt.yml
+./gradlew :server:koverHtmlReport       # coverage report; runs the tests, so it needs Docker
+./gradlew build                         # compile, analyse, test, package
 ```
 
 ### Integration tests

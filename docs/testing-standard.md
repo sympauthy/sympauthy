@@ -141,8 +141,10 @@ value the assertion turns on that never appears; a departure a reader would take
 
 ## What this standard does not cover
 
-**Coverage as a number.** Nothing measures it and nothing gates on it; the table above decides what
-is worth testing.
+**Coverage as a gate.** Kover measures it and nothing turns on the number: the integration suite
+drives the server out of process, so every protocol rule it proves reads as uncovered and the figure
+understates by a margin nothing can compute. Read the report as a map of where no unit test reaches,
+and let the table above decide what is worth testing.
 
 **A dialect a test does not name.** `Database` holds the two the server supports, and adding a third
 is a change to it before it is a change to any test.
