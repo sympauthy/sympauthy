@@ -22,11 +22,13 @@ class ConfigurationPropertiesPrefixTest {
 
     @Test
     fun `Every key a configuration properties class declares is under its own prefix`() {
-        val misanchored = DeclaredConfigurationKeys.serverBeanDefinitions()
+        val reader = DeclaredConfigurationKeyReader()
+        val misanchored = reader.serverBeanDefinitions()
             .filter { it.annotationMetadata.hasAnnotation(ConfigurationReader::class.java) }
             .flatMap { definition ->
                 val prefix = prefixOf(definition)
-                DeclaredConfigurationKeys.patternsOf(definition)
+                reader.keysOf(definition)
+                    .map(DeclaredConfigurationKey::pattern)
                     .filterNot { it.startsWith("$prefix.") }
                     .map { "${definition.beanType.simpleName} declares $it under $prefix" }
             }

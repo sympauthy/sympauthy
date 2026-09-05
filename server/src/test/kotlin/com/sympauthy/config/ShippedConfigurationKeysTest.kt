@@ -28,10 +28,12 @@ class ShippedConfigurationKeysTest {
     @ParameterizedTest
     @FieldSource("environments")
     fun `Every key the shipped configuration writes binds`(environment: String) {
-        ApplicationContext.builder().deduceEnvironment(false).environments(environment).build().use { context ->
+        val builder = ApplicationContext.builder().deduceEnvironment(false).environments(environment)
+        builder.build().use { context ->
             context.environment.start()
 
-            val unboundKeys = UnboundConfigurationKeys(context.environment).configurationErrors
+            val keys = UnboundConfigurationKeys(context.environment, DeclaredConfigurationKeyReader())
+            val unboundKeys = keys.configurationErrors
 
             assertEquals(
                 emptyList<String>(), unboundKeys.map { "${it.key} (${it.messageId})" },

@@ -25,7 +25,7 @@ class DeclaredConfigurationKeysTest {
             "rules.user[*].scopes",
             "templates.clients.*.authorization-flow",
             "ui.display-name"
-        )
+        ).map(::DeclaredConfigurationKey)
     )
 
     @Test
