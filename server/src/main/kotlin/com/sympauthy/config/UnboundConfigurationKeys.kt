@@ -25,7 +25,7 @@ import jakarta.inject.Singleton
 class UnboundConfigurationKeys(
     @Inject private val environment: Environment
 ) {
-    private val declaredKeys = DeclaredConfigurationKeys.ofTheServer()
+    private val declaredKeys by lazy { DeclaredConfigurationKeys.ofTheServer() }
 
     val configurationErrors: List<ConfigurationException> by lazy {
         environment.propertySources

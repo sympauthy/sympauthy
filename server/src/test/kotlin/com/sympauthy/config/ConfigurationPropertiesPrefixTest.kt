@@ -22,8 +22,7 @@ class ConfigurationPropertiesPrefixTest {
 
     @Test
     fun `Every key a configuration properties class declares is under its own prefix`() {
-        val misanchored = DeclaredConfigurationKeys.beanDefinitions()
-            .filter { it.beanType.name.startsWith("com.sympauthy.") }
+        val misanchored = DeclaredConfigurationKeys.serverBeanDefinitions()
             .filter { it.annotationMetadata.hasAnnotation(ConfigurationReader::class.java) }
             .flatMap { definition ->
                 val prefix = prefixOf(definition)

@@ -18,6 +18,7 @@ class DeclaredConfigurationKeysTest {
             "advanced.keys-generation-strategy",
             "audiences.*.token-audience",
             "clients.*.allowed-scopes",
+            "clients.*.default-scopes",
             "clients.*.uris.**",
             "clients.*.authorization-webhook.url",
             "rules.user[*].name",
@@ -91,6 +92,35 @@ class DeclaredConfigurationKeysTest {
     }
 
     @Test
+    fun `findUnboundKeys - A list of entries written as a map binds to nothing`() {
+        assertEquals(listOf("rules.user.name"), keys.findUnboundKeys("rules.user.name", "admins"))
+    }
+
+    @Test
+    fun `findUnboundKeys - An index written where no list is binds to nothing`() {
+        assertEquals(
+            listOf("clients.admin[0].allowed-scopes"),
+            keys.findUnboundKeys("clients.admin[0].allowed-scopes", listOf("openid"))
+        )
+        assertEquals(
+            listOf("audiences.default[0].token-audience"),
+            keys.findUnboundKeys("audiences.default[0].token-audience", "default")
+        )
+    }
+
+    @Test
+    fun `findUnboundKeys - An index too long to be a number is still read as an index`() {
+        assertEquals(emptyList<String>(), keys.findUnboundKeys("rules.user[99999999999].name", "admins"))
+    }
+
+    @Test
+    fun `findUnboundKeys - An entry naming nothing under it is a key of its own`() {
+        val rules = listOf(mapOf("nmae" to emptyMap<String, Any>()))
+
+        assertEquals(listOf("rules.user[0].nmae"), keys.findUnboundKeys("rules.user", rules))
+    }
+
+    @Test
     fun `findUnboundKeys - A list of values holds no key of its own`() {
         assertEquals(
             emptyList<String>(),
@@ -111,6 +141,16 @@ class DeclaredConfigurationKeysTest {
         assertEquals("audiences.default.token-audience", keys.nearestKeyOrNull("audiences.default.token-audence"))
         assertEquals("clients.admin.allowed-scopes", keys.nearestKeyOrNull("clients.admin.allowd-scopes"))
         assertEquals("rules.user[1].name", keys.nearestKeyOrNull("rules.user[1].nmae"))
+    }
+
+    @Test
+    fun `nearestKeyOrNull - A corrected entry keeps the index it was written with`() {
+        assertEquals("rules.user[0].name", keys.nearestKeyOrNull("rules.usr[0].name"))
+    }
+
+    @Test
+    fun `nearestKeyOrNull - Two keys equally near are answered by the same one every time`() {
+        assertEquals("clients.admin.allowed-scopes", keys.nearestKeyOrNull("clients.admin.scopes"))
     }
 
     @Test

@@ -84,6 +84,16 @@ class DeclaredConfigurationKeys(
         return nearest?.corrected
     }
 
+    /**
+     * Where each pattern stands once [segments] have been read, and whether the key stopped where a list
+     * begins.
+     *
+     * An index binds only where a list is: on the `name[*]` a list of entries is declared as, and on the
+     * last segment of a key naming a list of values. A section keyed by an id and a section that is one
+     * of a kind are neither, so `clients.admin[0].secret` and `advanced.hash[3].block-size` bind to
+     * nothing — and so does a list of entries written as a map, which is why `name[*]` demands the index
+     * everywhere except at the end of the key, where the list arrives whole as one value.
+     */
     private fun match(segments: List<KeySegment>): Match {
         var positions = patterns.map { it to 0 }
         var opensEntries = false
@@ -92,13 +102,14 @@ class DeclaredConfigurationKeys(
             val next = mutableListOf<Pair<List<Segment>, Int>>()
             for ((pattern, position) in positions) {
                 val expected = pattern.getOrNull(position) ?: continue
+                val named = expected is Named && expected.name == segment.name
+                val entries = expected is Entries && expected.name == segment.name
                 when {
                     expected is Subtree -> next += pattern to position
-                    expected is Named && expected.name == segment.name -> next += pattern to position + 1
-                    expected is Id -> next += pattern to position + 1
-                    expected is Entries && expected.name == segment.name -> {
-                        if (last && segment.index == null) opensEntries = true else next += pattern to position + 1
-                    }
+                    named && (!segment.indexed || last) -> next += pattern to position + 1
+                    expected is Id && !segment.indexed -> next += pattern to position + 1
+                    entries && segment.indexed -> next += pattern to position + 1
+                    entries && last -> opensEntries = true
                 }
             }
             if (next.isEmpty() && !(last && opensEntries)) return Match(bound = false, opensEntries = false)
@@ -120,7 +131,8 @@ class DeclaredConfigurationKeys(
 
     private fun flatten(prefix: String, map: Map<*, *>): List<Pair<String, Any?>> = map.entries.flatMap { entry ->
         val key = "$prefix.${entry.key}"
-        (entry.value as? Map<*, *>)?.let { flatten(key, it) } ?: listOf(key to entry.value)
+        val value = entry.value
+        if (value is Map<*, *> && value.isNotEmpty()) flatten(key, value) else listOf(key to value)
     }
 
     /**
@@ -153,7 +165,7 @@ class DeclaredConfigurationKeys(
         val distance = editDistance(written, declared)
         if (!sharesWord && distance > minOf(written.length, declared.length) / 2) return null
         val corrected = segments.mapIndexed { index, segment ->
-            if (index == position) declared else segment.written
+            if (index == position) "$declared${segment.index.orEmpty()}" else segment.written
         }.joinToString(".")
         if (!match(segmentsOf(corrected)).bound) return null
         return Correction(corrected, position, sharesWord, distance)
@@ -170,10 +182,16 @@ class DeclaredConfigurationKeys(
         val sharesWord: Boolean,
         val distance: Int
     ) {
+        /**
+         * The last comparison is on the answer itself. Without it a tie is broken by the order the
+         * patterns were read in, which is the order the classpath happened to hold them, so two
+         * operators reading the same file could be told two different things.
+         */
         fun isNearerThan(other: Correction): Boolean = when {
             prefixLength != other.prefixLength -> prefixLength > other.prefixLength
             sharesWord != other.sharesWord -> sharesWord
-            else -> distance < other.distance
+            distance != other.distance -> distance < other.distance
+            else -> corrected < other.corrected
         }
     }
 
@@ -188,20 +206,28 @@ class DeclaredConfigurationKeys(
          * a context: this answers before one is started, and it answers for a domain a requirement would
          * have disabled, which declares its keys either way.
          */
-        fun ofTheServer(): DeclaredConfigurationKeys = DeclaredConfigurationKeys(
-            beanDefinitions()
-                .filter { it.beanType.name.startsWith(SERVER_PACKAGE) }
-                .flatMap(::patternsOf)
-        )
+        fun ofTheServer(): DeclaredConfigurationKeys {
+            val patterns = serverBeanDefinitions().flatMap(::patternsOf)
+            check(patterns.isNotEmpty()) {
+                "No configuration key was found on the classpath, so nothing an operator writes could " +
+                    "be judged against one. This is the build being wrong rather than the file."
+            }
+            return DeclaredConfigurationKeys(patterns)
+        }
 
         /**
-         * Every bean definition on the classpath, the server's and the frameworks' alike. Public
-         * alongside [patternsOf] because a test holds the same definitions to a rule of its own.
+         * The bean definitions the server's own classes were compiled into. The definition's own name is
+         * what the classpath is filtered on, which is a string the reference already holds — asking for
+         * the bean type instead would load every class a framework declares to discard it again.
+         *
+         * Public alongside [patternsOf] because a test holds the same definitions to a rule of its own.
          */
-        fun beanDefinitions(): List<BeanDefinition<*>> {
+        fun serverBeanDefinitions(): List<BeanDefinition<*>> {
             val references = mutableListOf<BeanDefinitionReference<*>>()
             SoftServiceLoader.load(BeanDefinitionReference::class.java).collectAll(references)
-            return references.filter { it.isPresent }.map { it.load() }
+            return references
+                .filter { it.beanDefinitionName.startsWith(SERVER_PACKAGE) && it.isPresent }
+                .map { it.load() }
         }
 
         /**
@@ -247,15 +273,21 @@ private data class Entries(val name: String) : Segment
 private data object Subtree : Segment
 
 /**
- * One segment of a key an operator wrote: what they wrote, and the name and index it carries. A file
- * written as properties rather than as YAML addresses a list entry by index — `rules.user[0].name`,
- * `allowed-scopes[0]` — and both spell the same key as the YAML the patterns were named after.
+ * One segment of a key an operator wrote: what they wrote, the name it carries hyphenated, and the
+ * index as they wrote it — `[0]`, brackets included, or null. A file written as properties rather than
+ * as YAML addresses a list entry by index — `rules.user[0].name`, `allowed-scopes[0]` — and both spell
+ * the same key as the YAML the patterns were named after.
+ *
+ * The index is kept as text rather than read as a number: nothing here counts with it, and a run of
+ * digits longer than an `Int` would be a file taking down the code that exists to report on files.
  */
 private data class KeySegment(
     val written: String,
     val name: String,
-    val index: Int?
-)
+    val index: String?
+) {
+    val indexed: Boolean get() = index != null
+}
 
 private fun parsePattern(pattern: String): List<Segment> = pattern.split('.').map { segment ->
     when {
@@ -271,7 +303,7 @@ private fun segmentsOf(key: String): List<KeySegment> = key.split('.').map { seg
     KeySegment(
         written = segment,
         name = NameUtils.hyphenate(index?.let { segment.substring(0, it.range.first) } ?: segment),
-        index = index?.value?.trim('[', ']')?.toInt()
+        index = index?.value
     )
 }
 

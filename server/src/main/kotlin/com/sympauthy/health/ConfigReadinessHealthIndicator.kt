@@ -36,11 +36,21 @@ open class ConfigReadinessHealthIndicator(
                 builder.status(UP)
             } else {
                 builder.status(DOWN)
-                builder.details(configurationErrors.associate { it.getKeyAndLocalizedMessage(messageSource) })
+                builder.details(details(configurationErrors))
             }
             emit(builder.build())
         }.asPublisher()
     }
+
+    /**
+     * The errors under the key each of them names, one entry per key rather than one per error: two
+     * files naming the same key that binds to nothing are two errors, and an operator who is told about
+     * one of them fixes it and finds readiness still down.
+     */
+    private fun details(configurationErrors: List<Exception>): Map<String, String> = configurationErrors
+        .map { it.getKeyAndLocalizedMessage(messageSource) }
+        .groupBy({ it.first }, { it.second })
+        .mapValues { (_, messages) -> messages.filterNotNull().joinToString(" ") }
 
     companion object {
         private const val HEALTH_INDICATOR_NAME = "config"

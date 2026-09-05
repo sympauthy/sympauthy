@@ -1,8 +1,6 @@
 package com.sympauthy.config
 
 import io.micronaut.context.ApplicationContext
-import io.micronaut.context.env.EnvironmentPropertySource
-import io.micronaut.context.env.SystemPropertiesPropertySource
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -22,30 +20,25 @@ import kotlin.io.path.name
  *
  * No context is started for it. Building one and starting only its environment reads every property
  * source, and the keys are read off bean definitions the annotation processor wrote — so no bean is
- * instantiated, and nothing is asked of a database.
+ * instantiated, and nothing is asked of a database. The environment is the one named and no other:
+ * deduction would add `test` to it, and `application-test.yml` is a file the module does not ship.
  */
 class ShippedConfigurationKeysTest {
 
     @ParameterizedTest
     @FieldSource("environments")
     fun `Every key the shipped configuration writes binds`(environment: String) {
-        val declaredKeys = DeclaredConfigurationKeys.ofTheServer()
-        val context = ApplicationContext.builder().environments(environment).build()
-        context.environment.start()
+        ApplicationContext.builder().deduceEnvironment(false).environments(environment).build().use { context ->
+            context.environment.start()
 
-        val unboundKeys = context.environment.propertySources
-            .filterNot { it is SystemPropertiesPropertySource || it is EnvironmentPropertySource }
-            .flatMap { source ->
-                source.filter(declaredKeys::answersFor)
-                    .flatMap { key -> declaredKeys.findUnboundKeys(key, source[key]) }
-                    .map { key -> "${source.origin.location()}: $key" }
-            }
+            val unboundKeys = UnboundConfigurationKeys(context.environment).configurationErrors
 
-        assertEquals(
-            emptyList<String>(), unboundKeys,
-            "These keys are written in a file the server ships and bind to nothing, so a deployment " +
-                "enabling this environment starts unready."
-        )
+            assertEquals(
+                emptyList<String>(), unboundKeys.map { "${it.key} (${it.messageId})" },
+                "These keys are written in a file the server ships and bind to nothing, so a deployment " +
+                    "enabling this environment starts unready."
+            )
+        }
     }
 
     @Test
