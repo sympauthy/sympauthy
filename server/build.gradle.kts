@@ -258,7 +258,11 @@ dependencies {
     detektCli(libs.detekt.cli)
 }
 
-val detektReport = layout.buildDirectory.file("reports/detekt/detekt.html")
+// Two renderings of the one analysis. The HTML report is what a developer opens locally; the
+// Markdown one is what CI appends to the run summary, which renders Markdown and would show an HTML
+// document as its own source.
+val detektHtmlReport = layout.buildDirectory.file("reports/detekt/detekt.html")
+val detektMarkdownReport = layout.buildDirectory.file("reports/detekt/detekt.md")
 
 tasks.register<JavaExec>("detekt") {
     description = "Analyses the Kotlin sources against the rule set in detekt.yml."
@@ -270,13 +274,18 @@ tasks.register<JavaExec>("detekt") {
         "--build-upon-default-config",
         "--input", listOf("src/main/kotlin", "src/test/kotlin")
             .joinToString(",") { file(it).absolutePath },
-        "--report", "html:${detektReport.get().asFile}"
+        // Without this the reports name every finding by absolute path, which on a CI runner is a
+        // checkout directory repeated ahead of each one.
+        "--base-path", rootProject.projectDir.absolutePath,
+        "--report", "html:${detektHtmlReport.get().asFile}",
+        "--report", "md:${detektMarkdownReport.get().asFile}"
     )
     // Declared so the analysis is skipped when neither the sources nor the rule set have changed.
     inputs.dir("src/main/kotlin")
     inputs.dir("src/test/kotlin")
     inputs.file(rootProject.file("detekt.yml"))
-    outputs.file(detektReport)
+    outputs.file(detektHtmlReport)
+    outputs.file(detektMarkdownReport)
 }
 
 tasks.named("check") {

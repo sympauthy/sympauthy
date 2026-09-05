@@ -1,27 +1,88 @@
+# The static analysis, the coverage measurement and the unit tests, on every pull request and on
+# `main` after a merge.
+#
+# `pull_request` is the trigger that matters. GitHub runs it against the merge of the branch with the
+# base, so what is tested is the commit that becomes the trunk rather than the branch tip in
+# isolation, and it fires in this repository for a branch pushed to a fork, where a `push` event
+# would not. `push` is then narrowed to `main`: the same commit is no longer tested twice on a
+# same-repo pull request, and a regression a merge introduces is visible on the merge rather than at
+# the next release — the nightly runs against `main` but runs no unit tests. The cost is that a
+# branch pushed with no pull request open is untested until the pull request exists. See #406.
+#
+# The three jobs are independent and run concurrently. None gates another: a run reports the
+# analysis, the coverage and the test result whatever the other two did, which is worth more than
+# the runner time saved by stopping the rest at the first finding.
+
 name: Test
 
 on:
+  pull_request:
   push:
-    branches-ignore:
+    branches:
       - main
 
 jobs:
+  detekt:
+    name: Analyse the sources
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup_gradle
+
+      # detekt is wired to `check`, which this workflow does not reach, so it is named explicitly.
+      # It is never run as `check`, which would pull the rest of the build in behind it.
+      - run: ./gradlew detekt --no-daemon
+
+      # Published even when the analysis failed, which is exactly when the findings are worth having
+      # without opening the log. detekt writes its reports before it exits non-zero over findings,
+      # but a failure that is not a finding — an unreadable rule set, a missing input — leaves no
+      # report at all, so its absence is reported rather than failing this step over it.
+      - name: Publish the findings to the run summary
+        if: always()
+        run: |
+          report=server/build/reports/detekt/detekt.md
+          if [[ -f "$report" ]]; then
+            cat "$report" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "detekt produced no report — it failed before the analysis." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  kover:
+    name: Measure what the tests reach
+    # Coverage is a measurement of what the tests reached, so every Kover report task depends on
+    # `:server:test` and there is no way to have the figure without running the suite. This job
+    # therefore runs it a second time, alongside the one below that runs it for its own sake.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup_gradle
+
+      # `shell: bash` is what sets pipefail — the runner's default shell would let tee's success
+      # hide a failing build.
+      - name: Measure the coverage
+        shell: bash
+        run: ./gradlew :server:koverLog --no-daemon | tee kover.log
+
+      # Nothing gates on the figure. The testing standard says why: the integration suite drives the
+      # server out of process, so every protocol rule it proves reads here as uncovered.
+      - name: Publish the coverage to the run summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Coverage"
+            echo
+            if grep -q 'coverage:' kover.log 2>/dev/null; then
+              grep 'coverage:' kover.log | sed 's/^/- /'
+            else
+              echo "Kover produced no figure — the build failed before the report."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
   test:
     name: Run tests on all projects
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
-        with:
-          gradle-version: wrapper
-      - name: Setup Java
-        uses: ./.github/actions/setup_java
-        with:
-          cache: gradle
-      # detekt is wired to `check`, which this workflow does not reach, so it is named explicitly.
-      # It runs before the tests and never as `check`: the analysis takes seconds and needs no
-      # container, while `check` would pull in the rest of the build behind it.
-      - name: Analyse the sources
-        run: ./gradlew detekt --no-daemon
+      - uses: ./.github/actions/setup_gradle
       - run: ./gradlew test --no-daemon

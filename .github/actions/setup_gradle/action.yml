@@ -1,0 +1,20 @@
+name: setup_gradle
+description: Install the wrapper's Gradle and the JDK the build script names, ready to run a build.
+runs:
+  using: composite
+  steps:
+    # Both jobs in the test workflow need this pair, and one of them needs it configured a
+    # particular way. Kept here so the two cannot drift apart. Requires the repository to be
+    # checked out before this action runs, like setup_java, which it wraps.
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v6
+      with:
+        gradle-version: wrapper
+        # The action appends a Gradle build summary to every job it runs in. The run summary is
+        # reserved for the detekt findings, which are the only thing worth reading there.
+        add-job-summary: never
+
+    - name: Setup Java
+      uses: ./.github/actions/setup_java
+      with:
+        cache: gradle
