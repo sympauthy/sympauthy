@@ -187,7 +187,7 @@ class ProvidersConfigParser(
                 )
                 val path = try {
                     JsonPath.compile(rawPath)
-                } catch (e: Throwable) {
+                } catch (_: Throwable) {
                     throw ConfigurationException(
                         key = "$userInfoPathsKey.$key",
                         messageId = "config.provider.user_info.invalid_value"

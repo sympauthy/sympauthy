@@ -125,7 +125,8 @@ class ScopeGrantingRuleManager(
             } catch (e: InvalidRuleExpressionException) {
                 throw internalBusinessExceptionOf(
                     detailsId = e.businessErrorDetailsId,
-                    values = arrayOf("message" to e.reason)
+                    values = arrayOf("message" to e.reason),
+                    throwable = e
                 )
             }
         }

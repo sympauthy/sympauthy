@@ -91,7 +91,8 @@ class ProviderIdTokenManager {
             throw businessExceptionOf(
                 "provider.openid_connect.invalid_id_token",
                 "providerId" to openIdConnectConfig.clientId,
-                "reason" to (e.message ?: "unknown")
+                "reason" to (e.message ?: "unknown"),
+                throwable = e
             )
         }
     }

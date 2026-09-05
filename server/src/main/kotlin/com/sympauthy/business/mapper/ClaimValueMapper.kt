@@ -17,7 +17,7 @@ class ClaimValueMapper(
         }
         return try {
             objectMapper.readValue(value, claimType.typeClass.java)
-        } catch (e: IOException) {
+        } catch (_: IOException) {
             null
         }
     }

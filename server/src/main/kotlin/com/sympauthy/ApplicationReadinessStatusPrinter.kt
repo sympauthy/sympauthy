@@ -27,8 +27,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 /**
- * Print info messages in logs to inform the user about the state of the application and the content of its configuration.
- * Or print the error reported by the configurations if any has been detected.
+ * Print info messages in logs to inform the user about the state of the application and the content of its
+ * configuration. Or print the error reported by the configurations if any has been detected.
  */
 @Singleton
 class ApplicationReadinessStatusPrinter(
@@ -48,7 +48,9 @@ class ApplicationReadinessStatusPrinter(
     @Inject private val adminConfig: AdminConfig,
     @Inject private val environment: Environment,
     @param:ErrorMessages @Inject private val messageSource: MessageSource,
-    @Inject @param:io.micronaut.context.annotation.Value("\${micronaut.application.version}") private val version: String,
+    @Inject @param:io.micronaut.context.annotation.Value(
+        "\${micronaut.application.version}"
+    ) private val version: String,
 ) : ApplicationEventListener<ServiceReadyEvent> {
 
     private val logger = loggerForClass()
@@ -228,11 +230,14 @@ class ApplicationReadinessStatusPrinter(
         }
     }
 
+    @Suppress("MaxLineLength")
     private suspend fun printErrorBanner(configurationErrors: List<Exception>) {
         if (configurationErrors.isEmpty()) {
             logger.info("No error detected in the configuration.")
         } else {
-            logger.error("One or more errors detected in the configuration. This application will NOT OPERATE PROPERLY.")
+            logger.error(
+                "One or more errors detected in the configuration. This application will NOT OPERATE PROPERLY."
+            )
             configurationErrors
                 .map { it.getKeyAndLocalizedMessage(messageSource) }
                 .forEach { (key, localizedErrorMessage) ->

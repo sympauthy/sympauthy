@@ -108,7 +108,8 @@ class IdTokenGenerator(
 
         val encodedToken = jwtManager.create(JwtManager.PUBLIC_KEY) {
             entity.id?.toString()?.let(this::jwtID)
-            // Pretty weird but in OpenID spec, the audience is the client_id of the client which defer from OAuth2 spec.
+            // Pretty weird but in OpenID spec, the audience is the client_id of the client which defer from OAuth2
+            // spec.
             // https://openid.net/specs/openid-connect-basic-1_0.html#IDToken
             audience(listOf(clientId))
             subject(generatedClaimsManager.computeSubject(userId))

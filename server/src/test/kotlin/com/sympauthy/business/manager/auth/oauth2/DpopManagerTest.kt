@@ -286,6 +286,7 @@ class DpopManagerTest {
     }
 
     @Test
+    @Suppress("MaxLineLength")
     fun `validateProof - Throws when signature is invalid`() = runTest {
         val proof = createValidDpopProof()
         val parts = proof.split(".")

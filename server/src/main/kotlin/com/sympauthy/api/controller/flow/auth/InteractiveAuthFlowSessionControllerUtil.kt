@@ -88,14 +88,16 @@ class InteractiveAuthFlowSessionControllerUtil(
      * - [mapRedirectUriToResource] if the end-user is expected to be redirected to a different step.
      * - [mapResultToResource] if the end-user is expected to perform an action to complete the step.
      *
-     * If the operation is only meant to redirect the end-user to a different step, the [mapResultToResource] parameter may be set to null.
+     * If the operation is only meant to redirect the end-user to a different step, the [mapResultToResource] parameter
+     * may be set to null.
      *
      * It expects the [run] to either return a value if the [User] is expected to perform an action to complete the step
      * or return null if the [User] is expected to be redirected to a different step.
      *
      * [BusinessException] thrown by the [run] function will be caught and handled differently:
      * - if recoverable, the [BusinessException] will be simply thrown to be handled by the exception handler.
-     * - if unrecoverable, the [InteractiveFlowSession] will be marked as failed and the end-user will be redirected to the error page.
+     * - if unrecoverable, the [InteractiveFlowSession] will be marked as failed and the end-user will be redirected to
+     *   the error page.
      */
     suspend fun <Result, FlowResource> fetchOnGoingSessionThenRunAndRedirect(
         state: String?,
@@ -141,19 +143,21 @@ class InteractiveAuthFlowSessionControllerUtil(
     }
 
     /**
-     * Call the [run] function with the [OnGoingInteractiveFlowSession], [InteractiveFlow] and [User] associated to the [state].
-     * Then run and return the result of:
+     * Call the [run] function with the [OnGoingInteractiveFlowSession], [InteractiveFlow] and [User] associated to the
+     * [state]. Then run and return the result of:
      * - [mapResultToResource] if the [User] is expected to perform an action to complete the step.
      * - [mapRedirectUriToResource] if the [User] is expected to be redirected to a different step.
      *
-     * If the operation is only meant to redirect the end-user to a different step, the [mapResultToResource] parameter may be set to null.
+     * If the operation is only meant to redirect the end-user to a different step, the [mapResultToResource] parameter
+     * may be set to null.
      *
      * It expects the [run] to either return a value if the [User] is expected to perform an action to complete the step
      * or return null if the [User] is expected to be redirected to a different step.
      *
      * [BusinessException] thrown by the [run] function will be caught and handled differently:
      * - if recoverable, the [BusinessException] will be simply thrown to be handled by the exception handler.
-     * - if unrecoverable, the [InteractiveFlowSession] will be marked as failed and the end-user will be redirected to the error page.
+     * - if unrecoverable, the [InteractiveFlowSession] will be marked as failed and the end-user will be redirected to
+     *   the error page.
      */
     suspend fun <Result, FlowResource> fetchOnGoingSessionWithUserThenRunAndRedirect(
         state: String?,
@@ -207,13 +211,14 @@ class InteractiveAuthFlowSessionControllerUtil(
     }
 
     /**
-     * Call the [update] function with the [OnGoingInteractiveFlowSession] and [InteractiveFlow] associated to the [state].
-     * Return the result of [mapRedirectUriToResource] containing the URI where the end-user must be redirected to
-     * continue the authorization flow.
+     * Call the [update] function with the [OnGoingInteractiveFlowSession] and [InteractiveFlow] associated to the
+     * [state]. Return the result of [mapRedirectUriToResource] containing the URI where the end-user must be redirected
+     * to continue the authorization flow.
      *
      * [BusinessException] thrown by the [update] function will be caught and handled differently:
      * - if recoverable, the [BusinessException] will be presented as BAD_REQUEST with
-     * - if unrecoverable, the [InteractiveFlowSession] will be marked as failed and the end-user will be redirected to the error page.
+     * - if unrecoverable, the [InteractiveFlowSession] will be marked as failed and the end-user will be redirected to
+     *   the error page.
      *
      * This method is intended to be used by POST operation handling information provided by the end-user to complete
      * a step of the authorization flow. (ex. providing its login and password to sign in).
@@ -258,13 +263,14 @@ class InteractiveAuthFlowSessionControllerUtil(
     }
 
     /**
-     * Call the [update] function with the [OnGoingInteractiveFlowSession], [InteractiveFlow] and [User] associated to the [state].
-     * Return the result of [mapRedirectUriToResource] containing the URI where the end-user must be redirected to
-     * continue the authorization flow.
+     * Call the [update] function with the [OnGoingInteractiveFlowSession], [InteractiveFlow] and [User] associated to
+     * the [state]. Return the result of [mapRedirectUriToResource] containing the URI where the end-user must be
+     * redirected to continue the authorization flow.
      *
      * [BusinessException] thrown by the [update] function will be caught and handled differently:
      * - if recoverable, the [BusinessException] will be presented as BAD_REQUEST with
-     * - if unrecoverable, the [InteractiveFlowSession] will be marked as failed and the end-user will be redirected to the error page.
+     * - if unrecoverable, the [InteractiveFlowSession] will be marked as failed and the end-user will be redirected to
+     *   the error page.
      *
      * This method is intended to be used by POST operation handling information provided by the end-user to complete
      * a step of the authorization flow. (ex. providing its login and password to sign in).

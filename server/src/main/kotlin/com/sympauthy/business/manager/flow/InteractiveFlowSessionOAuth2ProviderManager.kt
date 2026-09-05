@@ -121,7 +121,8 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
     }
 
     /**
-     * Finalize the sign-in or sign-up of the end-user that authenticated through the [Provider] identified by [providerId].
+     * Finalize the sign-in or sign-up of the end-user that authenticated through the [Provider] identified by
+     * [providerId].
      *
      * This method will perform the following actions:
      * - retrieve the access token from the [Provider] to check if the user is authenticated.

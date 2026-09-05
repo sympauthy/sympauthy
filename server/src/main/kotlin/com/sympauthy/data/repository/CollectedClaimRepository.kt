@@ -27,8 +27,8 @@ interface CollectedClaimRepository : CoroutineCrudRepository<CollectedClaimEntit
     suspend fun findMaxCollectionDateByUserId(userId: UUID): LocalDateTime?
 
     /**
-     * Set verified on a collected [claim] for a given user (identified by [userId]) and update the verification date to now.
-     * If the verified is already at true, the verification date will not be updated to keep the original date.
+     * Set verified on a collected [claim] for a given user (identified by [userId]) and update the verification date to
+     * now. If the verified is already at true, the verification date will not be updated to keep the original date.
      */
     @Query(
         """

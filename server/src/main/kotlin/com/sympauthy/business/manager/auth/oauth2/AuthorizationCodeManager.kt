@@ -38,7 +38,7 @@ class AuthorizationCodeManager(
         return try {
             authorizeCodeRepository.save(entity)
                 .let(authorizationCodeMapper::toAuthorizationCode)
-        } catch (e: R2dbcDataIntegrityViolationException) {
+        } catch (_: R2dbcDataIntegrityViolationException) {
             throw oauth2ExceptionOf(INVALID_REQUEST, "code.already_generated", "description.oauth2.replay")
         }
     }

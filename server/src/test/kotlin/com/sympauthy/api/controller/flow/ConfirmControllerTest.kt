@@ -54,9 +54,10 @@ class ConfirmControllerTest {
                 listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.MFA_ENROLLMENT)
             coEvery { confirmManager.fetchConfirmOrNull(session) } returns confirm
             coEvery {
-                interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenRunAndRedirect<ConfirmFlowResource, ConfirmFlowResource>(
-                    eq("encoded-state"), any(), any(), any()
-                )
+                interactiveAuthFlowSessionControllerUtil
+                    .fetchOnGoingSessionThenRunAndRedirect<ConfirmFlowResource, ConfirmFlowResource>(
+                        eq("encoded-state"), any(), any(), any()
+                    )
             } coAnswers {
                 val run = arg<suspend (OnGoingInteractiveFlowSession, InteractiveFlow) -> ConfirmFlowResource?>(1)
                 val mapResultToResource = arg<suspend (ConfirmFlowResource) -> ConfirmFlowResource>(3)
@@ -87,9 +88,10 @@ class ConfirmControllerTest {
         every { session.completedPurposes } returns emptyList()
         coEvery { confirmManager.fetchConfirmOrNull(session) } returns confirm
         coEvery {
-            interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenRunAndRedirect<ConfirmFlowResource, ConfirmFlowResource>(
-                eq("encoded-state"), any(), any(), any()
-            )
+            interactiveAuthFlowSessionControllerUtil
+                .fetchOnGoingSessionThenRunAndRedirect<ConfirmFlowResource, ConfirmFlowResource>(
+                    eq("encoded-state"), any(), any(), any()
+                )
         } coAnswers {
             val run = arg<suspend (OnGoingInteractiveFlowSession, InteractiveFlow) -> ConfirmFlowResource?>(1)
             val mapResultToResource = arg<suspend (ConfirmFlowResource) -> ConfirmFlowResource>(3)
@@ -110,9 +112,10 @@ class ConfirmControllerTest {
         val redirectUri = URI.create("https://auth.example.com/flow/mfa/enrollment?state=encoded-state")
         coEvery { confirmManager.fetchConfirmOrNull(session) } returns confirm
         coEvery {
-            interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenRunAndRedirect<ConfirmFlowResource, ConfirmFlowResource>(
-                eq("encoded-state"), any(), any(), any()
-            )
+            interactiveAuthFlowSessionControllerUtil
+                .fetchOnGoingSessionThenRunAndRedirect<ConfirmFlowResource, ConfirmFlowResource>(
+                    eq("encoded-state"), any(), any(), any()
+                )
         } coAnswers {
             val run = arg<suspend (OnGoingInteractiveFlowSession, InteractiveFlow) -> ConfirmFlowResource?>(1)
             val mapRedirectUriToResource = arg<suspend (URI) -> ConfirmFlowResource>(2)

@@ -37,7 +37,8 @@ class ClientInvitationController(
 ) {
 
     @Operation(
-        description = "Create a new invitation for the client's audience. The raw token is returned only in this response.",
+        description =
+            "Create a new invitation for the client's audience. The raw token is returned only in this response.",
         tags = ["client"],
         responses = [
             ApiResponse(responseCode = "201", description = "Invitation created."),

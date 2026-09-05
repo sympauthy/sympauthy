@@ -24,9 +24,7 @@ class RandomGenerator {
      * Generate a byte array containing random values.
      */
     fun generate(lengthInBytes: Int = DEFAULT_LENGTH): ByteArray {
-        if (lengthInBytes <= 0) {
-            throw IllegalArgumentException("lengthInBytes must be >= 1.")
-        }
+        require(lengthInBytes > 0) { "lengthInBytes must be >= 1." }
         val byteArray = ByteArray(lengthInBytes)
         secureRandom.nextBytes(byteArray)
         return byteArray

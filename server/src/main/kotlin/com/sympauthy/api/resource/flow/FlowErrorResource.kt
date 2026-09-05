@@ -5,6 +5,7 @@ import io.micronaut.serde.annotation.Serdeable
 import io.swagger.v3.oas.annotations.media.Schema
 
 @Serdeable
+@Suppress("MaxLineLength")
 class FlowErrorResource(
     @get:Schema(
         description = """
@@ -17,7 +18,9 @@ be redirected to continue the authentication flow.
     @get:JsonProperty("error_code")
     val errorCode: String? = null,
 
-    @get:Schema(description = "A message explaining the error to the end-user. It may contain information on how to recover from the issue.")
+    @get:Schema(
+        description = "A message explaining the error to the end-user. It may contain information on how to recover from the issue."
+    )
     val description: String? = null,
 
     @get:Schema(description = "A message containing technical details about the error.")

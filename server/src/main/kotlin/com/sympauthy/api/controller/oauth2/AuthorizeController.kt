@@ -21,6 +21,7 @@ import jakarta.inject.Inject
 
 @Controller(OAUTH2_AUTHORIZE_ENDPOINT)
 @Secured(IS_ANONYMOUS)
+@Suppress("MaxLineLength")
 open class AuthorizeController(
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
     @Inject private val engine: InteractiveFlowEngine,
@@ -83,7 +84,8 @@ The authorization server includes this value unmodified in the ID Token.
             Parameter(
                 name = "redirect_uri",
                 `in` = QUERY,
-                description = "The url where the end-user must be redirected at the end of the authorization code grant flow.",
+                description =
+                    "The url where the end-user must be redirected at the end of the authorization code grant flow.",
                 schema = Schema(
                     type = "string"
                 )

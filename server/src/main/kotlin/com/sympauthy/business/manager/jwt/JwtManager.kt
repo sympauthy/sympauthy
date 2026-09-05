@@ -104,7 +104,7 @@ class JwtManager(
 
     suspend fun decodeAndVerifyOrNull(name: String, token: String) = try {
         decodeAndVerify(name, token)
-    } catch (e: InvalidJwtException) {
+    } catch (_: InvalidJwtException) {
         null
     }
 

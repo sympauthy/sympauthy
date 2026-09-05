@@ -56,6 +56,7 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
     private val requiredMfa = EnabledMfaConfig(totp = true, required = true)
 
     @Test
+    @Suppress("MaxLineLength")
     fun `startMfaEnrollmentSession - Creates a PLAIN session with the return and cancel URIs, and sets the user`() = runTest {
         val manager = managerWith(optionalMfa)
         val returnUri = URI.create("https://client.example.com/enrolled")
@@ -112,6 +113,7 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
     }
 
     @Test
+    @Suppress("MaxLineLength")
     fun `startMfaEnrollmentSession - Stores a null client id on the confirm record for an admin-initiated enrollment`() =
         runTest {
             val manager = managerWith(optionalMfa)

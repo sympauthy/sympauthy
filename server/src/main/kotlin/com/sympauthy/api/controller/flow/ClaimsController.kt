@@ -91,7 +91,8 @@ but they chose not to provide a value.
         """,
         responses = [
             ApiResponse(
-                description = "Claims have been collected. The end-user may be redirected to the next step of the flow.",
+                description =
+                    "Claims have been collected. The end-user may be redirected to the next step of the flow.",
                 responseCode = "200"
             )
         ],

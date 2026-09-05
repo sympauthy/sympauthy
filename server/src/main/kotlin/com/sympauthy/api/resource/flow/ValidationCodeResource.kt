@@ -31,7 +31,8 @@ The list of reasons this code was send to the end-user.
     )
     val reasons: List<String>,
     @get:Schema(
-        description = "The date and time (in UTC timezone) at which a new validation code can be issued to the end-user.",
+        description =
+            "The date and time (in UTC timezone) at which a new validation code can be issued to the end-user.",
         example = "2026-01-01T10:43:30"
     )
     val resendDate: LocalDateTime?

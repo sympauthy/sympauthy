@@ -66,7 +66,7 @@ class PostgreSQLDefaultDataSourceFactory(
                 portNumbers = intArrayOf(hostConfiguration.port)
             }
         } else {
-            throw IllegalStateException("Unsupported")
+            error("Unsupported")
         }
     }
 
@@ -74,6 +74,6 @@ class PostgreSQLDefaultDataSourceFactory(
         dataSource: BaseDataSource,
         hostConfiguration: MultiHostConfiguration
     ) {
-        throw IllegalStateException("Unsupported")
+        error("Unsupported")
     }
 }

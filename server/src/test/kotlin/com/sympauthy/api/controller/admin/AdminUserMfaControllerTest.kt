@@ -208,6 +208,7 @@ class AdminUserMfaControllerTest {
     }
 
     @Test
+    @Suppress("MaxLineLength")
     fun `startEnrollment - Validates user, client and return URI, starts an admin-initiated session and returns the link`() =
         runTest {
             val client = mockk<Client>()
@@ -220,7 +221,11 @@ class AdminUserMfaControllerTest {
             coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
             coEvery { clientManager.findClientByIdOrNull("client-id") } returns client
             every {
-                clientRedirectUriManager.parseRequestedRedirectUri(client, "https://client.example.com/done", recoverable = true)
+                clientRedirectUriManager.parseRequestedRedirectUri(
+                    client,
+                    "https://client.example.com/done",
+                    recoverable = true
+                )
             } returns returnUri
             coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
             // Admin-initiated: the initiating client id must be null (rendered as "an administrator"). Keying
@@ -258,10 +263,18 @@ class AdminUserMfaControllerTest {
         coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
         coEvery { clientManager.findClientByIdOrNull("client-id") } returns client
         every {
-            clientRedirectUriManager.parseRequestedRedirectUri(client, "https://client.example.com/done", recoverable = true)
+            clientRedirectUriManager.parseRequestedRedirectUri(
+                client,
+                "https://client.example.com/done",
+                recoverable = true
+            )
         } returns returnUri
         every {
-            clientRedirectUriManager.parseRequestedRedirectUri(client, "https://client.example.com/cancelled", recoverable = true)
+            clientRedirectUriManager.parseRequestedRedirectUri(
+                client,
+                "https://client.example.com/cancelled",
+                recoverable = true
+            )
         } returns cancelUri
         coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
         // The stub only matches (and thus drives the redirect) when the validated cancel URI is threaded through.

@@ -103,11 +103,11 @@ open class ValidationCodeManager(
         collectedClaims: List<CollectedClaim>,
         reasons: List<ValidationCodeReason>
     ): List<ValidationCode> {
-        if (user.id != session.userId) {
-            throw IllegalArgumentException("The user (${user.id}) does not match the one in the session (${session.userId}).")
+        require(user.id == session.userId) {
+            "The user (${user.id}) does not match the one in the session (${session.userId})."
         }
-        if (collectedClaims.any { it.userId != user.id }) {
-            throw IllegalArgumentException("One of the collectedClaims does not have a matching user (${user.id}).")
+        require(collectedClaims.none { it.userId != user.id }) {
+            "One of the collectedClaims does not have a matching user (${user.id})."
         }
 
         val reasonsByMediaMap = reasons.groupBy(ValidationCodeReason::media)
@@ -152,14 +152,14 @@ open class ValidationCodeManager(
         collectedClaims: List<CollectedClaim>,
         validationCode: ValidationCode
     ): RefreshResult {
-        if (validationCode.sessionId != session.id) {
-            throw IllegalArgumentException("The session (${session.id}) does not match the one in the validationCode (${validationCode.sessionId}).")
+        require(validationCode.sessionId == session.id) {
+            "The session (${session.id}) does not match the one in the validationCode (${validationCode.sessionId})."
         }
-        if (user.id != session.userId) {
-            throw IllegalArgumentException("The user (${user.id}) does not match the one in the session (${session.userId}).")
+        require(user.id == session.userId) {
+            "The user (${user.id}) does not match the one in the session (${session.userId})."
         }
-        if (collectedClaims.any { it.userId != user.id }) {
-            throw IllegalArgumentException("One of the collectedClaims does not have a matching user (${user.id}).")
+        require(collectedClaims.none { it.userId != user.id }) {
+            "One of the collectedClaims does not have a matching user (${user.id})."
         }
 
         if (!canBeRefreshed(validationCode)) {

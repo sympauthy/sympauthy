@@ -39,12 +39,14 @@ open class BusinessException(
  */
 fun businessExceptionOf(
     detailsId: String,
-    vararg values: Pair<String, String>
+    vararg values: Pair<String, String>,
+    throwable: Throwable? = null
 ): BusinessException = BusinessException(
     recoverable = false,
     detailsId = detailsId,
     recommendedStatus = BAD_REQUEST,
-    values = mapOf(*values)
+    values = mapOf(*values),
+    throwable = throwable
 )
 
 /**

@@ -128,7 +128,7 @@ class TokenExchangeManager(
     private suspend fun resolveTargetUser(requestedSubject: String): UUID {
         val targetUserId = try {
             UUID.fromString(requestedSubject)
-        } catch (e: IllegalArgumentException) {
+        } catch (_: IllegalArgumentException) {
             throw oauth2ExceptionOf(INVALID_TARGET, "token_exchange.invalid_subject")
         }
         return userManager.findByIdOrNull(targetUserId)?.id

@@ -17,6 +17,7 @@ class CleanExpiredInteractiveFlowSessionCron(
 
     @OptIn(DelicateCoroutinesApi::class)
     @Scheduled(fixedDelay = "15m")
+    @Suppress("MaxLineLength")
     fun clean() {
         GlobalScope.launch {
             val result = interactiveFlowSessionCleaner.clean()

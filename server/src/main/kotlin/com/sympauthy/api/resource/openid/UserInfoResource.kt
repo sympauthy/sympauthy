@@ -122,7 +122,8 @@ data class UserInfoResource(
     @get:JsonProperty("address")
     val address: AddressResource?,
     @get:Schema(
-        description = "Time the end-user's information was last updated. It is the number of seconds from epoch in UTC timezone."
+        description =
+            "Time the end-user's information was last updated. It is the number of seconds from epoch in UTC timezone."
     )
     @get:JsonProperty(UPDATED_AT)
     val updatedAt: Long?

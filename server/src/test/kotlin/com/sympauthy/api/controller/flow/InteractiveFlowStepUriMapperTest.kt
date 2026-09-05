@@ -117,6 +117,7 @@ class InteractiveFlowStepUriMapperTest {
     }
 
     @Test
+    @Suppress("MaxLineLength")
     fun `toRedirectUri - Complete for AUTHORIZATION_CODE generates a code and redirects to the client without internal state`() = runTest {
         val session = mockk<CompletedInteractiveFlowSession> {
             every { redirectType } returns InteractiveFlowRedirectType.AUTHORIZATION_CODE
@@ -162,6 +163,7 @@ class InteractiveFlowStepUriMapperTest {
     }
 
     @Test
+    @Suppress("MaxLineLength")
     fun `toRedirectUri - Cancel for AUTHORIZATION_CODE returns the OAuth2 access_denied response without a code`() = runTest {
         val session = mockk<CancelledInteractiveFlowSession> {
             every { redirectType } returns InteractiveFlowRedirectType.AUTHORIZATION_CODE

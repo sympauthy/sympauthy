@@ -18,7 +18,8 @@ import jakarta.inject.Inject
 
 /**
  * Drives the confirmation step of an interactive flow: the signed-in end-user must explicitly approve an
- * action a client (or an administrator) initiated on their behalf (an [com.sympauthy.business.model.flow.InteractiveFlowPurpose.CONFIRM] gate)
+ * action a client (or an administrator) initiated on their behalf (an
+ * [com.sympauthy.business.model.flow.InteractiveFlowPurpose.CONFIRM] gate)
  * before the rest of the flow runs. Denial is handled by cancelling the flow via `POST /api/v1/flow/cancel`.
  */
 @Controller("/api/v1/flow/confirm")

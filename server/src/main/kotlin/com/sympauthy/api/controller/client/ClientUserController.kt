@@ -58,8 +58,12 @@ class ClientUserController(
             description = "Number of results per page. Defaults to the size this server is configured " +
                     "with, and may not exceed its configured maximum."
         ) size: Int?,
-        @QueryValue("provider_id") @Parameter(description = "Filter users linked to a specific provider.") providerId: String?,
-        @QueryValue @Parameter(description = "Filter by provider subject ID. Must be used together with provider_id.") subject: String?
+        @QueryValue("provider_id")
+        @Parameter(description = "Filter users linked to a specific provider.")
+        providerId: String?,
+        @QueryValue
+        @Parameter(description = "Filter by provider subject ID. Must be used together with provider_id.")
+        subject: String?
     ): ClientUserListResource {
         if (subject != null && providerId == null) {
             throw recoverableBusinessExceptionOf(

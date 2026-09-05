@@ -227,6 +227,7 @@ class InteractiveFlowSessionManagerTest {
     }
 
     @Test
+    @Suppress("MaxLineLength")
     fun `insertPurposeAfter - Inserts right after the given purpose, persists the list and bumps the version`() = runTest {
         val session = ongoingSession(
             purposes = listOf(
@@ -440,6 +441,7 @@ class InteractiveFlowSessionManagerTest {
     }
 
     @Test
+    @Suppress("MaxLineLength")
     fun `markAsFailedIfNotRecoverable - Fails an ongoing session even when it advanced its own version first`() = runTest {
         // The failing request has usually already bumped the version before hitting the error, so the guard
         // is on "still ongoing" (failIfOngoing), not the remembered version: an ongoing session is failed.
@@ -456,6 +458,7 @@ class InteractiveFlowSessionManagerTest {
     }
 
     @Test
+    @Suppress("MaxLineLength")
     fun `markAsFailedIfNotRecoverable - Skips the write when the session is already terminal and still returns failed`() = runTest {
         val session = ongoingSession()
         val error = businessExceptionOf("some.detail")

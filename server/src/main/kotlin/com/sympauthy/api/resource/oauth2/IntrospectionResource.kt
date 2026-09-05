@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.media.Schema
     )
 )
 @Serdeable
+@Suppress("MaxLineLength")
 data class IntrospectionResource(
     @get:Schema(
         description = "Whether the token is active. A token is active if it has been issued by this server, has not expired, and has not been revoked. When false, all other fields in the response will be omitted.",
@@ -20,7 +21,9 @@ data class IntrospectionResource(
     )
     val active: Boolean,
 
-    @get:Schema(description = "Space-separated list of scopes associated with the token. Only present when active is true.")
+    @get:Schema(
+        description = "Space-separated list of scopes associated with the token. Only present when active is true."
+    )
     val scope: String? = null,
 
     @get:Schema(description = "Client identifier for the OAuth 2.0 client that requested this token.")

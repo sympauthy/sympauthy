@@ -20,8 +20,8 @@ open class LocalizedException(
     /**
      * Identifier of the message displayed to the end user.
      *
-     * This message is meant to be displayed to the end user. It must help the user to understand what went wrong and how
-     * to get out of the situation if the error is [recoverable].
+     * This message is meant to be displayed to the end user. It must help the user to understand what went wrong and
+     * how to get out of the situation if the error is [recoverable].
      */
     val descriptionId: String? = null,
     /**

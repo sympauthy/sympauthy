@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.media.Schema
     description = "Information about a configured claim."
 )
 @Serdeable
+@Suppress("MaxLineLength")
 data class AdminClaimResource(
     @get:Schema(description = "Unique claim identifier, as defined in configuration.")
     val id: String,

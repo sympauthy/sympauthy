@@ -40,7 +40,8 @@ sealed class Scope(
  *
  * The three subclasses are the three [ScopeType]:
  * - [ConsentableUserScope]: scopes that require user consent (e.g., `profile`, `email`).
- * - [GrantableUserScope]: scopes that are granted through granting rules or auto-granted (e.g., `openid`, admin scopes).
+ * - [GrantableUserScope]: scopes that are granted through granting rules or auto-granted (e.g., `openid`, admin
+ *   scopes).
  * - [ClientScope]: scopes that are only usable in `client_credentials` flows.
  */
 sealed class EnabledScope(

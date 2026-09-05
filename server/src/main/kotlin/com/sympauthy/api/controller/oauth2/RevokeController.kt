@@ -20,6 +20,7 @@ import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.inject.Inject
 
 @Controller(OAUTH2_REVOKE_ENDPOINT)
+@Suppress("MaxLineLength")
 class RevokeController(
     @Inject private val tokenManager: TokenManager,
     @Inject private val clientAuthenticationUtil: ClientAuthenticationUtil

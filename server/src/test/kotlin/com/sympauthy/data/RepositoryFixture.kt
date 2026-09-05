@@ -17,6 +17,10 @@ import java.util.*
 val BASE_DATE: LocalDateTime = LocalDateTime.of(2026, 1, 1, 12, 0, 0)
 
 /** Runs [block] against [database], deleting the rows it created once it ends. */
+// The throw inside the finally is the point rather than an oversight: it only fires where the test
+// itself passed, so there is no earlier failure for it to discard, and a cleanup that failed
+// silently would leave the next run reading another run's rows.
+@Suppress("ThrowingExceptionFromFinally")
 fun withFixture(database: Database, block: suspend RepositoryFixture.() -> Unit) {
     val fixture = RepositoryFixture(database)
     runTest {

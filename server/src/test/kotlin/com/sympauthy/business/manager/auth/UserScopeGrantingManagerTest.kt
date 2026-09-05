@@ -65,14 +65,22 @@ class UserScopeGrantingManagerTest {
         coEvery { scopeManager.findOrThrow("declinedScope1") } returns declinedScope1
         coEvery { scopeManager.findOrThrow("declinedScope2") } returns declinedScope2
 
-        val method1: suspend (session: InteractiveFlowSession, requestedScopes: List<EnabledScope>, collectedClaims: List<CollectedClaim>) -> ScopeGrantingMethodResult =
+        val method1: suspend (
+            session: InteractiveFlowSession,
+            requestedScopes: List<EnabledScope>,
+            collectedClaims: List<CollectedClaim>
+        ) -> ScopeGrantingMethodResult =
             { _, _, _ ->
                 ScopeGrantingMethodResult(
                     grantedScopes = listOf(grantedScope1),
                     declinedScopes = listOf(declinedScope1)
                 )
             }
-        val declineAllMethod: suspend (session: InteractiveFlowSession, requestedScopes: List<EnabledScope>, collectedClaims: List<CollectedClaim>) -> ScopeGrantingMethodResult =
+        val declineAllMethod: suspend (
+            session: InteractiveFlowSession,
+            requestedScopes: List<EnabledScope>,
+            collectedClaims: List<CollectedClaim>
+        ) -> ScopeGrantingMethodResult =
             { _, requestedScopes, _ ->
                 ScopeGrantingMethodResult(
                     grantedScopes = emptyList(),

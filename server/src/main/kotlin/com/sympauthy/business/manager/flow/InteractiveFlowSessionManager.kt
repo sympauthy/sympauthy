@@ -110,7 +110,7 @@ open class InteractiveFlowSessionManager(
         )
         val sessionId = try {
             UUID.fromString(jwt.subject)
-        } catch (e: IllegalArgumentException) {
+        } catch (_: IllegalArgumentException) {
             return FailedVerifyEncodedStateResult(
                 detailsId = "auth.interactive_flow_session.validate.invalid_subject",
                 descriptionId = "description.oauth2.invalid_state"

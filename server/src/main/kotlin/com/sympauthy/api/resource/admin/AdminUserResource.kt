@@ -11,6 +11,7 @@ import java.util.*
     description = "Information about a user."
 )
 @Serdeable
+@Suppress("MaxLineLength")
 data class AdminUserResource(
     @get:Schema(
         description = "Unique identifier of the user."

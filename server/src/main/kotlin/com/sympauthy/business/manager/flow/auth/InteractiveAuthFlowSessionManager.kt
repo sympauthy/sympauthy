@@ -85,10 +85,12 @@ class InteractiveAuthFlowSessionManager(
      * Create a new [InteractiveFlowSession] for the end-user.
      *
      * This method is in charge of:
-     * - validating the [uncheckedClientId]. Redirect the user to the error page of the default interactive auth flow in case of error.
+     * - validating the [uncheckedClientId]. Redirect the user to the error page of the default interactive auth flow in
+     *   case of error.
      * - selecting the flow: Either the one provided by the [Client] or the default one.
      * - validating the [uncheckedScopes]. Redirect the user to the error page of the selected flow in case of error.
-     * - validating the [uncheckedRedirectUri]. Redirect the user to the error page of the selected flow in case of error.
+     * - validating the [uncheckedRedirectUri]. Redirect the user to the error page of the selected flow in case of
+     *   error.
      * - validating the [uncheckedInvitationToken] if provided: checks that the invitation exists, is pending, and
      *   belongs to the same audience as the client. The invitation ID is stored on the session's OAuth2 record.
      * - creating the [InteractiveFlowSession].

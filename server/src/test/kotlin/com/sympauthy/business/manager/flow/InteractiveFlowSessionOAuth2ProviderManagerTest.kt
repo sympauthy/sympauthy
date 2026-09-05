@@ -145,6 +145,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
     }
 
     @Test
+    @Suppress("MaxLineLength")
     fun `signInOrSignUpUsingProvider - Re-authentication confirms the linked provider account without establishing identity`() =
         runTest {
             val userId = UUID.randomUUID()
@@ -187,6 +188,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
         }
 
     @Test
+    @Suppress("MaxLineLength")
     fun `signInOrSignUpUsingProvider - Does not establish or switch identity when a later purpose is active after re-auth`() =
         runTest {
             // Regression for the confirm-never-establish gap: once REAUTHENTICATION has resolved and a later

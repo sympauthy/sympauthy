@@ -38,7 +38,8 @@ cancellation target.
         responses = [
             ApiResponse(
                 responseCode = "200",
-                description = "The flow was cancelled. Contains the redirect URL to hand the end-user back to the initiator.",
+                description =
+                    "The flow was cancelled. Contains the redirect URL to hand the end-user back to the initiator.",
                 useReturnTypeSchema = true
             ),
             ApiResponse(

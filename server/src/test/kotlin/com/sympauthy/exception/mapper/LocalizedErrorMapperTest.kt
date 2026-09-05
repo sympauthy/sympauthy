@@ -22,11 +22,26 @@ class LocalizedErrorMapperTest {
      */
     private val messageSource = StaticMessageSource()
         .addMessage(Locale.US, "flow.claims.invalid", "One or more of the submitted claims did not pass validation.")
-        .addMessage(Locale.US, "description.flow.claims.invalid", "One or more of the values you submitted were refused.")
-        .addMessage(Locale.US, "user.claim_value_validator.invalid_type", "Invalid type, expected value to be of type {type}.")
-        .addMessage(Locale.US, "description.user.claim_value_validator.invalid_type", "The value provided is not of the expected type ({type}).")
-        .addMessage(Locale.US, "user.claim_value_validator.invalid_date", "Expected date to be formatted as YYYY-MM-DD.")
-        .addMessage(Locale.US, "description.user.claim_value_validator.invalid_date", "Please provide a date formatted as YYYY-MM-DD.")
+        .addMessage(
+            Locale.US, "description.flow.claims.invalid",
+            "One or more of the values you submitted were refused."
+        )
+        .addMessage(
+            Locale.US, "user.claim_value_validator.invalid_type",
+            "Invalid type, expected value to be of type {type}."
+        )
+        .addMessage(
+            Locale.US, "description.user.claim_value_validator.invalid_type",
+            "The value provided is not of the expected type ({type})."
+        )
+        .addMessage(
+            Locale.US, "user.claim_value_validator.invalid_date",
+            "Expected date to be formatted as YYYY-MM-DD."
+        )
+        .addMessage(
+            Locale.US, "description.user.claim_value_validator.invalid_date",
+            "Please provide a date formatted as YYYY-MM-DD."
+        )
         .addMessage(Locale.US, "user.not_found", "No user with id {id}.")
 
     private fun mapperOf(printDetailsInError: Boolean) = LocalizedErrorMapper(

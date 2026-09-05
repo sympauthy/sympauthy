@@ -105,6 +105,7 @@ class ConsentAwareClaimManagerTest {
     }
 
     @Test
+    @Suppress("MaxLineLength")
     fun `listCollectableClaimsBySession - Return empty list for OnGoingInteractiveFlowSession with no consentedScopes`() =
         runTest {
             val session = mockk<OnGoingInteractiveFlowSession>()

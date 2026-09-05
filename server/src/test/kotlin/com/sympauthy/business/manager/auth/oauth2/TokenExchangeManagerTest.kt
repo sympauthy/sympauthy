@@ -218,7 +218,13 @@ class TokenExchangeManagerTest {
         val encoded = mockk<EncodedAuthenticationToken>()
         coEvery { accessTokenGenerator.generateActAsAccessToken(any(), any(), any(), any()) } returns encoded
 
-        val result = manager().exchangeForActAsToken(actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), null)
+        val result = manager().exchangeForActAsToken(
+            actingClient,
+            SUBJECT_TOKEN,
+            accessTokenType,
+            userId.toString(),
+            null
+        )
 
         assertEquals(encoded, result)
         coVerify {

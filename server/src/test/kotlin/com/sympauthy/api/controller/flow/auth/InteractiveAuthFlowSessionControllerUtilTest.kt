@@ -65,6 +65,7 @@ class InteractiveAuthFlowSessionControllerUtilTest {
     }
 
     @Test
+    @Suppress("MaxLineLength")
     fun `handleException - Routes a concurrent conflict by the current terminal session instead of failing it`() = runTest {
         val sessionId = UUID.randomUUID()
         val session = mockk<OnGoingInteractiveFlowSession> { every { id } returns sessionId }
