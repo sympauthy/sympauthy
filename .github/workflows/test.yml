@@ -19,4 +19,9 @@ jobs:
         uses: ./.github/actions/setup_java
         with:
           cache: gradle
+      # detekt is wired to `check`, which this workflow does not reach, so it is named explicitly.
+      # It runs before the tests and never as `check`: the analysis takes seconds and needs no
+      # container, while `check` would pull in the rest of the build behind it.
+      - name: Analyse the sources
+        run: ./gradlew detekt --no-daemon
       - run: ./gradlew test --no-daemon
