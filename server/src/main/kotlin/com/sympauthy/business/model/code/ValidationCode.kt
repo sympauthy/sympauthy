@@ -42,7 +42,7 @@ class ValidationCode(
     /**
      * Identifier of the interactive flow session that requested a validation.
      */
-    val sessionId: UUID?,
+    val sessionId: UUID,
 
     val creationDate: LocalDateTime,
 

@@ -20,10 +20,18 @@ class OAuth2Exception(
     }
 }
 
+/**
+ * This protocol error as a [LocalizedHttpException] answering with [httpStatus], for the callers
+ * that answer with the ordinary error body rather than with the one RFC 6749 defines.
+ *
+ * It is not recoverable: the protocol's error body carries no such flag, so there is nothing to
+ * forward, and the code an OAuth2 client branches on is [OAuth2Exception.errorCode] either way.
+ */
 fun OAuth2Exception.toHttpException(
     httpStatus: HttpStatus = status
 ) = LocalizedHttpException(
     status = httpStatus,
+    recoverable = false,
     detailsId = detailsId,
     descriptionId = descriptionId,
     values = values

@@ -93,7 +93,7 @@ class IndexedCryptoKeysRepositoryTest {
     private suspend fun RepositoryFixture.saveKeys(
         name: String,
         algorithm: String = "RS256",
-        publicKey: ByteArray? = byteArrayOf(1, 2, 3)
+        publicKey: ByteArray = byteArrayOf(1, 2, 3)
     ): Int {
         val keys = repository<IndexedCryptoKeysRepository>()
         return keys.save(
@@ -101,7 +101,7 @@ class IndexedCryptoKeysRepositoryTest {
                 name = name,
                 algorithm = algorithm,
                 publicKey = publicKey,
-                publicKeyFormat = "X.509".takeIf { publicKey?.isNotEmpty() == true },
+                publicKeyFormat = "X.509".takeIf { publicKey.isNotEmpty() },
                 privateKey = byteArrayOf(4, 5, 6, 7),
                 privateKeyFormat = "PKCS#8",
                 creationDate = BASE_DATE

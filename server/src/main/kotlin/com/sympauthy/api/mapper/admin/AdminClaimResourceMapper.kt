@@ -22,7 +22,7 @@ class AdminClaimResourceMapper(
         return AdminClaimResource(
             id = claim.id,
             type = claim.dataType.wireName,
-            origin = claim.origin.value,
+            origin = claim.origin.wireName,
             enabled = claim.enabled,
             required = claim.required,
             identifier = claim.id in identifierClaimIds,

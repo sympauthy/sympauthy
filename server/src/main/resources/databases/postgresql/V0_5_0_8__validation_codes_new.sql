@@ -19,4 +19,4 @@ CREATE TABLE validation_codes
     FOREIGN KEY (session_id) REFERENCES interactive_flow_sessions (id)
 );
 
-CREATE INDEX validation_codes__session_id ON validation_codes (session_id) WHERE session_id IS NOT NULL;
+CREATE INDEX validation_codes__session_id ON validation_codes (session_id);

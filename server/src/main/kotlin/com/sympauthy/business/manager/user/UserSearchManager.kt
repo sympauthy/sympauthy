@@ -7,6 +7,8 @@ import com.sympauthy.business.mapper.CollectedClaimMapper
 import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
+import com.sympauthy.business.model.page.SortOrder
+import com.sympauthy.business.model.page.map
 import com.sympauthy.business.model.page.orderedPage
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
@@ -16,6 +18,7 @@ import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.UserRepository
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import java.time.LocalDateTime
 import kotlinx.coroutines.flow.toList
 
 /**
@@ -57,7 +60,7 @@ class UserSearchManager(
         query: String?,
         claimFilters: Map<String, String>,
         sort: String?,
-        order: String?,
+        order: SortOrder?,
         pageParams: PageParams
     ): Page<UserWithClaims> {
         // Built before the search so a sort property naming nothing is refused without reading every user.
@@ -83,7 +86,7 @@ class UserSearchManager(
         }
 
         if (userEntities.isEmpty()) {
-            return emptyList<UserWithClaims>().orderedPage(pageParams, comparator)
+            return emptyList<SearchedUser>().orderedPage(pageParams, comparator).map { toUserWithClaims(it) }
         }
 
         val users = userEntities.map(userMapper::toUser)
@@ -99,20 +102,17 @@ class UserSearchManager(
             .mapValues { (_, rows) -> rows.maxOf { it.collectionDate } }
 
         var result = users.map { user ->
-            UserWithClaims(
+            SearchedUser(
                 user = user,
                 collectedClaims = claimsByUserId[user.id] ?: emptyList(),
-                generatedClaimValues = generatedClaimsManager.computeValues(
-                    userId = user.id,
-                    latestCollectionDate = latestCollectionDates[user.id]
-                )
+                latestCollectionDate = latestCollectionDates[user.id]
             )
         }
 
         if (deserializedFilters.isNotEmpty()) {
-            result = result.filter { uwc ->
+            result = result.filter { searched ->
                 deserializedFilters.all { (claimId, expectedValue) ->
-                    uwc.collectedClaims.any { cc ->
+                    searched.collectedClaims.any { cc ->
                         cc.claim.id == claimId && cc.value == expectedValue
                     }
                 }
@@ -121,22 +121,39 @@ class UserSearchManager(
 
         if (!query.isNullOrBlank()) {
             val lowerQuery = query.lowercase()
-            result = result.filter { uwc ->
-                uwc.collectedClaims.any { cc ->
+            result = result.filter { searched ->
+                searched.collectedClaims.any { cc ->
                     cc.claim.enabled && cc.value?.toString()?.lowercase()?.contains(lowerQuery) == true
                 }
             }
         }
 
-        return result.orderedPage(pageParams, comparator)
+        return result.orderedPage(pageParams, comparator).map { toUserWithClaims(it) }
     }
+
+    /**
+     * The row [searchedUser] is published as, carrying the claim values this server generates for
+     * that user.
+     *
+     * This is called on the users of one page rather than on everything the criteria kept: a user
+     * the order left off the page is never published, so a value computed for them is read by
+     * nothing.
+     */
+    private suspend fun toUserWithClaims(searchedUser: SearchedUser) = UserWithClaims(
+        user = searchedUser.user,
+        collectedClaims = searchedUser.collectedClaims,
+        generatedClaimValues = generatedClaimsManager.computeValues(
+            userId = searchedUser.user.id,
+            latestCollectionDate = searchedUser.latestCollectionDate
+        )
+    )
 
     /**
      * Build the order a page of [listUsers] results is returned in.
      *
-     * [sort] names `created_at`, `status` or a claim id, and [order] is `asc` or `desc`, ascending when it is
-     * null. A [sort] naming none of those is the caller's mistake and throws a recoverable business exception
-     * carrying `user.search.invalid_sort`.
+     * [sort] names `created_at`, `status` or a claim id, and [order] is the direction it is read in, ascending
+     * where the caller named none. A [sort] naming none of those is the caller's mistake and throws a recoverable
+     * business exception carrying `user.search.invalid_sort`.
      *
      * What the caller asked to sort by decides nothing between two users holding the same value, so the order
      * ends in the user's identifier and is total. That tiebreak stays ascending under `order=desc`: it is not
@@ -144,8 +161,8 @@ class UserSearchManager(
      */
     internal suspend fun getUserComparator(
         sort: String?,
-        order: String?
-    ): Comparator<UserWithClaims> {
+        order: SortOrder?
+    ): Comparator<SearchedUser> {
         val enabledClaimIds = claimManager.listEnabledClaims().map { it.id }.toSet()
         if (sort != null && sort != "created_at" && sort != "status" && sort !in enabledClaimIds) {
             throw recoverableBusinessExceptionOf(
@@ -155,20 +172,19 @@ class UserSearchManager(
             )
         }
 
-        val bySortProperty: Comparator<UserWithClaims> = when (sort) {
+        val bySortProperty: Comparator<SearchedUser> = when (sort) {
             null, "created_at" -> compareBy { it.user.creationDate }
             "status" -> compareBy { it.user.status.name }
             // A claim holds at most one row per user, so the value this reads is the user's own and does not
             // vary between two calls.
-            else -> compareBy<UserWithClaims, String?>(nullsLast()) { uwc ->
-                uwc.collectedClaims
+            else -> compareBy<SearchedUser, String?>(nullsLast()) { searched ->
+                searched.collectedClaims
                     .firstOrNull { it.claim.id == sort }
                     ?.value?.toString()
             }
         }
 
-        val ascending = order?.lowercase() != "desc"
-        return (if (ascending) bySortProperty else bySortProperty.reversed())
+        return (if (order == SortOrder.DESC) bySortProperty.reversed() else bySortProperty)
             .thenBy { it.user.id }
     }
 
@@ -201,6 +217,23 @@ class UserSearchManager(
             )
         }
     }
+
+    /**
+     * A user as a search reads them: what the filters, the text search and the order run over.
+     *
+     * It carries what was read from the tables and nothing this server computes, so that a user the
+     * criteria drop, or the order leaves off the page, costs no more than the read that found them.
+     *
+     * [latestCollectionDate] takes no part in the search. It is the date of the most recent claim
+     * collected from the user, over every row the table holds for them, read in the pass the search
+     * already makes over those rows so that publishing the page does not query for it one user at a
+     * time.
+     */
+    internal data class SearchedUser(
+        val user: User,
+        val collectedClaims: List<CollectedClaim>,
+        val latestCollectionDate: LocalDateTime?
+    )
 
     /**
      * A user, and every claim value a caller listing them may publish.

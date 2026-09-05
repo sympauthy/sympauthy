@@ -74,7 +74,7 @@ class AdminUserClaimController(
             required = required,
             collected = collected,
             verified = verified,
-            origin = filterOf<ClaimOrigin>("origin", origin) { it.value },
+            origin = filterOf<ClaimOrigin>("origin", origin),
             pageParams = pageParams
         )
 

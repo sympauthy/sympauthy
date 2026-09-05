@@ -15,6 +15,48 @@ edited in place when it is.
 
 ---
 
+## Cryptographic keys
+
+### Why is `public_key` `NOT NULL`, holding an empty array where there is no public key?
+
+**Decision:** The column is `NOT NULL`, the row of a symmetric key holds an empty array in it, and
+`StoredPublicKeyMapper` translates that array into the `null` the domain spells absence with.
+
+**Options considered:**
+
+- **A nullable column** — what the schema had, and the natural spelling of a key with no public
+  half.
+- **`NOT NULL`, an empty array, translated in the mapper** — the entity mirrors the column and the
+  business model keeps its null.
+- **`NOT NULL`, an empty array, carried into the domain** — `CryptoKeys.publicKey` non-null too, and
+  every reader of a key testing `isEmpty()` where it tested `== null`.
+
+**Rationale:**
+
+The first option is not available. A null cannot reach a `bytea` column through this stack at all:
+`micronaut-data-r2dbc` binds a null `ByteArray` as a `Byte[]`, r2dbc-postgresql encodes that as
+`smallint[]`, and PostgreSQL refuses it.
+
+```
+[42804] column "public_key" is of type bytea but expression is of type smallint[]
+```
+
+The base `QueryStatement` that binding overrides binds the same case as a `byte[]`, which the driver
+encodes as a `bytea`, and no `DataType` reaches it — `BLOB` binds as an `Object`, which the driver
+refuses in turn. H2 accepts the null either way, so the nullable column was a state one dialect
+stored, the other refused, and only an insert could tell the two apart.
+
+Between the two spellings that remain, the mapper is where this codebase already puts the difference
+between a row and a model. Carrying the empty array into the domain would spread one storage
+limitation across every reader of a key, and `HMACKeyImpl` — the one algorithm with no public half —
+would go on saying so with a workaround rather than with a null.
+
+What it costs is a column holding a value that means no value, which is what the database standard's
+*absence is spelled `NULL`* forbids. The deviation stops at the mapper, and the standard names the
+`bytea` exception so that the next binary column is written knowing it.
+
+---
+
 ## MFA
 
 ### Should clients control whether MFA is required, and which methods are enabled?

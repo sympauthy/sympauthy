@@ -9,6 +9,7 @@ import jakarta.inject.Singleton
 data class ParsedScopeTemplate(
     val id: String,
     val enabled: Boolean?,
+    val discoverable: Boolean?,
     val type: String?,
     val audienceId: String?
 )
@@ -34,9 +35,16 @@ class ScopeTemplatesConfigParser(
         val enabled = ctx.parse {
             parser.getBoolean(properties, "$configKeyPrefix.enabled", ScopeTemplateConfigurationProperties::enabled)
         }
+        val discoverable = ctx.parse {
+            parser.getBoolean(
+                properties, "$configKeyPrefix.discoverable",
+                ScopeTemplateConfigurationProperties::discoverable
+            )
+        }
         return ParsedScopeTemplate(
             id = properties.id,
             enabled = enabled,
+            discoverable = discoverable,
             type = properties.type?.lowercase(),
             audienceId = properties.audience
         )

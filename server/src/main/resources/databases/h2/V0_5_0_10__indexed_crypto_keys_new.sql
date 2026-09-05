@@ -4,7 +4,7 @@ CREATE TABLE indexed_crypto_keys
     index              int       NOT NULL AUTO_INCREMENT,
     algorithm          text      NOT NULL,
 
-    public_key         bytea,
+    public_key         bytea     NOT NULL,
     public_key_format  text,
 
     private_key        bytea     NOT NULL,

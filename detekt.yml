@@ -71,3 +71,12 @@ style:
   MaxLineLength:
     active: true
     maxLineLength: 120
+
+naming:
+  # A file here is named for the concept it holds rather than for whichever declaration happens to be
+  # the only class-like one in it: RuleExpression.kt holds the exception, the configuration factory and
+  # the evaluation function, and EnumUtil.kt holds the interface a value implements beside the two
+  # properties that read it. Renaming either file after its type would say the functions beside it were
+  # an afterthought.
+  MatchingDeclarationName:
+    active: false

@@ -1,10 +1,10 @@
 package com.sympauthy.api.controller.admin
 
 import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
+import com.sympauthy.api.mapper.admin.AdminUserProviderResourceMapper
 import com.sympauthy.api.resource.admin.AdminUserProviderLinkInputResource
 import com.sympauthy.api.resource.admin.AdminUserProviderLinkResource
 import com.sympauthy.api.resource.admin.AdminUserProviderListResource
-import com.sympauthy.api.resource.admin.AdminUserProviderResource
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.manager.ClientManager
@@ -41,6 +41,7 @@ class AdminUserProviderController(
     @Inject private val linkProviderManager: InteractiveFlowSessionLinkProviderManager,
     @Inject private val engine: InteractiveFlowEngine,
     @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
+    @Inject private val userProviderMapper: AdminUserProviderResourceMapper,
     @Inject private val paginationUtil: PaginationUtil,
 ) {
 
@@ -74,13 +75,7 @@ class AdminUserProviderController(
         userManager.findByIdOrNull(userId).orNotFound()
         val providers = userProviderSearchManager.listUserProviders(userId, pageParams)
         return AdminUserProviderListResource(
-            providers = providers.items.map {
-                AdminUserProviderResource(
-                    providerId = it.providerId,
-                    subject = it.userInfo.subject,
-                    linkedAt = it.linkDate
-                )
-            },
+            providers = providers.items.map(userProviderMapper::toResource),
             page = providers.page,
             size = providers.size,
             total = providers.total

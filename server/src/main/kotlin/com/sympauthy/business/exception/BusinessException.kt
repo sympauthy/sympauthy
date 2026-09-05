@@ -50,6 +50,25 @@ fun businessExceptionOf(
 )
 
 /**
+ * Factory method to create a business exception that cannot be recovered by an end-user action, and that
+ * names in [descriptionId] the message the end-user is shown instead of the generic one.
+ *
+ * Note: this method should always be preferred over the constructor for creating instances as it provides a convenient
+ * vararg for [values].
+ */
+fun businessExceptionOf(
+    detailsId: String,
+    descriptionId: String,
+    vararg values: Pair<String, String>
+): BusinessException = BusinessException(
+    recoverable = false,
+    detailsId = detailsId,
+    descriptionId = descriptionId,
+    recommendedStatus = BAD_REQUEST,
+    values = mapOf(*values)
+)
+
+/**
  * Factory method to create a business exception that can be recovered by an end-user action.
  *
  * Note: this method should always be preferred over the constructor for creating instances as it provides a convenient
@@ -58,15 +77,13 @@ fun businessExceptionOf(
 fun recoverableBusinessExceptionOf(
     detailsId: String,
     descriptionId: String,
-    vararg values: Pair<String, String>,
-    throwable: Throwable? = null
+    vararg values: Pair<String, String>
 ) = BusinessException(
     recoverable = true,
     detailsId = detailsId,
     descriptionId = descriptionId,
     recommendedStatus = BAD_REQUEST,
-    values = mapOf(*values),
-    throwable = throwable
+    values = mapOf(*values)
 )
 
 /**
@@ -74,8 +91,23 @@ fun recoverableBusinessExceptionOf(
  */
 fun internalBusinessExceptionOf(
     detailsId: String,
-    vararg values: Pair<String, String>,
-    throwable: Throwable? = null
+    vararg values: Pair<String, String>
+) = BusinessException(
+    recoverable = false,
+    detailsId = detailsId,
+    descriptionId = null,
+    recommendedStatus = INTERNAL_SERVER_ERROR,
+    values = mapOf(*values)
+)
+
+/**
+ * Factory method to create a non-recoverable [BusinessException] not caused by the end-user, keeping the
+ * [throwable] that caused it for the log.
+ */
+fun internalBusinessExceptionOf(
+    detailsId: String,
+    throwable: Throwable?,
+    vararg values: Pair<String, String>
 ) = BusinessException(
     recoverable = false,
     detailsId = detailsId,

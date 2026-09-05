@@ -1,6 +1,5 @@
 package com.sympauthy.business.manager
 
-import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.config.model.ClientsConfig
@@ -40,6 +39,7 @@ class ClientManager(
     suspend fun findClientById(id: String): Client {
         return findClientByIdOrNull(id) ?: throw businessExceptionOf(
             detailsId = "client.invalid_client_id",
+            descriptionId = "description.client.invalid_client_id",
             values = arrayOf("clientId" to id)
         )
     }
@@ -50,17 +50,15 @@ class ClientManager(
      */
     suspend fun parseRequestedClient(uncheckedClientId: String?): Client {
         if (uncheckedClientId.isNullOrBlank()) {
-            throw BusinessException(
-                recoverable = false,
+            throw businessExceptionOf(
                 detailsId = "client.parse_requested.missing",
                 descriptionId = "description.client.parse_requested.missing"
             )
         }
-        return findClientByIdOrNull(uncheckedClientId) ?: throw BusinessException(
-            recoverable = false,
+        return findClientByIdOrNull(uncheckedClientId) ?: throw businessExceptionOf(
             detailsId = "client.parse_requested.invalid_client_id",
             descriptionId = "description.client.parse_requested.invalid_client_id",
-            values = mapOf("clientId" to uncheckedClientId)
+            values = arrayOf("clientId" to uncheckedClientId)
         )
     }
 

@@ -48,11 +48,40 @@ the offending scope as data.
 | `internalBusinessExceptionOf` | no | `500` | the server failed, and the caller is not at fault |
 
 **Ask the question from the caller's side: can they send something else?** A wrong password, a claim
-that fails validation and a scope the client may not ask for are recoverable, and recoverable is the
-only one that takes a second code for the end-user's message.
+that fails validation and a scope the client may not ask for are recoverable.
 
 **A failure nothing the caller sent would have prevented is internal.** A key that will not load, a
 row that cannot become a model and a provider that answered something unparseable are `500`.
+
+**Recoverable and having something to say are separate questions.** Recoverable decides the status
+and whether a retry is worth suggesting; the description decides what the reader is told, and a
+`400` takes a second code for the end-user's message either way. A `500` takes none: the caller is
+not at fault and has nothing to do but report it.
+
+**Inside an interactive flow, recoverable decides whether the flow survives.** `handleException`
+rethrows a recoverable failure to the caller, so the end-user stays on the step and can send
+something else; a non-recoverable one fails the session and routes them to the error page, which
+reads the two codes and their values and no status at all.
+
+**A failure whose recoverability its caller decides is built with the constructor.** The flag is a
+parameter of the method that throws, no factory takes it as one, and the method says so in
+[its own KDoc](comment-standard.md).
+
+**An `api` failure answers the same question, with the same pair of factories** —
+`httpExceptionOf` and `recoverableHttpExceptionOf`. It names its status rather than recommending
+one, and it names its description at the throw site: the layer holding the request is the one that
+knows which caller is reading.
+
+## A failure per property
+
+**A failure refusing several properties of one payload carries a failure per property**, by the path
+to it, and each of them is the exception that property failed with rather than a copy of part of it.
+A value the failure carries then reaches the sentence the reader is shown, because the exception
+carrying it is what gets rendered. The body is [the API standard's](api-standard.md#errors).
+
+**A path is a wire path, so it is the `api` exception that carries them.** A manager refusing a
+value does not know what the payload called the field, and one that did would be a manager holding
+a request.
 
 ## The OAuth2 carve-out
 
@@ -68,8 +97,8 @@ the contract.
 **An error code is a message-bundle key.** The code names the technical message an operator reads,
 and the same code prefixed with `description.` names the one an end-user is shown.
 
-**A code that is thrown has its technical message in the bundle, and a recoverable one has its
-`description.` message too.** A description the bundle does not hold renders as null and is
+**A code that is thrown has its technical message in the bundle, and one named with a description
+has its `description.` message too.** A description the bundle does not hold renders as null and is
 [dropped from the body](api-standard.md#json), so the caller is told nothing at all.
 
 **The bundle holds a message for every code and no message besides**, and
@@ -112,8 +141,16 @@ happen.
 
 **Retryability as a wire signal.** The status is the only signal; no header says how long to wait.
 
-**Error aggregation.** One request reports one failure, except for the per-property validation
-errors [the API standard](api-standard.md#errors) describes.
+**A generic description that varies by status.** A failure with nothing of its own to say falls back
+to one sentence, and `description.bad_request` holds the same sentence as
+`description.internal_server_error`. Branching them apart would also not reach the reader this is
+for: a failed interactive flow session persists the two codes and their values and no status, so the
+failure the error page renders has none to branch on.
+
+**Aggregating failures one pass did not compute together.** [A failure per
+property](#a-failure-per-property) reports what a single validation refused. Two rules refusing two
+different things in the same request are still two failures, and the first to throw wins — a claim
+a client may not write is refused before any value is validated.
 
 **Whether a placeholder is supplied.** The rule above is stated and nothing enforces it: the set of
 codes is readable from the sources, the set of values each throw site passes is not, and a name with

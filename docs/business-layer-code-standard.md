@@ -106,6 +106,10 @@ the order and the slice can become one query.
 the concept or reading the repositories where it is that manager. A manager whose whole subject is
 that one collection keeps its listing, the way `ClientUserManager` does.
 
+**A row a `…SearchManager` assembles is read one at a time by that same manager.** A surface
+publishing one of those rows on its own calls its `find…OrNull`, rather than fetching the concept
+and what the row carries beside it apart and pairing them itself.
+
 **A manager takes a record the caller already holds as a parameter.** Fetch once at the top of the
 flow and thread the record downward, usually as a nullable parameter the first method validates and
 returns non-null.

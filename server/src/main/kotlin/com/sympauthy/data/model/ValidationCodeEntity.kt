@@ -14,7 +14,7 @@ class ValidationCodeEntity(
     val userId: UUID,
     val media: String,
     val reasons: Array<String>,
-    val sessionId: UUID?,
+    val sessionId: UUID,
 
     val creationDate: LocalDateTime = LocalDateTime.now(),
     val resendDate: LocalDateTime?,

@@ -63,6 +63,7 @@ private val FACTORIES = mapOf(
     "localizedExceptionOf" to 0,
     "oauth2ExceptionOf" to 1,
     "httpExceptionOf" to 1,
+    "recoverableHttpExceptionOf" to 1,
     "configExceptionOf" to 1
 )
 

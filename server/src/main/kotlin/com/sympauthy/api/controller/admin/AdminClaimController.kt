@@ -57,7 +57,7 @@ class AdminClaimController(
         val claims = claimSearchManager.listClaims(
             enabled = enabled,
             required = required,
-            origin = filterOf<ClaimOrigin>("origin", origin) { it.value },
+            origin = filterOf<ClaimOrigin>("origin", origin),
             pageParams = pageParams
         )
         return AdminClaimListResource(

@@ -12,11 +12,12 @@ data class IndexedCryptoKeysEntity(
     val name: String,
     val algorithm: String,
 
-    val publicKey: ByteArray?,
+    /** The empty array of a key with no public half, for the reason [CryptoKeysEntity.publicKey] gives. */
+    val publicKey: ByteArray,
     val publicKeyFormat: String?,
 
     val privateKey: ByteArray,
-    val privateKeyFormat: String?,
+    val privateKeyFormat: String,
 
     val creationDate: LocalDateTime = LocalDateTime.now(),
 ) {

@@ -59,10 +59,10 @@ class ScopeConfigValidator {
     ): List<Scope> {
         val configurable = parsed.filter { isConfigurable(ctx, it) }
 
-        val disabledOpenIdConnectScopeIds = configurable
+        val configuredOpenIdConnectScopes = configurable
             .filter { it.isOpenIdConnect }
-            .mapNotNull { validateOpenIdConnectScope(ctx, it) }
-            .toSet()
+            .onEach { validateOpenIdConnectScope(ctx, it) }
+            .associateBy { it.id }
         val customScopes = configurable
             .filterNot { it.isOpenIdConnect }
             .mapNotNull { validateCustomScope(ctx, it, audiencesById) }
@@ -70,7 +70,7 @@ class ScopeConfigValidator {
         return builtInGrantableScopes +
                 adminScopes(adminAudienceId) +
                 clientScopes +
-                openIdConnectScopes(disabledOpenIdConnectScopeIds) +
+                openIdConnectScopes(configuredOpenIdConnectScopes) +
                 customScopes
     }
 
@@ -100,13 +100,16 @@ class ScopeConfigValidator {
     }
 
     /**
-     * Return the identifier of the OpenID Connect scope when the deployment turned it off,
-     * otherwise null.
+     * Record an error for each setting the deployment wrote against an OpenID Connect scope that
+     * cannot apply to one.
+     *
+     * What is left is what the specification does not decide: whether this deployment serves the
+     * scope, and whether it advertises the one it serves.
      */
     private fun validateOpenIdConnectScope(
         ctx: ConfigParsingContext,
         parsed: ParsedScopeConfig
-    ): String? {
+    ) {
         refuseSetting(
             ctx, parsed, parsed.audience, "audience",
             onEntry = "config.scope.audience.not_allowed_for_openid",
@@ -117,7 +120,6 @@ class ScopeConfigValidator {
             onEntry = "config.scope.type.not_allowed_for_openid",
             onTemplate = "config.scope.template.type_not_allowed_for_openid"
         )
-        return if (parsed.enabled == false) parsed.id else null
     }
 
     /**
@@ -206,13 +208,13 @@ class ScopeConfigValidator {
 
             scopeType == ScopeType.CONSENTABLE -> ConsentableUserScope(
                 scope = parsed.id,
-                discoverable = true,
+                discoverable = isDiscoverable(parsed),
                 audienceId = audienceId
             )
 
             else -> GrantableUserScope(
                 scope = parsed.id,
-                discoverable = true,
+                discoverable = isDiscoverable(parsed),
                 audienceId = audienceId
             )
         }
@@ -228,12 +230,26 @@ class ScopeConfigValidator {
         return "$TEMPLATES_SCOPES_KEY.$templateId.audience"
     }
 
-    private fun openIdConnectScopes(disabledScopeIds: Set<String>): List<Scope> {
+    /**
+     * Whether the deployment advertises the scope in the discovery document, which is every scope
+     * it configured unless it said otherwise, and every scope it did not configure at all.
+     *
+     * Discovery is a hint to a client that has not been told what to ask for, so hiding a scope is
+     * not turning it off: a client naming it is served exactly as before.
+     */
+    private fun isDiscoverable(parsed: ParsedScopeConfig?) = parsed?.discoverable ?: true
+
+    /**
+     * The scopes the OpenID Connect specification names, each built from what the deployment wrote
+     * against it, which is nothing at all for most of them.
+     */
+    private fun openIdConnectScopes(configured: Map<String, ParsedScopeConfig>): List<Scope> {
         return OpenIdConnectScope.entries.map {
-            if (it.scope in disabledScopeIds) {
+            val parsed = configured[it.scope]
+            if (parsed?.enabled == false) {
                 DisabledScope(scope = it.scope, type = ScopeType.CONSENTABLE)
             } else {
-                ConsentableUserScope(scope = it.scope, discoverable = true)
+                ConsentableUserScope(scope = it.scope, discoverable = isDiscoverable(parsed))
             }
         }
     }

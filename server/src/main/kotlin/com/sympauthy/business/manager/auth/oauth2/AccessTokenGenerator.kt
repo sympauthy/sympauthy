@@ -11,6 +11,7 @@ import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.AuthenticationTokenEntity
 import com.sympauthy.data.repository.AuthenticationTokenRepository
+import com.sympauthy.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.time.LocalDateTime
@@ -98,7 +99,7 @@ class AccessTokenGenerator(
             consentedBy = null,
             clientScopes = emptyList(),
             sessionId = null,
-            grantType = GrantType.TOKEN_EXCHANGE.value,
+            grantType = GrantType.TOKEN_EXCHANGE.wireName,
             dpopJkt = dpopJkt,
             actorClientId = actorToken.clientId,
             actorTokenId = actorToken.id

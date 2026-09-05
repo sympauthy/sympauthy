@@ -9,6 +9,7 @@ import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.parsing.ParsedClient
 import com.sympauthy.config.properties.ClientConfigurationProperties.Companion.CLIENTS_KEY
+import com.sympauthy.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
@@ -57,7 +58,7 @@ class ClientsConfigValidator(
                 configExceptionOf(
                     "$configKeyPrefix.allowed-grant-types",
                     "config.client.allowed_grant_types.missing",
-                    "supportedValues" to GrantType.entries.joinToString(", ") { it.value }
+                    "supportedValues" to GrantType.entries.joinToString(", ") { it.wireName }
                 )
             )
             null

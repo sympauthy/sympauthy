@@ -1,5 +1,7 @@
 package com.sympauthy.business.model.user.claim
 
+import com.sympauthy.util.PublishedUnderAnotherName
+
 /**
  * A claim configured on this authorization server.
  *
@@ -118,7 +120,13 @@ data class Claim(
                 clientScopes.any { it in acl.unconditional.writableWithClientScopes }
 }
 
-enum class ClaimOrigin(val value: String) {
+enum class ClaimOrigin(
+    override val publishedName: String? = null
+) : PublishedUnderAnotherName {
+    /**
+     * Published as `openid`, the word the OpenID Connect specification uses for the claims it
+     * defines, rather than the `openid_connect` this value's name spells.
+     */
     OPENID_CONNECT("openid"),
-    CUSTOM("custom")
+    CUSTOM
 }

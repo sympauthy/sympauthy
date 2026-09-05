@@ -6,10 +6,11 @@ import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.mapper.CollectedClaimMapper
 import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.page.PageParams
+import com.sympauthy.business.model.page.SortOrder
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
-import com.sympauthy.business.manager.user.UserSearchManager.UserWithClaims
+import com.sympauthy.business.manager.user.UserSearchManager.SearchedUser
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.model.UserEntity
@@ -79,10 +80,10 @@ class UserSearchManagerTest {
         )
     }
 
-    private fun userWithClaims(user: User, vararg claims: CollectedClaim) = UserWithClaims(
+    private fun searchedUser(user: User, vararg claims: CollectedClaim) = SearchedUser(
         user = user,
         collectedClaims = claims.toList(),
-        generatedClaimValues = emptyMap()
+        latestCollectionDate = null
     )
 
     private val firstPage = PageParams(page = 0, size = 20)
@@ -255,8 +256,8 @@ class UserSearchManagerTest {
     @Test
     fun `getUserComparator - Order by creation date when no property is named`() = runTest {
         every { claimManager.listEnabledClaims() } returns emptyList()
-        val older = userWithClaims(mockUser(creationDate = NOW.minusDays(1)))
-        val newer = userWithClaims(mockUser(creationDate = NOW))
+        val older = searchedUser(mockUser(creationDate = NOW.minusDays(1)))
+        val newer = searchedUser(mockUser(creationDate = NOW))
 
         val sorted = listOf(newer, older).sortedWith(manager.getUserComparator(sort = null, order = null))
 
@@ -264,12 +265,25 @@ class UserSearchManagerTest {
     }
 
     @Test
+    fun `getUserComparator - Order by creation date, oldest first, under asc`() = runTest {
+        every { claimManager.listEnabledClaims() } returns emptyList()
+        val older = searchedUser(mockUser(creationDate = NOW.minusDays(1)))
+        val newer = searchedUser(mockUser(creationDate = NOW))
+
+        val sorted = listOf(newer, older)
+            .sortedWith(manager.getUserComparator(sort = "created_at", order = SortOrder.ASC))
+
+        assertEquals(listOf(older, newer), sorted)
+    }
+
+    @Test
     fun `getUserComparator - Order by creation date, most recent first, under desc`() = runTest {
         every { claimManager.listEnabledClaims() } returns emptyList()
-        val older = userWithClaims(mockUser(creationDate = NOW.minusDays(1)))
-        val newer = userWithClaims(mockUser(creationDate = NOW))
+        val older = searchedUser(mockUser(creationDate = NOW.minusDays(1)))
+        val newer = searchedUser(mockUser(creationDate = NOW))
 
-        val sorted = listOf(older, newer).sortedWith(manager.getUserComparator(sort = "created_at", order = "desc"))
+        val sorted = listOf(older, newer)
+            .sortedWith(manager.getUserComparator(sort = "created_at", order = SortOrder.DESC))
 
         assertEquals(listOf(newer, older), sorted)
     }
@@ -277,8 +291,8 @@ class UserSearchManagerTest {
     @Test
     fun `getUserComparator - Order by status`() = runTest {
         every { claimManager.listEnabledClaims() } returns emptyList()
-        val disabled = userWithClaims(mockUser(status = UserStatus.DISABLED))
-        val enabled = userWithClaims(mockUser(status = UserStatus.ENABLED))
+        val disabled = searchedUser(mockUser(status = UserStatus.DISABLED))
+        val enabled = searchedUser(mockUser(status = UserStatus.ENABLED))
 
         val sorted = listOf(enabled, disabled).sortedWith(manager.getUserComparator(sort = "status", order = null))
 
@@ -291,8 +305,8 @@ class UserSearchManagerTest {
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim)
         val jane = mockUser()
         val john = mockUser()
-        val first = userWithClaims(jane, mockCollectedClaim(jane.id, emailClaim, "jane@example.com"))
-        val second = userWithClaims(john, mockCollectedClaim(john.id, emailClaim, "john@example.com"))
+        val first = searchedUser(jane, mockCollectedClaim(jane.id, emailClaim, "jane@example.com"))
+        val second = searchedUser(john, mockCollectedClaim(john.id, emailClaim, "john@example.com"))
 
         val sorted = listOf(second, first).sortedWith(manager.getUserComparator(sort = "email", order = null))
 
@@ -304,8 +318,8 @@ class UserSearchManagerTest {
         val emailClaim = mockClaim("email")
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim)
         val jane = mockUser()
-        val withValue = userWithClaims(jane, mockCollectedClaim(jane.id, emailClaim, "jane@example.com"))
-        val withoutValue = userWithClaims(mockUser())
+        val withValue = searchedUser(jane, mockCollectedClaim(jane.id, emailClaim, "jane@example.com"))
+        val withoutValue = searchedUser(mockUser())
 
         val sorted = listOf(withoutValue, withValue).sortedWith(manager.getUserComparator(sort = "email", order = null))
 
@@ -315,8 +329,8 @@ class UserSearchManagerTest {
     @Test
     fun `getUserComparator - Break a tie on the creation date with the user identifier`() = runTest {
         every { claimManager.listEnabledClaims() } returns emptyList()
-        val one = userWithClaims(mockUser(creationDate = NOW))
-        val other = userWithClaims(mockUser(creationDate = NOW))
+        val one = searchedUser(mockUser(creationDate = NOW))
+        val other = searchedUser(mockUser(creationDate = NOW))
 
         assertOrderedById(one, other, manager.getUserComparator(sort = "created_at", order = null))
     }
@@ -324,8 +338,8 @@ class UserSearchManagerTest {
     @Test
     fun `getUserComparator - Break a tie on the status with the user identifier`() = runTest {
         every { claimManager.listEnabledClaims() } returns emptyList()
-        val one = userWithClaims(mockUser(status = UserStatus.ENABLED))
-        val other = userWithClaims(mockUser(status = UserStatus.ENABLED))
+        val one = searchedUser(mockUser(status = UserStatus.ENABLED))
+        val other = searchedUser(mockUser(status = UserStatus.ENABLED))
 
         assertOrderedById(one, other, manager.getUserComparator(sort = "status", order = null))
     }
@@ -338,8 +352,8 @@ class UserSearchManagerTest {
         val other = mockUser()
 
         assertOrderedById(
-            userWithClaims(one, mockCollectedClaim(one.id, emailClaim, "shared@example.com")),
-            userWithClaims(other, mockCollectedClaim(other.id, emailClaim, "shared@example.com")),
+            searchedUser(one, mockCollectedClaim(one.id, emailClaim, "shared@example.com")),
+            searchedUser(other, mockCollectedClaim(other.id, emailClaim, "shared@example.com")),
             manager.getUserComparator(sort = "email", order = null)
         )
     }
@@ -347,10 +361,10 @@ class UserSearchManagerTest {
     @Test
     fun `getUserComparator - Keep the identifier tiebreak ascending under desc`() = runTest {
         every { claimManager.listEnabledClaims() } returns emptyList()
-        val one = userWithClaims(mockUser(creationDate = NOW))
-        val other = userWithClaims(mockUser(creationDate = NOW))
+        val one = searchedUser(mockUser(creationDate = NOW))
+        val other = searchedUser(mockUser(creationDate = NOW))
 
-        assertOrderedById(one, other, manager.getUserComparator(sort = "created_at", order = "desc"))
+        assertOrderedById(one, other, manager.getUserComparator(sort = "created_at", order = SortOrder.DESC))
     }
 
     /**
@@ -358,9 +372,9 @@ class UserSearchManagerTest {
      * handed them in, which is what makes the order total rather than merely stable.
      */
     private fun assertOrderedById(
-        one: UserWithClaims,
-        other: UserWithClaims,
-        comparator: Comparator<UserWithClaims>
+        one: SearchedUser,
+        other: SearchedUser,
+        comparator: Comparator<SearchedUser>
     ) {
         val expected = listOf(one, other).sortedBy { it.user.id }
 
@@ -392,6 +406,65 @@ class UserSearchManagerTest {
         )
 
         assertEquals(mapOf("sub" to user.id.toString()), result.items.single().generatedClaimValues)
+    }
+
+    @Test
+    fun `listUsers - Compute the values generated for the users of the page and for no other`() = runTest {
+        val emailClaim = mockClaim("email")
+        val onPage = mockUser(creationDate = NOW.minusDays(1))
+        val offPage = mockUser(creationDate = NOW)
+        val onPageEntity = mockk<UserEntity>()
+        val offPageEntity = mockk<UserEntity>()
+
+        every { claimManager.listEnabledClaims() } returns listOf(emailClaim)
+        coEvery { userRepository.findAll() } returns flowOf(onPageEntity, offPageEntity)
+        every { userMapper.toUser(onPageEntity) } returns onPage
+        every { userMapper.toUser(offPageEntity) } returns offPage
+        coEvery { collectedClaimRepository.findByUserIdInList(any()) } returns emptyList()
+        coEvery {
+            generatedClaimsManager.computeValues(onPage.id, null)
+        } returns mapOf("sub" to onPage.id.toString())
+
+        val result = manager.listUsers(
+            status = null, query = null, claimFilters = emptyMap(),
+            sort = null, order = null, pageParams = PageParams(0, 1)
+        )
+
+        assertEquals(mapOf("sub" to onPage.id.toString()), result.items.single().generatedClaimValues)
+        coVerify(exactly = 0) { generatedClaimsManager.computeValues(offPage.id, any()) }
+    }
+
+    @Test
+    fun `listUsers - Compute no generated value for a user the criteria dropped`() = runTest {
+        val emailClaim = mockClaim("email")
+        val kept = mockUser()
+        val dropped = mockUser()
+        val keptEntity = mockk<UserEntity>()
+        val droppedEntity = mockk<UserEntity>()
+        val keptClaimEntity = claimEntity(kept.id)
+        val droppedClaimEntity = claimEntity(dropped.id)
+
+        every { emailClaim.enabled } returns true
+        every { claimManager.listEnabledClaims() } returns listOf(emailClaim)
+        coEvery { userRepository.findAll() } returns flowOf(keptEntity, droppedEntity)
+        every { userMapper.toUser(keptEntity) } returns kept
+        every { userMapper.toUser(droppedEntity) } returns dropped
+        coEvery {
+            collectedClaimRepository.findByUserIdInList(any())
+        } returns listOf(keptClaimEntity, droppedClaimEntity)
+        every { collectedClaimMapper.toCollectedClaim(keptClaimEntity) } returns
+                mockCollectedClaim(kept.id, emailClaim, "jane@example.com")
+        every { collectedClaimMapper.toCollectedClaim(droppedClaimEntity) } returns
+                mockCollectedClaim(dropped.id, emailClaim, "john@example.com")
+        coEvery { generatedClaimsManager.computeValues(kept.id, any()) } returns emptyMap()
+
+        val result = manager.listUsers(
+            status = null, query = "jan", claimFilters = emptyMap(),
+            sort = null, order = null, pageParams = firstPage
+        )
+
+        assertEquals(kept.id, result.items.single().user.id)
+        coVerify(exactly = 0) { generatedClaimsManager.computeValues(dropped.id, any()) }
     }
 
     @Test

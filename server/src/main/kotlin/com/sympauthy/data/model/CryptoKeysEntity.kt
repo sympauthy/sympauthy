@@ -11,11 +11,17 @@ import java.time.LocalDateTime.now
 data class CryptoKeysEntity(
     val algorithm: String,
 
-    val publicKey: ByteArray?,
+    /**
+     * The column is `NOT NULL` and holds an empty array for an algorithm with no public half: a null
+     * [ByteArray] is bound as a `Byte[]`, which PostgreSQL types `smallint[]` and refuses against a
+     * `bytea`. [com.sympauthy.business.mapper.StoredPublicKeyMapper] translates the empty array into
+     * the null the business model spells absence with.
+     */
+    val publicKey: ByteArray,
     val publicKeyFormat: String?,
 
     val privateKey: ByteArray,
-    val privateKeyFormat: String?,
+    val privateKeyFormat: String,
 
     val creationDate: LocalDateTime = now(),
 ) {

@@ -57,6 +57,16 @@ into is declared on the enum itself, and that declaration then reads as what it 
 spelled differently on purpose. A declaration on every value says nothing, and the one that matters
 is invisible among them.
 
+**An enum holding such a value implements `PublishedUnderAnotherName`, and only that value
+declares a name.** `wireName` reads the declaration before it derives anything, so a mapper and a
+filter call the one extension whether the set holds an exception or not.
+
+**An enum whose declared words are a specification's record keeps them on every value.**
+`OAuth2ErrorCode` holds the status, the token and the default description RFC 6749 names together,
+and deriving the token would let a rename of a Kotlin constant rename what a client branches on.
+`CodeChallengeMethod` keeps its declaration because that is the form the flow session row stores and
+PKCE parses back, rather than a published name.
+
 ## The controller
 
 **Controllers route and translate.** Bind the request, call one manager method, map the result,
@@ -66,8 +76,10 @@ return it.
 controller binds the parameters, resolves the paging bounds and maps the page it gets back; the
 criteria, the order and the slice are the manager's.
 
-**A filter naming one value out of a closed set is resolved by `filterOf`.** A wire word naming no
-member of that set is refused there, so what reaches the manager is the domain value or nothing.
+**A filter naming one value out of a closed set is resolved by `filterOf`, and a sort direction by
+`orderOf`.** A wire word naming no member of that set is refused there, so what reaches the manager
+is the domain value or nothing. The two sit over one resolution and name a code apiece: the
+description a caller reads says which parameter they got wrong, and an ordering is not a filter.
 
 **Every handler is `suspend`**, for [the reason the general standard
 gives](general-code-standard.md#concurrency).

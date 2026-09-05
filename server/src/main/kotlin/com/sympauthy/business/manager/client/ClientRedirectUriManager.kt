@@ -23,10 +23,14 @@ class ClientRedirectUriManager {
      * the validated [URI]. One that is missing, malformed or not registered throws a [BusinessException]
      * whose detail id says which of the three it was.
      *
-     * [recoverable] is the flag that exception carries, and it is how the rejection surfaces. The browser
-     * authorize flow passes `false` — an unusable redirect URI is a hard error it cannot safely redirect
-     * back from (HTTP 500). The client and admin APIs pass `true` — the caller sent a bad request
-     * parameter (HTTP 400).
+     * [recoverable] is the flag that exception carries, and it decides where the rejection goes. The
+     * browser authorize flow passes `false`: it catches the failure and fails the session, so the end-user
+     * reaches the flow's error page rather than an unusable redirect URI. The client and admin APIs pass
+     * `true` — they have no flow to fail, and the caller sent a bad request parameter, so it is answered
+     * as a `400`.
+     *
+     * The exception is built with the constructor rather than a factory because the flag is a parameter
+     * here, and no factory takes it as one.
      */
     fun parseRequestedRedirectUri(
         client: Client,

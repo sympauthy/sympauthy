@@ -35,18 +35,14 @@ class ScopeTemplatesConfigFactoryTest {
         id: String,
         type: String? = null,
         enabled: String? = null,
+        discoverable: String? = null,
         audience: String? = null
     ): ScopeTemplateConfigurationProperties {
         return ScopeTemplateConfigurationProperties(id).apply {
             this.type = type
+            this.enabled = enabled
+            this.discoverable = discoverable
             this.audience = audience
-        }.also {
-            // enabled is val, so we set it via reflection
-            if (enabled != null) {
-                val field = ScopeTemplateConfigurationProperties::class.java.getDeclaredField("enabled")
-                field.isAccessible = true
-                field.set(it, enabled)
-            }
         }
     }
 
@@ -126,6 +122,33 @@ class ScopeTemplatesConfigFactoryTest {
     }
 
     @Test
+    fun `provideScopeTemplates - Carry the discoverability a template defines for the scopes using it`() {
+        val templates = listOf(
+            scopeTemplateProperties(id = "internal_scopes", discoverable = "false")
+        )
+
+        val result = factory.provideScopeTemplates(templates)
+
+        assertInstanceOf(EnabledScopeTemplatesConfig::class.java, result)
+        val config = result as EnabledScopeTemplatesConfig
+        assertEquals(false, config.templates["internal_scopes"]!!.discoverable)
+    }
+
+    @Test
+    fun `provideScopeTemplates - Report a discoverability that is not a boolean`() {
+        val templates = listOf(
+            scopeTemplateProperties(id = "internal_scopes", discoverable = "maybe")
+        )
+
+        val result = factory.provideScopeTemplates(templates)
+
+        assertEquals(
+            mapOf("templates.scopes.internal_scopes.discoverable" to "config.invalid_boolean"),
+            result.errorsByKey()
+        )
+    }
+
+    @Test
     fun `provideScopeTemplates - Refuse an audience on the template applied to the OpenID Connect scopes`() {
         val templates = listOf(
             scopeTemplateProperties(id = "default_openid", audience = "partners")
@@ -177,10 +200,28 @@ class ScopeTemplatesConfigFactoryTest {
     }
 
     @Test
+    fun `provideScopeTemplates - Refuse hiding the OpenID Connect scopes from discovery as a set`() {
+        val templates = listOf(
+            scopeTemplateProperties(id = "default_openid", discoverable = "false")
+        )
+
+        val result = factory.provideScopeTemplates(templates)
+
+        assertEquals(
+            mapOf(
+                "templates.scopes.default_openid.discoverable"
+                        to "config.scope.template.discoverable_not_allowed_on_default_openid"
+            ),
+            result.errorsByKey()
+        )
+    }
+
+    @Test
     fun `provideScopeTemplates - Report every setting the OpenID Connect template may not carry`() {
         val templates = listOf(
             scopeTemplateProperties(
-                id = "default_openid", enabled = "false", type = "grantable", audience = "partners"
+                id = "default_openid", enabled = "false", discoverable = "false", type = "grantable",
+                audience = "partners"
             )
         )
 
@@ -190,6 +231,8 @@ class ScopeTemplatesConfigFactoryTest {
             mapOf(
                 "templates.scopes.default_openid.enabled"
                         to "config.scope.template.enabled_not_allowed_on_default_openid",
+                "templates.scopes.default_openid.discoverable"
+                        to "config.scope.template.discoverable_not_allowed_on_default_openid",
                 "templates.scopes.default_openid.type"
                         to "config.scope.template.type_not_allowed_on_default_openid",
                 "templates.scopes.default_openid.audience"
@@ -211,6 +254,7 @@ class ScopeTemplatesConfigFactoryTest {
         val config = result as EnabledScopeTemplatesConfig
         val template = config.templates["minimal"]!!
         assertNull(template.enabled)
+        assertNull(template.discoverable)
         assertNull(template.type)
     }
 }

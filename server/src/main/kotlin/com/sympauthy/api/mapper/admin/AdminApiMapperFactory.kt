@@ -28,4 +28,8 @@ class AdminApiMapperFactory {
     @Singleton
     fun audienceResourceMapper(): AdminAudienceResourceMapper =
         Mappers.getMapper(AdminAudienceResourceMapper::class.java)
+
+    @Singleton
+    fun userProviderResourceMapper(): AdminUserProviderResourceMapper =
+        Mappers.getMapper(AdminUserProviderResourceMapper::class.java)
 }
