@@ -1,5 +1,6 @@
 package com.sympauthy.config
 
+import com.sympauthy.Application
 import io.micronaut.context.annotation.ConfigurationReader
 import io.micronaut.context.annotation.Property
 import io.micronaut.core.io.service.SoftServiceLoader
@@ -72,7 +73,12 @@ class DeclaredConfigurationKeyReader {
 
     private companion object {
 
-        /** What a bean definition the server itself declared is named under. */
-        const val SERVER_PACKAGE = "com.sympauthy."
+        /**
+         * What a bean definition the server itself declared is named under. It is taken from
+         * [Application.PACKAGE] rather than written out, so nothing here has to be told when the
+         * server is renamed: a filter naming the package by hand would go on compiling and answer
+         * that the server declares no configuration at all.
+         */
+        val SERVER_PACKAGE = "${Application.PACKAGE}."
     }
 }
