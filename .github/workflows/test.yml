@@ -17,22 +17,38 @@ on:
       - main
 
 jobs:
-  test:
-    name: Run tests on all projects
+  detekt:
+    name: Analyse the sources
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
-        with:
-          gradle-version: wrapper
-      - name: Setup Java
-        uses: ./.github/actions/setup_java
-        with:
-          cache: gradle
+      - uses: ./.github/actions/setup_gradle
+
       # detekt is wired to `check`, which this workflow does not reach, so it is named explicitly.
-      # It runs before the tests and never as `check`: the analysis takes seconds and needs no
-      # container, while `check` would pull in the rest of the build behind it.
-      - name: Analyse the sources
-        run: ./gradlew detekt --no-daemon
+      # It is never run as `check`, which would pull the rest of the build in behind it.
+      - run: ./gradlew detekt --no-daemon
+
+      # Published even when the analysis failed, which is exactly when the findings are worth having
+      # without opening the log. detekt writes its reports before it exits non-zero over findings,
+      # but a failure that is not a finding — an unreadable rule set, a missing input — leaves no
+      # report at all, so its absence is reported rather than failing this step over it.
+      - name: Publish the findings to the run summary
+        if: always()
+        run: |
+          report=server/build/reports/detekt/detekt.md
+          if [[ -f "$report" ]]; then
+            cat "$report" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "detekt produced no report — it failed before the analysis." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  test:
+    name: Run tests on all projects
+    # The analysis costs seconds and needs no container, while the tests start PostgreSQL. There is
+    # nothing to learn from running them against sources detekt has already rejected.
+    needs: detekt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup_gradle
       - run: ./gradlew test --no-daemon
