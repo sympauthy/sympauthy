@@ -26,7 +26,7 @@ import java.util.*
  *
  * Phase 1 — **act as a user by id**: a confidential client presents its own client-credentials access token as the
  * `subject_token` (to prove it is the actor) and names the target user via `requested_subject`. When authorized by the
- * configured `rules.act_as` rules, an identity-only access token is issued with the user as `sub` and the acting client
+ * configured `rules.act-as` rules, an identity-only access token is issued with the user as `sub` and the acting client
  * recorded in the `act` claim.
  */
 @Singleton

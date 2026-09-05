@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 
 /**
- * Evaluates the configured `rules.act_as` rules to decide whether an acting client may obtain an access token that
+ * Evaluates the configured `rules.act-as` rules to decide whether an acting client may obtain an access token that
  * acts on behalf of a target user via OAuth 2.0 Token Exchange (RFC 8693).
  */
 @Singleton

@@ -21,6 +21,11 @@ with a YAML file, so every mistake in it is made by an operator who cannot read 
 | factory | creates the context, calls the other two, assembles | do any of their work |
 | model | the validated result other code injects | be constructible from an invalid one |
 
+**A property prefix is written in kebab-case.** Micronaut hyphenates whatever a properties class
+declares, so `rules.act_as` is published as `rules.act-as`, and a file written the way the constant
+reads leaves the fields unbound. Only a value the parser requires reports it; the rest default in
+silence.
+
 **Every value the YAML offers arrives as a nullable string-shaped property**, including what looks
 like a boolean, a number or a duration. The parser converts it, and names the key when it cannot.
 
