@@ -9,6 +9,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.ClaimGroup
+import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.AuthenticationTokenEntity
@@ -27,6 +28,7 @@ class IdTokenGenerator(
     @Inject private val jwtManager: JwtManager,
     @Inject private val tokenRepository: AuthenticationTokenRepository,
     @Inject private val tokenMapper: EncodedAuthenticationTokenMapper,
+    @Inject private val uncheckedAdvancedConfig: AdvancedConfig,
     @Inject private val uncheckedAuthConfig: AuthConfig
 ) {
 
@@ -36,6 +38,8 @@ class IdTokenGenerator(
      * Generate a new id token containing user info accessible according to the scopes granted in the
      * session's [oauth2] request record. Only claims the end-user has consented to share with the client
      * are included.
+     *
+     * [accessToken] is the one issued in the same response, and the token's `at_hash` claim names it.
      */
     suspend fun generateIdToken(
         oauth2: InteractiveFlowSessionOAuth2,
@@ -55,6 +59,8 @@ class IdTokenGenerator(
     /**
      * Generate a new id token using the information stored in a [refreshToken].
      * Only claims the end-user has consented to share with the client are included.
+     *
+     * [accessToken] is the one issued in the same response, and the token's `at_hash` claim names it.
      */
     suspend fun generateIdToken(
         refreshToken: AuthenticationToken,
@@ -85,6 +91,7 @@ class IdTokenGenerator(
         }
 
         val authConfig = uncheckedAuthConfig.orThrow()
+        val advancedConfig = uncheckedAdvancedConfig.orThrow()
 
         val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
             userId = userId,
@@ -116,6 +123,7 @@ class IdTokenGenerator(
             issueTime(Date.from(issueDate.toInstant(ZoneOffset.UTC)))
             expirationTime(Date.from(expirationDate.toInstant(ZoneOffset.UTC)))
             nonce?.let { claim("nonce", it) }
+            claim("at_hash", advancedConfig.publicJwtAlgorithm.hashAlgorithm.atHash(accessToken.token))
 
             val (addressClaims, otherClaims) = claims.partition { it.claim.group == ClaimGroup.ADDRESS }
             otherClaims.forEach { claim ->

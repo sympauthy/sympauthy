@@ -4,17 +4,16 @@ import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.jwk.source.JWKSourceBuilder
 import com.nimbusds.jose.proc.JWSVerificationKeySelector
 import com.nimbusds.jose.proc.SecurityContext
-import com.nimbusds.jose.util.Base64URL
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import com.nimbusds.jwt.proc.DefaultJWTClaimsVerifier
 import com.nimbusds.jwt.proc.DefaultJWTProcessor
 import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.model.jwt.HashAlgorithm
 import com.sympauthy.business.model.provider.config.ProviderOpenIdConnectConfig
 import jakarta.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.security.MessageDigest
 
 /**
  * Validates and extracts claims from ID tokens returned by OpenID Connect providers.
@@ -98,22 +97,16 @@ class ProviderIdTokenManager {
     }
 
     /**
-     * Validate the `at_hash` claim against the access token (OIDC Core §3.1.3.8).
-     * The `at_hash` is the base64url-encoded left half of the hash of the access token,
-     * using the hash algorithm from the ID token's signing algorithm.
+     * Check that [atHash] is the `at_hash` of [accessToken] under [alg], the algorithm the id token carrying it
+     * was signed with (OIDC Core §3.1.3.8), and throw `provider.openid_connect.invalid_at_hash` naming
+     * [providerId] where it is not.
+     *
+     * An [alg] naming a digest [HashAlgorithm] does not know is one the provider chose and this server cannot
+     * reproduce, so the claim goes unchecked rather than refused.
      */
-    private fun validateAtHash(atHash: String, accessToken: String, alg: JWSAlgorithm, providerId: String) {
-        val hashAlgorithm = when {
-            alg.name.endsWith("256") -> "SHA-256"
-            alg.name.endsWith("384") -> "SHA-384"
-            alg.name.endsWith("512") -> "SHA-512"
-            else -> return // Unknown algorithm, skip validation
-        }
-        val digest = MessageDigest.getInstance(hashAlgorithm)
-        val fullHash = digest.digest(accessToken.toByteArray(Charsets.US_ASCII))
-        val leftHalf = fullHash.copyOf(fullHash.size / 2)
-        val expectedAtHash = Base64URL.encode(leftHalf).toString()
-        if (atHash != expectedAtHash) {
+    internal fun validateAtHash(atHash: String, accessToken: String, alg: JWSAlgorithm, providerId: String) {
+        val hashAlgorithm = HashAlgorithm.ofOrNull(alg) ?: return
+        if (atHash != hashAlgorithm.atHash(accessToken)) {
             throw businessExceptionOf(
                 "provider.openid_connect.invalid_at_hash",
                 "providerId" to providerId
