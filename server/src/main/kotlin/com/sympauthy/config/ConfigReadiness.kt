@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.firstOrNull
  */
 @Singleton
 class ConfigReadiness(
+    @Inject private val unboundConfigurationKeys: UnboundConfigurationKeys,
     @Inject private val actAsRulesConfig: Flow<ActAsRulesConfig>,
     @Inject private val adminConfig: AdminConfig,
     @Inject private val advancedConfig: AdvancedConfig,
@@ -75,6 +76,9 @@ class ConfigReadiness(
 
     /**
      * Retrieves all configuration errors from the configurations.
+     *
+     * The keys that bind to nothing come first: a key no domain reads is reported by none of them, and
+     * a file naming one is usually a file where the value below it is missing everywhere else too.
      */
     suspend fun getConfigurationErrors(): List<Exception> {
         val asyncConfigs = flowConfigs.mapNotNull {
@@ -84,6 +88,7 @@ class ConfigReadiness(
                 null
             }
         }
-        return (asyncConfigs + configs).flatMap { it.configurationErrors ?: emptyList() }
+        return unboundConfigurationKeys.configurationErrors +
+            (asyncConfigs + configs).flatMap { it.configurationErrors ?: emptyList() }
     }
 }
