@@ -25,11 +25,7 @@ class ClientConfigurationProperties(
     var authorizationWebhook: AuthorizationWebhookConfig? = null
 
     @ConfigurationProperties("authorization-webhook")
-    interface AuthorizationWebhookConfig {
-        val url: String?
-        val secret: String?
-        val onFailure: String?
-    }
+    interface AuthorizationWebhookConfig : ClientAuthorizationWebhookProperties
 
     companion object {
         const val CLIENTS_KEY = "clients"

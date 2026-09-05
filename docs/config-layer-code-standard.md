@@ -32,6 +32,16 @@ like a boolean, a number or a duration. The parser converts it, and names the ke
 **A value that cannot apply where it was written is refused, not ignored.** The validator records an
 error naming the key, so a setting that will not take effect is never accepted in silence.
 
+**A key that binds to nothing is refused.** A prefix a configuration domain declares is the server's
+to answer for, so a key under one that no domain reads is an error naming the key and the file it
+came from. What the server declares is read off the properties classes the compiler generated,
+which is what makes the set closed without anything having to be registered on a list.
+
+**A prefix nearly one a domain declares is answered for too.** A section written under `scope` where
+the domain is `scopes` does nothing at all, so its keys are refused with the correction rather than
+ignored. A prefix resembling none of them is a deployment's own, to name and to interpolate out of
+as it likes.
+
 **The parser only converts.** Route every call through the context so a failure is recorded, and
 return an intermediate type whose fields are all nullable.
 
@@ -103,6 +113,15 @@ world is.** Two codes, because only one of them is fixed by editing YAML.
 ## What this standard does not cover
 
 **Reloading.** Configuration is read once, at startup, and changing it is a restart.
+
+**A key set outside the file.** `System.env` and `System.properties` share a namespace with the
+whole machine, and the surface this project describes is a YAML file. The keys that bind to nothing
+are looked for in the files a deployment wrote, and nowhere else.
+
+**A key a framework owns.** Micronaut compiles its own configuration classes with the property
+lookups inlined rather than declared, so what a deployment writes under `micronaut`, `endpoints`,
+`flyway` or `netty` cannot be held to the rule above: there is no list of what those prefixes accept
+to hold it against, and guessing one would take readiness down over a key that works.
 
 **Secrets.** A secret is a string in the same file as everything else, and where it comes from is
 the deployment's business.

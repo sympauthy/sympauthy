@@ -7,7 +7,7 @@ import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.ConfigTemplateResolver
 import com.sympauthy.config.exception.configExceptionOf
-import com.sympauthy.config.properties.ClientConfigurationProperties.AuthorizationWebhookConfig
+import com.sympauthy.config.properties.ClientAuthorizationWebhookProperties
 import com.sympauthy.util.wireName
 import io.micronaut.http.uri.UriBuilder
 import jakarta.inject.Inject
@@ -95,7 +95,7 @@ class ClientConfigFieldParser(
     fun parseWebhook(
         ctx: ConfigParsingContext,
         configKey: String,
-        webhookConfig: AuthorizationWebhookConfig?,
+        webhookConfig: ClientAuthorizationWebhookProperties?,
         templateWebhook: AuthorizationWebhook?
     ): ParsedAuthorizationWebhook? {
         if (webhookConfig == null && templateWebhook == null) return null
@@ -103,14 +103,18 @@ class ClientConfigFieldParser(
         val subCtx = ctx.child()
         val url = if (webhookConfig?.url != null) {
             subCtx.parse {
-                parser.getAbsoluteUriOrThrow(webhookConfig, "$configKey.url", AuthorizationWebhookConfig::url)
+                parser.getAbsoluteUriOrThrow(
+                    webhookConfig, "$configKey.url", ClientAuthorizationWebhookProperties::url
+                )
             }
         } else {
             templateWebhook?.url
         }
         val secret = if (webhookConfig?.secret != null) {
             subCtx.parse {
-                parser.getStringOrThrow(webhookConfig, "$configKey.secret", AuthorizationWebhookConfig::secret)
+                parser.getStringOrThrow(
+                    webhookConfig, "$configKey.secret", ClientAuthorizationWebhookProperties::secret
+                )
             }
         } else {
             templateWebhook?.secret
@@ -120,7 +124,7 @@ class ClientConfigFieldParser(
                 parser.getEnum(
                     webhookConfig, "$configKey.on-failure",
                     AuthorizationWebhookOnFailure.DENY_ALL,
-                    AuthorizationWebhookConfig::onFailure
+                    ClientAuthorizationWebhookProperties::onFailure
                 )
             }
         } else {

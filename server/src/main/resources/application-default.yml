@@ -67,7 +67,6 @@ templates:
       default-scopes:
         - openid
         - profile
-      flow: default
       allowed-grant-types:
         - authorization_code
         - refresh_token
@@ -207,9 +206,3 @@ features:
 
 ui:
   display-name: SympAuthy
-  mail:
-    email-background-color: "#f3f3f5"
-    primary-color: ""
-    background-color: "#ffffff"
-    on-primary-color: ""
-    on-background-color: "#3C3F44"

@@ -1,6 +1,6 @@
 package com.sympauthy.config.properties
 
-import com.sympauthy.config.properties.ClientConfigurationProperties.AuthorizationWebhookConfig
+import io.micronaut.context.annotation.ConfigurationProperties
 import io.micronaut.context.annotation.EachProperty
 import io.micronaut.context.annotation.Parameter
 
@@ -23,6 +23,9 @@ class ClientTemplateConfigurationProperties(
     var allowedScopes: List<String>? = null
     var defaultScopes: List<String>? = null
     var authorizationWebhook: AuthorizationWebhookConfig? = null
+
+    @ConfigurationProperties("authorization-webhook")
+    interface AuthorizationWebhookConfig : ClientAuthorizationWebhookProperties
 
     companion object {
         const val TEMPLATES_CLIENTS_KEY = "templates.clients"
