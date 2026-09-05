@@ -1,7 +1,7 @@
 package com.sympauthy.business.mapper
 
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.mapper.config.ToBusinessMapperConfig
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
@@ -14,8 +14,9 @@ import org.mapstruct.Mapper
  * Handle the mapping from the [InteractiveFlowSessionOAuth2Entity] to the [InteractiveFlowSessionOAuth2]
  * business model.
  *
- * If the content of the entity is not valid (e.g. an inconsistent PKCE challenge), an unrecoverable
- * [BusinessException] "mapper.interactive_flow_session.invalid_property" will be thrown.
+ * If the content of the entity is not valid (e.g. an inconsistent PKCE challenge), an internal
+ * [BusinessException] "mapper.interactive_flow_session_oauth2.invalid_property" is thrown: a row this
+ * server wrote and cannot read back is its own failure rather than the caller's.
  */
 @Mapper(
     config = ToBusinessMapperConfig::class
@@ -36,10 +37,10 @@ abstract class InteractiveFlowSessionOAuth2Mapper {
             invitationId = entity.invitationId,
             consentedScopes = entity.consentedScopes?.toList(),
             consentedAt = entity.consentedAt,
-            consentedBy = entity.consentedBy?.let { ConsentedBy.valueOf(it) },
+            consentedBy = consentedBy(entity.consentedBy),
             grantedScopes = entity.grantedScopes?.toList(),
             grantedAt = entity.grantedAt,
-            grantedBy = entity.grantedBy?.let { GrantedBy.valueOf(it) },
+            grantedBy = grantedBy(entity.grantedBy),
         )
     }
 
@@ -70,9 +71,39 @@ abstract class InteractiveFlowSessionOAuth2Mapper {
         return codeChallenge to method
     }
 
-    private fun invalidBusinessException(invalidProperty: String): BusinessException {
-        return businessExceptionOf(
-            detailsId = "mapper.interactive_flow_session.invalid_property",
+    /**
+     * How the consentable scopes [consentedBy] names were consented, or null where none were.
+     */
+    private fun consentedBy(consentedBy: String?): ConsentedBy? {
+        return consentedBy?.let {
+            try {
+                ConsentedBy.valueOf(it)
+            } catch (e: IllegalArgumentException) {
+                throw invalidBusinessException("consentedBy", e)
+            }
+        }
+    }
+
+    /**
+     * How the grantable scopes [grantedBy] names were granted, or null where none were.
+     */
+    private fun grantedBy(grantedBy: String?): GrantedBy? {
+        return grantedBy?.let {
+            try {
+                GrantedBy.valueOf(it)
+            } catch (e: IllegalArgumentException) {
+                throw invalidBusinessException("grantedBy", e)
+            }
+        }
+    }
+
+    private fun invalidBusinessException(
+        invalidProperty: String,
+        cause: Throwable? = null
+    ): BusinessException {
+        return internalBusinessExceptionOf(
+            detailsId = "mapper.interactive_flow_session_oauth2.invalid_property",
+            throwable = cause,
             values = arrayOf("property" to invalidProperty)
         )
     }

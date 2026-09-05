@@ -1,7 +1,7 @@
 package com.sympauthy.business.mapper
 
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.mapper.config.ToBusinessMapperConfig
 import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
@@ -10,6 +10,13 @@ import com.sympauthy.data.model.InvitationEntity
 import org.mapstruct.Mapper
 import java.time.LocalDateTime
 
+/**
+ * Handle the mapping from the [InvitationEntity] to the [Invitation] business model.
+ *
+ * If the row holds a status or a creator the model's enums do not name, or no identifier, an internal
+ * [BusinessException] "mapper.invitation.invalid_property" is thrown: a row this server wrote and
+ * cannot read back is its own failure rather than the caller's.
+ */
 @Mapper(config = ToBusinessMapperConfig::class)
 abstract class InvitationMapper {
 
@@ -48,7 +55,7 @@ abstract class InvitationMapper {
     }
 
     private fun invalidBusinessException(invalidProperty: String): BusinessException {
-        return businessExceptionOf(
+        return internalBusinessExceptionOf(
             detailsId = "mapper.invitation.invalid_property",
             values = arrayOf("property" to invalidProperty)
         )

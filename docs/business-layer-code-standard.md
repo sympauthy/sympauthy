@@ -31,6 +31,11 @@ than one caller shares.
 its enum, a document that will not deserialize and a reference whose target is gone fail here, under
 an error code naming the mapper and the property.
 
+**A row this door refuses is the server's own failure**, so it is
+[internal](exception-code-standard.md#the-question-that-tells-the-business-failures-apart) rather
+than merely non-recoverable. The row was written by this server, and nothing the caller sent would
+have made it read back.
+
 **Mapping toward the domain validates; mapping back is a translation.** The input in that direction
 is already valid, and the table's constraints remain the backstop on write.
 
