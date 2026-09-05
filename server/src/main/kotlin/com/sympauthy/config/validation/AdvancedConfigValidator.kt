@@ -141,7 +141,7 @@ class AdvancedConfigValidator {
         val subCtx = ctx.child()
 
         val costParameter = parsed.costParameter
-        if (costParameter != null && (costParameter !in 2..65535 || !isPowerOf2(costParameter))) {
+        if (costParameter != null && (costParameter !in 2..65_535 || !isPowerOf2(costParameter))) {
             subCtx.addError(
                 configExceptionOf("$configKeyPrefix.cost-parameter", "config.advanced.hash.invalid_cost_parameter")
             )

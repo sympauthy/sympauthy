@@ -48,7 +48,7 @@ class ClientTemplatesConfigParser(
         }
 
         val isPublic = ctx.parse {
-            parser.getBoolean(properties, "$configKeyPrefix.public", ClientTemplateConfigurationProperties::`public`)
+            parser.getBoolean(properties, "$configKeyPrefix.public", ClientTemplateConfigurationProperties::public)
         }
 
         val allowedGrantTypes = fieldParser.parseGrantTypes(

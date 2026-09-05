@@ -33,7 +33,7 @@ data class IntrospectionResource(
     @get:Schema(description = "Human-readable identifier for the resource owner who authorized this token. Not returned for client_credentials tokens.")
     val username: String? = null,
 
-    @get:Schema(description = "Type of the token, either \"Bearer\" or \"DPoP\".", allowableValues = ["Bearer", "DPoP"])
+    @get:Schema(description = """Type of the token, either "Bearer" or "DPoP".""", allowableValues = ["Bearer", "DPoP"])
     @get:JsonProperty("token_type")
     val tokenType: String? = null,
 

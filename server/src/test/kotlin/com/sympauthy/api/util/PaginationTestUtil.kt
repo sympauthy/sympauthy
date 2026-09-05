@@ -29,7 +29,7 @@ fun paginationUtilOf(
     maxSize: Int
 ): PaginationUtil {
     val hashConfig = HashConfig(
-        costParameter = 16384,
+        costParameter = 16_384,
         blockSize = 8,
         parallelizationParameter = 1,
         saltLengthInBytes = 32,

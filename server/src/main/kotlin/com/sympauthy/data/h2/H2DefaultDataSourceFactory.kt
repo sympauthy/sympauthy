@@ -16,7 +16,6 @@ import jakarta.inject.Named
 import org.h2.jdbcx.JdbcDataSource
 import javax.sql.DataSource
 
-
 /**
  * Create a JDBC [DataSource] using the same connection information of the R2DBC [ConnectionFactory].
  * Unfortunately a JDBC connection is required to migrate our database using Flyway.
@@ -41,8 +40,8 @@ class H2DefaultDataSourceFactory(
         val connectionString = createJDBCConnectionString(connectionFactoryOptions)
         return JdbcDataSource().apply {
             setURL(connectionString)
-            user = connectionFactoryOptions.getValue(USER) as String?
-            password = connectionFactoryOptions.getValue(PASSWORD) as String?
+            user = connectionFactoryOptions.getValue(USER) as? String
+            password = connectionFactoryOptions.getValue(PASSWORD) as? String
         }
     }
 
@@ -68,7 +67,7 @@ class H2DefaultDataSourceFactory(
     private fun getOptions(options: ConnectionFactoryOptions): List<String> {
         val result = mutableListOf<String>()
 
-        val optionsString = options.getValue(OPTIONS) as String?
+        val optionsString = options.getValue(OPTIONS) as? String
         if (optionsString != null) {
             optionsString.split(";")
                 .map(String::trim)
@@ -94,7 +93,7 @@ class H2DefaultDataSourceFactory(
     }
 
     private fun getUrl(options: ConnectionFactoryOptions): String? {
-        val url = options.getValue(URL) as String?
+        val url = options.getValue(URL) as? String
         return if (url == null) {
             val protocol = options.getRequiredValue(PROTOCOL)
             val database = options.getRequiredValue(DATABASE)

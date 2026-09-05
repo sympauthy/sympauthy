@@ -5,16 +5,31 @@
 # each key against the rules it knows, which means a rule renamed or removed by an upgrade fails the
 # run rather than silently ceasing to apply.
 #
-# A rule is disabled here because this codebase deliberately does the thing it forbids, and the
-# reason is written next to it. Nothing is disabled to make a number go down.
+# A rule is enabled here because detekt ships it off and these sources already obey it: it reports
+# nothing on the tree as it stands, so it costs no cleanup and gates the first violation rather than
+# judging the ones already written. That is the reason for every rule set to true below, which is why
+# none of them carries one of its own. A rule detekt ships off that this codebase would violate is
+# not enabled until the violations are gone, so no count ever has to be excused.
+#
+# A rule is disabled here because this codebase deliberately does the thing it forbids. That reason
+# is particular to each one, so each carries a line saying it. Nothing is disabled to make a number
+# go down.
+
+comments:
+  DeprecatedBlockTag:
+    active: true
+  EndOfSentenceFormat:
+    active: true
+  KDocReferencesNonPublicProperty:
+    active: true
+  OutdatedDocumentation:
+    active: true
 
 complexity:
-  # A manager's constructor parameters are Micronaut dependency injection, not an argument list
-  # anyone passes by hand.
+  # A manager's constructor parameters are dependency injection, not an argument list anyone writes.
   LongParameterList:
     active: false
-  # Size and complexity thresholds are a taste call. They stay off until one of them is argued for
-  # in docs/general-code-standard.md, so that the threshold and its rationale arrive together.
+  # A size threshold is a taste call, deferred until one is argued for in docs/general-code-standard.md.
   LongMethod:
     active: false
   TooManyFunctions:
@@ -29,54 +44,93 @@ complexity:
     active: false
 
 exceptions:
-  # Every site catching broadly does so at a boundary, to convert a third-party failure into this
-  # server's own vocabulary: a ConfigurationException while the configuration is read, an OAuth2 or
-  # business exception while a request is served, a logged degradation for mail and provider
-  # resolution. Narrowing those catches would let an unlisted exception escape as a 500 carrying a
-  # stack trace, which is what the conversion exists to prevent.
+  NotImplementedDeclaration:
+    active: true
+  ThrowingExceptionInMain:
+    active: true
+  # Every broad catch is a boundary converting a third-party failure into this server's own vocabulary.
   TooGenericExceptionCaught:
     active: false
 
+naming:
+  LambdaParameterNaming:
+    active: true
+  VariableMaxLength:
+    active: true
+  # A file is named for the concept it holds, not for whichever declaration is its only class-like one.
+  MatchingDeclarationName:
+    active: false
+
 performance:
-  # The spread operator is used where a vararg is forwarded; the copy it costs is not measurable at
-  # the sizes involved here.
+  UnnecessaryPartOfBinaryExpression:
+    active: true
+  # Used only where a vararg is forwarded, and the copy it costs is not measurable at these sizes.
   SpreadOperator:
     active: false
 
+potential-bugs:
+  CastToNullableType:
+    active: true
+  MissingPackageDeclaration:
+    active: true
+  UnconditionalJumpStatementInLoop:
+    active: true
+
 style:
+  AlsoCouldBeApply:
+    active: true
+  CascadingCallWrapping:
+    active: true
+  CollapsibleIfStatements:
+    active: true
+  DoubleNegativeLambda:
+    active: true
+  EqualsOnSignatureLine:
+    active: true
+  MandatoryBracesLoops:
+    active: true
+  MaxLineLength:
+    active: true
+    maxLineLength: 120
+  MultilineRawStringIndentation:
+    active: true
+  NoTabs:
+    active: true
+  OptionalUnit:
+    active: true
+  RedundantVisibilityModifierRule:
+    active: true
+  SpacingBetweenPackageAndImports:
+    active: true
+  StringShouldBeRawString:
+    active: true
+  TrailingWhitespace:
+    active: true
+  UnderscoresInNumericLiterals:
+    active: true
+  UnnecessaryBackticks:
+    active: true
+  UntilInsteadOfRangeTo:
+    active: true
+  UnusedImports:
+    active: true
   # The tests import org.junit.jupiter.api.Assertions.* wholesale, as house style.
   WildcardImport:
     active: false
-  # Guard clauses are the documented idiom, so several returns and several throws per function are
-  # expected rather than exceptional. See docs/exception-code-standard.md.
+  # Guard clauses are the documented idiom, so several of each per function is expected. See
+  # docs/exception-code-standard.md.
   ReturnCount:
     active: false
   ThrowsCount:
     active: false
+  # Left off with the size thresholds: which literals deserve a name has not been argued for either.
   MagicNumber:
     active: false
-  # A parameter this codebase does not read is usually one it is not free to drop. A validator and a
-  # parser take the same arguments as every other so that one factory calls them identically, a
-  # controller declares the path variable its route captures, and a family of config helpers shares
-  # one signature. The rule reported seventeen of those and two unfinished implementations, which is
-  # the wrong ratio for a gate; the unfinished ones are tracked as their own work.
+  # A parameter this codebase does not read is one it is not free to drop: a validator, a parser and a
+  # controller each declare the signature their one caller invokes them through.
   UnusedParameter:
     active: false
-  # MockK fills a test subject's constructor through @InjectMockKs, by reflection, so a property no
-  # test body names is still what makes the subject buildable. Every report here was one of those.
+  # @InjectMockKs fills a subject's constructor by reflection, so a property no test body names is
+  # still what makes the subject buildable.
   UnusedPrivateProperty:
     excludes: ['**/test/**']
-  # Codifies the width the sources already hold themselves to: the median line is 35 characters and
-  # the 99th percentile is 113.
-  MaxLineLength:
-    active: true
-    maxLineLength: 120
-
-naming:
-  # A file here is named for the concept it holds rather than for whichever declaration happens to be
-  # the only class-like one in it: RuleExpression.kt holds the exception, the configuration factory and
-  # the evaluation function, and EnumUtil.kt holds the interface a value implements beside the two
-  # properties that read it. Renaming either file after its type would say the functions beside it were
-  # an afterthought.
-  MatchingDeclarationName:
-    active: false

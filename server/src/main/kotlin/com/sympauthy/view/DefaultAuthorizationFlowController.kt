@@ -10,7 +10,6 @@ import io.swagger.v3.oas.annotations.Hidden
 import jakarta.inject.Inject
 import kotlin.jvm.optionals.getOrNull
 
-
 /**
  * Serve the index.html of sympauthy-flow that have been added in the resources by the CI.
  */

@@ -7,7 +7,6 @@ import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.*
 import com.sympauthy.config.parsing.ParsedProviderConfig
 import com.sympauthy.config.properties.ProviderConfigurationProperties.Companion.PROVIDERS_KEY
-import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
 @Singleton

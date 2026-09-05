@@ -4,7 +4,6 @@ import com.sympauthy.config.properties.AuthorizationFlowConfigurationProperties.
 import io.micronaut.context.annotation.EachProperty
 import io.micronaut.context.annotation.Parameter
 
-
 @EachProperty(AUTHORIZATION_FLOWS_KEY)
 class AuthorizationFlowConfigurationProperties(
     @param:Parameter val id: String

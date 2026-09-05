@@ -54,7 +54,7 @@ class ClientsConfigParser(
         val configKeyPrefix = "$CLIENTS_KEY.${properties.id}"
 
         val isPublic = ctx.parse {
-            parser.getBoolean(properties, "$configKeyPrefix.public", ClientConfigurationProperties::`public`)
+            parser.getBoolean(properties, "$configKeyPrefix.public", ClientConfigurationProperties::public)
         } ?: template?.public ?: false
 
         val secret = ctx.parse {

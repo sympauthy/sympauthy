@@ -50,7 +50,7 @@ private val postgreSQLContainer by lazy {
         .withDatabaseName("sympauthy")
         .withUsername("sympauthy")
         .withPassword("sympauthy")
-        .also { it.start() }
+        .apply { start() }
 }
 
 private fun postgreSQLDatasource(): Map<String, Any> = postgreSQLContainer.let {
