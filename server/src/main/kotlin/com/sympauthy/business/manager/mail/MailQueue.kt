@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager.mail
 
 import com.sympauthy.business.model.mail.QueuedMail
+import com.sympauthy.config.ConfigReadiness
 import com.sympauthy.data.model.MailQueueEntity
 import com.sympauthy.data.repository.MailQueueRepository
 import com.sympauthy.util.loggerForClass
@@ -23,12 +24,19 @@ import java.util.*
  * On startup, unsent mails that have not expired are replayed; expired records are discarded.
  * Mails with no expiration date are always replayed.
  *
+ * The replay does not run on a deployment whose configuration has errors. [processMail] deletes the record
+ * whatever the send returned, so a mail replayed there has spent the one attempt it gets — sent from a
+ * server reporting itself unready, carrying links to one that answers errors. Left in the table it keeps
+ * that attempt, and costs a startup. A mail [send] queues is not gated the same way: that one belongs to a
+ * request the server did serve.
+ *
  * When mail sending is not configured (no [MailSender] available), the queue is disabled
  * and [send] is a no-op.
  */
 @Singleton
 class MailQueue(
     @Inject private val mailSender: MailSender?,
+    @Inject private val configReadiness: ConfigReadiness,
     @Inject private val mailBuilderFactory: TemplatedMailBuilderFactory,
     @Inject private val mailQueueRepository: MailQueueRepository
 ) : ApplicationEventListener<ServiceReadyEvent> {
@@ -58,6 +66,13 @@ class MailQueue(
 
         runBlocking {
             launch {
+                if (configReadiness.getConfigurationErrors().isNotEmpty()) {
+                    logger.warn(
+                        "Mail queue: not replaying — the configuration has errors and this server reports " +
+                                "itself unready. Unsent mails stay in the queue for the next startup."
+                    )
+                    return@launch
+                }
                 replayUnsentMails()
             }
         }

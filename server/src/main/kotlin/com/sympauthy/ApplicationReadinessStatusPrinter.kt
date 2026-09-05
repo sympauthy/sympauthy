@@ -20,6 +20,7 @@ import com.sympauthy.view.AdminUiController.Companion.ADMIN_UI_ENDPOINT
 import io.micronaut.context.MessageSource
 import io.micronaut.context.env.Environment
 import io.micronaut.context.event.ApplicationEventListener
+import io.micronaut.core.order.Ordered
 import io.micronaut.discovery.event.ServiceReadyEvent
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -29,6 +30,8 @@ import kotlinx.coroutines.runBlocking
 /**
  * Print info messages in logs to inform the user about the state of the application and the content of its
  * configuration. Or print the error reported by the configurations if any has been detected.
+ *
+ * This one reports the verdict the other [ServiceReadyEvent] listeners obey, so it runs before them.
  */
 @Singleton
 class ApplicationReadinessStatusPrinter(
@@ -51,9 +54,19 @@ class ApplicationReadinessStatusPrinter(
     @Inject @param:io.micronaut.context.annotation.Value(
         "\${micronaut.application.version}"
     ) private val version: String,
-) : ApplicationEventListener<ServiceReadyEvent> {
+) : ApplicationEventListener<ServiceReadyEvent>, Ordered {
 
     private val logger = loggerForClass()
+
+    /**
+     * Runs before every other [ServiceReadyEvent] listener, so that the verdict on the configuration is in
+     * the log above the work that obeyed it.
+     *
+     * Declared through the interface rather than `@Order`: the publisher sorts the listener *instances*
+     * with `OrderUtil.COMPARATOR_ZERO`, which reads [Ordered] off an object and the annotation only off a
+     * bean definition. The annotation here would be read by nothing.
+     */
+    override fun getOrder(): Int = Ordered.HIGHEST_PRECEDENCE
 
     override fun onApplicationEvent(event: ServiceReadyEvent) {
         runBlocking {
