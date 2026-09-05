@@ -157,6 +157,12 @@ one.
 **Contract testing against real clients.** The generated client proves this server matches its own
 document.
 
+**The interactive frontend in a browser.** The pages a person signs in through are their own
+project, and an integration test drives the flow through the mock frontend `testcontainers-sympauthy`
+provides: the sequence of steps and the values each one posts, never a rendered page. That is the
+contract this server owns — what a browser would prove on top of it belongs to the frontend that
+renders it.
+
 ---
 
 ← [Design documentation](index.md)
