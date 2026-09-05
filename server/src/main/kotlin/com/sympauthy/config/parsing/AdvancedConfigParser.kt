@@ -1,6 +1,7 @@
 package com.sympauthy.config.parsing
 
 import com.sympauthy.business.model.jwt.JwtAlgorithm
+import com.sympauthy.business.model.key.CryptoKeysGenerationStrategyId
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.properties.*
@@ -16,7 +17,7 @@ import jakarta.inject.Singleton
 import java.time.Duration
 
 data class ParsedAdvancedConfig(
-    val keysGenerationStrategyId: String?,
+    val keysGenerationStrategyId: CryptoKeysGenerationStrategyId?,
     val publicJwtAlgorithm: JwtAlgorithm?,
     val accessJwtAlgorithm: JwtAlgorithm?,
     val privateJwtAlgorithm: JwtAlgorithm?,
@@ -69,7 +70,7 @@ class AdvancedConfigParser(
         paginationProperties: PaginationConfigurationProperties
     ): ParsedAdvancedConfig {
         val keysGenerationStrategyId = ctx.parse {
-            parser.getString(
+            parser.getEnumOrThrow<AdvancedConfigurationProperties, CryptoKeysGenerationStrategyId>(
                 properties, "$ADVANCED_KEY.keys-generation-strategy",
                 AdvancedConfigurationProperties::keysGenerationStrategy
             )

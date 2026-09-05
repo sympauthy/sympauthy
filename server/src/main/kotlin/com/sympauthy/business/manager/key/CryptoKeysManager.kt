@@ -8,6 +8,7 @@ import com.sympauthy.business.model.key.KeyAlgorithm
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.repository.CryptoKeysRepository
+import com.sympauthy.util.configName
 import io.reactivex.rxjava3.core.Maybe
 import io.reactivex.rxjava3.core.Single
 import jakarta.inject.Inject
@@ -22,8 +23,8 @@ class CryptoKeysManager(
     @Inject private val keysMapper: CryptoKeysMapper,
     @Inject private val advancedConfig: AdvancedConfig,
     /**
-     * Every generation strategy, by the qualifier it is published under, which is what
-     * [com.sympauthy.business.model.key.CryptoKeysGenerationStrategyId] names.
+     * Every generation strategy, by the qualifier it is published under, which is the name
+     * [com.sympauthy.business.model.key.CryptoKeysGenerationStrategyId] is configured with.
      */
     @Inject private val generationStrategies: Map<String, CryptoKeysGenerationStrategy>
 ) {
@@ -78,16 +79,16 @@ class CryptoKeysManager(
     /**
      * The strategy the deployment configured.
      *
-     * When no implementation is published under the configured identifier it throws a
+     * When no implementation is published under the strategy's configured name it throws a
      * [com.sympauthy.business.exception.BusinessException] carrying `key.generation_strategy.missing`.
      * That is not something a deployment can cause: it means an entry was added to the enumeration
      * without the bean implementing it.
      */
     private fun generationStrategy(): CryptoKeysGenerationStrategy {
         val id = advancedConfig.orThrow().keysGenerationStrategyId
-        return generationStrategies[id.id] ?: throw internalBusinessExceptionOf(
+        return generationStrategies[id.configName] ?: throw internalBusinessExceptionOf(
             detailsId = "key.generation_strategy.missing",
-            values = arrayOf("strategy" to id.id)
+            values = arrayOf("strategy" to id.configName)
         )
     }
 }

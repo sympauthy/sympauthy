@@ -1,7 +1,6 @@
 package com.sympauthy.config.validation
 
 import com.sympauthy.business.model.jwt.JwtAlgorithm
-import com.sympauthy.business.model.key.CryptoKeysGenerationStrategyId
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.AuthorizationWebhookAdvancedConfig
@@ -17,7 +16,6 @@ import com.sympauthy.config.parsing.ParsedPaginationConfig
 import com.sympauthy.config.parsing.ParsedValidationCodeConfig
 import com.sympauthy.config.properties.InvitationConfigurationProperties.Companion.INVITATION_KEY
 import com.sympauthy.config.properties.InvitationHashConfigurationProperties.Companion.INVITATION_HASH_KEY
-import com.sympauthy.config.properties.AdvancedConfigurationProperties.Companion.ADVANCED_KEY
 import com.sympauthy.config.properties.HashConfigurationProperties.Companion.HASH_KEY
 import com.sympauthy.config.properties.JwtConfigurationProperties.Companion.JWT_KEY
 import com.sympauthy.config.properties.PaginationConfigurationProperties.Companion.PAGINATION_KEY
@@ -32,7 +30,6 @@ class AdvancedConfigValidator {
         ctx: ConfigParsingContext,
         parsed: ParsedAdvancedConfig
     ): EnabledAdvancedConfig? {
-        val keysGenerationStrategyId = validateKeysGenerationStrategy(ctx, parsed.keysGenerationStrategyId)
         validatePublicKeyAlgorithm(ctx, parsed.publicJwtAlgorithm)
         validateAccessKeyAlgorithm(ctx, parsed.accessJwtAlgorithm)
         validatePrivateKeyAlgorithm(ctx, parsed.privateJwtAlgorithm)
@@ -46,7 +43,7 @@ class AdvancedConfigValidator {
 
         if (ctx.hasErrors) return null
         return EnabledAdvancedConfig(
-            keysGenerationStrategyId = keysGenerationStrategyId!!,
+            keysGenerationStrategyId = parsed.keysGenerationStrategyId!!,
             publicJwtAlgorithm = parsed.publicJwtAlgorithm!!,
             accessJwtAlgorithm = parsed.accessJwtAlgorithm!!,
             privateJwtAlgorithm = parsed.privateJwtAlgorithm!!,
@@ -56,25 +53,6 @@ class AdvancedConfigValidator {
             authorizationWebhook = webhookConfig,
             pagination = paginationConfig!!
         )
-    }
-
-    private fun validateKeysGenerationStrategy(
-        ctx: ConfigParsingContext,
-        strategyId: String?
-    ): CryptoKeysGenerationStrategyId? {
-        if (strategyId == null) return null
-        val strategy = CryptoKeysGenerationStrategyId.fromIdOrNull(strategyId)
-        if (strategy == null) {
-            ctx.addError(
-                configExceptionOf(
-                    "$ADVANCED_KEY.keys-generation-strategy",
-                    "config.advanced.generation_algorithm.invalid",
-                    "algorithm" to strategyId,
-                    "algorithms" to CryptoKeysGenerationStrategyId.entries.joinToString(", ") { it.id }
-                )
-            )
-        }
-        return strategy
     }
 
     private fun validatePublicKeyAlgorithm(ctx: ConfigParsingContext, algorithm: JwtAlgorithm?) {
