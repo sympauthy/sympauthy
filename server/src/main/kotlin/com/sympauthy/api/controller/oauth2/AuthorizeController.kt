@@ -6,6 +6,7 @@ import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.UNSUPPORTED_RESPONSE_TYPE
+import com.sympauthy.business.model.oauth2.ResponseType
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
@@ -142,12 +143,11 @@ The authorization server includes this value unmodified in the ID Token.
         @QueryValue("invitation_token")
         uncheckedInvitationToken: String?
     ): HttpResponse<*> {
-        return when {
-            responseType.isNullOrBlank() -> throw oauth2ExceptionOf(
-                UNSUPPORTED_RESPONSE_TYPE, "authorize.response_type.missing"
-            )
-
-            responseType == "code" -> authorizeWithCodeFlow(
+        if (responseType.isNullOrBlank()) {
+            throw oauth2ExceptionOf(UNSUPPORTED_RESPONSE_TYPE, "authorize.response_type.missing")
+        }
+        return when (ResponseType.fromWireNameOrNull(responseType)) {
+            ResponseType.CODE -> authorizeWithCodeFlow(
                 uncheckedClientId = uncheckedClientId,
                 uncheckedClientState = uncheckedClientState,
                 uncheckedClientNonce = uncheckedClientNonce,
@@ -158,7 +158,7 @@ The authorization server includes this value unmodified in the ID Token.
                 uncheckedInvitationToken = uncheckedInvitationToken
             )
 
-            else -> throw oauth2ExceptionOf(
+            null -> throw oauth2ExceptionOf(
                 UNSUPPORTED_RESPONSE_TYPE, "authorize.response_type.invalid",
                 "responseType" to responseType
             )
