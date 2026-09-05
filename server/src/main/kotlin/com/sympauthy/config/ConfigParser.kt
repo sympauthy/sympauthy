@@ -15,7 +15,8 @@ import java.time.Duration
  * - it is lazy. Error will be discovered when the config will be used.
  *
  * However, as the configuration is at the center of SympAuthy, we want:
- * - to report configuration issues as soon as the server starts to allow the user to fix and restart as fast as possible.
+ * - to report configuration issues as soon as the server starts to allow the user to fix and restart as fast as
+ *   possible.
  * - we want explicit error message to help the user to fix errors.
  *
  * Therefor we must :

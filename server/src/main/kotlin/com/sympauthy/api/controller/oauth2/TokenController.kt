@@ -43,6 +43,7 @@ import jakarta.inject.Inject
 import java.time.Duration
 
 @Controller(OAUTH2_TOKEN_ENDPOINT)
+@Suppress("MaxLineLength")
 class TokenController(
     @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
@@ -143,7 +144,8 @@ Client authentication is supported via:
             ),
             Parameter(
                 name = "code_verifier",
-                description = "The PKCE code verifier (RFC 7636). Required when a code_challenge was sent during authorization.",
+                description =
+                    "The PKCE code verifier (RFC 7636). Required when a code_challenge was sent during authorization.",
                 schema = Schema(type = "string")
             )
         ],

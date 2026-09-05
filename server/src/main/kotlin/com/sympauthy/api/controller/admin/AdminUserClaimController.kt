@@ -56,7 +56,9 @@ class AdminUserClaimController(
                     "with, and may not exceed its configured maximum."
         ) size: Int?,
         @QueryValue("claim_id") @Parameter(description = "Filter by specific claim identifier.") claimId: String?,
-        @QueryValue @Parameter(description = "Filter by whether the claim is an identifier claim.") identifier: Boolean?,
+        @QueryValue
+        @Parameter(description = "Filter by whether the claim is an identifier claim.")
+        identifier: Boolean?,
         @QueryValue @Parameter(description = "Filter by whether the claim is required.") required: Boolean?,
         @QueryValue @Parameter(description = "Filter by whether the claim has been collected.") collected: Boolean?,
         @QueryValue @Parameter(description = "Filter by whether the claim has been verified.") verified: Boolean?,

@@ -93,7 +93,8 @@ on-going flow. All URLs it contains already include the state query param.
     /**
      * The sign-in step applies while no user is associated to the [session] yet, unless the flow is an
      * invitation flow with a sign-up page (in which case the end-user must be redirected to sign-up).
-     * The predicate mirrors [OAuth2AuthorizeInteractiveFlowPurposeHandler] so a not-applicable step never redirects to itself.
+     * The predicate mirrors [OAuth2AuthorizeInteractiveFlowPurposeHandler] so a not-applicable step never redirects to
+     * itself.
      *
      * A [session] whose user is already fixed normally does not apply — **except** under a
      * [InteractiveFlowPurpose.REAUTHENTICATION] gate, which reuses the sign-in step to make that user re-prove

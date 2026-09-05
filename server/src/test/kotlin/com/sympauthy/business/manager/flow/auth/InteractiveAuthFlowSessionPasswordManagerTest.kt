@@ -141,6 +141,7 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
     }
 
     @Test
+    @Suppress("MaxLineLength")
     fun `signInWithPassword - Does not establish or switch identity when a later purpose is active after re-auth`() = runTest {
         // Regression for the confirm-never-establish gap: once REAUTHENTICATION has resolved and a later
         // purpose (e.g. MFA_CHALLENGE) is active, a re-submitted sign-in POST must NOT fall through to the

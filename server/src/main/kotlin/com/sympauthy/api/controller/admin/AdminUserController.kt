@@ -75,7 +75,9 @@ class AdminUserController(
         @QueryValue @Parameter(
             description = "Partial case-insensitive text search across all enabled claim values."
         ) q: String?,
-        @QueryValue @Parameter(description = "Property to sort by: created_at, status, or a claim identifier.") sort: String?,
+        @QueryValue
+        @Parameter(description = "Property to sort by: created_at, status, or a claim identifier.")
+        sort: String?,
         @QueryValue @Parameter(description = "Sort direction: asc or desc.") order: String?
     ): AdminUserListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)

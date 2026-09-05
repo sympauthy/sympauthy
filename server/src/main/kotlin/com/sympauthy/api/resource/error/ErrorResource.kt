@@ -20,6 +20,7 @@ while the description field can be presented directly to end-users.
 """
 )
 @Serdeable
+@Suppress("MaxLineLength")
 data class ErrorResource(
     @get:Schema(description = "The HTTP status of the response.")
     val status: Int,
@@ -28,7 +29,9 @@ data class ErrorResource(
     @get:JsonProperty("error_code")
     val errorCode: String,
 
-    @get:Schema(description = "A message explaining the error to the end-user. It may contain information on how to recover from the issue.")
+    @get:Schema(
+        description = "A message explaining the error to the end-user. It may contain information on how to recover from the issue."
+    )
     val description: String?,
 
     @get:Schema(description = "A message containing technical details about the error.")

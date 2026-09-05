@@ -22,7 +22,8 @@ data class SignInFlowResource(
     )
     val password: PasswordResource? = null,
     @get:Schema(
-        description = "List of third-party providers the end-user can use to sign in. Null or empty if none is configured."
+        description =
+            "List of third-party providers the end-user can use to sign in. Null or empty if none is configured."
     )
     val providers: List<ProviderResource>? = null,
     @get:Schema(

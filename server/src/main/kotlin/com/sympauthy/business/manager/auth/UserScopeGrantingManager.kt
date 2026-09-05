@@ -43,8 +43,8 @@ class UserScopeGrantingManager(
      * Built-in grantable scopes marked as [BuiltInGrantableScope.autoGranted] (e.g. `openid`) are automatically
      * granted when requested, without going through the granting rules.
      *
-     * Some methods may require access to the claims collected by the authorization flow during the authorization process,
-     * it should be provided in the [allClaims] parameter.
+     * Some methods may require access to the claims collected by the authorization flow during the authorization
+     * process, it should be provided in the [allClaims] parameter.
      */
     suspend fun grantScopes(
         session: OnGoingInteractiveFlowSession,
@@ -95,7 +95,11 @@ class UserScopeGrantingManager(
     /**
      * Return the list of scope granting methods to apply.
      */
-    internal fun getScopeGrantingMethods(): List<suspend (session: InteractiveFlowSession, requestedScopes: List<EnabledScope>, collectedClaims: List<CollectedClaim>) -> ScopeGrantingMethodResult> {
+    internal fun getScopeGrantingMethods(): List<suspend (
+        session: InteractiveFlowSession,
+        requestedScopes: List<EnabledScope>,
+        collectedClaims: List<CollectedClaim>
+    ) -> ScopeGrantingMethodResult> {
         return listOf(
             authorizationWebhookScopeGrantingManager::applyAuthorizationWebhookScopeGranting,
             scopeGrantingRuleManager::applyUserScopeGrantingRules,

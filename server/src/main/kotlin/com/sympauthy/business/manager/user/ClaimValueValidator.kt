@@ -171,7 +171,8 @@ class ClaimValueValidator {
     /**
      * Validate the [value] is a phone number.
      *
-     * According to the [OpenID Connect Core specification](https://openid.net/specs/openid-connect-core-1_0.html#Claims),
+     * According to the
+     * [OpenID Connect Core specification](https://openid.net/specs/openid-connect-core-1_0.html#Claims),
      * the phone_number claim MUST conform to [E.164](https://www.itu.int/rec/T-REC-E.164-201011-I/en) format.
      *
      * E.164 numbers start with a '+' prefix followed by up to 15 digits.

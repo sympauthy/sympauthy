@@ -394,7 +394,9 @@ class InteractiveAuthFlowSessionManagerTest {
                 any()
             )
         } throws businessExceptionOf(detailsId = "scope.unsupported")
-        every { clientRedirectUriManager.parseRequestedRedirectUri(client, any(), any()) } returns URI("https://example.com/callback")
+        every { clientRedirectUriManager.parseRequestedRedirectUri(client, any(), any()) } returns URI(
+            "https://example.com/callback"
+        )
         val errorSlot = slot<BusinessException?>()
         coEvery {
             oauth2Manager.startOAuth2Session(
@@ -425,7 +427,9 @@ class InteractiveAuthFlowSessionManagerTest {
     @Test
     fun `startAuthorizationWith - Skips scope validation when client is null`() = runTest {
         setupDefaultFlow()
-        coEvery { clientManager.parseRequestedClient(null) } throws businessExceptionOf(detailsId = "client.parse_requested.missing")
+        coEvery { clientManager.parseRequestedClient(null) } throws businessExceptionOf(
+            detailsId = "client.parse_requested.missing"
+        )
         coEvery {
             oauth2Manager.startOAuth2Session(
                 client = any(),
@@ -494,7 +498,9 @@ class InteractiveAuthFlowSessionManagerTest {
     @Test
     fun `startAuthorizationWith - Skips redirect_uri validation when client is null`() = runTest {
         setupDefaultFlow()
-        coEvery { clientManager.parseRequestedClient(null) } throws businessExceptionOf(detailsId = "client.parse_requested.missing")
+        coEvery { clientManager.parseRequestedClient(null) } throws businessExceptionOf(
+            detailsId = "client.parse_requested.missing"
+        )
         coEvery {
             oauth2Manager.startOAuth2Session(
                 client = any(),
@@ -530,7 +536,9 @@ class InteractiveAuthFlowSessionManagerTest {
         setupDefaultFlow()
         coEvery { clientManager.parseRequestedClient(any()) } returns client
         coEvery { scopeManager.parseRequestedScopes(client, any()) } returns emptyList()
-        every { clientRedirectUriManager.parseRequestedRedirectUri(client, any(), any()) } returns URI("https://example.com/callback")
+        every { clientRedirectUriManager.parseRequestedRedirectUri(client, any(), any()) } returns URI(
+            "https://example.com/callback"
+        )
         val errorSlot = slot<BusinessException?>()
         coEvery {
             oauth2Manager.startOAuth2Session(
@@ -602,7 +610,9 @@ class InteractiveAuthFlowSessionManagerTest {
     @Test
     fun `startAuthorizationWith - Client error takes priority over other errors`() = runTest {
         setupDefaultFlow()
-        coEvery { clientManager.parseRequestedClient(null) } throws businessExceptionOf(detailsId = "client.parse_requested.missing")
+        coEvery { clientManager.parseRequestedClient(null) } throws businessExceptionOf(
+            detailsId = "client.parse_requested.missing"
+        )
         val errorSlot = slot<BusinessException?>()
         coEvery {
             oauth2Manager.startOAuth2Session(

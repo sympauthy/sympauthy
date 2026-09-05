@@ -45,7 +45,8 @@ class ClientManager(
     }
 
     /**
-     * Parse the [uncheckedClientId] and return the corresponding [Client] or throw a non-recoverable business exception.
+     * Parse the [uncheckedClientId] and return the corresponding [Client] or throw a non-recoverable business
+     * exception.
      */
     suspend fun parseRequestedClient(uncheckedClientId: String?): Client {
         if (uncheckedClientId.isNullOrBlank()) {

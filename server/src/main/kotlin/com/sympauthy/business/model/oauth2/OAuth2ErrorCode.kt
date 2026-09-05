@@ -104,7 +104,8 @@ enum class OAuth2ErrorCode(
     ),
 
     /**
-     * Client authentication failed (e.g., unknown client, no client authentication included, or unsupported authentication method).
+     * Client authentication failed (e.g., unknown client, no client authentication included, or unsupported
+     * authentication method).
      */
     INVALID_CLIENT(
         UNAUTHORIZED,

@@ -166,7 +166,11 @@ class AdminUserProviderController(
 
         // Validate the return URI (and the optional cancel URI) against the named client's registered redirect
         // URIs to avoid open redirects. recoverable = true: a bad URI is a bad request (400), not a 500.
-        val returnUri = clientRedirectUriManager.parseRequestedRedirectUri(client, resource.returnUri, recoverable = true)
+        val returnUri = clientRedirectUriManager.parseRequestedRedirectUri(
+            client,
+            resource.returnUri,
+            recoverable = true
+        )
         val cancelUri = resource.cancelUri
             ?.let { clientRedirectUriManager.parseRequestedRedirectUri(client, it, recoverable = true) }
 

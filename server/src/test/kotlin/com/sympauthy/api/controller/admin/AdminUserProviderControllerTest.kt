@@ -194,7 +194,11 @@ class AdminUserProviderControllerTest {
         coEvery { providerManager.listEnabledProviders() } returns
             listOf(mockk<EnabledProvider> { every { id } returns "discord" })
         every {
-            clientRedirectUriManager.parseRequestedRedirectUri(client, "https://client.example.com/linked", recoverable = true)
+            clientRedirectUriManager.parseRequestedRedirectUri(
+                client,
+                "https://client.example.com/linked",
+                recoverable = true
+            )
         } returns returnUri
         coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
         // Admin-initiated: initiatingClientId must be null (confirmation shows "an administrator").
@@ -226,7 +230,10 @@ class AdminUserProviderControllerTest {
             controller.startLink(
                 userId,
                 "discord",
-                AdminUserProviderLinkInputResource(clientId = "client-id", returnUri = "https://client.example.com/linked")
+                AdminUserProviderLinkInputResource(
+                    clientId = "client-id",
+                    returnUri = "https://client.example.com/linked"
+                )
             )
         }
 
@@ -245,7 +252,10 @@ class AdminUserProviderControllerTest {
             controller.startLink(
                 userId,
                 "discord",
-                AdminUserProviderLinkInputResource(clientId = "missing-client", returnUri = "https://client.example.com/linked")
+                AdminUserProviderLinkInputResource(
+                    clientId = "missing-client",
+                    returnUri = "https://client.example.com/linked"
+                )
             )
         }
 
@@ -267,7 +277,10 @@ class AdminUserProviderControllerTest {
             controller.startLink(
                 userId,
                 "bad-provider",
-                AdminUserProviderLinkInputResource(clientId = "client-id", returnUri = "https://client.example.com/linked")
+                AdminUserProviderLinkInputResource(
+                    clientId = "client-id",
+                    returnUri = "https://client.example.com/linked"
+                )
             )
         }
 

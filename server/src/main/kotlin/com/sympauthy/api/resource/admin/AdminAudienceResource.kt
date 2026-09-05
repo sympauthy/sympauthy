@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.media.Schema
     description = "Information about a configured audience."
 )
 @Serdeable
+@Suppress("MaxLineLength")
 data class AdminAudienceResource(
     @get:Schema(
         description = "Unique identifier of the audience, as defined in the YAML configuration key."

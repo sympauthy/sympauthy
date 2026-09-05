@@ -48,6 +48,7 @@ class BootstrapInvitationManager(
         }
     }
 
+    @Suppress("MaxLineLength")
     private suspend fun processBootstrapInvitation(bootstrapInvitation: BootstrapInvitation) {
         val existingConsents = consentManager.findActiveConsentsByAudience(bootstrapInvitation.audienceId)
         if (existingConsents.isNotEmpty()) {

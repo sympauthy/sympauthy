@@ -76,6 +76,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
     }
 
     @Test
+    @Suppress("MaxLineLength")
     fun `createOrAssociateUserWithProviderUserInfo - Merge when merging enabled and user exists with matching identifier claims`() =
         runTest {
             val provider = createProvider()

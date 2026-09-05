@@ -84,6 +84,7 @@ class ClientMfaEnrollmentControllerTest {
     }
 
     @Test
+    @Suppress("MaxLineLength")
     fun `startEnrollment - Validates the token and return URI, starts the session, and returns state and redirect URL`() =
         runTest {
             val userId = UUID.randomUUID()
@@ -102,7 +103,11 @@ class ClientMfaEnrollmentControllerTest {
             every { client.id } returns "client-id"
             coEvery { tokenManager.introspectToken(client, "user-access-token", "access_token") } returns userToken
             every {
-                clientRedirectUriManager.parseRequestedRedirectUri(client, "https://client.example.com/done", recoverable = true)
+                clientRedirectUriManager.parseRequestedRedirectUri(
+                    client,
+                    "https://client.example.com/done",
+                    recoverable = true
+                )
             } returns returnUri
             coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
             coEvery {
@@ -146,10 +151,18 @@ class ClientMfaEnrollmentControllerTest {
         every { client.id } returns "client-id"
         coEvery { tokenManager.introspectToken(client, "user-access-token", "access_token") } returns userToken
         every {
-            clientRedirectUriManager.parseRequestedRedirectUri(client, "https://client.example.com/done", recoverable = true)
+            clientRedirectUriManager.parseRequestedRedirectUri(
+                client,
+                "https://client.example.com/done",
+                recoverable = true
+            )
         } returns returnUri
         every {
-            clientRedirectUriManager.parseRequestedRedirectUri(client, "https://client.example.com/cancelled", recoverable = true)
+            clientRedirectUriManager.parseRequestedRedirectUri(
+                client,
+                "https://client.example.com/cancelled",
+                recoverable = true
+            )
         } returns cancelUri
         coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
         // The stub only matches (and thus drives the redirect) when the validated cancel URI is threaded through.

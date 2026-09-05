@@ -181,6 +181,7 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
         }
 
     @Test
+    @Suppress("MaxLineLength")
     fun `applyAuthorizationWebhookScopeGranting - returns empty result on failure when onFailure is FALLBACK_TO_RULES`() =
         runTest {
             val session = mockSession()

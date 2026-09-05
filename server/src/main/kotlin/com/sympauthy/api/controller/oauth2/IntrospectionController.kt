@@ -23,6 +23,7 @@ import jakarta.inject.Inject
 import java.time.ZoneOffset
 
 @Controller(OAUTH2_INTROSPECTION_ENDPOINT)
+@Suppress("MaxLineLength")
 class IntrospectionController(
     @Inject private val tokenManager: TokenManager,
     @Inject private val clientAuthenticationUtil: ClientAuthenticationUtil,

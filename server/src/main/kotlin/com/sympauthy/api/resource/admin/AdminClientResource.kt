@@ -32,7 +32,10 @@ data class AdminClientResource(
     @get:Schema(description = "Scopes the client is allowed to request.")
     @get:JsonProperty("allowed_scopes")
     val allowedScopes: List<String>,
-    @get:Schema(description = "Scopes requested by default when the client does not explicitly specify any in the authorization request.")
+    @get:Schema(
+        description =
+            "Scopes requested by default when the client does not explicitly specify any in the authorization request."
+    )
     @get:JsonProperty("default_scopes")
     val defaultScopes: List<String>,
     @get:Schema(description = "Redirect URIs the client is allowed to use during authorization.")

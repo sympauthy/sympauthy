@@ -85,7 +85,9 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     fun `nextStepOrNull - Missing user without invitation returns SignIn`() = runTest {
         val session = mockk<OnGoingInteractiveFlowSession>()
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2Of(invitationId = null)
-        coEvery { handler.computeStatus(session, any()) } returns OAuth2AuthorizeInteractiveFlowStatus(missingUser = true)
+        coEvery { handler.computeStatus(session, any()) } returns OAuth2AuthorizeInteractiveFlowStatus(
+            missingUser = true
+        )
 
         assertEquals(InteractiveFlowStep.SignIn, handler.nextStepOrNull(session))
     }
@@ -94,7 +96,9 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     fun `nextStepOrNull - Missing user with invitation returns SignUp`() = runTest {
         val session = mockk<OnGoingInteractiveFlowSession>()
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2Of(invitationId = UUID.randomUUID())
-        coEvery { handler.computeStatus(session, any()) } returns OAuth2AuthorizeInteractiveFlowStatus(missingUser = true)
+        coEvery { handler.computeStatus(session, any()) } returns OAuth2AuthorizeInteractiveFlowStatus(
+            missingUser = true
+        )
 
         assertEquals(InteractiveFlowStep.SignUp, handler.nextStepOrNull(session))
     }
@@ -103,7 +107,9 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     fun `nextStepOrNull - Missing required claims returns CollectClaims`() = runTest {
         val session = mockk<OnGoingInteractiveFlowSession>()
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2Of()
-        coEvery { handler.computeStatus(session, any()) } returns OAuth2AuthorizeInteractiveFlowStatus(missingRequiredClaims = true)
+        coEvery { handler.computeStatus(session, any()) } returns OAuth2AuthorizeInteractiveFlowStatus(
+            missingRequiredClaims = true
+        )
 
         assertEquals(InteractiveFlowStep.CollectClaims, handler.nextStepOrNull(session))
     }
@@ -233,7 +239,9 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         val oauth2AfterGranted = oauth2Of(clientId = clientId, grantedScopes = listOf("read"))
 
         coEvery { collectedClaimManager.findByUserId(userId) } returns emptyList()
-        coEvery { scopeGrantingManager.grantScopes(session, emptyList()) } returns grantScopesResultOf(grantedScopeObjects)
+        coEvery { scopeGrantingManager.grantScopes(session, emptyList()) } returns grantScopesResultOf(
+            grantedScopeObjects
+        )
         coEvery { oauth2Manager.setGrantedScopes(session, grantedScopeObjects, any()) } returns oauth2AfterGranted
         coEvery { clientManager.findClientById(clientId) } returns mockClient()
         coEvery { consentManager.saveConsent(userId, testAudience.id, clientId, any()) } returns mockk()
@@ -247,7 +255,11 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     fun `applyTerminalEffect - Fails when no scope granted and access without scope is disallowed`() = runTest {
         val userId = UUID.randomUUID()
         val session = createOnGoingSession(userId = userId)
-        val oauth2AfterGranted = oauth2Of(clientId = "client-id", grantedScopes = emptyList(), consentedScopes = emptyList())
+        val oauth2AfterGranted = oauth2Of(
+            clientId = "client-id",
+            grantedScopes = emptyList(),
+            consentedScopes = emptyList()
+        )
 
         every { uncheckedFeaturesConfig.allowAccessToClientWithoutScope } returns false
         coEvery { collectedClaimManager.findByUserId(userId) } returns emptyList()
@@ -265,7 +277,11 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         val userId = UUID.randomUUID()
         val clientId = "client-id"
         val session = createOnGoingSession(userId = userId)
-        val oauth2AfterGranted = oauth2Of(clientId = clientId, grantedScopes = emptyList(), consentedScopes = emptyList())
+        val oauth2AfterGranted = oauth2Of(
+            clientId = clientId,
+            grantedScopes = emptyList(),
+            consentedScopes = emptyList()
+        )
 
         every { uncheckedFeaturesConfig.allowAccessToClientWithoutScope } returns true
         coEvery { collectedClaimManager.findByUserId(userId) } returns emptyList()

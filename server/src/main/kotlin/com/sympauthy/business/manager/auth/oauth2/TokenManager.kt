@@ -202,7 +202,9 @@ open class TokenManager(
     ): Boolean {
         return when {
             refreshToken.expirationDate == null -> false
-            accessToken.expirationDate == null || refreshToken.expirationDate.isBefore(accessToken.expirationDate) -> true
+            accessToken.expirationDate == null || refreshToken.expirationDate.isBefore(
+                accessToken.expirationDate
+            ) -> true
             else -> false
         }
     }
