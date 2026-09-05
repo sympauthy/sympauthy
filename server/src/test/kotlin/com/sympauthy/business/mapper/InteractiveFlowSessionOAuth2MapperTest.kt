@@ -5,6 +5,7 @@ import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.data.model.InteractiveFlowSessionOAuth2Entity
+import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -82,7 +83,8 @@ class InteractiveFlowSessionOAuth2MapperTest {
         val exception = assertThrows<BusinessException> {
             mapper.toInteractiveFlowSessionOAuth2(entity)
         }
-        assertEquals("mapper.interactive_flow_session.invalid_property", exception.detailsId)
+        assertEquals("mapper.interactive_flow_session_oauth2.invalid_property", exception.detailsId)
+        assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
     }
 
     @Test
@@ -95,7 +97,8 @@ class InteractiveFlowSessionOAuth2MapperTest {
         val exception = assertThrows<BusinessException> {
             mapper.toInteractiveFlowSessionOAuth2(entity)
         }
-        assertEquals("mapper.interactive_flow_session.invalid_property", exception.detailsId)
+        assertEquals("mapper.interactive_flow_session_oauth2.invalid_property", exception.detailsId)
+        assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
     }
 
     @Test
@@ -108,7 +111,8 @@ class InteractiveFlowSessionOAuth2MapperTest {
         val exception = assertThrows<BusinessException> {
             mapper.toInteractiveFlowSessionOAuth2(entity)
         }
-        assertEquals("mapper.interactive_flow_session.invalid_property", exception.detailsId)
+        assertEquals("mapper.interactive_flow_session_oauth2.invalid_property", exception.detailsId)
+        assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
     }
 
     @Test
@@ -118,7 +122,8 @@ class InteractiveFlowSessionOAuth2MapperTest {
         val exception = assertThrows<BusinessException> {
             mapper.toInteractiveFlowSessionOAuth2(entity)
         }
-        assertEquals("mapper.interactive_flow_session.invalid_property", exception.detailsId)
+        assertEquals("mapper.interactive_flow_session_oauth2.invalid_property", exception.detailsId)
+        assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
     }
 
     @Test
@@ -128,11 +133,36 @@ class InteractiveFlowSessionOAuth2MapperTest {
         val exception = assertThrows<BusinessException> {
             mapper.toInteractiveFlowSessionOAuth2(entity)
         }
-        assertEquals("mapper.interactive_flow_session.invalid_property", exception.detailsId)
+        assertEquals("mapper.interactive_flow_session_oauth2.invalid_property", exception.detailsId)
+        assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
+    }
+
+    @Test
+    fun `toInteractiveFlowSessionOAuth2 - throws when consentedBy is unknown`() {
+        val entity = entity(consentedBy = "UNKNOWN")
+
+        val exception = assertThrows<BusinessException> {
+            mapper.toInteractiveFlowSessionOAuth2(entity)
+        }
+        assertEquals("mapper.interactive_flow_session_oauth2.invalid_property", exception.detailsId)
+        assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
+    }
+
+    @Test
+    fun `toInteractiveFlowSessionOAuth2 - throws when grantedBy is unknown`() {
+        val entity = entity(grantedBy = "UNKNOWN")
+
+        val exception = assertThrows<BusinessException> {
+            mapper.toInteractiveFlowSessionOAuth2(entity)
+        }
+        assertEquals("mapper.interactive_flow_session_oauth2.invalid_property", exception.detailsId)
+        assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
     }
 
     private fun entity(
         sessionId: UUID = UUID.randomUUID(),
+        consentedBy: String? = null,
+        grantedBy: String? = null,
         clientId: String? = "client",
         redirectUri: String? = "https://client.test/callback",
         requestedScopes: Array<String> = arrayOf("openid"),
@@ -146,6 +176,8 @@ class InteractiveFlowSessionOAuth2MapperTest {
             requestedScopes = requestedScopes,
             codeChallenge = codeChallenge,
             codeChallengeMethod = codeChallengeMethod,
+            consentedBy = consentedBy,
+            grantedBy = grantedBy,
         )
     }
 }

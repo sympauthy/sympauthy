@@ -8,6 +8,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
+import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -143,6 +144,7 @@ class InteractiveFlowSessionMapperTest {
             mapper.toInteractiveFlowSession(entity)
         }
         assertEquals("mapper.interactive_flow_session.invalid_property", exception.detailsId)
+        assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
     }
 
     @Test
@@ -157,6 +159,7 @@ class InteractiveFlowSessionMapperTest {
             mapper.toInteractiveFlowSession(entity)
         }
         assertEquals("mapper.interactive_flow_session.invalid_property", exception.detailsId)
+        assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
     }
 
     @Test
@@ -171,10 +174,57 @@ class InteractiveFlowSessionMapperTest {
             mapper.toInteractiveFlowSession(entity)
         }
         assertEquals("mapper.interactive_flow_session.invalid_property", exception.detailsId)
+        assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
+    }
+
+    @Test
+    fun `toInteractiveFlowSession - throws when a purpose is unknown`() {
+        val entity = entity(rawPurposes = arrayOf("UNKNOWN"))
+
+        val exception = assertThrows<BusinessException> {
+            mapper.toInteractiveFlowSession(entity)
+        }
+        assertEquals("mapper.interactive_flow_session.invalid_property", exception.detailsId)
+        assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
+    }
+
+    @Test
+    fun `toInteractiveFlowSession - throws when a completed purpose is unknown`() {
+        val entity = entity(completedPurposes = arrayOf("UNKNOWN"))
+
+        val exception = assertThrows<BusinessException> {
+            mapper.toInteractiveFlowSession(entity)
+        }
+        assertEquals("mapper.interactive_flow_session.invalid_property", exception.detailsId)
+        assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
+    }
+
+    @Test
+    fun `toInteractiveFlowSession - throws when redirectType is unknown`() {
+        val entity = entity(redirectType = "UNKNOWN")
+
+        val exception = assertThrows<BusinessException> {
+            mapper.toInteractiveFlowSession(entity)
+        }
+        assertEquals("mapper.interactive_flow_session.invalid_property", exception.detailsId)
+        assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
+    }
+
+    @Test
+    fun `toInteractiveFlowSession - throws when a redirect uri is malformed`() {
+        val entity = entity(successRedirectUri = "https://client.test/a b")
+
+        val exception = assertThrows<BusinessException> {
+            mapper.toInteractiveFlowSession(entity)
+        }
+        assertEquals("mapper.interactive_flow_session.invalid_property", exception.detailsId)
+        assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
     }
 
     private fun entity(
         id: UUID? = UUID.randomUUID(),
+        rawPurposes: Array<String>? = null,
+        completedPurposes: Array<String> = emptyArray(),
         purpose: InteractiveFlowPurpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE,
         flowId: String? = "flow",
         sessionDate: LocalDateTime = LocalDateTime.now().minusMinutes(2),
@@ -194,8 +244,9 @@ class InteractiveFlowSessionMapperTest {
     ): InteractiveFlowSessionEntity {
         return InteractiveFlowSessionEntity(
             version = version,
-            purposes = arrayOf(purpose.name),
+            purposes = rawPurposes ?: arrayOf(purpose.name),
             initiatingPurpose = purpose.name,
+            completedPurposes = completedPurposes,
             sessionDate = sessionDate,
             flowId = flowId,
             expirationDate = expirationDate,
