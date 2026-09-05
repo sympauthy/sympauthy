@@ -2,7 +2,6 @@ package com.sympauthy.config.factory
 
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.config.ConfigParser
-import com.sympauthy.config.model.ClaimTemplateAcl
 import com.sympauthy.config.model.DisabledClaimTemplatesConfig
 import com.sympauthy.config.model.EnabledClaimTemplatesConfig
 import com.sympauthy.config.model.EnabledScopesConfig

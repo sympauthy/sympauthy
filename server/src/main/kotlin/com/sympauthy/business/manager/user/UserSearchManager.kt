@@ -180,7 +180,8 @@ class UserSearchManager(
             else -> compareBy<SearchedUser, String?>(nullsLast()) { searched ->
                 searched.collectedClaims
                     .firstOrNull { it.claim.id == sort }
-                    ?.value?.toString()
+                    ?.value
+                    ?.toString()
             }
         }
 

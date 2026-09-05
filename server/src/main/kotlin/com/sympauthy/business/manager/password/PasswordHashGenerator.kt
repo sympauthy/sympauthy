@@ -10,7 +10,6 @@ import kotlinx.coroutines.withContext
 import org.bouncycastle.crypto.generators.SCrypt
 import java.util.concurrent.ExecutorService
 
-
 /**
  * Manager in charge of salting and hashing the password.
  */

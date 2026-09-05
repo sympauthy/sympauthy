@@ -31,7 +31,7 @@ data class AdminClaimResource(
     @get:JsonInclude(JsonInclude.Include.ALWAYS)
     val allowedValues: List<Any>?,
     @get:Schema(
-        description = "Grouping identifier (e.g. \"profile\", \"address\"), or null if the claim belongs to no group.",
+        description = """Grouping identifier (e.g. "profile", "address"), or null if the claim belongs to no group.""",
         nullable = true
     )
     @get:JsonInclude(JsonInclude.Include.ALWAYS)

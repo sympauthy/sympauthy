@@ -58,7 +58,8 @@ class UserInfoResourceMapper(
         val formatted = listOfNotNull(
             streetAddress,
             listOfNotNull(locality, region, postalCode)
-                .joinToString(", ").ifBlank { null },
+                .joinToString(", ")
+                .ifBlank { null },
             country
         ).joinToString("\n").ifBlank { null }
 

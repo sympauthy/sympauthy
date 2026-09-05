@@ -130,7 +130,8 @@ open class CollectedClaimManager(
         val updatedEntities = updateExistingClaims(existingEntityByClaimMap, applicableUpdates)
 
         val updatedAndDeletedClaims = (updatedEntities + deferredDeletedEntities.await())
-            .map(CollectedClaimEntity::claim).toSet()
+            .map(CollectedClaimEntity::claim)
+            .toSet()
         val nonUpdatedOrDeletedEntities = existingEntityByClaimMap.values
             .filter { !updatedAndDeletedClaims.contains(it.claim) }
 

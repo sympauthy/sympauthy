@@ -26,7 +26,7 @@ data class AdminUserClaimResource(
     @get:Schema(description = "Whether this claim is used as an identifier.")
     val identifier: Boolean,
     @get:Schema(
-        description = "Grouping identifier (e.g. \"profile\", \"address\"), or null if the claim belongs to no group.",
+        description = """Grouping identifier (e.g. "profile", "address"), or null if the claim belongs to no group.""",
         nullable = true
     )
     @get:JsonInclude(JsonInclude.Include.ALWAYS)

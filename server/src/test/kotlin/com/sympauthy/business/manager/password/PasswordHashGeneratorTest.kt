@@ -25,7 +25,7 @@ class PasswordHashGeneratorTest {
     lateinit var generator: PasswordHashGenerator
 
     @Test
-    fun `hash`() = runTest {
+    fun hash() = runTest {
         every { advancedConfig.hashConfig } returns HashConfig(
             costParameter = 1024,
             blockSize = 8,

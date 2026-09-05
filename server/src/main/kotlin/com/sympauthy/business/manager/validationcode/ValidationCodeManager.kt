@@ -106,7 +106,7 @@ open class ValidationCodeManager(
         require(user.id == session.userId) {
             "The user (${user.id}) does not match the one in the session (${session.userId})."
         }
-        require(collectedClaims.none { it.userId != user.id }) {
+        require(collectedClaims.all { it.userId == user.id }) {
             "One of the collectedClaims does not have a matching user (${user.id})."
         }
 
@@ -158,7 +158,7 @@ open class ValidationCodeManager(
         require(user.id == session.userId) {
             "The user (${user.id}) does not match the one in the session (${session.userId})."
         }
-        require(collectedClaims.none { it.userId != user.id }) {
+        require(collectedClaims.all { it.userId == user.id }) {
             "One of the collectedClaims does not have a matching user (${user.id})."
         }
 

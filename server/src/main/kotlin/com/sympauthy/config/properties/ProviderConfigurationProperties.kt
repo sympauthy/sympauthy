@@ -32,7 +32,8 @@ class ProviderConfigurationProperties(
     var userInfo: UserInfoConfig? = null
 
     /**
-     * To be used the client must support the authorization code grant type
+     * OAuth 2 configuration, spelled out endpoint by endpoint. The provider must support the
+     * authorization code grant type to be usable through it.
      */
     var oauth2: OAuth2Config? = null
 

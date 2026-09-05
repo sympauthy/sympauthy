@@ -12,7 +12,8 @@ class CryptoKeys(
     val name: String,
 
     /**
-     * Cryptographic algorithm
+     * Name of the [KeyAlgorithm] these keys were generated for. Stored as a string rather than the
+     * enum: a row written by an earlier version may name an algorithm this one no longer offers.
      */
     val algorithm: String,
 

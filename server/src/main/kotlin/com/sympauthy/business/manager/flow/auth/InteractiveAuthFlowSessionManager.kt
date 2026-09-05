@@ -16,7 +16,6 @@ import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
-import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.config.model.ClientTemplatesConfig
 import com.sympauthy.config.model.orThrow

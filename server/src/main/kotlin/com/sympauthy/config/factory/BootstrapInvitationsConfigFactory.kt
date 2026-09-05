@@ -29,7 +29,8 @@ class BootstrapInvitationsConfigFactory(
             return DisabledBootstrapInvitationsConfig(emptyList())
         }
         val audiencesById = (uncheckedAudiencesConfig as EnabledAudiencesConfig)
-            .audiences.associateBy { it.id }
+            .audiences
+            .associateBy { it.id }
         val enabledClaims = (uncheckedClaimsConfig as EnabledClaimsConfig)
             .claims
             .filter { it.enabled }

@@ -65,7 +65,7 @@ class ClientsConfigFactoryTest {
     ): ClientConfigurationProperties {
         return ClientConfigurationProperties(id).apply {
             this.template = template
-            this.`public` = public
+            this.public = public
             this.secret = secret
             this.allowedGrantTypes = allowedGrantTypes
             this.allowedRedirectUris = allowedRedirectUris

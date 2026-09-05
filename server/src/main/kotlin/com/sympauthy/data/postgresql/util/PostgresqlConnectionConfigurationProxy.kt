@@ -36,7 +36,7 @@ class PostgresqlConnectionConfigurationProxy(
         val klass = PostgresqlConnectionConfiguration::class.java
         val field = klass.getDeclaredField(fieldName)
         return if (field.trySetAccessible()) {
-            field.get(configuration) as T?
+            field.get(configuration) as? T
         } else null
     }
 }

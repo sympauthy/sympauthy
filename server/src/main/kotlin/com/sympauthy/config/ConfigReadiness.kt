@@ -6,7 +6,6 @@ import jakarta.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 
-
 /**
  * The configuration answering, across every domain it is split into, whether it is usable.
  *

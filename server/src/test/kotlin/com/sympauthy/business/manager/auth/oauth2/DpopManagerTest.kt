@@ -291,7 +291,7 @@ class DpopManagerTest {
         val proof = createValidDpopProof()
         val parts = proof.split(".")
         val tamperedPayload = Base64.getUrlEncoder().withoutPadding()
-            .encodeToString("{\"jti\":\"tampered\",\"htm\":\"POST\",\"htu\":\"https://auth.example.com/api/oauth2/token\",\"iat\":${Instant.now().epochSecond}}".toByteArray())
+            .encodeToString("""{"jti":"tampered","htm":"POST","htu":"https://auth.example.com/api/oauth2/token","iat":${Instant.now().epochSecond}}""".toByteArray())
         val tamperedProof = "${parts[0]}.$tamperedPayload.${parts[2]}"
 
         val request = boundRequest()

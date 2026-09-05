@@ -81,7 +81,7 @@ class AdvancedConfigValidatorTest {
 
     private fun parsedConfig(pagination: ParsedPaginationConfig): ParsedAdvancedConfig {
         val hash = ParsedHashConfig(
-            costParameter = 16384,
+            costParameter = 16_384,
             blockSize = 8,
             parallelizationParameter = 1,
             saltLength = 256,

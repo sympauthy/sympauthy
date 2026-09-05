@@ -9,7 +9,6 @@ import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.client.ClientRedirectUriManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
 import com.sympauthy.business.manager.flow.link.InteractiveFlowSessionLinkProviderManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager

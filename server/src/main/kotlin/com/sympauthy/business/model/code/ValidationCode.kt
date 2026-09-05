@@ -35,7 +35,8 @@ class ValidationCode(
     val media: ValidationCodeMedia,
 
     /**
-     * List of reason we sent the
+     * What this code validates. Every reason listed here is served by [media], since one code is sent
+     * per media rather than one per reason.
      */
     val reasons: List<ValidationCodeReason>,
 

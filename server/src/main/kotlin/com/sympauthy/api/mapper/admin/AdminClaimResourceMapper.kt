@@ -2,8 +2,6 @@ package com.sympauthy.api.mapper.admin
 
 import com.sympauthy.api.resource.admin.AdminClaimResource
 import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.business.model.user.claim.ClaimGroup
-
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.util.wireName
