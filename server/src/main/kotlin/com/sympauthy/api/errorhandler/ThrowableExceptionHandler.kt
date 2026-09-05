@@ -13,10 +13,18 @@ class ThrowableExceptionHandler<T : Throwable>(
 
     private val logger = loggerForClass()
 
+    /**
+     * Answer the [throwable] with the response its normalized form renders to, logging it first where
+     * that form is a `5xx`.
+     *
+     * Every `5xx` is logged and not only the uncoded one: a failure telling the caller the server broke
+     * says nothing else on the wire, so the row, the column and the cause reach nobody unless they reach
+     * the log. A `4xx` is the caller's to read and is not logged.
+     */
     override fun handle(request: HttpRequest<*>, throwable: T): HttpResponse<ErrorResource> {
         val httpException = exceptionNormalizer.normalize(throwable)
-        if (httpException.detailsId == "internal_server_error") {
-            logger.error("Unexpected error occurred: ${throwable.message}", throwable)
+        if (httpException.status.code >= 500) {
+            logger.error("Server failure ${httpException.detailsId} ${httpException.values}", throwable)
         }
         return exceptionHandler.handle(request, httpException)
     }
