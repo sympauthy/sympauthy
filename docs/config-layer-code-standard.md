@@ -65,6 +65,16 @@ operator gets one signal.
 
 **Errors are accumulated and reported together.** A file with four mistakes reports four mistakes.
 
+**Startup work asks readiness before it runs.** A credential minted at startup, a queue replayed
+there: each asks `ConfigReadiness` first, and says in the log that it did not run, because silence
+is indistinguishable from having had nothing to do. The signal is for the server to obey and not
+only to publish. Serving a request is a different matter — there, the configuration a request needs
+throws where it is read.
+
+**The verdict is logged above the work that obeyed it.** The listener reporting it is ordered ahead
+of the ones that act, so an operator reading from the top learns whether the configuration is
+usable before they read what ran under it.
+
 ## Nothing is carried across a restart
 
 **A stored record naming something the new configuration no longer offers fails when it is next
