@@ -11,6 +11,7 @@ import com.nimbusds.jose.crypto.RSASSASigner
 import com.nimbusds.jose.crypto.RSASSAVerifier
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.internalBusinessExceptionOf
+import com.sympauthy.business.model.jwt.HashAlgorithm.SHA256
 import com.sympauthy.business.model.key.*
 import com.sympauthy.business.model.key.KeyAlgorithm.EC
 import com.sympauthy.business.model.key.KeyAlgorithm.HMAC
@@ -35,12 +36,17 @@ enum class JwtAlgorithm(
      * Deterministic algorithms are required for the private JWT algorithm because the provider
      * nonce flow relies on reconstructing an identical JWT at callback time.
      */
-    val deterministic: Boolean
+    val deterministic: Boolean,
+    /**
+     * Digest this algorithm signs with, and so the one an `at_hash` beside a token it signed is computed
+     * with. A new member names its own, which is the size its own name ends in.
+     */
+    val hashAlgorithm: HashAlgorithm
 ) {
-    RS256(RSA, RSAAlgorithmImpl(JWSAlgorithm.RS256), deterministic = true),
-    PS256(RSA, RSAAlgorithmImpl(JWSAlgorithm.PS256), deterministic = false),
-    ES256(EC, ES256AlgorithmImpl(), deterministic = false),
-    HS256(HMAC, HS256AlgorithmImpl(), deterministic = true)
+    RS256(RSA, RSAAlgorithmImpl(JWSAlgorithm.RS256), deterministic = true, hashAlgorithm = SHA256),
+    PS256(RSA, RSAAlgorithmImpl(JWSAlgorithm.PS256), deterministic = false, hashAlgorithm = SHA256),
+    ES256(EC, ES256AlgorithmImpl(), deterministic = false, hashAlgorithm = SHA256),
+    HS256(HMAC, HS256AlgorithmImpl(), deterministic = true, hashAlgorithm = SHA256)
 }
 
 /**

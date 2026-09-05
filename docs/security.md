@@ -102,6 +102,10 @@ been loaded yet.
 **An access token is validated on every request**, as a signature over this server's own keys, with
 its issuer, audience and expiry checked. Nothing is trusted because it parsed.
 
+**An id token names the access token it was issued beside**, as the `at_hash` claim of OpenID
+Connect Core §3.1.3.6. A third-party provider's id token is held to the same claim by the same
+computation, so the rule this server enforces and the rule it obeys cannot drift apart.
+
 **A token may be bound to a key the client holds**, in which case the proof accompanying the request
 is verified against the method and URI it was made for. That binding is what stops a stolen token
 being usable on its own.
