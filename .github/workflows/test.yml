@@ -1,8 +1,19 @@
+# The static analysis and the unit tests, on every pull request and on `main` after a merge.
+#
+# `pull_request` is the trigger that matters. GitHub runs it against the merge of the branch with the
+# base, so what is tested is the commit that becomes the trunk rather than the branch tip in
+# isolation, and it fires in this repository for a branch pushed to a fork, where a `push` event
+# would not. `push` is then narrowed to `main`: the same commit is no longer tested twice on a
+# same-repo pull request, and a regression a merge introduces is visible on the merge rather than at
+# the next release — the nightly runs against `main` but runs no unit tests. The cost is that a
+# branch pushed with no pull request open is untested until the pull request exists. See #406.
+
 name: Test
 
 on:
+  pull_request:
   push:
-    branches-ignore:
+    branches:
       - main
 
 jobs:
