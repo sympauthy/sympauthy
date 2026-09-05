@@ -35,9 +35,24 @@ class DeclaredConfigurationKeysTest {
     }
 
     @Test
-    fun `answersFor - A key under any other prefix is not`() {
+    fun `answersFor - A key under a prefix misspelt is ours as well`() {
+        assertTrue(keys.answersFor("client.admin.allowed-scopes"))
+        assertTrue(keys.answersFor("audience.default.token-audience"))
+    }
+
+    @Test
+    fun `answersFor - A key under a prefix resembling none of them is not`() {
         assertFalse(keys.answersFor("micronaut.server.port"))
-        assertFalse(keys.answersFor("uis.display-name"))
+        assertFalse(keys.answersFor("my-vars.root"))
+    }
+
+    @Test
+    fun `findUnboundKeys - A section under a prefix misspelt is refused key by key`() {
+        assertEquals(
+            listOf("client.admin.allowed-scopes"),
+            keys.findUnboundKeys("client.admin.allowed-scopes", listOf("openid"))
+        )
+        assertEquals("clients.admin.allowed-scopes", keys.nearestKeyOrNull("client.admin.allowed-scopes"))
     }
 
     @Test

@@ -33,11 +33,20 @@ class DeclaredConfigurationKeys(
     private val roots = this.patterns.mapNotNullTo(mutableSetOf()) { (it.firstOrNull() as? Named)?.name }
 
     /**
-     * Whether [key] falls under a prefix one of the server's own configuration domains declares, and is
-     * therefore this server's to answer for. A key under any other prefix belongs to a framework that
-     * publishes no such list of its own, and is nobody here's to judge.
+     * Whether [key] falls under a prefix one of the server's own configuration domains declares — or
+     * under one near enough to it to be that prefix misspelt — and is therefore this server's to answer
+     * for.
+     *
+     * A section written under `scope` where the domain is `scopes` is dropped whole and in silence,
+     * which is the worst of what this exists to catch, so a root within half its length in edits of a
+     * declared one is judged as though it were that one. Sharing a word is not enough here as it is
+     * further down a key: a deployment writing its own `auth-vars` root to interpolate `${auth-vars.issuer}`
+     * out of is naming something the server was never going to read, and so is every framework prefix.
      */
-    fun answersFor(key: String): Boolean = segmentsOf(key).first().name in roots
+    fun answersFor(key: String): Boolean {
+        val root = segmentsOf(key).first().name
+        return root in roots || roots.any { editDistance(root, it) <= minOf(root.length, it.length) / 2 }
+    }
 
     /**
      * The keys [key] holds that bind to nothing: [key] itself where it binds to nothing, the entries of

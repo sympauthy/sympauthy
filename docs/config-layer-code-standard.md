@@ -37,6 +37,11 @@ to answer for, so a key under one that no domain reads is an error naming the ke
 came from. What the server declares is read off the properties classes the compiler generated,
 which is what makes the set closed without anything having to be registered on a list.
 
+**A prefix nearly one a domain declares is answered for too.** A section written under `scope` where
+the domain is `scopes` does nothing at all, so its keys are refused with the correction rather than
+ignored. A prefix resembling none of them is a deployment's own, to name and to interpolate out of
+as it likes.
+
 **The parser only converts.** Route every call through the context so a failure is recorded, and
 return an intermediate type whose fields are all nullable.
 
