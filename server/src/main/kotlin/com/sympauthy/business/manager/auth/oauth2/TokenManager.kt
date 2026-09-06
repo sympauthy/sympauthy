@@ -5,6 +5,7 @@ import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.api.exception.toOAuth2Exception
 import com.sympauthy.business.exception.InvalidJwtException
 import com.sympauthy.business.manager.consent.ConsentManager
+import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.REFRESH_KEY
@@ -37,6 +38,7 @@ open class TokenManager(
     @Inject private val refreshTokenGenerator: RefreshTokenGenerator,
     @Inject private val idTokenGenerator: IdTokenGenerator,
     @Inject private val consentManager: ConsentManager,
+    @Inject private val userManager: UserManager,
     @Inject private val actorTokenValidator: ActorTokenValidator,
     @Inject private val tokenRepository: AuthenticationTokenRepository,
     @Inject private val tokenMapper: AuthenticationTokenMapper
@@ -100,6 +102,9 @@ open class TokenManager(
         if (session.expired) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token.expired", "description.oauth2.expired")
         }
+        // A completed session has promoted whatever it signed up, so this holds by construction. It is
+        // asserted because the thing it guards is a token for an account that does not exist.
+        userManager.checkPromoted(session.userId)
 
         val tokenAudience = client.audience.tokenAudience
         val deferredAccessToken = async {
@@ -177,8 +182,10 @@ open class TokenManager(
             }
         }
 
-        // For user tokens, verify the consent has not been revoked (checked at audience level)
+        // For user tokens, verify the account is real and the consent has not been revoked (checked at
+        // audience level). A client-credentials token carries no user.
         if (refreshToken.userId != null) {
+            userManager.checkPromoted(refreshToken.userId)
             consentManager.findActiveConsentByAudienceOrNull(refreshToken.userId, client.audience.id)
                 ?: throw oauth2ExceptionOf(INVALID_GRANT, "token.consent_revoked", "description.token.consent_revoked")
         }

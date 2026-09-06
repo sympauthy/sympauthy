@@ -89,6 +89,48 @@ open class UserManager(
     }
 
     /**
+     * Check that [userId] names an account this server has finished creating.
+     *
+     * Throws a non-recoverable [BusinessException]: `user.not_found` when no account carries that id at all,
+     * and `user.not_promoted` when one does but an interactive flow session is still signing it up. The
+     * second is an account that does not exist yet, and no caller outside the session creating it may act on
+     * one — mint it a token, enrol it a second factor — however it came by the id. See
+     * [com.sympauthy.data.model.SessionScoped].
+     *
+     * This is the one read here that does not exclude the provisional rows, and it is why the two codes are
+     * separate: answering "no such account" for one that is merely unfinished would name the wrong failure,
+     * and the caller that asks this question is asking precisely which of the two it is. The row goes through
+     * [UserMapper] on the way, so a row this server can no longer read is refused here too, under the
+     * mapper's own internal code.
+     */
+    suspend fun checkPromoted(userId: UUID) {
+        val entity = userRepository.findById(userId) ?: throw businessExceptionOf(
+            detailsId = "user.not_found",
+            "userId" to "$userId"
+        )
+        // Mapped and the result dropped: the mapper is the only door into the model and the only place a row
+        // is refused, so running it is how a row this server can no longer read fails here rather than
+        // further along, under a code naming the property instead of whatever the caller tripped over next.
+        checkPromoted(userMapper.toUser(entity))
+    }
+
+    /**
+     * Check that [user] is an account this server has finished creating, for a caller that already holds it.
+     *
+     * Throws the non-recoverable `user.not_promoted` of [checkPromoted] otherwise. It reads the model rather
+     * than the row, so it costs nothing and cannot disagree with the account the caller is about to act on.
+     */
+    fun checkPromoted(user: User) {
+        if (user.sessionId != null) {
+            throw businessExceptionOf(
+                detailsId = "user.not_promoted",
+                descriptionId = "description.user.not_promoted",
+                "userId" to "${user.id}"
+            )
+        }
+    }
+
+    /**
      * Return true when a committed account already holds any of the [values] under any of the identifier
      * claims [claimIds].
      *
