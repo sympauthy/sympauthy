@@ -28,5 +28,10 @@ interface ProviderUserInfoRepository : CoroutineCrudRepository<ProviderUserInfoE
     @Query("UPDATE provider_user_info SET session_id = NULL WHERE user_id = :userId AND session_id = :sessionId")
     suspend fun clearSessionId(userId: UUID, sessionId: UUID): Int
 
-    suspend fun deleteByUserIdIn(userId: List<UUID>): Int
+    /**
+     * Collect the provider links the accounts [userId] still hold provisionally, and answer how many there
+     * were. Why the session id is re-asserted here is in
+     * [com.sympauthy.business.manager.user.ProvisionalAccountManager.deleteAbandoned].
+     */
+    suspend fun deleteByUserIdInAndSessionIdIsNotNull(userId: List<UUID>): Int
 }

@@ -74,5 +74,10 @@ interface UserRepository : CoroutineCrudRepository<UserEntity, UUID> {
     )
     suspend fun findAbandoned(): List<UserEntity>
 
-    suspend fun deleteByIdIn(id: List<UUID>): Int
+    /**
+     * Collect the accounts [id] that are still provisional, and answer how many there were. Why the
+     * session id is re-asserted here is in
+     * [com.sympauthy.business.manager.user.ProvisionalAccountManager.deleteAbandoned].
+     */
+    suspend fun deleteByIdInAndSessionIdIsNotNull(id: List<UUID>): Int
 }

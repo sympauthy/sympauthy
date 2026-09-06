@@ -116,12 +116,25 @@ invitation is consumed at completion rather than at sign-up: an invitation is sp
 that comes to exist, so an abandoned invited sign-up leaves it pending and the invitee's link still
 works.
 
+**Collecting an abandoned account is a cleaner of its own, not a step of the one expiring the
+sessions.** It keys on the session being *gone* rather than on the sessions any one run expired, so
+it needs nothing from the run that removed them and has a cron of its own. Two things follow from
+keeping them apart: it reads an absence every other transaction can see rather than one only its own
+has written, and it never holds a session's lock while waiting for an account's — a completing flow
+takes those two in the opposite order, and together they would deadlock.
+
+**Its deletes carry the predicate its select selected by.** A flow may promote one of the accounts
+between the read that listed it and the deletes that collect it, and an id names a row whatever
+became of it since. Each of the five statements names the session id instead, so a database that
+blocked on the promotion re-checks the account as the promotion left it and skips a promoted one.
+The guarantee on the other side — that a flow whose session the cleaner expired cannot complete —
+is the flow's, and the sweep does not lean on it.
+
 **A table that references `users` is classified when it is added.** Collecting an abandoned account
 means deleting it, and a foreign key that delete breaks would abort the whole sweep — again every
 quarter of an hour, indefinitely. Each such table is either owned by the account and deleted with
-it, or deleted earlier in the same sweep, or named in the guard that skips an account something
-still refers to. That guard is the query the collection selects by, and it is where the rule is
-written.
+it, or named in the guard that skips an account something still refers to. That guard is the query
+the collection selects by, and it is where the rule is written.
 
 ## A purpose handler is pure
 

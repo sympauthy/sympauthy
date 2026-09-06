@@ -21,8 +21,8 @@ class CleanExpiredInteractiveFlowSessionCron(
     fun clean() {
         GlobalScope.launch {
             val result = interactiveFlowSessionCleaner.clean()
-            if (result.sessionCount > 0 || result.abandonedAccountCount > 0) {
-                logger.debug("Cleaned ${result.sessionCount} expired interactive flow sessions (including ${result.authorizationCodeCount} authorization codes, ${result.validationCodesCount} validation codes) and ${result.abandonedAccountCount} accounts left behind by an abandoned sign-up.")
+            if (result.sessionCount > 0) {
+                logger.debug("Cleaned ${result.sessionCount} expired interactive flow sessions (including ${result.authorizationCodeCount} authorization codes, ${result.validationCodesCount} validation codes).")
             }
         }
     }

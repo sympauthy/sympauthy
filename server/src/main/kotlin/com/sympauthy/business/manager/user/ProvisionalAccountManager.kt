@@ -79,23 +79,35 @@ open class ProvisionalAccountManager(
      * An account counts as abandoned when the session signing it up is **gone** — see
      * [UserRepository.findAbandoned], which is where that and the rule for skipping an account something
      * still refers to are written. Keying on absence rather than on the sessions one run expired makes this
-     * self-correcting: an account orphaned by an earlier failure is collected on the next pass.
+     * self-correcting: an account orphaned by an earlier failure is collected on the next pass, and this
+     * sweep needs nothing from the run that expired the session. It is a cleaner of its own, on a cron of
+     * its own ([com.sympauthy.cron.CleanAbandonedAccountCron]), rather than a step of the one removing the
+     * sessions — which is what keeps it reading an absence every other transaction can see too, and keeps
+     * it from holding a session's lock while it waits for an account's.
      *
      * The account's own rows go first, every one of them rather than only the provisional ones: the account
-     * is going, so anything hanging off it is going too. Removing the sessions in the first place belongs to
-     * [com.sympauthy.business.manager.flow.InteractiveFlowSessionCleaner], which calls this after it has.
+     * is going, so anything hanging off it is going too. By the [com.sympauthy.data.model.SessionScoped]
+     * invariant those are the same set — a provisional account owns no committed row — which is why every
+     * one of the five statements can carry the session id and still delete what the account holds.
+     *
+     * **Each statement re-asserts provisionality; none of them trusts the read that selected the account.**
+     * A flow may promote one of these accounts between that read and these deletes, and an id names a row
+     * whatever became of it. Naming the session id instead makes each delete re-check the account as the
+     * promotion left it — PostgreSQL through `EvalPlanQual`, H2 through the re-check it runs when the row
+     * it locked turns out to have changed — so a promoted account is skipped rather than deleted out from
+     * under the flow that finished it.
      */
     @Transactional
     open suspend fun deleteAbandoned(): Int {
         val userIds = userRepository.findAbandoned().mapNotNull(UserEntity::id)
         if (userIds.isEmpty()) return 0
 
-        passwordRepository.deleteByUserIdIn(userIds)
-        collectedClaimRepository.deleteByUserIdIn(userIds)
-        providerUserInfoRepository.deleteByUserIdIn(userIds)
-        totpEnrollmentRepository.deleteByUserIdIn(userIds)
+        passwordRepository.deleteByUserIdInAndSessionIdIsNotNull(userIds)
+        collectedClaimRepository.deleteByUserIdInAndSessionIdIsNotNull(userIds)
+        providerUserInfoRepository.deleteByUserIdInAndSessionIdIsNotNull(userIds)
+        totpEnrollmentRepository.deleteByUserIdInAndSessionIdIsNotNull(userIds)
 
-        return userRepository.deleteByIdIn(userIds)
+        return userRepository.deleteByIdInAndSessionIdIsNotNull(userIds)
     }
 
     /**

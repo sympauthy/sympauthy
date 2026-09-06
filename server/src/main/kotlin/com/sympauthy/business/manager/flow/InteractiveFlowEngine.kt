@@ -172,10 +172,15 @@ open class InteractiveFlowEngine(
     ): CompletedInteractiveFlowSession {
         // Promotion first, so every row a terminal effect goes on to write — a consent, a consumed
         // invitation — attaches to an account that exists rather than to one still being authored. It is
-        // still before the completion write, which is what makes the expiry boundary safe: a session the
-        // cleaner expired in the meantime has no row left for markAsCompleted to update, so it raises a
-        // concurrent modification and takes the whole of this down with it. The account stays provisional
-        // and is collected, rather than becoming real for a flow that did not complete.
+        // still before the completion write, so a session the cleaner expired in the meantime has no row
+        // left for markAsCompleted to update: that raises a concurrent modification and takes the whole of
+        // this down with it, leaving the account provisional to be collected rather than real for a flow
+        // that did not complete.
+        //
+        // That covers this transaction and no other. It says a flow racing the expiry cannot win; it says
+        // nothing about the sweep that collects the account, which may have listed it before the promotion
+        // committed and refuses to delete a promoted one on its own terms rather than on this one's — see
+        // ProvisionalAccountManager.deleteAbandoned.
         session.userId?.let { provisionalAccountManager.promote(session.id, it) }
         for (purpose in session.purposes) {
             val effect = purposeRegistry.getForPurpose(purpose).applyTerminalEffect(session)
