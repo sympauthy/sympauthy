@@ -16,6 +16,7 @@ import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.securitycontext.ObservedRequest
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.config.model.ClientTemplatesConfig
 import com.sympauthy.config.model.orThrow
@@ -105,7 +106,8 @@ class InteractiveAuthFlowSessionManager(
         uncheckedRedirectUri: String?,
         uncheckedCodeChallenge: String? = null,
         uncheckedCodeChallengeMethod: String? = null,
-        uncheckedInvitationToken: String? = null
+        uncheckedInvitationToken: String? = null,
+        observedRequest: ObservedRequest? = null
     ): Pair<InteractiveFlowSession, InteractiveFlow> {
         val (client, clientException) = try {
             val client = clientManager.parseRequestedClient(uncheckedClientId)
@@ -184,6 +186,7 @@ class InteractiveAuthFlowSessionManager(
             codeChallenge = codeChallenge,
             codeChallengeMethod = codeChallengeMethod,
             invitationId = invitation?.id,
+            observedRequest = observedRequest,
             error = listOfNotNull(
                 clientException,
                 flowException,

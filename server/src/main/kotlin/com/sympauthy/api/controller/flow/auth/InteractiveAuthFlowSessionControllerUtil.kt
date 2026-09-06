@@ -11,6 +11,7 @@ import com.sympauthy.business.manager.flow.SuccessVerifyEncodedStateResult
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.securitycontext.ObservedRequest
 import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.business.model.user.User
 import io.micronaut.http.HttpStatus
@@ -54,9 +55,10 @@ class InteractiveAuthFlowSessionControllerUtil(
      */
     suspend fun <Resource> fetchOnGoingSessionThenRun(
         state: String?,
+        observedRequest: ObservedRequest,
         run: suspend (OnGoingInteractiveFlowSession, InteractiveFlow) -> Resource
     ): Resource {
-        val session = fetchSession(state)
+        val session = fetchSession(state, observedRequest)
         val flow = interactiveAuthFlowSessionManager.findById(session.flowId)
         val onGoingSession = (session as? OnGoingInteractiveFlowSession) ?: throw httpExceptionOf(
             status = HttpStatus.BAD_REQUEST,
@@ -72,9 +74,10 @@ class InteractiveAuthFlowSessionControllerUtil(
      */
     suspend fun <Resource> fetchOnGoingSessionWithUserThenRun(
         state: String?,
+        observedRequest: ObservedRequest,
         run: suspend (OnGoingInteractiveFlowSession, InteractiveFlow, User) -> Resource
     ): Resource {
-        return fetchOnGoingSessionThenRun(state) { onGoingSession, flow ->
+        return fetchOnGoingSessionThenRun(state, observedRequest) { onGoingSession, flow ->
             val user = sessionManager.getUser(onGoingSession)
             run(onGoingSession, flow, user)
         }
@@ -99,11 +102,12 @@ class InteractiveAuthFlowSessionControllerUtil(
      */
     suspend fun <Result, FlowResource> fetchOnGoingSessionThenRunAndRedirect(
         state: String?,
+        observedRequest: ObservedRequest,
         run: suspend (OnGoingInteractiveFlowSession, InteractiveFlow) -> Result?,
         mapRedirectUriToResource: suspend (URI) -> FlowResource,
         mapResultToResource: (suspend (Result) -> FlowResource)? = null
     ): FlowResource {
-        val session = fetchSession(state)
+        val session = fetchSession(state, observedRequest)
         val onGoingSession = session as? OnGoingInteractiveFlowSession
 
         val flow = try {
@@ -159,11 +163,12 @@ class InteractiveAuthFlowSessionControllerUtil(
      */
     suspend fun <Result, FlowResource> fetchOnGoingSessionWithUserThenRunAndRedirect(
         state: String?,
+        observedRequest: ObservedRequest,
         run: suspend (OnGoingInteractiveFlowSession, InteractiveFlow, User) -> Result?,
         mapRedirectUriToResource: suspend (URI) -> FlowResource,
         mapResultToResource: (suspend (Result) -> FlowResource)? = null,
     ): FlowResource {
-        val session = fetchSession(state)
+        val session = fetchSession(state, observedRequest)
         val flow = try {
             interactiveAuthFlowSessionManager.findById(session.flowId)
         } catch (_: BusinessException) {
@@ -223,10 +228,11 @@ class InteractiveAuthFlowSessionControllerUtil(
      */
     suspend fun <FlowResource> fetchOnGoingSessionThenUpdateAndRedirect(
         state: String?,
+        observedRequest: ObservedRequest,
         update: suspend (OnGoingInteractiveFlowSession, InteractiveFlow) -> InteractiveFlowSession,
         mapRedirectUriToResource: suspend (URI) -> FlowResource,
     ): FlowResource {
-        val session = fetchSession(state)
+        val session = fetchSession(state, observedRequest)
 
         val flow = try {
             interactiveAuthFlowSessionManager.findById(session.flowId)
@@ -275,10 +281,11 @@ class InteractiveAuthFlowSessionControllerUtil(
      */
     suspend fun <FlowResource> fetchOnGoingSessionWithUserThenUpdateAndRedirect(
         state: String?,
+        observedRequest: ObservedRequest,
         update: suspend (OnGoingInteractiveFlowSession, InteractiveFlow, User) -> InteractiveFlowSession,
         mapRedirectUriToResource: suspend (URI) -> FlowResource,
     ): FlowResource {
-        val session = fetchSession(state)
+        val session = fetchSession(state, observedRequest)
 
         val flow = try {
             interactiveAuthFlowSessionManager.findById(session.flowId)
@@ -321,15 +328,24 @@ class InteractiveAuthFlowSessionControllerUtil(
     }
 
     /**
-     * Fetches and validates the interactive flow session associated with the given [state].
+     * Fetches and validates the interactive flow session associated with the given [state], recording
+     * the place [observedRequest] came from against it.
      *
      * If the state is valid and corresponds to a session, the associated [InteractiveFlowSession] is
      * returned. Otherwise, an exception is thrown to indicate an error during the validation process.
+     *
+     * Every request the flow serves passes through here, which is why the recording is here and not in
+     * each of the controllers: a step added tomorrow records where its caller was without having to
+     * remember to. A session that has already ended is left alone — it collects no new places.
      */
-    internal suspend fun fetchSession(state: String?): InteractiveFlowSession {
+    internal suspend fun fetchSession(state: String?, observedRequest: ObservedRequest): InteractiveFlowSession {
         val verifyResult = sessionManager.verifyEncodedInternalState(state)
         return when (verifyResult) {
-            is SuccessVerifyEncodedStateResult -> verifyResult.session
+            is SuccessVerifyEncodedStateResult -> verifyResult.session.let { session ->
+                if (session is OnGoingInteractiveFlowSession) {
+                    sessionManager.recordSecurityContext(session, observedRequest)
+                } else session
+            }
             is FailedVerifyEncodedStateResult -> {
                 // We cannot redirect the user to a proper error page, we throw to let the error handler still
                 // respond with an error but without a redirect uri.

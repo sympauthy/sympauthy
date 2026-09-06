@@ -9,7 +9,7 @@ import com.sympauthy.business.manager.securitycontext.SecurityContextManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionMapper
 import com.sympauthy.business.model.flow.*
-import com.sympauthy.business.model.securitycontext.ObservedSecurityContext
+import com.sympauthy.business.model.securitycontext.ObservedRequest
 import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
@@ -53,7 +53,13 @@ open class InteractiveFlowSessionManager(
      * [FailedInteractiveFlowSession] is returned.
      *
      * This method is not transactional on its own so it can participate in the caller's transaction (e.g.
-     * to persist an attached record atomically with the session).
+     * to persist an attached record atomically with the session), which is also what writes the security
+     * context [observedRequest] was seen from together with the session that carries it.
+     *
+     * [observedRequest] is the request of the person the session is for, and is left null where the
+     * caller is somebody else: a client or an administrator asking for a session the person will be
+     * handed a link to is calling from its own address, and recording that would put a data centre in
+     * their history. The first request they make against the session records where they really are.
      */
     suspend fun newSession(
         purposes: List<InteractiveFlowPurpose>,
@@ -63,10 +69,10 @@ open class InteractiveFlowSessionManager(
         redirectType: InteractiveFlowRedirectType? = null,
         cancelRedirectUri: URI? = null,
         error: BusinessException? = null,
-        observedSecurityContext: ObservedSecurityContext? = null
+        observedRequest: ObservedRequest? = null
     ): InteractiveFlowSession {
         val now = LocalDateTime.now()
-        val securityContext = observedSecurityContext?.let { securityContextManager.recordObservation(it) }
+        val securityContext = observedRequest?.let { securityContextManager.recordObservation(it) }
         val entity = InteractiveFlowSessionEntity(
             purposes = purposes.map(InteractiveFlowPurpose::name).toTypedArray(),
             initiatingPurpose = initiatingPurpose.name,
@@ -89,6 +95,43 @@ open class InteractiveFlowSessionManager(
         sessionRepository.save(entity)
 
         return sessionMapper.toInteractiveFlowSession(entity)
+    }
+
+    /**
+     * Record that [session] was seen in the place [observedRequest] came from, and answer it carrying
+     * that place as its current one.
+     *
+     * A request from a place the session has already been seen in moves that context's last sighting
+     * on and leaves the session's own row alone; only a place it has not been seen in yet is appended
+     * to its list. The person going through a flow does not usually move, so the steady state is a
+     * write to the context and none to the session.
+     *
+     * This is outside the version guard the lifecycle mutations use, and on purpose: where a request
+     * comes from is not a step of the flow, and failing a sign-in over a race here would cost a
+     * person their journey to save a row nothing points at.
+     */
+    suspend fun recordSecurityContext(
+        session: OnGoingInteractiveFlowSession,
+        observedRequest: ObservedRequest
+    ): OnGoingInteractiveFlowSession {
+        val context = securityContextManager.recordObservation(
+            request = observedRequest,
+            knownContextIds = session.securityContextIds,
+            userId = session.userId
+        )
+        val securityContextIds = (session.securityContextIds + context.id).distinct()
+        if (securityContextIds == session.securityContextIds && session.currentSecurityContextId == context.id) {
+            return session
+        }
+        sessionRepository.updateCurrentSecurityContextId(
+            id = session.id,
+            currentSecurityContextId = context.id,
+            securityContextIds = securityContextIds.toTypedArray()
+        )
+        return session.copy(
+            securityContextIds = securityContextIds,
+            currentSecurityContextId = context.id
+        )
     }
 
     suspend fun encodeState(session: InteractiveFlowSession): String {

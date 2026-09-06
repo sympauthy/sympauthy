@@ -6,6 +6,7 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.mapper.InteractiveFlowSessionOAuth2Mapper
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.securitycontext.ObservedRequest
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.InteractiveFlowSession
@@ -57,7 +58,8 @@ open class InteractiveFlowSessionOAuth2Manager(
         codeChallenge: String? = null,
         codeChallengeMethod: CodeChallengeMethod? = null,
         invitationId: UUID? = null,
-        error: BusinessException? = null
+        error: BusinessException? = null,
+        observedRequest: ObservedRequest? = null
     ): InteractiveFlowSession {
         val now = LocalDateTime.now()
         // The client redirect URI is both the success target (an authorization code is appended) and the
@@ -70,6 +72,7 @@ open class InteractiveFlowSessionOAuth2Manager(
             redirectType = InteractiveFlowRedirectType.AUTHORIZATION_CODE,
             cancelRedirectUri = redirectUri,
             error = error,
+            observedRequest = observedRequest,
         )
 
         // When no error, auto-consent consentable scopes at creation time.

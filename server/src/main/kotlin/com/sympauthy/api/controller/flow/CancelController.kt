@@ -2,9 +2,11 @@ package com.sympauthy.api.controller.flow
 
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.resource.flow.SimpleFlowResource
+import com.sympauthy.api.util.observedRequest
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
+import io.micronaut.http.HttpRequest
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Post
 import io.micronaut.security.annotation.Secured
@@ -51,10 +53,12 @@ cancellation target.
     )
     @Post
     suspend fun cancel(
-        authentication: Authentication
+        authentication: Authentication,
+        httpRequest: HttpRequest<*>
     ): SimpleFlowResource =
         interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect(
             state = authentication.stateOrNull,
+            observedRequest = httpRequest.observedRequest(),
             update = { session, _ -> sessionManager.markAsCancelled(session) },
             mapRedirectUriToResource = { redirectUri -> SimpleFlowResource(redirectUri.toString()) }
         )

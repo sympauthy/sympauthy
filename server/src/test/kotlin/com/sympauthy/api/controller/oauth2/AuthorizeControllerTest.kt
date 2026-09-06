@@ -10,6 +10,8 @@ import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.InteractiveFlowStepResult
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.UNSUPPORTED_RESPONSE_TYPE
 import io.micronaut.http.HttpStatus
+import io.micronaut.http.HttpMethod
+import io.micronaut.http.simple.SimpleHttpRequest
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.impl.annotations.InjectMockKs
@@ -25,6 +27,9 @@ import java.net.URI
 
 @ExtendWith(MockKExtension::class)
 class AuthorizeControllerTest {
+
+    /** The authorize endpoint reads the place the person is in off the request that reached it. */
+    private val httpRequest = SimpleHttpRequest<Any>(HttpMethod.GET, "http://198.51.100.10/", null)
 
     @MockK
     lateinit var interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager
@@ -50,7 +55,8 @@ class AuthorizeControllerTest {
                 uncheckedClientNonce = null,
                 uncheckedCodeChallenge = null,
                 uncheckedCodeChallengeMethod = null,
-                uncheckedInvitationToken = null
+                uncheckedInvitationToken = null,
+                httpRequest = httpRequest
             )
         }
         assertEquals(UNSUPPORTED_RESPONSE_TYPE, exception.errorCode)
@@ -69,7 +75,8 @@ class AuthorizeControllerTest {
                 uncheckedClientNonce = null,
                 uncheckedCodeChallenge = null,
                 uncheckedCodeChallengeMethod = null,
-                uncheckedInvitationToken = null
+                uncheckedInvitationToken = null,
+                httpRequest = httpRequest
             )
         }
         assertEquals(UNSUPPORTED_RESPONSE_TYPE, exception.errorCode)
@@ -88,7 +95,8 @@ class AuthorizeControllerTest {
                 uncheckedClientNonce = null,
                 uncheckedCodeChallenge = null,
                 uncheckedCodeChallengeMethod = null,
-                uncheckedInvitationToken = null
+                uncheckedInvitationToken = null,
+                httpRequest = httpRequest
             )
         }
         assertEquals(UNSUPPORTED_RESPONSE_TYPE, exception.errorCode)
@@ -107,7 +115,8 @@ class AuthorizeControllerTest {
                 uncheckedClientNonce = null,
                 uncheckedCodeChallenge = null,
                 uncheckedCodeChallengeMethod = null,
-                uncheckedInvitationToken = null
+                uncheckedInvitationToken = null,
+                httpRequest = httpRequest
             )
         }
         assertEquals(UNSUPPORTED_RESPONSE_TYPE, exception.errorCode)
@@ -126,7 +135,8 @@ class AuthorizeControllerTest {
                 uncheckedClientNonce = null,
                 uncheckedCodeChallenge = null,
                 uncheckedCodeChallengeMethod = null,
-                uncheckedInvitationToken = null
+                uncheckedInvitationToken = null,
+                httpRequest = httpRequest
             )
         }
         assertEquals(UNSUPPORTED_RESPONSE_TYPE, exception.errorCode)
@@ -148,7 +158,8 @@ class AuthorizeControllerTest {
                 uncheckedRedirectUri = "https://example.com/callback",
                 uncheckedCodeChallenge = null,
                 uncheckedCodeChallengeMethod = null,
-                uncheckedInvitationToken = null
+                uncheckedInvitationToken = null,
+                observedRequest = any()
             )
         } returns (session to flow)
 
@@ -163,7 +174,8 @@ class AuthorizeControllerTest {
             uncheckedClientNonce = null,
             uncheckedCodeChallenge = null,
             uncheckedCodeChallengeMethod = null,
-            uncheckedInvitationToken = null
+            uncheckedInvitationToken = null,
+            httpRequest = httpRequest
         )
 
         assertEquals(HttpStatus.SEE_OTHER, result.status)
@@ -184,7 +196,8 @@ class AuthorizeControllerTest {
                 uncheckedScopes = "openid email",
                 uncheckedRedirectUri = "https://example.com/cb",
                 uncheckedCodeChallenge = "challenge123",
-                uncheckedCodeChallengeMethod = "S256"
+                uncheckedCodeChallengeMethod = "S256",
+                observedRequest = any()
             )
         } returns (session to flow)
 
@@ -199,7 +212,8 @@ class AuthorizeControllerTest {
             uncheckedClientNonce = "my-nonce",
             uncheckedCodeChallenge = "challenge123",
             uncheckedCodeChallengeMethod = "S256",
-            uncheckedInvitationToken = null
+            uncheckedInvitationToken = null,
+            httpRequest = httpRequest
         )
 
         coVerify(exactly = 1) {
@@ -210,7 +224,8 @@ class AuthorizeControllerTest {
                 uncheckedScopes = "openid email",
                 uncheckedRedirectUri = "https://example.com/cb",
                 uncheckedCodeChallenge = "challenge123",
-                uncheckedCodeChallengeMethod = "S256"
+                uncheckedCodeChallengeMethod = "S256",
+                observedRequest = any()
             )
         }
     }
@@ -230,7 +245,8 @@ class AuthorizeControllerTest {
                 uncheckedRedirectUri = null,
                 uncheckedCodeChallenge = null,
                 uncheckedCodeChallengeMethod = null,
-                uncheckedInvitationToken = null
+                uncheckedInvitationToken = null,
+                observedRequest = any()
             )
         } returns (session to flow)
 
@@ -245,7 +261,8 @@ class AuthorizeControllerTest {
             uncheckedClientNonce = null,
             uncheckedCodeChallenge = null,
             uncheckedCodeChallengeMethod = null,
-            uncheckedInvitationToken = null
+            uncheckedInvitationToken = null,
+            httpRequest = httpRequest
         )
 
         coVerify(exactly = 1) {
@@ -257,7 +274,8 @@ class AuthorizeControllerTest {
                 uncheckedRedirectUri = null,
                 uncheckedCodeChallenge = null,
                 uncheckedCodeChallengeMethod = null,
-                uncheckedInvitationToken = null
+                uncheckedInvitationToken = null,
+                observedRequest = any()
             )
         }
     }

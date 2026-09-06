@@ -3,11 +3,13 @@ package com.sympauthy.api.controller.flow
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.resource.flow.MfaFlowResource
 import com.sympauthy.api.resource.flow.MfaMethodResource
+import com.sympauthy.api.util.observedRequest
 import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaChallengeManager
 import com.sympauthy.business.manager.flow.mfa.MfaAutoRedirect
 import com.sympauthy.business.manager.flow.mfa.MfaMethodSelection
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
+import io.micronaut.http.HttpRequest
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
 import io.micronaut.security.annotation.Secured
@@ -47,10 +49,12 @@ Returns one of two response shapes:
     )
     @Get
     suspend fun getChallengeRedirect(
-        authentication: Authentication
+        authentication: Authentication,
+        httpRequest: HttpRequest<*>
     ): MfaFlowResource =
         interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionWithUserThenRun(
             state = authentication.stateOrNull,
+            observedRequest = httpRequest.observedRequest(),
             run = { session, flow, user ->
                 when (val result = mfaChallengeManager.getChallengeRoutingResult(user)) {
                     is MfaAutoRedirect -> MfaFlowResource(

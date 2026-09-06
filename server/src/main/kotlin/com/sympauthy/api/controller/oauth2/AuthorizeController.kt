@@ -7,6 +7,9 @@ import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.UNSUPPORTED_RESPONSE_TYPE
 import com.sympauthy.business.model.oauth2.ResponseType
+import com.sympauthy.api.util.observedRequest
+import com.sympauthy.business.model.securitycontext.ObservedRequest
+import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
@@ -141,13 +144,15 @@ The authorization server includes this value unmodified in the ID Token.
         @QueryValue("code_challenge_method")
         uncheckedCodeChallengeMethod: String?,
         @QueryValue("invitation_token")
-        uncheckedInvitationToken: String?
+        uncheckedInvitationToken: String?,
+        httpRequest: HttpRequest<*>
     ): HttpResponse<*> {
         if (responseType.isNullOrBlank()) {
             throw oauth2ExceptionOf(UNSUPPORTED_RESPONSE_TYPE, "authorize.response_type.missing")
         }
         return when (ResponseType.fromWireNameOrNull(responseType)) {
             ResponseType.CODE -> authorizeWithCodeFlow(
+                observedRequest = httpRequest.observedRequest(),
                 uncheckedClientId = uncheckedClientId,
                 uncheckedClientState = uncheckedClientState,
                 uncheckedClientNonce = uncheckedClientNonce,
@@ -166,6 +171,7 @@ The authorization server includes this value unmodified in the ID Token.
     }
 
     private suspend fun authorizeWithCodeFlow(
+        observedRequest: ObservedRequest,
         uncheckedClientId: String?,
         uncheckedClientState: String?,
         uncheckedClientNonce: String?,
@@ -176,6 +182,7 @@ The authorization server includes this value unmodified in the ID Token.
         uncheckedInvitationToken: String?
     ): HttpResponse<*> {
         val (session, flow) = interactiveAuthFlowSessionManager.startAuthorizationWith(
+            observedRequest = observedRequest,
             uncheckedClientId = uncheckedClientId,
             uncheckedClientState = uncheckedClientState,
             uncheckedClientNonce = uncheckedClientNonce,

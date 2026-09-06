@@ -12,6 +12,9 @@ import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.jwt.DecodedJwt
+import com.sympauthy.business.model.securitycontext.ObservedRequest
+import com.sympauthy.business.model.securitycontext.SecurityContext
+import com.sympauthy.business.model.securitycontext.SecurityContextGeo
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
@@ -63,6 +66,21 @@ class InteractiveFlowSessionManagerTest {
      * Detail id of the exception thrown when a version-guarded update loses its compare-and-swap.
      */
     private val concurrentModificationDetailsId = "auth.interactive_flow_session.concurrent_modification"
+
+    private val observedRequest = ObservedRequest(peer = "198.51.100.10", headers = emptyMap())
+
+    private fun securityContext(id: UUID) = SecurityContext(
+        id = id,
+        userId = null,
+        fingerprint = "fingerprint",
+        ip = "198.51.100.10",
+        userAgent = null,
+        geo = SecurityContextGeo(null, null, null),
+        firstSeenDate = LocalDateTime.now(),
+        lastSeenDate = LocalDateTime.now(),
+        observationCount = 1,
+        expirationDate = LocalDateTime.now().plusDays(1)
+    )
 
     /**
      * Build an ongoing session at [version] carrying enough state to drive every mutation under test.
@@ -191,6 +209,65 @@ class InteractiveFlowSessionManagerTest {
         assertEquals(userId, result.userId)
         assertTrue(result.signedUp)
         assertEquals(STARTING_VERSION + 1, result.version)
+    }
+
+    @Test
+    fun `recordSecurityContext - Leave the session alone where it has been seen in that place before`() = runTest {
+        val place = UUID.randomUUID()
+        val session = ongoingSession(securityContextIds = listOf(place), currentSecurityContextId = place)
+        coEvery {
+            securityContextManager.recordObservation(observedRequest, listOf(place), session.userId)
+        } returns securityContext(place)
+
+        val result = interactiveFlowSessionManager.recordSecurityContext(session, observedRequest)
+
+        assertEquals(listOf(place), result.securityContextIds)
+        assertEquals(place, result.currentSecurityContextId)
+        coVerify(exactly = 0) { sessionRepository.updateCurrentSecurityContextId(any(), any(), any()) }
+    }
+
+    @Test
+    fun `recordSecurityContext - Append a place the session has not been seen in`() = runTest {
+        val first = UUID.randomUUID()
+        val second = UUID.randomUUID()
+        val session = ongoingSession(securityContextIds = listOf(first), currentSecurityContextId = first)
+        coEvery {
+            securityContextManager.recordObservation(observedRequest, listOf(first), session.userId)
+        } returns securityContext(second)
+        coEvery {
+            sessionRepository.updateCurrentSecurityContextId(session.id, second, any())
+        } returns 1
+
+        val result = interactiveFlowSessionManager.recordSecurityContext(session, observedRequest)
+
+        assertEquals(listOf(first, second), result.securityContextIds)
+        assertEquals(second, result.currentSecurityContextId)
+        coVerify(exactly = 1) {
+            sessionRepository.updateCurrentSecurityContextId(
+                session.id,
+                second,
+                match { it.contentEquals(arrayOf(first, second)) }
+            )
+        }
+    }
+
+    @Test
+    fun `recordSecurityContext - Point back at a place the session left and returned to`() = runTest {
+        val first = UUID.randomUUID()
+        val second = UUID.randomUUID()
+        val session = ongoingSession(
+            securityContextIds = listOf(first, second),
+            currentSecurityContextId = second
+        )
+        coEvery {
+            securityContextManager.recordObservation(observedRequest, listOf(first, second), session.userId)
+        } returns securityContext(first)
+        coEvery { sessionRepository.updateCurrentSecurityContextId(session.id, first, any()) } returns 1
+
+        val result = interactiveFlowSessionManager.recordSecurityContext(session, observedRequest)
+
+        assertEquals(listOf(first, second), result.securityContextIds)
+        assertEquals(first, result.currentSecurityContextId)
     }
 
     @Test

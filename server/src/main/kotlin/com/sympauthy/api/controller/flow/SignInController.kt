@@ -9,6 +9,7 @@ import com.sympauthy.api.resource.flow.ProviderResource
 import com.sympauthy.api.resource.flow.SignInFlowResource
 import com.sympauthy.api.resource.flow.SignInInputResource
 import com.sympauthy.api.resource.flow.SimpleFlowResource
+import com.sympauthy.api.util.observedRequest
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
@@ -78,6 +79,7 @@ on-going flow. All URLs it contains already include the state query param.
         val locale = httpRequest.locale.orDefault()
         return interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenRunAndRedirect(
             state = authentication.stateOrNull,
+            observedRequest = httpRequest.observedRequest(),
             run = { session, flow ->
                 if (signInApplies(session, flow)) {
                     buildSignInConfiguration(session, flow, locale)
@@ -202,10 +204,12 @@ on-going flow. All URLs it contains already include the state query param.
     @Post
     suspend fun signIn(
         authentication: Authentication,
-        @Body inputResource: SignInInputResource
+        @Body inputResource: SignInInputResource,
+        httpRequest: HttpRequest<*>
     ): SimpleFlowResource =
         interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect(
             state = authentication.stateOrNull,
+            observedRequest = httpRequest.observedRequest(),
             update = { session, _ ->
                 passwordFlowManager.signInWithPassword(
                     session = session,

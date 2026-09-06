@@ -3,12 +3,14 @@ package com.sympauthy.api.controller.flow
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.resource.flow.MfaFlowResource
 import com.sympauthy.api.resource.flow.MfaMethodResource
+import com.sympauthy.api.util.observedRequest
 import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaEnrollmentManager
 import com.sympauthy.business.manager.flow.mfa.MfaAutoRedirect
 import com.sympauthy.business.manager.flow.mfa.MfaMethodSelection
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
 import io.micronaut.http.HttpResponse
+import io.micronaut.http.HttpRequest
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
 import io.micronaut.security.annotation.Secured
@@ -53,10 +55,12 @@ Returns one of two response shapes:
     )
     @Get
     suspend fun getEnrollmentSelection(
-        authentication: Authentication
+        authentication: Authentication,
+        httpRequest: HttpRequest<*>
     ): MfaFlowResource =
         interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionWithUserThenRun(
             state = authentication.stateOrNull,
+            observedRequest = httpRequest.observedRequest(),
             run = { session, flow, _ ->
                 when (val result = mfaEnrollmentManager.getEnrollmentRoutingResult(session)) {
                     is MfaAutoRedirect -> MfaFlowResource(
@@ -94,10 +98,12 @@ client-initiated one. The MFA step is marked as resolved so the flow does not pr
     )
     @Get("/skip")
     suspend fun skipEnrollment(
-        authentication: Authentication
+        authentication: Authentication,
+        httpRequest: HttpRequest<*>
     ): HttpResponse<*> =
         interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect(
             state = authentication.stateOrNull,
+            observedRequest = httpRequest.observedRequest(),
             update = { session, _ ->
                 mfaEnrollmentManager.skipMfa(session)
             },

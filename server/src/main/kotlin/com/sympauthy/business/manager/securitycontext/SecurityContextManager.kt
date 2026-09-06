@@ -62,6 +62,16 @@ class SecurityContextManager(
     }
 
     /**
+     * Record that [request] was seen, and answer the context it came from, reading it the way this
+     * deployment says its proxy publishes what it saw.
+     */
+    suspend fun recordObservation(
+        request: ObservedRequest,
+        knownContextIds: List<UUID> = emptyList(),
+        userId: UUID? = null
+    ): SecurityContext = recordObservation(getObservedSecurityContext(request), knownContextIds, userId)
+
+    /**
      * Record that [observed] was seen, and answer the context it belongs to.
      *
      * A place already among [knownContextIds] — the contexts the session making the request carries —

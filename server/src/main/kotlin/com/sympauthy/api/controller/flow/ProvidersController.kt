@@ -2,6 +2,7 @@ package com.sympauthy.api.controller.flow
 
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_ENDPOINTS
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
+import com.sympauthy.api.util.observedRequest
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2ProviderManager
 import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.config.model.getUri
@@ -9,6 +10,7 @@ import com.sympauthy.config.model.orThrow
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
 import io.micronaut.http.HttpResponse
+import io.micronaut.http.HttpRequest
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
 import io.micronaut.http.annotation.QueryValue
@@ -58,10 +60,12 @@ defined in ```urls.flow.error``` configuration.
     @Get(FLOW_PROVIDER_AUTHORIZE_ENDPOINT)
     suspend fun authorizeWithProvider(
         authentication: Authentication,
-        providerId: String
+        providerId: String,
+        httpRequest: HttpRequest<*>
     ): HttpResponse<*> =
         interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenRunAndRedirect(
             state = authentication.stateOrNull,
+            observedRequest = httpRequest.observedRequest(),
             run = { session, _ ->
                 interactiveFlowSessionOAuth2ProviderManager.authorizeWithProvider(
                     session,
@@ -98,9 +102,11 @@ Redirection to either:
         @QueryValue("code") code: String?,
         @QueryValue("state") state: String?,
         @QueryValue("error") error: String?,
-        @QueryValue("error_description") errorDescription: String?
+        @QueryValue("error_description") errorDescription: String?,
+        httpRequest: HttpRequest<*>
     ) = interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect(
         state = state,
+        observedRequest = httpRequest.observedRequest(),
         update = { session, _ ->
             interactiveFlowSessionOAuth2ProviderManager.signInOrSignUpUsingProvider(
                 session = session,

@@ -6,6 +6,7 @@ import com.sympauthy.api.mapper.flow.ClaimsResourceMapper
 import com.sympauthy.api.resource.flow.ClaimInputResource
 import com.sympauthy.api.resource.flow.ClaimsFlowResource
 import com.sympauthy.api.resource.flow.SimpleFlowResource
+import com.sympauthy.api.util.observedRequest
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.user.ConsentAwareClaimManager
@@ -58,6 +59,7 @@ must be redirected to continue the authorization flow.
         val locale = httpRequest.locale.orDefault()
         return interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenRunAndRedirect(
             state = authentication.stateOrNull,
+            observedRequest = httpRequest.observedRequest(),
             run = { session, _ ->
                 val collectableClaims = consentAwareClaimManager.listCollectableClaimsBySession(session)
                 if (collectableClaims.isEmpty()) {
@@ -101,10 +103,12 @@ but they chose not to provide a value.
     @Post
     suspend fun collectClaims(
         authentication: Authentication,
-        @Body inputResource: ClaimInputResource
+        @Body inputResource: ClaimInputResource,
+        httpRequest: HttpRequest<*>
     ): SimpleFlowResource =
         interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionWithUserThenUpdateAndRedirect(
             state = authentication.stateOrNull,
+            observedRequest = httpRequest.observedRequest(),
             update = { session, _, user ->
                 consentAwareCollectedClaimManager.updateByUser(
                     user = user,

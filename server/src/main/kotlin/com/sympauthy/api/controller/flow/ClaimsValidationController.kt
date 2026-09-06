@@ -3,10 +3,12 @@ package com.sympauthy.api.controller.flow
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.mapper.flow.ClaimsValidationFlowResultResourceMapper
 import com.sympauthy.api.resource.flow.*
+import com.sympauthy.api.util.observedRequest
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionClaimValidationManager
 import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
+import io.micronaut.http.HttpRequest
 import io.micronaut.http.annotation.Body
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
@@ -60,9 +62,11 @@ Result containing either:
     suspend fun getValidationCodeToCollectForMedia(
         authentication: Authentication,
         media: ValidationCodeMedia,
+        httpRequest: HttpRequest<*>
     ): ClaimsValidationFlowResource =
         interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionWithUserThenRunAndRedirect(
             authentication.stateOrNull,
+            observedRequest = httpRequest.observedRequest(),
             run = { session, _, user ->
                 claimValidationManager.getOrSendValidationCode(
                     session = session,
@@ -91,10 +95,12 @@ Result containing either:
     @Post
     suspend fun validate(
         authentication: Authentication,
-        @Body inputResource: ClaimValidationInputResource
+        @Body inputResource: ClaimValidationInputResource,
+        httpRequest: HttpRequest<*>
     ): SimpleFlowResource =
         interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect(
             state = authentication.stateOrNull,
+            observedRequest = httpRequest.observedRequest(),
             update = { session, _ ->
                 claimValidationManager.validateClaimsByCode(
                     session = session,
@@ -123,10 +129,12 @@ This authorization server will not send new validation code in the following cas
     @Post("/resend")
     suspend fun resendValidationCodes(
         authentication: Authentication,
-        @Body inputResource: ResendClaimsValidationInputResource
+        @Body inputResource: ResendClaimsValidationInputResource,
+        httpRequest: HttpRequest<*>
     ): ResendClaimsValidationCodeResultResource =
         interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionWithUserThenRun(
             state = authentication.stateOrNull,
+            observedRequest = httpRequest.observedRequest(),
             run = { session, _, user ->
                 val media = getMedia(inputResource.media)
 

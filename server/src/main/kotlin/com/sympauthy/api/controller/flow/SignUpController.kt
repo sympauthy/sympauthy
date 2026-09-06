@@ -7,6 +7,7 @@ import com.sympauthy.api.resource.flow.PasswordResource
 import com.sympauthy.api.resource.flow.SignUpFlowResource
 import com.sympauthy.api.resource.flow.SignUpInputResource
 import com.sympauthy.api.resource.flow.SimpleFlowResource
+import com.sympauthy.api.util.observedRequest
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
@@ -59,6 +60,7 @@ on-going flow. All URLs it contains already include the state query param.
         val locale = httpRequest.locale.orDefault()
         return interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenRunAndRedirect(
             state = authentication.stateOrNull,
+            observedRequest = httpRequest.observedRequest(),
             run = { session, flow ->
                 if (signUpApplies(session)) {
                     buildSignUpConfiguration(session, flow, locale)
@@ -117,10 +119,12 @@ Only identifier claims are saved on the created account. Any other claim present
     @Post
     suspend fun signUp(
         authentication: Authentication,
-        @Body inputResource: SignUpInputResource
+        @Body inputResource: SignUpInputResource,
+        httpRequest: HttpRequest<*>
     ): SimpleFlowResource =
         interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect(
             state = authentication.stateOrNull,
+            observedRequest = httpRequest.observedRequest(),
             update = { session, _ ->
                 val updates = collectedClaimUpdateMapper.toUpdates(inputResource.claims)
                 passwordFlowManager.signUpWithClaimsAndPassword(
