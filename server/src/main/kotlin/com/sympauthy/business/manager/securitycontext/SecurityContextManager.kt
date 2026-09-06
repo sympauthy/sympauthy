@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager.securitycontext
 
 import com.sympauthy.business.mapper.SecurityContextMapper
+import com.sympauthy.business.model.securitycontext.AccessReviewDecision
 import com.sympauthy.business.model.securitycontext.ObservedRequest
 import com.sympauthy.business.model.securitycontext.ObservedSecurityContext
 import com.sympauthy.business.model.securitycontext.SecurityContext
@@ -113,6 +114,42 @@ class SecurityContextManager(
             observationCount = observationCount,
             expirationDate = expirationDate
         )
+    }
+
+    /**
+     * The places [userId] has been seen in, most recent first, at most [limit] of them and never
+     * [excluding].
+     *
+     * It is what a client's access review is shown beside the place the request it is validating came
+     * from. The bound is a deployment's, because an unbounded history would grow the request body
+     * without bound for the person who travels.
+     */
+    suspend fun listPastContexts(userId: UUID, limit: Int, excluding: UUID): List<SecurityContext> {
+        if (limit <= 0) return emptyList()
+        return securityContextRepository.findByUserIdOrderByLastSeenDateDesc(userId)
+            .asSequence()
+            .filter { it.id != excluding }
+            .take(limit)
+            .map(securityContextMapper::toSecurityContext)
+            .toList()
+    }
+
+    /**
+     * Record that a client's access review of [context] answered [decision], and answer the context
+     * carrying it.
+     *
+     * Only a decision the webhook actually returned is recorded. A webhook that failed to answer
+     * records nothing, because one timeout stamping an allow would disarm the `new-context` trigger
+     * for that place for good.
+     */
+    suspend fun markReviewed(context: SecurityContext, decision: AccessReviewDecision): SecurityContext {
+        val now = LocalDateTime.now()
+        securityContextRepository.updateLastDecision(
+            id = context.id,
+            lastDecision = decision.name,
+            lastDecisionDate = now
+        )
+        return context.copy(lastDecision = decision, lastDecisionDate = now)
     }
 
     /**

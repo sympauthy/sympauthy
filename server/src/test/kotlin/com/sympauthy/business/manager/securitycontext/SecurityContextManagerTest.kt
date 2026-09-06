@@ -6,6 +6,7 @@ import com.sympauthy.business.model.securitycontext.EdgeProviderProfile
 import com.sympauthy.business.model.securitycontext.SecurityContextField
 import com.sympauthy.business.model.securitycontext.SecurityContextField.CITY
 import com.sympauthy.business.model.securitycontext.SecurityContextField.CLIENT_IP
+import com.sympauthy.business.model.securitycontext.AccessReviewDecision
 import com.sympauthy.business.model.securitycontext.ObservedSecurityContext
 import com.sympauthy.business.model.securitycontext.SecurityContextGeo
 import com.sympauthy.business.model.securitycontext.fingerprint
@@ -257,19 +258,63 @@ class SecurityContextManagerTest {
 
     @Test
     fun `promoteToUser - Ask nothing of a session that was seen in no place`() = runTest {
-        // The configuration is left unstubbed on purpose: reading a retention would fail the strict mock,
-        // so reaching the assertion is the proof that a deployment recording nothing pays nothing here.
-        val manager = SecurityContextManager(
-            mockk(),
-            securityContexts,
-            Mappers.getMapper(SecurityContextMapper::class.java)
-        )
-
-        val merged = manager.promoteToUser(emptyList(), UUID.randomUUID())
+        val merged = unconfiguredManager().promoteToUser(emptyList(), UUID.randomUUID())
 
         assertEquals(emptyMap<UUID, UUID>(), merged)
         coVerify(exactly = 0) { securityContexts.findByIdIn(any()) }
     }
+
+    @Test
+    fun `markReviewed - Record what the client answered about the place`() = runTest {
+        val context = securityContext()
+        coEvery {
+            securityContexts.updateLastDecision(context.id, "REVOKE_SESSION", any())
+        } returns 1
+
+        val reviewed = unconfiguredManager().markReviewed(context, AccessReviewDecision.REVOKE_SESSION)
+
+        assertEquals(AccessReviewDecision.REVOKE_SESSION, reviewed.lastDecision)
+        coVerify(exactly = 1) {
+            securityContexts.updateLastDecision(context.id, "REVOKE_SESSION", reviewed.lastDecisionDate!!)
+        }
+    }
+
+    @Test
+    fun `listPastContexts - Answer the places the person was seen in before this one`() = runTest {
+        val userId = UUID.randomUUID()
+        val current = contextEntity(fingerprint = "current", userId = userId)
+        val older = contextEntity(fingerprint = "older", userId = userId)
+        val oldest = contextEntity(fingerprint = "oldest", userId = userId)
+        coEvery {
+            securityContexts.findByUserIdOrderByLastSeenDateDesc(userId)
+        } returns listOf(current, older, oldest)
+
+        val past = unconfiguredManager().listPastContexts(userId, limit = 1, excluding = current.id!!)
+
+        assertEquals(listOf(older.id), past.map { it.id })
+    }
+
+    @Test
+    fun `listPastContexts - Answer nothing where the deployment asked for no past at all`() = runTest {
+        val past = unconfiguredManager()
+            .listPastContexts(UUID.randomUUID(), limit = 0, excluding = UUID.randomUUID())
+
+        assertEquals(emptyList<Any>(), past)
+        coVerify(exactly = 0) { securityContexts.findByUserIdOrderByLastSeenDateDesc(any()) }
+    }
+
+    private fun securityContext() = Mappers.getMapper(SecurityContextMapper::class.java)
+        .toSecurityContext(contextEntity(fingerprint = "reviewed"))
+
+    /**
+     * A manager whose configuration is left unstubbed, for what reads none of it: a retention would
+     * fail the strict mock, so reaching the assertion is the proof that none was needed.
+     */
+    private fun unconfiguredManager() = SecurityContextManager(
+        mockk(),
+        securityContexts,
+        Mappers.getMapper(SecurityContextMapper::class.java)
+    )
 
     private fun observedIn(ip: String) = ObservedSecurityContext(
         ip = ip,

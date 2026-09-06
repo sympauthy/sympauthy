@@ -1,17 +1,20 @@
 CREATE TABLE security_contexts
 (
-    id                uuid      NOT NULL DEFAULT gen_random_uuid(),
-    user_id           uuid,
-    fingerprint       text      NOT NULL,
-    ip                text,
-    user_agent        text,
-    country           text,
-    region            text,
-    city              text,
-    first_seen_date   timestamp NOT NULL,
-    last_seen_date    timestamp NOT NULL,
-    observation_count integer   NOT NULL DEFAULT 1,
-    expiration_date   timestamp NOT NULL,
+    id                 uuid      NOT NULL DEFAULT gen_random_uuid(),
+    user_id            uuid,
+    fingerprint        text      NOT NULL,
+    ip                 text,
+    user_agent         text,
+    country            text,
+    region             text,
+    city               text,
+    first_seen_date    timestamp NOT NULL,
+    last_seen_date     timestamp NOT NULL,
+    observation_count  integer   NOT NULL DEFAULT 1,
+    expiration_date    timestamp NOT NULL,
+
+    last_decision      text,
+    last_decision_date timestamp,
 
     PRIMARY KEY (id),
     FOREIGN KEY (user_id) REFERENCES users (id)

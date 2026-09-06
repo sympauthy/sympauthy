@@ -38,6 +38,12 @@ interface SecurityContextRepository : CoroutineCrudRepository<SecurityContextEnt
         expirationDate: LocalDateTime
     ): Int
 
+    suspend fun updateLastDecision(
+        @Id id: UUID,
+        lastDecision: String,
+        lastDecisionDate: LocalDateTime
+    ): Int
+
     suspend fun updateFirstSeenDate(
         @Id id: UUID,
         firstSeenDate: LocalDateTime,

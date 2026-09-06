@@ -5,6 +5,11 @@ import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.InvalidJwtException
 import com.sympauthy.business.manager.consent.ConsentManager
+import com.sympauthy.business.manager.securitycontext.AccessReviewManager
+import com.sympauthy.business.model.oauth2.TokenRevokedBy
+import com.sympauthy.business.model.securitycontext.AccessReviewDecision
+import com.sympauthy.business.model.securitycontext.AccessReviewReason
+import com.sympauthy.business.model.securitycontext.ObservedRequest
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
@@ -69,6 +74,9 @@ class TokenManagerTest {
 
     @MockK
     lateinit var tokenMapper: AuthenticationTokenMapper
+
+    @MockK
+    lateinit var accessReviewManager: AccessReviewManager
 
     @SpyK
     @InjectMockKs
@@ -279,6 +287,68 @@ class TokenManagerTest {
             tokenManager.refreshToken(client, "token")
         }
         assertEquals("token.consent_revoked", exception.detailsId)
+    }
+
+    @Test
+    fun `refreshToken - Refuses the grant where the client's access review refused the place`() = runTest {
+        stubRefreshTokenReadyToReview()
+        coEvery {
+            accessReviewManager.reviewAccess(any(), any(), AccessReviewReason.REFRESH_TOKEN, observedRequest)
+        } returns AccessReviewDecision.DENY
+
+        val exception = assertThrows<OAuth2Exception> {
+            tokenManager.refreshToken(reviewedClient, "token", observedRequest = observedRequest)
+        }
+
+        assertEquals(INVALID_GRANT, exception.errorCode)
+        assertEquals("token.access_review_denied", exception.detailsId)
+        coVerify(exactly = 0) { tokenRepository.updateRevokedAtBySessionId(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `refreshToken - Revokes the whole sign-in where the access review asked for it`() = runTest {
+        val sessionId = UUID.randomUUID()
+        stubRefreshTokenReadyToReview(sessionId = sessionId)
+        coEvery {
+            accessReviewManager.reviewAccess(any(), any(), AccessReviewReason.REFRESH_TOKEN, observedRequest)
+        } returns AccessReviewDecision.REVOKE_SESSION
+        coJustRun { tokenRepository.updateRevokedAtBySessionId(sessionId, any(), any(), any()) }
+
+        val exception = assertThrows<OAuth2Exception> {
+            tokenManager.refreshToken(reviewedClient, "token", observedRequest = observedRequest)
+        }
+
+        assertEquals("token.access_review_denied", exception.detailsId)
+        coVerify(exactly = 1) {
+            tokenRepository.updateRevokedAtBySessionId(sessionId, any(), TokenRevokedBy.ACCESS_REVIEW.name, null)
+        }
+    }
+
+    private val observedRequest = ObservedRequest(peer = "198.51.100.10", headers = emptyMap())
+
+    private val reviewedClient = mockk<Client>()
+
+    /**
+     * A refresh token that has passed every check before the access review, so that what a test after
+     * this drives is the review and nothing else.
+     */
+    private suspend fun stubRefreshTokenReadyToReview(sessionId: UUID? = null): AuthenticationToken {
+        val userId = UUID.randomUUID()
+        val decodedToken = DecodedJwt(id = UUID.randomUUID().toString(), subject = "sub", keyId = null)
+        val refreshToken = mockk<AuthenticationToken>()
+        every { reviewedClient.id } returns "test-client"
+        every { reviewedClient.audience } returns mockk { every { id } returns "test-audience" }
+        coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, "token") } returns decodedToken
+        coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
+        every { refreshToken.clientId } returns "test-client"
+        every { refreshToken.dpopJkt } returns null
+        every { refreshToken.userId } returns userId
+        if (sessionId != null) {
+            every { refreshToken.sessionId } returns sessionId
+        }
+        coJustRun { userManager.checkPromoted(userId) }
+        coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, any()) } returns mockk()
+        return refreshToken
     }
 
     @Test

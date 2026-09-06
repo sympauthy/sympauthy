@@ -6,6 +6,7 @@ import com.sympauthy.api.exception.toOAuth2Exception
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.InvalidJwtException
 import com.sympauthy.business.manager.consent.ConsentManager
+import com.sympauthy.business.manager.securitycontext.AccessReviewManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
@@ -22,6 +23,9 @@ import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.oauth2.TokenRevokedBy
+import com.sympauthy.business.model.securitycontext.AccessReviewDecision
+import com.sympauthy.business.model.securitycontext.AccessReviewReason
+import com.sympauthy.business.model.securitycontext.ObservedRequest
 import com.sympauthy.data.repository.AuthenticationTokenRepository
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
@@ -42,7 +46,8 @@ open class TokenManager(
     @Inject private val userManager: UserManager,
     @Inject private val actorTokenValidator: ActorTokenValidator,
     @Inject private val tokenRepository: AuthenticationTokenRepository,
-    @Inject private val tokenMapper: AuthenticationTokenMapper
+    @Inject private val tokenMapper: AuthenticationTokenMapper,
+    @Inject private val accessReviewManager: AccessReviewManager
 ) {
 
     /**
@@ -162,7 +167,8 @@ open class TokenManager(
     open suspend fun refreshToken(
         client: Client,
         encodedRefreshToken: String,
-        dpopJkt: String? = null
+        dpopJkt: String? = null,
+        observedRequest: ObservedRequest? = null
     ): List<EncodedAuthenticationToken> = supervisorScope {
         val decodedToken = try {
             jwtManager.decodeAndVerify(REFRESH_KEY, encodedRefreshToken)
@@ -191,6 +197,9 @@ open class TokenManager(
             checkPromotedOrInvalidGrant(refreshToken.userId)
             consentManager.findActiveConsentByAudienceOrNull(refreshToken.userId, client.audience.id)
                 ?: throw oauth2ExceptionOf(INVALID_GRANT, "token.consent_revoked", "description.token.consent_revoked")
+            if (observedRequest != null) {
+                reviewAccessOrThrow(client, refreshToken, observedRequest)
+            }
         }
 
         // Use the DPoP jkt from the proof, or carry forward the existing binding
@@ -232,6 +241,53 @@ open class TokenManager(
             ) -> true
             else -> false
         }
+    }
+
+    /**
+     * Refuse the refresh where [client]'s access review of the place [observedRequest] came from said
+     * to, revoking the whole sign-in first where it said that.
+     *
+     * A refusal is `invalid_grant`, which is the same answer as a token that has been revoked: the
+     * person is told to sign in again, and the client is told nothing about why beyond that.
+     */
+    private suspend fun reviewAccessOrThrow(
+        client: Client,
+        refreshToken: AuthenticationToken,
+        observedRequest: ObservedRequest
+    ) {
+        val decision = accessReviewManager.reviewAccess(
+            client = client,
+            userId = refreshToken.userId!!,
+            reason = AccessReviewReason.REFRESH_TOKEN,
+            observedRequest = observedRequest
+        )
+        when (decision) {
+            AccessReviewDecision.ALLOW -> Unit
+            AccessReviewDecision.DENY -> throw accessReviewRefusal()
+            AccessReviewDecision.REVOKE_SESSION -> {
+                refreshToken.sessionId?.let { revokeSessionTokens(it) }
+                throw accessReviewRefusal()
+            }
+        }
+    }
+
+    private fun accessReviewRefusal() = oauth2ExceptionOf(
+        INVALID_GRANT, "token.access_review_denied", "description.token.access_review_denied"
+    )
+
+    /**
+     * Revoke every token issued to the sign-in [sessionId] identifies, which is what a client asking
+     * for the session to be revoked gets: the whole lineage of tokens that sign-in produced, and not
+     * only the one that was presented.
+     */
+    @Transactional
+    open suspend fun revokeSessionTokens(sessionId: UUID) {
+        tokenRepository.updateRevokedAtBySessionId(
+            sessionId = sessionId,
+            revokedAt = LocalDateTime.now(),
+            revokedBy = TokenRevokedBy.ACCESS_REVIEW.name,
+            revokedById = null
+        )
     }
 
     /**

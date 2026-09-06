@@ -97,6 +97,7 @@ The verb says what kind of work the method does:
 | `mark…` | moves an existing row to a new state |
 | `revoke…`, `delete…` | ends something |
 | `parse…` | turns untrusted input into a domain type |
+| `review…` | asks something outside this server to decide, and applies what it answers |
 | `validate…`, `check…` | throws when a rule is broken, and returns nothing |
 | `is…`, `are…`, `can…` | answers a question as a `Boolean` |
 
@@ -106,6 +107,11 @@ caller.
 
 **`validate…` throws.** Where a caller needs the answer as a value, write a `can…` beside it and
 have the assertion call it.
+
+**`review…` is neither `get…` nor `check…`.** It answers a decision *and* has effects — a row
+recording what was decided — and the thing deciding is not this server, so nothing here can be
+derived or asserted. `AccessReviewManager.reviewAccess` is the one, and a second of them is what
+would make this a family rather than a case.
 
 ### Visibility
 

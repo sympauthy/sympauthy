@@ -43,7 +43,18 @@ class SecurityContextEntity(
      * person's home address after six months of using it. It is indexed, which no other expiration
      * column in this schema is: the sweep runs against a row per place per person for half a year.
      */
-    val expirationDate: LocalDateTime
+    val expirationDate: LocalDateTime,
+    /**
+     * What the client's access-review webhook last answered about this place, as the name of a
+     * [com.sympauthy.business.model.securitycontext.AccessReviewDecision], or null while it has never
+     * been asked.
+     *
+     * It is what the `new-context` trigger reads, and the reason the trigger is a property of the
+     * decision rather than of the sighting: keyed on the sighting, the row the first attempt writes
+     * would make the second attempt familiar.
+     */
+    val lastDecision: String? = null,
+    val lastDecisionDate: LocalDateTime? = null
 ) {
     @Id
     @GeneratedValue

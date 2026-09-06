@@ -37,6 +37,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
+import java.net.InetSocketAddress
 import java.net.URI
 import java.time.LocalDateTime
 
@@ -97,14 +98,28 @@ class TokenControllerTest {
     lateinit var controller: TokenController
 
     /** A request the DPoP manager is stubbed to find no proof on, whatever [dpopHeaders] it carries. */
-    private fun mockRequest(dpopHeaders: List<String> = emptyList()): HttpRequest<*> {
+    /**
+     * A request the refresh grant can also read the place it came from off, which no other grant does.
+     */
+    private fun mockObservedRequest(): HttpRequest<*> = mockRequest(observed = true)
+
+    private fun mockRequest(
+        dpopHeaders: List<String> = emptyList(),
+        observed: Boolean = false
+    ): HttpRequest<*> {
         val headers = mockk<HttpHeaders> {
             every { getAll(DpopManager.DPOP_HEADER) } returns dpopHeaders
+            if (observed) {
+                every { names() } returns emptySet()
+            }
         }
         return mockk<HttpRequest<*>> {
             every { this@mockk.headers } returns headers
             every { method } returns HttpMethod.POST
             every { uri } returns URI.create("/api/oauth2/token")
+            if (observed) {
+                every { remoteAddress } returns InetSocketAddress("198.51.100.10", 443)
+            }
         }.also {
             coEvery { dpopManager.validateDpopProof(any(), any()) } returns null
         }
@@ -503,7 +518,7 @@ class TokenControllerTest {
 
     @Test
     fun `getTokensUsingRefreshToken - Throws when refresh_token is missing`() = runTest {
-        val request = mockRequest()
+        val request = mockObservedRequest()
         val client = mockClient()
         coEvery { clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any()) } returns client
 
@@ -526,7 +541,7 @@ class TokenControllerTest {
 
     @Test
     fun `getTokensUsingRefreshToken - Returns tokens with refreshed refresh token`() = runTest {
-        val request = mockRequest()
+        val request = mockObservedRequest()
         val client = mockClient()
         val accessToken = mockAccessToken("new-access", listOf("openid"))
         val newRefreshToken = mockEncodedToken("new-refresh")
@@ -534,7 +549,9 @@ class TokenControllerTest {
         every { newRefreshToken.type } returns REFRESH
 
         coEvery { clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any()) } returns client
-        coEvery { tokenManager.refreshToken(client, "old-refresh", dpopJkt = null) } returns listOf(
+        coEvery {
+            tokenManager.refreshToken(client, "old-refresh", dpopJkt = null, observedRequest = any())
+        } returns listOf(
             accessToken,
             newRefreshToken
         )
@@ -557,13 +574,15 @@ class TokenControllerTest {
 
     @Test
     fun `getTokensUsingRefreshToken - Falls back to original refresh token when not refreshed`() = runTest {
-        val request = mockRequest()
+        val request = mockObservedRequest()
         val client = mockClient()
         val accessToken = mockAccessToken("new-access")
         every { accessToken.type } returns ACCESS
 
         coEvery { clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any()) } returns client
-        coEvery { tokenManager.refreshToken(client, "old-refresh", dpopJkt = null) } returns listOf(accessToken)
+        coEvery {
+            tokenManager.refreshToken(client, "old-refresh", dpopJkt = null, observedRequest = any())
+        } returns listOf(accessToken)
 
         val result = controller.getTokens(
             request = request,

@@ -240,6 +240,26 @@ class SecurityContextRepositoryTest {
             assertEquals(BASE_DATE.plusDays(185), stored.expirationDate)
         }
 
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `updateLastDecision - Record what the last access review answered`(database: Database) =
+        withFixture(database) {
+            val contexts = repository<SecurityContextRepository>()
+            val id = saveContext(fingerprint = "reviewed")
+
+            val updated = contexts.updateLastDecision(
+                id = id,
+                lastDecision = "ALLOW",
+                lastDecisionDate = BASE_DATE.plusDays(1)
+            )
+
+            assertEquals(1, updated)
+            val stored = contexts.findById(id)
+            assertNotNull(stored)
+            assertEquals("ALLOW", stored!!.lastDecision)
+            assertEquals(BASE_DATE.plusDays(1), stored.lastDecisionDate)
+        }
+
     @Suppress("LongParameterList")
     private suspend fun RepositoryFixture.saveContext(
         fingerprint: String,

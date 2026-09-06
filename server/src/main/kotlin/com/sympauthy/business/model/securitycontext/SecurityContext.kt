@@ -36,5 +36,12 @@ data class SecurityContext(
     /** How many requests have been seen from this place, counting the one that created the row. */
     val observationCount: Int,
     /** When this row is collected, counted from [lastSeenDate]. */
-    val expirationDate: LocalDateTime
+    val expirationDate: LocalDateTime,
+    /**
+     * What the client's access-review webhook last answered about this place, or null while it has
+     * never been asked. A webhook that failed to answer records nothing here: one timeout must not
+     * stamp an allow and disarm the trigger for good.
+     */
+    val lastDecision: AccessReviewDecision? = null,
+    val lastDecisionDate: LocalDateTime? = null
 )

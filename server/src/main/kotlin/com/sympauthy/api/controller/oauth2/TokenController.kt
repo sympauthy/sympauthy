@@ -5,6 +5,7 @@ import com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.api.exception.toOAuth2Exception
 import com.sympauthy.api.resource.oauth2.TokenResource
+import com.sympauthy.api.util.observedRequest
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.ClientScopeGrantingManager
@@ -18,6 +19,7 @@ import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
+import com.sympauthy.business.model.securitycontext.ObservedRequest
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
 import com.sympauthy.business.model.oauth2.DpopBoundRequest
@@ -210,7 +212,8 @@ Client authentication is supported via:
                 getTokensUsingRefreshToken(
                     client = client,
                     encodedRefreshToken = refreshToken,
-                    dpopProof = dpopProof
+                    dpopProof = dpopProof,
+                    observedRequest = request.observedRequest()
                 )
             }
 
@@ -295,12 +298,15 @@ Client authentication is supported via:
     private suspend fun getTokensUsingRefreshToken(
         client: Client,
         encodedRefreshToken: String?,
-        dpopProof: DpopProof?
+        dpopProof: DpopProof?,
+        observedRequest: ObservedRequest
     ): TokenResource {
         if (encodedRefreshToken.isNullOrBlank()) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token.missing_param", "param" to REFRESH_TOKEN_PARAM)
         }
-        val tokens = tokenManager.refreshToken(client, encodedRefreshToken, dpopJkt = dpopProof?.jkt)
+        val tokens = tokenManager.refreshToken(
+            client, encodedRefreshToken, dpopJkt = dpopProof?.jkt, observedRequest = observedRequest
+        )
         val accessToken = tokens.first { it.type == ACCESS }
         val refreshedRefreshToken = tokens.firstOrNull { it.type == REFRESH }
         val tokenType = if (dpopProof != null) TOKEN_TYPE_DPOP else TOKEN_TYPE_BEARER
