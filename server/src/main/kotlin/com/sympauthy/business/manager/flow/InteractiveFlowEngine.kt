@@ -176,6 +176,10 @@ open class InteractiveFlowEngine(
                 throw TerminalEffectRefusedException(effect.error)
             }
         }
+        // Promotion before the completion write, which is what makes the expiry boundary safe: a session
+        // the cleaner expired in the meantime has no row left for markAsCompleted to update, so it raises
+        // a concurrent modification and takes this promotion down with it. The account stays provisional
+        // and is collected, rather than becoming real for a flow that did not complete.
         session.userId?.let { provisionalAccountManager.promote(session.id, it) }
         return sessionManager.markAsCompleted(session)
     }
