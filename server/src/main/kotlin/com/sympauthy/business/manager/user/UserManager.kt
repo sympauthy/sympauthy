@@ -91,11 +91,8 @@ open class UserManager(
     /**
      * Check that [userId] names an account this server has finished creating.
      *
-     * Throws a non-recoverable [BusinessException]: `user.not_found` when no account carries that id at all,
-     * and `user.not_promoted` when one does but an interactive flow session is still signing it up. The
-     * second is an account that does not exist yet, and no caller outside the session creating it may act on
-     * one — mint it a token, enrol it a second factor — however it came by the id. See
-     * [com.sympauthy.data.model.SessionScoped].
+     * Throws the non-recoverable `user.not_promoted` of the [checkPromoted] overload below, and
+     * `user.not_found` when no account carries that id at all.
      *
      * This is the one read here that does not exclude the provisional rows, and it is why the two codes are
      * separate: answering "no such account" for one that is merely unfinished would name the wrong failure,
@@ -116,9 +113,18 @@ open class UserManager(
 
     /**
      * Check that [user] is an account this server has finished creating, for a caller that already holds it.
+     * Throws a non-recoverable [BusinessException] `user.not_promoted` otherwise.
      *
-     * Throws the non-recoverable `user.not_promoted` of [checkPromoted] otherwise. It reads the model rather
-     * than the row, so it costs nothing and cannot disagree with the account the caller is about to act on.
+     * This is a security control rather than an internal assertion, which is why it is a `400` naming the
+     * caller's mistake and not a `500`. An account being signed up is one whose owner still decides what it
+     * becomes: the session holding it can still abandon it, change the identifier it is claiming, or fail a
+     * validation the sign-up has not reached. A caller that acts on it — mints it a token, enrols it a second
+     * factor, attaches it a provider, records it a consent — hangs that on an account somebody else is still
+     * authoring, and whoever owns that session inherits it when they promote. The id being unguessable is not
+     * the defence; refusing to act on it is. See [com.sympauthy.data.model.SessionScoped].
+     *
+     * It reads the model rather than the row, so it costs nothing and cannot disagree with the account the
+     * caller is about to act on.
      */
     fun checkPromoted(user: User) {
         if (user.sessionId != null) {

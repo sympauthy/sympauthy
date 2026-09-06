@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.flow.link
 
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
+import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.manager.flow.confirm.InteractiveFlowSessionConfirmManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionLinkProviderMapper
 import com.sympauthy.business.model.flow.AuthorizationFlow
@@ -34,6 +35,7 @@ open class InteractiveFlowSessionLinkProviderManager(
     @Inject private val confirmManager: InteractiveFlowSessionConfirmManager,
     @Inject private val linkProviderRepository: InteractiveFlowSessionLinkProviderRepository,
     @Inject private val linkProviderMapper: InteractiveFlowSessionLinkProviderMapper,
+    @Inject private val userManager: UserManager,
 ) {
 
     /**
@@ -90,6 +92,11 @@ open class InteractiveFlowSessionLinkProviderManager(
      *
      * See #294 (this flow) and #295 (the REAUTHENTICATION purpose) for the full rationale.
      *
+     * [userId] must name an account this server has finished creating, which is checked before anything is
+     * written: a caller naming one an interactive flow session is still signing up would be attaching a login
+     * credential to an account that does not exist yet, and could be made to exist afterwards by whoever owns
+     * that session.
+     *
      * The [returnUri] and [cancelUri] must have been validated (e.g. against the named client's registered
      * redirect URIs) by the caller before reaching here.
      */
@@ -102,6 +109,7 @@ open class InteractiveFlowSessionLinkProviderManager(
         initiatingClientId: String?,
         cancelUri: URI? = null,
     ): OnGoingInteractiveFlowSession {
+        userManager.checkPromoted(userId)
         val session = sessionManager.newSession(
             purposes = listOf(
                 InteractiveFlowPurpose.CONFIRM,

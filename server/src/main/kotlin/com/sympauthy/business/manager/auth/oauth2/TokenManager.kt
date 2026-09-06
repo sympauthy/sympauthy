@@ -102,8 +102,8 @@ open class TokenManager(
         if (session.expired) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token.expired", "description.oauth2.expired")
         }
-        // A completed session has promoted whatever it signed up, so this holds by construction. It is
-        // asserted because the thing it guards is a token for an account that does not exist.
+        // Never mint a token for an account a sign-up has not finished, however the session reached this
+        // point: a token is what turns an account into one another system will act on.
         userManager.checkPromoted(session.userId)
 
         val tokenAudience = client.audience.tokenAudience
@@ -182,8 +182,8 @@ open class TokenManager(
             }
         }
 
-        // For user tokens, verify the account is real and the consent has not been revoked (checked at
-        // audience level). A client-credentials token carries no user.
+        // For user tokens, verify the account is one this server finished creating and the consent has not
+        // been revoked (checked at audience level). A client-credentials token carries no user.
         if (refreshToken.userId != null) {
             userManager.checkPromoted(refreshToken.userId)
             consentManager.findActiveConsentByAudienceOrNull(refreshToken.userId, client.audience.id)

@@ -151,7 +151,7 @@ open class InteractiveFlowEngine(
     }
 
     /**
-     * Run each purpose's terminal effect in order, promote whatever the session signed up, and transition it
+     * Promote whatever the session signed up, run each purpose's terminal effect in order, and transition it
      * to completed — all in one transaction.
      *
      * Terminal effects run only here — once every purpose (e.g. the final MFA gate) has resolved — so a
@@ -170,17 +170,19 @@ open class InteractiveFlowEngine(
     internal open suspend fun commitCompletion(
         session: OnGoingInteractiveFlowSession
     ): CompletedInteractiveFlowSession {
+        // Promotion first, so every row a terminal effect goes on to write — a consent, a consumed
+        // invitation — attaches to an account that exists rather than to one still being authored. It is
+        // still before the completion write, which is what makes the expiry boundary safe: a session the
+        // cleaner expired in the meantime has no row left for markAsCompleted to update, so it raises a
+        // concurrent modification and takes the whole of this down with it. The account stays provisional
+        // and is collected, rather than becoming real for a flow that did not complete.
+        session.userId?.let { provisionalAccountManager.promote(session.id, it) }
         for (purpose in session.purposes) {
             val effect = purposeRegistry.getForPurpose(purpose).applyTerminalEffect(session)
             if (effect is TerminalEffectResult.Fail) {
                 throw TerminalEffectRefusedException(effect.error)
             }
         }
-        // Promotion before the completion write, which is what makes the expiry boundary safe: a session
-        // the cleaner expired in the meantime has no row left for markAsCompleted to update, so it raises
-        // a concurrent modification and takes this promotion down with it. The account stays provisional
-        // and is collected, rather than becoming real for a flow that did not complete.
-        session.userId?.let { provisionalAccountManager.promote(session.id, it) }
         return sessionManager.markAsCompleted(session)
     }
 }

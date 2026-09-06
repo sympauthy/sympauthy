@@ -7,6 +7,7 @@ import com.sympauthy.business.mapper.InvitationMapper
 import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.invitation.InvitationStatus
+import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.config.model.AdvancedConfig
@@ -35,6 +36,9 @@ class InvitationManagerTest {
 
     @MockK
     lateinit var collectedClaimManager: com.sympauthy.business.manager.user.CollectedClaimManager
+
+    @MockK
+    lateinit var userManager: UserManager
 
 
     @MockK
@@ -340,6 +344,7 @@ class InvitationManagerTest {
         val invitation = createInvitation(id = invitationId, status = InvitationStatus.CONSUMED)
         val entity = mockk<InvitationEntity>()
 
+        coJustRun { userManager.checkPromoted(userId) }
         coEvery {
             invitationRepository.consumeIfPending(invitationId, "CONSUMED", "PENDING", userId, any())
         } returns 1
@@ -354,6 +359,7 @@ class InvitationManagerTest {
         val invitationId = UUID.randomUUID()
         val userId = UUID.randomUUID()
 
+        coJustRun { userManager.checkPromoted(userId) }
         coEvery {
             invitationRepository.consumeIfPending(invitationId, "CONSUMED", "PENDING", userId, any())
         } returns 0

@@ -437,7 +437,7 @@ class InteractiveFlowEngineTest {
     }
 
     @Test
-    fun `advance - Promotes what the session signed up after the terminal effects and before completing`() =
+    fun `advance - Promotes what the session signed up before the terminal effects and the completion`() =
         runTest {
             val userId = UUID.randomUUID()
             val session = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE), userId = userId)
@@ -455,9 +455,11 @@ class InteractiveFlowEngineTest {
 
             assertSame(completed, engine.advance(session).session)
 
+            // Promotion first, so a consent or a consumed invitation a terminal effect writes attaches to an
+            // account that exists.
             coVerifyOrder {
-                handler.applyTerminalEffect(marked)
                 provisionalAccountManager.promote(marked.id, userId)
+                handler.applyTerminalEffect(marked)
                 sessionManager.markAsCompleted(marked)
             }
         }
@@ -482,7 +484,7 @@ class InteractiveFlowEngineTest {
     }
 
     @Test
-    fun `advance - A refused terminal effect promotes nothing and never completes the session`() = runTest {
+    fun `advance - A refused terminal effect never completes the session`() = runTest {
         val userId = UUID.randomUUID()
         val session = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE), userId = userId)
         val marked = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE), userId = userId)
@@ -499,7 +501,8 @@ class InteractiveFlowEngineTest {
 
         engine.advance(session)
 
-        coVerify(exactly = 0) { provisionalAccountManager.promote(any(), any()) }
+        // The promotion has already run by then; what undoes it is the transaction the refusal rolls back,
+        // which no double can show.
         coVerify(exactly = 0) { sessionManager.markAsCompleted(any()) }
     }
 

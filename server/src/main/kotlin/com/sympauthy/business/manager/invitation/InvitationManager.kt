@@ -5,6 +5,7 @@ import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.user.ClaimValueValidator
 import com.sympauthy.business.manager.user.CollectedClaimManager
+import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.InvitationMapper
 import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
@@ -34,6 +35,7 @@ open class InvitationManager(
     @Inject private val claimManager: ClaimManager,
     @Inject private val claimValueValidator: ClaimValueValidator,
     @Inject private val collectedClaimManager: CollectedClaimManager,
+    @Inject private val userManager: UserManager,
     @Inject private val invitationRepository: InvitationRepository,
     @Inject private val invitationHashGenerator: InvitationHashGenerator,
     @Inject private val invitationTokenGenerator: InvitationTokenGenerator,
@@ -271,6 +273,7 @@ open class InvitationManager(
      */
     @Transactional
     open suspend fun consumeInvitation(id: UUID, userId: UUID): Invitation {
+        userManager.checkPromoted(userId)
         val consumed = invitationRepository.consumeIfPending(
             id = id,
             status = InvitationStatus.CONSUMED.name,

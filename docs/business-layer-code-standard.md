@@ -72,6 +72,20 @@ to a user.** A session is entitled to the rows it is writing, and a row an accou
 as visible as the account the caller resolved through a reader that did filter. The account itself
 is therefore never exempt, and neither is a read keyed by the row's own identifier.
 
+**A method writing a row that outlives the session, against a user, calls
+`UserManager.checkPromoted` first.** A token, a consent, a consumed invitation and a second factor
+all attach to an account, so each refuses one an interactive flow session is still signing up. The
+session's own rows are not this: they are gone when it is.
+
+**It is a defence, not an assertion.** The caller naming that account may be doing it on purpose —
+an account still being signed up is one whose owner decides what it becomes, so a credential hung on
+it is one the owner of that session inherits when they promote. Reject before writing anything, and
+rely on nothing about where the id came from.
+
+**A surface whose protocol names its own error refuses with that error instead.** Token exchange
+answers RFC 8693's `invalid_target` for a subject naming no account, which the committed-only reader
+already produces; say so where it departs.
+
 ### Naming
 
 The verb says what kind of work the method does:

@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.consent
 
+import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.ConsentMapper
 import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.oauth2.ConsentRevokedBy
@@ -7,6 +8,7 @@ import com.sympauthy.data.model.ConsentEntity
 import com.sympauthy.data.repository.AuthenticationTokenRepository
 import com.sympauthy.data.repository.ConsentRepository
 import io.mockk.coEvery
+import io.mockk.coJustRun
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -33,6 +35,9 @@ class ConsentManagerTest {
     @MockK
     lateinit var consentMapper: ConsentMapper
 
+    @MockK
+    lateinit var userManager: UserManager
+
     @InjectMockKs
     lateinit var consentManager: ConsentManager
 
@@ -45,6 +50,7 @@ class ConsentManagerTest {
     fun `saveConsent - Creates new consent when none exists`() = runTest {
         val consent = mockk<Consent>()
 
+        coJustRun { userManager.checkPromoted(userId) }
         coEvery { consentRepository.findByUserIdAndAudienceIdAndRevokedAtIsNull(userId, audienceId) } returns null
         coEvery { consentRepository.save(any<ConsentEntity>()) } answers { firstArg() }
         every { consentMapper.toConsent(any()) } returns consent
@@ -59,6 +65,7 @@ class ConsentManagerTest {
 
     @Test
     fun `saveConsent - Revokes existing consent and merges scopes`() = runTest {
+        coJustRun { userManager.checkPromoted(userId) }
         val existingId = UUID.randomUUID()
         val existingEntity = mockk<ConsentEntity> {
             every { id } returns existingId
