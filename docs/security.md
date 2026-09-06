@@ -114,6 +114,35 @@ being usable on its own.
 expiry. This is the deliberate cost of not being purely stateless: every request that presents a
 token asks the database about it.
 
+## Where a request came from
+
+**A request is recorded as the place it was made from, once per place rather than once per
+request.** A place is an address and a user agent, deduplicated on the SHA-256 of the two, carrying
+whatever country, region and city the proxy in front of the deployment published about it.
+
+**A forwarded header is read only because an operator named the proxy that writes it.** Naming one
+is a promise that the origin cannot be reached around that proxy, which this server cannot verify:
+with the origin open, a caller sets the header and chooses what is recorded about them. A deployment
+that has not made that promise names none, and the address is the peer of the socket.
+
+**An interactive flow session carries the places it has been seen in**, and hands them to the user
+it resolves. Capture happens before anyone has signed in, so without that a person's history would
+end at the moment it started mattering.
+
+**A place is kept for as long as the deployment says, counted from the last sighting**, and deleted
+by a job of its own. A place nobody was ever attached to is the short-lived one — an abandoned flow,
+a failed sign-in, probing — and is the largest pile.
+
+**A client decides what a place means; this server does not.** Where a client configures an
+access-review webhook, validating a token through UserInfo or a `refresh_token` grant hands it the
+place the request came from and the places before it, and it answers allow, deny or revoke the
+session.
+
+**The trigger is a property of the decision rather than of the sighting.** A webhook asked "is this
+place new" would be asked once about an attacker and never again, because the row their first
+attempt wrote makes the second familiar; it is asked instead whenever the place carries no allow of
+its own, and a denial is never recorded as one.
+
 ## What this design does not do
 
 **It does not rate-limit or lock out.** Nothing limits password attempts, validation-code attempts,
@@ -121,8 +150,9 @@ or second-factor attempts — anywhere. An attacker with a valid identifier gets
 whatever the flow is protecting. This is the largest known gap in this document and it is tracked as
 its own work.
 
-**It does not detect anomalies.** No device fingerprint, no impossible-travel check, no risk score.
-A correct credential is a correct credential.
+**It does not score risk.** No device fingerprint, no impossible-travel check, no velocity, no
+reputation. It records where a request came from and hands that to the client that configured a
+review; what it means is the client's to decide.
 
 **It does not log an audit trail.** Who did what, and when, is reconstructible from application logs
 and from the rows themselves, not from a designed record. An audit primitive is designed and not yet

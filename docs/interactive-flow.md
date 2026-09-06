@@ -204,6 +204,11 @@ decision.
 the account a sign-up had not finished creating — are collected by a scheduled job. A person starts
 again from the client that sent them.
 
+**The places a session was seen in are not among what goes with it.** A security context outlives
+every session that observed it, so the session holds its identifier rather than owning it, and it is
+deleted on a retention of its own. That is the one thing a session refers to that it does not take
+with it — see [security](security.md#where-a-request-came-from).
+
 **It does not model steps that branch on client-supplied data.** Every predicate is a function of
 the session and the configuration. A step that needed the client to say which of two paths to take
 would be a purpose, not a step.

@@ -123,10 +123,10 @@ every case: **a package belongs beside the layers when it owns no layer's model.
 today:
 
 - **`client/`** — requests *leaving* this server: the token, UserInfo and discovery endpoints of a
-  third-party identity provider, and the authorization webhook. One package per protocol, each with
-  its own `model/` of response types. Those types are a foreign contract, exactly as a database row
-  is, and they get the rule `data` already lives under: a client's response type does not reach a
-  manager unmapped.
+  third-party identity provider, and the webhooks a client configures. One package per protocol,
+  each with its own `model/` of response types. Those types are a foreign contract, exactly as a
+  database row is, and they get the rule `data` already lives under: a client's response type does
+  not reach a manager unmapped.
 - **`exception/`** — `LocalizedException`, the root every failure in this server extends, and the
   mapper that renders one against a message bundle. It is above all three layers because `business`
   and `api` both throw, and neither may depend on the other. See [the exception
