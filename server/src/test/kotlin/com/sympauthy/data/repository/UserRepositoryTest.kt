@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import java.util.*
 
 /**
  * The user, whose reader by status is the one query in the model that is not `suspend`: it hands back a
@@ -189,7 +190,7 @@ class UserRepositoryTest {
         val committed = newUser(status = status)
         repository<InteractiveFlowSessionRepository>().deleteByIds(listOf(session.id!!))
 
-        val found = users.findAbandoned().map { it.id!! }
+        val found = users.findAbandoned(LIMIT).map { it.id!! }
 
         assertTrue(found.contains(abandoned))
         assertTrue(!found.contains(stillSigningUp))
@@ -198,15 +199,55 @@ class UserRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `findAbandoned - Skips an account a session still refers to`(database: Database) =
+    fun `findAbandoned - Answers no more accounts than the limit`(database: Database) = withFixture(database) {
+        val users = repository<UserRepository>()
+        val session = newSession()
+        newUser(status = status, sessionId = session.id)
+        newUser(status = status, sessionId = session.id)
+        repository<InteractiveFlowSessionRepository>().deleteByIds(listOf(session.id!!))
+
+        assertEquals(1, users.findAbandoned(1).size)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findCollectableIn - Answers the account nothing refers to`(database: Database) =
         withFixture(database) {
             val users = repository<UserRepository>()
             val session = newSession()
             val userId = newUser(status = status, sessionId = session.id)
-            newSession(userId = userId)
             repository<InteractiveFlowSessionRepository>().deleteByIds(listOf(session.id!!))
 
-            assertTrue(!users.findAbandoned().map { it.id!! }.contains(userId))
+            assertEquals(listOf(userId), users.findCollectableIn(listOf(userId)).map { it.id!! })
+        }
+
+    /**
+     * One account per table the query names, because an account any one of the five still refers to has to
+     * be left where it is — while staying abandoned, which is the difference the sweep reports.
+     */
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findCollectableIn - Leaves out an account a row still refers to`(database: Database) =
+        withFixture(database) {
+            val users = repository<UserRepository>()
+            val sessions = repository<InteractiveFlowSessionRepository>()
+            val referrers: List<Pair<String, suspend (UUID) -> Unit>> = listOf(
+                "interactive_flow_sessions" to { userId -> newSession(userId = userId) },
+                "validation_codes" to { userId -> newValidationCode(userId, newSession().id!!) },
+                "consents" to { userId -> newConsent(userId, "audience-$status") },
+                "invitations" to { userId -> newConsumedInvitation(userId, "audience-$status") },
+                "authentication_tokens" to { userId -> newAuthenticationToken(userId) }
+            )
+
+            referrers.forEach { (table, refer) ->
+                val session = newSession()
+                val userId = newUser(status = status, sessionId = session.id)
+                refer(userId)
+                sessions.deleteByIds(listOf(session.id!!))
+
+                assertTrue(users.findAbandoned(LIMIT).map { it.id!! }.contains(userId), table)
+                assertEquals(emptyList<UUID>(), users.findCollectableIn(listOf(userId)).map { it.id!! }, table)
+            }
         }
 
     @ParameterizedTest
@@ -246,7 +287,7 @@ class UserRepositoryTest {
             newTotpEnrollment(userId, sessionId = session.id)
             repository<InteractiveFlowSessionRepository>().deleteByIds(listOf(session.id!!))
 
-            val abandoned = users.findAbandoned().mapNotNull { it.id }
+            val abandoned = users.findAbandoned(LIMIT).mapNotNull { it.id }
             repository<PasswordRepository>().deleteByUserIdInAndSessionIdIsNotNull(abandoned)
             repository<CollectedClaimRepository>().deleteByUserIdInAndSessionIdIsNotNull(abandoned)
             repository<ProviderUserInfoRepository>().deleteByUserIdInAndSessionIdIsNotNull(abandoned)
@@ -274,7 +315,7 @@ class UserRepositoryTest {
             newProviderLink("promoted-$status", userId, "subject-promoted-$status", sessionId = sessionId)
             newTotpEnrollment(userId, sessionId = sessionId)
             repository<InteractiveFlowSessionRepository>().deleteByIds(listOf(sessionId))
-            val abandoned = users.findAbandoned().mapNotNull { it.id }
+            val abandoned = users.findAbandoned(LIMIT).mapNotNull { it.id }
             assertTrue(abandoned.contains(userId))
 
             repository<PasswordRepository>().clearSessionId(userId, sessionId)
@@ -299,4 +340,9 @@ class UserRepositoryTest {
             assertEquals(0, users.deleteByIdInAndSessionIdIsNotNull(abandoned))
             assertNotNull(users.findById(userId))
         }
+
+    companion object {
+        /** A bound no test's own rows come near, where the sweep's limit is not what is under test. */
+        private const val LIMIT = 100
+    }
 }

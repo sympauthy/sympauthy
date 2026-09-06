@@ -27,6 +27,7 @@ data class EnabledAdvancedConfig(
     val validationCode: ValidationCodeConfig,
     val authorizationWebhook: AuthorizationWebhookAdvancedConfig,
     val pagination: PaginationConfig,
+    val cleanup: CleanupConfig,
 ) : AdvancedConfig()
 
 class DisabledAdvancedConfig(
@@ -93,6 +94,22 @@ data class PaginationConfig(
      * Largest size a caller may ask for. A larger one is refused rather than reduced.
      */
     val maxSize: Int,
+)
+
+/**
+ * Bounds one run of the scheduled cleanup that collects expired interactive flow sessions and the
+ * accounts an abandoned sign-up left behind.
+ *
+ * The cleanup is self-correcting — what a run leaves behind the next one takes — so the bound is what
+ * a deployment raises when its backlog stops draining, and lowers when the locks a run holds are felt
+ * elsewhere.
+ */
+data class CleanupConfig(
+    /**
+     * Largest number of rows one run takes: the expired sessions the session cleanup deletes, and the
+     * abandoned accounts the sweep collects, each bounded on its own.
+     */
+    val batchSize: Int,
 )
 
 data class AuthorizationWebhookAdvancedConfig(

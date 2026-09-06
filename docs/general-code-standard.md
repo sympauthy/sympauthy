@@ -101,6 +101,11 @@ handler, a manager method, a repository query.
 **A blocking third-party call is made inside an IO dispatcher.** A library that fetches a key set or
 sends mail does its own I/O.
 
+**A `…Cron` blocks on the work it schedules**, bridging into coroutines with `runBlocking` on the
+`scheduled` executor's thread rather than launching one and returning. Micronaut measures both of
+its promises from that return: the failure of a launched run reaches the coroutine machinery instead
+of the task exception handler that logs it, and `fixedDelay` counts the dispatch rather than the run.
+
 ## Rules that compile and then fail
 
 **A class carrying an AOP annotation is `open`, and so is the annotated method.** Kotlin classes are
@@ -127,6 +132,9 @@ failed flow.
 
 **Caching.** Nothing memoises anything, including the discovery documents and key sets fetched from
 third-party providers.
+
+**A scheduled job running on more than one instance.** Every `…Cron` runs on every server, and
+nothing elects one of them or takes a lock.
 
 ---
 

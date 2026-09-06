@@ -1,5 +1,7 @@
 package com.sympauthy.business.manager.flow
 
+import com.sympauthy.config.model.CleanupConfig
+import com.sympauthy.config.model.EnabledAdvancedConfig
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.repository.AuthorizationCodeRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionConfirmRepository
@@ -11,11 +13,14 @@ import com.sympauthy.data.repository.InteractiveFlowSessionRepository
 import com.sympauthy.data.repository.ValidationCodeRepository
 import io.mockk.coEvery
 import io.mockk.coVerifyOrder
+import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import java.time.LocalDateTime
@@ -48,6 +53,9 @@ class InteractiveFlowSessionCleanerTest {
     @MockK
     lateinit var authorizationCodeRepository: AuthorizationCodeRepository
 
+    @MockK
+    lateinit var advancedConfig: EnabledAdvancedConfig
+
     @InjectMockKs
     lateinit var cleaner: InteractiveFlowSessionCleaner
 
@@ -79,6 +87,14 @@ class InteractiveFlowSessionCleanerTest {
         assertEquals(0, result.sessionCount)
         assertEquals(0, result.authorizationCodeCount)
         assertEquals(0, result.validationCodesCount)
+        assertFalse(result.moreToClean)
+    }
+
+    @Test
+    fun `clean - Says there is more when the run took as many sessions as it was allowed`() = runTest {
+        expiredSessions(expiredSessionId, batchSize = 1)
+
+        assertTrue(cleaner.clean().moreToClean)
     }
 
     private fun dependencyDeletes(): List<suspend () -> Int> = listOf(
@@ -91,7 +107,8 @@ class InteractiveFlowSessionCleanerTest {
         { linkProviderRepository.deleteBySessionIdIn(listOf(expiredSessionId)) },
     )
 
-    private fun expiredSessions(vararg ids: UUID) {
+    private fun expiredSessions(vararg ids: UUID, batchSize: Int = BATCH_SIZE) {
+        every { advancedConfig.cleanup } returns CleanupConfig(batchSize = batchSize)
         val sessions = ids.map { id ->
             InteractiveFlowSessionEntity(
                 purposes = arrayOf("OAUTH2_AUTHORIZE"),
@@ -101,7 +118,7 @@ class InteractiveFlowSessionCleanerTest {
             ).apply { this.id = id }
         }
         val idList = ids.toList()
-        coEvery { sessionRepository.findExpired() } returns sessions
+        coEvery { sessionRepository.findExpired(batchSize) } returns sessions
         coEvery { authorizationCodeRepository.deleteBySessionIdIn(idList) } returns 0
         coEvery { validationCodeRepository.deleteBySessionIdIn(idList) } returns 0
         coEvery { oauth2Repository.deleteBySessionIdIn(idList) } returns 0
@@ -110,5 +127,10 @@ class InteractiveFlowSessionCleanerTest {
         coEvery { reauthenticationRepository.deleteBySessionIdIn(idList) } returns 0
         coEvery { linkProviderRepository.deleteBySessionIdIn(idList) } returns 0
         coEvery { sessionRepository.deleteByIds(idList) } returns ids.size
+    }
+
+    companion object {
+        /** A bound the cases above never come near, where the bound is not what they prove. */
+        private const val BATCH_SIZE = 100
     }
 }

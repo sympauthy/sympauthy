@@ -1,20 +1,28 @@
 package com.sympauthy.data
 
+import com.sympauthy.data.model.AuthenticationTokenEntity
 import com.sympauthy.data.model.AuthorizationCodeEntity
+import com.sympauthy.data.model.ConsentEntity
 import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
+import com.sympauthy.data.model.InvitationEntity
 import com.sympauthy.data.model.PasswordEntity
 import com.sympauthy.data.model.ProviderUserInfoEntity
 import com.sympauthy.data.model.ProviderUserInfoEntityId
 import com.sympauthy.data.model.TotpEnrollmentEntity
 import com.sympauthy.data.model.UserEntity
+import com.sympauthy.data.model.ValidationCodeEntity
+import com.sympauthy.data.repository.AuthenticationTokenRepository
 import com.sympauthy.data.repository.AuthorizationCodeRepository
+import com.sympauthy.data.repository.ConsentRepository
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
+import com.sympauthy.data.repository.InvitationRepository
 import com.sympauthy.data.repository.PasswordRepository
 import com.sympauthy.data.repository.ProviderUserInfoRepository
 import com.sympauthy.data.repository.TotpEnrollmentRepository
 import com.sympauthy.data.repository.UserRepository
+import com.sympauthy.data.repository.ValidationCodeRepository
 import kotlinx.coroutines.test.runTest
 import java.time.LocalDateTime
 import java.util.*
@@ -174,6 +182,80 @@ class RepositoryFixture(val database: Database) {
             )
         )
         deleteOnEnd { links.deleteByProviderIdAndUserId(providerId, userId) }
+    }
+
+    /** Sends [userId] a validation code, against the live session [sessionId]. */
+    suspend fun newValidationCode(userId: UUID, sessionId: UUID) {
+        val codes = database.bean<ValidationCodeRepository>()
+        val saved = codes.save(
+            ValidationCodeEntity(
+                code = "000000",
+                userId = userId,
+                media = "EMAIL",
+                reasons = arrayOf("EMAIL_CLAIM"),
+                sessionId = sessionId,
+                creationDate = BASE_DATE,
+                resendDate = null,
+                expirationDate = BASE_DATE.plusMinutes(10)
+            )
+        )
+        deleteOnEnd { saved.id?.let { codes.deleteById(it) } }
+    }
+
+    /** Records [userId] consenting to [audienceId]. */
+    suspend fun newConsent(userId: UUID, audienceId: String) {
+        val consents = database.bean<ConsentRepository>()
+        val saved = consents.save(
+            ConsentEntity(
+                userId = userId,
+                audienceId = audienceId,
+                promptedByClientId = "client",
+                scopes = arrayOf("openid"),
+                consentedAt = BASE_DATE
+            )
+        )
+        deleteOnEnd { saved.id?.let { consents.deleteById(it) } }
+    }
+
+    /** Records an invitation to [audienceId] that [userId] consumed. */
+    suspend fun newConsumedInvitation(userId: UUID, audienceId: String) {
+        val invitations = database.bean<InvitationRepository>()
+        val saved = invitations.save(
+            InvitationEntity(
+                audienceId = audienceId,
+                tokenLookupHash = byteArrayOf(4),
+                hashedToken = byteArrayOf(5),
+                salt = byteArrayOf(6),
+                tokenPrefix = "prefix",
+                status = "CONSUMED",
+                createdBy = "ADMIN",
+                consumedByUserId = userId,
+                createdAt = BASE_DATE,
+                expiresAt = BASE_DATE.plusDays(1),
+                consumedAt = BASE_DATE
+            )
+        )
+        deleteOnEnd { saved.id?.let { invitations.deleteById(it) } }
+    }
+
+    /** Issues an access token to [userId]. */
+    suspend fun newAuthenticationToken(userId: UUID) {
+        val tokens = database.bean<AuthenticationTokenRepository>()
+        val saved = tokens.save(
+            AuthenticationTokenEntity(
+                type = "ACCESS",
+                userId = userId,
+                clientId = "client",
+                grantedScopes = arrayOf("openid"),
+                consentedScopes = emptyArray(),
+                clientScopes = emptyArray(),
+                sessionId = null,
+                grantType = "authorization_code",
+                issueDate = BASE_DATE,
+                expirationDate = BASE_DATE.plusHours(1)
+            )
+        )
+        deleteOnEnd { saved.id?.let { tokens.deleteById(it) } }
     }
 
     /**

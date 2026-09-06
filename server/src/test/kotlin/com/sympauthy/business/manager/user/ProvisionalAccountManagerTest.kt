@@ -22,6 +22,7 @@ import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
@@ -145,15 +146,17 @@ class ProvisionalAccountManagerTest {
     @Test
     fun `deleteAbandoned - Removes every row the account owns before the account`() = runTest {
         val abandonedId = UUID.randomUUID()
-        coEvery { userRepository.findAbandoned() } returns listOf(abandonedUser(abandonedId))
+        abandoned(abandonedId, collectable = listOf(abandonedId))
         coEvery { passwordRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(abandonedId)) } returns 1
         coEvery { collectedClaimRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(abandonedId)) } returns 2
         coEvery { providerUserInfoRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(abandonedId)) } returns 0
         coEvery { totpEnrollmentRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(abandonedId)) } returns 0
         coEvery { userRepository.deleteByIdInAndSessionIdIsNotNull(listOf(abandonedId)) } returns 1
 
-        assertEquals(1, manager.deleteAbandoned())
+        val result = manager.deleteAbandoned(BATCH_SIZE)
 
+        assertEquals(1, result.deletedCount)
+        assertEquals(emptyList<UUID>(), result.retainedIds)
         coVerifyOrder {
             passwordRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(abandonedId))
             collectedClaimRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(abandonedId))
@@ -165,12 +168,53 @@ class ProvisionalAccountManagerTest {
 
     @Test
     fun `deleteAbandoned - Touches no table when nothing was abandoned`() = runTest {
-        coEvery { userRepository.findAbandoned() } returns emptyList()
+        coEvery { userRepository.findAbandoned(BATCH_SIZE) } returns emptyList()
 
-        assertEquals(0, manager.deleteAbandoned())
+        val result = manager.deleteAbandoned(BATCH_SIZE)
 
+        assertEquals(0, result.deletedCount)
+        assertEquals(emptyList<UUID>(), result.retainedIds)
+        coVerify(exactly = 0) { userRepository.findCollectableIn(any()) }
         coVerify(exactly = 0) { passwordRepository.deleteByUserIdInAndSessionIdIsNotNull(any()) }
         coVerify(exactly = 0) { userRepository.deleteByIdInAndSessionIdIsNotNull(any()) }
+    }
+
+    @Test
+    fun `deleteAbandoned - Names the account a row still refers to and deletes the other`() = runTest {
+        val collectableId = UUID.randomUUID()
+        val retainedId = UUID.randomUUID()
+        abandoned(collectableId, retainedId, collectable = listOf(collectableId))
+        coEvery { passwordRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(collectableId)) } returns 0
+        coEvery { collectedClaimRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(collectableId)) } returns 0
+        coEvery { providerUserInfoRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(collectableId)) } returns 0
+        coEvery { totpEnrollmentRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(collectableId)) } returns 0
+        coEvery { userRepository.deleteByIdInAndSessionIdIsNotNull(listOf(collectableId)) } returns 1
+
+        val result = manager.deleteAbandoned(BATCH_SIZE)
+
+        assertEquals(1, result.deletedCount)
+        assertEquals(listOf(retainedId), result.retainedIds)
+    }
+
+    @Test
+    fun `deleteAbandoned - Deletes nothing when every abandoned account is retained`() = runTest {
+        val retainedId = UUID.randomUUID()
+        abandoned(retainedId, collectable = emptyList())
+
+        val result = manager.deleteAbandoned(BATCH_SIZE)
+
+        assertEquals(0, result.deletedCount)
+        assertEquals(listOf(retainedId), result.retainedIds)
+        coVerify(exactly = 0) { passwordRepository.deleteByUserIdInAndSessionIdIsNotNull(any()) }
+        coVerify(exactly = 0) { userRepository.deleteByIdInAndSessionIdIsNotNull(any()) }
+    }
+
+    @Test
+    fun `deleteAbandoned - Says the batch filled when it took as many as it was allowed`() = runTest {
+        val retainedId = UUID.randomUUID()
+        abandoned(retainedId, collectable = emptyList(), limit = 1)
+
+        assertTrue(manager.deleteAbandoned(1).filledBatch)
     }
 
     private fun abandonedUser(id: UUID) = UserEntity(
@@ -178,6 +222,11 @@ class ProvisionalAccountManagerTest {
         creationDate = LocalDateTime.now(),
         sessionId = UUID.randomUUID()
     ).apply { this.id = id }
+
+    private fun abandoned(vararg ids: UUID, collectable: List<UUID>, limit: Int = BATCH_SIZE) {
+        coEvery { userRepository.findAbandoned(limit) } returns ids.map(::abandonedUser)
+        coEvery { userRepository.findCollectableIn(ids.toList()) } returns collectable.map(::abandonedUser)
+    }
 
     private fun provisionalUser() {
         coEvery { userRepository.findByIdAndSessionId(userId, sessionId) } returns UserEntity(
@@ -237,4 +286,9 @@ class ProvisionalAccountManagerTest {
         subject = subject,
         sessionId = sessionId
     )
+
+    companion object {
+        /** A bound the sweeps under test never come near, where the bound is not what they prove. */
+        private const val BATCH_SIZE = 100
+    }
 }

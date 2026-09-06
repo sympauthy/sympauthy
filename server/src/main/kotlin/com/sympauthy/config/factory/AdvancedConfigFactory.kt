@@ -6,6 +6,7 @@ import com.sympauthy.config.model.DisabledAdvancedConfig
 import com.sympauthy.config.parsing.AdvancedConfigParser
 import com.sympauthy.config.properties.AdvancedConfigurationProperties
 import com.sympauthy.config.properties.AuthorizationWebhookConfigurationProperties
+import com.sympauthy.config.properties.CleanupConfigurationProperties
 import com.sympauthy.config.properties.HashConfigurationProperties
 import com.sympauthy.config.properties.InvitationConfigurationProperties
 import com.sympauthy.config.properties.InvitationHashConfigurationProperties
@@ -33,12 +34,14 @@ class AdvancedConfigFactory(
         validationCodeProperties: ValidationCodeConfigurationProperties,
         authorizationWebhookProperties: AuthorizationWebhookConfigurationProperties,
         paginationProperties: PaginationConfigurationProperties,
+        cleanupProperties: CleanupConfigurationProperties,
     ): AdvancedConfig {
         val ctx = ConfigParsingContext()
         val parsed = advancedParser.parse(
             ctx, properties, jwtProperties, hashProperties,
             invitationProperties, invitationHashProperties,
-            validationCodeProperties, authorizationWebhookProperties, paginationProperties
+            validationCodeProperties, authorizationWebhookProperties, paginationProperties,
+            cleanupProperties
         )
         val config = advancedValidator.validate(ctx, parsed)
         return config ?: DisabledAdvancedConfig(ctx.errors)

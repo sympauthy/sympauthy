@@ -74,10 +74,22 @@ class InteractiveFlowSessionRepositoryTest {
             val expired = newSession(expirationDate = now.minusYears(1))
             val ongoing = newSession(expirationDate = now.plusYears(1))
 
-            val found = sessions.findExpired().map { it.id }
+            val found = sessions.findExpired(LIMIT).map { it.id }
 
             assertTrue(found.contains(expired.id))
             assertTrue(!found.contains(ongoing.id))
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findExpired - Returns no more sessions than the limit`(database: Database) =
+        withFixture(database) {
+            val sessions = repository<InteractiveFlowSessionRepository>()
+            val now = LocalDateTime.now()
+            newSession(expirationDate = now.minusYears(1))
+            newSession(expirationDate = now.minusYears(1))
+
+            assertEquals(1, sessions.findExpired(1).size)
         }
 
     @ParameterizedTest
@@ -277,4 +289,8 @@ class InteractiveFlowSessionRepositoryTest {
         assertNotNull(sessions.findById(kept))
     }
 
+    companion object {
+        /** A bound no test's own rows come near, where the cleanup's limit is not what is under test. */
+        private const val LIMIT = 100
+    }
 }

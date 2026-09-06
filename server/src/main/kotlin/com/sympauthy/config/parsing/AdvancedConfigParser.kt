@@ -7,6 +7,7 @@ import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.properties.*
 import com.sympauthy.config.properties.AdvancedConfigurationProperties.Companion.ADVANCED_KEY
 import com.sympauthy.config.properties.AuthorizationWebhookConfigurationProperties.Companion.AUTHORIZATION_WEBHOOK_KEY
+import com.sympauthy.config.properties.CleanupConfigurationProperties.Companion.CLEANUP_KEY
 import com.sympauthy.config.properties.HashConfigurationProperties.Companion.HASH_KEY
 import com.sympauthy.config.properties.InvitationConfigurationProperties.Companion.INVITATION_KEY
 import com.sympauthy.config.properties.InvitationHashConfigurationProperties.Companion.INVITATION_HASH_KEY
@@ -25,7 +26,8 @@ data class ParsedAdvancedConfig(
     val invitation: ParsedInvitationConfig,
     val validationCode: ParsedValidationCodeConfig,
     val webhookTimeout: Duration?,
-    val pagination: ParsedPaginationConfig
+    val pagination: ParsedPaginationConfig,
+    val cleanup: ParsedCleanupConfig
 )
 
 data class ParsedInvitationConfig(
@@ -48,6 +50,10 @@ data class ParsedPaginationConfig(
     val maxSize: Int?
 )
 
+data class ParsedCleanupConfig(
+    val batchSize: Int?
+)
+
 data class ParsedValidationCodeConfig(
     val expiration: Duration?,
     val length: Int?,
@@ -67,7 +73,8 @@ class AdvancedConfigParser(
         invitationHashProperties: InvitationHashConfigurationProperties,
         validationCodeProperties: ValidationCodeConfigurationProperties,
         authorizationWebhookProperties: AuthorizationWebhookConfigurationProperties,
-        paginationProperties: PaginationConfigurationProperties
+        paginationProperties: PaginationConfigurationProperties,
+        cleanupProperties: CleanupConfigurationProperties
     ): ParsedAdvancedConfig {
         val keysGenerationStrategyId = ctx.parse {
             parser.getEnumOrThrow<AdvancedConfigurationProperties, CryptoKeysGenerationStrategyId>(
@@ -109,6 +116,7 @@ class AdvancedConfigParser(
         }
 
         val pagination = parsePaginationConfig(ctx, paginationProperties)
+        val cleanup = parseCleanupConfig(ctx, cleanupProperties)
 
         return ParsedAdvancedConfig(
             keysGenerationStrategyId = keysGenerationStrategyId,
@@ -119,7 +127,23 @@ class AdvancedConfigParser(
             invitation = invitation,
             validationCode = validationCode,
             webhookTimeout = webhookTimeout,
-            pagination = pagination
+            pagination = pagination,
+            cleanup = cleanup
+        )
+    }
+
+    private fun parseCleanupConfig(
+        ctx: ConfigParsingContext,
+        properties: CleanupConfigurationProperties
+    ): ParsedCleanupConfig {
+        val batchSize = ctx.parse {
+            parser.getIntOrThrow(
+                properties, "$CLEANUP_KEY.batch-size",
+                CleanupConfigurationProperties::batchSize
+            )
+        }
+        return ParsedCleanupConfig(
+            batchSize = batchSize
         )
     }
 

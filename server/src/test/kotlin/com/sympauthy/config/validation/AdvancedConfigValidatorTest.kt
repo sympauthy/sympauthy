@@ -5,6 +5,7 @@ import com.sympauthy.business.model.key.CryptoKeysGenerationStrategyId
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.parsing.ParsedAdvancedConfig
+import com.sympauthy.config.parsing.ParsedCleanupConfig
 import com.sympauthy.config.parsing.ParsedHashConfig
 import com.sympauthy.config.parsing.ParsedInvitationConfig
 import com.sympauthy.config.parsing.ParsedPaginationConfig
@@ -79,7 +80,43 @@ class AdvancedConfigValidatorTest {
         )
     }
 
-    private fun parsedConfig(pagination: ParsedPaginationConfig): ParsedAdvancedConfig {
+    @Test
+    fun `validate - Keep the configured cleanup batch size`() {
+        val ctx = ConfigParsingContext()
+
+        val config = validator.validate(ctx, parsedConfig(ParsedPaginationConfig(20, 100), ParsedCleanupConfig(50)))
+
+        assertNotNull(config)
+        assertEquals(50, config!!.cleanup.batchSize)
+    }
+
+    @Test
+    fun `validate - Reject a cleanup batch size below one`() {
+        val ctx = ConfigParsingContext()
+
+        val config = validator.validate(ctx, parsedConfig(ParsedPaginationConfig(20, 100), ParsedCleanupConfig(0)))
+
+        assertNull(config)
+        assertEquals(
+            listOf("config.advanced.cleanup.invalid_batch_size"),
+            ctx.errors.map { it.messageId }
+        )
+    }
+
+    @Test
+    fun `validate - Return no configuration when the cleanup batch size did not parse`() {
+        val ctx = ConfigParsingContext()
+        ctx.addError(configExceptionOf("advanced.cleanup.batch-size", "config.missing"))
+
+        val config = validator.validate(ctx, parsedConfig(ParsedPaginationConfig(20, 100), ParsedCleanupConfig(null)))
+
+        assertNull(config)
+    }
+
+    private fun parsedConfig(
+        pagination: ParsedPaginationConfig,
+        cleanup: ParsedCleanupConfig = ParsedCleanupConfig(1000)
+    ): ParsedAdvancedConfig {
         val hash = ParsedHashConfig(
             costParameter = 16_384,
             blockSize = 8,
@@ -105,7 +142,8 @@ class AdvancedConfigValidatorTest {
                 resendDelay = Duration.ofMinutes(1)
             ),
             webhookTimeout = Duration.ofSeconds(5),
-            pagination = pagination
+            pagination = pagination,
+            cleanup = cleanup
         )
     }
 }

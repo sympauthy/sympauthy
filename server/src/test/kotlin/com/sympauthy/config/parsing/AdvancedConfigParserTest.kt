@@ -9,6 +9,7 @@ import com.sympauthy.config.properties.HashConfigurationProperties
 import com.sympauthy.config.properties.InvitationConfigurationProperties
 import com.sympauthy.config.properties.InvitationHashConfigurationProperties
 import com.sympauthy.config.properties.JwtConfigurationProperties
+import com.sympauthy.config.properties.CleanupConfigurationProperties
 import com.sympauthy.config.properties.PaginationConfigurationProperties
 import com.sympauthy.config.properties.ValidationCodeConfigurationProperties
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -65,7 +66,8 @@ class AdvancedConfigParserTest {
         invitationHashProperties = invitationHashProperties,
         validationCodeProperties = validationCodeProperties,
         authorizationWebhookProperties = authorizationWebhookProperties,
-        paginationProperties = paginationProperties
+        paginationProperties = paginationProperties,
+        cleanupProperties = cleanupProperties
     )
 
     /**
@@ -116,5 +118,9 @@ class AdvancedConfigParserTest {
     private val paginationProperties = object : PaginationConfigurationProperties {
         override val defaultSize = "20"
         override val maxSize = "100"
+    }
+
+    private val cleanupProperties = object : CleanupConfigurationProperties {
+        override val batchSize = "1000"
     }
 }

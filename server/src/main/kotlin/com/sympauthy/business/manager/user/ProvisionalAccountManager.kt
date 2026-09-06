@@ -74,16 +74,22 @@ open class ProvisionalAccountManager(
     }
 
     /**
-     * Delete the accounts left behind by a sign-up that never completed, and answer how many there were.
+     * Delete the accounts left behind by a sign-up that never completed, taking at most [limit] of them,
+     * and answer what the run did — including the ones it deliberately left alone.
      *
      * An account counts as abandoned when the session signing it up is **gone** — see
-     * [UserRepository.findAbandoned], which is where that and the rule for skipping an account something
-     * still refers to are written. Keying on absence rather than on the sessions one run expired makes this
-     * self-correcting: an account orphaned by an earlier failure is collected on the next pass, and this
-     * sweep needs nothing from the run that expired the session. It is a cleaner of its own, on a cron of
-     * its own ([com.sympauthy.cron.CleanAbandonedAccountCron]), rather than a step of the one removing the
-     * sessions — which is what keeps it reading an absence every other transaction can see too, and keeps
-     * it from holding a session's lock while it waits for an account's.
+     * [UserRepository.findAbandoned]. Keying on absence rather than on the sessions one run expired makes
+     * this self-correcting: an account orphaned by an earlier failure is collected on the next pass, and
+     * this sweep needs nothing from the run that expired the session. It is a cleaner of its own, on a cron
+     * of its own ([com.sympauthy.cron.CleanAbandonedAccountCron]), rather than a step of the one removing
+     * the sessions — which is what keeps it reading an absence every other transaction can see too, and
+     * keeps it from holding a session's lock while it waits for an account's. Self-correction is also what
+     * makes [limit] safe: a run that fills it leaves the rest to the next one.
+     *
+     * **An abandoned account another row still refers to is retained, and its id is in the result.**
+     * [UserRepository.findCollectableIn] is the rule for which those are, and such a row is a bug to find
+     * rather than a run to lose — so the sweep names them for its caller to report instead of dropping
+     * them from a count nobody can tell apart from having had nothing to do.
      *
      * The account's own rows go first, every one of them rather than only the provisional ones: the account
      * is going, so anything hanging off it is going too. By the [com.sympauthy.data.model.SessionScoped]
@@ -98,16 +104,25 @@ open class ProvisionalAccountManager(
      * under the flow that finished it.
      */
     @Transactional
-    open suspend fun deleteAbandoned(): Int {
-        val userIds = userRepository.findAbandoned().mapNotNull(UserEntity::id)
-        if (userIds.isEmpty()) return 0
+    open suspend fun deleteAbandoned(limit: Int): CollectResult {
+        val abandonedIds = userRepository.findAbandoned(limit).mapNotNull(UserEntity::id)
+        if (abandonedIds.isEmpty()) return CollectResult(0, emptyList(), filledBatch = false)
+        val filledBatch = abandonedIds.size == limit
 
-        passwordRepository.deleteByUserIdInAndSessionIdIsNotNull(userIds)
-        collectedClaimRepository.deleteByUserIdInAndSessionIdIsNotNull(userIds)
-        providerUserInfoRepository.deleteByUserIdInAndSessionIdIsNotNull(userIds)
-        totpEnrollmentRepository.deleteByUserIdInAndSessionIdIsNotNull(userIds)
+        val collectableIds = userRepository.findCollectableIn(abandonedIds).mapNotNull(UserEntity::id)
+        val retainedIds = abandonedIds - collectableIds.toSet()
+        if (collectableIds.isEmpty()) return CollectResult(0, retainedIds, filledBatch)
 
-        return userRepository.deleteByIdInAndSessionIdIsNotNull(userIds)
+        passwordRepository.deleteByUserIdInAndSessionIdIsNotNull(collectableIds)
+        collectedClaimRepository.deleteByUserIdInAndSessionIdIsNotNull(collectableIds)
+        providerUserInfoRepository.deleteByUserIdInAndSessionIdIsNotNull(collectableIds)
+        totpEnrollmentRepository.deleteByUserIdInAndSessionIdIsNotNull(collectableIds)
+
+        return CollectResult(
+            deletedCount = userRepository.deleteByIdInAndSessionIdIsNotNull(collectableIds),
+            retainedIds = retainedIds,
+            filledBatch = filledBatch
+        )
     }
 
     /**
@@ -152,4 +167,25 @@ open class ProvisionalAccountManager(
             }
         }
     }
+
+    /**
+     * What one run of [deleteAbandoned] did.
+     */
+    data class CollectResult(
+        /**
+         * How many accounts were deleted. Lower than the number collectable when a flow promoted one
+         * between the read and the delete, which is the case the re-asserted session id exists for.
+         */
+        val deletedCount: Int,
+        /**
+         * The abandoned accounts a row still refers to, left where they are. Every one of them is a row
+         * that outlived the account it belongs to, so the ids are what makes that row findable.
+         */
+        val retainedIds: List<UUID>,
+        /**
+         * Whether the sweep took as many abandoned accounts as it was allowed, so there may be more the
+         * next run will take.
+         */
+        val filledBatch: Boolean
+    )
 }

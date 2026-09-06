@@ -5,9 +5,7 @@ import com.sympauthy.util.loggerForClass
 import io.micronaut.scheduling.annotation.Scheduled
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 @Singleton
 class CleanExpiredInteractiveFlowSessionCron(
@@ -15,14 +13,23 @@ class CleanExpiredInteractiveFlowSessionCron(
 ) {
     private val logger = loggerForClass()
 
-    @OptIn(DelicateCoroutinesApi::class)
     @Scheduled(fixedDelay = "15m")
-    @Suppress("MaxLineLength")
     fun clean() {
-        GlobalScope.launch {
+        runBlocking {
             val result = interactiveFlowSessionCleaner.clean()
             if (result.sessionCount > 0) {
-                logger.debug("Cleaned ${result.sessionCount} expired interactive flow sessions (including ${result.authorizationCodeCount} authorization codes, ${result.validationCodesCount} validation codes).")
+                logger.debug(
+                    "Cleaned ${result.sessionCount} expired interactive flow sessions " +
+                        "(including ${result.authorizationCodeCount} authorization codes, " +
+                        "${result.validationCodesCount} validation codes)."
+                )
+            }
+            if (result.moreToClean) {
+                logger.info(
+                    "The expired interactive flow session cleanup stopped at its configured batch size " +
+                        "with sessions left to remove. The next run continues where this one stopped; " +
+                        "raise advanced.cleanup.batch-size if the backlog never drains."
+                )
             }
         }
     }

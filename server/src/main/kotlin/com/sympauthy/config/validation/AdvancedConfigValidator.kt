@@ -4,16 +4,19 @@ import com.sympauthy.business.model.jwt.JwtAlgorithm
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.AuthorizationWebhookAdvancedConfig
+import com.sympauthy.config.model.CleanupConfig
 import com.sympauthy.config.model.EnabledAdvancedConfig
 import com.sympauthy.config.model.HashConfig
 import com.sympauthy.config.model.InvitationAdvancedConfig
 import com.sympauthy.config.model.PaginationConfig
 import com.sympauthy.config.model.ValidationCodeConfig
 import com.sympauthy.config.parsing.ParsedAdvancedConfig
+import com.sympauthy.config.parsing.ParsedCleanupConfig
 import com.sympauthy.config.parsing.ParsedHashConfig
 import com.sympauthy.config.parsing.ParsedInvitationConfig
 import com.sympauthy.config.parsing.ParsedPaginationConfig
 import com.sympauthy.config.parsing.ParsedValidationCodeConfig
+import com.sympauthy.config.properties.CleanupConfigurationProperties.Companion.CLEANUP_KEY
 import com.sympauthy.config.properties.InvitationConfigurationProperties.Companion.INVITATION_KEY
 import com.sympauthy.config.properties.InvitationHashConfigurationProperties.Companion.INVITATION_HASH_KEY
 import com.sympauthy.config.properties.HashConfigurationProperties.Companion.HASH_KEY
@@ -40,6 +43,7 @@ class AdvancedConfigValidator {
             timeout = parsed.webhookTimeout ?: DEFAULT_WEBHOOK_TIMEOUT
         )
         val paginationConfig = validatePaginationConfig(ctx, parsed.pagination)
+        val cleanupConfig = validateCleanupConfig(ctx, parsed.cleanup)
 
         if (ctx.hasErrors) return null
         return EnabledAdvancedConfig(
@@ -51,7 +55,8 @@ class AdvancedConfigValidator {
             invitationConfig = invitationConfig!!,
             validationCode = validationCodeConfig!!,
             authorizationWebhook = webhookConfig,
-            pagination = paginationConfig!!
+            pagination = paginationConfig!!,
+            cleanup = cleanupConfig!!
         )
     }
 
@@ -95,6 +100,27 @@ class AdvancedConfigValidator {
                 )
             )
         }
+    }
+
+    private fun validateCleanupConfig(
+        ctx: ConfigParsingContext,
+        parsed: ParsedCleanupConfig
+    ): CleanupConfig? {
+        val subCtx = ctx.child()
+
+        if (parsed.batchSize != null && parsed.batchSize <= 0) {
+            subCtx.addError(
+                configExceptionOf("$CLEANUP_KEY.batch-size", "config.advanced.cleanup.invalid_batch_size")
+            )
+        }
+
+        ctx.merge(subCtx)
+        if (subCtx.hasErrors || parsed.batchSize == null) {
+            return null
+        }
+        return CleanupConfig(
+            batchSize = parsed.batchSize
+        )
     }
 
     private fun validatePaginationConfig(

@@ -4,6 +4,8 @@
 advanced:
   authorization-webhook:
     timeout: 5s
+  cleanup:
+    batch-size: 1000
   hash:
     block-size: 8
     cost-parameter: 16_384

@@ -61,13 +61,23 @@ interface InteractiveFlowSessionRepository : CoroutineCrudRepository<Interactive
     )
     suspend fun findByCode(code: String): InteractiveFlowSessionEntity?
 
+    /**
+     * Find at most [limit] sessions past their expiration date.
+     *
+     * Bounded because the caller deletes each of them from eight tables inside one transaction, and an
+     * `IN` list is one bind parameter per id: an unbounded backlog is a write holding locks for as long
+     * as it takes, and past 65535 ids a statement PostgreSQL refuses outright. A run that fills the
+     * limit leaves the rest to the next one. See
+     * [com.sympauthy.business.manager.flow.InteractiveFlowSessionCleaner].
+     */
     @Query(
         """
         SELECT * FROM interactive_flow_sessions
         WHERE expiration_date < CURRENT_TIMESTAMP
+        LIMIT :limit
         """
     )
-    suspend fun findExpired(): List<InteractiveFlowSessionEntity>
+    suspend fun findExpired(limit: Int): List<InteractiveFlowSessionEntity>
 
     /**
      * Version-guarded update of the ordered purpose list.

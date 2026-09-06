@@ -86,9 +86,10 @@ nothing filters rows on the way out. The nullable session id the tables a sign-u
 the one exception, and it is not a soft delete: it says the row is not real yet rather than no
 longer. [The interactive flow](interactive-flow.md) owns it.
 
-**Data retention.** A scheduled job collects expired sessions, and with them the accounts an
-abandoned sign-up left half-written; how long a revoked token or a used validation code is kept is a
-policy nobody has set.
+**Data retention.** A scheduled job collects expired sessions, and a second one the accounts an
+abandoned sign-up left half-written — bar an account another row still refers to, which it reports
+rather than collects. How long a revoked token or a used validation code is kept is a policy nobody
+has set.
 
 **Encryption at rest and column-level encryption.** Secrets are hashed where they are secrets, and
 what the storage does underneath is the deployment's business.
