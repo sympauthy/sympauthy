@@ -93,7 +93,7 @@ class ProviderUserInfoRepositoryTest {
 
         assertNull(links.findByProviderIdAndSubjectAndSessionIdIsNull(providerId, "123456789012345678"))
 
-        assertEquals(1, links.clearSessionId(session.id!!))
+        assertEquals(1, links.clearSessionId(userId, session.id!!))
 
         assertEquals(
             userId,
@@ -158,7 +158,7 @@ class ProviderUserInfoRepositoryTest {
             saveLink(userId, subject = "subject-promoted", sessionId = session.id)
             saveLink(otherUserId, subject = "subject-untouched", sessionId = otherSession.id)
 
-            assertEquals(1, links.clearSessionId(session.id!!))
+            assertEquals(1, links.clearSessionId(userId, session.id!!))
 
             assertNull(links.findByProviderIdAndUserId(providerId, userId)?.sessionId)
             assertEquals(otherSession.id, links.findByProviderIdAndUserId(providerId, otherUserId)?.sessionId)

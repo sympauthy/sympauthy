@@ -20,14 +20,14 @@ interface TotpEnrollmentRepository : CoroutineCrudRepository<TotpEnrollmentEntit
     suspend fun updateConfirmedDate(@Id id: UUID, confirmedDate: LocalDateTime)
 
     /**
-     * Promote every enrollment the interactive flow session [sessionId] created, making it permanent, and
-     * answer how many there were.
+     * Promote every enrollment the account [userId] owns and the interactive flow session
+     * [sessionId] created, making them permanent, and answer how many there were.
      *
      * Orthogonal to [TotpEnrollmentEntity.confirmedDate]: an enrollment can be provisional and confirmed at
      * once — the second factor is proven, the account it protects is not yet an account.
      */
-    @Query("UPDATE totp_enrollments SET session_id = NULL WHERE session_id = :sessionId")
-    suspend fun clearSessionId(sessionId: UUID): Int
+    @Query("UPDATE totp_enrollments SET session_id = NULL WHERE user_id = :userId AND session_id = :sessionId")
+    suspend fun clearSessionId(userId: UUID, sessionId: UUID): Int
 
     suspend fun deleteByUserIdIn(userId: List<UUID>): Int
 }

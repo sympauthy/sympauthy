@@ -73,7 +73,7 @@ class PasswordRepositoryTest {
             val promoted = savePassword(userId, sessionId = session.id)
             val untouched = savePassword(otherUserId, sessionId = otherSession.id)
 
-            assertEquals(1, passwords.clearSessionId(session.id!!))
+            assertEquals(1, passwords.clearSessionId(userId, session.id!!))
 
             assertNull(passwords.findById(promoted)?.sessionId)
             assertEquals(otherSession.id, passwords.findById(untouched)?.sessionId)

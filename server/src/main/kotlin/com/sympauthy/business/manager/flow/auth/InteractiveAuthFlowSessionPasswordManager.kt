@@ -13,7 +13,6 @@ import com.sympauthy.business.manager.password.PasswordManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.ClaimValueMapper
-import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
@@ -25,7 +24,6 @@ import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.repository.CollectedClaimRepository
-import com.sympauthy.data.repository.UserRepository
 import com.sympauthy.data.repository.findAnyClaimMatching
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
@@ -53,9 +51,7 @@ open class InteractiveAuthFlowSessionPasswordManager(
     @Inject private val engine: InteractiveFlowEngine,
     @Inject private val reauthenticationManager: InteractiveFlowSessionReauthenticationManager,
     @Inject private val userManager: UserManager,
-    @Inject private val userRepository: UserRepository,
     @Inject private val claimValueMapper: ClaimValueMapper,
-    @Inject private val userMapper: UserMapper,
     @Inject private val uncheckedAuthConfig: AuthConfig
 ) {
 
@@ -85,9 +81,7 @@ open class InteractiveAuthFlowSessionPasswordManager(
             claimIds = identifierClaims,
             value = claimValueMapper.toEntity(login) ?: return null,
         )
-        return userInfo?.userId
-            ?.let { userRepository.findById(it) }
-            ?.let(userMapper::toUser)
+        return userInfo?.userId?.let { userManager.findByIdOrNull(it) }
     }
 
     /**
@@ -170,12 +164,35 @@ open class InteractiveAuthFlowSessionPasswordManager(
      * Only identifier claims are saved on the created account. Any other claim present in [unfilteredUpdates] is
      * discarded.
      */
-    @Transactional
-    open suspend fun signUpWithClaimsAndPassword(
+    suspend fun signUpWithClaimsAndPassword(
         session: OnGoingInteractiveFlowSession,
         unfilteredUpdates: List<CollectedClaimUpdate>,
         password: String
     ): InteractiveFlowSession {
+        // Signing up ESTABLISHES identity, so it only runs while the session has none. A second post — a back
+        // button, a retry, a duplicated request — would otherwise create a second account and switch the
+        // session to it, orphaning the first with its password and identifier claims. The provider path
+        // guards the same way in signInOrSignUpUsingProvider.
+        if (session.userId != null) return session
+
+        val updatedSession = createAccountWithClaimsAndPassword(session, unfilteredUpdates, password)
+
+        // Outside the transaction above, deliberately. Completing runs the terminal effects, the promotion
+        // and the completion write in a transaction of its own, and a refusal there has to roll that back
+        // while leaving the failure recorded — which it cannot do from inside this one.
+        return engine.completeIfNecessary(updatedSession)
+    }
+
+    /**
+     * Create the account [unfilteredUpdates] and [password] describe, provisional for the [session], and bind
+     * it to the session. One transaction: an account is written whole or not at all.
+     */
+    @Transactional
+    internal open suspend fun createAccountWithClaimsAndPassword(
+        session: OnGoingInteractiveFlowSession,
+        unfilteredUpdates: List<CollectedClaimUpdate>,
+        password: String
+    ): OnGoingInteractiveFlowSession {
         val oauth2 = oauth2Manager.fetchOAuth2(session)
         interactiveAuthFlowSessionManager.checkSignUpAllowed(oauth2, recoverable = true)
 
@@ -200,10 +217,7 @@ open class InteractiveAuthFlowSessionPasswordManager(
         invitationManager.applyInvitationClaims(oauth2.invitationId, user)
 
         // Update the session with the id of the user so they can retrieve their access token.
-        val updatedSession = sessionManager.setAuthenticatedUserId(session, user.id, signedUp = true)
-
-        // Complete the flow if the end-user has no more step to go through.
-        return engine.completeIfNecessary(updatedSession)
+        return sessionManager.setAuthenticatedUserId(session, user.id, signedUp = true)
     }
 
     /**

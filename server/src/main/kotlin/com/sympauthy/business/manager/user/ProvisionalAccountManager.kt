@@ -26,10 +26,9 @@ import java.util.*
  * against committed rows, then clears the session id across every table the account owns. [deleteAbandoned]
  * is the other ending, and between them a sign-up is all-or-nothing.
  *
- * It reads the five repositories directly rather than through the managers that own them, the way
- * [com.sympauthy.business.manager.flow.InteractiveFlowSessionCleaner] does: promotion is one statement per
- * table over a column no domain concept names, and a pass-through on each of five managers would say less
- * than the list here does.
+ * It reads the five repositories directly rather than through the managers that own them: promoting and
+ * collecting are one statement per table over a column no domain concept names, and a pass-through on each
+ * of five managers would say less than the list here does.
  */
 @Singleton
 open class ProvisionalAccountManager(
@@ -67,11 +66,11 @@ open class ProvisionalAccountManager(
         // The satellites before the account itself, so no window exposes an account whose rows are still
         // hidden. Nothing enforces the order — session_id carries no foreign key — but a reader that saw the
         // account first would read it without the claims that identify it.
-        passwordRepository.clearSessionId(sessionId)
-        collectedClaimRepository.clearSessionId(sessionId)
-        providerUserInfoRepository.clearSessionId(sessionId)
-        totpEnrollmentRepository.clearSessionId(sessionId)
-        userRepository.clearSessionId(sessionId)
+        passwordRepository.clearSessionId(userId, sessionId)
+        collectedClaimRepository.clearSessionId(userId, sessionId)
+        providerUserInfoRepository.clearSessionId(userId, sessionId)
+        totpEnrollmentRepository.clearSessionId(userId, sessionId)
+        userRepository.clearSessionId(userId, sessionId)
     }
 
     /**

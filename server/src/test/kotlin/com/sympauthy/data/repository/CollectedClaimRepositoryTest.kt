@@ -308,7 +308,7 @@ class CollectedClaimRepositoryTest {
             assertTrue(claims.findAnyClaimMatching(listOf("email"), listOf(value)).isEmpty())
             assertTrue(claims.findUserIdsMatchingAllClaims(mapOf("email" to value)).isEmpty())
 
-            assertEquals(1, claims.clearSessionId(session.id!!))
+            assertEquals(1, claims.clearSessionId(userId, session.id!!))
 
             assertEquals(userId, claims.findAnyClaimMatching(listOf("email"), value)?.userId)
             assertEquals(listOf(userId), claims.findAnyClaimMatching(listOf("email"), listOf(value)).map { it.userId })
@@ -327,7 +327,7 @@ class CollectedClaimRepositoryTest {
             val promoted = saveClaim(userId, "email", "one@$qualifier.test", sessionId = session.id)
             val untouched = saveClaim(otherUserId, "email", "two@$qualifier.test", sessionId = otherSession.id)
 
-            assertEquals(1, claims.clearSessionId(session.id!!))
+            assertEquals(1, claims.clearSessionId(userId, session.id!!))
 
             assertNull(claims.findById(promoted)?.sessionId)
             assertEquals(otherSession.id, claims.findById(untouched)?.sessionId)

@@ -120,7 +120,7 @@ works.
 means deleting it, and a foreign key that delete breaks would abort the whole sweep — again every
 quarter of an hour, indefinitely. Each such table is either owned by the account and deleted with
 it, or deleted earlier in the same sweep, or named in the guard that skips an account something
-still refers to. That guard is the query the cleaner selects by, and it is where the rule is
+still refers to. That guard is the query the collection selects by, and it is where the rule is
 written.
 
 ## A purpose handler is pure

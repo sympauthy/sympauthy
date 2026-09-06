@@ -63,20 +63,20 @@ class ProvisionalAccountManagerTest {
         provisionalUser()
         noIdentifierClaim()
         coEvery { providerUserInfoRepository.findByUserId(userId) } returns emptyList()
-        coEvery { passwordRepository.clearSessionId(sessionId) } returns 1
-        coEvery { collectedClaimRepository.clearSessionId(sessionId) } returns 2
-        coEvery { providerUserInfoRepository.clearSessionId(sessionId) } returns 0
-        coEvery { totpEnrollmentRepository.clearSessionId(sessionId) } returns 0
-        coEvery { userRepository.clearSessionId(sessionId) } returns 1
+        coEvery { passwordRepository.clearSessionId(userId, sessionId) } returns 1
+        coEvery { collectedClaimRepository.clearSessionId(userId, sessionId) } returns 2
+        coEvery { providerUserInfoRepository.clearSessionId(userId, sessionId) } returns 0
+        coEvery { totpEnrollmentRepository.clearSessionId(userId, sessionId) } returns 0
+        coEvery { userRepository.clearSessionId(userId, sessionId) } returns 1
 
         manager.promote(sessionId, userId)
 
         coVerifyOrder {
-            passwordRepository.clearSessionId(sessionId)
-            collectedClaimRepository.clearSessionId(sessionId)
-            providerUserInfoRepository.clearSessionId(sessionId)
-            totpEnrollmentRepository.clearSessionId(sessionId)
-            userRepository.clearSessionId(sessionId)
+            passwordRepository.clearSessionId(userId, sessionId)
+            collectedClaimRepository.clearSessionId(userId, sessionId)
+            providerUserInfoRepository.clearSessionId(userId, sessionId)
+            totpEnrollmentRepository.clearSessionId(userId, sessionId)
+            userRepository.clearSessionId(userId, sessionId)
         }
     }
 
@@ -86,8 +86,8 @@ class ProvisionalAccountManagerTest {
 
         manager.promote(sessionId, userId)
 
-        coVerify(exactly = 0) { userRepository.clearSessionId(any()) }
-        coVerify(exactly = 0) { collectedClaimRepository.clearSessionId(any()) }
+        coVerify(exactly = 0) { userRepository.clearSessionId(any(), any()) }
+        coVerify(exactly = 0) { collectedClaimRepository.clearSessionId(any(), any()) }
     }
 
     @Test
@@ -104,7 +104,7 @@ class ProvisionalAccountManagerTest {
         val exception = assertThrows<BusinessException> { manager.promote(sessionId, userId) }
 
         assertEquals("user.promote.identifier_taken", exception.detailsId)
-        coVerify(exactly = 0) { userRepository.clearSessionId(any()) }
+        coVerify(exactly = 0) { userRepository.clearSessionId(any(), any()) }
     }
 
     @Test
@@ -120,7 +120,7 @@ class ProvisionalAccountManagerTest {
 
         assertEquals("user.promote.provider_subject_taken", exception.detailsId)
         assertEquals("discord", exception.values["providerId"])
-        coVerify(exactly = 0) { userRepository.clearSessionId(any()) }
+        coVerify(exactly = 0) { userRepository.clearSessionId(any(), any()) }
     }
 
     @Test
@@ -131,15 +131,15 @@ class ProvisionalAccountManagerTest {
         coEvery {
             providerUserInfoRepository.findByProviderIdAndSubjectAndSessionIdIsNull("discord", "subject-1")
         } returns null
-        coEvery { passwordRepository.clearSessionId(sessionId) } returns 0
-        coEvery { collectedClaimRepository.clearSessionId(sessionId) } returns 1
-        coEvery { providerUserInfoRepository.clearSessionId(sessionId) } returns 1
-        coEvery { totpEnrollmentRepository.clearSessionId(sessionId) } returns 0
-        coEvery { userRepository.clearSessionId(sessionId) } returns 1
+        coEvery { passwordRepository.clearSessionId(userId, sessionId) } returns 0
+        coEvery { collectedClaimRepository.clearSessionId(userId, sessionId) } returns 1
+        coEvery { providerUserInfoRepository.clearSessionId(userId, sessionId) } returns 1
+        coEvery { totpEnrollmentRepository.clearSessionId(userId, sessionId) } returns 0
+        coEvery { userRepository.clearSessionId(userId, sessionId) } returns 1
 
         manager.promote(sessionId, userId)
 
-        coVerify { userRepository.clearSessionId(sessionId) }
+        coVerify { userRepository.clearSessionId(userId, sessionId) }
     }
 
     @Test
@@ -202,15 +202,15 @@ class ProvisionalAccountManagerTest {
             userManager.isIdentifierValueTaken(listOf("email"), listOf("\"free@example.com\""))
         } returns false
         coEvery { providerUserInfoRepository.findByUserId(userId) } returns emptyList()
-        coEvery { passwordRepository.clearSessionId(sessionId) } returns 1
-        coEvery { collectedClaimRepository.clearSessionId(sessionId) } returns 1
-        coEvery { providerUserInfoRepository.clearSessionId(sessionId) } returns 0
-        coEvery { totpEnrollmentRepository.clearSessionId(sessionId) } returns 0
-        coEvery { userRepository.clearSessionId(sessionId) } returns 1
+        coEvery { passwordRepository.clearSessionId(userId, sessionId) } returns 1
+        coEvery { collectedClaimRepository.clearSessionId(userId, sessionId) } returns 1
+        coEvery { providerUserInfoRepository.clearSessionId(userId, sessionId) } returns 0
+        coEvery { totpEnrollmentRepository.clearSessionId(userId, sessionId) } returns 0
+        coEvery { userRepository.clearSessionId(userId, sessionId) } returns 1
 
         manager.promote(sessionId, userId)
 
-        coVerify { userRepository.clearSessionId(sessionId) }
+        coVerify { userRepository.clearSessionId(userId, sessionId) }
     }
 
     private fun identifierClaims(vararg ids: String) {

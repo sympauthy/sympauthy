@@ -237,7 +237,6 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
         val advanced = mockk<InteractiveFlowSession>()
         coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
         every { uncheckedAuthConfig.identifierClaims } returns emptyList()
-        coEvery { userManager.findById(userId) } returns mockk { every { sessionId } returns null }
         coEvery { providerClaimsManager.saveUserInfo(provider, userId, null, rawUserInfo) } returns mockk()
         coEvery { engine.completeIfNecessary(session) } returns advanced
 

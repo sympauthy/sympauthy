@@ -104,7 +104,7 @@ class UserRepositoryTest {
 
             assertNull(users.findByIdAndSessionIdIsNull(id))
 
-            users.clearSessionId(session.id!!)
+            users.clearSessionId(id, session.id!!)
 
             assertEquals(id, users.findByIdAndSessionIdIsNull(id)?.id)
         }
@@ -214,17 +214,21 @@ class UserRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `clearSessionId - Promotes the accounts of that session and no other`(database: Database) =
+    fun `clearSessionId - Promotes that account of that session and no other`(database: Database) =
         withFixture(database) {
             val users = repository<UserRepository>()
             val session = newSession()
             val otherSession = newSession()
             val promoted = newUser(status = status, sessionId = session.id)
+            // A second account of the same session: only the one named is promoted, so an account the
+            // uniqueness re-check never saw cannot ride along with the one it did.
+            val sibling = newUser(status = status, sessionId = session.id)
             val untouched = newUser(status = status, sessionId = otherSession.id)
 
-            assertEquals(1, users.clearSessionId(session.id!!))
+            assertEquals(1, users.clearSessionId(promoted, session.id!!))
 
             assertNull(users.findById(promoted)?.sessionId)
+            assertEquals(session.id, users.findById(sibling)?.sessionId)
             assertEquals(otherSession.id, users.findById(untouched)?.sessionId)
         }
 

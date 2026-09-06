@@ -45,11 +45,11 @@ interface CollectedClaimRepository : CoroutineCrudRepository<CollectedClaimEntit
     )
 
     /**
-     * Promote every claim the interactive flow session [sessionId] collected, making it permanent, and
-     * answer how many there were.
+     * Promote every claim the account [userId] owns and the interactive flow session
+     * [sessionId] collected, making them permanent, and answer how many there were.
      */
-    @Query("UPDATE collected_claims SET session_id = NULL WHERE session_id = :sessionId")
-    suspend fun clearSessionId(sessionId: UUID): Int
+    @Query("UPDATE collected_claims SET session_id = NULL WHERE user_id = :userId AND session_id = :sessionId")
+    suspend fun clearSessionId(userId: UUID, sessionId: UUID): Int
 
     suspend fun deleteByUserIdIn(userId: List<UUID>): Int
 }

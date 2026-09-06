@@ -10,11 +10,11 @@ interface PasswordRepository : CoroutineCrudRepository<PasswordEntity, UUID> {
     suspend fun findByUserId(userId: UUID): List<PasswordEntity>
 
     /**
-     * Promote every password the interactive flow session [sessionId] created, making it permanent, and
-     * answer how many there were.
+     * Promote every password the account [userId] owns and the interactive flow session
+     * [sessionId] created, making them permanent, and answer how many there were.
      */
-    @Query("UPDATE passwords SET session_id = NULL WHERE session_id = :sessionId")
-    suspend fun clearSessionId(sessionId: UUID): Int
+    @Query("UPDATE passwords SET session_id = NULL WHERE user_id = :userId AND session_id = :sessionId")
+    suspend fun clearSessionId(userId: UUID, sessionId: UUID): Int
 
     suspend fun deleteByUserIdIn(userId: List<UUID>): Int
 }

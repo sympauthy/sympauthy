@@ -34,11 +34,15 @@ interface UserRepository : CoroutineCrudRepository<UserEntity, UUID> {
     suspend fun findByIdVisibleInSession(id: UUID, sessionId: UUID): UserEntity?
 
     /**
-     * Promote every account the interactive flow session [sessionId] created, making it permanent, and
-     * answer how many there were.
+     * Promote the account [userId] that the interactive flow session [sessionId] created, making it
+     * permanent, and answer 1 when it did.
+     *
+     * Keyed on the account as well as the session so a session that somehow wrote a second one cannot have
+     * it promoted alongside — the uniqueness re-check runs against one account, and only that account may be
+     * promoted by it. Any other stays provisional and is collected.
      */
-    @Query("UPDATE users SET session_id = NULL WHERE session_id = :sessionId")
-    suspend fun clearSessionId(sessionId: UUID): Int
+    @Query("UPDATE users SET session_id = NULL WHERE id = :userId AND session_id = :sessionId")
+    suspend fun clearSessionId(userId: UUID, sessionId: UUID): Int
 
     /**
      * Find every account left provisional by a session that no longer exists, and that nothing else refers

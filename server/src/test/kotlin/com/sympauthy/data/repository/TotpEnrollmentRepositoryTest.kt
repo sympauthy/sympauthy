@@ -106,7 +106,7 @@ class TotpEnrollmentRepositoryTest {
 
             assertNull(enrollments.findByIdAndSessionIdIsNull(id))
 
-            enrollments.clearSessionId(session.id!!)
+            enrollments.clearSessionId(userId, session.id!!)
 
             assertEquals(id, enrollments.findByIdAndSessionIdIsNull(id)?.id)
         }
@@ -124,7 +124,7 @@ class TotpEnrollmentRepositoryTest {
             val pending = saveEnrollment(userId, sessionId = session.id)
             val untouched = saveEnrollment(otherUserId, sessionId = otherSession.id)
 
-            assertEquals(2, enrollments.clearSessionId(session.id!!))
+            assertEquals(2, enrollments.clearSessionId(userId, session.id!!))
 
             assertNull(enrollments.findById(confirmed)?.sessionId)
             assertEquals(BASE_DATE, enrollments.findById(confirmed)?.confirmedDate)

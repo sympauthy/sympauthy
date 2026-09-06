@@ -84,7 +84,7 @@ open class UserManager(
     suspend fun findByIdentifierClaims(claimValues: Map<String, String>): User? {
         val entityClaimValues = claimValues.mapValues { entry -> claimValueMapper.toEntity(entry.value) }
         val userIds = collectedClaimRepository.findUserIdsMatchingAllClaims(entityClaimValues)
-        return userIds.firstNotNullOfOrNull { userRepository.findByIdAndSessionIdIsNull(it) }
+        return userRepository.findByIdInListAndSessionIdIsNull(userIds).firstOrNull()
             ?.let(userMapper::toUser)
     }
 
