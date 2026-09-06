@@ -27,4 +27,6 @@ interface ProviderUserInfoRepository : CoroutineCrudRepository<ProviderUserInfoE
      */
     @Query("UPDATE provider_user_info SET session_id = NULL WHERE session_id = :sessionId")
     suspend fun clearSessionId(sessionId: UUID): Int
+
+    suspend fun deleteByUserIdIn(userId: List<UUID>): Int
 }

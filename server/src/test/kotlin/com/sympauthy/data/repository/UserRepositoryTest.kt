@@ -2,6 +2,9 @@ package com.sympauthy.data.repository
 
 import com.sympauthy.data.BASE_DATE
 import com.sympauthy.data.Database
+import com.sympauthy.data.model.CollectedClaimEntity
+import com.sympauthy.data.model.PasswordEntity
+import com.sympauthy.data.model.TotpEnrollmentEntity
 import com.sympauthy.data.withFixture
 import kotlinx.coroutines.flow.toList
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -180,6 +183,37 @@ class UserRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
+    fun `findAbandoned - Finds the account whose session is gone`(database: Database) = withFixture(database) {
+        val users = repository<UserRepository>()
+        val session = newSession()
+        val ongoing = newSession()
+        val abandoned = newUser(status = status, sessionId = session.id)
+        val stillSigningUp = newUser(status = status, sessionId = ongoing.id)
+        val committed = newUser(status = status)
+        repository<InteractiveFlowSessionRepository>().deleteByIds(listOf(session.id!!))
+
+        val found = users.findAbandoned().map { it.id!! }
+
+        assertTrue(found.contains(abandoned))
+        assertTrue(!found.contains(stillSigningUp))
+        assertTrue(!found.contains(committed))
+    }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findAbandoned - Skips an account a session still refers to`(database: Database) =
+        withFixture(database) {
+            val users = repository<UserRepository>()
+            val session = newSession()
+            val userId = newUser(status = status, sessionId = session.id)
+            newSession(userId = userId)
+            repository<InteractiveFlowSessionRepository>().deleteByIds(listOf(session.id!!))
+
+            assertTrue(!users.findAbandoned().map { it.id!! }.contains(userId))
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
     fun `clearSessionId - Promotes the accounts of that session and no other`(database: Database) =
         withFixture(database) {
             val users = repository<UserRepository>()
@@ -192,5 +226,59 @@ class UserRepositoryTest {
 
             assertNull(users.findById(promoted)?.sessionId)
             assertEquals(otherSession.id, users.findById(untouched)?.sessionId)
+        }
+
+    /**
+     * The ordering the cleaner deletes in, against a real database, because a foreign key it broke would
+     * abort the whole run rather than leave one row behind — and would do so again every quarter of an hour.
+     */
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `Every row an abandoned account owns is deleted before the account`(database: Database) =
+        withFixture(database) {
+            val users = repository<UserRepository>()
+            val session = newSession()
+            val userId = newUser(status = status, sessionId = session.id)
+            repository<PasswordRepository>().save(
+                PasswordEntity(
+                    userId = userId,
+                    salt = byteArrayOf(1),
+                    hashedPassword = byteArrayOf(2),
+                    creationDate = BASE_DATE,
+                    expirationDate = null,
+                    sessionId = session.id
+                )
+            )
+            repository<CollectedClaimRepository>().save(
+                CollectedClaimEntity(
+                    userId = userId,
+                    claim = "email",
+                    value = "\"abandoned@$status.test\"",
+                    verified = null,
+                    collectionDate = BASE_DATE,
+                    verificationDate = null,
+                    sessionId = session.id
+                )
+            )
+            newProviderLink("provider-$status", userId, "subject-$status", sessionId = session.id)
+            repository<TotpEnrollmentRepository>().save(
+                TotpEnrollmentEntity(
+                    userId = userId,
+                    secret = byteArrayOf(3),
+                    creationDate = BASE_DATE,
+                    confirmedDate = null,
+                    sessionId = session.id
+                )
+            )
+            repository<InteractiveFlowSessionRepository>().deleteByIds(listOf(session.id!!))
+
+            val abandoned = users.findAbandoned().mapNotNull { it.id }
+            repository<PasswordRepository>().deleteByUserIdIn(abandoned)
+            repository<CollectedClaimRepository>().deleteByUserIdIn(abandoned)
+            repository<ProviderUserInfoRepository>().deleteByUserIdIn(abandoned)
+            repository<TotpEnrollmentRepository>().deleteByUserIdIn(abandoned)
+
+            assertEquals(1, users.deleteByIdIn(listOf(userId)))
+            assertNull(users.findById(userId))
         }
 }

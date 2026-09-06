@@ -50,6 +50,8 @@ interface CollectedClaimRepository : CoroutineCrudRepository<CollectedClaimEntit
      */
     @Query("UPDATE collected_claims SET session_id = NULL WHERE session_id = :sessionId")
     suspend fun clearSessionId(sessionId: UUID): Int
+
+    suspend fun deleteByUserIdIn(userId: List<UUID>): Int
 }
 
 /**
