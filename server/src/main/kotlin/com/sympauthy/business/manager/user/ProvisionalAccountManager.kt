@@ -93,6 +93,10 @@ open class ProvisionalAccountManager(
      * counts against [limit]: it is retained for good, so a budget spent on one is a budget spent on it
      * every run for good.
      *
+     * **The two answers do not partition the abandoned accounts**, and the gap between them is not a
+     * failure to report: an account a session still refers to is neither deleted nor retained, because
+     * that session is itself collected and a later run takes the account once it is.
+     *
      * The account's own rows go first, every one of them rather than only the provisional ones: the account
      * is going, so anything hanging off it is going too. By the [com.sympauthy.data.model.SessionScoped]
      * invariant those are the same set — a provisional account owns no committed row — which is why every

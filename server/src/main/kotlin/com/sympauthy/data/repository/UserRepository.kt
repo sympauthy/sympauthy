@@ -45,35 +45,18 @@ interface UserRepository : CoroutineCrudRepository<UserEntity, UUID> {
     suspend fun clearSessionId(userId: UUID, sessionId: UUID): Int
 
     /**
-     * Find at most [limit] accounts an abandoned sign-up left behind that can be collected: the session
-     * signing them up is gone, and nothing else refers to them.
+     * Find at most [limit] accounts an abandoned sign-up left behind that can be deleted: the session
+     * signing them up is gone, and none of the five tables below refers to them.
      *
-     * Keyed on the session being **gone** rather than on the list of sessions any run expired, which makes
-     * the sweep self-correcting: an account orphaned by an earlier failure is collected on the next run
-     * rather than left forever. That is what makes the bound safe — what one run leaves the next takes —
-     * and the bound is what keeps a backlog from becoming a single write holding locks on this table for
-     * as long as it takes.
+     * Nine tables hold a foreign key to `users`, and each has to be one of three things or this delete
+     * breaks it. Four (`passwords`, `collected_claims`, `provider_user_info`, `totp_enrollments`) belong
+     * to the account and go with it. The remaining five are guarded against here, and **they are not one
+     * kind**: `interactive_flow_sessions` is itself collected, so an account only a session refers to
+     * becomes deletable on its own once that session is gone, while `validation_codes`, `consents`,
+     * `invitations` and `authentication_tokens` outlive every job there is — which is the split
+     * [findRetained] answers the other side of.
      *
-     * **The bound is spent on accounts this run can actually delete.** An account one of the five tables
-     * still refers to is answered by [findRetained] instead, and is never selected here, because a
-     * retained account is retained for good: counted against the limit it would be re-read every run,
-     * and enough of them would starve the sweep of the budget it needs to collect anything at all.
-     *
-     * The conditions are the rule this table lives under, written out. Nine tables hold a foreign key to
-     * `users`, and each has to be one of three things or the delete that follows breaks it — and, being one
-     * transaction, takes the whole run down with it, every quarter of an hour, for good. Four of them
-     * (`passwords`, `collected_claims`, `provider_user_info`, `totp_enrollments`) belong to the account and
-     * are deleted with it. The remaining five are the guards named below, and **they are not one kind**:
-     *
-     * - `interactive_flow_sessions` expires and is collected by
-     *   [com.sympauthy.cron.CleanExpiredInteractiveFlowSessionCron]. An account only a session refers to is
-     *   one this run is early for, not one anything is wrong with: the session goes, and a later run takes
-     *   the account. It is guarded here and **not** reported by [findRetained].
-     * - `validation_codes`, `consents`, `invitations` and `authentication_tokens` outlive any run. One of
-     *   them pointing at an account no sign-up finished is a bug to find rather than a run to lose, so the
-     *   account is left where it is and [findRetained] names it.
-     *
-     * **A tenth table is a decision to make in this query and, if it outlives a run, in [findRetained]
+     * **A tenth table is a decision to make in this query and, if nothing collects it, in [findRetained]
      * too.** `UserRepositoryTest` holds the two to that split, so adding a durable table here and not
      * there fails.
      */
@@ -93,17 +76,13 @@ interface UserRepository : CoroutineCrudRepository<UserEntity, UUID> {
     suspend fun findCollectable(limit: Int): List<UserEntity>
 
     /**
-     * Find at most [limit] accounts an abandoned sign-up left behind that **no run will ever collect**: the
-     * session signing them up is gone, and one of the four tables below — none of which any cleanup
-     * removes — still refers to them.
+     * Find at most [limit] accounts an abandoned sign-up left behind that **nothing will ever delete**: the
+     * session signing them up is gone, and one of the four tables below still refers to them. Each is a
+     * row that outlived the account it belongs to. Nothing here is deleted.
      *
-     * Read for one reason: each one is a row that outlived the account it belongs to, which the sweep
-     * reports rather than retains in silence. Nothing deletes what this returns.
-     *
-     * **`interactive_flow_sessions` is deliberately not among them**, though [findCollectable] guards
-     * against it too. A session expires and is collected, so an account only a session refers to is
-     * collected on a later run of its own accord — reporting it would name a run that was early as a bug
-     * to find, every quarter of an hour, in the line that exists to name real ones.
+     * The four are the referring tables no job removes. **`interactive_flow_sessions` is deliberately not
+     * among them**, though [findCollectable] guards against it too: a session is collected, so an account
+     * only a session refers to becomes deletable rather than staying here for good.
      */
     @Query(
         """
