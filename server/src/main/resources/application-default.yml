@@ -28,6 +28,10 @@ advanced:
   pagination:
     default-size: 20
     max-size: 100
+  security-context:
+    provider: none
+    unknown-retention: 24h
+    known-retention: 180d
   validation-code:
     length: 6
     resend-delay: 1m

@@ -2,18 +2,22 @@ package com.sympauthy.config.validation
 
 import com.sympauthy.business.model.jwt.JwtAlgorithm
 import com.sympauthy.business.model.key.CryptoKeysGenerationStrategyId
+import com.sympauthy.business.manager.securitycontext.edge.CloudflareEdgeProviderProfile
+import com.sympauthy.business.manager.securitycontext.edge.NoneEdgeProviderProfile
+import com.sympauthy.business.model.securitycontext.EdgeProviderProfile
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.parsing.ParsedAdvancedConfig
 import com.sympauthy.config.parsing.ParsedHashConfig
 import com.sympauthy.config.parsing.ParsedInvitationConfig
 import com.sympauthy.config.parsing.ParsedPaginationConfig
+import com.sympauthy.config.parsing.ParsedSecurityContextConfig
 import com.sympauthy.config.parsing.ParsedValidationCodeConfig
+import java.time.Duration
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
-import java.time.Duration
 
 class AdvancedConfigValidatorTest {
 
@@ -24,7 +28,7 @@ class AdvancedConfigValidatorTest {
         val ctx = ConfigParsingContext()
         ctx.addError(configExceptionOf("advanced.pagination.max-size", "config.missing"))
 
-        val config = validator.validate(ctx, parsedConfig(ParsedPaginationConfig(20, null)))
+        val config = validator.validate(ctx, parsedConfig(ParsedPaginationConfig(20, null)), profilesByName)
 
         assertNull(config)
     }
@@ -33,7 +37,7 @@ class AdvancedConfigValidatorTest {
     fun `validate - Keep the configured pagination bounds`() {
         val ctx = ConfigParsingContext()
 
-        val config = validator.validate(ctx, parsedConfig(ParsedPaginationConfig(50, 500)))
+        val config = validator.validate(ctx, parsedConfig(ParsedPaginationConfig(50, 500)), profilesByName)
 
         assertNotNull(config)
         assertEquals(50, config!!.pagination.defaultSize)
@@ -44,7 +48,7 @@ class AdvancedConfigValidatorTest {
     fun `validate - Reject a default page size below one`() {
         val ctx = ConfigParsingContext()
 
-        val config = validator.validate(ctx, parsedConfig(ParsedPaginationConfig(0, 100)))
+        val config = validator.validate(ctx, parsedConfig(ParsedPaginationConfig(0, 100)), profilesByName)
 
         assertNull(config)
         assertEquals(
@@ -57,7 +61,7 @@ class AdvancedConfigValidatorTest {
     fun `validate - Reject a maximum page size below one`() {
         val ctx = ConfigParsingContext()
 
-        val config = validator.validate(ctx, parsedConfig(ParsedPaginationConfig(20, 0)))
+        val config = validator.validate(ctx, parsedConfig(ParsedPaginationConfig(20, 0)), profilesByName)
 
         assertNull(config)
         assertEquals(
@@ -70,7 +74,7 @@ class AdvancedConfigValidatorTest {
     fun `validate - Reject a default page size above the maximum`() {
         val ctx = ConfigParsingContext()
 
-        val config = validator.validate(ctx, parsedConfig(ParsedPaginationConfig(200, 100)))
+        val config = validator.validate(ctx, parsedConfig(ParsedPaginationConfig(200, 100)), profilesByName)
 
         assertNull(config)
         assertEquals(
@@ -79,7 +83,132 @@ class AdvancedConfigValidatorTest {
         )
     }
 
-    private fun parsedConfig(pagination: ParsedPaginationConfig): ParsedAdvancedConfig {
+    @Test
+    fun `validate - Keep the configured retentions`() {
+        val ctx = ConfigParsingContext()
+
+        val config = validator.validate(
+            ctx,
+            parsedConfig(securityContext = parsedSecurityContext()),
+            profilesByName
+        )
+
+        assertNotNull(config)
+        assertEquals(Duration.ofHours(24), config!!.securityContext.unknownRetention)
+        assertEquals(Duration.ofDays(180), config.securityContext.knownRetention)
+    }
+
+    @Test
+    fun `validate - Resolve the provider to the extraction published for it`() {
+        val ctx = ConfigParsingContext()
+
+        val config = validator.validate(
+            ctx,
+            parsedConfig(securityContext = parsedSecurityContext(provider = "cloudflare")),
+            profilesByName
+        )
+
+        assertNotNull(config)
+        assertEquals("cloudflare", config!!.securityContext.profile.name)
+    }
+
+    @Test
+    fun `validate - Reject a provider no extraction is published for`() {
+        val ctx = ConfigParsingContext()
+
+        val config = validator.validate(
+            ctx,
+            parsedConfig(securityContext = parsedSecurityContext(provider = "cloudflaire")),
+            profilesByName
+        )
+
+        assertNull(config)
+        assertEquals(
+            listOf("config.advanced.security_context.unknown_provider"),
+            ctx.errors.map { it.messageId }
+        )
+        assertEquals(
+            mapOf("provider" to "cloudflaire", "supportedProviders" to "cloudflare, none"),
+            ctx.errors.first().values
+        )
+    }
+
+    @Test
+    fun `validate - Reject a retention of nothing for a context no user is attached to`() {
+        val ctx = ConfigParsingContext()
+
+        val config = validator.validate(
+            ctx,
+            parsedConfig(securityContext = parsedSecurityContext(unknownRetention = Duration.ZERO)),
+            profilesByName
+        )
+
+        assertNull(config)
+        assertEquals(
+            listOf("config.advanced.security_context.invalid_unknown_retention"),
+            ctx.errors.map { it.messageId }
+        )
+    }
+
+    @Test
+    fun `validate - Reject a retention of nothing for a context attached to a user`() {
+        val ctx = ConfigParsingContext()
+
+        val config = validator.validate(
+            ctx,
+            parsedConfig(securityContext = parsedSecurityContext(knownRetention = Duration.ZERO)),
+            profilesByName
+        )
+
+        assertNull(config)
+        assertEquals(
+            listOf("config.advanced.security_context.invalid_known_retention"),
+            ctx.errors.map { it.messageId }
+        )
+    }
+
+    @Test
+    fun `validate - Reject an unknown retention outliving the known one`() {
+        val ctx = ConfigParsingContext()
+
+        val config = validator.validate(
+            ctx,
+            parsedConfig(
+                securityContext = parsedSecurityContext(
+                    unknownRetention = Duration.ofDays(200),
+                    knownRetention = Duration.ofDays(180)
+                )
+            ),
+            profilesByName
+        )
+
+        assertNull(config)
+        assertEquals(
+            listOf("config.advanced.security_context.unknown_exceeds_known"),
+            ctx.errors.map { it.messageId }
+        )
+    }
+
+    private val profilesByName: Map<String, EdgeProviderProfile> = listOf(
+        NoneEdgeProviderProfile(),
+        CloudflareEdgeProviderProfile()
+    ).associateBy(EdgeProviderProfile::name)
+
+    private fun parsedSecurityContext(
+        provider: String? = "none",
+        unknownRetention: Duration? = Duration.ofHours(24),
+        knownRetention: Duration? = Duration.ofDays(180)
+    ) = ParsedSecurityContextConfig(
+        provider = provider,
+        headers = emptyMap(),
+        unknownRetention = unknownRetention,
+        knownRetention = knownRetention
+    )
+
+    private fun parsedConfig(
+        pagination: ParsedPaginationConfig = ParsedPaginationConfig(20, 100),
+        securityContext: ParsedSecurityContextConfig = parsedSecurityContext()
+    ): ParsedAdvancedConfig {
         val hash = ParsedHashConfig(
             costParameter = 16_384,
             blockSize = 8,
@@ -105,7 +234,8 @@ class AdvancedConfigValidatorTest {
                 resendDelay = Duration.ofMinutes(1)
             ),
             webhookTimeout = Duration.ofSeconds(5),
-            pagination = pagination
+            pagination = pagination,
+            securityContext = securityContext
         )
     }
 }

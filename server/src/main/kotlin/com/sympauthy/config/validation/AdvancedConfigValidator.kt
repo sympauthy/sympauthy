@@ -1,6 +1,7 @@
 package com.sympauthy.config.validation
 
 import com.sympauthy.business.model.jwt.JwtAlgorithm
+import com.sympauthy.business.model.securitycontext.EdgeProviderProfile
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.AuthorizationWebhookAdvancedConfig
@@ -8,17 +9,20 @@ import com.sympauthy.config.model.EnabledAdvancedConfig
 import com.sympauthy.config.model.HashConfig
 import com.sympauthy.config.model.InvitationAdvancedConfig
 import com.sympauthy.config.model.PaginationConfig
+import com.sympauthy.config.model.SecurityContextConfig
 import com.sympauthy.config.model.ValidationCodeConfig
 import com.sympauthy.config.parsing.ParsedAdvancedConfig
 import com.sympauthy.config.parsing.ParsedHashConfig
 import com.sympauthy.config.parsing.ParsedInvitationConfig
 import com.sympauthy.config.parsing.ParsedPaginationConfig
+import com.sympauthy.config.parsing.ParsedSecurityContextConfig
 import com.sympauthy.config.parsing.ParsedValidationCodeConfig
 import com.sympauthy.config.properties.InvitationConfigurationProperties.Companion.INVITATION_KEY
 import com.sympauthy.config.properties.InvitationHashConfigurationProperties.Companion.INVITATION_HASH_KEY
 import com.sympauthy.config.properties.HashConfigurationProperties.Companion.HASH_KEY
 import com.sympauthy.config.properties.JwtConfigurationProperties.Companion.JWT_KEY
 import com.sympauthy.config.properties.PaginationConfigurationProperties.Companion.PAGINATION_KEY
+import com.sympauthy.config.properties.SecurityContextConfigurationProperties.Companion.SECURITY_CONTEXT_KEY
 import com.sympauthy.config.properties.ValidationCodeConfigurationProperties.Companion.VALIDATION_CODE_KEY
 import jakarta.inject.Singleton
 import java.time.Duration
@@ -26,9 +30,17 @@ import java.time.Duration
 @Singleton
 class AdvancedConfigValidator {
 
+    /**
+     * The enabled configuration [parsed] describes, or null where it describes none.
+     *
+     * [profilesByName] is every extraction published for a proxy, by the name a deployment names it
+     * with, which the factory resolves and hands over: the set of providers is the set implemented,
+     * and this is where a deployment naming one outside it is refused.
+     */
     fun validate(
         ctx: ConfigParsingContext,
-        parsed: ParsedAdvancedConfig
+        parsed: ParsedAdvancedConfig,
+        profilesByName: Map<String, EdgeProviderProfile>
     ): EnabledAdvancedConfig? {
         validatePublicKeyAlgorithm(ctx, parsed.publicJwtAlgorithm)
         validateAccessKeyAlgorithm(ctx, parsed.accessJwtAlgorithm)
@@ -40,6 +52,7 @@ class AdvancedConfigValidator {
             timeout = parsed.webhookTimeout ?: DEFAULT_WEBHOOK_TIMEOUT
         )
         val paginationConfig = validatePaginationConfig(ctx, parsed.pagination)
+        val securityContextConfig = validateSecurityContextConfig(ctx, parsed.securityContext, profilesByName)
 
         if (ctx.hasErrors) return null
         return EnabledAdvancedConfig(
@@ -51,7 +64,8 @@ class AdvancedConfigValidator {
             invitationConfig = invitationConfig!!,
             validationCode = validationCodeConfig!!,
             authorizationWebhook = webhookConfig,
-            pagination = paginationConfig!!
+            pagination = paginationConfig!!,
+            securityContext = securityContextConfig!!
         )
     }
 
@@ -130,6 +144,69 @@ class AdvancedConfigValidator {
         return PaginationConfig(
             defaultSize = parsed.defaultSize,
             maxSize = parsed.maxSize
+        )
+    }
+
+    private fun validateSecurityContextConfig(
+        ctx: ConfigParsingContext,
+        parsed: ParsedSecurityContextConfig,
+        profilesByName: Map<String, EdgeProviderProfile>
+    ): SecurityContextConfig? {
+        val subCtx = ctx.child()
+
+        val profile = parsed.provider?.let(profilesByName::get)
+        if (parsed.provider != null && profile == null) {
+            subCtx.addError(
+                configExceptionOf(
+                    "$SECURITY_CONTEXT_KEY.provider",
+                    "config.advanced.security_context.unknown_provider",
+                    "provider" to parsed.provider,
+                    "supportedProviders" to profilesByName.keys.sorted().joinToString(", ")
+                )
+            )
+        }
+
+        if (parsed.unknownRetention != null && !parsed.unknownRetention.isPositive()) {
+            subCtx.addError(
+                configExceptionOf(
+                    "$SECURITY_CONTEXT_KEY.unknown-retention",
+                    "config.advanced.security_context.invalid_unknown_retention"
+                )
+            )
+        }
+
+        if (parsed.knownRetention != null && !parsed.knownRetention.isPositive()) {
+            subCtx.addError(
+                configExceptionOf(
+                    "$SECURITY_CONTEXT_KEY.known-retention",
+                    "config.advanced.security_context.invalid_known_retention"
+                )
+            )
+        }
+
+        if (parsed.unknownRetention != null && parsed.knownRetention != null &&
+            parsed.unknownRetention.isPositive() && parsed.knownRetention.isPositive() &&
+            parsed.unknownRetention > parsed.knownRetention
+        ) {
+            subCtx.addError(
+                configExceptionOf(
+                    "$SECURITY_CONTEXT_KEY.unknown-retention",
+                    "config.advanced.security_context.unknown_exceeds_known"
+                )
+            )
+        }
+
+        ctx.merge(subCtx)
+        if (subCtx.hasErrors || profile == null ||
+            parsed.unknownRetention == null || parsed.knownRetention == null
+        ) {
+            return null
+        }
+        return SecurityContextConfig(
+            profile = profile,
+            headers = parsed.headers,
+            unknownRetention = parsed.unknownRetention,
+            knownRetention = parsed.knownRetention
         )
     }
 
@@ -259,6 +336,8 @@ class AdvancedConfigValidator {
     }
 
     private fun isPowerOf2(var0: Int): Boolean = (var0 and var0 - 1) == 0
+
+    private fun Duration.isPositive(): Boolean = !isNegative && !isZero
 
     companion object {
         private val DEFAULT_WEBHOOK_TIMEOUT: Duration = Duration.ofSeconds(5)

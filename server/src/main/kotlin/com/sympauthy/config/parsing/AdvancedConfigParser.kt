@@ -2,8 +2,10 @@ package com.sympauthy.config.parsing
 
 import com.sympauthy.business.model.jwt.JwtAlgorithm
 import com.sympauthy.business.model.key.CryptoKeysGenerationStrategyId
+import com.sympauthy.business.model.securitycontext.SecurityContextField
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
+import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.properties.*
 import com.sympauthy.config.properties.AdvancedConfigurationProperties.Companion.ADVANCED_KEY
 import com.sympauthy.config.properties.AuthorizationWebhookConfigurationProperties.Companion.AUTHORIZATION_WEBHOOK_KEY
@@ -12,6 +14,7 @@ import com.sympauthy.config.properties.InvitationConfigurationProperties.Compani
 import com.sympauthy.config.properties.InvitationHashConfigurationProperties.Companion.INVITATION_HASH_KEY
 import com.sympauthy.config.properties.JwtConfigurationProperties.Companion.JWT_KEY
 import com.sympauthy.config.properties.PaginationConfigurationProperties.Companion.PAGINATION_KEY
+import com.sympauthy.config.properties.SecurityContextConfigurationProperties.Companion.SECURITY_CONTEXT_KEY
 import com.sympauthy.config.properties.ValidationCodeConfigurationProperties.Companion.VALIDATION_CODE_KEY
 import jakarta.inject.Singleton
 import java.time.Duration
@@ -25,7 +28,15 @@ data class ParsedAdvancedConfig(
     val invitation: ParsedInvitationConfig,
     val validationCode: ParsedValidationCodeConfig,
     val webhookTimeout: Duration?,
-    val pagination: ParsedPaginationConfig
+    val pagination: ParsedPaginationConfig,
+    val securityContext: ParsedSecurityContextConfig
+)
+
+data class ParsedSecurityContextConfig(
+    val provider: String?,
+    val headers: Map<SecurityContextField, String>,
+    val unknownRetention: Duration?,
+    val knownRetention: Duration?
 )
 
 data class ParsedInvitationConfig(
@@ -67,7 +78,8 @@ class AdvancedConfigParser(
         invitationHashProperties: InvitationHashConfigurationProperties,
         validationCodeProperties: ValidationCodeConfigurationProperties,
         authorizationWebhookProperties: AuthorizationWebhookConfigurationProperties,
-        paginationProperties: PaginationConfigurationProperties
+        paginationProperties: PaginationConfigurationProperties,
+        securityContextProperties: SecurityContextConfigurationProperties
     ): ParsedAdvancedConfig {
         val keysGenerationStrategyId = ctx.parse {
             parser.getEnumOrThrow<AdvancedConfigurationProperties, CryptoKeysGenerationStrategyId>(
@@ -109,6 +121,7 @@ class AdvancedConfigParser(
         }
 
         val pagination = parsePaginationConfig(ctx, paginationProperties)
+        val securityContext = parseSecurityContextConfig(ctx, securityContextProperties)
 
         return ParsedAdvancedConfig(
             keysGenerationStrategyId = keysGenerationStrategyId,
@@ -119,8 +132,64 @@ class AdvancedConfigParser(
             invitation = invitation,
             validationCode = validationCode,
             webhookTimeout = webhookTimeout,
-            pagination = pagination
+            pagination = pagination,
+            securityContext = securityContext
         )
+    }
+
+    private fun parseSecurityContextConfig(
+        ctx: ConfigParsingContext,
+        properties: SecurityContextConfigurationProperties
+    ): ParsedSecurityContextConfig {
+        val subCtx = ctx.child()
+        val provider = subCtx.parse {
+            parser.getStringOrThrow(
+                properties, "$SECURITY_CONTEXT_KEY.provider",
+                SecurityContextConfigurationProperties::provider
+            )
+        }
+        val headers = parseHeaderOverrides(subCtx, properties)
+        val unknownRetention = subCtx.parse {
+            parser.getDurationOrThrow(
+                properties, "$SECURITY_CONTEXT_KEY.unknown-retention",
+                SecurityContextConfigurationProperties::unknownRetention
+            )
+        }
+        val knownRetention = subCtx.parse {
+            parser.getDurationOrThrow(
+                properties, "$SECURITY_CONTEXT_KEY.known-retention",
+                SecurityContextConfigurationProperties::knownRetention
+            )
+        }
+        ctx.merge(subCtx)
+        return ParsedSecurityContextConfig(
+            provider = provider,
+            headers = headers,
+            unknownRetention = unknownRetention,
+            knownRetention = knownRetention
+        )
+    }
+
+    /**
+     * The header each field the deployment named an override for is read from.
+     *
+     * A key naming no field is reported and the rest of the map is still read, so a file with two
+     * misspellings reports both.
+     */
+    private fun parseHeaderOverrides(
+        ctx: ConfigParsingContext,
+        properties: SecurityContextConfigurationProperties
+    ): Map<SecurityContextField, String> {
+        return properties.headers.orEmpty().mapNotNull { (name, header) ->
+            ctx.parse {
+                val key = "$SECURITY_CONTEXT_KEY.headers.$name"
+                val field = parser.convertToEnum<SecurityContextField>(key, name)
+                if (header.isBlank()) {
+                    throw configExceptionOf(key, "config.empty")
+                }
+                field to header.trim()
+            }
+        }.toMap()
     }
 
     private fun parsePaginationConfig(

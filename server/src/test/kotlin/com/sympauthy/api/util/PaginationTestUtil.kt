@@ -2,11 +2,13 @@ package com.sympauthy.api.util
 
 import com.sympauthy.business.model.jwt.JwtAlgorithm
 import com.sympauthy.business.model.key.CryptoKeysGenerationStrategyId
+import com.sympauthy.business.manager.securitycontext.edge.NoneEdgeProviderProfile
 import com.sympauthy.config.model.AuthorizationWebhookAdvancedConfig
 import com.sympauthy.config.model.EnabledAdvancedConfig
 import com.sympauthy.config.model.HashConfig
 import com.sympauthy.config.model.InvitationAdvancedConfig
 import com.sympauthy.config.model.PaginationConfig
+import com.sympauthy.config.model.SecurityContextConfig
 import com.sympauthy.config.model.ValidationCodeConfig
 import java.time.Duration
 
@@ -56,7 +58,13 @@ fun paginationUtilOf(
             authorizationWebhook = AuthorizationWebhookAdvancedConfig(
                 timeout = Duration.ofSeconds(5)
             ),
-            pagination = PaginationConfig(defaultSize = defaultSize, maxSize = maxSize)
+            pagination = PaginationConfig(defaultSize = defaultSize, maxSize = maxSize),
+            securityContext = SecurityContextConfig(
+                profile = NoneEdgeProviderProfile(),
+                headers = emptyMap(),
+                unknownRetention = Duration.ofHours(24),
+                knownRetention = Duration.ofDays(180)
+            )
         )
     )
 }
