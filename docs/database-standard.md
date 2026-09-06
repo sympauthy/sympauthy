@@ -82,10 +82,13 @@ as an `_edit` under the version that carries the change.
 **Partitioning, sharding and read replicas.** One logical database, one schema.
 
 **Soft-delete as a schema pattern.** A revoked-at column is a domain state with its own meaning, and
-nothing filters rows on the way out.
+nothing filters rows on the way out. The nullable session id the tables a sign-up writes carry is
+the one exception, and it is not a soft delete: it says the row is not real yet rather than no
+longer. [The interactive flow](interactive-flow.md) owns it.
 
-**Data retention.** A scheduled job collects expired sessions; how long a revoked token or a used
-validation code is kept is a policy nobody has set.
+**Data retention.** A scheduled job collects expired sessions, and with them the accounts an
+abandoned sign-up left half-written; how long a revoked token or a used validation code is kept is a
+policy nobody has set.
 
 **Encryption at rest and column-level encryption.** Secrets are hashed where they are secrets, and
 what the storage does underneath is the deployment's business.

@@ -82,7 +82,10 @@ run against one of them proves half the query. See [the testing standard](testin
 ## What this standard does not cover
 
 **Soft deletes.** A revoked row is a domain state with its own column, and nothing here filters rows
-on the way out.
+on the way out. The one column a query does filter on is the session id a sign-up's rows carry until
+it completes — and that is not a soft delete either: the rows are not a past state being hidden,
+they are a future one that has not happened yet, and only the queries that could hand one out name
+it. [The interactive flow](interactive-flow.md) is where that lives.
 
 **Pagination in the repository.** Page and size arrive as ordinary parameters, and the defaults and
 caps are [the API standard's](api-standard.md).
