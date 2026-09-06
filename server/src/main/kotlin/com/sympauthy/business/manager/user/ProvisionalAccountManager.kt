@@ -78,7 +78,7 @@ open class ProvisionalAccountManager(
      * and answer what the run did — including the ones it deliberately left alone.
      *
      * An account counts as abandoned when the session signing it up is **gone** — see
-     * [UserRepository.findAbandoned]. Keying on absence rather than on the sessions one run expired makes
+     * [UserRepository.findCollectable]. Keying on absence rather than on the sessions one run expired makes
      * this self-correcting: an account orphaned by an earlier failure is collected on the next pass, and
      * this sweep needs nothing from the run that expired the session. It is a cleaner of its own, on a cron
      * of its own ([com.sympauthy.cron.CleanAbandonedAccountCron]), rather than a step of the one removing
@@ -87,9 +87,11 @@ open class ProvisionalAccountManager(
      * makes [limit] safe: a run that fills it leaves the rest to the next one.
      *
      * **An abandoned account another row still refers to is retained, and its id is in the result.**
-     * [UserRepository.findCollectableIn] is the rule for which those are, and such a row is a bug to find
+     * [UserRepository.findRetained] is the rule for which those are, and such a row is a bug to find
      * rather than a run to lose — so the sweep names them for its caller to report instead of dropping
-     * them from a count nobody can tell apart from having had nothing to do.
+     * them from a count nobody can tell apart from having had nothing to do. A retained account never
+     * counts against [limit]: it is retained for good, so a budget spent on one is a budget spent on it
+     * every run for good.
      *
      * The account's own rows go first, every one of them rather than only the provisional ones: the account
      * is going, so anything hanging off it is going too. By the [com.sympauthy.data.model.SessionScoped]
@@ -105,13 +107,9 @@ open class ProvisionalAccountManager(
      */
     @Transactional
     open suspend fun deleteAbandoned(limit: Int): CollectResult {
-        val abandonedIds = userRepository.findAbandoned(limit).mapNotNull(UserEntity::id)
-        if (abandonedIds.isEmpty()) return CollectResult(0, emptyList(), filledBatch = false)
-        val filledBatch = abandonedIds.size == limit
-
-        val collectableIds = userRepository.findCollectableIn(abandonedIds).mapNotNull(UserEntity::id)
-        val retainedIds = abandonedIds - collectableIds.toSet()
-        if (collectableIds.isEmpty()) return CollectResult(0, retainedIds, filledBatch)
+        val retainedIds = userRepository.findRetained(limit).mapNotNull(UserEntity::id)
+        val collectableIds = userRepository.findCollectable(limit).mapNotNull(UserEntity::id)
+        if (collectableIds.isEmpty()) return CollectResult(0, retainedIds, filledBatch = false)
 
         passwordRepository.deleteByUserIdInAndSessionIdIsNotNull(collectableIds)
         collectedClaimRepository.deleteByUserIdInAndSessionIdIsNotNull(collectableIds)
@@ -121,7 +119,7 @@ open class ProvisionalAccountManager(
         return CollectResult(
             deletedCount = userRepository.deleteByIdInAndSessionIdIsNotNull(collectableIds),
             retainedIds = retainedIds,
-            filledBatch = filledBatch
+            filledBatch = collectableIds.size == limit
         )
     }
 
@@ -183,7 +181,7 @@ open class ProvisionalAccountManager(
          */
         val retainedIds: List<UUID>,
         /**
-         * Whether the sweep took as many abandoned accounts as it was allowed, so there may be more the
+         * Whether the sweep took as many collectable accounts as it was allowed, so there are more the
          * next run will take.
          */
         val filledBatch: Boolean

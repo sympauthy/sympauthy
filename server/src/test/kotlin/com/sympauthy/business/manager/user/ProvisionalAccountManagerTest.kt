@@ -146,7 +146,7 @@ class ProvisionalAccountManagerTest {
     @Test
     fun `deleteAbandoned - Removes every row the account owns before the account`() = runTest {
         val abandonedId = UUID.randomUUID()
-        abandoned(abandonedId, collectable = listOf(abandonedId))
+        abandoned(collectable = listOf(abandonedId))
         coEvery { passwordRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(abandonedId)) } returns 1
         coEvery { collectedClaimRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(abandonedId)) } returns 2
         coEvery { providerUserInfoRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(abandonedId)) } returns 0
@@ -168,13 +168,12 @@ class ProvisionalAccountManagerTest {
 
     @Test
     fun `deleteAbandoned - Touches no table when nothing was abandoned`() = runTest {
-        coEvery { userRepository.findAbandoned(BATCH_SIZE) } returns emptyList()
+        abandoned(collectable = emptyList())
 
         val result = manager.deleteAbandoned(BATCH_SIZE)
 
         assertEquals(0, result.deletedCount)
         assertEquals(emptyList<UUID>(), result.retainedIds)
-        coVerify(exactly = 0) { userRepository.findCollectableIn(any()) }
         coVerify(exactly = 0) { passwordRepository.deleteByUserIdInAndSessionIdIsNotNull(any()) }
         coVerify(exactly = 0) { userRepository.deleteByIdInAndSessionIdIsNotNull(any()) }
     }
@@ -183,7 +182,7 @@ class ProvisionalAccountManagerTest {
     fun `deleteAbandoned - Names the account a row still refers to and deletes the other`() = runTest {
         val collectableId = UUID.randomUUID()
         val retainedId = UUID.randomUUID()
-        abandoned(collectableId, retainedId, collectable = listOf(collectableId))
+        abandoned(collectable = listOf(collectableId), retained = listOf(retainedId))
         coEvery { passwordRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(collectableId)) } returns 0
         coEvery { collectedClaimRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(collectableId)) } returns 0
         coEvery { providerUserInfoRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(collectableId)) } returns 0
@@ -199,7 +198,7 @@ class ProvisionalAccountManagerTest {
     @Test
     fun `deleteAbandoned - Deletes nothing when every abandoned account is retained`() = runTest {
         val retainedId = UUID.randomUUID()
-        abandoned(retainedId, collectable = emptyList())
+        abandoned(collectable = emptyList(), retained = listOf(retainedId))
 
         val result = manager.deleteAbandoned(BATCH_SIZE)
 
@@ -210,11 +209,37 @@ class ProvisionalAccountManagerTest {
     }
 
     @Test
-    fun `deleteAbandoned - Says the batch filled when it took as many as it was allowed`() = runTest {
-        val retainedId = UUID.randomUUID()
-        abandoned(retainedId, collectable = emptyList(), limit = 1)
+    fun `deleteAbandoned - Says the batch filled when it took as many collectable as it was allowed`() =
+        runTest {
+            val collectableId = UUID.randomUUID()
+            abandoned(collectable = listOf(collectableId), limit = 1)
+            coEvery { passwordRepository.deleteByUserIdInAndSessionIdIsNotNull(any()) } returns 0
+            coEvery { collectedClaimRepository.deleteByUserIdInAndSessionIdIsNotNull(any()) } returns 0
+            coEvery { providerUserInfoRepository.deleteByUserIdInAndSessionIdIsNotNull(any()) } returns 0
+            coEvery { totpEnrollmentRepository.deleteByUserIdInAndSessionIdIsNotNull(any()) } returns 0
+            coEvery { userRepository.deleteByIdInAndSessionIdIsNotNull(any()) } returns 1
 
-        assertTrue(manager.deleteAbandoned(1).filledBatch)
+            assertTrue(manager.deleteAbandoned(1).filledBatch)
+        }
+
+    /**
+     * A retained account is retained for good, so one counted against the limit would be counted again on
+     * every run after this one — and enough of them would leave the sweep no budget to collect anything.
+     */
+    @Test
+    fun `deleteAbandoned - Does not spend the batch on the accounts it retains`() = runTest {
+        val collectableId = UUID.randomUUID()
+        abandoned(collectable = listOf(collectableId), retained = List(5) { UUID.randomUUID() }, limit = 1)
+        coEvery { passwordRepository.deleteByUserIdInAndSessionIdIsNotNull(any()) } returns 0
+        coEvery { collectedClaimRepository.deleteByUserIdInAndSessionIdIsNotNull(any()) } returns 0
+        coEvery { providerUserInfoRepository.deleteByUserIdInAndSessionIdIsNotNull(any()) } returns 0
+        coEvery { totpEnrollmentRepository.deleteByUserIdInAndSessionIdIsNotNull(any()) } returns 0
+        coEvery { userRepository.deleteByIdInAndSessionIdIsNotNull(listOf(collectableId)) } returns 1
+
+        val result = manager.deleteAbandoned(1)
+
+        assertEquals(1, result.deletedCount)
+        assertEquals(5, result.retainedIds.size)
     }
 
     private fun abandonedUser(id: UUID) = UserEntity(
@@ -223,9 +248,9 @@ class ProvisionalAccountManagerTest {
         sessionId = UUID.randomUUID()
     ).apply { this.id = id }
 
-    private fun abandoned(vararg ids: UUID, collectable: List<UUID>, limit: Int = BATCH_SIZE) {
-        coEvery { userRepository.findAbandoned(limit) } returns ids.map(::abandonedUser)
-        coEvery { userRepository.findCollectableIn(ids.toList()) } returns collectable.map(::abandonedUser)
+    private fun abandoned(collectable: List<UUID>, retained: List<UUID> = emptyList(), limit: Int = BATCH_SIZE) {
+        coEvery { userRepository.findCollectable(limit) } returns collectable.map(::abandonedUser)
+        coEvery { userRepository.findRetained(limit) } returns retained.map(::abandonedUser)
     }
 
     private fun provisionalUser() {

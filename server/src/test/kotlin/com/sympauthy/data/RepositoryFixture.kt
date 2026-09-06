@@ -217,13 +217,18 @@ class RepositoryFixture(val database: Database) {
         deleteOnEnd { saved.id?.let { consents.deleteById(it) } }
     }
 
-    /** Records an invitation to [audienceId] that [userId] consumed. */
+    /**
+     * Records an invitation to [audienceId] that [userId] consumed.
+     *
+     * The lookup hash is derived from [userId] rather than fixed: `invitations__token_lookup_hash` is a
+     * unique index, so two invitations sharing a constant would collide inside the fixture.
+     */
     suspend fun newConsumedInvitation(userId: UUID, audienceId: String) {
         val invitations = database.bean<InvitationRepository>()
         val saved = invitations.save(
             InvitationEntity(
                 audienceId = audienceId,
-                tokenLookupHash = byteArrayOf(4),
+                tokenLookupHash = userId.toString().toByteArray(),
                 hashedToken = byteArrayOf(5),
                 salt = byteArrayOf(6),
                 tokenPrefix = "prefix",

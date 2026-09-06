@@ -108,9 +108,14 @@ class AdvancedConfigValidator {
     ): CleanupConfig? {
         val subCtx = ctx.child()
 
-        if (parsed.batchSize != null && parsed.batchSize <= 0) {
+        // The upper bound is the database's, not a taste call: a run binds one parameter per row into
+        // the IN list of every delete it issues, and a statement admits MAX_BIND_PARAMETERS of them.
+        if (parsed.batchSize != null && parsed.batchSize !in 1..MAX_BIND_PARAMETERS) {
             subCtx.addError(
-                configExceptionOf("$CLEANUP_KEY.batch-size", "config.advanced.cleanup.invalid_batch_size")
+                configExceptionOf(
+                    "$CLEANUP_KEY.batch-size", "config.advanced.cleanup.invalid_batch_size",
+                    "max" to MAX_BIND_PARAMETERS
+                )
             )
         }
 
@@ -288,5 +293,8 @@ class AdvancedConfigValidator {
 
     companion object {
         private val DEFAULT_WEBHOOK_TIMEOUT: Duration = Duration.ofSeconds(5)
+
+        /** Bind parameters PostgreSQL's extended protocol admits in one statement. */
+        private const val MAX_BIND_PARAMETERS = 65_535
     }
 }
