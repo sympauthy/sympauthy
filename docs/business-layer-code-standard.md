@@ -82,10 +82,6 @@ an account still being signed up is one whose owner decides what it becomes, so 
 it is one the owner of that session inherits when they promote. Reject before writing anything, and
 rely on nothing about where the id came from.
 
-**A surface whose protocol names its own error refuses with that error instead.** Token exchange
-answers RFC 8693's `invalid_target` for a subject naming no account, which the committed-only reader
-already produces; say so where it departs.
-
 ### Naming
 
 The verb says what kind of work the method does:
