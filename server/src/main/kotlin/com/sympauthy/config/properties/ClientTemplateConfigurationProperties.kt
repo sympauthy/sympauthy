@@ -24,7 +24,7 @@ class ClientTemplateConfigurationProperties(
     var defaultScopes: List<String>? = null
     var authorizationWebhook: AuthorizationWebhookConfig? = null
 
-    @ConfigurationProperties("authorization-webhook")
+    @ConfigurationProperties("webhooks.authorization")
     interface AuthorizationWebhookConfig : ClientAuthorizationWebhookProperties
 
     companion object {
