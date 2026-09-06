@@ -1,5 +1,6 @@
 package com.sympauthy.config.model
 
+import com.sympauthy.business.model.client.AccessReviewWebhook
 import com.sympauthy.business.model.client.AuthorizationWebhook
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.flow.AuthorizationFlow
@@ -51,5 +52,6 @@ data class ClientTemplate(
     val allowedRedirectUris: List<String>?,
     val allowedScopes: Set<EnabledScope>?,
     val defaultScopes: List<EnabledScope>?,
-    val authorizationWebhook: AuthorizationWebhook?
+    val authorizationWebhook: AuthorizationWebhook?,
+    val accessReviewWebhook: AccessReviewWebhook?
 )

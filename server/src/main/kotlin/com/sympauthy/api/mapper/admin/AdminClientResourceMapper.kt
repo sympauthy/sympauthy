@@ -1,9 +1,11 @@
 package com.sympauthy.api.mapper.admin
 
 import com.sympauthy.api.mapper.config.OutputResourceMapperConfig
+import com.sympauthy.api.resource.admin.AdminAccessReviewWebhookResource
 import com.sympauthy.api.resource.admin.AdminAuthorizationWebhookResource
 import com.sympauthy.api.resource.admin.AdminClientResource
 import com.sympauthy.api.resource.admin.AdminClientSummaryResource
+import com.sympauthy.business.model.client.AccessReviewWebhook
 import com.sympauthy.business.model.client.AuthorizationWebhook
 import com.sympauthy.business.model.client.AuthorizationWebhookOnFailure
 import com.sympauthy.business.model.client.Client
@@ -37,6 +39,16 @@ abstract class AdminClientResourceMapper {
     fun toScope(scope: Scope): String = scope.scope
 
     fun toGrantType(grantType: GrantType): String = grantType.wireName
+
+    fun toAccessReviewWebhookResource(webhook: AccessReviewWebhook?): AdminAccessReviewWebhookResource? {
+        return webhook?.let {
+            AdminAccessReviewWebhookResource(
+                url = it.url.toString(),
+                on = it.on.wireName,
+                onFailure = it.onFailure.wireName
+            )
+        }
+    }
 
     fun toWebhookResource(webhook: AuthorizationWebhook?): AdminAuthorizationWebhookResource? {
         return webhook?.let {

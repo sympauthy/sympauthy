@@ -1,11 +1,13 @@
 package com.sympauthy.config.validation
 
+import com.sympauthy.business.model.client.AccessReviewWebhook
 import com.sympauthy.business.model.client.AuthorizationWebhook
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
+import com.sympauthy.config.parsing.ParsedAccessReviewWebhook
 import com.sympauthy.config.parsing.ParsedAuthorizationWebhook
 import jakarta.inject.Singleton
 
@@ -115,6 +117,18 @@ class ClientConfigFieldValidator {
         return AuthorizationWebhook(
             url = parsed.url!!,
             secret = parsed.secret!!,
+            onFailure = parsed.onFailure!!
+        )
+    }
+
+    fun validateAccessReviewWebhook(
+        parsed: ParsedAccessReviewWebhook?
+    ): AccessReviewWebhook? {
+        if (parsed == null) return null
+        return AccessReviewWebhook(
+            url = parsed.url!!,
+            secret = parsed.secret!!,
+            on = parsed.on!!,
             onFailure = parsed.onFailure!!
         )
     }

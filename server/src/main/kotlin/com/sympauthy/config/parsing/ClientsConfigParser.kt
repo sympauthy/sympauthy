@@ -25,7 +25,8 @@ data class ParsedClient(
     val hasExplicitRedirectUris: Boolean,
     val allowedScopes: List<String>?,
     val defaultScopes: List<String>?,
-    val authorizationWebhook: ParsedAuthorizationWebhook?
+    val authorizationWebhook: ParsedAuthorizationWebhook?,
+    val accessReviewWebhook: ParsedAccessReviewWebhook?
 )
 
 @Singleton
@@ -83,6 +84,11 @@ class ClientsConfigParser(
             properties.authorizationWebhook, template?.authorizationWebhook
         )
 
+        val accessReviewWebhook = fieldParser.parseAccessReviewWebhook(
+            ctx, "$configKeyPrefix.webhooks.access-review",
+            properties.accessReviewWebhook, template?.accessReviewWebhook
+        )
+
         return ParsedClient(
             id = properties.id,
             audienceId = audienceId,
@@ -95,7 +101,8 @@ class ClientsConfigParser(
             hasExplicitRedirectUris = properties.allowedRedirectUris != null,
             allowedScopes = properties.allowedScopes,
             defaultScopes = properties.defaultScopes,
-            authorizationWebhook = authorizationWebhook
+            authorizationWebhook = authorizationWebhook,
+            accessReviewWebhook = accessReviewWebhook
         )
     }
 

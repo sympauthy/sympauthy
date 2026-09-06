@@ -43,5 +43,8 @@ data class AdminClientResource(
     val allowedRedirectUris: List<String>,
     @get:Schema(description = "Webhook configuration for delegating authorization decisions.")
     @get:JsonProperty("authorization_webhook")
-    val authorizationWebhook: AdminAuthorizationWebhookResource?
+    val authorizationWebhook: AdminAuthorizationWebhookResource?,
+    @get:Schema(description = "Webhook configuration for reviewing where a token is being validated from.")
+    @get:JsonProperty("access_review_webhook")
+    val accessReviewWebhook: AdminAccessReviewWebhookResource?
 )

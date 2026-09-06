@@ -57,7 +57,12 @@ data class Client(
      * Optional webhook configuration for delegating authorization decisions to an external server.
      * When set, the webhook is called before applying scope granting rules.
      */
-    val authorizationWebhook: AuthorizationWebhook? = null
+    val authorizationWebhook: AuthorizationWebhook? = null,
+    /**
+     * Optional webhook configuration for letting this client decide, against the places a person has
+     * been seen in, whether a token it is validating goes through.
+     */
+    val accessReviewWebhook: AccessReviewWebhook? = null
 ) {
     fun supportsGrantType(grantType: GrantType): Boolean = grantType in allowedGrantTypes
 }

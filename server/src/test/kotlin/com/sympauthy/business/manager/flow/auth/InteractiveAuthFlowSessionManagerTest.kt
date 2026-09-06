@@ -182,7 +182,8 @@ class InteractiveAuthFlowSessionManagerTest {
                 allowedRedirectUris = null,
                 allowedScopes = null,
                 defaultScopes = null,
-                authorizationWebhook = null
+                authorizationWebhook = null,
+                accessReviewWebhook = null
             )
             val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
             val realManager = InteractiveAuthFlowSessionManager(
@@ -225,7 +226,8 @@ class InteractiveAuthFlowSessionManagerTest {
                 allowedRedirectUris = null,
                 allowedScopes = null,
                 defaultScopes = null,
-                authorizationWebhook = null
+                authorizationWebhook = null,
+                accessReviewWebhook = null
             )
             val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
             val realManager = InteractiveAuthFlowSessionManager(
@@ -252,7 +254,8 @@ class InteractiveAuthFlowSessionManagerTest {
                 allowedRedirectUris = null,
                 allowedScopes = null,
                 defaultScopes = null,
-                authorizationWebhook = null
+                authorizationWebhook = null,
+                accessReviewWebhook = null
             )
             val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
             val realManager = InteractiveAuthFlowSessionManager(

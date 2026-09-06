@@ -4,6 +4,7 @@ import com.sympauthy.business.model.key.CryptoKeysGenerationStrategyId
 import com.sympauthy.business.model.securitycontext.SecurityContextField
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
+import com.sympauthy.config.properties.AccessReviewWebhookConfigurationProperties
 import com.sympauthy.config.properties.AdvancedConfigurationProperties
 import com.sympauthy.config.properties.AuthorizationWebhookConfigurationProperties
 import com.sympauthy.config.properties.HashConfigurationProperties
@@ -168,7 +169,8 @@ class AdvancedConfigParserTest {
         validationCodeProperties = validationCodeProperties,
         authorizationWebhookProperties = authorizationWebhookProperties,
         paginationProperties = paginationProperties,
-        securityContextProperties = securityContext
+        securityContextProperties = securityContext,
+        accessReviewWebhookProperties = accessReviewWebhookProperties
     )
 
     /**
@@ -214,6 +216,11 @@ class AdvancedConfigParserTest {
 
     private val authorizationWebhookProperties = object : AuthorizationWebhookConfigurationProperties {
         override val timeout = "5s"
+    }
+
+    private val accessReviewWebhookProperties = object : AccessReviewWebhookConfigurationProperties {
+        override val timeout = "2s"
+        override val pastContexts = "10"
     }
 
     private val paginationProperties = object : PaginationConfigurationProperties {

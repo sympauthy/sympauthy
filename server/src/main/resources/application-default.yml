@@ -35,6 +35,9 @@ advanced:
     resend-delay: 1m
     expiration: 10m
   webhooks:
+    access-review:
+      timeout: 2s
+      past-contexts: 10
     authorization:
       timeout: 5s
 

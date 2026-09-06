@@ -28,6 +28,7 @@ data class EnabledAdvancedConfig(
     val invitationConfig: InvitationAdvancedConfig,
     val validationCode: ValidationCodeConfig,
     val authorizationWebhook: AuthorizationWebhookAdvancedConfig,
+    val accessReviewWebhook: AccessReviewWebhookAdvancedConfig,
     val pagination: PaginationConfig,
     val securityContext: SecurityContextConfig,
 ) : AdvancedConfig()
@@ -100,6 +101,22 @@ data class PaginationConfig(
 
 data class AuthorizationWebhookAdvancedConfig(
     val timeout: Duration,
+)
+
+/**
+ * What every client's access-review webhook is called under, whatever it configures for itself.
+ */
+data class AccessReviewWebhookAdvancedConfig(
+    /**
+     * How long a webhook has to answer. Shorter than the authorization webhook's, because this one
+     * sits on the path a token is validated through rather than on a person's sign-in.
+     */
+    val timeout: Duration,
+    /**
+     * How many of the places a person has been seen in are handed to the webhook, most recent first.
+     * An unbounded history would grow the request body without bound for the person who travels.
+     */
+    val pastContexts: Int,
 )
 
 /**

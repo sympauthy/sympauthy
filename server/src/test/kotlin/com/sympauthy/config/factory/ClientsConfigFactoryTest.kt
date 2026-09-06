@@ -92,7 +92,8 @@ class ClientsConfigFactoryTest {
             allowedRedirectUris = allowedRedirectUris,
             allowedScopes = null,
             defaultScopes = null,
-            authorizationWebhook = null
+            authorizationWebhook = null,
+            accessReviewWebhook = null
         )
     }
 

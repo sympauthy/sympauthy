@@ -7,6 +7,7 @@ import com.sympauthy.business.manager.securitycontext.edge.NoneEdgeProviderProfi
 import com.sympauthy.business.model.securitycontext.EdgeProviderProfile
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
+import com.sympauthy.config.parsing.ParsedAccessReviewWebhookConfig
 import com.sympauthy.config.parsing.ParsedAdvancedConfig
 import com.sympauthy.config.parsing.ParsedHashConfig
 import com.sympauthy.config.parsing.ParsedInvitationConfig
@@ -96,6 +97,39 @@ class AdvancedConfigValidatorTest {
         assertNotNull(config)
         assertEquals(Duration.ofHours(24), config!!.securityContext.unknownRetention)
         assertEquals(Duration.ofDays(180), config.securityContext.knownRetention)
+    }
+
+    @Test
+    fun `validate - Keep the bounds every access-review webhook is called under`() {
+        val ctx = ConfigParsingContext()
+
+        val config = validator.validate(ctx, parsedConfig(), profilesByName)
+
+        assertNotNull(config)
+        assertEquals(Duration.ofSeconds(2), config!!.accessReviewWebhook.timeout)
+        assertEquals(10, config.accessReviewWebhook.pastContexts)
+    }
+
+    @Test
+    fun `validate - Reject a negative number of past contexts`() {
+        val ctx = ConfigParsingContext()
+
+        val config = validator.validate(
+            ctx,
+            parsedConfig(
+                accessReviewWebhook = ParsedAccessReviewWebhookConfig(
+                    timeout = Duration.ofSeconds(2),
+                    pastContexts = -1
+                )
+            ),
+            profilesByName
+        )
+
+        assertNull(config)
+        assertEquals(
+            listOf("config.advanced.webhooks.access_review.invalid_past_contexts"),
+            ctx.errors.map { it.messageId }
+        )
     }
 
     @Test
@@ -207,7 +241,11 @@ class AdvancedConfigValidatorTest {
 
     private fun parsedConfig(
         pagination: ParsedPaginationConfig = ParsedPaginationConfig(20, 100),
-        securityContext: ParsedSecurityContextConfig = parsedSecurityContext()
+        securityContext: ParsedSecurityContextConfig = parsedSecurityContext(),
+        accessReviewWebhook: ParsedAccessReviewWebhookConfig = ParsedAccessReviewWebhookConfig(
+            timeout = Duration.ofSeconds(2),
+            pastContexts = 10
+        )
     ): ParsedAdvancedConfig {
         val hash = ParsedHashConfig(
             costParameter = 16_384,
@@ -234,6 +272,7 @@ class AdvancedConfigValidatorTest {
                 resendDelay = Duration.ofMinutes(1)
             ),
             webhookTimeout = Duration.ofSeconds(5),
+            accessReviewWebhook = accessReviewWebhook,
             pagination = pagination,
             securityContext = securityContext
         )

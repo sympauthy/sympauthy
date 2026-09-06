@@ -48,6 +48,7 @@ class ClientTemplatesConfigValidator(
             subCtx, "$configKeyPrefix.default-scopes", parsed.defaultScopes, scopesById
         )
         val authorizationWebhook = fieldValidator.validateWebhook(parsed.authorizationWebhook)
+        val accessReviewWebhook = fieldValidator.validateAccessReviewWebhook(parsed.accessReviewWebhook)
 
         ctx.merge(subCtx)
         if (subCtx.hasErrors) return null
@@ -61,7 +62,8 @@ class ClientTemplatesConfigValidator(
             allowedRedirectUris = parsed.allowedRedirectUris,
             allowedScopes = allowedScopes,
             defaultScopes = defaultScopes,
-            authorizationWebhook = authorizationWebhook
+            authorizationWebhook = authorizationWebhook,
+            accessReviewWebhook = accessReviewWebhook
         )
     }
 }

@@ -118,6 +118,7 @@ class ClientsConfigValidator(
 
         // Validate webhook (already resolved with template fallback by parser).
         val authorizationWebhook = fieldValidator.validateWebhook(parsed.authorizationWebhook)
+        val accessReviewWebhook = fieldValidator.validateAccessReviewWebhook(parsed.accessReviewWebhook)
 
         ctx.merge(subCtx)
         if (subCtx.hasErrors) return null
@@ -132,7 +133,8 @@ class ClientsConfigValidator(
             allowedRedirectUris = allowedRedirectUris!!,
             allowedScopes = allowedScopes,
             defaultScopes = defaultScopes,
-            authorizationWebhook = authorizationWebhook
+            authorizationWebhook = authorizationWebhook,
+            accessReviewWebhook = accessReviewWebhook
         )
     }
 

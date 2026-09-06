@@ -23,9 +23,13 @@ class ClientTemplateConfigurationProperties(
     var allowedScopes: List<String>? = null
     var defaultScopes: List<String>? = null
     var authorizationWebhook: AuthorizationWebhookConfig? = null
+    var accessReviewWebhook: AccessReviewWebhookConfig? = null
 
     @ConfigurationProperties("webhooks.authorization")
     interface AuthorizationWebhookConfig : ClientAuthorizationWebhookProperties
+
+    @ConfigurationProperties("webhooks.access-review")
+    interface AccessReviewWebhookConfig : ClientAccessReviewWebhookProperties
 
     companion object {
         const val TEMPLATES_CLIENTS_KEY = "templates.clients"

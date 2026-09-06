@@ -3,6 +3,7 @@ package com.sympauthy.api.util
 import com.sympauthy.business.model.jwt.JwtAlgorithm
 import com.sympauthy.business.model.key.CryptoKeysGenerationStrategyId
 import com.sympauthy.business.manager.securitycontext.edge.NoneEdgeProviderProfile
+import com.sympauthy.config.model.AccessReviewWebhookAdvancedConfig
 import com.sympauthy.config.model.AuthorizationWebhookAdvancedConfig
 import com.sympauthy.config.model.EnabledAdvancedConfig
 import com.sympauthy.config.model.HashConfig
@@ -57,6 +58,10 @@ fun paginationUtilOf(
             ),
             authorizationWebhook = AuthorizationWebhookAdvancedConfig(
                 timeout = Duration.ofSeconds(5)
+            ),
+            accessReviewWebhook = AccessReviewWebhookAdvancedConfig(
+                timeout = Duration.ofSeconds(2),
+                pastContexts = 10
             ),
             pagination = PaginationConfig(defaultSize = defaultSize, maxSize = maxSize),
             securityContext = SecurityContextConfig(

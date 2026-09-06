@@ -8,6 +8,7 @@ import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.properties.*
 import com.sympauthy.config.properties.AdvancedConfigurationProperties.Companion.ADVANCED_KEY
+import com.sympauthy.config.properties.AccessReviewWebhookConfigurationProperties.Companion.ACCESS_REVIEW_WEBHOOK_KEY
 import com.sympauthy.config.properties.AuthorizationWebhookConfigurationProperties.Companion.AUTHORIZATION_WEBHOOK_KEY
 import com.sympauthy.config.properties.HashConfigurationProperties.Companion.HASH_KEY
 import com.sympauthy.config.properties.InvitationConfigurationProperties.Companion.INVITATION_KEY
@@ -28,8 +29,14 @@ data class ParsedAdvancedConfig(
     val invitation: ParsedInvitationConfig,
     val validationCode: ParsedValidationCodeConfig,
     val webhookTimeout: Duration?,
+    val accessReviewWebhook: ParsedAccessReviewWebhookConfig,
     val pagination: ParsedPaginationConfig,
     val securityContext: ParsedSecurityContextConfig
+)
+
+data class ParsedAccessReviewWebhookConfig(
+    val timeout: Duration?,
+    val pastContexts: Int?
 )
 
 data class ParsedSecurityContextConfig(
@@ -79,7 +86,8 @@ class AdvancedConfigParser(
         validationCodeProperties: ValidationCodeConfigurationProperties,
         authorizationWebhookProperties: AuthorizationWebhookConfigurationProperties,
         paginationProperties: PaginationConfigurationProperties,
-        securityContextProperties: SecurityContextConfigurationProperties
+        securityContextProperties: SecurityContextConfigurationProperties,
+        accessReviewWebhookProperties: AccessReviewWebhookConfigurationProperties
     ): ParsedAdvancedConfig {
         val keysGenerationStrategyId = ctx.parse {
             parser.getEnumOrThrow<AdvancedConfigurationProperties, CryptoKeysGenerationStrategyId>(
@@ -122,6 +130,7 @@ class AdvancedConfigParser(
 
         val pagination = parsePaginationConfig(ctx, paginationProperties)
         val securityContext = parseSecurityContextConfig(ctx, securityContextProperties)
+        val accessReviewWebhook = parseAccessReviewWebhookConfig(ctx, accessReviewWebhookProperties)
 
         return ParsedAdvancedConfig(
             keysGenerationStrategyId = keysGenerationStrategyId,
@@ -132,9 +141,31 @@ class AdvancedConfigParser(
             invitation = invitation,
             validationCode = validationCode,
             webhookTimeout = webhookTimeout,
+            accessReviewWebhook = accessReviewWebhook,
             pagination = pagination,
             securityContext = securityContext
         )
+    }
+
+    private fun parseAccessReviewWebhookConfig(
+        ctx: ConfigParsingContext,
+        properties: AccessReviewWebhookConfigurationProperties
+    ): ParsedAccessReviewWebhookConfig {
+        val subCtx = ctx.child()
+        val timeout = subCtx.parse {
+            parser.getDurationOrThrow(
+                properties, "$ACCESS_REVIEW_WEBHOOK_KEY.timeout",
+                AccessReviewWebhookConfigurationProperties::timeout
+            )
+        }
+        val pastContexts = subCtx.parse {
+            parser.getIntOrThrow(
+                properties, "$ACCESS_REVIEW_WEBHOOK_KEY.past-contexts",
+                AccessReviewWebhookConfigurationProperties::pastContexts
+            )
+        }
+        ctx.merge(subCtx)
+        return ParsedAccessReviewWebhookConfig(timeout = timeout, pastContexts = pastContexts)
     }
 
     private fun parseSecurityContextConfig(

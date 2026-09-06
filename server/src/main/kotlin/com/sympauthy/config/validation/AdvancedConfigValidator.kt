@@ -4,6 +4,7 @@ import com.sympauthy.business.model.jwt.JwtAlgorithm
 import com.sympauthy.business.model.securitycontext.EdgeProviderProfile
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
+import com.sympauthy.config.model.AccessReviewWebhookAdvancedConfig
 import com.sympauthy.config.model.AuthorizationWebhookAdvancedConfig
 import com.sympauthy.config.model.EnabledAdvancedConfig
 import com.sympauthy.config.model.HashConfig
@@ -11,12 +12,14 @@ import com.sympauthy.config.model.InvitationAdvancedConfig
 import com.sympauthy.config.model.PaginationConfig
 import com.sympauthy.config.model.SecurityContextConfig
 import com.sympauthy.config.model.ValidationCodeConfig
+import com.sympauthy.config.parsing.ParsedAccessReviewWebhookConfig
 import com.sympauthy.config.parsing.ParsedAdvancedConfig
 import com.sympauthy.config.parsing.ParsedHashConfig
 import com.sympauthy.config.parsing.ParsedInvitationConfig
 import com.sympauthy.config.parsing.ParsedPaginationConfig
 import com.sympauthy.config.parsing.ParsedSecurityContextConfig
 import com.sympauthy.config.parsing.ParsedValidationCodeConfig
+import com.sympauthy.config.properties.AccessReviewWebhookConfigurationProperties.Companion.ACCESS_REVIEW_WEBHOOK_KEY
 import com.sympauthy.config.properties.InvitationConfigurationProperties.Companion.INVITATION_KEY
 import com.sympauthy.config.properties.InvitationHashConfigurationProperties.Companion.INVITATION_HASH_KEY
 import com.sympauthy.config.properties.HashConfigurationProperties.Companion.HASH_KEY
@@ -52,6 +55,7 @@ class AdvancedConfigValidator {
             timeout = parsed.webhookTimeout ?: DEFAULT_WEBHOOK_TIMEOUT
         )
         val paginationConfig = validatePaginationConfig(ctx, parsed.pagination)
+        val accessReviewWebhookConfig = validateAccessReviewWebhookConfig(ctx, parsed.accessReviewWebhook)
         val securityContextConfig = validateSecurityContextConfig(ctx, parsed.securityContext, profilesByName)
 
         if (ctx.hasErrors) return null
@@ -64,6 +68,7 @@ class AdvancedConfigValidator {
             invitationConfig = invitationConfig!!,
             validationCode = validationCodeConfig!!,
             authorizationWebhook = webhookConfig,
+            accessReviewWebhook = accessReviewWebhookConfig!!,
             pagination = paginationConfig!!,
             securityContext = securityContextConfig!!
         )
@@ -144,6 +149,31 @@ class AdvancedConfigValidator {
         return PaginationConfig(
             defaultSize = parsed.defaultSize,
             maxSize = parsed.maxSize
+        )
+    }
+
+    private fun validateAccessReviewWebhookConfig(
+        ctx: ConfigParsingContext,
+        parsed: ParsedAccessReviewWebhookConfig
+    ): AccessReviewWebhookAdvancedConfig? {
+        val subCtx = ctx.child()
+
+        if (parsed.pastContexts != null && parsed.pastContexts < 0) {
+            subCtx.addError(
+                configExceptionOf(
+                    "$ACCESS_REVIEW_WEBHOOK_KEY.past-contexts",
+                    "config.advanced.webhooks.access_review.invalid_past_contexts"
+                )
+            )
+        }
+
+        ctx.merge(subCtx)
+        if (subCtx.hasErrors || parsed.timeout == null || parsed.pastContexts == null) {
+            return null
+        }
+        return AccessReviewWebhookAdvancedConfig(
+            timeout = parsed.timeout,
+            pastContexts = parsed.pastContexts
         )
     }
 

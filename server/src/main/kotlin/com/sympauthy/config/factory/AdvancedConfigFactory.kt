@@ -5,6 +5,7 @@ import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.DisabledAdvancedConfig
 import com.sympauthy.config.parsing.AdvancedConfigParser
+import com.sympauthy.config.properties.AccessReviewWebhookConfigurationProperties
 import com.sympauthy.config.properties.AdvancedConfigurationProperties
 import com.sympauthy.config.properties.AuthorizationWebhookConfigurationProperties
 import com.sympauthy.config.properties.HashConfigurationProperties
@@ -43,13 +44,14 @@ class AdvancedConfigFactory(
         authorizationWebhookProperties: AuthorizationWebhookConfigurationProperties,
         paginationProperties: PaginationConfigurationProperties,
         securityContextProperties: SecurityContextConfigurationProperties,
+        accessReviewWebhookProperties: AccessReviewWebhookConfigurationProperties,
     ): AdvancedConfig {
         val ctx = ConfigParsingContext()
         val parsed = advancedParser.parse(
             ctx, properties, jwtProperties, hashProperties,
             invitationProperties, invitationHashProperties,
             validationCodeProperties, authorizationWebhookProperties, paginationProperties,
-            securityContextProperties
+            securityContextProperties, accessReviewWebhookProperties
         )
         val config = advancedValidator.validate(ctx, parsed, profiles.associateBy(EdgeProviderProfile::name))
         return config ?: DisabledAdvancedConfig(ctx.errors)
