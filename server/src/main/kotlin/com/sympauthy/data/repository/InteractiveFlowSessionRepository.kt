@@ -98,6 +98,20 @@ interface InteractiveFlowSessionRepository : CoroutineCrudRepository<Interactive
     suspend fun updateUserId(id: UUID, userId: UUID, signedUp: Boolean, expectedVersion: Long): Int
 
     /**
+     * Update of the contexts this session has been seen in, and of the one the last request arrived
+     * from.
+     *
+     * It is deliberately outside the version guard the lifecycle updates use: a request arriving from
+     * a new place is not a step of the flow, and making it one would fail a person's sign-in over a
+     * race whose cost is a row nothing points at.
+     */
+    suspend fun updateCurrentSecurityContextId(
+        @Id id: UUID,
+        currentSecurityContextId: UUID?,
+        securityContextIds: Array<UUID>
+    ): Int
+
+    /**
      * Version-guarded update of the MFA-passed date.
      */
     @Query(

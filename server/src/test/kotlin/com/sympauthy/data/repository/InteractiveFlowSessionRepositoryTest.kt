@@ -85,6 +85,30 @@ class InteractiveFlowSessionRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
+    fun `updateCurrentSecurityContextId - Move the session to another place without touching its version`(
+        database: Database
+    ) = withFixture(database) {
+        val sessions = repository<InteractiveFlowSessionRepository>()
+        val session = newSession()
+        val first = UUID.randomUUID()
+        val second = UUID.randomUUID()
+
+        val updated = sessions.updateCurrentSecurityContextId(
+            id = session.id!!,
+            currentSecurityContextId = second,
+            securityContextIds = arrayOf(first, second)
+        )
+
+        assertEquals(1, updated)
+        val stored = sessions.findById(session.id!!)
+        assertNotNull(stored)
+        assertArrayEquals(arrayOf(first, second), stored!!.securityContextIds)
+        assertEquals(second, stored.currentSecurityContextId)
+        assertEquals(0L, stored.version)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
     fun `findByCode - Joins the authorization code back to its session`(database: Database) =
         withFixture(database) {
             val sessions = repository<InteractiveFlowSessionRepository>()

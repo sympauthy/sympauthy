@@ -4,6 +4,7 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.jwt.JwtManager
+import com.sympauthy.business.manager.securitycontext.SecurityContextManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionMapper
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
@@ -43,6 +44,9 @@ class InteractiveFlowSessionManagerTest {
     lateinit var jwtManager: JwtManager
 
     @MockK
+    lateinit var securityContextManager: SecurityContextManager
+
+    @MockK
     lateinit var sessionRepository: InteractiveFlowSessionRepository
 
     @MockK
@@ -71,6 +75,8 @@ class InteractiveFlowSessionManagerTest {
         completedPurposes: List<InteractiveFlowPurpose> = emptyList(),
         userId: UUID? = UUID.randomUUID(),
         redirectType: InteractiveFlowRedirectType? = InteractiveFlowRedirectType.AUTHORIZATION_CODE,
+        securityContextIds: List<UUID> = emptyList(),
+        currentSecurityContextId: UUID? = null,
     ) = OnGoingInteractiveFlowSession(
         id = id,
         purposes = purposes,
@@ -81,6 +87,8 @@ class InteractiveFlowSessionManagerTest {
         version = version,
         userId = userId,
         completedPurposes = completedPurposes,
+        securityContextIds = securityContextIds,
+        currentSecurityContextId = currentSecurityContextId,
         successRedirectUri = URI.create("https://client.example.com/callback"),
         redirectType = redirectType,
         cancelRedirectUri = URI.create("https://client.example.com/callback"),
@@ -183,6 +191,58 @@ class InteractiveFlowSessionManagerTest {
         assertEquals(userId, result.userId)
         assertTrue(result.signedUp)
         assertEquals(STARTING_VERSION + 1, result.version)
+    }
+
+    @Test
+    fun `setAuthenticatedUserId - Attach the places the session was seen in to the user`() = runTest {
+        val place = UUID.randomUUID()
+        val session = ongoingSession(
+            userId = null,
+            securityContextIds = listOf(place),
+            currentSecurityContextId = place
+        )
+        val userId = UUID.randomUUID()
+        coEvery { sessionRepository.updateUserId(session.id, userId, false, STARTING_VERSION) } returns 1
+        coEvery { securityContextManager.promoteToUser(listOf(place), userId) } returns emptyMap()
+
+        val result = interactiveFlowSessionManager.setAuthenticatedUserId(session, userId)
+
+        assertEquals(listOf(place), result.securityContextIds)
+        assertEquals(place, result.currentSecurityContextId)
+        coVerify(exactly = 0) {
+            sessionRepository.updateCurrentSecurityContextId(any(), any(), any())
+        }
+    }
+
+    @Test
+    fun `setAuthenticatedUserId - Follow a place absorbed by one already the user's`() = runTest {
+        val promoted = UUID.randomUUID()
+        val survivor = UUID.randomUUID()
+        val session = ongoingSession(
+            userId = null,
+            securityContextIds = listOf(promoted),
+            currentSecurityContextId = promoted
+        )
+        val userId = UUID.randomUUID()
+        coEvery { sessionRepository.updateUserId(session.id, userId, false, STARTING_VERSION) } returns 1
+        coEvery {
+            securityContextManager.promoteToUser(listOf(promoted), userId)
+        } returns mapOf(promoted to survivor)
+        coEvery {
+            sessionRepository.updateCurrentSecurityContextId(session.id, survivor, any())
+        } returns 1
+
+        val result = interactiveFlowSessionManager.setAuthenticatedUserId(session, userId)
+
+        assertEquals(listOf(survivor), result.securityContextIds)
+        assertEquals(survivor, result.currentSecurityContextId)
+        coVerify(exactly = 1) {
+            sessionRepository.updateCurrentSecurityContextId(
+                session.id,
+                survivor,
+                match { it.contentEquals(arrayOf(survivor)) }
+            )
+        }
     }
 
     @Test

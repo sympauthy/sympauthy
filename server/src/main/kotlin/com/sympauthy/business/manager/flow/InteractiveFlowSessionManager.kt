@@ -5,9 +5,11 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.jwt.JwtManager
+import com.sympauthy.business.manager.securitycontext.SecurityContextManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionMapper
 import com.sympauthy.business.model.flow.*
+import com.sympauthy.business.model.securitycontext.ObservedSecurityContext
 import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
@@ -38,6 +40,7 @@ import java.util.*
 open class InteractiveFlowSessionManager(
     @Inject private val userManager: UserManager,
     @Inject private val jwtManager: JwtManager,
+    @Inject private val securityContextManager: SecurityContextManager,
     @Inject private val sessionRepository: InteractiveFlowSessionRepository,
     @Inject private val sessionMapper: InteractiveFlowSessionMapper,
     @Inject private val uncheckedAuthConfig: AuthConfig
@@ -59,9 +62,11 @@ open class InteractiveFlowSessionManager(
         successRedirectUri: URI? = null,
         redirectType: InteractiveFlowRedirectType? = null,
         cancelRedirectUri: URI? = null,
-        error: BusinessException? = null
+        error: BusinessException? = null,
+        observedSecurityContext: ObservedSecurityContext? = null
     ): InteractiveFlowSession {
         val now = LocalDateTime.now()
+        val securityContext = observedSecurityContext?.let { securityContextManager.recordObservation(it) }
         val entity = InteractiveFlowSessionEntity(
             purposes = purposes.map(InteractiveFlowPurpose::name).toTypedArray(),
             initiatingPurpose = initiatingPurpose.name,
@@ -77,6 +82,9 @@ open class InteractiveFlowSessionManager(
             errorDetailsId = error?.detailsId,
             errorDescriptionId = error?.descriptionId,
             errorValues = error?.values,
+
+            securityContextIds = listOfNotNull(securityContext?.id).toTypedArray(),
+            currentSecurityContextId = securityContext?.id,
         )
         sessionRepository.save(entity)
 
@@ -135,6 +143,10 @@ open class InteractiveFlowSessionManager(
      *
      * [signedUp] records whether the user was created (signed up) during this session, so a later step (e.g.
      * the MFA-purpose selection) can branch on sign-up vs sign-in.
+     *
+     * The places the session has been seen in become that user's as part of it, which is what keeps them
+     * beyond the day an unattached context is kept for. It runs after the guarded update rather than before:
+     * a session that lost the compare-and-swap never had this user, and must not hand them a history.
      */
     suspend fun setAuthenticatedUserId(
         session: OnGoingInteractiveFlowSession,
@@ -152,6 +164,35 @@ open class InteractiveFlowSessionManager(
             userId = userId,
             signedUp = signedUp,
             version = session.version + 1
+        ).let { promoteSecurityContexts(it, userId) }
+    }
+
+    /**
+     * Attach the places [session] has been seen in to [userId], and follow the ones a place already
+     * theirs absorbed.
+     *
+     * A merge leaves this session holding the id of a row that no longer exists, so where one happened
+     * the session's own list is rewritten to name the survivor. Nothing is written where nothing
+     * collided, which is every promotion but the returning person's, and nothing is asked at all of a
+     * deployment that records no context.
+     */
+    private suspend fun promoteSecurityContexts(
+        session: OnGoingInteractiveFlowSession,
+        userId: UUID
+    ): OnGoingInteractiveFlowSession {
+        if (session.securityContextIds.isEmpty()) return session
+        val merged = securityContextManager.promoteToUser(session.securityContextIds, userId)
+        if (merged.isEmpty()) return session
+        val securityContextIds = session.securityContextIds.map { merged[it] ?: it }.distinct()
+        val currentSecurityContextId = session.currentSecurityContextId?.let { merged[it] ?: it }
+        sessionRepository.updateCurrentSecurityContextId(
+            id = session.id,
+            currentSecurityContextId = currentSecurityContextId,
+            securityContextIds = securityContextIds.toTypedArray()
+        )
+        return session.copy(
+            securityContextIds = securityContextIds,
+            currentSecurityContextId = currentSecurityContextId
         )
     }
 

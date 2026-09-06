@@ -6,21 +6,41 @@ import com.sympauthy.business.model.securitycontext.EdgeProviderProfile
 import com.sympauthy.business.model.securitycontext.SecurityContextField
 import com.sympauthy.business.model.securitycontext.SecurityContextField.CITY
 import com.sympauthy.business.model.securitycontext.SecurityContextField.CLIENT_IP
+import com.sympauthy.business.model.securitycontext.ObservedSecurityContext
+import com.sympauthy.business.model.securitycontext.SecurityContextGeo
+import com.sympauthy.business.model.securitycontext.fingerprint
 import com.sympauthy.business.model.securitycontext.observedRequestOf
+import com.sympauthy.business.mapper.SecurityContextMapper
 import com.sympauthy.config.model.EnabledAdvancedConfig
 import com.sympauthy.config.model.SecurityContextConfig
+import com.sympauthy.data.model.SecurityContextEntity
+import com.sympauthy.data.repository.SecurityContextRepository
+import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
+import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import org.mapstruct.factory.Mappers
 import java.time.Duration
+import java.time.LocalDateTime
+import java.util.*
 
 @ExtendWith(MockKExtension::class)
 class SecurityContextManagerTest {
+
+    @MockK
+    lateinit var securityContexts: SecurityContextRepository
+
+    private val unknownRetention: Duration = Duration.ofHours(24)
+
+    private val knownRetention: Duration = Duration.ofDays(180)
 
     @Test
     fun `getObservedSecurityContext - Record the socket peer where the deployment named no proxy`() =
@@ -103,6 +123,187 @@ class SecurityContextManagerTest {
         assertNull(observed.ip)
     }
 
+    @Test
+    fun `recordObservation - Write a place neither the session nor the user has been seen in`() = runTest {
+        val observed = observedIn("198.51.100.10")
+        coEvery { securityContexts.save(any()) } answers { savedWithAnId() }
+
+        val context = managerOf().recordObservation(observed)
+
+        assertEquals("198.51.100.10", context.ip)
+        assertEquals("Mozilla/5.0", context.userAgent)
+        assertEquals("FR", context.geo.country)
+        assertEquals(observed.fingerprint, context.fingerprint)
+        assertEquals(1, context.observationCount)
+        assertEquals(context.firstSeenDate, context.lastSeenDate)
+        assertEquals(context.lastSeenDate.plus(unknownRetention), context.expirationDate)
+        assertNull(context.userId)
+    }
+
+    @Test
+    fun `recordObservation - Move the sighting on for a place the session carries`() = runTest {
+        val observed = observedIn("198.51.100.10")
+        val known = contextEntity(fingerprint = observed.fingerprint, observationCount = 3)
+        coEvery { securityContexts.findByIdIn(listOf(known.id!!)) } returns listOf(known)
+        coEvery { securityContexts.updateLastSeenDate(known.id!!, any(), any(), any()) } returns 1
+
+        val context = managerOf().recordObservation(observed, knownContextIds = listOf(known.id!!))
+
+        assertEquals(known.id, context.id)
+        assertEquals(4, context.observationCount)
+        assertTrue(context.lastSeenDate.isAfter(known.lastSeenDate))
+        coVerify(exactly = 1) {
+            securityContexts.updateLastSeenDate(known.id!!, context.lastSeenDate, 4, context.expirationDate)
+        }
+        coVerify(exactly = 0) { securityContexts.save(any()) }
+    }
+
+    @Test
+    fun `recordObservation - Reuse the place the user has already been seen in`() = runTest {
+        val userId = UUID.randomUUID()
+        val observed = observedIn("198.51.100.10")
+        val theirs = contextEntity(fingerprint = observed.fingerprint, userId = userId, observationCount = 7)
+        coEvery { securityContexts.findByUserIdAndFingerprint(userId, observed.fingerprint) } returns theirs
+        coEvery { securityContexts.updateLastSeenDate(theirs.id!!, any(), any(), any()) } returns 1
+
+        val context = managerOf().recordObservation(observed, userId = userId)
+
+        assertEquals(theirs.id, context.id)
+        assertEquals(8, context.observationCount)
+        assertEquals(context.lastSeenDate.plus(knownRetention), context.expirationDate)
+        coVerify(exactly = 0) { securityContexts.save(any()) }
+    }
+
+    @Test
+    fun `recordObservation - Attach a place first seen after a sign-in to the user`() = runTest {
+        val userId = UUID.randomUUID()
+        val observed = observedIn("198.51.100.10")
+        coEvery { securityContexts.findByUserIdAndFingerprint(userId, observed.fingerprint) } returns null
+        coEvery { securityContexts.save(any()) } answers { savedWithAnId() }
+
+        val context = managerOf().recordObservation(observed, userId = userId)
+
+        assertEquals(userId, context.userId)
+        assertEquals(context.lastSeenDate.plus(knownRetention), context.expirationDate)
+    }
+
+    @Test
+    fun `promoteToUser - Attach a place nobody was attached to`() = runTest {
+        val userId = UUID.randomUUID()
+        val promoted = contextEntity(fingerprint = "unattached")
+        coEvery { securityContexts.findByIdIn(listOf(promoted.id!!)) } returns listOf(promoted)
+        coEvery { securityContexts.findByUserIdAndFingerprint(userId, "unattached") } returns null
+        coEvery { securityContexts.updateUserId(promoted.id!!, userId, any()) } returns 1
+
+        val merged = managerOf().promoteToUser(listOf(promoted.id!!), userId)
+
+        assertEquals(emptyMap<UUID, UUID>(), merged)
+        coVerify(exactly = 1) {
+            securityContexts.updateUserId(
+                promoted.id!!,
+                userId,
+                promoted.lastSeenDate.plus(knownRetention)
+            )
+        }
+    }
+
+    @Test
+    fun `promoteToUser - Absorb a place already the user's and name the survivor`() = runTest {
+        val userId = UUID.randomUUID()
+        val promoted = contextEntity(
+            fingerprint = "same-place",
+            firstSeenDate = BASE_DATE.plusDays(2),
+            lastSeenDate = BASE_DATE.plusDays(5),
+            observationCount = 2
+        )
+        val theirs = contextEntity(
+            fingerprint = "same-place",
+            userId = userId,
+            firstSeenDate = BASE_DATE,
+            lastSeenDate = BASE_DATE.plusDays(3),
+            observationCount = 7
+        )
+        coEvery { securityContexts.findByIdIn(listOf(promoted.id!!)) } returns listOf(promoted)
+        coEvery { securityContexts.findByUserIdAndFingerprint(userId, "same-place") } returns theirs
+        coEvery { securityContexts.updateFirstSeenDate(theirs.id!!, any(), any(), any(), any()) } returns 1
+        coEvery { securityContexts.deleteByIdIn(listOf(promoted.id!!)) } returns 1
+
+        val merged = managerOf().promoteToUser(listOf(promoted.id!!), userId)
+
+        assertEquals(mapOf(promoted.id!! to theirs.id!!), merged)
+        coVerify(exactly = 1) {
+            securityContexts.updateFirstSeenDate(
+                theirs.id!!,
+                BASE_DATE,
+                BASE_DATE.plusDays(5),
+                9,
+                BASE_DATE.plusDays(5).plus(knownRetention)
+            )
+        }
+        coVerify(exactly = 1) { securityContexts.deleteByIdIn(listOf(promoted.id!!)) }
+    }
+
+    @Test
+    fun `promoteToUser - Leave a place already attached to somebody alone`() = runTest {
+        val userId = UUID.randomUUID()
+        val attached = contextEntity(fingerprint = "theirs-already", userId = UUID.randomUUID())
+        coEvery { securityContexts.findByIdIn(listOf(attached.id!!)) } returns listOf(attached)
+
+        val merged = managerOf().promoteToUser(listOf(attached.id!!), userId)
+
+        assertEquals(emptyMap<UUID, UUID>(), merged)
+        coVerify(exactly = 0) { securityContexts.updateUserId(any(), any(), any()) }
+    }
+
+    @Test
+    fun `promoteToUser - Ask nothing of a session that was seen in no place`() = runTest {
+        // The configuration is left unstubbed on purpose: reading a retention would fail the strict mock,
+        // so reaching the assertion is the proof that a deployment recording nothing pays nothing here.
+        val manager = SecurityContextManager(
+            mockk(),
+            securityContexts,
+            Mappers.getMapper(SecurityContextMapper::class.java)
+        )
+
+        val merged = manager.promoteToUser(emptyList(), UUID.randomUUID())
+
+        assertEquals(emptyMap<UUID, UUID>(), merged)
+        coVerify(exactly = 0) { securityContexts.findByIdIn(any()) }
+    }
+
+    private fun observedIn(ip: String) = ObservedSecurityContext(
+        ip = ip,
+        userAgent = "Mozilla/5.0",
+        geo = SecurityContextGeo(country = "FR", region = "OCC", city = "Toulouse")
+    )
+
+    private fun contextEntity(
+        fingerprint: String,
+        userId: UUID? = null,
+        firstSeenDate: LocalDateTime = BASE_DATE,
+        lastSeenDate: LocalDateTime = BASE_DATE,
+        observationCount: Int = 1
+    ) = SecurityContextEntity(
+        userId = userId,
+        fingerprint = fingerprint,
+        ip = "198.51.100.10",
+        userAgent = "Mozilla/5.0",
+        country = "FR",
+        region = "OCC",
+        city = "Toulouse",
+        firstSeenDate = firstSeenDate,
+        lastSeenDate = lastSeenDate,
+        observationCount = observationCount,
+        expirationDate = lastSeenDate.plus(unknownRetention)
+    ).also { it.id = UUID.randomUUID() }
+
+    private fun io.mockk.MockKAnswerScope<SecurityContextEntity, SecurityContextEntity>.savedWithAnId() =
+        firstArg<SecurityContextEntity>().also { it.id = UUID.randomUUID() }
+
+    private companion object {
+        val BASE_DATE: LocalDateTime = LocalDateTime.of(2026, 1, 1, 12, 0)
+    }
+
     private fun managerOf(
         profile: EdgeProviderProfile = NoneEdgeProviderProfile(),
         headers: Map<SecurityContextField, String> = emptyMap()
@@ -111,9 +312,13 @@ class SecurityContextManagerTest {
         every { advancedConfig.securityContext } returns SecurityContextConfig(
             profile = profile,
             headers = headers,
-            unknownRetention = Duration.ofHours(24),
-            knownRetention = Duration.ofDays(180)
+            unknownRetention = unknownRetention,
+            knownRetention = knownRetention
         )
-        return SecurityContextManager(advancedConfig)
+        return SecurityContextManager(
+            advancedConfig,
+            securityContexts,
+            Mappers.getMapper(SecurityContextMapper::class.java)
+        )
     }
 }

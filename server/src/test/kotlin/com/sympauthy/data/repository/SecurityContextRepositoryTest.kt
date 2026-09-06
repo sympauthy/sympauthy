@@ -189,6 +189,57 @@ class SecurityContextRepositoryTest {
             assertEquals("FR", stored.country)
         }
 
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `updateUserId - Attach the context to a user and re-stamp its expiration`(database: Database) =
+        withFixture(database) {
+            val contexts = repository<SecurityContextRepository>()
+            val userId = newUser()
+            val id = saveContext(fingerprint = "promoted", expirationDate = BASE_DATE.plusDays(1))
+
+            val updated = contexts.updateUserId(
+                id = id,
+                userId = userId,
+                expirationDate = BASE_DATE.plusDays(180)
+            )
+
+            assertEquals(1, updated)
+            val stored = contexts.findById(id)
+            assertNotNull(stored)
+            assertEquals(userId, stored!!.userId)
+            assertEquals(BASE_DATE.plusDays(180), stored.expirationDate)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `updateFirstSeenDate - Absorb the sightings of the context it replaces`(database: Database) =
+        withFixture(database) {
+            val contexts = repository<SecurityContextRepository>()
+            val userId = newUser()
+            val id = saveContext(
+                fingerprint = "survivor",
+                userId = userId,
+                lastSeenDate = BASE_DATE.plusDays(3),
+                observationCount = 7
+            )
+
+            val updated = contexts.updateFirstSeenDate(
+                id = id,
+                firstSeenDate = BASE_DATE.minusDays(1),
+                lastSeenDate = BASE_DATE.plusDays(5),
+                observationCount = 9,
+                expirationDate = BASE_DATE.plusDays(185)
+            )
+
+            assertEquals(1, updated)
+            val stored = contexts.findById(id)
+            assertNotNull(stored)
+            assertEquals(BASE_DATE.minusDays(1), stored!!.firstSeenDate)
+            assertEquals(BASE_DATE.plusDays(5), stored.lastSeenDate)
+            assertEquals(9, stored.observationCount)
+            assertEquals(BASE_DATE.plusDays(185), stored.expirationDate)
+        }
+
     @Suppress("LongParameterList")
     private suspend fun RepositoryFixture.saveContext(
         fingerprint: String,
