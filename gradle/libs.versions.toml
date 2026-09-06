@@ -23,6 +23,11 @@ mock-webserver = "5.5.0"
 # intentionally unversioned: the module imports the Micronaut Platform BOM so those stay in sync with
 # the server. Only testcontainers-sympauthy (absent from the BOM) is pinned here.
 testcontainers-sympauthy = "0.5.0"
+# Docker base image. Read by CI rather than by Gradle: .github/actions/read_debian_version hands it
+# to .github/docker/Dockerfile, which names the distroless image built on this Debian release.
+# distroless publishes one variant per release, so a bump here is only valid once that variant exists
+# — which is why renovate.json follows the release on the debian image rather than on the base.
+debian = "13"
 
 [libraries]
 # Platform BOM — the Micronaut Gradle plugin resolves the platform version from this "micronaut-platform" alias.

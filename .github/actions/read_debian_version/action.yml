@@ -1,0 +1,22 @@
+name: read_debian_version
+description: Read the Debian release the Docker base image is built on from the version catalog.
+outputs:
+  version:
+    description: Debian release pinned as `debian` in gradle/libs.versions.toml.
+    value: ${{ steps.extract.outputs.version }}
+runs:
+  using: composite
+  steps:
+    # The version catalog is the single source of truth for every pinned version, the base image's
+    # Debian release included, and the Dockerfile carries no default of its own. Requires the
+    # repository to be checked out before this action runs, like setup_java.
+    - name: Extract Debian version from the version catalog
+      id: extract
+      shell: bash
+      run: |
+        VERSION=$(sed -nE 's/^debian *= *"([^"]+)".*/\1/p' gradle/libs.versions.toml)
+        if [[ -z "$VERSION" ]]; then
+          echo "::error::Could not extract the Debian version from gradle/libs.versions.toml"
+          exit 1
+        fi
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"

@@ -81,9 +81,16 @@ jobs:
           cp server/build/native/nativeCompile/server .github/docker/sympauthy
 
       # --- Package as a Docker image and run the suite against it ----------------------------------
+      - id: debian
+        name: Read the Debian release the base image is built on
+        uses: ./.github/actions/read_debian_version
+
       - name: Build SympAuthy Docker image under test
         shell: bash
-        run: docker build -t sympauthy:it -f .github/docker/Dockerfile .github/docker
+        run: |
+          docker build -t sympauthy:it \
+            --build-arg DEBIAN_VERSION=${{ steps.debian.outputs.version }} \
+            -f .github/docker/Dockerfile .github/docker
 
       - name: Run integration tests (H2 + PostgreSQL)
         shell: bash

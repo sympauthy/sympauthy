@@ -21,6 +21,12 @@ choices live in [the code standards](general-code-standard.md); this is the list
   production artifact is compiled ahead of time, for a startup measured in milliseconds and a memory
   footprint a small deployment can afford. A JVM run is what development uses, and the difference
   between the two is a standard of its own: [native image](native-image-standard.md).
+- **[distroless](https://github.com/GoogleContainerTools/distroless)** — the base of the published
+  Docker image. A compiled binary needs no runtime installed under it, so the base holds the two
+  libraries the binary links against and neither a shell nor a package manager: there is nothing for
+  a process that escapes the server to reach for, and nothing to patch that the server does not use.
+  The image runs as a non-root user for the same reason, which is what a configuration file or a
+  database file mounted into it has to be readable by.
 - **[MapStruct](https://mapstruct.org)** — mapping between the layers' models, generated at compile
   time. Generated rather than reflective so that a mapping is a method a debugger can step into, and
   so that a field nothing maps to fails the build.

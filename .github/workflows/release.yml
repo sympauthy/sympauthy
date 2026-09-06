@@ -253,6 +253,10 @@ jobs:
           \`\`\`bash
           docker pull ghcr.io/sympauthy/sympauthy:${VERSION}
           \`\`\`
+
+          The image is distroless and the server runs as uid 65532: a configuration file or a
+          database file mounted into it has to be readable — and writable, for an H2 file
+          datasource — by that user.
           EOF
           )" \
             --target "${{ github.ref_name }}" \
