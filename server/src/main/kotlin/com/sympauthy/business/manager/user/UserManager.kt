@@ -8,6 +8,7 @@ import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.UserRepository
+import com.sympauthy.data.repository.findAnyClaimMatching
 import com.sympauthy.data.repository.findUserIdsMatchingAllClaims
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
@@ -26,10 +27,27 @@ open class UserManager(
     private lateinit var claimValueMapper: ClaimValueMapper
 
     /**
-     * Find the end-user identified by [id]. Otherwise, return null.
+     * Find the committed end-user identified by [id]. Otherwise, return null.
+     *
+     * An account an interactive flow session is still signing up is not one, and is invisible here: the ids
+     * this takes arrive from outside — a path parameter, a token exchange target — and none of those callers
+     * is entitled to an account this server has not finished creating. The flow that owns such an account
+     * reads it through [findByIdInSessionOrNull]. See [com.sympauthy.data.model.SessionScoped].
      */
     suspend fun findByIdOrNull(id: UUID?): User? {
-        return id?.let { userRepository.findById(it) }
+        return id?.let { userRepository.findByIdAndSessionIdIsNull(it) }
+            ?.let(userMapper::toUser)
+    }
+
+    /**
+     * Find the end-user identified by [id] as the interactive flow session [sessionId] sees it: the account
+     * that session is still signing up, or any committed account. Otherwise, return null.
+     *
+     * The one reader entitled to a provisional account, since a session may only ever see the one it is
+     * creating itself.
+     */
+    suspend fun findByIdInSessionOrNull(id: UUID?, sessionId: UUID): User? {
+        return id?.let { userRepository.findByIdVisibleInSession(it, sessionId) }
             ?.let(userMapper::toUser)
     }
 
@@ -51,19 +69,39 @@ open class UserManager(
         if (ids.isEmpty()) {
             return emptyList()
         }
-        return userRepository.findByIdInList(ids).map(userMapper::toUser)
+        return userRepository.findByIdInListAndSessionIdIsNull(ids).map(userMapper::toUser)
     }
 
     /**
-     * Find an end-user whose collected claims match ALL entries in [claimValues].
+     * Find a committed end-user whose collected claims match ALL entries in [claimValues].
      * Returns the first matching user, or null if none found.
+     *
+     * This is how an identifier is resolved to an account — at sign-in, when merging a provider identity, and
+     * when refusing a duplicate sign-up — so an account a session is still signing up never matches. Two
+     * sign-ups may therefore hold the same identifier at once; the collision is settled when the first of them
+     * promotes. See [com.sympauthy.data.model.SessionScoped].
      */
     suspend fun findByIdentifierClaims(claimValues: Map<String, String>): User? {
         val entityClaimValues = claimValues.mapValues { entry -> claimValueMapper.toEntity(entry.value) }
         val userIds = collectedClaimRepository.findUserIdsMatchingAllClaims(entityClaimValues)
-        return userIds.firstOrNull()
-            ?.let { userRepository.findById(it) }
+        return userIds.firstNotNullOfOrNull { userRepository.findByIdAndSessionIdIsNull(it) }
             ?.let(userMapper::toUser)
+    }
+
+    /**
+     * Return true when a committed account already holds any of the [values] under any of the identifier
+     * claims [claimIds].
+     *
+     * The uniqueness of an identifier is not a database constraint — an end-user may sign in with any of the
+     * configured identifier claims, so a value has to be unique across all of them rather than within one
+     * column, which is why the values are matched against every claim rather than claim by claim.
+     *
+     * Asked twice of one sign-up, against the same committed-only rows both times: once when the account is
+     * created, and again when it is promoted, because an account created in the meantime would not have been
+     * visible the first time. See [com.sympauthy.data.model.SessionScoped].
+     */
+    suspend fun isIdentifierValueTaken(claimIds: List<String>, values: List<String>): Boolean {
+        return collectedClaimRepository.findAnyClaimMatching(claimIds, values).isNotEmpty()
     }
 
     /**

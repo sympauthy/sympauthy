@@ -30,7 +30,7 @@ import java.util.*
  * Establishes the end-user from a provider round-trip during a sign-in / sign-up
  * ([com.sympauthy.business.model.flow.InteractiveFlowPurpose.OAUTH2_AUTHORIZE]): it enforces the sign-up
  * rules, creates or associates the [User] (honoring `auth.user-merging-enabled` and the configured
- * identifier claims), and consumes any invitation. The generic
+ * identifier claims), and applies the claims any invitation carries. The generic
  * [com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2ProviderManager] owns the provider
  * protocol and delegates this outcome here.
  */
@@ -54,7 +54,7 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
         val oauth2 = oauth2Manager.fetchOAuth2(session)
         interactiveAuthFlowSessionManager.checkSignUpAllowed(oauth2, recoverable = false)
         val result = createOrAssociateUserWithProviderUserInfo(session.id, provider, rawUserInfo)
-        invitationManager.applyInvitationClaimsAndConsume(oauth2.invitationId, result.user.id)
+        invitationManager.applyInvitationClaims(oauth2.invitationId, result.user)
         // `created` is false when the provider was merged into an existing account (sign-in, not sign-up).
         return ProviderUserEstablishment(userId = result.user.id, signedUp = result.created)
     }

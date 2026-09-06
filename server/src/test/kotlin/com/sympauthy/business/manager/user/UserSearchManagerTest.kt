@@ -127,7 +127,7 @@ class UserSearchManagerTest {
 
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim)
         noGeneratedClaimValue()
-        coEvery { userRepository.findAll() } returns flowOf(entity1, entity2)
+        coEvery { userRepository.findBySessionIdIsNull() } returns flowOf(entity1, entity2)
         every { userMapper.toUser(entity1) } returns user1
         every { userMapper.toUser(entity2) } returns user2
         coEvery { collectedClaimRepository.findByUserIdInList(any()) } returns listOf(claimEntity)
@@ -149,7 +149,7 @@ class UserSearchManagerTest {
 
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim)
         noGeneratedClaimValue()
-        coEvery { userRepository.findByStatus("ENABLED") } returns flowOf(entity)
+        coEvery { userRepository.findByStatusAndSessionIdIsNull("ENABLED") } returns flowOf(entity)
         every { userMapper.toUser(entity) } returns user
         coEvery { collectedClaimRepository.findByUserIdInList(any()) } returns emptyList()
 
@@ -159,7 +159,7 @@ class UserSearchManagerTest {
         )
 
         assertEquals(1, result.items.size)
-        coVerify { userRepository.findByStatus("ENABLED") }
+        coVerify { userRepository.findByStatusAndSessionIdIsNull("ENABLED") }
     }
 
     @Test
@@ -195,7 +195,7 @@ class UserSearchManagerTest {
         every { claimValueValidator.validateAndCleanValueForClaim(emailClaim, "jane@example.com") } returns Optional.of(
             "jane@example.com"
         )
-        coEvery { userRepository.findAll() } returns flowOf(entity1, entity2)
+        coEvery { userRepository.findBySessionIdIsNull() } returns flowOf(entity1, entity2)
         every { userMapper.toUser(entity1) } returns user1
         every { userMapper.toUser(entity2) } returns user2
         coEvery { collectedClaimRepository.findByUserIdInList(any()) } returns listOf(claimEntity1, claimEntity2)
@@ -227,7 +227,7 @@ class UserSearchManagerTest {
         every { emailClaim.enabled } returns true
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim)
         noGeneratedClaimValue()
-        coEvery { userRepository.findAll() } returns flowOf(entity1, entity2)
+        coEvery { userRepository.findBySessionIdIsNull() } returns flowOf(entity1, entity2)
         every { userMapper.toUser(entity1) } returns user1
         every { userMapper.toUser(entity2) } returns user2
         coEvery { collectedClaimRepository.findByUserIdInList(any()) } returns listOf(claimEntity1, claimEntity2)
@@ -394,7 +394,7 @@ class UserSearchManagerTest {
         val collectedClaim = mockCollectedClaim(user.id, emailClaim, "jane@example.com")
 
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim)
-        coEvery { userRepository.findAll() } returns flowOf(entity)
+        coEvery { userRepository.findBySessionIdIsNull() } returns flowOf(entity)
         every { userMapper.toUser(entity) } returns user
         coEvery { collectedClaimRepository.findByUserIdInList(any()) } returns listOf(claimEntity)
         every { collectedClaimMapper.toCollectedClaim(claimEntity) } returns collectedClaim
@@ -419,7 +419,7 @@ class UserSearchManagerTest {
         val offPageEntity = mockk<UserEntity>()
 
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim)
-        coEvery { userRepository.findAll() } returns flowOf(onPageEntity, offPageEntity)
+        coEvery { userRepository.findBySessionIdIsNull() } returns flowOf(onPageEntity, offPageEntity)
         every { userMapper.toUser(onPageEntity) } returns onPage
         every { userMapper.toUser(offPageEntity) } returns offPage
         coEvery { collectedClaimRepository.findByUserIdInList(any()) } returns emptyList()
@@ -448,7 +448,7 @@ class UserSearchManagerTest {
 
         every { emailClaim.enabled } returns true
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim)
-        coEvery { userRepository.findAll() } returns flowOf(keptEntity, droppedEntity)
+        coEvery { userRepository.findBySessionIdIsNull() } returns flowOf(keptEntity, droppedEntity)
         every { userMapper.toUser(keptEntity) } returns kept
         every { userMapper.toUser(droppedEntity) } returns dropped
         coEvery {
@@ -491,7 +491,7 @@ class UserSearchManagerTest {
 
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim)
         noGeneratedClaimValue()
-        coEvery { userRepository.findAll() } returns flowOf(entity1, entity2)
+        coEvery { userRepository.findBySessionIdIsNull() } returns flowOf(entity1, entity2)
         every { userMapper.toUser(entity1) } returns mockUser()
         every { userMapper.toUser(entity2) } returns mockUser()
         coEvery { collectedClaimRepository.findByUserIdInList(any()) } returns emptyList()
@@ -570,7 +570,7 @@ class UserSearchManagerTest {
         val unmappable = claimEntity(user.id, droppedAt)
 
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim)
-        coEvery { userRepository.findAll() } returns flowOf(entity)
+        coEvery { userRepository.findBySessionIdIsNull() } returns flowOf(entity)
         every { userMapper.toUser(entity) } returns user
         coEvery { collectedClaimRepository.findByUserIdInList(any()) } returns listOf(mapped, unmappable)
         every { collectedClaimMapper.toCollectedClaim(mapped) } returns

@@ -43,10 +43,21 @@ interface CollectedClaimRepository : CoroutineCrudRepository<CollectedClaimEntit
         claim: String,
         verificationDate: LocalDateTime = now()
     )
+
+    /**
+     * Promote every claim the interactive flow session [sessionId] collected, making it permanent, and
+     * answer how many there were.
+     */
+    @Query("UPDATE collected_claims SET session_id = NULL WHERE session_id = :sessionId")
+    suspend fun clearSessionId(sessionId: UUID): Int
 }
 
 /**
- * Find any claims (whose id is included in the [claimIds]) that matches the [value].
+ * Find any committed claim (whose id is included in the [claimIds]) that matches the [value].
+ *
+ * A claim a session is still signing up is excluded: this is how an identifier is resolved to an account,
+ * so answering with a provisional row would hand a caller an account that does not exist yet. See
+ * [com.sympauthy.data.model.SessionScoped].
  */
 suspend fun CollectedClaimRepository.findAnyClaimMatching(
     claimIds: List<String>,
@@ -54,6 +65,7 @@ suspend fun CollectedClaimRepository.findAnyClaimMatching(
 ): CollectedClaimEntity? {
     return findOne(where {
         and {
+            root[CollectedClaimEntity::sessionId].equalsNull()
             root[CollectedClaimEntity::value] eq value
             or {
                 claimIds.forEach {
@@ -65,7 +77,12 @@ suspend fun CollectedClaimRepository.findAnyClaimMatching(
 }
 
 /**
- * Find any claims (whose id is included in the [claimIds]) that matches one of the value in [claimValues].
+ * Find any committed claim (whose id is included in the [claimIds]) that matches one of the value in
+ * [claimValues].
+ *
+ * A claim a session is still signing up is excluded, which is what lets two sign-ups hold the same
+ * identifier at once: neither blocks the other, and the collision is settled when the first of them
+ * promotes. See [com.sympauthy.data.model.SessionScoped].
  */
 suspend fun CollectedClaimRepository.findAnyClaimMatching(
     claimIds: List<String>,
@@ -77,6 +94,7 @@ suspend fun CollectedClaimRepository.findAnyClaimMatching(
     // Do not understand but the 'in' does not seem to work properly.
     val criteria = where {
         and {
+            root[CollectedClaimEntity::sessionId].equalsNull()
             or {
                 claimIds.forEach {
                     root[CollectedClaimEntity::claim] eq it
@@ -93,10 +111,12 @@ suspend fun CollectedClaimRepository.findAnyClaimMatching(
 }
 
 /**
- * Find all distinct user IDs that have collected claims matching ALL entries in [claimValues].
+ * Find all distinct user IDs that have committed collected claims matching ALL entries in [claimValues].
  * Each entry maps a claim ID to its expected value.
  *
- * A user matches only if they have a matching value for every claim in the map.
+ * A user matches only if they have a matching value for every claim in the map. A claim a session is still
+ * signing up is excluded, so an account this server has not finished creating never matches an identifier.
+ * See [com.sympauthy.data.model.SessionScoped].
  */
 suspend fun CollectedClaimRepository.findUserIdsMatchingAllClaims(
     claimValues: Map<String, String?>,
@@ -105,11 +125,14 @@ suspend fun CollectedClaimRepository.findUserIdsMatchingAllClaims(
         return emptyList()
     }
     val criteria = where<CollectedClaimEntity> {
-        or {
-            claimValues.forEach { (claimId, value) ->
-                and {
-                    root[CollectedClaimEntity::claim] eq claimId
-                    root[CollectedClaimEntity::value] eq value
+        and {
+            root[CollectedClaimEntity::sessionId].equalsNull()
+            or {
+                claimValues.forEach { (claimId, value) ->
+                    and {
+                        root[CollectedClaimEntity::claim] eq claimId
+                        root[CollectedClaimEntity::value] eq value
+                    }
                 }
             }
         }

@@ -44,7 +44,7 @@ class UserManagerTest {
         val entity = mockk<UserEntity>()
         val user = mockk<User>()
 
-        coEvery { userRepository.findById(userId) } returns entity
+        coEvery { userRepository.findByIdAndSessionIdIsNull(userId) } returns entity
         every { userMapper.toUser(entity) } returns user
 
         val result = manager.findByIdOrNull(userId)
@@ -56,7 +56,7 @@ class UserManagerTest {
     fun `findByIdOrNull - Return null when user not found`() = runTest {
         val userId = UUID.randomUUID()
 
-        coEvery { userRepository.findById(userId) } returns null
+        coEvery { userRepository.findByIdAndSessionIdIsNull(userId) } returns null
 
         val result = manager.findByIdOrNull(userId)
 

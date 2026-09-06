@@ -108,19 +108,35 @@ class InvitationRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `updateStatus - Consumes the invitation`(database: Database) = withFixture(database) {
+    fun `consumeIfPending - Consumes the invitation`(database: Database) = withFixture(database) {
         val invitations = repository<InvitationRepository>()
         val userId = newUser()
         val id = saveInvitation()
         val consumedAt = BASE_DATE.plusDays(1)
 
-        invitations.updateStatus(id, "consumed", userId, consumedAt)
+        assertEquals(1, invitations.consumeIfPending(id, "consumed", "pending", userId, consumedAt))
 
         val stored = invitations.findById(id)
         assertEquals("consumed", stored?.status)
         assertEquals(userId, stored?.consumedByUserId)
         assertEquals(consumedAt, stored?.consumedAt)
     }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `consumeIfPending - Leaves an invitation someone else already took`(database: Database) =
+        withFixture(database) {
+            val invitations = repository<InvitationRepository>()
+            val first = newUser()
+            val second = newUser()
+            val id = saveInvitation()
+            val consumedAt = BASE_DATE.plusDays(1)
+            invitations.consumeIfPending(id, "consumed", "pending", first, consumedAt)
+
+            assertEquals(0, invitations.consumeIfPending(id, "consumed", "pending", second, consumedAt))
+
+            assertEquals(first, invitations.findById(id)?.consumedByUserId)
+        }
 
     @ParameterizedTest
     @EnumSource(Database::class)

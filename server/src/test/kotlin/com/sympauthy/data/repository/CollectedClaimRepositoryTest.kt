@@ -293,6 +293,46 @@ class CollectedClaimRepositoryTest {
         return SeededUsers(aliceId, bobId, charlieId)
     }
 
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findAnyClaimMatching - Hides a claim a session is still signing up`(database: Database) =
+        withFixture(database) {
+            val claims = repository<CollectedClaimRepository>()
+            val session = newSession()
+            val userId = newUser(sessionId = session.id)
+            val email = "provisional@$qualifier.test"
+            saveClaim(userId, "email", email, sessionId = session.id)
+            val value = encoded(email)!!
+
+            assertNull(claims.findAnyClaimMatching(listOf("email"), value))
+            assertTrue(claims.findAnyClaimMatching(listOf("email"), listOf(value)).isEmpty())
+            assertTrue(claims.findUserIdsMatchingAllClaims(mapOf("email" to value)).isEmpty())
+
+            assertEquals(1, claims.clearSessionId(session.id!!))
+
+            assertEquals(userId, claims.findAnyClaimMatching(listOf("email"), value)?.userId)
+            assertEquals(listOf(userId), claims.findAnyClaimMatching(listOf("email"), listOf(value)).map { it.userId })
+            assertEquals(listOf(userId), claims.findUserIdsMatchingAllClaims(mapOf("email" to value)))
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `clearSessionId - Promotes the claims of that session and no other`(database: Database) =
+        withFixture(database) {
+            val claims = repository<CollectedClaimRepository>()
+            val session = newSession()
+            val otherSession = newSession()
+            val userId = newUser(sessionId = session.id)
+            val otherUserId = newUser(sessionId = otherSession.id)
+            val promoted = saveClaim(userId, "email", "one@$qualifier.test", sessionId = session.id)
+            val untouched = saveClaim(otherUserId, "email", "two@$qualifier.test", sessionId = otherSession.id)
+
+            assertEquals(1, claims.clearSessionId(session.id!!))
+
+            assertNull(claims.findById(promoted)?.sessionId)
+            assertEquals(otherSession.id, claims.findById(untouched)?.sessionId)
+        }
+
     private class SeededUsers(val aliceId: UUID, val bobId: UUID, val charlieId: UUID)
 
     private suspend fun RepositoryFixture.saveClaim(

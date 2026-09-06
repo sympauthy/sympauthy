@@ -9,7 +9,6 @@ import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.SuccessVerifyEncodedStateResult
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
-import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlow
@@ -31,7 +30,6 @@ import java.net.URI
 @Singleton
 class InteractiveAuthFlowSessionControllerUtil(
     @Inject private val sessionManager: InteractiveFlowSessionManager,
-    @Inject private val userManager: UserManager,
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
     @Inject private val engine: InteractiveFlowEngine,
     @Inject private val stepUriMapper: InteractiveFlowStepUriMapper
@@ -77,7 +75,7 @@ class InteractiveAuthFlowSessionControllerUtil(
         run: suspend (OnGoingInteractiveFlowSession, InteractiveFlow, User) -> Resource
     ): Resource {
         return fetchOnGoingSessionThenRun(state) { onGoingSession, flow ->
-            val user = userManager.findById(onGoingSession.userId)
+            val user = sessionManager.getUser(onGoingSession)
             run(onGoingSession, flow, user)
         }
     }
@@ -179,7 +177,7 @@ class InteractiveAuthFlowSessionControllerUtil(
 
         val onGoingSession = session as? OnGoingInteractiveFlowSession
         val user = try {
-            userManager.findByIdOrNull(onGoingSession?.userId)
+            onGoingSession?.let { sessionManager.getUserOrNull(it) }
         } catch (_: BusinessException) {
             // If the user is missing for the operation, we let the step engine redirect the user to the
             // proper step.
@@ -296,7 +294,7 @@ class InteractiveAuthFlowSessionControllerUtil(
         var afterUpdateSession = session
         val onGoingSession = session as? OnGoingInteractiveFlowSession
         val user = try {
-            userManager.findByIdOrNull(onGoingSession?.userId)
+            onGoingSession?.let { sessionManager.getUserOrNull(it) }
         } catch (_: BusinessException) {
             // If the user is missing for the operation, we let the step engine redirect the user to the
             // proper step.

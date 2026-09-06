@@ -61,6 +61,24 @@ class PasswordRepositoryTest {
             assertTrue(repository<PasswordRepository>().findByUserId(userId).isEmpty())
         }
 
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `clearSessionId - Promotes the passwords of that session and no other`(database: Database) =
+        withFixture(database) {
+            val passwords = repository<PasswordRepository>()
+            val session = newSession()
+            val otherSession = newSession()
+            val userId = newUser(sessionId = session.id)
+            val otherUserId = newUser(sessionId = otherSession.id)
+            val promoted = savePassword(userId, sessionId = session.id)
+            val untouched = savePassword(otherUserId, sessionId = otherSession.id)
+
+            assertEquals(1, passwords.clearSessionId(session.id!!))
+
+            assertNull(passwords.findById(promoted)?.sessionId)
+            assertEquals(otherSession.id, passwords.findById(untouched)?.sessionId)
+        }
+
     private suspend fun RepositoryFixture.savePassword(
         userId: UUID,
         expirationDate: LocalDateTime? = null,

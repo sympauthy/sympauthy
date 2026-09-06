@@ -195,8 +195,9 @@ open class InteractiveAuthFlowSessionPasswordManager(
         )
         passwordManager.createPassword(user, password)
 
-        // Apply invitation claims and consume the invitation
-        invitationManager.applyInvitationClaimsAndConsume(oauth2.invitationId, user.id)
+        // The invitation's claims land on the provisional account now; the invitation itself is only spent
+        // when the session completes.
+        invitationManager.applyInvitationClaims(oauth2.invitationId, user)
 
         // Update the session with the id of the user so they can retrieve their access token.
         val updatedSession = sessionManager.setAuthenticatedUserId(session, user.id, signedUp = true)
@@ -234,8 +235,7 @@ open class InteractiveAuthFlowSessionPasswordManager(
         val values = claims
             .mapNotNull { it.value?.getOrNull() }
             .mapNotNull(claimValueMapper::toEntity)
-        val existingCollectedClaims = collectedClaimRepository.findAnyClaimMatching(claimIds, values)
-        if (existingCollectedClaims.isNotEmpty()) {
+        if (userManager.isIdentifierValueTaken(claimIds, values)) {
             throw recoverableBusinessExceptionOf(
                 detailsId = "flow.password.sign_up.existing",
                 descriptionId = "description.flow.password.sign_up.existing"

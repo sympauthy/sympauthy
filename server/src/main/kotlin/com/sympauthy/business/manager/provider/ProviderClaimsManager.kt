@@ -23,11 +23,18 @@ class ProviderClaimsManager(
     @Inject private val userInfoMapper: ProviderUserInfoMapper
 ) {
 
+    /**
+     * Find the committed link of [provider] to the account it knows as [subject], or null when there is none.
+     *
+     * This is how a returning end-user is recognised, so a link a session is still signing up is invisible
+     * here: two sign-ups may hold the same provider subject at once, and the collision is settled when the
+     * first of them promotes. See [com.sympauthy.data.model.SessionScoped].
+     */
     suspend fun findByProviderAndSubject(
         provider: EnabledProvider,
         subject: String
     ): ProviderUserInfo? {
-        return userInfoRepository.findByProviderIdAndSubject(
+        return userInfoRepository.findByProviderIdAndSubjectAndSessionIdIsNull(
             providerId = provider.id,
             subject = subject
         )?.let(userInfoMapper::toProviderUserInfo)

@@ -5,6 +5,7 @@ import com.sympauthy.business.manager.auth.UserGrantScopesResult
 import com.sympauthy.business.manager.auth.UserScopeGrantingManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
@@ -24,6 +25,7 @@ import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.config.model.EnabledFeaturesConfig
 import com.sympauthy.config.model.EnabledMfaConfig
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
@@ -61,6 +63,9 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
 
     @MockK
     lateinit var consentManager: ConsentManager
+
+    @MockK
+    lateinit var invitationManager: InvitationManager
 
     @MockK
     lateinit var uncheckedMfaConfig: EnabledMfaConfig
@@ -249,6 +254,34 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         val result = handler.applyTerminalEffect(session)
 
         assertEquals(TerminalEffectResult.Proceed, result)
+    }
+
+    @Test
+    fun `applyTerminalEffect - Consumes the invitation that brought the end-user here`() = runTest {
+        val userId = UUID.randomUUID()
+        val clientId = "client-id"
+        val invitationId = UUID.randomUUID()
+        val grantedScopeObjects = listOf(mockk<EnabledScope>())
+        val session = createOnGoingSession(userId = userId)
+        val oauth2AfterGranted = oauth2Of(
+            clientId = clientId,
+            grantedScopes = listOf("read"),
+            invitationId = invitationId
+        )
+
+        coEvery { collectedClaimManager.findByUserId(userId) } returns emptyList()
+        coEvery { scopeGrantingManager.grantScopes(session, emptyList()) } returns grantScopesResultOf(
+            grantedScopeObjects
+        )
+        coEvery { oauth2Manager.setGrantedScopes(session, grantedScopeObjects, any()) } returns oauth2AfterGranted
+        coEvery { clientManager.findClientById(clientId) } returns mockClient()
+        coEvery { consentManager.saveConsent(userId, testAudience.id, clientId, any()) } returns mockk()
+        coEvery { invitationManager.consumeInvitation(invitationId, userId) } returns mockk()
+
+        val result = handler.applyTerminalEffect(session)
+
+        assertEquals(TerminalEffectResult.Proceed, result)
+        coVerify { invitationManager.consumeInvitation(invitationId, userId) }
     }
 
     @Test
