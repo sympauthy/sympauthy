@@ -16,4 +16,3 @@ CREATE TABLE collected_claims
 
 CREATE INDEX collected_user_info__user_id ON collected_claims (user_id);
 CREATE INDEX collected_user_info__login_claims ON collected_claims (claim, `value`);
-CREATE INDEX collected_claims__session_id ON collected_claims (session_id);

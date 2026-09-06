@@ -45,4 +45,4 @@ CREATE TABLE provider_user_info
 );
 
 CREATE INDEX provider_user_info__user_id ON provider_user_info (user_id);
-CREATE INDEX provider_user_info__session_id ON provider_user_info (session_id) WHERE session_id IS NOT NULL;
+CREATE INDEX provider_user_info__provider_id_subject ON provider_user_info (provider_id, subject) WHERE session_id IS NULL;

@@ -15,4 +15,3 @@ CREATE TABLE passwords
 );
 
 CREATE INDEX passwords__user_id ON passwords (user_id);
-CREATE INDEX passwords__session_id ON passwords (session_id);

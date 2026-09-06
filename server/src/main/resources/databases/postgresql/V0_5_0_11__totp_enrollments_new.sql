@@ -12,4 +12,3 @@ CREATE TABLE totp_enrollments
 );
 
 CREATE INDEX totp_enrollments__user_id ON totp_enrollments (user_id);
-CREATE INDEX totp_enrollments__session_id ON totp_enrollments (session_id) WHERE session_id IS NOT NULL;
