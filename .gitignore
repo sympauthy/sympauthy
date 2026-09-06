@@ -39,3 +39,6 @@ server/src/main/resources/sympauthy-admin/*
 .project
 # JDT-specific (Eclipse Java Development Tools)
 .classpath
+
+# IntelliJ compiler settings (machine-local annotation-processor paths)
+.idea/compiler.xml
