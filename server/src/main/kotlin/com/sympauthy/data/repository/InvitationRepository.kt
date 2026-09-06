@@ -37,6 +37,38 @@ interface InvitationRepository : CoroutineCrudRepository<InvitationEntity, UUID>
         consumedAt: LocalDateTime
     ): Int
 
+    /**
+     * Undo the consumption of every invitation taken by one of the accounts [userIds] that is still
+     * provisional, and answer how many there were.
+     *
+     * The inverse of [consumeIfPending]. [userIds] must not be empty.
+     *
+     * **The reference is released whatever the status, and only a consumed invitation is made pending
+     * again.** A row still naming a deleted account is a foreign key that breaks the collection; a
+     * revoked or expired invitation must not come back as pending on the way out.
+     *
+     * The account is re-read because this table carries no session id of its own to re-assert. Why it is
+     * re-read at all is in
+     * [com.sympauthy.business.manager.user.ProvisionalAccountManager.deleteAbandoned].
+     */
+    @Query(
+        """
+        UPDATE invitations
+        SET consumed_by_user_id = NULL,
+            consumed_at = NULL,
+            status = CASE WHEN status = :consumedStatus THEN :pendingStatus ELSE status END
+        WHERE consumed_by_user_id IN (:userIds)
+          AND EXISTS (
+            SELECT 1 FROM users u WHERE u.id = invitations.consumed_by_user_id AND u.session_id IS NOT NULL
+          )
+        """
+    )
+    suspend fun unconsumeByUserIdInAndUserProvisional(
+        userIds: List<UUID>,
+        consumedStatus: String,
+        pendingStatus: String
+    ): Int
+
     suspend fun updateRevokedAt(
         @Id id: UUID,
         status: String,

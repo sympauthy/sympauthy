@@ -108,8 +108,8 @@ class AdvancedConfigValidator {
     ): CleanupConfig? {
         val subCtx = ctx.child()
 
-        // The upper bound is the database's, not a taste call: a run binds one parameter per row into
-        // the IN list of every delete it issues, and a statement admits MAX_BIND_PARAMETERS of them.
+        // A run binds one parameter per row into the IN list of every delete it issues, so the upper
+        // bound is the database's rather than a threshold nobody argued for.
         if (parsed.batchSize != null && parsed.batchSize !in 1..MAX_BIND_PARAMETERS) {
             subCtx.addError(
                 configExceptionOf(

@@ -223,7 +223,7 @@ class RepositoryFixture(val database: Database) {
      * The lookup hash is derived from [userId] rather than fixed: `invitations__token_lookup_hash` is a
      * unique index, so two invitations sharing a constant would collide inside the fixture.
      */
-    suspend fun newConsumedInvitation(userId: UUID, audienceId: String) {
+    suspend fun newConsumedInvitation(userId: UUID, audienceId: String): UUID {
         val invitations = database.bean<InvitationRepository>()
         val saved = invitations.save(
             InvitationEntity(
@@ -241,6 +241,7 @@ class RepositoryFixture(val database: Database) {
             )
         )
         deleteOnEnd { saved.id?.let { invitations.deleteById(it) } }
+        return saved.id!!
     }
 
     /** Issues an access token to [userId]. */

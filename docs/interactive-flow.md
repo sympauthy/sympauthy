@@ -140,15 +140,21 @@ sweep — again every quarter of an hour, indefinitely.
 | The table | The sweep |
 | --- | --- |
 | holds rows the account owns | deletes them with it |
-| may not hold a row against a provisional account at all | deletes them with it, and each was a bug |
-| holds a row the account does not own | guards on it, and leaves the account |
+| may not name a provisional account at all | undoes the write |
+| holds a row something else collects | waits, and takes the account on a later run |
 
-The second is the one an unclassified table is most often mistaken for the third: a validation code,
-a consent and an issued token are all refused against an account still being signed up, so one that
-exists is already a defect — and guarding on it would leave the account uncollectable for good on
-account of it. The third is two cases in one query. A row something else collects, which is an
-interactive flow session, leaves the account to a later run; a row nothing collects leaves it for
-good, and that is what the sweep reports rather than retains in silence.
+**The second is what an unclassified table is most often mistaken for the third.** A validation code,
+a consent, an issued token and a consumed invitation are all refused against an account still being
+signed up, so one that names a provisional account is already a defect — and guarding on it would
+leave the account uncollectable for good on account of that defect. Undoing the write means deleting
+the row where the account owns it, and releasing the reference where the row belongs to someone
+else: an invitation is the artifact of whoever issued it, so it goes back to pending and the
+invitee's link works again.
+
+**The third has one member, and it is why nothing is reported.** `interactive_flow_sessions` is
+collected by the cron above, so an account a session still refers to is one the sweep ran early for
+rather than one anything is wrong with. No other table can hold an account indefinitely, which is
+what makes the absence of a "could not collect" signal a design rather than an omission.
 
 ## A purpose handler is pure
 

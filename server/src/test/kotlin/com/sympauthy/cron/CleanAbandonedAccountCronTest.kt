@@ -12,7 +12,6 @@ import io.mockk.junit5.MockKExtension
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
-import java.util.*
 
 @ExtendWith(MockKExtension::class)
 class CleanAbandonedAccountCronTest {
@@ -39,7 +38,6 @@ class CleanAbandonedAccountCronTest {
         batchSize(25)
         coEvery { provisionalAccountManager.deleteAbandoned(25) } returns ProvisionalAccountManager.CollectResult(
             deletedCount = 1,
-            retainedIds = listOf(UUID.randomUUID()),
             filledBatch = true
         )
 

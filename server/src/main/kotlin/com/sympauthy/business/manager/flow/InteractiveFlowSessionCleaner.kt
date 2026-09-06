@@ -30,7 +30,7 @@ import kotlinx.coroutines.coroutineScope
  *
  * One run takes at most `advanced.cleanup.batch-size` sessions. Every delete below names them in an `IN`
  * list, so an unbounded backlog would be a write holding locks for as long as it takes — and, past the
- * bind parameters a statement admits, one the database refuses. See [InteractiveFlowSessionRepository].
+ * bind parameters a statement admits, one the database refuses.
  */
 @Singleton
 open class InteractiveFlowSessionCleaner(

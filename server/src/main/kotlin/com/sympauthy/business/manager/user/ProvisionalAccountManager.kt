@@ -3,12 +3,14 @@ package com.sympauthy.business.manager.user
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.model.invitation.InvitationStatus
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.AuthenticationTokenRepository
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.ConsentRepository
+import com.sympauthy.data.repository.InvitationRepository
 import com.sympauthy.data.repository.PasswordRepository
 import com.sympauthy.data.repository.ProviderUserInfoRepository
 import com.sympauthy.data.repository.TotpEnrollmentRepository
@@ -30,8 +32,8 @@ import java.util.*
  * is the other ending, and between them a sign-up is all-or-nothing.
  *
  * It reads the repositories directly rather than through the managers that own them: promoting and
- * collecting are one statement per table over a column no domain concept names, and a pass-through on each
- * of them would say less than the list here does.
+ * collecting are one statement per table, and a pass-through on each of the managers holding them would
+ * say less than the list here does.
  */
 @Singleton
 open class ProvisionalAccountManager(
@@ -44,7 +46,8 @@ open class ProvisionalAccountManager(
     @Inject private val totpEnrollmentRepository: TotpEnrollmentRepository,
     @Inject private val validationCodeRepository: ValidationCodeRepository,
     @Inject private val consentRepository: ConsentRepository,
-    @Inject private val authenticationTokenRepository: AuthenticationTokenRepository
+    @Inject private val authenticationTokenRepository: AuthenticationTokenRepository,
+    @Inject private val invitationRepository: InvitationRepository
 ) {
 
     /**
@@ -81,50 +84,41 @@ open class ProvisionalAccountManager(
 
     /**
      * Delete the accounts left behind by a sign-up that never completed, taking at most [limit] of them,
-     * and answer what the run did — including the ones it deliberately left alone.
+     * and answer what the run did.
      *
      * An account counts as abandoned when the session signing it up is **gone** — see
-     * [UserRepository.findCollectable]. Keying on absence rather than on the sessions one run expired makes
-     * this self-correcting: an account orphaned by an earlier failure is collected on the next pass, and
-     * this sweep needs nothing from the run that expired the session. It is a cleaner of its own, on a cron
-     * of its own ([com.sympauthy.cron.CleanAbandonedAccountCron]), rather than a step of the one removing
-     * the sessions — which is what keeps it reading an absence every other transaction can see too, and
-     * keeps it from holding a session's lock while it waits for an account's. Self-correction is also what
-     * makes [limit] safe: a run that fills it leaves the rest to the next one.
+     * [UserRepository.findCollectable]. Keying on an absence rather than on a list of sessions is what
+     * makes [limit] safe: whatever a run leaves behind still reads as abandoned, so the next one takes
+     * it.
      *
-     * **An abandoned account an invitation still names is retained, and its id is in the result.**
-     * [UserRepository.findRetained] is the rule, and an invitation consumed by an account that never
-     * completed is a bug to find rather than a run to lose — so the sweep names them for its caller to
-     * report instead of dropping them from a count nobody can tell apart from having had nothing to do.
-     * A retained account never counts against [limit]: it is retained for good, so a budget spent on one
-     * is a budget spent on it every run for good.
-     *
-     * **The two answers do not partition the abandoned accounts**, and the gap between them is not a
-     * failure to report: an account a session still refers to is neither deleted nor retained, because
-     * that session is itself collected and a later run takes the account once it is.
+     * **Nothing is left behind for good, so nothing is reported.** Every table referencing `users` is
+     * either settled with the account or collected by something else; the one account this run does not
+     * take is the one a live session still refers to, and the run that follows that session's own
+     * collection takes it.
      *
      * The account's rows go first, every one of them rather than only the provisional ones: the account is
      * going, so anything hanging off it is going too. For the four it owns outright that is the same set by
      * the [com.sympauthy.data.model.SessionScoped] invariant — a provisional account owns no committed row.
      * The three beyond them — a validation code, a consent, an issued token — should never have existed
-     * against an account no sign-up finished, since writing one refuses a provisional account. Collecting
-     * them is what stops one of them holding an account here for good.
+     * against an account no sign-up finished, since writing one refuses a provisional account, so a row
+     * that does is a defect the sweep takes rather than a reason to keep the account. A consumed
+     * invitation is that same defect on a row the account does not own, so its consumption is undone
+     * instead and the invitee's link works again.
      *
      * **Each statement re-asserts provisionality; none of them trusts the read that selected the account.**
      * A flow may promote one of these accounts between that read and these deletes, and an id names a row
      * whatever became of it. Naming the session id instead makes each delete re-check the account as the
      * promotion left it — PostgreSQL through `EvalPlanQual`, H2 through the re-check it runs when the row
      * it locked turns out to have changed — so a promoted account is skipped rather than deleted out from
-     * under the flow that finished it. The three that carry no session id of their own spell the same
-     * predicate against `users`, which is the weaker half of this: it is read rather than re-checked under
-     * a lock, so a promotion committing inside that window is not caught. The row it would take is one that
-     * should not have been written.
+     * under the flow that finished it. The four rows that carry no session id of the account's spell the
+     * same predicate against `users`, which is the weaker half of this: it is read rather than re-checked
+     * under a lock, so a promotion committing inside that window is not caught. What it would touch is a
+     * row that should not have been written.
      */
     @Transactional
     open suspend fun deleteAbandoned(limit: Int): CollectResult {
-        val retainedIds = userRepository.findRetained(limit).mapNotNull(UserEntity::id)
         val collectableIds = userRepository.findCollectable(limit).mapNotNull(UserEntity::id)
-        if (collectableIds.isEmpty()) return CollectResult(0, retainedIds, filledBatch = false)
+        if (collectableIds.isEmpty()) return CollectResult(0, filledBatch = false)
 
         passwordRepository.deleteByUserIdInAndSessionIdIsNotNull(collectableIds)
         collectedClaimRepository.deleteByUserIdInAndSessionIdIsNotNull(collectableIds)
@@ -133,10 +127,14 @@ open class ProvisionalAccountManager(
         validationCodeRepository.deleteByUserIdInAndUserProvisional(collectableIds)
         consentRepository.deleteByUserIdInAndUserProvisional(collectableIds)
         authenticationTokenRepository.deleteByUserIdInAndUserProvisional(collectableIds)
+        invitationRepository.unconsumeByUserIdInAndUserProvisional(
+            userIds = collectableIds,
+            consumedStatus = InvitationStatus.CONSUMED.name,
+            pendingStatus = InvitationStatus.PENDING.name
+        )
 
         return CollectResult(
             deletedCount = userRepository.deleteByIdInAndSessionIdIsNotNull(collectableIds),
-            retainedIds = retainedIds,
             filledBatch = collectableIds.size == limit
         )
     }
@@ -193,11 +191,6 @@ open class ProvisionalAccountManager(
          * between the read and the delete, which is the case the re-asserted session id exists for.
          */
         val deletedCount: Int,
-        /**
-         * The abandoned accounts a row still refers to, left where they are. Every one of them is a row
-         * that outlived the account it belongs to, so the ids are what makes that row findable.
-         */
-        val retainedIds: List<UUID>,
         /**
          * Whether the sweep took as many collectable accounts as it was allowed, so there are more the
          * next run will take.

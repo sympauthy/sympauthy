@@ -1,7 +1,9 @@
 package com.sympauthy.data.repository
 
+import com.sympauthy.business.model.invitation.InvitationStatus
 import com.sympauthy.data.BASE_DATE
 import com.sympauthy.data.Database
+import com.sympauthy.data.RepositoryFixture
 import com.sympauthy.data.withFixture
 import kotlinx.coroutines.flow.toList
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -209,21 +211,18 @@ class UserRepositoryTest {
         assertEquals(1, users.findCollectable(1).size)
     }
 
-    /**
-     * The three rows that should never have existed against an account no sign-up finished. Each one held
-     * the account back for good before it was collected with it, so the account has to be answered as
-     * collectable while the row is still there.
-     */
+    /** One account per table the caller settles, none of which may hold the account back from it. */
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `findCollectable - Answers the account a row it collects still refers to`(database: Database) =
+    fun `findCollectable - Answers the account a row it settles still refers to`(database: Database) =
         withFixture(database) {
             val users = repository<UserRepository>()
             val sessions = repository<InteractiveFlowSessionRepository>()
             val referrers: List<Pair<String, suspend (UUID) -> Unit>> = listOf(
                 "validation_codes" to { userId -> newValidationCode(userId, newSession().id!!) },
                 "consents" to { userId -> newConsent(userId, "audience-$status") },
-                "authentication_tokens" to { userId -> newAuthenticationToken(userId) }
+                "authentication_tokens" to { userId -> newAuthenticationToken(userId) },
+                "invitations" to { userId -> newConsumedInvitation(userId, "audience-$status") }
             )
 
             referrers.forEach { (table, refer) ->
@@ -233,29 +232,9 @@ class UserRepositoryTest {
                 sessions.deleteByIds(listOf(session.id!!))
 
                 assertTrue(users.findCollectable(LIMIT).map { it.id!! }.contains(userId), table)
-                assertTrue(!users.findRetained(LIMIT).map { it.id!! }.contains(userId), table)
             }
         }
 
-    @ParameterizedTest
-    @EnumSource(Database::class)
-    fun `findRetained - Answers the abandoned account an invitation names`(database: Database) =
-        withFixture(database) {
-            val users = repository<UserRepository>()
-            val session = newSession()
-            val userId = newUser(status = status, sessionId = session.id)
-            newConsumedInvitation(userId, "audience-$status")
-            repository<InteractiveFlowSessionRepository>().deleteByIds(listOf(session.id!!))
-
-            assertTrue(users.findRetained(LIMIT).map { it.id!! }.contains(userId))
-            assertTrue(!users.findCollectable(LIMIT).map { it.id!! }.contains(userId))
-        }
-
-    /**
-     * The fifth guard is not the other four. A session expires and is collected, so an account only a
-     * session refers to is one this run is early for — neither collectable yet nor a bug to report — and
-     * the run that follows the session's own collection takes it.
-     */
     @ParameterizedTest
     @EnumSource(Database::class)
     fun `findCollectable - Takes the account a session referred to once that session is gone`(
@@ -269,36 +248,11 @@ class UserRepositoryTest {
         sessions.deleteByIds(listOf(session.id!!))
 
         assertTrue(!users.findCollectable(LIMIT).map { it.id!! }.contains(userId))
-        assertTrue(!users.findRetained(LIMIT).map { it.id!! }.contains(userId))
 
         sessions.deleteByIds(listOf(referring.id!!))
 
         assertTrue(users.findCollectable(LIMIT).map { it.id!! }.contains(userId))
     }
-
-    /**
-     * The two queries spell the guard they turn on separately, once each way round, so nothing but this
-     * holds them to it: an account in both answers or in neither is a silent failure either way.
-     */
-    @ParameterizedTest
-    @EnumSource(Database::class)
-    fun `An abandoned account is never both collectable and retained`(database: Database) =
-        withFixture(database) {
-            val users = repository<UserRepository>()
-            val sessions = repository<InteractiveFlowSessionRepository>()
-            val session = newSession()
-            val collectable = newUser(status = status, sessionId = session.id)
-            val retained = newUser(status = status, sessionId = session.id)
-            newConsumedInvitation(retained, "audience-$status")
-            sessions.deleteByIds(listOf(session.id!!))
-
-            val collectableIds = users.findCollectable(LIMIT).map { it.id!! }
-            val retainedIds = users.findRetained(LIMIT).map { it.id!! }
-
-            assertEquals(emptyList<UUID>(), collectableIds.intersect(retainedIds.toSet()).toList())
-            assertTrue(collectableIds.contains(collectable))
-            assertTrue(retainedIds.contains(retained))
-        }
 
     @ParameterizedTest
     @EnumSource(Database::class)
@@ -338,6 +292,7 @@ class UserRepositoryTest {
             newValidationCode(userId, newSession().id!!)
             newConsent(userId, "audience-$status")
             newAuthenticationToken(userId)
+            newConsumedInvitation(userId, "audience-$status")
             repository<InteractiveFlowSessionRepository>().deleteByIds(listOf(session.id!!))
 
             val abandoned = users.findCollectable(LIMIT).mapNotNull { it.id }
@@ -350,6 +305,7 @@ class UserRepositoryTest {
             assertEquals(
                 1, repository<AuthenticationTokenRepository>().deleteByUserIdInAndUserProvisional(abandoned)
             )
+            assertEquals(1, unconsume(abandoned))
 
             assertEquals(1, users.deleteByIdInAndSessionIdIsNotNull(listOf(userId)))
             assertNull(users.findById(userId))
@@ -376,6 +332,7 @@ class UserRepositoryTest {
             newValidationCode(userId, newSession().id!!)
             newConsent(userId, "audience-promoted-$status")
             newAuthenticationToken(userId)
+            newConsumedInvitation(userId, "audience-promoted-$status")
             repository<InteractiveFlowSessionRepository>().deleteByIds(listOf(sessionId))
             val abandoned = users.findCollectable(LIMIT).mapNotNull { it.id }
             assertTrue(abandoned.contains(userId))
@@ -404,9 +361,36 @@ class UserRepositoryTest {
             assertEquals(
                 0, repository<AuthenticationTokenRepository>().deleteByUserIdInAndUserProvisional(abandoned)
             )
+            assertEquals(0, unconsume(abandoned))
             assertEquals(0, users.deleteByIdInAndSessionIdIsNotNull(abandoned))
             assertNotNull(users.findById(userId))
         }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `An invitation an abandoned account consumed goes back to pending`(database: Database) =
+        withFixture(database) {
+            val invitations = repository<InvitationRepository>()
+            val session = newSession()
+            val userId = newUser(status = status, sessionId = session.id)
+            val invitationId = newConsumedInvitation(userId, "audience-$status")
+            repository<InteractiveFlowSessionRepository>().deleteByIds(listOf(session.id!!))
+
+            assertEquals(1, unconsume(listOf(userId)))
+
+            val invitation = invitations.findById(invitationId)
+            assertNotNull(invitation)
+            assertNull(invitation!!.consumedByUserId)
+            assertNull(invitation.consumedAt)
+            assertEquals(InvitationStatus.PENDING.name, invitation.status)
+        }
+
+    private suspend fun RepositoryFixture.unconsume(userIds: List<UUID>): Int =
+        repository<InvitationRepository>().unconsumeByUserIdInAndUserProvisional(
+            userIds = userIds,
+            consumedStatus = InvitationStatus.CONSUMED.name,
+            pendingStatus = InvitationStatus.PENDING.name
+        )
 
     companion object {
         /** A bound no test's own rows come near, where the sweep's limit is not what is under test. */

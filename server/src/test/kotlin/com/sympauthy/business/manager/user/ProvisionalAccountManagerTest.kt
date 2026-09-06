@@ -9,11 +9,13 @@ import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.AuthenticationTokenRepository
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.ConsentRepository
+import com.sympauthy.data.repository.InvitationRepository
 import com.sympauthy.data.repository.PasswordRepository
 import com.sympauthy.data.repository.ProviderUserInfoRepository
 import com.sympauthy.data.repository.TotpEnrollmentRepository
 import com.sympauthy.data.repository.UserRepository
 import com.sympauthy.data.repository.ValidationCodeRepository
+import com.sympauthy.business.model.invitation.InvitationStatus
 import com.sympauthy.business.model.user.claim.Claim
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -64,6 +66,9 @@ class ProvisionalAccountManagerTest {
 
     @MockK
     lateinit var authenticationTokenRepository: AuthenticationTokenRepository
+
+    @MockK
+    lateinit var invitationRepository: InvitationRepository
 
     @InjectMockKs
     lateinit var manager: ProvisionalAccountManager
@@ -166,12 +171,12 @@ class ProvisionalAccountManagerTest {
         coEvery { validationCodeRepository.deleteByUserIdInAndUserProvisional(listOf(abandonedId)) } returns 0
         coEvery { consentRepository.deleteByUserIdInAndUserProvisional(listOf(abandonedId)) } returns 0
         coEvery { authenticationTokenRepository.deleteByUserIdInAndUserProvisional(listOf(abandonedId)) } returns 0
+        unconsumes(listOf(abandonedId))
         coEvery { userRepository.deleteByIdInAndSessionIdIsNotNull(listOf(abandonedId)) } returns 1
 
         val result = manager.deleteAbandoned(BATCH_SIZE)
 
         assertEquals(1, result.deletedCount)
-        assertEquals(emptyList<UUID>(), result.retainedIds)
         coVerifyOrder {
             passwordRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(abandonedId))
             collectedClaimRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(abandonedId))
@@ -180,6 +185,9 @@ class ProvisionalAccountManagerTest {
             validationCodeRepository.deleteByUserIdInAndUserProvisional(listOf(abandonedId))
             consentRepository.deleteByUserIdInAndUserProvisional(listOf(abandonedId))
             authenticationTokenRepository.deleteByUserIdInAndUserProvisional(listOf(abandonedId))
+            invitationRepository.unconsumeByUserIdInAndUserProvisional(
+                listOf(abandonedId), InvitationStatus.CONSUMED.name, InvitationStatus.PENDING.name
+            )
             userRepository.deleteByIdInAndSessionIdIsNotNull(listOf(abandonedId))
         }
     }
@@ -191,44 +199,9 @@ class ProvisionalAccountManagerTest {
         val result = manager.deleteAbandoned(BATCH_SIZE)
 
         assertEquals(0, result.deletedCount)
-        assertEquals(emptyList<UUID>(), result.retainedIds)
         coVerify(exactly = 0) { passwordRepository.deleteByUserIdInAndSessionIdIsNotNull(any()) }
         coVerify(exactly = 0) { consentRepository.deleteByUserIdInAndUserProvisional(any()) }
-        coVerify(exactly = 0) { userRepository.deleteByIdInAndSessionIdIsNotNull(any()) }
-    }
-
-    @Test
-    fun `deleteAbandoned - Names the account a row still refers to and deletes the other`() = runTest {
-        val collectableId = UUID.randomUUID()
-        val retainedId = UUID.randomUUID()
-        abandoned(collectable = listOf(collectableId), retained = listOf(retainedId))
-        coEvery { passwordRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(collectableId)) } returns 0
-        coEvery { collectedClaimRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(collectableId)) } returns 0
-        coEvery { providerUserInfoRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(collectableId)) } returns 0
-        coEvery { totpEnrollmentRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(collectableId)) } returns 0
-        coEvery { validationCodeRepository.deleteByUserIdInAndUserProvisional(listOf(collectableId)) } returns 0
-        coEvery { consentRepository.deleteByUserIdInAndUserProvisional(listOf(collectableId)) } returns 0
-        coEvery {
-            authenticationTokenRepository.deleteByUserIdInAndUserProvisional(listOf(collectableId))
-        } returns 0
-        coEvery { userRepository.deleteByIdInAndSessionIdIsNotNull(listOf(collectableId)) } returns 1
-
-        val result = manager.deleteAbandoned(BATCH_SIZE)
-
-        assertEquals(1, result.deletedCount)
-        assertEquals(listOf(retainedId), result.retainedIds)
-    }
-
-    @Test
-    fun `deleteAbandoned - Deletes nothing when every abandoned account is retained`() = runTest {
-        val retainedId = UUID.randomUUID()
-        abandoned(collectable = emptyList(), retained = listOf(retainedId))
-
-        val result = manager.deleteAbandoned(BATCH_SIZE)
-
-        assertEquals(0, result.deletedCount)
-        assertEquals(listOf(retainedId), result.retainedIds)
-        coVerify(exactly = 0) { passwordRepository.deleteByUserIdInAndSessionIdIsNotNull(any()) }
+        coVerify(exactly = 0) { invitationRepository.unconsumeByUserIdInAndUserProvisional(any(), any(), any()) }
         coVerify(exactly = 0) { userRepository.deleteByIdInAndSessionIdIsNotNull(any()) }
     }
 
@@ -244,33 +217,11 @@ class ProvisionalAccountManagerTest {
             coEvery { validationCodeRepository.deleteByUserIdInAndUserProvisional(any()) } returns 0
             coEvery { consentRepository.deleteByUserIdInAndUserProvisional(any()) } returns 0
             coEvery { authenticationTokenRepository.deleteByUserIdInAndUserProvisional(any()) } returns 0
+            unconsumes(listOf(collectableId))
             coEvery { userRepository.deleteByIdInAndSessionIdIsNotNull(any()) } returns 1
 
             assertTrue(manager.deleteAbandoned(1).filledBatch)
         }
-
-    /**
-     * A retained account is retained for good, so one counted against the limit would be counted again on
-     * every run after this one — and enough of them would leave the sweep no budget to collect anything.
-     */
-    @Test
-    fun `deleteAbandoned - Does not spend the batch on the accounts it retains`() = runTest {
-        val collectableId = UUID.randomUUID()
-        abandoned(collectable = listOf(collectableId), retained = List(5) { UUID.randomUUID() }, limit = 1)
-        coEvery { passwordRepository.deleteByUserIdInAndSessionIdIsNotNull(any()) } returns 0
-        coEvery { collectedClaimRepository.deleteByUserIdInAndSessionIdIsNotNull(any()) } returns 0
-        coEvery { providerUserInfoRepository.deleteByUserIdInAndSessionIdIsNotNull(any()) } returns 0
-        coEvery { totpEnrollmentRepository.deleteByUserIdInAndSessionIdIsNotNull(any()) } returns 0
-        coEvery { validationCodeRepository.deleteByUserIdInAndUserProvisional(any()) } returns 0
-        coEvery { consentRepository.deleteByUserIdInAndUserProvisional(any()) } returns 0
-        coEvery { authenticationTokenRepository.deleteByUserIdInAndUserProvisional(any()) } returns 0
-        coEvery { userRepository.deleteByIdInAndSessionIdIsNotNull(listOf(collectableId)) } returns 1
-
-        val result = manager.deleteAbandoned(1)
-
-        assertEquals(1, result.deletedCount)
-        assertEquals(5, result.retainedIds.size)
-    }
 
     private fun abandonedUser(id: UUID) = UserEntity(
         status = "ENABLED",
@@ -278,9 +229,16 @@ class ProvisionalAccountManagerTest {
         sessionId = UUID.randomUUID()
     ).apply { this.id = id }
 
-    private fun abandoned(collectable: List<UUID>, retained: List<UUID> = emptyList(), limit: Int = BATCH_SIZE) {
+    private fun abandoned(collectable: List<UUID>, limit: Int = BATCH_SIZE) {
         coEvery { userRepository.findCollectable(limit) } returns collectable.map(::abandonedUser)
-        coEvery { userRepository.findRetained(limit) } returns retained.map(::abandonedUser)
+    }
+
+    private fun unconsumes(userIds: List<UUID>) {
+        coEvery {
+            invitationRepository.unconsumeByUserIdInAndUserProvisional(
+                userIds, InvitationStatus.CONSUMED.name, InvitationStatus.PENDING.name
+            )
+        } returns 0
     }
 
     private fun provisionalUser() {

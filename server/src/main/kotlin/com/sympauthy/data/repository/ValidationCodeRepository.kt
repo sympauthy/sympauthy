@@ -17,16 +17,11 @@ interface ValidationCodeRepository : CoroutineCrudRepository<ValidationCodeEntit
 
     /**
      * Delete the rows of the accounts [userIds] that are still provisional, and answer how many there
-     * were.
+     * were. [userIds] must not be empty.
      *
-     * A row here against an account no sign-up finished should not exist at all: writing one refuses a
-     * provisional account through `UserManager.checkPromoted`. So the sweep collecting that account takes
-     * this with it rather than leaving both, which is what
-     * [com.sympauthy.business.manager.user.ProvisionalAccountManager.deleteAbandoned] is for.
-     *
-     * **The account is re-read rather than trusted**, for the reason the account's own delete re-asserts
-     * its session id: a flow may promote it between the read that selected it and this statement. This
-     * table has no session id of its own, so the predicate is spelled against `users`.
+     * The account is re-read because this table carries no session id of its own to re-assert. Why it is
+     * re-read at all is in
+     * [com.sympauthy.business.manager.user.ProvisionalAccountManager.deleteAbandoned].
      */
     @Query(
         """

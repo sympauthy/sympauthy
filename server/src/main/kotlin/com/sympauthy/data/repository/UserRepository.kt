@@ -46,20 +46,13 @@ interface UserRepository : CoroutineCrudRepository<UserEntity, UUID> {
 
     /**
      * Find at most [limit] accounts an abandoned sign-up left behind that can be deleted: the session
-     * signing them up is gone, and neither of the two things that would block the delete refers to them.
+     * signing them up is gone, and no session refers to them.
      *
-     * Nine tables hold a foreign key to `users`, and each has to be one of three things or this delete
-     * breaks it. **Seven go with the account.** Four (`passwords`, `collected_claims`,
-     * `provider_user_info`, `totp_enrollments`) belong to it outright; `validation_codes`, `consents` and
-     * `authentication_tokens` are rows that should never have existed against an account no sign-up
-     * finished — writing one refuses a provisional account — so the sweep collects them rather than
-     * leaving the account behind them for good. Two are guarded against here instead:
-     *
-     * - `interactive_flow_sessions` is itself collected, so an account a session still refers to becomes
-     *   deletable on its own once that session is gone. Waiting is the whole of the answer.
-     * - `invitations` is not the account's to delete. An invitation is an artifact of whoever issued it,
-     *   and one consumed by an account that never completed is the bug
-     *   [findRetained] exists to report.
+     * One guard for the nine tables holding a foreign key to `users`, because the caller settles the
+     * other eight itself. `interactive_flow_sessions` is the one it cannot: that table is collected on a
+     * schedule of its own, so an account a session still refers to is left to a later run rather than
+     * deleted out from under it. `docs/interactive-flow.md` is where a table referencing `users` is
+     * classified.
      */
     @Query(
         """
@@ -67,31 +60,10 @@ interface UserRepository : CoroutineCrudRepository<UserEntity, UUID> {
         WHERE session_id IS NOT NULL
           AND NOT EXISTS (SELECT 1 FROM interactive_flow_sessions s WHERE s.id = users.session_id)
           AND NOT EXISTS (SELECT 1 FROM interactive_flow_sessions s WHERE s.user_id = users.id)
-          AND NOT EXISTS (SELECT 1 FROM invitations i WHERE i.consumed_by_user_id = users.id)
         LIMIT :limit
         """
     )
     suspend fun findCollectable(limit: Int): List<UserEntity>
-
-    /**
-     * Find at most [limit] accounts an abandoned sign-up left behind that **nothing will ever delete**: the
-     * session signing them up is gone, and an invitation records them as having consumed it.
-     *
-     * An invitation an account never completed should have stayed pending, so this is a row that outlived
-     * the account it names — and it is the one referring row the sweep may not take with the account,
-     * because the invitation belongs to whoever issued it rather than to the account that consumed it.
-     * Nothing here is deleted.
-     */
-    @Query(
-        """
-        SELECT * FROM users
-        WHERE session_id IS NOT NULL
-          AND NOT EXISTS (SELECT 1 FROM interactive_flow_sessions s WHERE s.id = users.session_id)
-          AND EXISTS (SELECT 1 FROM invitations i WHERE i.consumed_by_user_id = users.id)
-        LIMIT :limit
-        """
-    )
-    suspend fun findRetained(limit: Int): List<UserEntity>
 
     /**
      * Collect the accounts [id] that are still provisional, and answer how many there were. Why the
