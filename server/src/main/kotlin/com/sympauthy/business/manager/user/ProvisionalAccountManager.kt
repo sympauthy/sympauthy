@@ -5,6 +5,7 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.data.model.CollectedClaimEntity
+import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.PasswordRepository
 import com.sympauthy.data.repository.ProviderUserInfoRepository
@@ -16,13 +17,14 @@ import jakarta.inject.Singleton
 import java.util.*
 
 /**
- * Manager owning the moment an account an interactive flow session signed up stops being provisional and
- * becomes an account like any other.
+ * Manager owning both ends of a provisional account's life: the moment one an interactive flow session
+ * signed up becomes an account like any other, and the moment one no session will ever finish is removed.
  *
  * A sign-up spans many requests, so its rows are written against the session that created them and are
  * invisible to every reader that could hand them out (see [com.sympauthy.data.model.SessionScoped]).
  * [promote] is the one write that ends that: it re-checks the uniqueness the sign-up could only check
- * against committed rows, then clears the session id across every table the account owns.
+ * against committed rows, then clears the session id across every table the account owns. [deleteAbandoned]
+ * is the other ending, and between them a sign-up is all-or-nothing.
  *
  * It reads the five repositories directly rather than through the managers that own them, the way
  * [com.sympauthy.business.manager.flow.InteractiveFlowSessionCleaner] does: promotion is one statement per
@@ -70,6 +72,31 @@ open class ProvisionalAccountManager(
         providerUserInfoRepository.clearSessionId(sessionId)
         totpEnrollmentRepository.clearSessionId(sessionId)
         userRepository.clearSessionId(sessionId)
+    }
+
+    /**
+     * Delete the accounts left behind by a sign-up that never completed, and answer how many there were.
+     *
+     * An account counts as abandoned when the session signing it up is **gone** — see
+     * [UserRepository.findAbandoned], which is where that and the rule for skipping an account something
+     * still refers to are written. Keying on absence rather than on the sessions one run expired makes this
+     * self-correcting: an account orphaned by an earlier failure is collected on the next pass.
+     *
+     * The account's own rows go first, every one of them rather than only the provisional ones: the account
+     * is going, so anything hanging off it is going too. Removing the sessions in the first place belongs to
+     * [com.sympauthy.business.manager.flow.InteractiveFlowSessionCleaner], which calls this after it has.
+     */
+    @Transactional
+    open suspend fun deleteAbandoned(): Int {
+        val userIds = userRepository.findAbandoned().mapNotNull(UserEntity::id)
+        if (userIds.isEmpty()) return 0
+
+        passwordRepository.deleteByUserIdIn(userIds)
+        collectedClaimRepository.deleteByUserIdIn(userIds)
+        providerUserInfoRepository.deleteByUserIdIn(userIds)
+        totpEnrollmentRepository.deleteByUserIdIn(userIds)
+
+        return userRepository.deleteByIdIn(userIds)
     }
 
     /**

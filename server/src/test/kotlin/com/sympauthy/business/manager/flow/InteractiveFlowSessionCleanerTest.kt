@@ -1,22 +1,16 @@
 package com.sympauthy.business.manager.flow
 
+import com.sympauthy.business.manager.user.ProvisionalAccountManager
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
-import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.AuthorizationCodeRepository
-import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionConfirmRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionLinkProviderRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionOAuth2Repository
 import com.sympauthy.data.repository.InteractiveFlowSessionProviderRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionReauthenticationRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
-import com.sympauthy.data.repository.PasswordRepository
-import com.sympauthy.data.repository.ProviderUserInfoRepository
-import com.sympauthy.data.repository.TotpEnrollmentRepository
-import com.sympauthy.data.repository.UserRepository
 import com.sympauthy.data.repository.ValidationCodeRepository
 import io.mockk.coEvery
-import io.mockk.coVerify
 import io.mockk.coVerifyOrder
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
@@ -56,71 +50,33 @@ class InteractiveFlowSessionCleanerTest {
     lateinit var authorizationCodeRepository: AuthorizationCodeRepository
 
     @MockK
-    lateinit var userRepository: UserRepository
-
-    @MockK
-    lateinit var passwordRepository: PasswordRepository
-
-    @MockK
-    lateinit var collectedClaimRepository: CollectedClaimRepository
-
-    @MockK
-    lateinit var providerUserInfoRepository: ProviderUserInfoRepository
-
-    @MockK
-    lateinit var totpEnrollmentRepository: TotpEnrollmentRepository
+    lateinit var provisionalAccountManager: ProvisionalAccountManager
 
     @InjectMockKs
     lateinit var cleaner: InteractiveFlowSessionCleaner
 
     private val expiredSessionId = UUID.randomUUID()
-    private val abandonedUserId = UUID.randomUUID()
 
     @Test
-    fun `clean - Collects the abandoned account after the session, and its rows before it`() = runTest {
+    fun `clean - Collects the abandoned accounts once the sessions are gone`() = runTest {
         expiredSessions(expiredSessionId)
-        abandonedAccounts(abandonedUserId)
-        coEvery { passwordRepository.deleteByUserIdIn(listOf(abandonedUserId)) } returns 1
-        coEvery { collectedClaimRepository.deleteByUserIdIn(listOf(abandonedUserId)) } returns 2
-        coEvery { providerUserInfoRepository.deleteByUserIdIn(listOf(abandonedUserId)) } returns 0
-        coEvery { totpEnrollmentRepository.deleteByUserIdIn(listOf(abandonedUserId)) } returns 0
-        coEvery { userRepository.deleteByIdIn(listOf(abandonedUserId)) } returns 1
+        coEvery { provisionalAccountManager.deleteAbandoned() } returns 2
 
         val result = cleaner.clean()
 
-        assertEquals(1, result.abandonedAccountCount)
+        assertEquals(2, result.abandonedAccountCount)
+        // A session still present is what keeps an account from counting as abandoned, so the order is the
+        // rule rather than a preference.
         coVerifyOrder {
             sessionRepository.deleteByIds(listOf(expiredSessionId))
-            userRepository.findAbandoned()
-            passwordRepository.deleteByUserIdIn(listOf(abandonedUserId))
-            collectedClaimRepository.deleteByUserIdIn(listOf(abandonedUserId))
-            providerUserInfoRepository.deleteByUserIdIn(listOf(abandonedUserId))
-            totpEnrollmentRepository.deleteByUserIdIn(listOf(abandonedUserId))
-            userRepository.deleteByIdIn(listOf(abandonedUserId))
+            provisionalAccountManager.deleteAbandoned()
         }
     }
 
     @Test
-    fun `clean - Touches no account table when nothing was abandoned`() = runTest {
-        expiredSessions(expiredSessionId)
-        coEvery { userRepository.findAbandoned() } returns emptyList()
-
-        val result = cleaner.clean()
-
-        assertEquals(0, result.abandonedAccountCount)
-        coVerify(exactly = 0) { passwordRepository.deleteByUserIdIn(any()) }
-        coVerify(exactly = 0) { userRepository.deleteByIdIn(any()) }
-    }
-
-    @Test
-    fun `clean - Collects an account orphaned by an earlier run even with nothing expired`() = runTest {
+    fun `clean - Sweeps for abandoned accounts even with nothing expired`() = runTest {
         expiredSessions()
-        abandonedAccounts(abandonedUserId)
-        coEvery { passwordRepository.deleteByUserIdIn(listOf(abandonedUserId)) } returns 0
-        coEvery { collectedClaimRepository.deleteByUserIdIn(listOf(abandonedUserId)) } returns 1
-        coEvery { providerUserInfoRepository.deleteByUserIdIn(listOf(abandonedUserId)) } returns 0
-        coEvery { totpEnrollmentRepository.deleteByUserIdIn(listOf(abandonedUserId)) } returns 0
-        coEvery { userRepository.deleteByIdIn(listOf(abandonedUserId)) } returns 1
+        coEvery { provisionalAccountManager.deleteAbandoned() } returns 1
 
         val result = cleaner.clean()
 
@@ -147,15 +103,5 @@ class InteractiveFlowSessionCleanerTest {
         coEvery { reauthenticationRepository.deleteBySessionIdIn(idList) } returns 0
         coEvery { linkProviderRepository.deleteBySessionIdIn(idList) } returns 0
         coEvery { sessionRepository.deleteByIds(idList) } returns ids.size
-    }
-
-    private fun abandonedAccounts(vararg ids: UUID) {
-        coEvery { userRepository.findAbandoned() } returns ids.map { id ->
-            UserEntity(
-                status = "ENABLED",
-                creationDate = LocalDateTime.now(),
-                sessionId = UUID.randomUUID()
-            ).apply { this.id = id }
-        }
     }
 }

@@ -142,6 +142,43 @@ class ProvisionalAccountManagerTest {
         coVerify { userRepository.clearSessionId(sessionId) }
     }
 
+    @Test
+    fun `deleteAbandoned - Removes every row the account owns before the account`() = runTest {
+        val abandonedId = UUID.randomUUID()
+        coEvery { userRepository.findAbandoned() } returns listOf(abandonedUser(abandonedId))
+        coEvery { passwordRepository.deleteByUserIdIn(listOf(abandonedId)) } returns 1
+        coEvery { collectedClaimRepository.deleteByUserIdIn(listOf(abandonedId)) } returns 2
+        coEvery { providerUserInfoRepository.deleteByUserIdIn(listOf(abandonedId)) } returns 0
+        coEvery { totpEnrollmentRepository.deleteByUserIdIn(listOf(abandonedId)) } returns 0
+        coEvery { userRepository.deleteByIdIn(listOf(abandonedId)) } returns 1
+
+        assertEquals(1, manager.deleteAbandoned())
+
+        coVerifyOrder {
+            passwordRepository.deleteByUserIdIn(listOf(abandonedId))
+            collectedClaimRepository.deleteByUserIdIn(listOf(abandonedId))
+            providerUserInfoRepository.deleteByUserIdIn(listOf(abandonedId))
+            totpEnrollmentRepository.deleteByUserIdIn(listOf(abandonedId))
+            userRepository.deleteByIdIn(listOf(abandonedId))
+        }
+    }
+
+    @Test
+    fun `deleteAbandoned - Touches no table when nothing was abandoned`() = runTest {
+        coEvery { userRepository.findAbandoned() } returns emptyList()
+
+        assertEquals(0, manager.deleteAbandoned())
+
+        coVerify(exactly = 0) { passwordRepository.deleteByUserIdIn(any()) }
+        coVerify(exactly = 0) { userRepository.deleteByIdIn(any()) }
+    }
+
+    private fun abandonedUser(id: UUID) = UserEntity(
+        status = "ENABLED",
+        creationDate = LocalDateTime.now(),
+        sessionId = UUID.randomUUID()
+    ).apply { this.id = id }
+
     private fun provisionalUser() {
         coEvery { userRepository.findByIdAndSessionId(userId, sessionId) } returns UserEntity(
             status = "ENABLED",
