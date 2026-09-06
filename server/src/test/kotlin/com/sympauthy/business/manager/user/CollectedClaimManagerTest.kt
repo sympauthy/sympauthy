@@ -296,12 +296,13 @@ class CollectedClaimManagerTest {
         val createdEntity = mockk<CollectedClaimEntity>()
         val update = mockUpdate(createdClaim, mockk())
 
-        every { collectedClaimUpdateMapper.toEntity(userId, update) } returns createdEntity
+        every { collectedClaimUpdateMapper.toEntity(userId, null, update) } returns createdEntity
         every { collectedClaimRepository.saveAll(listOf(createdEntity)) } returns flowOf(createdEntity)
 
         val result = manager.createMissingClaims(
             user = mockk {
                 every { id } returns userId
+                every { sessionId } returns null
             },
             existingEntityByClaimMap = emptyMap(),
             applicableUpdates = listOf(update)

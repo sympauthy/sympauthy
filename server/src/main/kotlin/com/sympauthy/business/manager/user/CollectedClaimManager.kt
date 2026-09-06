@@ -178,7 +178,7 @@ open class CollectedClaimManager(
             .filter { it.value != null }
             .filter { existingEntityByClaimMap[it.claim.id] == null }
             .map {
-                collectedClaimUpdateMapper.toEntity(user.id, it)
+                collectedClaimUpdateMapper.toEntity(user.id, user.sessionId, it)
             }
         return collectedClaimRepository.saveAll(entitiesToCreate).toList()
     }

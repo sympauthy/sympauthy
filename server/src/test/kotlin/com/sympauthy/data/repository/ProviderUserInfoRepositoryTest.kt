@@ -129,7 +129,8 @@ class ProviderUserInfoRepositoryTest {
     private suspend fun RepositoryFixture.saveLink(
         userId: UUID,
         subject: String,
-        providerId: String = this@ProviderUserInfoRepositoryTest.providerId
+        providerId: String = this@ProviderUserInfoRepositoryTest.providerId,
+        sessionId: UUID? = null
     ): ProviderUserInfoEntity {
         val links = repository<ProviderUserInfoRepository>()
         val id = ProviderUserInfoEntityId(providerId = providerId, userId = userId)
@@ -140,6 +141,7 @@ class ProviderUserInfoRepositoryTest {
                 fetchDate = BASE_DATE,
                 changeDate = BASE_DATE,
                 subject = subject,
+                sessionId = sessionId,
                 name = "Ada Lovelace",
                 email = "ada@example.org",
                 emailVerified = true,

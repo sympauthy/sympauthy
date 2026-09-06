@@ -119,7 +119,7 @@ class UserManagerTest {
         }
         every { userMapper.toUser(savedEntity) } returns user
 
-        val result = manager.createUser()
+        val result = manager.createUser(sessionId = null)
 
         assertSame(user, result)
         assertEquals(UserStatus.ENABLED.name, entitySlot.captured.status)

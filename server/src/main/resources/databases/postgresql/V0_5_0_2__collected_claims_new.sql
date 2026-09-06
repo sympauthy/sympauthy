@@ -7,6 +7,7 @@ CREATE TABLE collected_claims
     value             text,
     verified          boolean,
     verification_date timestamp,
+    session_id        uuid,
 
     PRIMARY KEY (id),
     FOREIGN KEY (user_id) REFERENCES users (id),
@@ -15,3 +16,4 @@ CREATE TABLE collected_claims
 
 CREATE INDEX collected_user_info__user_id ON collected_claims (user_id);
 CREATE INDEX collected_user_info__login_claims ON collected_claims (claim, value) WHERE claim = 'preferred_username' OR claim = 'email' OR claim = 'phone_number';
+CREATE INDEX collected_claims__session_id ON collected_claims (session_id) WHERE session_id IS NOT NULL;

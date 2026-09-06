@@ -62,7 +62,8 @@ class TotpManager(
             userId = user.id,
             secret = randomGenerator.generate(SECRET_LENGTH_IN_BYTES),
             creationDate = LocalDateTime.now(),
-            confirmedDate = null
+            confirmedDate = null,
+            sessionId = user.sessionId
         )
         return totpEnrollmentMapper.toTotpEnrollment(totpEnrollmentRepository.save(entity))
     }

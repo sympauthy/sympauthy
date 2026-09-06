@@ -311,7 +311,10 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
             )
         }
 
-        providerClaimsManager.saveUserInfo(provider, userId, rawUserInfo)
+        // The link takes the session id of the account it attaches to — under this purpose always an
+        // already-committed one — rather than the session serving the request.
+        val linkedUser = userManager.findById(userId)
+        providerClaimsManager.saveUserInfo(provider, userId, linkedUser.sessionId, rawUserInfo)
         logger.info(
             "Linked provider {} (subject {}) to user {}.",
             provider.id,

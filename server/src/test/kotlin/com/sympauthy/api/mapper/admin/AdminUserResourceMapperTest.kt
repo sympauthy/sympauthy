@@ -20,7 +20,8 @@ class AdminUserResourceMapperTest {
     private val user = User(
         id = UUID.randomUUID(),
         status = UserStatus.ENABLED,
-        creationDate = creationDate
+        creationDate = creationDate,
+        sessionId = null
     )
 
     private fun claim(id: String) = Claim(

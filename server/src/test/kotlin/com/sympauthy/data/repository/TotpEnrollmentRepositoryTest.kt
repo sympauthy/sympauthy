@@ -97,7 +97,8 @@ class TotpEnrollmentRepositoryTest {
 
     private suspend fun RepositoryFixture.saveEnrollment(
         userId: UUID,
-        confirmedDate: LocalDateTime? = null
+        confirmedDate: LocalDateTime? = null,
+        sessionId: UUID? = null
     ): UUID {
         val enrollments = repository<TotpEnrollmentRepository>()
         return enrollments.save(
@@ -105,7 +106,8 @@ class TotpEnrollmentRepositoryTest {
                 userId = userId,
                 secret = secret,
                 creationDate = BASE_DATE,
-                confirmedDate = confirmedDate
+                confirmedDate = confirmedDate,
+                sessionId = sessionId
             )
         ).id!!.also { id -> deleteOnEnd { enrollments.deleteById(id) } }
     }

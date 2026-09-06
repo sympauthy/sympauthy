@@ -16,8 +16,10 @@ class PasswordEntity(
     val hashedPassword: ByteArray,
 
     val creationDate: LocalDateTime = LocalDateTime.now(),
-    val expirationDate: LocalDateTime?
-) {
+    val expirationDate: LocalDateTime?,
+
+    override val sessionId: UUID?
+) : SessionScoped {
     @Id
     @GeneratedValue
     var id: UUID? = null

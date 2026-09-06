@@ -188,7 +188,7 @@ open class InteractiveAuthFlowSessionPasswordManager(
         passwordManager.validatePassword(password)
         checkForConflictingUsers(claimUpdates)
 
-        val user = userManager.createUser()
+        val user = userManager.createUser(sessionId = session.id)
         collectedClaimManager.update(
             user = user,
             updates = claimUpdates

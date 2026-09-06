@@ -45,7 +45,8 @@ class PasswordManager(
             salt = salt,
             hashedPassword = hashedPassword,
             creationDate = now(),
-            expirationDate = null
+            expirationDate = null,
+            sessionId = user.sessionId
         )
         passwordRepository.save(entity)
     }

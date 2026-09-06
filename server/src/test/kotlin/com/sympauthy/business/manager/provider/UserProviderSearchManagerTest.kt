@@ -36,6 +36,7 @@ class UserProviderSearchManagerTest {
         linkDate = linkDate,
         fetchDate = linkedAt,
         changeDate = linkedAt,
+        sessionId = null,
         userInfo = RawProviderClaims(subject = "123456789012345678")
     )
 

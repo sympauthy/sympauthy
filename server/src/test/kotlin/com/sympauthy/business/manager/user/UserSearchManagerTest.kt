@@ -76,7 +76,8 @@ class UserSearchManagerTest {
         return User(
             id = UUID.randomUUID(),
             status = status,
-            creationDate = creationDate
+            creationDate = creationDate,
+            sessionId = null
         )
     }
 
@@ -99,7 +100,8 @@ class UserSearchManagerTest {
             value = null,
             verified = null,
             collectionDate = collectionDate,
-            verificationDate = null
+            verificationDate = null,
+            sessionId = null
         )
 
     private fun mockCollectedClaim(userId: UUID, claim: Claim, value: Any?): CollectedClaim {

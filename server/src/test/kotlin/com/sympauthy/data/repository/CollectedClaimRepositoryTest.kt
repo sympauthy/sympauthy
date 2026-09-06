@@ -300,7 +300,8 @@ class CollectedClaimRepositoryTest {
         claim: String,
         value: String?,
         collectedAt: LocalDateTime = BASE_DATE,
-        verified: Boolean? = if (claim == "email") true else null
+        verified: Boolean? = if (claim == "email") true else null,
+        sessionId: UUID? = null
     ): UUID {
         val claims = repository<CollectedClaimRepository>()
         return claims.save(
@@ -310,7 +311,8 @@ class CollectedClaimRepositoryTest {
                 value = value?.let { encoded(it) },
                 verified = verified,
                 collectionDate = collectedAt,
-                verificationDate = if (verified == true) collectedAt else null
+                verificationDate = if (verified == true) collectedAt else null,
+                sessionId = sessionId
             )
         ).id!!.also { id -> deleteOnEnd { claims.deleteById(id) } }
     }

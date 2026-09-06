@@ -45,7 +45,8 @@ class ClientUserManagerTest {
     private fun mockUser(id: UUID = UUID.randomUUID()) = User(
         id = id,
         status = UserStatus.ENABLED,
-        creationDate = LocalDateTime.now()
+        creationDate = LocalDateTime.now(),
+        sessionId = null
     )
 
     private fun mockConsent(userId: UUID, promptedByClientId: String = "test-client") = Consent(
@@ -75,6 +76,7 @@ class ClientUserManagerTest {
         linkDate = LocalDateTime.now(),
         fetchDate = LocalDateTime.now(),
         changeDate = LocalDateTime.now(),
+        sessionId = null,
         userInfo = RawProviderClaims(subject = subject)
     )
 

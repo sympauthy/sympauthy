@@ -102,6 +102,7 @@ class AdminUserProviderControllerTest {
         linkDate = linkDate,
         fetchDate = lastFetchedAt,
         changeDate = lastFetchedAt,
+        sessionId = null,
         userInfo = RawProviderClaims(subject = subject)
     )
 

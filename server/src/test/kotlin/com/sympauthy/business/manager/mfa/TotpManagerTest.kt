@@ -116,7 +116,10 @@ class TotpManagerTest {
     @Test
     fun `initiateEnrollment - Deletes pending enrollments before creating a new one`() = runTest {
         val userId = UUID.randomUUID()
-        val user = mockk<User> { every { id } returns userId }
+        val user = mockk<User> {
+            every { id } returns userId
+            every { sessionId } returns null
+        }
         val pendingEntity = mockk<TotpEnrollmentEntity>()
         val newSecret = ByteArray(TotpManager.SECRET_LENGTH_IN_BYTES)
         val savedEntity = mockk<TotpEnrollmentEntity>()
@@ -137,7 +140,10 @@ class TotpManagerTest {
     @Test
     fun `initiateEnrollment - Works when there are no pending enrollments`() = runTest {
         val userId = UUID.randomUUID()
-        val user = mockk<User> { every { id } returns userId }
+        val user = mockk<User> {
+            every { id } returns userId
+            every { sessionId } returns null
+        }
         val newSecret = ByteArray(TotpManager.SECRET_LENGTH_IN_BYTES)
         val savedEntity = mockk<TotpEnrollmentEntity>()
         val enrollment = mockk<TotpEnrollment>()

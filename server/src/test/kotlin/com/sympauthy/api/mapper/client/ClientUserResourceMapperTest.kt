@@ -30,6 +30,7 @@ class ClientUserResourceMapperTest {
                 linkDate = linkedAt,
                 fetchDate = lastFetchedAt,
                 changeDate = lastFetchedAt,
+                sessionId = null,
                 userInfo = RawProviderClaims(subject = "123456789012345678")
             )
         )

@@ -47,6 +47,7 @@ class UserMapperTest {
         return UserEntity(
             status = status,
             creationDate = creationDate,
+            sessionId = null
         ).apply { this.id = id }
     }
 }

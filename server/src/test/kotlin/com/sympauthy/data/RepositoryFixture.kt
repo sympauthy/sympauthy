@@ -60,9 +60,12 @@ class RepositoryFixture(val database: Database) {
     /** Registers [delete] to run when the test ends, ahead of everything registered before it. */
     fun deleteOnEnd(delete: suspend () -> Unit) = deletions.addFirst(delete)
 
-    /** Saves a user to hang rows off, and returns the identifier the database generated. */
-    suspend fun newUser(status: String = "enabled"): UUID = users
-        .save(UserEntity(status = status, creationDate = BASE_DATE))
+    /**
+     * Saves a user to hang rows off, and returns the identifier the database generated. Pass [sessionId]
+     * to save one that is still provisional for that session.
+     */
+    suspend fun newUser(status: String = "enabled", sessionId: UUID? = null): UUID = users
+        .save(UserEntity(status = status, creationDate = BASE_DATE, sessionId = sessionId))
         .id!!
         .also { id -> deleteOnEnd { users.deleteById(id) } }
 
@@ -103,8 +106,8 @@ class RepositoryFixture(val database: Database) {
         deleteOnEnd { codes.deleteBySessionIdIn(listOf(sessionId)) }
     }
 
-    /** Links a user to a provider under [subject]. */
-    suspend fun newProviderLink(providerId: String, userId: UUID, subject: String) {
+    /** Links a user to a provider under [subject], provisionally when [sessionId] is given. */
+    suspend fun newProviderLink(providerId: String, userId: UUID, subject: String, sessionId: UUID? = null) {
         val links = database.bean<ProviderUserInfoRepository>()
         links.save(
             ProviderUserInfoEntity(
@@ -112,7 +115,8 @@ class RepositoryFixture(val database: Database) {
                 linkDate = BASE_DATE,
                 fetchDate = BASE_DATE,
                 changeDate = BASE_DATE,
-                subject = subject
+                subject = subject,
+                sessionId = sessionId
             )
         )
         deleteOnEnd { links.deleteByProviderIdAndUserId(providerId, userId) }

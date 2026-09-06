@@ -63,7 +63,8 @@ class PasswordRepositoryTest {
 
     private suspend fun RepositoryFixture.savePassword(
         userId: UUID,
-        expirationDate: LocalDateTime? = null
+        expirationDate: LocalDateTime? = null,
+        sessionId: UUID? = null
     ): UUID {
         val passwords = repository<PasswordRepository>()
         return passwords.save(
@@ -72,7 +73,8 @@ class PasswordRepositoryTest {
                 salt = salt,
                 hashedPassword = hashedPassword,
                 creationDate = BASE_DATE,
-                expirationDate = expirationDate
+                expirationDate = expirationDate,
+                sessionId = sessionId
             )
         ).id!!.also { id -> deleteOnEnd { passwords.deleteById(id) } }
     }

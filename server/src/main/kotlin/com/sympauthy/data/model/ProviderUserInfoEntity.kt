@@ -25,6 +25,8 @@ data class ProviderUserInfoEntity(
 
     val subject: String,
 
+    override val sessionId: UUID?,
+
     val name: String? = null,
     val givenName: String? = null,
     val familyName: String? = null,
@@ -55,4 +57,4 @@ data class ProviderUserInfoEntity(
     val country: String? = null,
 
     val updatedAt: LocalDateTime? = null
-)
+) : SessionScoped

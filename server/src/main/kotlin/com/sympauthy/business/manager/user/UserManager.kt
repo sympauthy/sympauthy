@@ -67,13 +67,19 @@ open class UserManager(
     }
 
     /**
-     * Create a new [User].
+     * Create a new [User], provisional for the interactive flow session [sessionId] when it is signing the
+     * account up, permanent from the start when it is null.
+     *
+     * Every row the account goes on to own takes its session id from the account rather than from the
+     * request that writes it, so this is the single place a sign-up decides that the whole account is
+     * provisional. See [com.sympauthy.data.model.SessionScoped].
      */
     @Transactional
-    internal open suspend fun createUser(): User {
+    internal open suspend fun createUser(sessionId: UUID?): User {
         val entity = UserEntity(
             status = UserStatus.ENABLED.name,
-            creationDate = now()
+            creationDate = now(),
+            sessionId = sessionId
         )
         val savedEntity = userRepository.save(entity)
         return userMapper.toUser(savedEntity)

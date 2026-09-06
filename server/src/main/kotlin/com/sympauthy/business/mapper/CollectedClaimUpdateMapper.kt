@@ -26,12 +26,14 @@ abstract class CollectedClaimUpdateMapper {
     )
     abstract fun toEntity(
         userId: UUID,
+        sessionId: UUID?,
         update: CollectedClaimUpdate
     ): CollectedClaimEntity
 
     @Mappings(
         Mapping(target = "id", ignore = true),
         Mapping(target = "userId", ignore = true),
+        Mapping(target = "sessionId", ignore = true),
         Mapping(target = "verified", ignore = true),
         Mapping(target = "verificationDate", ignore = true),
         Mapping(target = "collectionDate", expression = "java(java.time.LocalDateTime.now())")

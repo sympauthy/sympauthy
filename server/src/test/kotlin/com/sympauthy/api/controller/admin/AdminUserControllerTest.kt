@@ -81,7 +81,12 @@ class AdminUserControllerTest {
     }
 
     private fun userWithClaims(creationDate: LocalDateTime) = UserWithClaims(
-        user = User(id = UUID.randomUUID(), status = UserStatus.ENABLED, creationDate = creationDate),
+        user = User(
+            id = UUID.randomUUID(),
+            status = UserStatus.ENABLED,
+            creationDate = creationDate,
+            sessionId = null
+        ),
         collectedClaims = emptyList(),
         generatedClaimValues = emptyMap()
     )
@@ -224,7 +229,12 @@ class AdminUserControllerTest {
 
     @Test
     fun `getUser - Returns user with identifier claims`() = runTest {
-        val user = User(id = userId, status = UserStatus.ENABLED, creationDate = creationDate)
+        val user = User(
+            id = userId,
+            status = UserStatus.ENABLED,
+            creationDate = creationDate,
+            sessionId = null
+        )
         val identifierClaims = listOf(mockk<CollectedClaim>())
         val identifierClaimsMap = mapOf("email" to "user@example.com")
 

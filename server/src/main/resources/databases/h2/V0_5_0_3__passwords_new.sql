@@ -8,9 +8,11 @@ CREATE TABLE passwords
 
     creation_date   timestamp NOT NULL,
     expiration_date timestamp,
+    session_id      uuid,
 
     PRIMARY KEY (id),
     FOREIGN KEY (user_id) REFERENCES users (id)
 );
 
 CREATE INDEX passwords__user_id ON passwords (user_id);
+CREATE INDEX passwords__session_id ON passwords (session_id);
