@@ -66,6 +66,10 @@ jobs:
         shell: bash
         run: mv .github/docker/sympauthy-${{ inputs.platform }} .github/docker/sympauthy
 
+      - id: debian
+        name: Read the Debian release the base image is built on
+        uses: ./.github/actions/read_debian_version
+
       - id: build
         name: Build & Push docker image (${{ inputs.platform }})
         uses: docker/build-push-action@v7
@@ -75,5 +79,7 @@ jobs:
           context: .github/docker
           file: .github/docker/Dockerfile
           platforms: ${{ steps.arch.outputs.docker_platform }}
+          build-args: |
+            DEBIAN_VERSION=${{ steps.debian.outputs.version }}
           tags: ${{ inputs.image }}:${{ inputs.tag }}
           labels: ${{ steps.meta.outputs.labels }}

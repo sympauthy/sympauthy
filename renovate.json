@@ -17,5 +17,25 @@
       ],
       "allowedVersions": "<9.7.0"
     }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": [
+        "Track the Debian release the Docker base image is built on.",
+        "gradle/libs.versions.toml pins it as `debian`, and .github/docker/Dockerfile interpolates it into the image *name* — gcr.io/distroless/java-base-debian13 — so the release is not a tag Renovate could follow on that image. It is followed on the debian image instead.",
+        "distroless publishes one variant per Debian release, so a bump is only valid once java-base-debian<release> exists; nothing on a pull request builds the image, so that has to be checked by hand before merging.",
+        "The versioning admits whole releases only: debian also tags point releases (13.6) and codenames (trixie), and neither names a distroless variant."
+      ],
+      "managerFilePatterns": [
+        "gradle/libs.versions.toml"
+      ],
+      "matchStrings": [
+        "\\ndebian = \"(?<currentValue>\\d+)\""
+      ],
+      "depNameTemplate": "debian",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "regex:^(?<major>\\d+)$"
+    }
   ]
 }
