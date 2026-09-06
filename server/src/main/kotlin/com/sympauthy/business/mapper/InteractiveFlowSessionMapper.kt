@@ -40,6 +40,8 @@ abstract class InteractiveFlowSessionMapper {
             userId = entity.userId,
             signedUp = entity.signedUp,
             completedPurposes = purposes(entity.completedPurposes, "completedPurposes"),
+            securityContextIds = entity.securityContextIds.toList(),
+            currentSecurityContextId = entity.currentSecurityContextId,
             mfaPassedDate = entity.mfaPassedDate,
             successRedirectUri = uri(entity.successRedirectUri, "successRedirectUri"),
             redirectType = redirectType(entity.redirectType),

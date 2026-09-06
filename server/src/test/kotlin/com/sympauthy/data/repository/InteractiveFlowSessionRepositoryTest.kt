@@ -2,6 +2,7 @@ package com.sympauthy.data.repository
 
 import com.sympauthy.data.BASE_DATE
 import com.sympauthy.data.Database
+import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.withFixture
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import java.time.LocalDateTime
+import java.util.*
 
 /**
  * The versioned optimistic-concurrency updates on [InteractiveFlowSessionRepository].
@@ -19,6 +21,9 @@ import java.time.LocalDateTime
  * exercises the array columns `purposes` and `completed_purposes` bound as parameters inside a raw
  * `@Query`, and `error_values` written through the derived [InteractiveFlowSessionRepository.updateError]
  * — a `json` column has to be, since a map bound into a raw query is stored as its `toString()`.
+ *
+ * `security_context_ids` is the schema's only array of `uuid` rather than of `text`, so its round-trip is
+ * held here as well.
  */
 class InteractiveFlowSessionRepositoryTest {
 
@@ -38,6 +43,45 @@ class InteractiveFlowSessionRepositoryTest {
         assertEquals(0L, stored.version)
         assertNull(stored.errorValues)
     }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `save - Round-trips the security contexts the session was seen in`(database: Database) =
+        withFixture(database) {
+            val sessions = repository<InteractiveFlowSessionRepository>()
+            val first = UUID.randomUUID()
+            val second = UUID.randomUUID()
+            val session = sessions.save(
+                InteractiveFlowSessionEntity(
+                    purposes = arrayOf("OAUTH2_AUTHORIZE"),
+                    initiatingPurpose = "OAUTH2_AUTHORIZE",
+                    sessionDate = BASE_DATE,
+                    expirationDate = LocalDateTime.now().plusHours(1),
+                    securityContextIds = arrayOf(first, second),
+                    currentSecurityContextId = first
+                )
+            ).also { saved -> deleteOnEnd { sessions.deleteById(saved.id!!) } }
+
+            val stored = sessions.findById(session.id!!)
+
+            assertNotNull(stored)
+            assertArrayEquals(arrayOf(first, second), stored!!.securityContextIds)
+            assertEquals(first, stored.currentSecurityContextId)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `save - Carries no security context where the deployment records none`(database: Database) =
+        withFixture(database) {
+            val sessions = repository<InteractiveFlowSessionRepository>()
+            val session = newSession()
+
+            val stored = sessions.findById(session.id!!)
+
+            assertNotNull(stored)
+            assertArrayEquals(emptyArray<UUID>(), stored!!.securityContextIds)
+            assertNull(stored.currentSecurityContextId)
+        }
 
     @ParameterizedTest
     @EnumSource(Database::class)

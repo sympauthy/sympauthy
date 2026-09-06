@@ -13,9 +13,7 @@ interface SecurityContextRepository : CoroutineCrudRepository<SecurityContextEnt
 
     suspend fun findByUserIdAndFingerprint(userId: UUID, fingerprint: String): SecurityContextEntity?
 
-    suspend fun findBySessionIdAndFingerprint(sessionId: UUID, fingerprint: String): SecurityContextEntity?
-
-    suspend fun findBySessionId(sessionId: UUID): List<SecurityContextEntity>
+    suspend fun findByIdIn(ids: List<UUID>): List<SecurityContextEntity>
 
     @Query(
         """

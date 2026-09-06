@@ -18,14 +18,6 @@ class SecurityContextEntity(
      */
     val userId: UUID? = null,
     /**
-     * The interactive flow session that observed it, or null for a context observed outside one.
-     *
-     * There is no foreign key. A session is deleted a quarter of an hour after it expires and this
-     * row outlives it by up to six months, so a key would either block that delete or take the
-     * context with it. [AuthenticationTokenEntity.sessionId] carries the column for the same reason.
-     */
-    val sessionId: UUID? = null,
-    /**
      * What makes two sightings the same place: the SHA-256 of the normalised address and user agent,
      * and nothing else.
      *

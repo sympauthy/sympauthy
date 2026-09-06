@@ -101,6 +101,24 @@ class OnGoingInteractiveFlowSession(
     val completedPurposes: List<InteractiveFlowPurpose> = emptyList(),
 
     /**
+     * Every security context this session has been seen in, in the order they were first observed.
+     *
+     * A place is recorded once however many requests arrive from it, so this is the set of distinct places
+     * the person going through the flow has been in, and the whole of what promotion attaches to the user
+     * it resolves. Empty on a deployment that has not turned the recording on.
+     */
+    val securityContextIds: List<UUID> = emptyList(),
+
+    /**
+     * The security context the last request arrived from.
+     *
+     * It is stored rather than read off the end of [securityContextIds] because the two differ: a flow
+     * returning to a place it has already been seen in points back at the row it wrote then, and appends
+     * nothing.
+     */
+    val currentSecurityContextId: UUID? = null,
+
+    /**
      * When the end-user successfully completed the MFA step for this session.
      * Null if MFA has not been completed yet.
      */
@@ -141,6 +159,14 @@ class OnGoingInteractiveFlowSession(
      */
     val mfaPassed: Boolean get() = mfaPassedDate != null
 
+    /**
+     * The security context this session was initiated from, or null where none was recorded.
+     *
+     * It is the first of [securityContextIds] rather than a column of its own: the list is appended to and
+     * never reordered, so its head is the place the flow started and stays so for the session's life.
+     */
+    val initiatingSecurityContextId: UUID? get() = securityContextIds.firstOrNull()
+
     fun copy(
         purposes: List<InteractiveFlowPurpose>? = null,
         completedPurposes: List<InteractiveFlowPurpose>? = null,
@@ -148,6 +174,8 @@ class OnGoingInteractiveFlowSession(
         signedUp: Boolean? = null,
         mfaPassedDate: LocalDateTime? = null,
         version: Long? = null,
+        securityContextIds: List<UUID>? = null,
+        currentSecurityContextId: UUID? = null,
     ) = OnGoingInteractiveFlowSession(
         id = this.id,
         purposes = purposes ?: this.purposes,
@@ -159,6 +187,8 @@ class OnGoingInteractiveFlowSession(
         userId = userId ?: this.userId,
         signedUp = signedUp ?: this.signedUp,
         completedPurposes = completedPurposes ?: this.completedPurposes,
+        securityContextIds = securityContextIds ?: this.securityContextIds,
+        currentSecurityContextId = currentSecurityContextId ?: this.currentSecurityContextId,
         mfaPassedDate = mfaPassedDate ?: this.mfaPassedDate,
         successRedirectUri = this.successRedirectUri,
         redirectType = this.redirectType,

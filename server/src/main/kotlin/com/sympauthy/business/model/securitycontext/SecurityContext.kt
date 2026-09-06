@@ -10,15 +10,14 @@ import java.util.*
  * between which it has been seen, and how many times. Nothing here is scored — the server records
  * the material and a client decides what it means.
  *
- * A context outlives the session that observed it, so it is not a session's record and is deleted on
- * its own schedule: a day where nobody was ever attached to it, and months where somebody was.
+ * A context outlives the sessions that observed it, so it names none of them: an interactive flow
+ * session carries the contexts it has been seen in, and this row is deleted on its own schedule — a
+ * day where nobody was ever attached to it, and months where somebody was.
  */
 data class SecurityContext(
     val id: UUID,
     /** The user this place is theirs, or null while the sighting belongs to nobody yet. */
     val userId: UUID?,
-    /** The interactive flow session that observed it, or null for a sighting outside one. */
-    val sessionId: UUID?,
     /**
      * What makes two sightings the same place: the SHA-256 of the normalised address and user agent,
      * and nothing else.

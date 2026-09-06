@@ -30,11 +30,9 @@ class SecurityContextRepositoryTest {
     @EnumSource(Database::class)
     fun `save - Round-trip a context with every column set`(database: Database) = withFixture(database) {
         val userId = newUser()
-        val sessionId = newSession().id!!
         val id = saveContext(
             fingerprint = "round-trip-full",
             userId = userId,
-            sessionId = sessionId,
             ip = "198.51.100.10",
             userAgent = "Mozilla/5.0",
             country = "FR",
@@ -47,7 +45,6 @@ class SecurityContextRepositoryTest {
 
         assertNotNull(stored)
         assertEquals(userId, stored!!.userId)
-        assertEquals(sessionId, stored.sessionId)
         assertEquals("round-trip-full", stored.fingerprint)
         assertEquals("198.51.100.10", stored.ip)
         assertEquals("Mozilla/5.0", stored.userAgent)
@@ -69,7 +66,6 @@ class SecurityContextRepositoryTest {
 
             assertNotNull(stored)
             assertNull(stored!!.userId)
-            assertNull(stored.sessionId)
             assertNull(stored.ip)
             assertNull(stored.userAgent)
             assertNull(stored.country)
@@ -123,29 +119,16 @@ class SecurityContextRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `findBySessionIdAndFingerprint - Answer the place this session observed`(database: Database) =
+    fun `findByIdIn - Answer the contexts a session carries the ids of`(database: Database) =
         withFixture(database) {
-            val sessionId = newSession().id!!
-            val id = saveContext(fingerprint = "session-place", sessionId = sessionId)
+            val first = saveContext(fingerprint = "carried-first")
+            val second = saveContext(fingerprint = "carried-second")
+            saveContext(fingerprint = "carried-by-nobody")
 
-            val found = repository<SecurityContextRepository>()
-                .findBySessionIdAndFingerprint(sessionId, "session-place")
+            val carried = repository<SecurityContextRepository>().findByIdIn(listOf(first, second))
 
-            assertEquals(id, found?.id)
+            assertEquals(setOf(first, second), carried.map { it.id }.toSet())
         }
-
-    @ParameterizedTest
-    @EnumSource(Database::class)
-    fun `findBySessionId - Answer every place one session observed`(database: Database) = withFixture(database) {
-        val sessionId = newSession().id!!
-        val first = saveContext(fingerprint = "session-first", sessionId = sessionId)
-        val second = saveContext(fingerprint = "session-second", sessionId = sessionId)
-        saveContext(fingerprint = "another-session", sessionId = newSession().id!!)
-
-        val observed = repository<SecurityContextRepository>().findBySessionId(sessionId)
-
-        assertEquals(setOf(first, second), observed.map { it.id }.toSet())
-    }
 
     @ParameterizedTest
     @EnumSource(Database::class)
@@ -210,7 +193,6 @@ class SecurityContextRepositoryTest {
     private suspend fun RepositoryFixture.saveContext(
         fingerprint: String,
         userId: UUID? = null,
-        sessionId: UUID? = null,
         ip: String? = null,
         userAgent: String? = null,
         country: String? = null,
@@ -224,7 +206,6 @@ class SecurityContextRepositoryTest {
         return contexts.save(
             SecurityContextEntity(
                 userId = userId,
-                sessionId = sessionId,
                 fingerprint = fingerprint,
                 ip = ip,
                 userAgent = userAgent,

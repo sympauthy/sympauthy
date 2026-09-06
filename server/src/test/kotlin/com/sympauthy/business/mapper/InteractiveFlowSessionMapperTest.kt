@@ -22,6 +22,28 @@ class InteractiveFlowSessionMapperTest {
     private val mapper = Mappers.getMapper(InteractiveFlowSessionMapper::class.java)
 
     @Test
+    fun `toOnGoingInteractiveFlowSession - Carry the places the session has been seen in`() {
+        val initiating = UUID.randomUUID()
+        val current = UUID.randomUUID()
+        val entity = entity(securityContextIds = arrayOf(initiating, current), currentSecurityContextId = current)
+
+        val session = mapper.toOnGoingInteractiveFlowSession(entity)
+
+        assertEquals(listOf(initiating, current), session.securityContextIds)
+        assertEquals(current, session.currentSecurityContextId)
+        assertEquals(initiating, session.initiatingSecurityContextId)
+    }
+
+    @Test
+    fun `toOnGoingInteractiveFlowSession - Carry no place where the deployment records none`() {
+        val session = mapper.toOnGoingInteractiveFlowSession(entity())
+
+        assertEquals(emptyList<UUID>(), session.securityContextIds)
+        assertNull(session.currentSecurityContextId)
+        assertNull(session.initiatingSecurityContextId)
+    }
+
+    @Test
     fun `toInteractiveFlowSession - maps to Failed when errorDate is not null`() {
         val id = UUID.randomUUID()
         val entity = entity(
@@ -241,6 +263,8 @@ class InteractiveFlowSessionMapperTest {
         errorDetailsId: String? = null,
         errorDescriptionId: String? = null,
         errorValues: Map<String, String>? = null,
+        securityContextIds: Array<UUID> = emptyArray(),
+        currentSecurityContextId: UUID? = null,
     ): InteractiveFlowSessionEntity {
         return InteractiveFlowSessionEntity(
             version = version,
@@ -261,6 +285,8 @@ class InteractiveFlowSessionMapperTest {
             errorDetailsId = errorDetailsId,
             errorDescriptionId = errorDescriptionId,
             errorValues = errorValues,
+            securityContextIds = securityContextIds,
+            currentSecurityContextId = currentSecurityContextId,
         ).apply { this.id = id }
     }
 }

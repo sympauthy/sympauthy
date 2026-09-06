@@ -16,13 +16,11 @@ class SecurityContextMapperTest {
     fun `toSecurityContext - Map every column, the geo among them`() {
         val id = UUID.randomUUID()
         val userId = UUID.randomUUID()
-        val sessionId = UUID.randomUUID()
         val firstSeen = LocalDateTime.of(2026, 1, 1, 12, 0)
         val lastSeen = LocalDateTime.of(2026, 3, 1, 9, 30)
         val entity = entity(
             id = id,
             userId = userId,
-            sessionId = sessionId,
             firstSeenDate = firstSeen,
             lastSeenDate = lastSeen,
             observationCount = 42,
@@ -33,7 +31,6 @@ class SecurityContextMapperTest {
 
         assertEquals(id, context.id)
         assertEquals(userId, context.userId)
-        assertEquals(sessionId, context.sessionId)
         assertEquals("fingerprint", context.fingerprint)
         assertEquals("198.51.100.10", context.ip)
         assertEquals("Mozilla/5.0", context.userAgent)
@@ -48,12 +45,11 @@ class SecurityContextMapperTest {
 
     @Test
     fun `toSecurityContext - Map a context nobody is attached to and no proxy placed`() {
-        val entity = entity(id = UUID.randomUUID(), userId = null, sessionId = null, geo = null, ip = null)
+        val entity = entity(id = UUID.randomUUID(), userId = null, geo = null, ip = null)
 
         val context = mapper.toSecurityContext(entity)
 
         assertNull(context.userId)
-        assertNull(context.sessionId)
         assertNull(context.ip)
         assertNull(context.geo.country)
         assertNull(context.geo.region)
@@ -63,7 +59,6 @@ class SecurityContextMapperTest {
     private fun entity(
         id: UUID,
         userId: UUID? = null,
-        sessionId: UUID? = null,
         ip: String? = "198.51.100.10",
         geo: String? = "set",
         firstSeenDate: LocalDateTime = LocalDateTime.of(2026, 1, 1, 12, 0),
@@ -72,7 +67,6 @@ class SecurityContextMapperTest {
         expirationDate: LocalDateTime = LocalDateTime.of(2026, 1, 2, 12, 0)
     ) = SecurityContextEntity(
         userId = userId,
-        sessionId = sessionId,
         fingerprint = "fingerprint",
         ip = ip,
         userAgent = "Mozilla/5.0",

@@ -2,7 +2,6 @@ CREATE TABLE security_contexts
 (
     id                uuid      NOT NULL DEFAULT random_uuid(),
     user_id           uuid,
-    session_id        uuid,
     fingerprint       text      NOT NULL,
     ip                text,
     user_agent        text,
