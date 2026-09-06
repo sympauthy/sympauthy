@@ -125,16 +125,30 @@ takes those two in the opposite order, and together they would deadlock.
 
 **Its deletes carry the predicate its select selected by.** A flow may promote one of the accounts
 between the read that listed it and the deletes that collect it, and an id names a row whatever
-became of it since. Each of the five statements names the session id instead, so a database that
+became of it since. Every statement re-asserts that the account is still provisional — on the row's
+own session id where its table carries one, against `users` where it does not — so a database that
 blocked on the promotion re-checks the account as the promotion left it and skips a promoted one.
-The guarantee on the other side — that a flow whose session the cleaner expired cannot complete —
-is the flow's, and the sweep does not lean on it.
+The predicates spelled against `users` are the weaker half: nothing locks the row they read, so a
+promotion committing inside that window is not caught, and what they would take is a row that should
+never have been written. The guarantee on the other side — that a flow whose session the cleaner
+expired cannot complete — is the flow's, and the sweep does not lean on it.
 
-**A table that references `users` is classified when it is added.** Collecting an abandoned account
-means deleting it, and a foreign key that delete breaks would abort the whole sweep — again every
-quarter of an hour, indefinitely. Each such table is either owned by the account and deleted with
-it, or named in the guard that skips an account something still refers to. That guard is the query
-the collection selects by, and it is where the rule is written.
+**A table that references `users` is classified when it is added**, into one of three. Collecting an
+abandoned account means deleting it, and a foreign key that delete breaks would abort the whole
+sweep — again every quarter of an hour, indefinitely.
+
+| The table | The sweep |
+| --- | --- |
+| holds rows the account owns | deletes them with it |
+| may not hold a row against a provisional account at all | deletes them with it, and each was a bug |
+| holds a row the account does not own | guards on it, and leaves the account |
+
+The second is the one an unclassified table is most often mistaken for the third: a validation code,
+a consent and an issued token are all refused against an account still being signed up, so one that
+exists is already a defect — and guarding on it would leave the account uncollectable for good on
+account of it. The third is two cases in one query. A row something else collects, which is an
+interactive flow session, leaves the account to a later run; a row nothing collects leaves it for
+good, and that is what the sweep reports rather than retains in silence.
 
 ## A purpose handler is pure
 

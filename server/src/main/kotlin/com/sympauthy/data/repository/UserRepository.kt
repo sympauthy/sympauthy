@@ -46,19 +46,20 @@ interface UserRepository : CoroutineCrudRepository<UserEntity, UUID> {
 
     /**
      * Find at most [limit] accounts an abandoned sign-up left behind that can be deleted: the session
-     * signing them up is gone, and none of the five tables below refers to them.
+     * signing them up is gone, and neither of the two things that would block the delete refers to them.
      *
      * Nine tables hold a foreign key to `users`, and each has to be one of three things or this delete
-     * breaks it. Four (`passwords`, `collected_claims`, `provider_user_info`, `totp_enrollments`) belong
-     * to the account and go with it. The remaining five are guarded against here, and **they are not one
-     * kind**: `interactive_flow_sessions` is itself collected, so an account only a session refers to
-     * becomes deletable on its own once that session is gone, while `validation_codes`, `consents`,
-     * `invitations` and `authentication_tokens` outlive every job there is — which is the split
-     * [findRetained] answers the other side of.
+     * breaks it. **Seven go with the account.** Four (`passwords`, `collected_claims`,
+     * `provider_user_info`, `totp_enrollments`) belong to it outright; `validation_codes`, `consents` and
+     * `authentication_tokens` are rows that should never have existed against an account no sign-up
+     * finished — writing one refuses a provisional account — so the sweep collects them rather than
+     * leaving the account behind them for good. Two are guarded against here instead:
      *
-     * **A tenth table is a decision to make in this query and, if nothing collects it, in [findRetained]
-     * too.** `UserRepositoryTest` holds the two to that split, so adding a durable table here and not
-     * there fails.
+     * - `interactive_flow_sessions` is itself collected, so an account a session still refers to becomes
+     *   deletable on its own once that session is gone. Waiting is the whole of the answer.
+     * - `invitations` is not the account's to delete. An invitation is an artifact of whoever issued it,
+     *   and one consumed by an account that never completed is the bug
+     *   [findRetained] exists to report.
      */
     @Query(
         """
@@ -66,10 +67,7 @@ interface UserRepository : CoroutineCrudRepository<UserEntity, UUID> {
         WHERE session_id IS NOT NULL
           AND NOT EXISTS (SELECT 1 FROM interactive_flow_sessions s WHERE s.id = users.session_id)
           AND NOT EXISTS (SELECT 1 FROM interactive_flow_sessions s WHERE s.user_id = users.id)
-          AND NOT EXISTS (SELECT 1 FROM validation_codes v WHERE v.user_id = users.id)
-          AND NOT EXISTS (SELECT 1 FROM consents c WHERE c.user_id = users.id)
           AND NOT EXISTS (SELECT 1 FROM invitations i WHERE i.consumed_by_user_id = users.id)
-          AND NOT EXISTS (SELECT 1 FROM authentication_tokens t WHERE t.user_id = users.id)
         LIMIT :limit
         """
     )
@@ -77,24 +75,19 @@ interface UserRepository : CoroutineCrudRepository<UserEntity, UUID> {
 
     /**
      * Find at most [limit] accounts an abandoned sign-up left behind that **nothing will ever delete**: the
-     * session signing them up is gone, and one of the four tables below still refers to them. Each is a
-     * row that outlived the account it belongs to. Nothing here is deleted.
+     * session signing them up is gone, and an invitation records them as having consumed it.
      *
-     * The four are the referring tables no job removes. **`interactive_flow_sessions` is deliberately not
-     * among them**, though [findCollectable] guards against it too: a session is collected, so an account
-     * only a session refers to becomes deletable rather than staying here for good.
+     * An invitation an account never completed should have stayed pending, so this is a row that outlived
+     * the account it names — and it is the one referring row the sweep may not take with the account,
+     * because the invitation belongs to whoever issued it rather than to the account that consumed it.
+     * Nothing here is deleted.
      */
     @Query(
         """
         SELECT * FROM users
         WHERE session_id IS NOT NULL
           AND NOT EXISTS (SELECT 1 FROM interactive_flow_sessions s WHERE s.id = users.session_id)
-          AND (
-            EXISTS (SELECT 1 FROM validation_codes v WHERE v.user_id = users.id)
-            OR EXISTS (SELECT 1 FROM consents c WHERE c.user_id = users.id)
-            OR EXISTS (SELECT 1 FROM invitations i WHERE i.consumed_by_user_id = users.id)
-            OR EXISTS (SELECT 1 FROM authentication_tokens t WHERE t.user_id = users.id)
-          )
+          AND EXISTS (SELECT 1 FROM invitations i WHERE i.consumed_by_user_id = users.id)
         LIMIT :limit
         """
     )

@@ -6,11 +6,14 @@ import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.model.UserEntity
+import com.sympauthy.data.repository.AuthenticationTokenRepository
 import com.sympauthy.data.repository.CollectedClaimRepository
+import com.sympauthy.data.repository.ConsentRepository
 import com.sympauthy.data.repository.PasswordRepository
 import com.sympauthy.data.repository.ProviderUserInfoRepository
 import com.sympauthy.data.repository.TotpEnrollmentRepository
 import com.sympauthy.data.repository.UserRepository
+import com.sympauthy.data.repository.ValidationCodeRepository
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -26,9 +29,9 @@ import java.util.*
  * against committed rows, then clears the session id across every table the account owns. [deleteAbandoned]
  * is the other ending, and between them a sign-up is all-or-nothing.
  *
- * It reads the five repositories directly rather than through the managers that own them: promoting and
+ * It reads the repositories directly rather than through the managers that own them: promoting and
  * collecting are one statement per table over a column no domain concept names, and a pass-through on each
- * of five managers would say less than the list here does.
+ * of them would say less than the list here does.
  */
 @Singleton
 open class ProvisionalAccountManager(
@@ -38,7 +41,10 @@ open class ProvisionalAccountManager(
     @Inject private val passwordRepository: PasswordRepository,
     @Inject private val collectedClaimRepository: CollectedClaimRepository,
     @Inject private val providerUserInfoRepository: ProviderUserInfoRepository,
-    @Inject private val totpEnrollmentRepository: TotpEnrollmentRepository
+    @Inject private val totpEnrollmentRepository: TotpEnrollmentRepository,
+    @Inject private val validationCodeRepository: ValidationCodeRepository,
+    @Inject private val consentRepository: ConsentRepository,
+    @Inject private val authenticationTokenRepository: AuthenticationTokenRepository
 ) {
 
     /**
@@ -86,28 +92,33 @@ open class ProvisionalAccountManager(
      * keeps it from holding a session's lock while it waits for an account's. Self-correction is also what
      * makes [limit] safe: a run that fills it leaves the rest to the next one.
      *
-     * **An abandoned account another row still refers to is retained, and its id is in the result.**
-     * [UserRepository.findRetained] is the rule for which those are, and such a row is a bug to find
-     * rather than a run to lose — so the sweep names them for its caller to report instead of dropping
-     * them from a count nobody can tell apart from having had nothing to do. A retained account never
-     * counts against [limit]: it is retained for good, so a budget spent on one is a budget spent on it
-     * every run for good.
+     * **An abandoned account an invitation still names is retained, and its id is in the result.**
+     * [UserRepository.findRetained] is the rule, and an invitation consumed by an account that never
+     * completed is a bug to find rather than a run to lose — so the sweep names them for its caller to
+     * report instead of dropping them from a count nobody can tell apart from having had nothing to do.
+     * A retained account never counts against [limit]: it is retained for good, so a budget spent on one
+     * is a budget spent on it every run for good.
      *
      * **The two answers do not partition the abandoned accounts**, and the gap between them is not a
      * failure to report: an account a session still refers to is neither deleted nor retained, because
      * that session is itself collected and a later run takes the account once it is.
      *
-     * The account's own rows go first, every one of them rather than only the provisional ones: the account
-     * is going, so anything hanging off it is going too. By the [com.sympauthy.data.model.SessionScoped]
-     * invariant those are the same set — a provisional account owns no committed row — which is why every
-     * one of the five statements can carry the session id and still delete what the account holds.
+     * The account's rows go first, every one of them rather than only the provisional ones: the account is
+     * going, so anything hanging off it is going too. For the four it owns outright that is the same set by
+     * the [com.sympauthy.data.model.SessionScoped] invariant — a provisional account owns no committed row.
+     * The three beyond them — a validation code, a consent, an issued token — should never have existed
+     * against an account no sign-up finished, since writing one refuses a provisional account. Collecting
+     * them is what stops one of them holding an account here for good.
      *
      * **Each statement re-asserts provisionality; none of them trusts the read that selected the account.**
      * A flow may promote one of these accounts between that read and these deletes, and an id names a row
      * whatever became of it. Naming the session id instead makes each delete re-check the account as the
      * promotion left it — PostgreSQL through `EvalPlanQual`, H2 through the re-check it runs when the row
      * it locked turns out to have changed — so a promoted account is skipped rather than deleted out from
-     * under the flow that finished it.
+     * under the flow that finished it. The three that carry no session id of their own spell the same
+     * predicate against `users`, which is the weaker half of this: it is read rather than re-checked under
+     * a lock, so a promotion committing inside that window is not caught. The row it would take is one that
+     * should not have been written.
      */
     @Transactional
     open suspend fun deleteAbandoned(limit: Int): CollectResult {
@@ -119,6 +130,9 @@ open class ProvisionalAccountManager(
         collectedClaimRepository.deleteByUserIdInAndSessionIdIsNotNull(collectableIds)
         providerUserInfoRepository.deleteByUserIdInAndSessionIdIsNotNull(collectableIds)
         totpEnrollmentRepository.deleteByUserIdInAndSessionIdIsNotNull(collectableIds)
+        validationCodeRepository.deleteByUserIdInAndUserProvisional(collectableIds)
+        consentRepository.deleteByUserIdInAndUserProvisional(collectableIds)
+        authenticationTokenRepository.deleteByUserIdInAndUserProvisional(collectableIds)
 
         return CollectResult(
             deletedCount = userRepository.deleteByIdInAndSessionIdIsNotNull(collectableIds),

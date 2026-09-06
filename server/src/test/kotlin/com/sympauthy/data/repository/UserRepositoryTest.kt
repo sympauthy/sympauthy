@@ -210,20 +210,19 @@ class UserRepositoryTest {
     }
 
     /**
-     * One account per table that outlives a run, because the account has to fall on the retained side of
-     * the split for every one of the four — and never on the collectable side, where the bound it would
-     * spend is a bound spent again on the next run and every run after it.
+     * The three rows that should never have existed against an account no sign-up finished. Each one held
+     * the account back for good before it was collected with it, so the account has to be answered as
+     * collectable while the row is still there.
      */
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `findRetained - Answers the abandoned account a durable row still refers to`(database: Database) =
+    fun `findCollectable - Answers the account a row it collects still refers to`(database: Database) =
         withFixture(database) {
             val users = repository<UserRepository>()
             val sessions = repository<InteractiveFlowSessionRepository>()
             val referrers: List<Pair<String, suspend (UUID) -> Unit>> = listOf(
                 "validation_codes" to { userId -> newValidationCode(userId, newSession().id!!) },
                 "consents" to { userId -> newConsent(userId, "audience-$status") },
-                "invitations" to { userId -> newConsumedInvitation(userId, "audience-$status") },
                 "authentication_tokens" to { userId -> newAuthenticationToken(userId) }
             )
 
@@ -233,9 +232,23 @@ class UserRepositoryTest {
                 refer(userId)
                 sessions.deleteByIds(listOf(session.id!!))
 
-                assertTrue(users.findRetained(LIMIT).map { it.id!! }.contains(userId), table)
-                assertTrue(!users.findCollectable(LIMIT).map { it.id!! }.contains(userId), table)
+                assertTrue(users.findCollectable(LIMIT).map { it.id!! }.contains(userId), table)
+                assertTrue(!users.findRetained(LIMIT).map { it.id!! }.contains(userId), table)
             }
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findRetained - Answers the abandoned account an invitation names`(database: Database) =
+        withFixture(database) {
+            val users = repository<UserRepository>()
+            val session = newSession()
+            val userId = newUser(status = status, sessionId = session.id)
+            newConsumedInvitation(userId, "audience-$status")
+            repository<InteractiveFlowSessionRepository>().deleteByIds(listOf(session.id!!))
+
+            assertTrue(users.findRetained(LIMIT).map { it.id!! }.contains(userId))
+            assertTrue(!users.findCollectable(LIMIT).map { it.id!! }.contains(userId))
         }
 
     /**
@@ -264,9 +277,8 @@ class UserRepositoryTest {
     }
 
     /**
-     * The two queries spell the tables they guard on separately, so nothing but this holds them to the
-     * same split: a durable table added to one and not the other leaves an abandoned account in both
-     * answers or in neither, and both are silent failures.
+     * The two queries spell the guard they turn on separately, once each way round, so nothing but this
+     * holds them to it: an account in both answers or in neither is a silent failure either way.
      */
     @ParameterizedTest
     @EnumSource(Database::class)
@@ -277,7 +289,7 @@ class UserRepositoryTest {
             val session = newSession()
             val collectable = newUser(status = status, sessionId = session.id)
             val retained = newUser(status = status, sessionId = session.id)
-            newConsent(retained, "audience-$status")
+            newConsumedInvitation(retained, "audience-$status")
             sessions.deleteByIds(listOf(session.id!!))
 
             val collectableIds = users.findCollectable(LIMIT).map { it.id!! }
@@ -323,6 +335,9 @@ class UserRepositoryTest {
             newClaim(userId, "email", "\"abandoned@$status.test\"", sessionId = session.id)
             newProviderLink("provider-$status", userId, "subject-$status", sessionId = session.id)
             newTotpEnrollment(userId, sessionId = session.id)
+            newValidationCode(userId, newSession().id!!)
+            newConsent(userId, "audience-$status")
+            newAuthenticationToken(userId)
             repository<InteractiveFlowSessionRepository>().deleteByIds(listOf(session.id!!))
 
             val abandoned = users.findCollectable(LIMIT).mapNotNull { it.id }
@@ -330,6 +345,11 @@ class UserRepositoryTest {
             repository<CollectedClaimRepository>().deleteByUserIdInAndSessionIdIsNotNull(abandoned)
             repository<ProviderUserInfoRepository>().deleteByUserIdInAndSessionIdIsNotNull(abandoned)
             repository<TotpEnrollmentRepository>().deleteByUserIdInAndSessionIdIsNotNull(abandoned)
+            assertEquals(1, repository<ValidationCodeRepository>().deleteByUserIdInAndUserProvisional(abandoned))
+            assertEquals(1, repository<ConsentRepository>().deleteByUserIdInAndUserProvisional(abandoned))
+            assertEquals(
+                1, repository<AuthenticationTokenRepository>().deleteByUserIdInAndUserProvisional(abandoned)
+            )
 
             assertEquals(1, users.deleteByIdInAndSessionIdIsNotNull(listOf(userId)))
             assertNull(users.findById(userId))
@@ -337,8 +357,9 @@ class UserRepositoryTest {
 
     /**
      * The account a flow promoted between the read that listed it and the deletes that collect it. An id
-     * names a row whatever became of it since, so each of the five statements names the session id instead,
-     * and every one of them has to leave this account exactly as it found it.
+     * names a row whatever became of it since, so every statement re-asserts that the account is still
+     * provisional — on its own session id where it has one, against `users` where it does not — and every
+     * one of them has to leave this account exactly as it found it.
      */
     @ParameterizedTest
     @EnumSource(Database::class)
@@ -352,6 +373,9 @@ class UserRepositoryTest {
             newClaim(userId, "email", "\"promoted@$status.test\"", sessionId = sessionId)
             newProviderLink("promoted-$status", userId, "subject-promoted-$status", sessionId = sessionId)
             newTotpEnrollment(userId, sessionId = sessionId)
+            newValidationCode(userId, newSession().id!!)
+            newConsent(userId, "audience-promoted-$status")
+            newAuthenticationToken(userId)
             repository<InteractiveFlowSessionRepository>().deleteByIds(listOf(sessionId))
             val abandoned = users.findCollectable(LIMIT).mapNotNull { it.id }
             assertTrue(abandoned.contains(userId))
@@ -374,6 +398,11 @@ class UserRepositoryTest {
             assertEquals(
                 0,
                 repository<TotpEnrollmentRepository>().deleteByUserIdInAndSessionIdIsNotNull(abandoned)
+            )
+            assertEquals(0, repository<ValidationCodeRepository>().deleteByUserIdInAndUserProvisional(abandoned))
+            assertEquals(0, repository<ConsentRepository>().deleteByUserIdInAndUserProvisional(abandoned))
+            assertEquals(
+                0, repository<AuthenticationTokenRepository>().deleteByUserIdInAndUserProvisional(abandoned)
             )
             assertEquals(0, users.deleteByIdInAndSessionIdIsNotNull(abandoned))
             assertNotNull(users.findById(userId))

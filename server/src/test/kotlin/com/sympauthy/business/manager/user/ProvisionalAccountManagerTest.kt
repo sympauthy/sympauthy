@@ -6,11 +6,14 @@ import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.model.ProviderUserInfoEntity
 import com.sympauthy.data.model.ProviderUserInfoEntityId
 import com.sympauthy.data.model.UserEntity
+import com.sympauthy.data.repository.AuthenticationTokenRepository
 import com.sympauthy.data.repository.CollectedClaimRepository
+import com.sympauthy.data.repository.ConsentRepository
 import com.sympauthy.data.repository.PasswordRepository
 import com.sympauthy.data.repository.ProviderUserInfoRepository
 import com.sympauthy.data.repository.TotpEnrollmentRepository
 import com.sympauthy.data.repository.UserRepository
+import com.sympauthy.data.repository.ValidationCodeRepository
 import com.sympauthy.business.model.user.claim.Claim
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -52,6 +55,15 @@ class ProvisionalAccountManagerTest {
 
     @MockK
     lateinit var totpEnrollmentRepository: TotpEnrollmentRepository
+
+    @MockK
+    lateinit var validationCodeRepository: ValidationCodeRepository
+
+    @MockK
+    lateinit var consentRepository: ConsentRepository
+
+    @MockK
+    lateinit var authenticationTokenRepository: AuthenticationTokenRepository
 
     @InjectMockKs
     lateinit var manager: ProvisionalAccountManager
@@ -151,6 +163,9 @@ class ProvisionalAccountManagerTest {
         coEvery { collectedClaimRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(abandonedId)) } returns 2
         coEvery { providerUserInfoRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(abandonedId)) } returns 0
         coEvery { totpEnrollmentRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(abandonedId)) } returns 0
+        coEvery { validationCodeRepository.deleteByUserIdInAndUserProvisional(listOf(abandonedId)) } returns 0
+        coEvery { consentRepository.deleteByUserIdInAndUserProvisional(listOf(abandonedId)) } returns 0
+        coEvery { authenticationTokenRepository.deleteByUserIdInAndUserProvisional(listOf(abandonedId)) } returns 0
         coEvery { userRepository.deleteByIdInAndSessionIdIsNotNull(listOf(abandonedId)) } returns 1
 
         val result = manager.deleteAbandoned(BATCH_SIZE)
@@ -162,6 +177,9 @@ class ProvisionalAccountManagerTest {
             collectedClaimRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(abandonedId))
             providerUserInfoRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(abandonedId))
             totpEnrollmentRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(abandonedId))
+            validationCodeRepository.deleteByUserIdInAndUserProvisional(listOf(abandonedId))
+            consentRepository.deleteByUserIdInAndUserProvisional(listOf(abandonedId))
+            authenticationTokenRepository.deleteByUserIdInAndUserProvisional(listOf(abandonedId))
             userRepository.deleteByIdInAndSessionIdIsNotNull(listOf(abandonedId))
         }
     }
@@ -175,6 +193,7 @@ class ProvisionalAccountManagerTest {
         assertEquals(0, result.deletedCount)
         assertEquals(emptyList<UUID>(), result.retainedIds)
         coVerify(exactly = 0) { passwordRepository.deleteByUserIdInAndSessionIdIsNotNull(any()) }
+        coVerify(exactly = 0) { consentRepository.deleteByUserIdInAndUserProvisional(any()) }
         coVerify(exactly = 0) { userRepository.deleteByIdInAndSessionIdIsNotNull(any()) }
     }
 
@@ -187,6 +206,11 @@ class ProvisionalAccountManagerTest {
         coEvery { collectedClaimRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(collectableId)) } returns 0
         coEvery { providerUserInfoRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(collectableId)) } returns 0
         coEvery { totpEnrollmentRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(collectableId)) } returns 0
+        coEvery { validationCodeRepository.deleteByUserIdInAndUserProvisional(listOf(collectableId)) } returns 0
+        coEvery { consentRepository.deleteByUserIdInAndUserProvisional(listOf(collectableId)) } returns 0
+        coEvery {
+            authenticationTokenRepository.deleteByUserIdInAndUserProvisional(listOf(collectableId))
+        } returns 0
         coEvery { userRepository.deleteByIdInAndSessionIdIsNotNull(listOf(collectableId)) } returns 1
 
         val result = manager.deleteAbandoned(BATCH_SIZE)
@@ -217,6 +241,9 @@ class ProvisionalAccountManagerTest {
             coEvery { collectedClaimRepository.deleteByUserIdInAndSessionIdIsNotNull(any()) } returns 0
             coEvery { providerUserInfoRepository.deleteByUserIdInAndSessionIdIsNotNull(any()) } returns 0
             coEvery { totpEnrollmentRepository.deleteByUserIdInAndSessionIdIsNotNull(any()) } returns 0
+            coEvery { validationCodeRepository.deleteByUserIdInAndUserProvisional(any()) } returns 0
+            coEvery { consentRepository.deleteByUserIdInAndUserProvisional(any()) } returns 0
+            coEvery { authenticationTokenRepository.deleteByUserIdInAndUserProvisional(any()) } returns 0
             coEvery { userRepository.deleteByIdInAndSessionIdIsNotNull(any()) } returns 1
 
             assertTrue(manager.deleteAbandoned(1).filledBatch)
@@ -234,6 +261,9 @@ class ProvisionalAccountManagerTest {
         coEvery { collectedClaimRepository.deleteByUserIdInAndSessionIdIsNotNull(any()) } returns 0
         coEvery { providerUserInfoRepository.deleteByUserIdInAndSessionIdIsNotNull(any()) } returns 0
         coEvery { totpEnrollmentRepository.deleteByUserIdInAndSessionIdIsNotNull(any()) } returns 0
+        coEvery { validationCodeRepository.deleteByUserIdInAndUserProvisional(any()) } returns 0
+        coEvery { consentRepository.deleteByUserIdInAndUserProvisional(any()) } returns 0
+        coEvery { authenticationTokenRepository.deleteByUserIdInAndUserProvisional(any()) } returns 0
         coEvery { userRepository.deleteByIdInAndSessionIdIsNotNull(listOf(collectableId)) } returns 1
 
         val result = manager.deleteAbandoned(1)
