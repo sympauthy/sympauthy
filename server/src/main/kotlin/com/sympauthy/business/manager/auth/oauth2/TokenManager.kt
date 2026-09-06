@@ -168,7 +168,7 @@ open class TokenManager(
         client: Client,
         encodedRefreshToken: String,
         dpopJkt: String? = null,
-        observedRequest: ObservedRequest? = null
+        observedRequest: ObservedRequest
     ): List<EncodedAuthenticationToken> = supervisorScope {
         val decodedToken = try {
             jwtManager.decodeAndVerify(REFRESH_KEY, encodedRefreshToken)
@@ -197,9 +197,7 @@ open class TokenManager(
             checkPromotedOrInvalidGrant(refreshToken.userId)
             consentManager.findActiveConsentByAudienceOrNull(refreshToken.userId, client.audience.id)
                 ?: throw oauth2ExceptionOf(INVALID_GRANT, "token.consent_revoked", "description.token.consent_revoked")
-            if (observedRequest != null) {
-                reviewAccessOrThrow(client, refreshToken, observedRequest)
-            }
+            reviewAccessOrThrow(client, refreshToken, observedRequest)
         }
 
         // Use the DPoP jkt from the proof, or carry forward the existing binding

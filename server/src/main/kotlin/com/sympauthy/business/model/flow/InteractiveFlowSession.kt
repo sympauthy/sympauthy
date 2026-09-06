@@ -105,7 +105,8 @@ class OnGoingInteractiveFlowSession(
      *
      * A place is recorded once however many requests arrive from it, so this is the set of distinct places
      * the person going through the flow has been in, and the whole of what promotion attaches to the user
-     * it resolves. Empty on a deployment that has not turned the recording on.
+     * it resolves. Empty until the person makes their first request, which for a session a client or an
+     * administrator started is after they follow the link they were sent.
      */
     val securityContextIds: List<UUID> = emptyList(),
 

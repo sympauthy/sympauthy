@@ -174,7 +174,8 @@ class ClientConfigFieldParser(
     }
 
     /**
-     * The webhook's url: the one the client named, or the template's where it named none.
+     * The webhook's url: the one the client named, or the template's where it named none, refusing a
+     * webhook that names neither — the validator that follows may then read what it built.
      *
      * The value is handed to the parser as its own configuration object, with the identity as its
      * accessor, because the two webhooks declare it on interfaces of their own and this reads either.
@@ -184,24 +185,25 @@ class ClientConfigFieldParser(
         configKey: String,
         url: String?,
         templateUrl: URI?
-    ): URI? = if (url != null) {
-        ctx.parse { parser.getAbsoluteUriOrThrow(url, "$configKey.url") { it } }
-    } else {
-        templateUrl
+    ): URI? = when {
+        url != null -> ctx.parse { parser.getAbsoluteUriOrThrow(url, "$configKey.url") { it } }
+        templateUrl != null -> templateUrl
+        else -> ctx.parse { throw configExceptionOf("$configKey.url", "config.missing") }
     }
 
     /**
-     * The webhook's signing key: the one the client named, or the template's where it named none.
+     * The webhook's signing key: the one the client named, or the template's where it named none,
+     * refusing a webhook that names neither.
      */
     private fun parseWebhookSecret(
         ctx: ConfigParsingContext,
         configKey: String,
         secret: String?,
         templateSecret: String?
-    ): String? = if (secret != null) {
-        ctx.parse { parser.getStringOrThrow(secret, "$configKey.secret") { it } }
-    } else {
-        templateSecret
+    ): String? = when {
+        secret != null -> ctx.parse { parser.getStringOrThrow(secret, "$configKey.secret") { it } }
+        templateSecret != null -> templateSecret
+        else -> ctx.parse { throw configExceptionOf("$configKey.secret", "config.missing") }
     }
 
     private fun buildTemplateContext(uris: Map<String, String>?, rootUri: URI): Map<String, String> {

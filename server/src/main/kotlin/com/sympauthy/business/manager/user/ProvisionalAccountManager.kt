@@ -9,6 +9,7 @@ import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.PasswordRepository
 import com.sympauthy.data.repository.ProviderUserInfoRepository
+import com.sympauthy.data.repository.SecurityContextRepository
 import com.sympauthy.data.repository.TotpEnrollmentRepository
 import com.sympauthy.data.repository.UserRepository
 import io.micronaut.transaction.annotation.Transactional
@@ -26,9 +27,9 @@ import java.util.*
  * against committed rows, then clears the session id across every table the account owns. [deleteAbandoned]
  * is the other ending, and between them a sign-up is all-or-nothing.
  *
- * It reads the five repositories directly rather than through the managers that own them: promoting and
+ * It reads the repositories directly rather than through the managers that own them: promoting and
  * collecting are one statement per table over a column no domain concept names, and a pass-through on each
- * of five managers would say less than the list here does.
+ * of those managers would say less than the list here does.
  */
 @Singleton
 open class ProvisionalAccountManager(
@@ -38,7 +39,8 @@ open class ProvisionalAccountManager(
     @Inject private val passwordRepository: PasswordRepository,
     @Inject private val collectedClaimRepository: CollectedClaimRepository,
     @Inject private val providerUserInfoRepository: ProviderUserInfoRepository,
-    @Inject private val totpEnrollmentRepository: TotpEnrollmentRepository
+    @Inject private val totpEnrollmentRepository: TotpEnrollmentRepository,
+    @Inject private val securityContextRepository: SecurityContextRepository
 ) {
 
     /**
@@ -94,6 +96,10 @@ open class ProvisionalAccountManager(
         collectedClaimRepository.deleteByUserIdIn(userIds)
         providerUserInfoRepository.deleteByUserIdIn(userIds)
         totpEnrollmentRepository.deleteByUserIdIn(userIds)
+        // The places the account was seen in go with it: a security context names the person, and this one
+        // never became one. Skipping the account instead would leave every abandoned sign-up that got as
+        // far as authenticating uncollected for good.
+        securityContextRepository.deleteByUserIdIn(userIds)
 
         return userRepository.deleteByIdIn(userIds)
     }

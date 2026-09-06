@@ -1,6 +1,5 @@
 package com.sympauthy.business.manager.securitycontext
 
-import com.sympauthy.data.model.SecurityContextEntity
 import com.sympauthy.data.repository.SecurityContextRepository
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
@@ -25,11 +24,10 @@ open class SecurityContextCleaner(
 
     /**
      * Delete every context whose expiration has passed, and answer how many there were.
+     *
+     * It is one statement: the rows are read for nothing but their identifiers, and this is the table
+     * the design expects to be the largest in the schema.
      */
     @Transactional
-    open suspend fun clean(): Int {
-        val expiredIds = securityContextRepository.findExpired().mapNotNull(SecurityContextEntity::id)
-        if (expiredIds.isEmpty()) return 0
-        return securityContextRepository.deleteByIdIn(expiredIds)
-    }
+    open suspend fun clean(): Int = securityContextRepository.deleteExpired()
 }

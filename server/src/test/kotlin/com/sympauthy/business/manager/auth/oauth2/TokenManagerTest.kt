@@ -141,7 +141,7 @@ class TokenManagerTest {
         coEvery { jwtManager.decodeAndVerify(any(), any()) } throws InvalidJwtException("jwt.expired")
 
         val exception = assertThrows<OAuth2Exception> {
-            tokenManager.refreshToken(mockk(), "test")
+            tokenManager.refreshToken(mockk(), "test", observedRequest = observedRequest)
         }
 
         assertEquals(INVALID_GRANT, exception.errorCode)
@@ -159,7 +159,7 @@ class TokenManagerTest {
         coEvery { jwtManager.decodeAndVerify(any(), any()) } throws keyFailure
 
         val exception = assertThrows<BusinessException> {
-            tokenManager.refreshToken(mockk(), "test")
+            tokenManager.refreshToken(mockk(), "test", observedRequest = observedRequest)
         }
 
         assertSame(keyFailure, exception)
@@ -178,7 +178,7 @@ class TokenManagerTest {
         every { refreshToken.clientId } returns "non-matching-client-id"
 
         assertThrows<OAuth2Exception> {
-            tokenManager.refreshToken(client, "test")
+            tokenManager.refreshToken(client, "test", observedRequest = observedRequest)
         }
     }
 
@@ -206,6 +206,9 @@ class TokenManagerTest {
         coJustRun { userManager.checkPromoted(userId) }
         coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, any()) } returns mockk()
         coEvery {
+            accessReviewManager.reviewAccess(any(), any(), AccessReviewReason.REFRESH_TOKEN, any())
+        } returns AccessReviewDecision.ALLOW
+        coEvery {
             accessTokenGenerator.generateAccessToken(
                 refreshToken,
                 tokenAudience = any(),
@@ -221,7 +224,7 @@ class TokenManagerTest {
             )
         } returns refreshedRefreshToken
 
-        val tokens = tokenManager.refreshToken(client, encodedRefreshToken)
+        val tokens = tokenManager.refreshToken(client, encodedRefreshToken, observedRequest = observedRequest)
 
         assertEquals(2, tokens.count())
         assertSame(accessToken, tokens[0])
@@ -251,6 +254,9 @@ class TokenManagerTest {
         coJustRun { userManager.checkPromoted(userId) }
         coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, any()) } returns mockk()
         coEvery {
+            accessReviewManager.reviewAccess(any(), any(), AccessReviewReason.REFRESH_TOKEN, any())
+        } returns AccessReviewDecision.ALLOW
+        coEvery {
             accessTokenGenerator.generateAccessToken(
                 refreshToken,
                 tokenAudience = any(),
@@ -259,7 +265,7 @@ class TokenManagerTest {
         } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
 
-        val tokens = tokenManager.refreshToken(client, encodedRefreshToken)
+        val tokens = tokenManager.refreshToken(client, encodedRefreshToken, observedRequest = observedRequest)
 
         assertEquals(1, tokens.count())
         assertSame(accessToken, tokens[0])
@@ -284,7 +290,7 @@ class TokenManagerTest {
         coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, any()) } returns null
 
         val exception = assertThrows<OAuth2Exception> {
-            tokenManager.refreshToken(client, "token")
+            tokenManager.refreshToken(client, "token", observedRequest = observedRequest)
         }
         assertEquals("token.consent_revoked", exception.detailsId)
     }
@@ -375,7 +381,7 @@ class TokenManagerTest {
         } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
 
-        val tokens = tokenManager.refreshToken(client, "token")
+        val tokens = tokenManager.refreshToken(client, "token", observedRequest = observedRequest)
 
         assertEquals(1, tokens.count())
         coVerify(exactly = 0) { consentManager.findActiveConsentByAudienceOrNull(any(), any()) }

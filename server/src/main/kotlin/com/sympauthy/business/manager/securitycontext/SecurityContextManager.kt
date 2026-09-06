@@ -94,7 +94,9 @@ class SecurityContextManager(
             .takeIf(List<UUID>::isNotEmpty)
             ?.let { securityContextRepository.findByIdIn(it) }
             ?.firstOrNull { it.fingerprint == fingerprint }
-        val seen = known ?: userId?.let { securityContextRepository.findByUserIdAndFingerprint(it, fingerprint) }
+        val seen = known ?: userId?.let {
+            securityContextRepository.findFirstByUserIdAndFingerprintOrderByFirstSeenDate(it, fingerprint)
+        }
         val now = LocalDateTime.now()
 
         if (seen == null) {
@@ -122,16 +124,13 @@ class SecurityContextManager(
      *
      * It is what a client's access review is shown beside the place the request it is validating came
      * from. The bound is a deployment's, because an unbounded history would grow the request body
-     * without bound for the person who travels.
+     * without bound for the person who travels — and it is applied by the query rather than after it,
+     * since this runs on the path every UserInfo call takes.
      */
     suspend fun listPastContexts(userId: UUID, limit: Int, excluding: UUID): List<SecurityContext> {
         if (limit <= 0) return emptyList()
-        return securityContextRepository.findByUserIdOrderByLastSeenDateDesc(userId)
-            .asSequence()
-            .filter { it.id != excluding }
-            .take(limit)
+        return securityContextRepository.findPastByUserId(userId, excluding, limit)
             .map(securityContextMapper::toSecurityContext)
-            .toList()
     }
 
     /**
@@ -174,7 +173,8 @@ class SecurityContextManager(
         securityContextRepository.findByIdIn(contextIds)
             .filter { it.userId == null }
             .forEach { promoted ->
-                val theirs = securityContextRepository.findByUserIdAndFingerprint(userId, promoted.fingerprint)
+                val theirs = securityContextRepository
+                    .findFirstByUserIdAndFingerprintOrderByFirstSeenDate(userId, promoted.fingerprint)
                 if (theirs == null) {
                     securityContextRepository.updateUserId(
                         id = promoted.id!!,

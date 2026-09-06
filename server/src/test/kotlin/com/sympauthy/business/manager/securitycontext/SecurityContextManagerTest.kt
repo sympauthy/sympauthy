@@ -164,7 +164,9 @@ class SecurityContextManagerTest {
         val userId = UUID.randomUUID()
         val observed = observedIn("198.51.100.10")
         val theirs = contextEntity(fingerprint = observed.fingerprint, userId = userId, observationCount = 7)
-        coEvery { securityContexts.findByUserIdAndFingerprint(userId, observed.fingerprint) } returns theirs
+        coEvery {
+            securityContexts.findFirstByUserIdAndFingerprintOrderByFirstSeenDate(userId, observed.fingerprint)
+        } returns theirs
         coEvery { securityContexts.updateLastSeenDate(theirs.id!!, any(), any(), any()) } returns 1
 
         val context = managerOf().recordObservation(observed, userId = userId)
@@ -179,7 +181,9 @@ class SecurityContextManagerTest {
     fun `recordObservation - Attach a place first seen after a sign-in to the user`() = runTest {
         val userId = UUID.randomUUID()
         val observed = observedIn("198.51.100.10")
-        coEvery { securityContexts.findByUserIdAndFingerprint(userId, observed.fingerprint) } returns null
+        coEvery {
+            securityContexts.findFirstByUserIdAndFingerprintOrderByFirstSeenDate(userId, observed.fingerprint)
+        } returns null
         coEvery { securityContexts.save(any()) } answers { savedWithAnId() }
 
         val context = managerOf().recordObservation(observed, userId = userId)
@@ -193,7 +197,9 @@ class SecurityContextManagerTest {
         val userId = UUID.randomUUID()
         val promoted = contextEntity(fingerprint = "unattached")
         coEvery { securityContexts.findByIdIn(listOf(promoted.id!!)) } returns listOf(promoted)
-        coEvery { securityContexts.findByUserIdAndFingerprint(userId, "unattached") } returns null
+        coEvery {
+            securityContexts.findFirstByUserIdAndFingerprintOrderByFirstSeenDate(userId, "unattached")
+        } returns null
         coEvery { securityContexts.updateUserId(promoted.id!!, userId, any()) } returns 1
 
         val merged = managerOf().promoteToUser(listOf(promoted.id!!), userId)
@@ -225,7 +231,9 @@ class SecurityContextManagerTest {
             observationCount = 7
         )
         coEvery { securityContexts.findByIdIn(listOf(promoted.id!!)) } returns listOf(promoted)
-        coEvery { securityContexts.findByUserIdAndFingerprint(userId, "same-place") } returns theirs
+        coEvery {
+            securityContexts.findFirstByUserIdAndFingerprintOrderByFirstSeenDate(userId, "same-place")
+        } returns theirs
         coEvery { securityContexts.updateFirstSeenDate(theirs.id!!, any(), any(), any(), any()) } returns 1
         coEvery { securityContexts.deleteByIdIn(listOf(promoted.id!!)) } returns 1
 
@@ -282,14 +290,11 @@ class SecurityContextManagerTest {
     @Test
     fun `listPastContexts - Answer the places the person was seen in before this one`() = runTest {
         val userId = UUID.randomUUID()
-        val current = contextEntity(fingerprint = "current", userId = userId)
+        val current = UUID.randomUUID()
         val older = contextEntity(fingerprint = "older", userId = userId)
-        val oldest = contextEntity(fingerprint = "oldest", userId = userId)
-        coEvery {
-            securityContexts.findByUserIdOrderByLastSeenDateDesc(userId)
-        } returns listOf(current, older, oldest)
+        coEvery { securityContexts.findPastByUserId(userId, current, 1) } returns listOf(older)
 
-        val past = unconfiguredManager().listPastContexts(userId, limit = 1, excluding = current.id!!)
+        val past = unconfiguredManager().listPastContexts(userId, limit = 1, excluding = current)
 
         assertEquals(listOf(older.id), past.map { it.id })
     }
@@ -300,7 +305,7 @@ class SecurityContextManagerTest {
             .listPastContexts(UUID.randomUUID(), limit = 0, excluding = UUID.randomUUID())
 
         assertEquals(emptyList<Any>(), past)
-        coVerify(exactly = 0) { securityContexts.findByUserIdOrderByLastSeenDateDesc(any()) }
+        coVerify(exactly = 0) { securityContexts.findPastByUserId(any(), any(), any()) }
     }
 
     private fun securityContext() = Mappers.getMapper(SecurityContextMapper::class.java)

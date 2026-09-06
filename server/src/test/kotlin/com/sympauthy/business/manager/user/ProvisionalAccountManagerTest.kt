@@ -9,6 +9,7 @@ import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.PasswordRepository
 import com.sympauthy.data.repository.ProviderUserInfoRepository
+import com.sympauthy.data.repository.SecurityContextRepository
 import com.sympauthy.data.repository.TotpEnrollmentRepository
 import com.sympauthy.data.repository.UserRepository
 import com.sympauthy.business.model.user.claim.Claim
@@ -51,6 +52,9 @@ class ProvisionalAccountManagerTest {
 
     @MockK
     lateinit var totpEnrollmentRepository: TotpEnrollmentRepository
+
+    @MockK
+    lateinit var securityContextRepository: SecurityContextRepository
 
     @InjectMockKs
     lateinit var manager: ProvisionalAccountManager
@@ -150,6 +154,7 @@ class ProvisionalAccountManagerTest {
         coEvery { collectedClaimRepository.deleteByUserIdIn(listOf(abandonedId)) } returns 2
         coEvery { providerUserInfoRepository.deleteByUserIdIn(listOf(abandonedId)) } returns 0
         coEvery { totpEnrollmentRepository.deleteByUserIdIn(listOf(abandonedId)) } returns 0
+        coEvery { securityContextRepository.deleteByUserIdIn(listOf(abandonedId)) } returns 3
         coEvery { userRepository.deleteByIdIn(listOf(abandonedId)) } returns 1
 
         assertEquals(1, manager.deleteAbandoned())
@@ -159,6 +164,7 @@ class ProvisionalAccountManagerTest {
             collectedClaimRepository.deleteByUserIdIn(listOf(abandonedId))
             providerUserInfoRepository.deleteByUserIdIn(listOf(abandonedId))
             totpEnrollmentRepository.deleteByUserIdIn(listOf(abandonedId))
+            securityContextRepository.deleteByUserIdIn(listOf(abandonedId))
             userRepository.deleteByIdIn(listOf(abandonedId))
         }
     }

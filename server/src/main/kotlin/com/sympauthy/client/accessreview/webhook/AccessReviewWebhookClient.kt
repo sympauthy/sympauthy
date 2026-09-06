@@ -14,6 +14,8 @@ import io.micronaut.http.client.HttpClient
 import io.micronaut.serde.ObjectMapper
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.reactive.awaitFirst
 import kotlinx.coroutines.time.withTimeout
 import javax.crypto.Mac
@@ -65,6 +67,16 @@ class AccessReviewWebhookClient(
                     .awaitFirst()
             }
             decisionOf(response.decision)
+        } catch (e: TimeoutCancellationException) {
+            // The webhook ran out of the time it was given, which is a webhook that did not answer. It is
+            // caught ahead of the clause below because a timeout is a cancellation as far as Kotlin is
+            // concerned, and rethrowing it would turn the timeout this class exists to apply into a
+            // failure of the request instead of a decision the client configured for.
+            AccessReviewWebhookResult.Failure(message = e.message ?: "The webhook did not answer in time.")
+        } catch (e: CancellationException) {
+            // The caller is gone rather than the webhook: answering here would apply a decision on behalf
+            // of a request nobody is waiting for, manufactured out of a cancellation.
+            throw e
         } catch (e: Exception) {
             AccessReviewWebhookResult.Failure(
                 message = e.message ?: e::class.simpleName ?: "Unknown error",

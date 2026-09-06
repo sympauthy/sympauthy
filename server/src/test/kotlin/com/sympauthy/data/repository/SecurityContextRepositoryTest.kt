@@ -6,7 +6,6 @@ import com.sympauthy.data.RepositoryFixture
 import com.sympauthy.data.model.SecurityContextEntity
 import com.sympauthy.data.withFixture
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -21,8 +20,8 @@ import java.util.*
  * deployment writes.
  *
  * The fingerprints name this class so that no other class's rows fall inside the queries keyed on one.
- * `findExpired` has no key to name: it reads the whole table against the database's own clock, so it is
- * held to containing the row this test expired and not the one it left live.
+ * `deleteExpired` has no key to name: it sweeps the whole table against the database's own clock, so it
+ * is held to the row this test expired being gone and the one it left live still being there.
  */
 class SecurityContextRepositoryTest {
 
@@ -75,44 +74,65 @@ class SecurityContextRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `findByUserIdOrderByLastSeenDateDesc - Answer the places a user was seen, latest first`(
-        database: Database
-    ) = withFixture(database) {
-        val userId = newUser()
-        val older = saveContext(fingerprint = "history-older", userId = userId, lastSeenDate = BASE_DATE)
-        val newer = saveContext(
-            fingerprint = "history-newer",
-            userId = userId,
-            lastSeenDate = BASE_DATE.plusDays(1)
-        )
+    fun `findPastByUserId - Answer the places a user was seen, latest first`(database: Database) =
+        withFixture(database) {
+            val userId = newUser()
+            val current = saveContext(fingerprint = "history-current", userId = userId)
+            val older = saveContext(fingerprint = "history-older", userId = userId, lastSeenDate = BASE_DATE)
+            val newer = saveContext(
+                fingerprint = "history-newer",
+                userId = userId,
+                lastSeenDate = BASE_DATE.plusDays(1)
+            )
 
-        val history = repository<SecurityContextRepository>().findByUserIdOrderByLastSeenDateDesc(userId)
+            val history = repository<SecurityContextRepository>()
+                .findPastByUserId(userId, excluding = current, limit = 10)
 
-        assertEquals(listOf(newer, older), history.map { it.id })
-    }
+            assertEquals(listOf(newer, older), history.map { it.id })
+        }
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `findByUserIdAndFingerprint - Answer the place this user was seen in`(database: Database) =
+    fun `findPastByUserId - Answer no more places than the deployment asked for`(database: Database) =
+        withFixture(database) {
+            val userId = newUser()
+            val current = saveContext(fingerprint = "bounded-current", userId = userId)
+            saveContext(fingerprint = "bounded-older", userId = userId, lastSeenDate = BASE_DATE)
+            val newer = saveContext(
+                fingerprint = "bounded-newer",
+                userId = userId,
+                lastSeenDate = BASE_DATE.plusDays(1)
+            )
+
+            val history = repository<SecurityContextRepository>()
+                .findPastByUserId(userId, excluding = current, limit = 1)
+
+            assertEquals(listOf(newer), history.map { it.id })
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findFirstByUserIdAndFingerprint - Answer the place this user was seen in`(database: Database) =
         withFixture(database) {
             val userId = newUser()
             val id = saveContext(fingerprint = "known-place", userId = userId)
 
-            val found = repository<SecurityContextRepository>().findByUserIdAndFingerprint(userId, "known-place")
+            val found = repository<SecurityContextRepository>()
+                .findFirstByUserIdAndFingerprintOrderByFirstSeenDate(userId, "known-place")
 
             assertEquals(id, found?.id)
         }
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `findByUserIdAndFingerprint - Answer nothing for a place this user was not seen in`(
+    fun `findFirstByUserIdAndFingerprint - Answer nothing for a place this user was not seen in`(
         database: Database
     ) = withFixture(database) {
         val userId = newUser()
         saveContext(fingerprint = "known-place-of-another", userId = newUser())
 
         val found = repository<SecurityContextRepository>()
-            .findByUserIdAndFingerprint(userId, "known-place-of-another")
+            .findFirstByUserIdAndFingerprintOrderByFirstSeenDate(userId, "known-place-of-another")
 
         assertNull(found)
     }
@@ -132,19 +152,19 @@ class SecurityContextRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `findExpired - Answer the contexts whose expiration has passed`(database: Database) =
-        withFixture(database) {
-            val expired = saveContext(fingerprint = "expired", expirationDate = BASE_DATE)
-            val live = saveContext(
-                fingerprint = "live",
-                expirationDate = LocalDateTime.now().plusHours(1)
-            )
+    fun `deleteExpired - Delete the contexts whose retention has run out and keep the rest`(
+        database: Database
+    ) = withFixture(database) {
+        val contexts = repository<SecurityContextRepository>()
+        val expired = saveContext(fingerprint = "expired", expirationDate = BASE_DATE)
+        val live = saveContext(fingerprint = "live", expirationDate = LocalDateTime.now().plusHours(1))
 
-            val collected = repository<SecurityContextRepository>().findExpired().map { it.id }
+        val deleted = contexts.deleteExpired()
 
-            assertTrue(collected.contains(expired), "The expired context is not collected.")
-            assertFalse(collected.contains(live), "A context that has not expired is collected.")
-        }
+        assertTrue(deleted >= 1, "The expired context was not deleted.")
+        assertNull(contexts.findById(expired))
+        assertNotNull(contexts.findById(live))
+    }
 
     @ParameterizedTest
     @EnumSource(Database::class)
@@ -258,6 +278,23 @@ class SecurityContextRepositoryTest {
             assertNotNull(stored)
             assertEquals("ALLOW", stored!!.lastDecision)
             assertEquals(BASE_DATE.plusDays(1), stored.lastDecisionDate)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `deleteByUserIdIn - Free the account of the places it was seen in`(database: Database) =
+        withFixture(database) {
+            val contexts = repository<SecurityContextRepository>()
+            val users = repository<UserRepository>()
+            val userId = newUser()
+            saveContext(fingerprint = "collected-with-the-account", userId = userId)
+
+            val deleted = contexts.deleteByUserIdIn(listOf(userId))
+
+            assertEquals(1, deleted)
+            // The delete below is the point: the foreign key would refuse it while a context named the
+            // account, and the sweep that runs it is one transaction for every expired session there is.
+            assertEquals(1, users.deleteByIdIn(listOf(userId)))
         }
 
     @Suppress("LongParameterList")
