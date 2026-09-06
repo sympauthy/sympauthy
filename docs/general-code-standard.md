@@ -1,6 +1,6 @@
 ---
 description: What a feature is made of, and what holds across every layer — dependency rules,
-  naming, concurrency.
+  naming, concurrency, logging.
 paths:
   - "server/src/main/kotlin/**"
 ---
@@ -105,6 +105,13 @@ sends mail does its own I/O.
 `scheduled` executor's thread rather than launching one and returning. Micronaut measures both of
 its promises from that return: the failure of a launched run reaches the coroutine machinery instead
 of the task exception handler that logs it, and `fixedDelay` counts the dispatch rather than the run.
+
+## Logging
+
+**A run that completes without doing all of its work logs at `warn`.** Nothing failed, so nothing
+is logged at `error` — the run hit a limit or a blocker instead: a filled batch, a row that outlived
+the account it refers to, a configuration too broken to replay against. Name what stayed undone and
+what has to change for a later run to finish it.
 
 ## Rules that compile and then fail
 

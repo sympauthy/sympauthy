@@ -25,7 +25,7 @@ class CleanExpiredInteractiveFlowSessionCron(
                 )
             }
             if (result.moreToClean) {
-                logger.info(
+                logger.warn(
                     "The expired interactive flow session cleanup stopped at its configured batch size " +
                         "with sessions left to remove. The next run continues where this one stopped; " +
                         "raise advanced.cleanup.batch-size if the backlog never drains."

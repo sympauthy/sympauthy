@@ -42,7 +42,7 @@ class CleanAbandonedAccountCron(
                 )
             }
             if (result.filledBatch) {
-                logger.info(
+                logger.warn(
                     "The abandoned account sweep stopped at its configured batch size with accounts left " +
                         "to collect. The next run continues where this one stopped; raise " +
                         "advanced.cleanup.batch-size if the backlog never drains."

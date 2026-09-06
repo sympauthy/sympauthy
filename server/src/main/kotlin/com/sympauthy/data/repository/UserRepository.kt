@@ -63,10 +63,19 @@ interface UserRepository : CoroutineCrudRepository<UserEntity, UUID> {
      * `users`, and each has to be one of three things or the delete that follows breaks it — and, being one
      * transaction, takes the whole run down with it, every quarter of an hour, for good. Four of them
      * (`passwords`, `collected_claims`, `provider_user_info`, `totp_enrollments`) belong to the account and
-     * are deleted with it. The remaining five are the reasons named below: an account any of them still
-     * refers to is left where it is, because a row that outlived its account is a bug to find, not a run to
-     * lose. **A tenth table is a decision to make in this query and in [findRetained] together**, which
-     * `UserRepositoryTest` holds complementary so that changing one and not the other fails.
+     * are deleted with it. The remaining five are the guards named below, and **they are not one kind**:
+     *
+     * - `interactive_flow_sessions` expires and is collected by
+     *   [com.sympauthy.cron.CleanExpiredInteractiveFlowSessionCron]. An account only a session refers to is
+     *   one this run is early for, not one anything is wrong with: the session goes, and a later run takes
+     *   the account. It is guarded here and **not** reported by [findRetained].
+     * - `validation_codes`, `consents`, `invitations` and `authentication_tokens` outlive any run. One of
+     *   them pointing at an account no sign-up finished is a bug to find rather than a run to lose, so the
+     *   account is left where it is and [findRetained] names it.
+     *
+     * **A tenth table is a decision to make in this query and, if it outlives a run, in [findRetained]
+     * too.** `UserRepositoryTest` holds the two to that split, so adding a durable table here and not
+     * there fails.
      */
     @Query(
         """
@@ -84,12 +93,17 @@ interface UserRepository : CoroutineCrudRepository<UserEntity, UUID> {
     suspend fun findCollectable(limit: Int): List<UserEntity>
 
     /**
-     * Find at most [limit] accounts an abandoned sign-up left behind that **cannot** be collected: the
-     * session signing them up is gone, but one of the five tables below still refers to them.
+     * Find at most [limit] accounts an abandoned sign-up left behind that **no run will ever collect**: the
+     * session signing them up is gone, and one of the four tables below — none of which any cleanup
+     * removes — still refers to them.
      *
-     * The complement of [findCollectable] over the same accounts, and read for one reason — every account
-     * it answers is a row that outlived the account it belongs to, which the sweep reports rather than
-     * retains in silence. Nothing deletes what this returns.
+     * Read for one reason: each one is a row that outlived the account it belongs to, which the sweep
+     * reports rather than retains in silence. Nothing deletes what this returns.
+     *
+     * **`interactive_flow_sessions` is deliberately not among them**, though [findCollectable] guards
+     * against it too. A session expires and is collected, so an account only a session refers to is
+     * collected on a later run of its own accord — reporting it would name a run that was early as a bug
+     * to find, every quarter of an hour, in the line that exists to name real ones.
      */
     @Query(
         """
@@ -97,8 +111,7 @@ interface UserRepository : CoroutineCrudRepository<UserEntity, UUID> {
         WHERE session_id IS NOT NULL
           AND NOT EXISTS (SELECT 1 FROM interactive_flow_sessions s WHERE s.id = users.session_id)
           AND (
-            EXISTS (SELECT 1 FROM interactive_flow_sessions s WHERE s.user_id = users.id)
-            OR EXISTS (SELECT 1 FROM validation_codes v WHERE v.user_id = users.id)
+            EXISTS (SELECT 1 FROM validation_codes v WHERE v.user_id = users.id)
             OR EXISTS (SELECT 1 FROM consents c WHERE c.user_id = users.id)
             OR EXISTS (SELECT 1 FROM invitations i WHERE i.consumed_by_user_id = users.id)
             OR EXISTS (SELECT 1 FROM authentication_tokens t WHERE t.user_id = users.id)
