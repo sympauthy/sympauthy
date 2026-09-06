@@ -1,6 +1,5 @@
 package com.sympauthy.business.manager.flow
 
-import com.sympauthy.business.manager.user.ProvisionalAccountManager
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.repository.AuthorizationCodeRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionConfirmRepository
@@ -49,40 +48,48 @@ class InteractiveFlowSessionCleanerTest {
     @MockK
     lateinit var authorizationCodeRepository: AuthorizationCodeRepository
 
-    @MockK
-    lateinit var provisionalAccountManager: ProvisionalAccountManager
-
     @InjectMockKs
     lateinit var cleaner: InteractiveFlowSessionCleaner
 
     private val expiredSessionId = UUID.randomUUID()
 
     @Test
-    fun `clean - Collects the abandoned accounts once the sessions are gone`() = runTest {
+    fun `clean - Removes everything referencing a session before the session`() = runTest {
         expiredSessions(expiredSessionId)
-        coEvery { provisionalAccountManager.deleteAbandoned() } returns 2
 
         val result = cleaner.clean()
 
-        assertEquals(2, result.abandonedAccountCount)
-        // A session still present is what keeps an account from counting as abandoned, so the order is the
-        // rule rather than a preference.
-        coVerifyOrder {
-            sessionRepository.deleteByIds(listOf(expiredSessionId))
-            provisionalAccountManager.deleteAbandoned()
+        assertEquals(1, result.sessionCount)
+        // One pair per dependency rather than one block over all of them: each has to precede the session
+        // delete, and none of them is ordered against another.
+        dependencyDeletes().forEach { dependency ->
+            coVerifyOrder {
+                dependency()
+                sessionRepository.deleteByIds(listOf(expiredSessionId))
+            }
         }
     }
 
     @Test
-    fun `clean - Sweeps for abandoned accounts even with nothing expired`() = runTest {
+    fun `clean - Removes nothing when nothing expired`() = runTest {
         expiredSessions()
-        coEvery { provisionalAccountManager.deleteAbandoned() } returns 1
 
         val result = cleaner.clean()
 
         assertEquals(0, result.sessionCount)
-        assertEquals(1, result.abandonedAccountCount)
+        assertEquals(0, result.authorizationCodeCount)
+        assertEquals(0, result.validationCodesCount)
     }
+
+    private fun dependencyDeletes(): List<suspend () -> Int> = listOf(
+        { authorizationCodeRepository.deleteBySessionIdIn(listOf(expiredSessionId)) },
+        { validationCodeRepository.deleteBySessionIdIn(listOf(expiredSessionId)) },
+        { oauth2Repository.deleteBySessionIdIn(listOf(expiredSessionId)) },
+        { providerRepository.deleteBySessionIdIn(listOf(expiredSessionId)) },
+        { confirmRepository.deleteBySessionIdIn(listOf(expiredSessionId)) },
+        { reauthenticationRepository.deleteBySessionIdIn(listOf(expiredSessionId)) },
+        { linkProviderRepository.deleteBySessionIdIn(listOf(expiredSessionId)) },
+    )
 
     private fun expiredSessions(vararg ids: UUID) {
         val sessions = ids.map { id ->

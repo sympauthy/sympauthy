@@ -1,6 +1,5 @@
 package com.sympauthy.business.manager.flow
 
-import com.sympauthy.business.manager.user.ProvisionalAccountManager
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.repository.AuthorizationCodeRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionConfirmRepository
@@ -18,12 +17,14 @@ import kotlinx.coroutines.coroutineScope
 
 /**
  * Component in charge of cleaning expired interactive flow sessions, their attached records and direct
- * dependencies — and the accounts an abandoned sign-up left half-created.
+ * dependencies.
  *
- * The two are one job because they are one ordering. A session references the account it was signing up, so
- * the session goes first and the account after it — which is also what marks the account abandoned. Removing
- * it belongs to [ProvisionalAccountManager], which owns both ends of a provisional account's life; this
- * cleaner owns when that happens.
+ * Deleting a session is what marks an account it was signing up abandoned, but collecting that account is
+ * not a step of this. [com.sympauthy.business.manager.user.ProvisionalAccountManager.deleteAbandoned] keys
+ * on the session being gone rather than on the sessions any one run expired, so it is a cleaner of its own
+ * on a cron of its own — which is what has it read an absence this transaction has committed rather than one
+ * only this transaction can see. Keeping the two apart is also what stops this transaction holding a
+ * session's lock while it waits for an account's: a flow's completion takes the two in the opposite order.
  */
 @Singleton
 open class InteractiveFlowSessionCleaner(
@@ -35,7 +36,6 @@ open class InteractiveFlowSessionCleaner(
     @Inject private val linkProviderRepository: InteractiveFlowSessionLinkProviderRepository,
     @Inject private val validationCodeRepository: ValidationCodeRepository,
     @Inject private val authorizationCodeRepository: AuthorizationCodeRepository,
-    @Inject private val provisionalAccountManager: ProvisionalAccountManager,
 ) {
 
     @Transactional
@@ -80,8 +80,6 @@ open class InteractiveFlowSessionCleaner(
             sessionCount = sessionsCount,
             authorizationCodeCount = authorizationCodesCount,
             validationCodesCount = validationCodesCount,
-            // Last, because a session still present is what keeps an account from counting as abandoned.
-            abandonedAccountCount = provisionalAccountManager.deleteAbandoned()
         )
     }
 
@@ -89,6 +87,5 @@ open class InteractiveFlowSessionCleaner(
         val sessionCount: Int,
         val authorizationCodeCount: Int,
         val validationCodesCount: Int,
-        val abandonedAccountCount: Int,
     )
 }

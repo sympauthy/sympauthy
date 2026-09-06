@@ -1,13 +1,19 @@
 package com.sympauthy.data
 
 import com.sympauthy.data.model.AuthorizationCodeEntity
+import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
+import com.sympauthy.data.model.PasswordEntity
 import com.sympauthy.data.model.ProviderUserInfoEntity
 import com.sympauthy.data.model.ProviderUserInfoEntityId
+import com.sympauthy.data.model.TotpEnrollmentEntity
 import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.AuthorizationCodeRepository
+import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
+import com.sympauthy.data.repository.PasswordRepository
 import com.sympauthy.data.repository.ProviderUserInfoRepository
+import com.sympauthy.data.repository.TotpEnrollmentRepository
 import com.sympauthy.data.repository.UserRepository
 import kotlinx.coroutines.test.runTest
 import java.time.LocalDateTime
@@ -104,6 +110,54 @@ class RepositoryFixture(val database: Database) {
             )
         )
         deleteOnEnd { codes.deleteBySessionIdIn(listOf(sessionId)) }
+    }
+
+    /** Saves a password for [userId], provisional when [sessionId] is given. */
+    suspend fun newPassword(userId: UUID, sessionId: UUID? = null) {
+        val passwords = database.bean<PasswordRepository>()
+        val saved = passwords.save(
+            PasswordEntity(
+                userId = userId,
+                salt = byteArrayOf(1),
+                hashedPassword = byteArrayOf(2),
+                creationDate = BASE_DATE,
+                expirationDate = null,
+                sessionId = sessionId
+            )
+        )
+        deleteOnEnd { saved.id?.let { passwords.deleteById(it) } }
+    }
+
+    /** Collects [claim] for [userId] holding [value], provisionally when [sessionId] is given. */
+    suspend fun newClaim(userId: UUID, claim: String, value: String, sessionId: UUID? = null) {
+        val claims = database.bean<CollectedClaimRepository>()
+        val saved = claims.save(
+            CollectedClaimEntity(
+                userId = userId,
+                claim = claim,
+                value = value,
+                verified = null,
+                collectionDate = BASE_DATE,
+                verificationDate = null,
+                sessionId = sessionId
+            )
+        )
+        deleteOnEnd { saved.id?.let { claims.deleteById(it) } }
+    }
+
+    /** Enrolls a second factor for [userId], provisionally when [sessionId] is given. */
+    suspend fun newTotpEnrollment(userId: UUID, sessionId: UUID? = null) {
+        val enrollments = database.bean<TotpEnrollmentRepository>()
+        val saved = enrollments.save(
+            TotpEnrollmentEntity(
+                userId = userId,
+                secret = byteArrayOf(3),
+                creationDate = BASE_DATE,
+                confirmedDate = null,
+                sessionId = sessionId
+            )
+        )
+        deleteOnEnd { saved.id?.let { enrollments.deleteById(it) } }
     }
 
     /** Links a user to a provider under [subject], provisionally when [sessionId] is given. */

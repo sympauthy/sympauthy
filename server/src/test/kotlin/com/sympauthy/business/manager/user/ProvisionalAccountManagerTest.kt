@@ -146,20 +146,20 @@ class ProvisionalAccountManagerTest {
     fun `deleteAbandoned - Removes every row the account owns before the account`() = runTest {
         val abandonedId = UUID.randomUUID()
         coEvery { userRepository.findAbandoned() } returns listOf(abandonedUser(abandonedId))
-        coEvery { passwordRepository.deleteByUserIdIn(listOf(abandonedId)) } returns 1
-        coEvery { collectedClaimRepository.deleteByUserIdIn(listOf(abandonedId)) } returns 2
-        coEvery { providerUserInfoRepository.deleteByUserIdIn(listOf(abandonedId)) } returns 0
-        coEvery { totpEnrollmentRepository.deleteByUserIdIn(listOf(abandonedId)) } returns 0
-        coEvery { userRepository.deleteByIdIn(listOf(abandonedId)) } returns 1
+        coEvery { passwordRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(abandonedId)) } returns 1
+        coEvery { collectedClaimRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(abandonedId)) } returns 2
+        coEvery { providerUserInfoRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(abandonedId)) } returns 0
+        coEvery { totpEnrollmentRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(abandonedId)) } returns 0
+        coEvery { userRepository.deleteByIdInAndSessionIdIsNotNull(listOf(abandonedId)) } returns 1
 
         assertEquals(1, manager.deleteAbandoned())
 
         coVerifyOrder {
-            passwordRepository.deleteByUserIdIn(listOf(abandonedId))
-            collectedClaimRepository.deleteByUserIdIn(listOf(abandonedId))
-            providerUserInfoRepository.deleteByUserIdIn(listOf(abandonedId))
-            totpEnrollmentRepository.deleteByUserIdIn(listOf(abandonedId))
-            userRepository.deleteByIdIn(listOf(abandonedId))
+            passwordRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(abandonedId))
+            collectedClaimRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(abandonedId))
+            providerUserInfoRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(abandonedId))
+            totpEnrollmentRepository.deleteByUserIdInAndSessionIdIsNotNull(listOf(abandonedId))
+            userRepository.deleteByIdInAndSessionIdIsNotNull(listOf(abandonedId))
         }
     }
 
@@ -169,8 +169,8 @@ class ProvisionalAccountManagerTest {
 
         assertEquals(0, manager.deleteAbandoned())
 
-        coVerify(exactly = 0) { passwordRepository.deleteByUserIdIn(any()) }
-        coVerify(exactly = 0) { userRepository.deleteByIdIn(any()) }
+        coVerify(exactly = 0) { passwordRepository.deleteByUserIdInAndSessionIdIsNotNull(any()) }
+        coVerify(exactly = 0) { userRepository.deleteByIdInAndSessionIdIsNotNull(any()) }
     }
 
     private fun abandonedUser(id: UUID) = UserEntity(
