@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager.flow.link
 
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
+import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.manager.flow.confirm.InteractiveFlowSessionConfirmManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionLinkProviderMapper
 import com.sympauthy.business.model.flow.AuthorizationFlow
@@ -36,6 +37,9 @@ class InteractiveFlowSessionLinkProviderManagerTest {
     @MockK
     lateinit var linkProviderMapper: InteractiveFlowSessionLinkProviderMapper
 
+    @MockK
+    lateinit var userManager: UserManager
+
     @InjectMockKs
     lateinit var manager: InteractiveFlowSessionLinkProviderManager
 
@@ -63,6 +67,7 @@ class InteractiveFlowSessionLinkProviderManagerTest {
                 cancelRedirectUri = cancelUri,
             )
         } returns newSession
+        coJustRun { userManager.checkPromoted(userId) }
         coEvery { sessionManager.setAuthenticatedUserId(newSession, userId) } returns withUser
         coEvery {
             confirmManager.setConfirm(withUser, ConfirmActionType.LINK_PROVIDER, initiatingClientId)

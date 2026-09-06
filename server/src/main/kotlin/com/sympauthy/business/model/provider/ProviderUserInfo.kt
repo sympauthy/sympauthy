@@ -28,5 +28,10 @@ data class ProviderUserInfo(
      * Last time this application detected a change of the info returned by the provider.
      */
     val changeDate: LocalDateTime,
+    /**
+     * Identifier of the interactive flow session this link is still provisional for, or null once it is
+     * permanent. See [com.sympauthy.data.model.SessionScoped].
+     */
+    val sessionId: UUID?,
     val userInfo: RawProviderClaims
 )

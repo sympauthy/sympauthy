@@ -237,13 +237,13 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
         val advanced = mockk<InteractiveFlowSession>()
         coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
         every { uncheckedAuthConfig.identifierClaims } returns emptyList()
-        coEvery { providerClaimsManager.saveUserInfo(provider, userId, rawUserInfo) } returns mockk()
+        coEvery { providerClaimsManager.saveUserInfo(provider, userId, null, rawUserInfo) } returns mockk()
         coEvery { engine.completeIfNecessary(session) } returns advanced
 
         val result = manager.signInOrSignUpUsingProvider(session, provider.id, redirectUri, authorizeCode = "code")
 
         assertSame(advanced, result)
-        coVerify { providerClaimsManager.saveUserInfo(provider, userId, rawUserInfo) }
+        coVerify { providerClaimsManager.saveUserInfo(provider, userId, null, rawUserInfo) }
     }
 
     @Test
@@ -263,7 +263,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
 
             assertSame(advanced, result)
             coVerify { providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo) }
-            coVerify(exactly = 0) { providerClaimsManager.saveUserInfo(any(), any(), any()) }
+            coVerify(exactly = 0) { providerClaimsManager.saveUserInfo(any(), any(), any(), any()) }
         }
 
     @Test
@@ -281,7 +281,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
 
         assertEquals("flow.link_provider.subject_conflict", exception.detailsId)
         assertFalse(exception.recoverable)
-        coVerify(exactly = 0) { providerClaimsManager.saveUserInfo(any(), any(), any()) }
+        coVerify(exactly = 0) { providerClaimsManager.saveUserInfo(any(), any(), any(), any()) }
     }
 
     @Test
@@ -302,6 +302,6 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
 
             assertEquals("flow.link_provider.identifier_conflict", exception.detailsId)
             assertFalse(exception.recoverable)
-            coVerify(exactly = 0) { providerClaimsManager.saveUserInfo(any(), any(), any()) }
+            coVerify(exactly = 0) { providerClaimsManager.saveUserInfo(any(), any(), any(), any()) }
         }
 }

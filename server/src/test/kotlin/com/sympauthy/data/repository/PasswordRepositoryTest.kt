@@ -61,9 +61,28 @@ class PasswordRepositoryTest {
             assertTrue(repository<PasswordRepository>().findByUserId(userId).isEmpty())
         }
 
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `clearSessionId - Promotes the passwords of that session and no other`(database: Database) =
+        withFixture(database) {
+            val passwords = repository<PasswordRepository>()
+            val session = newSession()
+            val otherSession = newSession()
+            val userId = newUser(sessionId = session.id)
+            val otherUserId = newUser(sessionId = otherSession.id)
+            val promoted = savePassword(userId, sessionId = session.id)
+            val untouched = savePassword(otherUserId, sessionId = otherSession.id)
+
+            assertEquals(1, passwords.clearSessionId(userId, session.id!!))
+
+            assertNull(passwords.findById(promoted)?.sessionId)
+            assertEquals(otherSession.id, passwords.findById(untouched)?.sessionId)
+        }
+
     private suspend fun RepositoryFixture.savePassword(
         userId: UUID,
-        expirationDate: LocalDateTime? = null
+        expirationDate: LocalDateTime? = null,
+        sessionId: UUID? = null
     ): UUID {
         val passwords = repository<PasswordRepository>()
         return passwords.save(
@@ -72,7 +91,8 @@ class PasswordRepositoryTest {
                 salt = salt,
                 hashedPassword = hashedPassword,
                 creationDate = BASE_DATE,
-                expirationDate = expirationDate
+                expirationDate = expirationDate,
+                sessionId = sessionId
             )
         ).id!!.also { id -> deleteOnEnd { passwords.deleteById(id) } }
     }

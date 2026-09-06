@@ -8,6 +8,7 @@ CREATE TABLE passwords
 
     creation_date   timestamp NOT NULL,
     expiration_date timestamp,
+    session_id      uuid,
 
     PRIMARY KEY (id),
     FOREIGN KEY (user_id) REFERENCES users (id)

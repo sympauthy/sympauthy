@@ -93,7 +93,12 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
     private val login = "user@example.com"
     private val password = "s3cret"
     private val userId = UUID.randomUUID()
-    private val user = User(id = userId, status = UserStatus.ENABLED, creationDate = LocalDateTime.now())
+    private val user = User(
+        id = userId,
+        status = UserStatus.ENABLED,
+        creationDate = LocalDateTime.now(),
+        sessionId = null
+    )
 
     /**
      * Stub the shared prelude of a successful credential check: sign-in enabled, the login resolves to [user]

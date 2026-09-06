@@ -7,6 +7,7 @@ import com.sympauthy.business.manager.auth.UserScopeGrantingManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.flow.InteractiveFlowPurposeHandler
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
@@ -42,6 +43,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
     @Inject private val claimValidationManager: InteractiveAuthFlowSessionClaimValidationManager,
     @Inject private val scopeGrantingManager: UserScopeGrantingManager,
     @Inject private val consentManager: ConsentManager,
+    @Inject private val invitationManager: InvitationManager,
     @Inject private val uncheckedMfaConfig: MfaConfig,
     @Inject private val totpManager: TotpManager,
     @Inject private val uncheckedFeaturesConfig: FeaturesConfig,
@@ -148,6 +150,12 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
      * On success, a [com.sympauthy.business.model.oauth2.Consent] is persisted recording which scopes the user
      * authorized for the client. If an active consent already exists for this user+client pair, it is revoked
      * and replaced.
+     *
+     * The invitation, if one brought the end-user here, is consumed here too rather than at sign-up. An
+     * invitation is spent on an account that comes to exist, so a flow that is abandoned leaves it pending
+     * and the invitee's link still works. It is also what settles two sign-ups holding one invitation: this
+     * runs inside the completion transaction, so the first flow to reach it takes it and the second is
+     * refused. See [com.sympauthy.data.model.SessionScoped].
      */
     override suspend fun applyTerminalEffect(session: OnGoingInteractiveFlowSession): TerminalEffectResult {
         val featuresConfig = uncheckedFeaturesConfig.orThrow()
@@ -187,6 +195,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
             clientId = oauth2.clientId,
             scopes = oauth2.consentedScopes ?: emptyList()
         )
+        oauth2.invitationId?.let { invitationManager.consumeInvitation(it, userId) }
         return TerminalEffectResult.Proceed
     }
 }

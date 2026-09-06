@@ -38,9 +38,11 @@ CREATE TABLE provider_user_info
     country               text,
 
     updated_at            timestamp,
+    session_id            uuid,
 
     PRIMARY KEY (provider_id, user_id),
     FOREIGN KEY (user_id) REFERENCES users (id)
 );
 
 CREATE INDEX provider_user_info__user_id ON provider_user_info (user_id);
+CREATE INDEX provider_user_info__provider_id_subject ON provider_user_info (provider_id, subject) WHERE session_id IS NULL;

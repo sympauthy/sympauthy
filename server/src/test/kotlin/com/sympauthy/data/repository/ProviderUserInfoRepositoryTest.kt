@@ -69,17 +69,37 @@ class ProviderUserInfoRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `findByProviderIdAndSubject - Finds the link bearing the subject`(database: Database) =
+    fun `findByProviderIdAndSubjectAndSessionIdIsNull - Finds the link bearing the subject`(database: Database) =
         withFixture(database) {
             val userId = newUser()
             saveLink(userId, subject = "123456789012345678")
             val links = repository<ProviderUserInfoRepository>()
 
-            val found = links.findByProviderIdAndSubject(providerId, "123456789012345678")
+            val found = links.findByProviderIdAndSubjectAndSessionIdIsNull(providerId, "123456789012345678")
 
             assertEquals(userId, found?.id?.userId)
-            assertNull(links.findByProviderIdAndSubject(otherProviderId, "123456789012345678"))
+            assertNull(links.findByProviderIdAndSubjectAndSessionIdIsNull(otherProviderId, "123456789012345678"))
         }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findByProviderIdAndSubjectAndSessionIdIsNull - Hides a link a session is still signing up`(
+        database: Database
+    ) = withFixture(database) {
+        val links = repository<ProviderUserInfoRepository>()
+        val session = newSession()
+        val userId = newUser(sessionId = session.id)
+        saveLink(userId, subject = "123456789012345678", sessionId = session.id)
+
+        assertNull(links.findByProviderIdAndSubjectAndSessionIdIsNull(providerId, "123456789012345678"))
+
+        assertEquals(1, links.clearSessionId(userId, session.id!!))
+
+        assertEquals(
+            userId,
+            links.findByProviderIdAndSubjectAndSessionIdIsNull(providerId, "123456789012345678")?.id?.userId
+        )
+    }
 
     @ParameterizedTest
     @EnumSource(Database::class)
@@ -126,10 +146,29 @@ class ProviderUserInfoRepositoryTest {
             assertNotNull(links.findByProviderIdAndUserId(otherProviderId, userId))
         }
 
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `clearSessionId - Promotes the links of that session and no other`(database: Database) =
+        withFixture(database) {
+            val links = repository<ProviderUserInfoRepository>()
+            val session = newSession()
+            val otherSession = newSession()
+            val userId = newUser(sessionId = session.id)
+            val otherUserId = newUser(sessionId = otherSession.id)
+            saveLink(userId, subject = "subject-promoted", sessionId = session.id)
+            saveLink(otherUserId, subject = "subject-untouched", sessionId = otherSession.id)
+
+            assertEquals(1, links.clearSessionId(userId, session.id!!))
+
+            assertNull(links.findByProviderIdAndUserId(providerId, userId)?.sessionId)
+            assertEquals(otherSession.id, links.findByProviderIdAndUserId(providerId, otherUserId)?.sessionId)
+        }
+
     private suspend fun RepositoryFixture.saveLink(
         userId: UUID,
         subject: String,
-        providerId: String = this@ProviderUserInfoRepositoryTest.providerId
+        providerId: String = this@ProviderUserInfoRepositoryTest.providerId,
+        sessionId: UUID? = null
     ): ProviderUserInfoEntity {
         val links = repository<ProviderUserInfoRepository>()
         val id = ProviderUserInfoEntityId(providerId = providerId, userId = userId)
@@ -140,6 +179,7 @@ class ProviderUserInfoRepositoryTest {
                 fetchDate = BASE_DATE,
                 changeDate = BASE_DATE,
                 subject = subject,
+                sessionId = sessionId,
                 name = "Ada Lovelace",
                 email = "ada@example.org",
                 emailVerified = true,

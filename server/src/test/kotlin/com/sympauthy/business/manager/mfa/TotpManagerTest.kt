@@ -116,7 +116,10 @@ class TotpManagerTest {
     @Test
     fun `initiateEnrollment - Deletes pending enrollments before creating a new one`() = runTest {
         val userId = UUID.randomUUID()
-        val user = mockk<User> { every { id } returns userId }
+        val user = mockk<User> {
+            every { id } returns userId
+            every { sessionId } returns null
+        }
         val pendingEntity = mockk<TotpEnrollmentEntity>()
         val newSecret = ByteArray(TotpManager.SECRET_LENGTH_IN_BYTES)
         val savedEntity = mockk<TotpEnrollmentEntity>()
@@ -137,7 +140,10 @@ class TotpManagerTest {
     @Test
     fun `initiateEnrollment - Works when there are no pending enrollments`() = runTest {
         val userId = UUID.randomUUID()
-        val user = mockk<User> { every { id } returns userId }
+        val user = mockk<User> {
+            every { id } returns userId
+            every { sessionId } returns null
+        }
         val newSecret = ByteArray(TotpManager.SECRET_LENGTH_IN_BYTES)
         val savedEntity = mockk<TotpEnrollmentEntity>()
         val enrollment = mockk<TotpEnrollment>()
@@ -227,7 +233,7 @@ class TotpManagerTest {
         }
         val enrollment = mockk<TotpEnrollment>()
 
-        coEvery { totpEnrollmentRepository.findById(enrollmentId) } returns entity
+        coEvery { totpEnrollmentRepository.findByIdAndSessionIdIsNull(enrollmentId) } returns entity
         every { totpEnrollmentMapper.toTotpEnrollment(entity) } returns enrollment
 
         val result = manager.findConfirmedEnrollmentOrNull(enrollmentId)
@@ -239,7 +245,7 @@ class TotpManagerTest {
     fun `findConfirmedEnrollmentOrNull - Returns null when not found`() = runTest {
         val enrollmentId = UUID.randomUUID()
 
-        coEvery { totpEnrollmentRepository.findById(enrollmentId) } returns null
+        coEvery { totpEnrollmentRepository.findByIdAndSessionIdIsNull(enrollmentId) } returns null
 
         assertNull(manager.findConfirmedEnrollmentOrNull(enrollmentId))
     }
@@ -251,7 +257,7 @@ class TotpManagerTest {
             every { confirmedDate } returns null
         }
 
-        coEvery { totpEnrollmentRepository.findById(enrollmentId) } returns entity
+        coEvery { totpEnrollmentRepository.findByIdAndSessionIdIsNull(enrollmentId) } returns entity
 
         assertNull(manager.findConfirmedEnrollmentOrNull(enrollmentId))
     }

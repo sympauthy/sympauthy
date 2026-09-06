@@ -3,8 +3,10 @@ package com.sympauthy.business.manager.auth.oauth2
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.api.exception.toOAuth2Exception
+import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.InvalidJwtException
 import com.sympauthy.business.manager.consent.ConsentManager
+import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.REFRESH_KEY
@@ -37,6 +39,7 @@ open class TokenManager(
     @Inject private val refreshTokenGenerator: RefreshTokenGenerator,
     @Inject private val idTokenGenerator: IdTokenGenerator,
     @Inject private val consentManager: ConsentManager,
+    @Inject private val userManager: UserManager,
     @Inject private val actorTokenValidator: ActorTokenValidator,
     @Inject private val tokenRepository: AuthenticationTokenRepository,
     @Inject private val tokenMapper: AuthenticationTokenMapper
@@ -100,6 +103,11 @@ open class TokenManager(
         if (session.expired) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token.expired", "description.oauth2.expired")
         }
+        // Never mint a token for an account a sign-up has not finished, however the session reached this
+        // point: a token is what turns an account into one another system will act on. Answered as the
+        // grant being invalid rather than as a business failure — this surface owes its caller an RFC 6749
+        // error object, the same reason TokenExchangeManager.resolveTargetUser refuses its own way.
+        checkPromotedOrInvalidGrant(session.userId)
 
         val tokenAudience = client.audience.tokenAudience
         val deferredAccessToken = async {
@@ -177,8 +185,10 @@ open class TokenManager(
             }
         }
 
-        // For user tokens, verify the consent has not been revoked (checked at audience level)
+        // For user tokens, verify the account is one this server finished creating and the consent has not
+        // been revoked (checked at audience level). A client-credentials token carries no user.
         if (refreshToken.userId != null) {
+            checkPromotedOrInvalidGrant(refreshToken.userId)
             consentManager.findActiveConsentByAudienceOrNull(refreshToken.userId, client.audience.id)
                 ?: throw oauth2ExceptionOf(INVALID_GRANT, "token.consent_revoked", "description.token.consent_revoked")
         }
@@ -194,6 +204,21 @@ open class TokenManager(
         } else null
 
         listOfNotNull(accessToken, refreshedRefreshToken)
+    }
+
+    /**
+     * Refuse [userId] unless it is an account this server has finished creating, as `invalid_grant`.
+     *
+     * [UserManager.checkPromoted] throws a business failure, which is right for a caller that gets one; the
+     * token endpoint gets an OAuth2 error object, and a grant naming an account that does not exist is an
+     * invalid grant.
+     */
+    private suspend fun checkPromotedOrInvalidGrant(userId: UUID) {
+        try {
+            userManager.checkPromoted(userId)
+        } catch (_: BusinessException) {
+            throw oauth2ExceptionOf(INVALID_GRANT, "token.invalid_user", "description.token.invalid_user")
+        }
     }
 
     internal fun shouldRefreshToken(

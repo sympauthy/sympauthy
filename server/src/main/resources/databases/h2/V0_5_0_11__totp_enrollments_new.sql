@@ -5,6 +5,7 @@ CREATE TABLE totp_enrollments
     secret         bytea     NOT NULL,
     creation_date  timestamp NOT NULL,
     confirmed_date timestamp,
+    session_id     uuid,
 
     PRIMARY KEY (id),
     FOREIGN KEY (user_id) REFERENCES users (id)

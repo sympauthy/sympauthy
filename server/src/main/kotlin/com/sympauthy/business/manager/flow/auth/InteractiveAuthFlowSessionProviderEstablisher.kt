@@ -30,7 +30,7 @@ import java.util.*
  * Establishes the end-user from a provider round-trip during a sign-in / sign-up
  * ([com.sympauthy.business.model.flow.InteractiveFlowPurpose.OAUTH2_AUTHORIZE]): it enforces the sign-up
  * rules, creates or associates the [User] (honoring `auth.user-merging-enabled` and the configured
- * identifier claims), and consumes any invitation. The generic
+ * identifier claims), and applies the claims any invitation carries. The generic
  * [com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2ProviderManager] owns the provider
  * protocol and delegates this outcome here.
  */
@@ -53,8 +53,8 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
     ): ProviderUserEstablishment {
         val oauth2 = oauth2Manager.fetchOAuth2(session)
         interactiveAuthFlowSessionManager.checkSignUpAllowed(oauth2, recoverable = false)
-        val result = createOrAssociateUserWithProviderUserInfo(provider, rawUserInfo)
-        invitationManager.applyInvitationClaimsAndConsume(oauth2.invitationId, result.user.id)
+        val result = createOrAssociateUserWithProviderUserInfo(session.id, provider, rawUserInfo)
+        invitationManager.applyInvitationClaims(oauth2.invitationId, result.user)
         // `created` is false when the provider was merged into an existing account (sign-in, not sign-up).
         return ProviderUserEstablishment(userId = result.user.id, signedUp = result.created)
     }
@@ -65,18 +65,25 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
      *
      * Depending on ```auth.user-merging-enabled```, we may instead associate the [providerUserInfo] to
      * an existing user based on the configured identifier claims.
+     *
+     * An account this creates is provisional for [sessionId] until the session completes; one it associates
+     * to was already committed and stays so, which is why the rows written below take their session id from
+     * the user rather than from [sessionId]. See [com.sympauthy.data.model.SessionScoped].
      */
     @Transactional
     open suspend fun createOrAssociateUserWithProviderUserInfo(
+        sessionId: UUID,
         provider: EnabledProvider,
         providerUserInfo: RawProviderClaims
     ): CreateOrAssociateResult {
         val authConfig = uncheckedAuthConfig.orThrow()
         val identifierClaims = resolveIdentifierClaims(authConfig, provider, providerUserInfo)
         return if (authConfig.userMergingEnabled) {
-            createOrAssociateUserByIdentifierClaimsWithProviderUserInfo(identifierClaims, provider, providerUserInfo)
+            createOrAssociateUserByIdentifierClaimsWithProviderUserInfo(
+                sessionId, identifierClaims, provider, providerUserInfo
+            )
         } else {
-            createUserWithProviderUserInfo(identifierClaims, provider, providerUserInfo)
+            createUserWithProviderUserInfo(sessionId, identifierClaims, provider, providerUserInfo)
         }
     }
 
@@ -90,6 +97,7 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
      */
     @Transactional
     internal open suspend fun createOrAssociateUserByIdentifierClaimsWithProviderUserInfo(
+        sessionId: UUID,
         identifierClaims: Map<String, Pair<Claim, String>>,
         provider: EnabledProvider,
         providerUserInfo: RawProviderClaims
@@ -97,13 +105,14 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
         val identifierMap = identifierClaims.map { (claimId, pair) -> claimId to pair.second }.toMap()
         val existingUser = userManager.findByIdentifierClaims(identifierMap)
 
-        val user = existingUser ?: userManager.createUser().also { newUser ->
+        val user = existingUser ?: userManager.createUser(sessionId).also { newUser ->
             saveIdentifierClaims(newUser, identifierClaims)
         }
 
         providerClaimsManager.saveUserInfo(
             provider = provider,
             userId = user.id,
+            sessionId = user.sessionId,
             rawProviderClaims = providerUserInfo
         )
         return CreateOrAssociateResult(
@@ -119,6 +128,7 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
      */
     @Transactional
     internal open suspend fun createUserWithProviderUserInfo(
+        sessionId: UUID,
         identifierClaims: Map<String, Pair<Claim, String>>,
         provider: EnabledProvider,
         providerUserInfo: RawProviderClaims
@@ -129,11 +139,12 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
             throw businessExceptionOf("user.create_with_provider.existing_user")
         }
 
-        val user = userManager.createUser()
+        val user = userManager.createUser(sessionId)
         saveIdentifierClaims(user, identifierClaims)
         providerClaimsManager.saveUserInfo(
             provider = provider,
             userId = user.id,
+            sessionId = user.sessionId,
             rawProviderClaims = providerUserInfo
         )
         return CreateOrAssociateResult(

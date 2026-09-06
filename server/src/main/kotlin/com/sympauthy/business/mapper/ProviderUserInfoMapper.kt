@@ -33,6 +33,7 @@ interface ProviderUserInfoMapper {
     fun toEntity(
         providerId: String,
         userId: UUID,
+        sessionId: UUID?,
         userInfo: RawProviderClaims,
         linkDate: LocalDateTime,
         fetchDate: LocalDateTime,

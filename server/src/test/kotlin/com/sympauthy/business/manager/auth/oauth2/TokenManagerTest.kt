@@ -5,6 +5,7 @@ import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.InvalidJwtException
 import com.sympauthy.business.manager.consent.ConsentManager
+import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.REFRESH_KEY
@@ -22,6 +23,7 @@ import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.data.repository.AuthenticationTokenRepository
 import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import io.mockk.coEvery
+import io.mockk.coJustRun
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -55,6 +57,9 @@ class TokenManagerTest {
 
     @MockK
     lateinit var consentManager: ConsentManager
+
+    @MockK
+    lateinit var userManager: UserManager
 
     @MockK
     lateinit var actorTokenValidator: ActorTokenValidator
@@ -98,6 +103,7 @@ class TokenManagerTest {
 
         every { session.expired } returns false
         every { session.userId } returns userId
+        coJustRun { userManager.checkPromoted(userId) }
         coEvery {
             accessTokenGenerator.generateAccessToken(
                 oauth2,
@@ -189,6 +195,7 @@ class TokenManagerTest {
         every { refreshToken.clientId } returns clientId
         every { refreshToken.dpopJkt } returns null
         every { refreshToken.userId } returns userId
+        coJustRun { userManager.checkPromoted(userId) }
         coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, any()) } returns mockk()
         coEvery {
             accessTokenGenerator.generateAccessToken(
@@ -233,6 +240,7 @@ class TokenManagerTest {
         every { refreshToken.clientId } returns clientId
         every { refreshToken.dpopJkt } returns null
         every { refreshToken.userId } returns userId
+        coJustRun { userManager.checkPromoted(userId) }
         coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, any()) } returns mockk()
         coEvery {
             accessTokenGenerator.generateAccessToken(
@@ -264,6 +272,7 @@ class TokenManagerTest {
         every { refreshToken.clientId } returns clientId
         every { refreshToken.dpopJkt } returns null
         every { refreshToken.userId } returns userId
+        coJustRun { userManager.checkPromoted(userId) }
         coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, any()) } returns null
 
         val exception = assertThrows<OAuth2Exception> {

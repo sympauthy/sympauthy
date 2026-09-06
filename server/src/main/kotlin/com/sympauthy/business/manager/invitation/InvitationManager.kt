@@ -11,6 +11,7 @@ import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.invitation.InvitationStatus
 import com.sympauthy.business.model.user.CollectedClaimUpdate
+import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.InvitationAdvancedConfig
 import com.sympauthy.config.model.orThrow
@@ -234,46 +235,58 @@ open class InvitationManager(
     }
 
     /**
-     * If an invitation is bound to the authorize attempt, apply its pre-assigned claims to the user
-     * and mark the invitation as consumed.
+     * If an invitation is bound to the authorize attempt, apply its pre-assigned claims to [user].
      *
      * Does nothing if no invitation is bound to the attempt.
+     *
+     * Applying the claims and consuming the invitation are deliberately apart. This runs at sign-up, where
+     * the claims it writes are as provisional as the account they land on; [consumeInvitation] runs when the
+     * session completes, so an abandoned invited sign-up leaves the invitation intact and the invitee's link
+     * still works. See [com.sympauthy.data.model.SessionScoped].
      */
     @Transactional
-    open suspend fun applyInvitationClaimsAndConsume(invitationId: UUID?, userId: UUID) {
+    open suspend fun applyInvitationClaims(invitationId: UUID?, user: User) {
         if (invitationId == null) return
-        val invitation = findById(invitationId)
-        val claims = invitation.claims
+        val claims = findById(invitationId).claims
+        if (claims.isNullOrEmpty()) return
 
-        if (!claims.isNullOrEmpty()) {
-            val claimUpdates = claims.mapNotNull { (claimId, value) ->
-                val claim = claimManager.findByIdOrNull(claimId) ?: return@mapNotNull null
-                CollectedClaimUpdate(
-                    claim = claim,
-                    value = java.util.Optional.of(value)
-                )
-            }
-            if (claimUpdates.isNotEmpty()) {
-                val user = userManager.findById(userId)
-                collectedClaimManager.update(user = user, updates = claimUpdates)
-            }
+        val claimUpdates = claims.mapNotNull { (claimId, value) ->
+            val claim = claimManager.findByIdOrNull(claimId) ?: return@mapNotNull null
+            CollectedClaimUpdate(
+                claim = claim,
+                value = Optional.of(value)
+            )
         }
-
-        consumeInvitation(invitationId, userId)
+        if (claimUpdates.isNotEmpty()) {
+            collectedClaimManager.update(user = user, updates = claimUpdates)
+        }
     }
 
     /**
-     * Mark an invitation as consumed by the given user.
+     * Mark the invitation [id] as consumed by the user [userId] and return it.
+     *
+     * Throws a non-recoverable [BusinessException] `invitation.already_consumed` when the invitation is no
+     * longer pending. Two sign-ups may hold one invitation at the same time — neither blocks the other while
+     * both are provisional — so this is where the first of them to complete wins and the other is refused.
+     * It is non-recoverable because there is no step left for the end-user to retry: every purpose has
+     * resolved, and the session is completing.
      */
     @Transactional
     open suspend fun consumeInvitation(id: UUID, userId: UUID): Invitation {
-        val now = LocalDateTime.now()
-        invitationRepository.updateStatus(
+        userManager.checkPromoted(userId)
+        val consumed = invitationRepository.consumeIfPending(
             id = id,
             status = InvitationStatus.CONSUMED.name,
+            pendingStatus = InvitationStatus.PENDING.name,
             consumedByUserId = userId,
-            consumedAt = now
+            consumedAt = LocalDateTime.now()
         )
+        if (consumed == 0) {
+            throw businessExceptionOf(
+                detailsId = "invitation.already_consumed",
+                descriptionId = "description.invitation.already_consumed"
+            )
+        }
         return findById(id)
     }
 

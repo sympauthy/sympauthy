@@ -23,11 +23,18 @@ class ProviderClaimsManager(
     @Inject private val userInfoMapper: ProviderUserInfoMapper
 ) {
 
+    /**
+     * Find the committed link of [provider] to the account it knows as [subject], or null when there is none.
+     *
+     * This is how a returning end-user is recognised, so a link a session is still signing up is invisible
+     * here: two sign-ups may hold the same provider subject at once, and the collision is settled when the
+     * first of them promotes. See [com.sympauthy.data.model.SessionScoped].
+     */
     suspend fun findByProviderAndSubject(
         provider: EnabledProvider,
         subject: String
     ): ProviderUserInfo? {
-        return userInfoRepository.findByProviderIdAndSubject(
+        return userInfoRepository.findByProviderIdAndSubjectAndSessionIdIsNull(
             providerId = provider.id,
             subject = subject
         )?.let(userInfoMapper::toProviderUserInfo)
@@ -52,15 +59,24 @@ class ProviderClaimsManager(
         return userInfoRepository.deleteByProviderIdAndUserId(providerId, userId)
     }
 
+    /**
+     * Link [provider] to the user identified by [userId] under the claims it just returned.
+     *
+     * [sessionId] is the session the **user** is provisional for, not the session the request is serving:
+     * a link made to an already-committed account is permanent even when an interactive flow is what made
+     * it. See [com.sympauthy.data.model.SessionScoped].
+     */
     suspend fun saveUserInfo(
         provider: EnabledProvider,
         userId: UUID,
+        sessionId: UUID?,
         rawProviderClaims: RawProviderClaims
     ): ProviderUserInfo {
         val now = LocalDateTime.now()
         val entity = userInfoMapper.toEntity(
             providerId = provider.id,
             userId = userId,
+            sessionId = sessionId,
             userInfo = rawProviderClaims,
             linkDate = now,
             fetchDate = now,
@@ -74,6 +90,8 @@ class ProviderClaimsManager(
      * Update the stored provider claims with the latest data from the provider.
      * Always updates the fetch date. Only updates the change date and claims if they differ.
      * Never moves the link date: refreshing is a sign-in with a provider already linked, not a new link.
+     * Nor its session id: this writes the whole row, and dropping that would promote a provisional link
+     * on a sign-in that has not completed yet.
      */
     suspend fun refreshUserInfo(
         existingUserInfo: ProviderUserInfo,
@@ -84,6 +102,7 @@ class ProviderClaimsManager(
         val entity = userInfoMapper.toEntity(
             providerId = existingUserInfo.providerId,
             userId = existingUserInfo.userId,
+            sessionId = existingUserInfo.sessionId,
             userInfo = if (changed) newUserInfo else existingUserInfo.userInfo,
             linkDate = existingUserInfo.linkDate,
             fetchDate = now,

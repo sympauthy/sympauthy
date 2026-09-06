@@ -62,6 +62,26 @@ dependencies arrive through the constructor, and every method is `suspend`.
 **A manager keeps the entity type inside its own method bodies.** It never returns one, accepts one
 as a parameter, or puts one in a model's field.
 
+**A `find…` or `list…` over a session-scoped table answers committed rows only.** Call the
+repository's `…AndSessionIdIsNull` reader. A row an interactive flow session is still writing is not
+one this server has finished creating, and a reader that hands one out has published an account that
+does not exist yet — see [the interactive flow](interactive-flow.md).
+
+**Two signatures are exempt: one taking the session, and one taking the user id of a row belonging
+to a user.** A session is entitled to the rows it is writing, and a row an account owns is exactly
+as visible as the account the caller resolved through a reader that did filter. The account itself
+is therefore never exempt, and neither is a read keyed by the row's own identifier.
+
+**A method writing a row that outlives the session, against a user, calls
+`UserManager.checkPromoted` first.** A token, a consent, a consumed invitation and a second factor
+all attach to an account, so each refuses one an interactive flow session is still signing up. The
+session's own rows are not this: they are gone when it is.
+
+**It is a defence, not an assertion.** The caller naming that account may be doing it on purpose —
+an account still being signed up is one whose owner decides what it becomes, so a credential hung on
+it is one the owner of that session inherits when they promote. Reject before writing anything, and
+rely on nothing about where the id came from.
+
 ### Naming
 
 The verb says what kind of work the method does:

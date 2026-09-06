@@ -356,14 +356,19 @@ open class InteractiveFlowSessionManager(
      * - there is no user associated to the ongoing [session].
      * - the [session] has failed.
      *
+     * This is the one read entitled to an account that is still provisional — the account this very session
+     * is signing up, which no other reader may see (see [com.sympauthy.data.model.SessionScoped]). Every
+     * caller holding a session reads its user through here rather than through
+     * [UserManager.findByIdOrNull], which answers committed accounts only.
+     *
      * Throws an unrecoverable [BusinessException] if the user id is corrupted and cannot be found in the
      * database anymore.
      */
     suspend fun getUserOrNull(session: InteractiveFlowSession): User? {
         return when (session) {
-            is OnGoingInteractiveFlowSession -> session.userId?.let { userManager.findByIdOrNull(it) }
-            is CompletedInteractiveFlowSession -> userManager.findByIdOrNull(session.userId)
-            is CancelledInteractiveFlowSession -> session.userId?.let { userManager.findByIdOrNull(it) }
+            is OnGoingInteractiveFlowSession -> userManager.findByIdInSessionOrNull(session.userId, session.id)
+            is CompletedInteractiveFlowSession -> userManager.findByIdInSessionOrNull(session.userId, session.id)
+            is CancelledInteractiveFlowSession -> userManager.findByIdInSessionOrNull(session.userId, session.id)
             is FailedInteractiveFlowSession -> null
         }
     }

@@ -80,9 +80,9 @@ class UserSearchManager(
         }
 
         val userEntities = if (status != null) {
-            userRepository.findByStatus(status.name).toList()
+            userRepository.findByStatusAndSessionIdIsNull(status.name).toList()
         } else {
-            userRepository.findAll().toList()
+            userRepository.findBySessionIdIsNull().toList()
         }
 
         if (userEntities.isEmpty()) {

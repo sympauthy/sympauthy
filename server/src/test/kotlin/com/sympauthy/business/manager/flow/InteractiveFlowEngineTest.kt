@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.manager.user.ProvisionalAccountManager
 import com.sympauthy.business.model.flow.CancelledInteractiveFlowSession
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
@@ -30,7 +31,8 @@ class InteractiveFlowEngineTest {
 
     private val purposeRegistry = mockk<InteractiveFlowPurposeRegistry>()
     private val sessionManager = mockk<InteractiveFlowSessionManager>()
-    private val engine = InteractiveFlowEngine(purposeRegistry, sessionManager)
+    private val provisionalAccountManager = mockk<ProvisionalAccountManager>(relaxed = true)
+    private val engine = InteractiveFlowEngine(purposeRegistry, sessionManager, provisionalAccountManager)
 
     @Test
     fun `advance - Failed session maps to Error`() = runTest {
@@ -434,9 +436,80 @@ class InteractiveFlowEngineTest {
         assertSame(completed, engine.completeIfNecessary(session))
     }
 
+    @Test
+    fun `advance - Promotes what the session signed up before the terminal effects and the completion`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val session = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE), userId = userId)
+            val marked = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE), userId = userId)
+            val completed = completedSession()
+            val handler = mockk<InteractiveFlowPurposeHandler>()
+            every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns handler
+            coEvery { handler.nextStepOrNull(session) } returns null
+            coEvery {
+                sessionManager.markPurposeAsCompleted(session, InteractiveFlowPurpose.OAUTH2_AUTHORIZE)
+            } returns marked
+            coEvery { handler.followUpPurposes(marked) } returns emptyList()
+            coEvery { handler.applyTerminalEffect(marked) } returns TerminalEffectResult.Proceed
+            coEvery { sessionManager.markAsCompleted(marked) } returns completed
+
+            assertSame(completed, engine.advance(session).session)
+
+            // Promotion first, so a consent or a consumed invitation a terminal effect writes attaches to an
+            // account that exists.
+            coVerifyOrder {
+                provisionalAccountManager.promote(marked.id, userId)
+                handler.applyTerminalEffect(marked)
+                sessionManager.markAsCompleted(marked)
+            }
+        }
+
+    @Test
+    fun `advance - Promotes nothing for a session that never established a user`() = runTest {
+        val session = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE))
+        val marked = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE))
+        val handler = mockk<InteractiveFlowPurposeHandler>()
+        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns handler
+        coEvery { handler.nextStepOrNull(session) } returns null
+        coEvery {
+            sessionManager.markPurposeAsCompleted(session, InteractiveFlowPurpose.OAUTH2_AUTHORIZE)
+        } returns marked
+        coEvery { handler.followUpPurposes(marked) } returns emptyList()
+        coEvery { handler.applyTerminalEffect(marked) } returns TerminalEffectResult.Proceed
+        coEvery { sessionManager.markAsCompleted(marked) } returns completedSession()
+
+        engine.advance(session)
+
+        coVerify(exactly = 0) { provisionalAccountManager.promote(any(), any()) }
+    }
+
+    @Test
+    fun `advance - A refused terminal effect never completes the session`() = runTest {
+        val userId = UUID.randomUUID()
+        val session = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE), userId = userId)
+        val marked = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE), userId = userId)
+        val error = mockk<BusinessException>()
+        val handler = mockk<InteractiveFlowPurposeHandler>()
+        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns handler
+        coEvery { handler.nextStepOrNull(session) } returns null
+        coEvery {
+            sessionManager.markPurposeAsCompleted(session, InteractiveFlowPurpose.OAUTH2_AUTHORIZE)
+        } returns marked
+        coEvery { handler.followUpPurposes(marked) } returns emptyList()
+        coEvery { handler.applyTerminalEffect(marked) } returns TerminalEffectResult.Fail(error)
+        coEvery { sessionManager.markAsFailedIfNotRecoverable(marked, error) } returns failedSession()
+
+        engine.advance(session)
+
+        // The promotion has already run by then; what undoes it is the transaction the refusal rolls back,
+        // which no double can show.
+        coVerify(exactly = 0) { sessionManager.markAsCompleted(any()) }
+    }
+
     private fun onGoingSession(
         purposes: List<InteractiveFlowPurpose>,
         initiatingPurpose: InteractiveFlowPurpose = purposes.first(),
+        userId: UUID? = null,
     ) = OnGoingInteractiveFlowSession(
         id = UUID.randomUUID(),
         purposes = purposes,
@@ -444,7 +517,7 @@ class InteractiveFlowEngineTest {
         flowId = "flow-id",
         expirationDate = LocalDateTime.now().plusHours(1),
         sessionDate = LocalDateTime.now(),
-        userId = null,
+        userId = userId,
     )
 
     private fun completedSession() = CompletedInteractiveFlowSession(

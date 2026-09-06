@@ -11,8 +11,9 @@ import java.util.*
 @MappedEntity("users")
 data class UserEntity(
     val status: String,
-    val creationDate: LocalDateTime
-) {
+    val creationDate: LocalDateTime,
+    override val sessionId: UUID?
+) : SessionScoped {
     @Id
     @GeneratedValue
     var id: UUID? = null

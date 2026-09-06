@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.consent
 
+import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.ConsentMapper
 import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.oauth2.ConsentRevokedBy
@@ -29,7 +30,8 @@ import java.util.*
 open class ConsentManager(
     @Inject private val consentRepository: ConsentRepository,
     @Inject private val tokenRepository: AuthenticationTokenRepository,
-    @Inject private val consentMapper: ConsentMapper
+    @Inject private val consentMapper: ConsentMapper,
+    @Inject private val userManager: UserManager
 ) {
 
     /**
@@ -50,6 +52,7 @@ open class ConsentManager(
         clientId: String,
         scopes: List<String>
     ): Consent {
+        userManager.checkPromoted(userId)
         val existingConsent = consentRepository.findByUserIdAndAudienceIdAndRevokedAtIsNull(userId, audienceId)
         val mergedScopes = if (existingConsent != null) {
             consentRepository.updateRevokedAt(

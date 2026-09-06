@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.flow.mfa
 
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
+import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.manager.flow.confirm.InteractiveFlowSessionConfirmManager
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.model.flow.AuthorizationFlow
@@ -33,6 +34,7 @@ open class InteractiveFlowSessionMfaEnrollmentManager(
     @Inject private val uncheckedMfaConfig: MfaConfig,
     @Inject private val totpManager: TotpManager,
     @Inject private val confirmManager: InteractiveFlowSessionConfirmManager,
+    @Inject private val userManager: UserManager,
 ) {
 
     /**
@@ -116,6 +118,9 @@ open class InteractiveFlowSessionMfaEnrollmentManager(
         initiatingClientId: String?,
         cancelUri: URI? = null,
     ): OnGoingInteractiveFlowSession {
+        // The user id arrives from a client's access token or an administrator's path parameter, neither of
+        // which is the session that would be entitled to an account still being signed up.
+        userManager.checkPromoted(userId)
         val session = sessionManager.newSession(
             purposes = listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.MFA_ENROLLMENT),
             initiatingPurpose = InteractiveFlowPurpose.MFA_ENROLLMENT,

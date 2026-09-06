@@ -7,6 +7,7 @@ CREATE TABLE collected_claims
     `value`           text,
     verified          boolean,
     verification_date timestamp,
+    session_id        uuid,
 
     PRIMARY KEY (id),
     FOREIGN KEY (user_id) REFERENCES users (id),

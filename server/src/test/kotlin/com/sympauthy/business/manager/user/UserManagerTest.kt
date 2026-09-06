@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
+import java.time.LocalDateTime
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
@@ -44,7 +45,7 @@ class UserManagerTest {
         val entity = mockk<UserEntity>()
         val user = mockk<User>()
 
-        coEvery { userRepository.findById(userId) } returns entity
+        coEvery { userRepository.findByIdAndSessionIdIsNull(userId) } returns entity
         every { userMapper.toUser(entity) } returns user
 
         val result = manager.findByIdOrNull(userId)
@@ -56,7 +57,7 @@ class UserManagerTest {
     fun `findByIdOrNull - Return null when user not found`() = runTest {
         val userId = UUID.randomUUID()
 
-        coEvery { userRepository.findById(userId) } returns null
+        coEvery { userRepository.findByIdAndSessionIdIsNull(userId) } returns null
 
         val result = manager.findByIdOrNull(userId)
 
@@ -119,10 +120,83 @@ class UserManagerTest {
         }
         every { userMapper.toUser(savedEntity) } returns user
 
-        val result = manager.createUser()
+        val result = manager.createUser(sessionId = null)
 
         assertSame(user, result)
         assertEquals(UserStatus.ENABLED.name, entitySlot.captured.status)
         assertNotNull(entitySlot.captured.creationDate)
     }
+
+    @Test
+    fun `checkPromoted - Passes for a committed account`() = runTest {
+        val userId = UUID.randomUUID()
+        val entity = mockk<UserEntity>()
+
+        coEvery { userRepository.findById(userId) } returns entity
+        every { userMapper.toUser(entity) } returns committedUser(userId)
+
+        manager.checkPromoted(userId)
+    }
+
+    @Test
+    fun `checkPromoted - Refuses an account a session is still signing up`() = runTest {
+        val userId = UUID.randomUUID()
+        val entity = mockk<UserEntity>()
+
+        coEvery { userRepository.findById(userId) } returns entity
+        every { userMapper.toUser(entity) } returns provisionalUser(userId)
+
+        val exception = assertThrows<BusinessException> { manager.checkPromoted(userId) }
+
+        assertEquals("user.not_promoted", exception.detailsId)
+        assertFalse(exception.recoverable)
+        assertEquals(userId.toString(), exception.values["userId"])
+    }
+
+    @Test
+    fun `checkPromoted - Refuses an id naming no account at all`() = runTest {
+        val userId = UUID.randomUUID()
+
+        coEvery { userRepository.findById(userId) } returns null
+
+        val exception = assertThrows<BusinessException> { manager.checkPromoted(userId) }
+
+        assertEquals("user.not_found", exception.detailsId)
+    }
+
+    @Test
+    fun `checkPromoted - Refuses a row the mapper cannot read back`() = runTest {
+        val userId = UUID.randomUUID()
+        val entity = mockk<UserEntity>()
+        val refusal = mockk<BusinessException>()
+
+        coEvery { userRepository.findById(userId) } returns entity
+        every { userMapper.toUser(entity) } throws refusal
+
+        assertSame(refusal, assertThrows<BusinessException> { manager.checkPromoted(userId) })
+    }
+
+    @Test
+    fun `checkPromoted - Reads the account the caller already holds without a query`() {
+        val userId = UUID.randomUUID()
+
+        manager.checkPromoted(committedUser(userId))
+
+        val exception = assertThrows<BusinessException> { manager.checkPromoted(provisionalUser(userId)) }
+        assertEquals("user.not_promoted", exception.detailsId)
+    }
+
+    private fun committedUser(id: UUID) = User(
+        id = id,
+        status = UserStatus.ENABLED,
+        creationDate = LocalDateTime.now(),
+        sessionId = null
+    )
+
+    private fun provisionalUser(id: UUID) = User(
+        id = id,
+        status = UserStatus.ENABLED,
+        creationDate = LocalDateTime.now(),
+        sessionId = UUID.randomUUID()
+    )
 }

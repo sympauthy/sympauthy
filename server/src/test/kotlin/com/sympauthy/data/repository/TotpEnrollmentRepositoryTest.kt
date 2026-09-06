@@ -95,9 +95,47 @@ class TotpEnrollmentRepositoryTest {
         assertEquals(listOf(id), enrollments.findByUserIdAndConfirmedDateIsNotNull(userId).map { it.id!! })
     }
 
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findByIdAndSessionIdIsNull - Hides an enrollment a session is still signing up`(database: Database) =
+        withFixture(database) {
+            val enrollments = repository<TotpEnrollmentRepository>()
+            val session = newSession()
+            val userId = newUser(sessionId = session.id)
+            val id = saveEnrollment(userId, confirmedDate = BASE_DATE, sessionId = session.id)
+
+            assertNull(enrollments.findByIdAndSessionIdIsNull(id))
+
+            enrollments.clearSessionId(userId, session.id!!)
+
+            assertEquals(id, enrollments.findByIdAndSessionIdIsNull(id)?.id)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `clearSessionId - Promotes the enrollments of that session, confirmed or not`(database: Database) =
+        withFixture(database) {
+            val enrollments = repository<TotpEnrollmentRepository>()
+            val session = newSession()
+            val otherSession = newSession()
+            val userId = newUser(sessionId = session.id)
+            val otherUserId = newUser(sessionId = otherSession.id)
+            val confirmed = saveEnrollment(userId, confirmedDate = BASE_DATE, sessionId = session.id)
+            val pending = saveEnrollment(userId, sessionId = session.id)
+            val untouched = saveEnrollment(otherUserId, sessionId = otherSession.id)
+
+            assertEquals(2, enrollments.clearSessionId(userId, session.id!!))
+
+            assertNull(enrollments.findById(confirmed)?.sessionId)
+            assertEquals(BASE_DATE, enrollments.findById(confirmed)?.confirmedDate)
+            assertNull(enrollments.findById(pending)?.sessionId)
+            assertEquals(otherSession.id, enrollments.findById(untouched)?.sessionId)
+        }
+
     private suspend fun RepositoryFixture.saveEnrollment(
         userId: UUID,
-        confirmedDate: LocalDateTime? = null
+        confirmedDate: LocalDateTime? = null,
+        sessionId: UUID? = null
     ): UUID {
         val enrollments = repository<TotpEnrollmentRepository>()
         return enrollments.save(
@@ -105,7 +143,8 @@ class TotpEnrollmentRepositoryTest {
                 userId = userId,
                 secret = secret,
                 creationDate = BASE_DATE,
-                confirmedDate = confirmedDate
+                confirmedDate = confirmedDate,
+                sessionId = sessionId
             )
         ).id!!.also { id -> deleteOnEnd { enrollments.deleteById(id) } }
     }

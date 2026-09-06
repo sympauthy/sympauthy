@@ -124,6 +124,11 @@ class TokenExchangeManager(
 
     /**
      * Resolve the [requestedSubject] to an existing user id.
+     *
+     * Refuses an account an interactive flow session is still signing up, as everything minting a token
+     * must — but through the committed-only reader rather than `UserManager.checkPromoted`, because this
+     * surface owes its caller RFC 8693's `invalid_target` and not a business failure. An unfinished account
+     * is, to a token exchange, a subject naming nothing.
      */
     private suspend fun resolveTargetUser(requestedSubject: String): UUID {
         val targetUserId = try {

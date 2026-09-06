@@ -13,8 +13,9 @@ class TotpEnrollmentEntity(
     val userId: UUID,
     val secret: ByteArray,
     val creationDate: LocalDateTime = LocalDateTime.now(),
-    val confirmedDate: LocalDateTime?
-) {
+    val confirmedDate: LocalDateTime?,
+    override val sessionId: UUID?
+) : SessionScoped {
     @Id
     @GeneratedValue
     var id: UUID? = null

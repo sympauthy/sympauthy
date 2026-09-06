@@ -46,12 +46,13 @@ class ProviderClaimsManagerTest {
         every { this@mockk.id } returns id
     }
 
-    private fun mockExistingUserInfo() = ProviderUserInfo(
+    private fun mockExistingUserInfo(sessionId: UUID? = null) = ProviderUserInfo(
         providerId = "discord",
         userId = userId,
         linkDate = linkDate,
         fetchDate = linkDate,
         changeDate = linkDate,
+        sessionId = sessionId,
         userInfo = claims
     )
 
@@ -61,13 +62,13 @@ class ProviderClaimsManagerTest {
         val linkDateSlot = slot<LocalDateTime>()
         val fetchDateSlot = slot<LocalDateTime>()
         every {
-            userInfoMapper.toEntity(any(), any(), any(), capture(linkDateSlot), capture(fetchDateSlot), any())
+            userInfoMapper.toEntity(any(), any(), any(), any(), capture(linkDateSlot), capture(fetchDateSlot), any())
         } returns entity
         coEvery { userInfoRepository.save(entity) } returns entity
         every { userInfoMapper.toProviderUserInfo(entity) } returns mockExistingUserInfo()
 
         val before = LocalDateTime.now()
-        manager.saveUserInfo(mockProvider(), userId, claims)
+        manager.saveUserInfo(mockProvider(), userId, null, claims)
 
         assertTrue(linkDateSlot.captured >= before)
         assertEquals(linkDateSlot.captured, fetchDateSlot.captured)
@@ -80,7 +81,7 @@ class ProviderClaimsManagerTest {
         val linkDateSlot = slot<LocalDateTime>()
         val fetchDateSlot = slot<LocalDateTime>()
         every {
-            userInfoMapper.toEntity(any(), any(), any(), capture(linkDateSlot), capture(fetchDateSlot), any())
+            userInfoMapper.toEntity(any(), any(), any(), any(), capture(linkDateSlot), capture(fetchDateSlot), any())
         } returns entity
         coEvery { userInfoRepository.update(entity) } returns entity
 
@@ -96,7 +97,7 @@ class ProviderClaimsManagerTest {
         val entity = mockk<ProviderUserInfoEntity>()
         val changeDateSlot = slot<LocalDateTime>()
         every {
-            userInfoMapper.toEntity(any(), any(), any(), any(), any(), capture(changeDateSlot))
+            userInfoMapper.toEntity(any(), any(), any(), any(), any(), any(), capture(changeDateSlot))
         } returns entity
         coEvery { userInfoRepository.update(entity) } returns entity
 
