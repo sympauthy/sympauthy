@@ -97,6 +97,22 @@ class TotpEnrollmentRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
+    fun `findByIdAndSessionIdIsNull - Hides an enrollment a session is still signing up`(database: Database) =
+        withFixture(database) {
+            val enrollments = repository<TotpEnrollmentRepository>()
+            val session = newSession()
+            val userId = newUser(sessionId = session.id)
+            val id = saveEnrollment(userId, confirmedDate = BASE_DATE, sessionId = session.id)
+
+            assertNull(enrollments.findByIdAndSessionIdIsNull(id))
+
+            enrollments.clearSessionId(session.id!!)
+
+            assertEquals(id, enrollments.findByIdAndSessionIdIsNull(id)?.id)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
     fun `clearSessionId - Promotes the enrollments of that session, confirmed or not`(database: Database) =
         withFixture(database) {
             val enrollments = repository<TotpEnrollmentRepository>()

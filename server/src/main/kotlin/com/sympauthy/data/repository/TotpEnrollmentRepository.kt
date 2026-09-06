@@ -15,6 +15,8 @@ interface TotpEnrollmentRepository : CoroutineCrudRepository<TotpEnrollmentEntit
 
     suspend fun findByUserIdAndConfirmedDateIsNull(userId: UUID): List<TotpEnrollmentEntity>
 
+    suspend fun findByIdAndSessionIdIsNull(id: UUID): TotpEnrollmentEntity?
+
     suspend fun updateConfirmedDate(@Id id: UUID, confirmedDate: LocalDateTime)
 
     /**

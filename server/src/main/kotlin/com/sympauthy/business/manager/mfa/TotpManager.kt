@@ -114,9 +114,13 @@ class TotpManager(
 
     /**
      * Returns the confirmed TOTP enrollment with the given [enrollmentId], or null if not found or not confirmed.
+     *
+     * The only reader here keyed by the enrollment rather than by the user it belongs to, so it is the only
+     * one that has to exclude an enrollment a sign-up has not finished: the id it is handed comes from
+     * outside, and no caller of it is entitled to a second factor of an account that does not exist yet.
      */
     suspend fun findConfirmedEnrollmentOrNull(enrollmentId: UUID): TotpEnrollment? {
-        return totpEnrollmentRepository.findById(enrollmentId)
+        return totpEnrollmentRepository.findByIdAndSessionIdIsNull(enrollmentId)
             ?.takeIf { it.confirmedDate != null }
             ?.let(totpEnrollmentMapper::toTotpEnrollment)
     }

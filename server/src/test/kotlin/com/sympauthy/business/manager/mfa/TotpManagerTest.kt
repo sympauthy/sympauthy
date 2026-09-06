@@ -233,7 +233,7 @@ class TotpManagerTest {
         }
         val enrollment = mockk<TotpEnrollment>()
 
-        coEvery { totpEnrollmentRepository.findById(enrollmentId) } returns entity
+        coEvery { totpEnrollmentRepository.findByIdAndSessionIdIsNull(enrollmentId) } returns entity
         every { totpEnrollmentMapper.toTotpEnrollment(entity) } returns enrollment
 
         val result = manager.findConfirmedEnrollmentOrNull(enrollmentId)
@@ -245,7 +245,7 @@ class TotpManagerTest {
     fun `findConfirmedEnrollmentOrNull - Returns null when not found`() = runTest {
         val enrollmentId = UUID.randomUUID()
 
-        coEvery { totpEnrollmentRepository.findById(enrollmentId) } returns null
+        coEvery { totpEnrollmentRepository.findByIdAndSessionIdIsNull(enrollmentId) } returns null
 
         assertNull(manager.findConfirmedEnrollmentOrNull(enrollmentId))
     }
@@ -257,7 +257,7 @@ class TotpManagerTest {
             every { confirmedDate } returns null
         }
 
-        coEvery { totpEnrollmentRepository.findById(enrollmentId) } returns entity
+        coEvery { totpEnrollmentRepository.findByIdAndSessionIdIsNull(enrollmentId) } returns entity
 
         assertNull(manager.findConfirmedEnrollmentOrNull(enrollmentId))
     }
