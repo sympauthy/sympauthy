@@ -169,6 +169,19 @@ class DeclaredConfigurationKeysTest {
     }
 
     @Test
+    fun `nearestKeyOrNull - A segment the server split into several is answered by all of them`() {
+        assertEquals(
+            "clients.admin.webhooks.authorization.url",
+            keys.nearestKeyOrNull("clients.admin.authorization-webhook.url")
+        )
+    }
+
+    @Test
+    fun `nearestKeyOrNull - A key resembling none of the segments that replaced it is answered by nothing`() {
+        assertNull(keys.nearestKeyOrNull("clients.admin.callback.url"))
+    }
+
+    @Test
     fun `nearestKeyOrNull - A key nothing resembles is answered by nothing`() {
         assertNull(keys.nearestKeyOrNull("ui.mail.background-color"))
     }

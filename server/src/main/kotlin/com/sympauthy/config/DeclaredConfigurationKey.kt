@@ -64,13 +64,22 @@ class DeclaredConfigurationKey(
 
     /**
      * The correction this key offers for [written]: the segment where the two first differ, replaced by
-     * the one this key declares, and the rest of it left as the operator wrote it — the ids they chose
-     * included. Null where the two differ nowhere, where the key runs past this one's end, or where the
-     * differing segment is nothing like the declared one.
+     * the segments this key declares in its place, and the rest of it left as the operator wrote it —
+     * the ids they chose included. Null where the two differ nowhere, where the key runs past this one's
+     * end, or where the differing segment is nothing like the ones declared there.
      *
-     * Nothing like it means neither sharing a hyphenated word with it nor standing within [tolerance] of
-     * it. The word comes first because `flow` and `authorization-flow` share one, and no edit distance
-     * short enough to reject a coincidence would ever accept that pair.
+     * How many stand in its place is settled rather than searched for. The correction keeps every other
+     * segment the operator wrote, so a key one segment longer than theirs replaces one segment with two,
+     * and a key no longer than theirs replaces it with one: a name spelt wrong is the second of those,
+     * and a name that moved deeper is the first. That is what answers
+     * `advanced.authorization-webhook.timeout` with `advanced.webhooks.authorization.timeout`, where the
+     * key did not lose a spelling so much as gain a grouping above it.
+     *
+     * Nothing like them means neither sharing a hyphenated word with them nor standing within
+     * [tolerance] of them, the run read as the one hyphenated name its words would spell. The word comes
+     * first because `flow` and `authorization-flow` share one, and no edit distance short enough to
+     * reject a coincidence would ever accept that pair — nor `authorization-webhook` and the run
+     * `webhooks.authorization`, which share their words and nothing of their order.
      */
     fun correctionOf(written: List<ConfigurationKeySegment>): Correction? {
         var position = 0
@@ -86,19 +95,30 @@ class DeclaredConfigurationKey(
             position++
         }
         if (position == written.size || position == segments.size) return null
-        val declared = when (val expected = segments[position]) {
-            is Named -> expected.name
-            is Entries -> expected.name
-            else -> return null
-        }
+        val length = maxOf(1, segments.size - written.size + 1)
+        val declaredNames = segments.subList(position, position + length).map { nameOf(it) ?: return null }
+        val declared = declaredNames.joinToString(WORD.toString())
         val misspelt = written[position].name
         val sharesWord = declared.split(WORD).intersect(misspelt.split(WORD).toSet()).isNotEmpty()
         val distance = editDistance(misspelt, declared)
         if (!sharesWord && distance > tolerance(misspelt, declared)) return null
-        val corrected = written.mapIndexed { index, segment ->
-            if (index == position) "$declared${segment.index.orEmpty()}" else segment.written
+        val replacement = declaredNames.mapIndexed { index, name ->
+            if (index == declaredNames.lastIndex) "$name${written[position].index.orEmpty()}" else name
+        }
+        val corrected = written.flatMapIndexed { index, segment ->
+            if (index == position) replacement else listOf(segment.written)
         }.joinToString(SEPARATOR.toString())
         return Correction(corrected, position, sharesWord, distance)
+    }
+
+    /**
+     * The name [segment] would be written out as, or null for the two that stand for what the operator
+     * chose: an id is theirs to name, and a subtree is theirs to fill.
+     */
+    private fun nameOf(segment: Segment): String? = when (segment) {
+        is Named -> segment.name
+        is Entries -> segment.name
+        is Id, is Subtree -> null
     }
 
     /** How a key an operator wrote stands against a key the server declares. */
@@ -115,9 +135,9 @@ class DeclaredConfigurationKey(
     }
 
     /**
-     * A key an operator wrote with the one segment that differs corrected, and how near the correction
-     * is: how much of the key it kept, whether the two segments share a word, and how many edits apart
-     * they stand.
+     * A key an operator wrote with the one segment that differs replaced by what this key declares in
+     * its place, and how near the correction is: how much of the key it kept, whether what was written
+     * shares a word with what replaced it, and how many edits apart the two stand.
      */
     class Correction(
         val corrected: String,

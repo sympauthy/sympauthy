@@ -58,9 +58,9 @@ class DeclaredConfigurationKeys(
      * The declared key nearest to [key], or null where none is near enough to be worth reading.
      *
      * Nearest is the key sharing the longest prefix with [key], and among those the one whose differing
-     * segment is nearest. What is offered is the operator's own key with that one segment corrected, and
-     * it is offered only once correcting it makes the key bind — so a key with two mistakes in it is
-     * named alone rather than half-corrected.
+     * segment is nearest. What is offered is the operator's own key with that one segment replaced by
+     * the one or more the server declares in its place, and it is offered only once the replacement
+     * makes the key bind — so a key with two mistakes in it is named alone rather than half-corrected.
      */
     fun nearestKeyOrNull(key: String): String? {
         val written = segmentsOf(key)
