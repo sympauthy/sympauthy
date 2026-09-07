@@ -20,7 +20,7 @@ class DeclaredConfigurationKeysTest {
             "clients.*.allowed-scopes",
             "clients.*.default-scopes",
             "clients.*.uris.**",
-            "clients.*.authorization-webhook.url",
+            "clients.*.webhooks.authorization.url",
             "rules.user[*].name",
             "rules.user[*].scopes",
             "templates.clients.*.authorization-flow",
@@ -166,6 +166,19 @@ class DeclaredConfigurationKeysTest {
     @Test
     fun `nearestKeyOrNull - Two keys equally near are answered by the same one every time`() {
         assertEquals("clients.admin.allowed-scopes", keys.nearestKeyOrNull("clients.admin.scopes"))
+    }
+
+    @Test
+    fun `nearestKeyOrNull - A segment the server split into several is answered by all of them`() {
+        assertEquals(
+            "clients.admin.webhooks.authorization.url",
+            keys.nearestKeyOrNull("clients.admin.authorization-webhook.url")
+        )
+    }
+
+    @Test
+    fun `nearestKeyOrNull - A key resembling none of the segments that replaced it is answered by nothing`() {
+        assertNull(keys.nearestKeyOrNull("clients.admin.callback.url"))
     }
 
     @Test
