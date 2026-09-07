@@ -9,6 +9,6 @@ interface AuthorizationWebhookConfigurationProperties {
     val timeout: String?
 
     companion object {
-        const val AUTHORIZATION_WEBHOOK_KEY = "$ADVANCED_KEY.authorization-webhook"
+        const val AUTHORIZATION_WEBHOOK_KEY = "$ADVANCED_KEY.webhooks.authorization"
     }
 }

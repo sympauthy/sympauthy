@@ -23,7 +23,7 @@ import javax.crypto.spec.SecretKeySpec
  * Serializes the [AuthorizationWebhookRequest] as JSON, signs the request body using HMAC-SHA256,
  * and sends it as a POST request with the signature in the `X-SympAuthy-Signature` header.
  *
- * The call is subject to a configurable timeout (`advanced.authorization-webhook.timeout`).
+ * The call is subject to a configurable timeout (`advanced.webhooks.authorization.timeout`).
  * All failures (network errors, timeouts, non-2xx responses, invalid payloads) are returned
  * as [AuthorizationWebhookResult.Failure] rather than thrown as exceptions.
  */

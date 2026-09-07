@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test
  * key a field binds to is derived from the prefix of the field's own type. Nest one annotated interface
  * in one owner and reuse it as the type of a field in another, and the second owner's field binds under
  * the first owner's prefix: the key an operator writes under the second is read by nothing, and nothing
- * about it fails to compile. `templates.clients.*.authorization-webhook` was that key.
+ * about it fails to compile. `templates.clients.*.webhooks.authorization` was that key.
  *
  * This is the class of defect rather than the instance, which is why it is held here and not by
  * [ShippedConfigurationKeysTest] — a key the server ships nowhere is one no shipped file names.

@@ -20,7 +20,7 @@ class DeclaredConfigurationKeysTest {
             "clients.*.allowed-scopes",
             "clients.*.default-scopes",
             "clients.*.uris.**",
-            "clients.*.authorization-webhook.url",
+            "clients.*.webhooks.authorization.url",
             "rules.user[*].name",
             "rules.user[*].scopes",
             "templates.clients.*.authorization-flow",
