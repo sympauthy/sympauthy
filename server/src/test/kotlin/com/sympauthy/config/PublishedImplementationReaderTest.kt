@@ -65,6 +65,20 @@ class PublishedImplementationReaderTest {
     }
 
     @Test
+    fun `read - Refuse an implementation published under a name a file would not spell`() {
+        val failure = assertThrows<IllegalStateException> {
+            reader.read(MisspeltQualifierTestPort::class)
+        }
+
+        assertEquals(
+            "Auto_Increment name implementations of ${MisspeltQualifierTestPort::class.java.name} " +
+                "and are not spelled the way a value in a configuration file is: a qualifier is " +
+                "lowercase letters separated by dashes.",
+            failure.message
+        )
+    }
+
+    @Test
     fun `read - Refuse an interface nothing implements`() {
         assertThrows<IllegalStateException> { reader.read(UnimplementedTestPort::class) }
     }
@@ -125,6 +139,16 @@ interface UnnamedImplementationTestPort
 
 @Singleton
 class UnnamedTestImplementation : UnnamedImplementationTestPort
+
+/**
+ * A port whose implementation is published under a name no configuration file would spell, which the
+ * container passes through to the operator's YAML exactly as it was written.
+ */
+interface MisspeltQualifierTestPort
+
+@Singleton
+@Named("Auto_Increment")
+class MisspeltTestImplementation : MisspeltQualifierTestPort
 
 /**
  * A port nothing implements, which a setting selecting from it could name no word for.
