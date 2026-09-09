@@ -1,8 +1,10 @@
 package com.sympauthy.config.parsing
 
-import com.sympauthy.business.model.key.CryptoKeysGenerationStrategyId
+import com.sympauthy.business.model.key.CryptoKeysGenerationStrategy
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
+import com.sympauthy.config.PublishedImplementations
+import com.sympauthy.config.model.ConfiguredImplementation
 import com.sympauthy.config.properties.AdvancedConfigurationProperties
 import com.sympauthy.config.properties.AuthorizationWebhookConfigurationProperties
 import com.sympauthy.config.properties.HashConfigurationProperties
@@ -25,20 +27,47 @@ class AdvancedConfigParserTest {
 
         val parsed = parse(ctx, "auto-increment")
 
-        assertEquals(CryptoKeysGenerationStrategyId.AUTO_INCREMENT, parsed.keysGenerationStrategyId)
+        assertEquals(
+            ConfiguredImplementation(CryptoKeysGenerationStrategy::class, "auto-increment"),
+            parsed.keysGenerationStrategy
+        )
         assertEquals(emptyList<Pair<String, String>>(), ctx.errors.map { it.key to it.messageId })
     }
 
     @Test
-    fun `parse - Report a generation strategy naming no strategy`() {
-        // The qualifier the implementation is published under is no longer what an operator writes.
+    fun `parse - Report a generation strategy naming no implementation`() {
         val ctx = ConfigParsingContext()
 
         val parsed = parse(ctx, "autoincrement")
 
-        assertNull(parsed.keysGenerationStrategyId)
+        assertNull(parsed.keysGenerationStrategy)
         assertEquals(
-            listOf("advanced.keys-generation-strategy" to "config.invalid_enum_value"),
+            listOf("advanced.keys-generation-strategy" to "config.unknown_implementation"),
+            ctx.errors.map { it.key to it.messageId }
+        )
+    }
+
+    @Test
+    fun `parse - Offer the published implementations to a deployment that named none of them`() {
+        val ctx = ConfigParsingContext()
+
+        parse(ctx, "autoincrement")
+
+        assertEquals(
+            mapOf("value" to "autoincrement", "supportedValues" to "auto-increment, in-memory"),
+            ctx.errors.single().values
+        )
+    }
+
+    @Test
+    fun `parse - Report a blank generation strategy against the published implementations`() {
+        val ctx = ConfigParsingContext()
+
+        val parsed = parse(ctx, "  ")
+
+        assertNull(parsed.keysGenerationStrategy)
+        assertEquals(
+            listOf("advanced.keys-generation-strategy" to "config.unknown_implementation"),
             ctx.errors.map { it.key to it.messageId }
         )
     }
@@ -49,7 +78,7 @@ class AdvancedConfigParserTest {
 
         val parsed = parse(ctx, null)
 
-        assertNull(parsed.keysGenerationStrategyId)
+        assertNull(parsed.keysGenerationStrategy)
         assertEquals(
             listOf("advanced.keys-generation-strategy" to "config.missing"),
             ctx.errors.map { it.key to it.messageId }
@@ -59,6 +88,7 @@ class AdvancedConfigParserTest {
     private fun parse(ctx: ConfigParsingContext, keysGenerationStrategy: String?) = parser.parse(
         ctx = ctx,
         properties = advancedProperties(keysGenerationStrategy),
+        keysGenerationStrategies = keysGenerationStrategies,
         jwtProperties = jwtProperties,
         hashProperties = hashProperties,
         invitationProperties = invitationProperties,
@@ -66,6 +96,15 @@ class AdvancedConfigParserTest {
         validationCodeProperties = validationCodeProperties,
         authorizationWebhookProperties = authorizationWebhookProperties,
         paginationProperties = paginationProperties
+    )
+
+    /**
+     * A set this test owns rather than whichever implementations the server happens to publish, so
+     * that a case about an unknown word does not become one about the shipped set.
+     */
+    private val keysGenerationStrategies = PublishedImplementations(
+        CryptoKeysGenerationStrategy::class,
+        sortedSetOf("auto-increment", "in-memory")
     )
 
     /**

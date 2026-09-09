@@ -73,6 +73,46 @@ for the enabled variant where it is optional.
 **A disabled configuration is a value, carried until something needs it.** A feature nobody
 configured lets the server start, and fails where it is used, naming what is missing.
 
+## A setting that selects an implementation
+
+**A value that selects an implementation is spelled as that implementation's qualifier, and the
+published implementations are its allowed values.** There is no enum beside the beans and no list of
+names beside either: what an operator writes is resolved against what the container publishes for
+the interface the setting selects from, so the set exists once, where the code implementing it does,
+and adding an implementation is adding an implementation.
+
+**The interface the setting selects from lives in `business.model`**, because that is
+[the only part of `business` this layer may name](general-code-standard.md#dependency-rules). Its
+implementations stay in `business.manager`, each published under the word an operator writes.
+
+**A qualifier matches `[a-z0-9]+(-[a-z0-9]+)*`** — lowercase letters and digits, words separated by
+a single dash, as `auto-increment` is. The container passes the name through verbatim, so this is
+what reaches the YAML file, and an implementation published under any other spelling is refused
+where the set is read.
+
+**The set is read off the bean definitions and never off the beans.** Configuration is built before
+the managers that read it, and an implementation is free to inject configuration itself, so deciding
+whether a word is valid may not build what is behind it. Those definitions are the annotation
+processor's, so a native image's closed world answers what the JVM does — and the integration suite,
+which boots that image with a word configured, fails every scenario where it does not.
+
+**A word naming no implementation takes readiness down at startup**, naming the key, the word that
+was written and what the server publishes. It is refused in the parser, where every other value that
+does not convert is refused, so it never reaches the manager that would have run what it named.
+
+**The model carries the selection typed by the interface it was made from.** A manager is handed the
+selection for its own interface rather than a bare string, which the word another setting of this
+shape was configured with would satisfy just as well.
+
+**The next setting of this shape names a property and an interface.** The parsing, the refusal and
+the message are the mechanism's, and writing any of them again is a sign the setting is not of this
+shape after all.
+
+**A value the server reasons about is not of this shape, and stays an enum.** `JwtAlgorithm`,
+`AuthorizationFlowType` and a claim's type are closed sets with behaviour of their own, read in more
+places than the one that switches on them, and their entries implement nothing. This rule is for a
+setting whose entire effect is which bean runs.
+
 ## Configuration errors take readiness down
 
 **Any configuration error makes the server report itself unready**, cosmetic ones included. An
@@ -122,6 +162,10 @@ are looked for in the files a deployment wrote, and nowhere else.
 lookups inlined rather than declared, so what a deployment writes under `micronaut`, `endpoints`,
 `flyway` or `netty` cannot be held to the rule above: there is no list of what those prefixes accept
 to hold it against, and guessing one would take readiness down over a key that works.
+
+**A deployment supplying its own implementation.** The set a setting picks from is what the server
+ships. Making the declaration single is not making it open: there is no plugin surface here, and
+adding one would be its own design.
 
 **Secrets.** A secret is a string in the same file as everything else, and where it comes from is
 the deployment's business.

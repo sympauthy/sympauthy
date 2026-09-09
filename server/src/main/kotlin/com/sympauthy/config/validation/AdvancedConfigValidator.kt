@@ -43,7 +43,7 @@ class AdvancedConfigValidator {
 
         if (ctx.hasErrors) return null
         return EnabledAdvancedConfig(
-            keysGenerationStrategyId = parsed.keysGenerationStrategyId!!,
+            keysGenerationStrategy = parsed.keysGenerationStrategy!!,
             publicJwtAlgorithm = parsed.publicJwtAlgorithm!!,
             accessJwtAlgorithm = parsed.accessJwtAlgorithm!!,
             privateJwtAlgorithm = parsed.privateJwtAlgorithm!!,

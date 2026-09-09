@@ -1,6 +1,8 @@
 package com.sympauthy.config.factory
 
+import com.sympauthy.business.model.key.CryptoKeysGenerationStrategy
 import com.sympauthy.config.ConfigParsingContext
+import com.sympauthy.config.PublishedImplementationReader
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.DisabledAdvancedConfig
 import com.sympauthy.config.parsing.AdvancedConfigParser
@@ -20,7 +22,8 @@ import jakarta.inject.Singleton
 @Factory
 class AdvancedConfigFactory(
     @Inject private val advancedParser: AdvancedConfigParser,
-    @Inject private val advancedValidator: AdvancedConfigValidator
+    @Inject private val advancedValidator: AdvancedConfigValidator,
+    @Inject private val publishedImplementationReader: PublishedImplementationReader
 ) {
 
     @Singleton
@@ -36,7 +39,8 @@ class AdvancedConfigFactory(
     ): AdvancedConfig {
         val ctx = ConfigParsingContext()
         val parsed = advancedParser.parse(
-            ctx, properties, jwtProperties, hashProperties,
+            ctx, properties, publishedImplementationReader.read(CryptoKeysGenerationStrategy::class),
+            jwtProperties, hashProperties,
             invitationProperties, invitationHashProperties,
             validationCodeProperties, authorizationWebhookProperties, paginationProperties
         )
