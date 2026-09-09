@@ -85,10 +85,10 @@ and adding an implementation is adding an implementation.
 [the only part of `business` this layer may name](general-code-standard.md#dependency-rules). Its
 implementations stay in `business.manager`, each published under the word an operator writes.
 
-**A qualifier matches `[a-z]+(-[a-z]+)*`** — lowercase letters, words separated by a single dash, as
-`auto-increment` is. The container passes the name through verbatim, so this is what reaches the
-YAML file, and an implementation published under any other spelling is refused where the set is
-read.
+**A qualifier matches `[a-z0-9]+(-[a-z0-9]+)*`** — lowercase letters and digits, words separated by
+a single dash, as `auto-increment` is. The container passes the name through verbatim, so this is
+what reaches the YAML file, and an implementation published under any other spelling is refused
+where the set is read.
 
 **The set is read off the bean definitions and never off the beans.** Configuration is built before
 the managers that read it, and an implementation is free to inject configuration itself, so deciding
@@ -162,10 +162,6 @@ are looked for in the files a deployment wrote, and nowhere else.
 lookups inlined rather than declared, so what a deployment writes under `micronaut`, `endpoints`,
 `flyway` or `netty` cannot be held to the rule above: there is no list of what those prefixes accept
 to hold it against, and guessing one would take readiness down over a key that works.
-
-**A digit in a qualifier.** The shape above admits letters and dashes and nothing else. An
-implementation whose name wants a version or an algorithm number is a reason to widen the rule where
-it is written, and never to spell one word two ways.
 
 **A deployment supplying its own implementation.** The set a setting picks from is what the server
 ships. Making the declaration single is not making it open: there is no plugin surface here, and

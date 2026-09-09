@@ -43,7 +43,7 @@ class PublishedImplementationReader(
         check(misspelt.isEmpty()) {
             "${misspelt.joinToString(", ")} name implementations of ${type.java.name} and are not " +
                 "spelled the way a value in a configuration file is: a qualifier is lowercase " +
-                "letters separated by dashes."
+                "letters and digits separated by dashes."
         }
         return PublishedImplementations(type, qualifiers.toSortedSet())
     }
@@ -59,6 +59,6 @@ class PublishedImplementationReader(
         /**
          * The shape of a qualifier, which is the shape of every other value an operator writes.
          */
-        val QUALIFIER = Regex("[a-z]+(-[a-z]+)*")
+        val QUALIFIER = Regex("[a-z0-9]+(-[a-z0-9]+)*")
     }
 }

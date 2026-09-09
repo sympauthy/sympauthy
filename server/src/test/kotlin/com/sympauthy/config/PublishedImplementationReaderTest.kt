@@ -36,7 +36,7 @@ class PublishedImplementationReaderTest {
     @Test
     fun `read - Answer the qualifiers the implementations are published under`() {
         assertEquals(
-            setOf("first", "second"),
+            setOf("first", "second-2"),
             reader.read(PublishedImplementationTestPort::class).qualifiers
         )
     }
@@ -73,7 +73,7 @@ class PublishedImplementationReaderTest {
         assertEquals(
             "Auto_Increment name implementations of ${MisspeltQualifierTestPort::class.java.name} " +
                 "and are not spelled the way a value in a configuration file is: a qualifier is " +
-                "lowercase letters separated by dashes.",
+                "lowercase letters and digits separated by dashes.",
             failure.message
         )
     }
@@ -110,7 +110,8 @@ class PublishedImplementationReaderTest {
 
 /**
  * A port this test owns, so that a case about several implementations names a set no change to the
- * server's own settings moves.
+ * server's own settings moves. One of the two carries a digit and a dash, which is the whole of the
+ * shape a qualifier may take.
  */
 interface PublishedImplementationTestPort
 
@@ -123,10 +124,10 @@ class FirstPublishedImplementation : PublishedImplementationTestPort {
 }
 
 @Singleton
-@Named("second")
+@Named("second-2")
 class SecondPublishedImplementation : PublishedImplementationTestPort {
     init {
-        BuiltTestImplementations.record("second")
+        BuiltTestImplementations.record("second-2")
     }
 }
 
