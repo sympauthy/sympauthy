@@ -1,13 +1,11 @@
 package com.sympauthy.business.model.key
 
 /**
- * The generation of the cryptographic keys this server signs with, as a deployment may pick one of
- * them in `advanced.keys-generation-strategy`.
+ * The generation of the cryptographic keys this server signs with, which a deployment picks one of
+ * in `advanced.keys-generation-strategy`.
  *
- * It is the interface a setting selects an implementation from, so it lives here rather than beside
- * the implementations: `business.model` is the only part of `business` the configuration layer may
- * name. The implementations are in `business.manager`, each published under the word an operator
- * writes to select it.
+ * It is a model rather than a manager because a setting selects an implementation of it, which
+ * `docs/config-layer-code-standard.md` says puts it here.
  */
 interface CryptoKeysGenerationStrategy {
 

@@ -60,6 +60,19 @@ class AdvancedConfigParserTest {
     }
 
     @Test
+    fun `parse - Report a blank generation strategy against the published implementations`() {
+        val ctx = ConfigParsingContext()
+
+        val parsed = parse(ctx, "  ")
+
+        assertNull(parsed.keysGenerationStrategy)
+        assertEquals(
+            listOf("advanced.keys-generation-strategy" to "config.unknown_implementation"),
+            ctx.errors.map { it.key to it.messageId }
+        )
+    }
+
+    @Test
     fun `parse - Report a missing generation strategy`() {
         val ctx = ConfigParsingContext()
 

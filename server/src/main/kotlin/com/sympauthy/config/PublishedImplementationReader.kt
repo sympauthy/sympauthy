@@ -8,14 +8,8 @@ import jakarta.inject.Singleton
 import kotlin.reflect.KClass
 
 /**
- * What the container publishes for an interface a setting selects an implementation from.
- *
- * The set is read off the bean definitions and never off the beans: configuration is built before
- * the managers that read it, and an implementation is free to inject configuration itself, so
- * deciding whether a word is valid may not build what is behind it.
- *
- * The definitions are the ones the annotation processor wrote at compile time, which is what makes
- * the answer under a native image's closed world the same as the one on the JVM.
+ * What the container publishes for an interface a setting selects an implementation from, which
+ * `docs/config-layer-code-standard.md` makes the set of words that setting accepts.
  */
 @Singleton
 class PublishedImplementationReader(
@@ -23,27 +17,31 @@ class PublishedImplementationReader(
 ) {
 
     /**
-     * Every implementation of [type] the container publishes, or a failure where that is none of
-     * them. A setting selecting from an interface nothing is published under has no value an
-     * operator could write at all, which is the build being wrong rather than the file.
+     * Every implementation of [type] the container publishes, or a failure where one of them is
+     * published under no name and where none of them is.
+     *
+     * Both are the build being wrong rather than the file. An interface nothing names leaves the
+     * setting with no word an operator could write; an implementation left unnamed is one the
+     * container still injects — under a name of its own devising — into the map the manager resolves
+     * out of, so a word that would run it is refused while the manager holds it all the same.
      */
     fun <T : Any> read(type: KClass<T>): PublishedImplementations<T> {
-        val qualifiers = beanContext.getBeanDefinitions(type.java)
-            .mapNotNull(::qualifierOf)
-            .toSortedSet()
-        check(qualifiers.isNotEmpty()) {
-            "No implementation of ${type.java.name} is published under a name, so no word a " +
-                "deployment writes to select one could name any. This is the build being wrong " +
-                "rather than the file."
+        val definitions = beanContext.getBeanDefinitions(type.java)
+        val unnamed = definitions.filter { qualifierOfOrNull(it) == null }
+        check(unnamed.isEmpty()) {
+            "${unnamed.joinToString(", ") { it.beanType.name }} implement ${type.java.name} and are " +
+                "published under no name, so no word a deployment writes could select them."
         }
-        return PublishedImplementations(type, qualifiers)
+        check(definitions.isNotEmpty()) {
+            "Nothing implements ${type.java.name}, so no word a deployment writes to select an " +
+                "implementation of it could name any."
+        }
+        return PublishedImplementations(type, definitions.mapNotNull(::qualifierOfOrNull).toSortedSet())
     }
 
     /**
-     * The name [definition] is published under, or null where it carries none. An implementation
-     * with no name is left out of the set: there is no word for a deployment to select it with, and
-     * the manager that would run it is handed its implementations by name too.
+     * The name [definition] is published under, or null where it carries none.
      */
-    private fun qualifierOf(definition: BeanDefinition<*>): String? =
+    private fun qualifierOfOrNull(definition: BeanDefinition<*>): String? =
         definition.annotationMetadata.stringValue(AnnotationUtil.NAMED).orElse(null)
 }

@@ -123,8 +123,9 @@ class ConfigParser {
     /**
      * The implementation a deployment named at [key], out of the ones [published] holds.
      *
-     * A word naming none of them is refused here, where every other value that does not convert is
-     * refused, so it never reaches the manager that would have run what it named.
+     * Throws `config.unknown_implementation`, naming the word and every qualifier published, where
+     * it names none of them — including where it is blank, so that the refusal an operator reads
+     * always lists what they could have written instead.
      */
     fun <C : Any, T : Any> getImplementationOrThrow(
         config: C,
@@ -132,13 +133,13 @@ class ConfigParser {
         published: PublishedImplementations<T>,
         value: (C) -> String?
     ): ConfiguredImplementation<T> {
-        val qualifier = getStringOrThrow(config, key, value)
+        val qualifier = getOrThrow(config, key, value)
         if (qualifier !in published.qualifiers) {
             throw configExceptionOf(
                 key,
                 "config.unknown_implementation",
                 "value" to qualifier,
-                "supportedValues" to published.qualifiers.joinToString(", ")
+                "supportedValues" to published.qualifiers.sorted().joinToString(", ")
             )
         }
         return ConfiguredImplementation(published.type, qualifier)
