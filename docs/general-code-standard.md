@@ -61,6 +61,12 @@ uses it.
 **`config` may import `business.model`.** A validated configuration is a domain value, and these two
 model packages are one layer with two names.
 
+**An interface a setting selects an implementation from lives in `business.model`.** A setting of
+that shape names the interface it selects from, and `business.model` is the only part of `business`
+a parser may name; the implementations stay in `business.manager`, where the work they do belongs.
+[The `config` standard](config-layer-code-standard.md#a-setting-that-selects-an-implementation) owns
+the mechanism.
+
 **A validator takes what it needs from elsewhere as a parameter**, resolved by its factory. No
 manager, no mapper and no business exception reaches `config`.
 

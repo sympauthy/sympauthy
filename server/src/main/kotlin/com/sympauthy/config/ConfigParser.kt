@@ -1,6 +1,7 @@
 package com.sympauthy.config
 
 import com.sympauthy.config.exception.configExceptionOf
+import com.sympauthy.config.model.ConfiguredImplementation
 import com.sympauthy.util.configName
 import com.sympauthy.util.toAbsoluteUri
 import io.micronaut.core.convert.ConversionService
@@ -117,6 +118,30 @@ class ConfigParser {
     fun <C : Any> getAbsoluteUriOrThrow(config: C, key: String, value: (C) -> String?): URI {
         return getOrThrow(config, key, value).toAbsoluteUri()
             ?: throw configExceptionOf(key, "config.invalid_url")
+    }
+
+    /**
+     * The implementation a deployment named at [key], out of the ones [published] holds.
+     *
+     * A word naming none of them is refused here, where every other value that does not convert is
+     * refused, so it never reaches the manager that would have run what it named.
+     */
+    fun <C : Any, T : Any> getImplementationOrThrow(
+        config: C,
+        key: String,
+        published: PublishedImplementations<T>,
+        value: (C) -> String?
+    ): ConfiguredImplementation<T> {
+        val qualifier = getStringOrThrow(config, key, value)
+        if (qualifier !in published.qualifiers) {
+            throw configExceptionOf(
+                key,
+                "config.unknown_implementation",
+                "value" to qualifier,
+                "supportedValues" to published.qualifiers.joinToString(", ")
+            )
+        }
+        return ConfiguredImplementation(published.type, qualifier)
     }
 
     inline fun <C : Any, reified T : Enum<T>> getEnumOrThrow(

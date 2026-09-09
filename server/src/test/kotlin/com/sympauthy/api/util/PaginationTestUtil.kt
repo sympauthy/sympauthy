@@ -1,8 +1,9 @@
 package com.sympauthy.api.util
 
 import com.sympauthy.business.model.jwt.JwtAlgorithm
-import com.sympauthy.business.model.key.CryptoKeysGenerationStrategyId
+import com.sympauthy.business.model.key.CryptoKeysGenerationStrategy
 import com.sympauthy.config.model.AuthorizationWebhookAdvancedConfig
+import com.sympauthy.config.model.ConfiguredImplementation
 import com.sympauthy.config.model.EnabledAdvancedConfig
 import com.sympauthy.config.model.HashConfig
 import com.sympauthy.config.model.InvitationAdvancedConfig
@@ -37,7 +38,7 @@ fun paginationUtilOf(
     )
     return PaginationUtil(
         EnabledAdvancedConfig(
-            keysGenerationStrategyId = CryptoKeysGenerationStrategyId.AUTO_INCREMENT,
+            keysGenerationStrategy = ConfiguredImplementation(CryptoKeysGenerationStrategy::class, "auto-increment"),
             publicJwtAlgorithm = JwtAlgorithm.ES256,
             accessJwtAlgorithm = JwtAlgorithm.ES256,
             privateJwtAlgorithm = JwtAlgorithm.HS256,

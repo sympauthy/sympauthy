@@ -1,9 +1,10 @@
 package com.sympauthy.config.validation
 
 import com.sympauthy.business.model.jwt.JwtAlgorithm
-import com.sympauthy.business.model.key.CryptoKeysGenerationStrategyId
+import com.sympauthy.business.model.key.CryptoKeysGenerationStrategy
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
+import com.sympauthy.config.model.ConfiguredImplementation
 import com.sympauthy.config.parsing.ParsedAdvancedConfig
 import com.sympauthy.config.parsing.ParsedHashConfig
 import com.sympauthy.config.parsing.ParsedInvitationConfig
@@ -88,7 +89,7 @@ class AdvancedConfigValidatorTest {
             keyLength = 32
         )
         return ParsedAdvancedConfig(
-            keysGenerationStrategyId = CryptoKeysGenerationStrategyId.AUTO_INCREMENT,
+            keysGenerationStrategy = ConfiguredImplementation(CryptoKeysGenerationStrategy::class, "auto-increment"),
             publicJwtAlgorithm = JwtAlgorithm.ES256,
             accessJwtAlgorithm = JwtAlgorithm.ES256,
             privateJwtAlgorithm = JwtAlgorithm.HS256,

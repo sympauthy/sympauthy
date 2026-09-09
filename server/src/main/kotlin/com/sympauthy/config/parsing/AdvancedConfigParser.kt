@@ -1,9 +1,11 @@
 package com.sympauthy.config.parsing
 
 import com.sympauthy.business.model.jwt.JwtAlgorithm
-import com.sympauthy.business.model.key.CryptoKeysGenerationStrategyId
+import com.sympauthy.business.model.key.CryptoKeysGenerationStrategy
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
+import com.sympauthy.config.PublishedImplementations
+import com.sympauthy.config.model.ConfiguredImplementation
 import com.sympauthy.config.properties.*
 import com.sympauthy.config.properties.AdvancedConfigurationProperties.Companion.ADVANCED_KEY
 import com.sympauthy.config.properties.AuthorizationWebhookConfigurationProperties.Companion.AUTHORIZATION_WEBHOOK_KEY
@@ -17,7 +19,7 @@ import jakarta.inject.Singleton
 import java.time.Duration
 
 data class ParsedAdvancedConfig(
-    val keysGenerationStrategyId: CryptoKeysGenerationStrategyId?,
+    val keysGenerationStrategy: ConfiguredImplementation<CryptoKeysGenerationStrategy>?,
     val publicJwtAlgorithm: JwtAlgorithm?,
     val accessJwtAlgorithm: JwtAlgorithm?,
     val privateJwtAlgorithm: JwtAlgorithm?,
@@ -61,6 +63,7 @@ class AdvancedConfigParser(
     fun parse(
         ctx: ConfigParsingContext,
         properties: AdvancedConfigurationProperties,
+        keysGenerationStrategies: PublishedImplementations<CryptoKeysGenerationStrategy>,
         jwtProperties: JwtConfigurationProperties,
         hashProperties: HashConfigurationProperties,
         invitationProperties: InvitationConfigurationProperties,
@@ -69,9 +72,9 @@ class AdvancedConfigParser(
         authorizationWebhookProperties: AuthorizationWebhookConfigurationProperties,
         paginationProperties: PaginationConfigurationProperties
     ): ParsedAdvancedConfig {
-        val keysGenerationStrategyId = ctx.parse {
-            parser.getEnumOrThrow<AdvancedConfigurationProperties, CryptoKeysGenerationStrategyId>(
-                properties, "$ADVANCED_KEY.keys-generation-strategy",
+        val keysGenerationStrategy = ctx.parse {
+            parser.getImplementationOrThrow(
+                properties, "$ADVANCED_KEY.keys-generation-strategy", keysGenerationStrategies,
                 AdvancedConfigurationProperties::keysGenerationStrategy
             )
         }
@@ -111,7 +114,7 @@ class AdvancedConfigParser(
         val pagination = parsePaginationConfig(ctx, paginationProperties)
 
         return ParsedAdvancedConfig(
-            keysGenerationStrategyId = keysGenerationStrategyId,
+            keysGenerationStrategy = keysGenerationStrategy,
             publicJwtAlgorithm = publicJwtAlgorithm,
             accessJwtAlgorithm = accessJwtAlgorithm,
             privateJwtAlgorithm = privateJwtAlgorithm,
