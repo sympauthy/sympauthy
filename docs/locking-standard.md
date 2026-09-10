@@ -81,14 +81,14 @@ write:
 ```kotlin
 @Query(
     """
-    SELECT * FROM security_contexts
-    WHERE expiration_date < :now
+    SELECT * FROM mail_queue
+    WHERE expiration_date IS NULL OR expiration_date > :now
     ORDER BY id
     LIMIT :limit
     FOR UPDATE SKIP LOCKED
     """
 )
-suspend fun claimExpired(now: LocalDateTime, limit: Int): List<SecurityContextEntity>
+suspend fun claimUnsent(now: LocalDateTime, limit: Int): List<MailQueueEntity>
 ```
 
 **A claim and the writes that follow are one transaction.** Outside one, the row lock is released by

@@ -99,6 +99,7 @@ The verb says what kind of work the method does:
 | `parse…` | turns untrusted input into a domain type |
 | `validate…`, `check…` | throws when a rule is broken, and returns nothing |
 | `is…`, `are…`, `can…` | answers a question as a `Boolean` |
+| `with…` | runs a block inside something it takes and gives back |
 
 **The `…OrNull` rule from [the general standard](general-code-standard.md#naming) applies on top of
 any of them.** The throwing twin delegates to the nullable one, so one error code covers every
