@@ -107,6 +107,10 @@ handler, a manager method, a repository query.
 **A blocking third-party call is made inside an IO dispatcher.** A library that fetches a key set or
 sends mail does its own I/O.
 
+**Coordination between instances is a row, not a monitor.** A `Mutex` or an `AtomicInteger` holds
+inside one process and settles nothing against the next one; [the locking
+standard](locking-standard.md) holds the mechanisms that do.
+
 ## Rules that compile and then fail
 
 **A class carrying an AOP annotation is `open`, and so is the annotated method.** Kotlin classes are
