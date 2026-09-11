@@ -66,8 +66,20 @@ instead.
 **A message in a bundle is documented by being written well.** The technical half already explains
 the failure.
 
-**A configuration example is commented for the operator.** Say what the value does and what happens
-if it is wrong.
+**A comment in a shipped configuration file explains the choice of default, and nothing else.** What
+a key does, what it accepts and what goes wrong when it is set badly is
+[the public documentation](https://sympauthy.github.io/technical/configuration/), which is the copy
+an operator reads. Write why the shipped value is the one it is, where that is not obvious.
+
+```yaml
+# Empty because naming a proxy promises this server is only reachable through it, and no file
+# shipped with the server can make that promise on a deployment's behalf.
+security-context:
+  providers: [ ]
+```
+
+**A file shipping an environment says what the environment is and how to turn it on**, at its top.
+That is the preset naming itself, rather than a key documenting itself.
 
 ## What this standard does not cover
 

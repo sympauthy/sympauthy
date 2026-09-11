@@ -2,6 +2,7 @@ package com.sympauthy.config.model
 
 import com.sympauthy.business.model.jwt.JwtAlgorithm
 import com.sympauthy.business.model.key.CryptoKeysGenerationStrategy
+import com.sympauthy.business.model.security.EdgeProvider
 import com.sympauthy.config.exception.ConfigurationException
 import java.time.Duration
 
@@ -27,6 +28,7 @@ data class EnabledAdvancedConfig(
     val validationCode: ValidationCodeConfig,
     val authorizationWebhook: AuthorizationWebhookAdvancedConfig,
     val pagination: PaginationConfig,
+    val securityContext: SecurityContextConfig,
 ) : AdvancedConfig()
 
 class DisabledAdvancedConfig(
@@ -97,6 +99,45 @@ data class PaginationConfig(
 
 data class AuthorizationWebhookAdvancedConfig(
     val timeout: Duration,
+)
+
+/**
+ * Which edges this deployment sits behind, and are therefore believed about where a request came
+ * from.
+ *
+ * The trustless configuration is the empty one — no provider, no auto-detection, no override — and
+ * it is what a deployment that configured nothing has. Every header this server reads is read
+ * because something here named it.
+ */
+data class SecurityContextConfig(
+    /**
+     * Whether every published provider is applied, sorted by the name each is published under,
+     * rather than only the ones [providers] names.
+     */
+    val autoDetect: Boolean,
+    /**
+     * The edges in front of this server, in the order an operator wrote them, each overriding the
+     * fields the ones before it answered.
+     */
+    val providers: List<ConfiguredImplementation<EdgeProvider>>,
+    /**
+     * The headers a deployment named for itself, which win over every provider.
+     */
+    val headers: SecurityContextHeadersConfig,
+)
+
+/**
+ * The header each field is read from where a deployment named one, and null where the providers
+ * answer for it.
+ */
+data class SecurityContextHeadersConfig(
+    val clientIp: String?,
+    val countryCode: String?,
+    val regionCode: String?,
+    val region: String?,
+    val city: String?,
+    val postalCode: String?,
+    val timeZone: String?,
 )
 
 fun AdvancedConfig.orThrow(): EnabledAdvancedConfig {

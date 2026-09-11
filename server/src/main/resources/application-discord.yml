@@ -1,5 +1,7 @@
 # Default configuration for Discord as a third-party provider.
-# The missing client-id and client-secret can be obtained on: https://discord.com/developers
+#
+# Enable this preset by adding "discord" to the MICRONAUT_ENVIRONMENTS variable, and supply the
+# client credentials it leaves unset. They are obtained on: https://discord.com/developers
 
 providers:
   discord:

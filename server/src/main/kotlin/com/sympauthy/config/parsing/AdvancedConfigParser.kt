@@ -2,6 +2,7 @@ package com.sympauthy.config.parsing
 
 import com.sympauthy.business.model.jwt.JwtAlgorithm
 import com.sympauthy.business.model.key.CryptoKeysGenerationStrategy
+import com.sympauthy.business.model.security.EdgeProvider
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.PublishedImplementations
@@ -14,6 +15,8 @@ import com.sympauthy.config.properties.InvitationConfigurationProperties.Compani
 import com.sympauthy.config.properties.InvitationHashConfigurationProperties.Companion.INVITATION_HASH_KEY
 import com.sympauthy.config.properties.JwtConfigurationProperties.Companion.JWT_KEY
 import com.sympauthy.config.properties.PaginationConfigurationProperties.Companion.PAGINATION_KEY
+import com.sympauthy.config.properties.SecurityContextConfigurationProperties.Companion.SECURITY_CONTEXT_KEY
+import com.sympauthy.config.properties.SecurityContextHeadersConfigurationProperties.Companion.HEADERS_KEY
 import com.sympauthy.config.properties.ValidationCodeConfigurationProperties.Companion.VALIDATION_CODE_KEY
 import jakarta.inject.Singleton
 import java.time.Duration
@@ -27,7 +30,24 @@ data class ParsedAdvancedConfig(
     val invitation: ParsedInvitationConfig,
     val validationCode: ParsedValidationCodeConfig,
     val webhookTimeout: Duration?,
-    val pagination: ParsedPaginationConfig
+    val pagination: ParsedPaginationConfig,
+    val securityContext: ParsedSecurityContextConfig
+)
+
+data class ParsedSecurityContextConfig(
+    val autoDetect: Boolean?,
+    val providers: List<ConfiguredImplementation<EdgeProvider>>,
+    val headers: ParsedSecurityContextHeaders
+)
+
+data class ParsedSecurityContextHeaders(
+    val clientIp: String?,
+    val countryCode: String?,
+    val regionCode: String?,
+    val region: String?,
+    val city: String?,
+    val postalCode: String?,
+    val timeZone: String?
 )
 
 data class ParsedInvitationConfig(
@@ -70,7 +90,10 @@ class AdvancedConfigParser(
         invitationHashProperties: InvitationHashConfigurationProperties,
         validationCodeProperties: ValidationCodeConfigurationProperties,
         authorizationWebhookProperties: AuthorizationWebhookConfigurationProperties,
-        paginationProperties: PaginationConfigurationProperties
+        paginationProperties: PaginationConfigurationProperties,
+        securityContextProperties: SecurityContextConfigurationProperties,
+        securityContextHeadersProperties: SecurityContextHeadersConfigurationProperties,
+        edgeProviders: PublishedImplementations<EdgeProvider>
     ): ParsedAdvancedConfig {
         val keysGenerationStrategy = ctx.parse {
             parser.getImplementationOrThrow(
@@ -112,6 +135,9 @@ class AdvancedConfigParser(
         }
 
         val pagination = parsePaginationConfig(ctx, paginationProperties)
+        val securityContext = parseSecurityContextConfig(
+            ctx, securityContextProperties, securityContextHeadersProperties, edgeProviders
+        )
 
         return ParsedAdvancedConfig(
             keysGenerationStrategy = keysGenerationStrategy,
@@ -122,8 +148,64 @@ class AdvancedConfigParser(
             invitation = invitation,
             validationCode = validationCode,
             webhookTimeout = webhookTimeout,
-            pagination = pagination
+            pagination = pagination,
+            securityContext = securityContext
         )
+    }
+
+    /**
+     * The edges a deployment named, in the order it wrote them, and the headers it named for itself.
+     *
+     * A word naming no published provider is refused by the mechanism every setting of this shape
+     * shares, against the index it was written at, so a file listing two unknown words reports both.
+     */
+    private fun parseSecurityContextConfig(
+        ctx: ConfigParsingContext,
+        properties: SecurityContextConfigurationProperties,
+        headersProperties: SecurityContextHeadersConfigurationProperties,
+        edgeProviders: PublishedImplementations<EdgeProvider>
+    ): ParsedSecurityContextConfig {
+        val subCtx = ctx.child()
+        val autoDetect = subCtx.parse {
+            parser.getBoolean(
+                properties, "$SECURITY_CONTEXT_KEY.auto-detect",
+                SecurityContextConfigurationProperties::autoDetect
+            )
+        }
+        val providers = properties.providers
+            ?.mapIndexedNotNull { index, value ->
+                val key = "$SECURITY_CONTEXT_KEY.providers[$index]"
+                subCtx.parse { parser.getImplementationOrThrow(properties, key, edgeProviders) { value } }
+            }
+            ?: emptyList()
+        val headers = parseSecurityContextHeaders(subCtx, headersProperties)
+        ctx.merge(subCtx)
+        return ParsedSecurityContextConfig(
+            autoDetect = autoDetect,
+            providers = providers,
+            headers = headers
+        )
+    }
+
+    private fun parseSecurityContextHeaders(
+        ctx: ConfigParsingContext,
+        properties: SecurityContextHeadersConfigurationProperties
+    ): ParsedSecurityContextHeaders {
+        val subCtx = ctx.child()
+        fun header(key: String, value: (SecurityContextHeadersConfigurationProperties) -> String?) = subCtx.parse {
+            parser.getString(properties, "$HEADERS_KEY.$key", value)
+        }
+        val parsed = ParsedSecurityContextHeaders(
+            clientIp = header("client-ip", SecurityContextHeadersConfigurationProperties::clientIp),
+            countryCode = header("country-code", SecurityContextHeadersConfigurationProperties::countryCode),
+            regionCode = header("region-code", SecurityContextHeadersConfigurationProperties::regionCode),
+            region = header("region", SecurityContextHeadersConfigurationProperties::region),
+            city = header("city", SecurityContextHeadersConfigurationProperties::city),
+            postalCode = header("postal-code", SecurityContextHeadersConfigurationProperties::postalCode),
+            timeZone = header("time-zone", SecurityContextHeadersConfigurationProperties::timeZone)
+        )
+        ctx.merge(subCtx)
+        return parsed
     }
 
     private fun parsePaginationConfig(

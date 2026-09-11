@@ -1,6 +1,7 @@
 package com.sympauthy.config
 
 import com.sympauthy.business.model.key.CryptoKeysGenerationStrategy
+import com.sympauthy.business.model.security.EdgeProvider
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.model.AdvancedConfig
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
@@ -29,6 +30,12 @@ class PublishedImplementationReaderTest {
      */
     @Inject
     lateinit var generationStrategies: Map<String, CryptoKeysGenerationStrategy>
+
+    /**
+     * The map [com.sympauthy.api.util.SecurityContextUtil] resolves an edge out of.
+     */
+    @Inject
+    lateinit var edgeProviders: Map<String, EdgeProvider>
 
     @Inject
     lateinit var advancedConfig: AdvancedConfig
@@ -88,6 +95,14 @@ class PublishedImplementationReaderTest {
         assertEquals(
             generationStrategies.keys.sorted(),
             reader.read(CryptoKeysGenerationStrategy::class).qualifiers.toList()
+        )
+    }
+
+    @Test
+    fun `read - Answer the names the container injects the edges under`() {
+        assertEquals(
+            edgeProviders.keys.sorted(),
+            reader.read(EdgeProvider::class).qualifiers.toList()
         )
     }
 

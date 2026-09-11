@@ -8,17 +8,21 @@ import com.sympauthy.config.model.EnabledAdvancedConfig
 import com.sympauthy.config.model.HashConfig
 import com.sympauthy.config.model.InvitationAdvancedConfig
 import com.sympauthy.config.model.PaginationConfig
+import com.sympauthy.config.model.SecurityContextConfig
+import com.sympauthy.config.model.SecurityContextHeadersConfig
 import com.sympauthy.config.model.ValidationCodeConfig
 import com.sympauthy.config.parsing.ParsedAdvancedConfig
 import com.sympauthy.config.parsing.ParsedHashConfig
 import com.sympauthy.config.parsing.ParsedInvitationConfig
 import com.sympauthy.config.parsing.ParsedPaginationConfig
+import com.sympauthy.config.parsing.ParsedSecurityContextConfig
 import com.sympauthy.config.parsing.ParsedValidationCodeConfig
 import com.sympauthy.config.properties.InvitationConfigurationProperties.Companion.INVITATION_KEY
 import com.sympauthy.config.properties.InvitationHashConfigurationProperties.Companion.INVITATION_HASH_KEY
 import com.sympauthy.config.properties.HashConfigurationProperties.Companion.HASH_KEY
 import com.sympauthy.config.properties.JwtConfigurationProperties.Companion.JWT_KEY
 import com.sympauthy.config.properties.PaginationConfigurationProperties.Companion.PAGINATION_KEY
+import com.sympauthy.config.properties.SecurityContextConfigurationProperties.Companion.SECURITY_CONTEXT_KEY
 import com.sympauthy.config.properties.ValidationCodeConfigurationProperties.Companion.VALIDATION_CODE_KEY
 import jakarta.inject.Singleton
 import java.time.Duration
@@ -40,6 +44,7 @@ class AdvancedConfigValidator {
             timeout = parsed.webhookTimeout ?: DEFAULT_WEBHOOK_TIMEOUT
         )
         val paginationConfig = validatePaginationConfig(ctx, parsed.pagination)
+        val securityContextConfig = validateSecurityContextConfig(ctx, parsed.securityContext)
 
         if (ctx.hasErrors) return null
         return EnabledAdvancedConfig(
@@ -51,7 +56,8 @@ class AdvancedConfigValidator {
             invitationConfig = invitationConfig!!,
             validationCode = validationCodeConfig!!,
             authorizationWebhook = webhookConfig,
-            pagination = paginationConfig!!
+            pagination = paginationConfig!!,
+            securityContext = securityContextConfig!!
         )
     }
 
@@ -95,6 +101,51 @@ class AdvancedConfigValidator {
                 )
             )
         }
+    }
+
+    /**
+     * The edges named, once each.
+     *
+     * A qualifier written twice is refused rather than folded away: the later entry of a list whose
+     * entries override one another wins over the earlier, so a word repeated says the operator
+     * expected two different things from one name and only one of them can be what they meant.
+     */
+    private fun validateSecurityContextConfig(
+        ctx: ConfigParsingContext,
+        parsed: ParsedSecurityContextConfig
+    ): SecurityContextConfig? {
+        val subCtx = ctx.child()
+
+        val seen = mutableSetOf<String>()
+        parsed.providers.forEachIndexed { index, provider ->
+            if (!seen.add(provider.qualifier)) {
+                subCtx.addError(
+                    configExceptionOf(
+                        "$SECURITY_CONTEXT_KEY.providers[$index]",
+                        "config.advanced.security_context.duplicate_provider",
+                        "provider" to provider.qualifier
+                    )
+                )
+            }
+        }
+
+        ctx.merge(subCtx)
+        if (subCtx.hasErrors) {
+            return null
+        }
+        return SecurityContextConfig(
+            autoDetect = parsed.autoDetect ?: false,
+            providers = parsed.providers,
+            headers = SecurityContextHeadersConfig(
+                clientIp = parsed.headers.clientIp,
+                countryCode = parsed.headers.countryCode,
+                regionCode = parsed.headers.regionCode,
+                region = parsed.headers.region,
+                city = parsed.headers.city,
+                postalCode = parsed.headers.postalCode,
+                timeZone = parsed.headers.timeZone
+            )
+        )
     }
 
     private fun validatePaginationConfig(

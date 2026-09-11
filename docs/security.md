@@ -114,6 +114,57 @@ being usable on its own.
 expiry. This is the deliberate cost of not being purely stateless: every request that presents a
 token asks the database about it.
 
+## Where a request came from
+
+The server reads the address a request came from, the user agent it claimed, and whatever location
+the deployment's edge supplied. **It believes no header until an operator names the proxy that sets
+it.** With nothing configured under `advanced.security-context`, the address is the peer of the
+socket the request arrived on, no forwarded header is read at all, and no location is recorded.
+
+**Naming a proxy is a promise that this server is only reachable through it.** There is no proxy
+allow-list here, and nothing checks that a request carrying `CF-Connecting-IP` actually came from
+Cloudflare. That check belongs to the deployment, made once with a firewall rule or an origin lock,
+and this is the right place for it: the server cannot know its own topology, and a list of CIDRs in
+a configuration file is a second copy of that topology which goes stale in silence.
+
+**The consequence, stated plainly: if the origin is reachable directly while a provider is named,
+anyone can set that header and choose what gets recorded about them.** Nothing in this server can
+detect it. A deployment that cannot guarantee a closed origin names no provider and accepts the
+proxy's address, which is the shipped default.
+
+**Several proxies are named where several sit in front, and the last one named wins each field it
+answers.** A cluster on Google behind an nginx ingress writes `[gcp, nginx]`: the load balancer
+supplies the location and the ingress, being last, supplies the address. The merge is per field
+rather than whole, so a proxy that answers nothing for a field never erases what an earlier one
+answered — which is what makes the pair mean what an operator intended by writing it.
+
+**`auto-detect` believes every proxy at once, and is wider than naming one.** It applies every
+provider the server publishes, sorted by name, so in practice it believes whichever edge's headers
+are in front of it. That hands the choice of which header is believed to the caller rather than to
+the operator, and where two edges' headers both arrive the later name wins. It needs a closed origin
+all the more, and a deployment that knows what sits in front of it names it instead.
+
+**A proxy is a rule for extracting values, not a table of header names.** An edge that packs several
+fields into one header, as Google's load balancer and Akamai's EdgeScape do, or a port beside the
+address, as CloudFront does, is one a `Map<field, header>` cannot describe — so each provider
+carries the extraction its own edge needs. That is also why **indexing `X-Forwarded-For` from the
+right is safe and reading it whole is not**: every entry a proxy appends is that proxy's own view of
+its peer, and everything to its left arrived with the request. The provider knows how many hops its
+edge adds; a header name in a configuration file does not.
+
+**A header a deployment names for one field replaces that field and never parses.** An operator
+naming a header is saying the value is in it, as it stands. A deployment needing a value dug out of
+a packed header names the provider that knows how.
+
+**What is read is passed on as an ordinary parameter.** There is no request-scoped bean and no
+thread-local context: [the general standard](general-code-standard.md#dependency-rules) keeps a
+manager callable from a scheduled job and a unit test, and every manager here is `suspend`, so a
+thread-local would be intermittently absent across the coroutine boundaries they cross — recording a
+null address against a real security decision, silently.
+
+**Nothing stores any of it yet.** This is the reading half; the record it will be written to is its
+own work.
+
 ## What this design does not do
 
 **It does not rate-limit or lock out.** Nothing limits password attempts, validation-code attempts,
@@ -121,8 +172,9 @@ or second-factor attempts — anywhere. An attacker with a valid identifier gets
 whatever the flow is protecting. This is the largest known gap in this document and it is tracked as
 its own work.
 
-**It does not detect anomalies.** No device fingerprint, no impossible-travel check, no risk score.
-A correct credential is a correct credential.
+**It does not detect anomalies.** It reads where a request came from and does nothing with it: no
+device fingerprint, no impossible-travel check, no risk score, and no geolocation from an IP
+database — only what an edge said. A correct credential is a correct credential.
 
 **It does not log an audit trail.** Who did what, and when, is reconstructible from application logs
 and from the rows themselves, not from a designed record. An audit primitive is designed and not yet

@@ -104,6 +104,13 @@ does not convert is refused, so it never reaches the manager that would have run
 selection for its own interface rather than a bare string, which the word another setting of this
 shape was configured with would satisfy just as well.
 
+**A setting may select several, and the order is the operator's.** The property is a list, each
+entry is refused against the index it was written at so a file naming two unknown words reports
+both, and what the entries mean together is the domain's own rule rather than the mechanism's —
+`advanced.security-context.providers` has each entry override the fields the ones before it
+answered. A word repeated in such a list is refused by the validator: the later entry wins over the
+earlier, so writing one twice says two things and only one of them can be meant.
+
 **The next setting of this shape names a property and an interface.** The parsing, the refusal and
 the message are the mechanism's, and writing any of them again is a sign the setting is not of this
 shape after all.
