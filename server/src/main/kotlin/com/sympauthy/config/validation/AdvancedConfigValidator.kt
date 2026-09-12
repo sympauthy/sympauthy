@@ -113,11 +113,9 @@ class AdvancedConfigValidator {
         ctx: ConfigParsingContext,
         parsed: ParsedSecurityContextConfig
     ): SecurityContextConfig? {
-        val subCtx = ctx.child()
-        val ip = validateSecurityContextIpConfig(subCtx, parsed.ip)
-        val geo = validateSecurityContextGeoConfig(subCtx, parsed.geo)
-        ctx.merge(subCtx)
-        if (subCtx.hasErrors || ip == null || geo == null) {
+        val ip = validateSecurityContextIpConfig(ctx, parsed.ip)
+        val geo = validateSecurityContextGeoConfig(ctx, parsed.geo)
+        if (ip == null || geo == null) {
             return null
         }
         return SecurityContextConfig(ip = ip, geo = geo)
@@ -150,13 +148,13 @@ class AdvancedConfigValidator {
         val subCtx = ctx.child()
 
         val seen = mutableSetOf<String>()
-        parsed.providers.forEachIndexed { index, provider ->
-            if (!seen.add(provider.qualifier)) {
+        parsed.providers.forEach { provider ->
+            if (!seen.add(provider.implementation.qualifier)) {
                 subCtx.addError(
                     configExceptionOf(
-                        "$SECURITY_CONTEXT_GEO_KEY.providers[$index]",
+                        "$SECURITY_CONTEXT_GEO_KEY.providers[${provider.index}]",
                         "config.advanced.security_context.duplicate_provider",
-                        "provider" to provider.qualifier
+                        "provider" to provider.implementation.qualifier
                     )
                 )
             }
@@ -176,7 +174,7 @@ class AdvancedConfigValidator {
         }
         return SecurityContextGeoConfig(
             autoDetect = parsed.autoDetect ?: false,
-            providers = parsed.providers,
+            providers = parsed.providers.map { it.implementation },
             headers = SecurityContextGeoHeadersConfig(
                 countryCode = headers.countryCode,
                 regionCode = headers.regionCode,

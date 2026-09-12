@@ -1,7 +1,6 @@
 package com.sympauthy.config.properties
 
 import com.sympauthy.config.properties.SecurityContextGeoConfigurationProperties.Companion.SECURITY_CONTEXT_GEO_KEY
-import com.sympauthy.config.properties.SecurityContextIpConfigurationProperties.Companion.SECURITY_CONTEXT_KEY
 import io.micronaut.context.annotation.ConfigurationProperties
 
 /**

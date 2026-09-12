@@ -48,8 +48,20 @@ data class ParsedSecurityContextIpConfig(
 
 data class ParsedSecurityContextGeoConfig(
     val autoDetect: Boolean?,
-    val providers: List<ConfiguredImplementation<GeoProvider>>,
+    val providers: List<ParsedGeoProvider>,
     val headers: ParsedSecurityContextGeoHeaders
+)
+
+/**
+ * An edge a deployment named, and the position it was written at.
+ *
+ * The position is carried rather than derived because an entry that did not parse is dropped, so
+ * what survives is no longer indexed the way the file is — and a refusal naming the wrong line is
+ * one an operator corrects in the wrong place.
+ */
+data class ParsedGeoProvider(
+    val index: Int,
+    val implementation: ConfiguredImplementation<GeoProvider>
 )
 
 data class ParsedSecurityContextGeoHeaders(
@@ -215,6 +227,7 @@ class AdvancedConfigParser(
             ?.mapIndexedNotNull { index, value ->
                 val key = "$SECURITY_CONTEXT_GEO_KEY.providers[$index]"
                 ctx.parse { parser.getImplementationOrThrow(properties, key, geoProviders) { value } }
+                    ?.let { ParsedGeoProvider(index, it) }
             }
             ?: emptyList()
         return ParsedSecurityContextGeoConfig(

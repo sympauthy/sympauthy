@@ -75,7 +75,9 @@ an operator reads. Write why the shipped value is the one it is, where that is n
 # Empty because naming a proxy promises this server is only reachable through it, and no file
 # shipped with the server can make that promise on a deployment's behalf.
 security-context:
-  providers: [ ]
+  geo:
+    auto-detect: false
+    providers: [ ]
 ```
 
 **A file shipping an environment says what the environment is and how to turn it on**, at its top.

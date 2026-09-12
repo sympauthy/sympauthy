@@ -39,19 +39,21 @@ class CloudFrontEdge : IpProvider, GeoProvider {
     /**
      * [address] without the source port CloudFront appends to it.
      *
-     * The port is what follows the last colon, and the brackets an IPv6 address is sometimes written
-     * in are dropped with it, so what comes out is the address as every other edge here spells one.
-     * An IPv4 address carrying no port is left alone, having no colon for this to find.
+     * **An address written in brackets says where it ends**, so it is unwrapped whether or not a
+     * port follows it. Everything else is read as ending at the last colon, which is right for an
+     * IPv4 address with a port and for one without, having no colon for this to find.
      *
-     * **It reads the last colon as the port's because CloudFront documents the port as always being
-     * there.** An IPv6 address arriving without one is mostly colons and would lose its last group,
-     * which is why this is the edge's own parse: a deployment whose header holds something else
-     * names it under `advanced.security-context.ip.header`, where a value is read as it stands.
+     * **A bare IPv6 address is the one shape this cannot tell apart**, its last group looking exactly
+     * like a port. It is read as carrying one because CloudFront documents the port as always being
+     * there; a deployment whose header holds something else names it under
+     * `advanced.security-context.ip.header`, where a value is read as it stands.
      */
-    private fun addressWithoutPort(address: String): String? = address
-        .substringBeforeLast(':')
-        .removeSurrounding("[", "]")
-        .ifBlank { null }
+    private fun addressWithoutPort(address: String): String? {
+        if (address.startsWith('[')) {
+            return address.substringAfter('[').substringBefore(']').ifBlank { null }
+        }
+        return address.substringBeforeLast(':').ifBlank { null }
+    }
 
     private companion object {
 

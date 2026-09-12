@@ -53,8 +53,7 @@ class SecurityContextUtil(
             ?: config.ip.provider?.resolve(ipProviders)?.readIpOrNull(headers)
             ?: socketPeerOf(request)
 
-        val located = geoSources.map { it.readGeoOrNull(headers) } + namedHeaders(config.geo.headers, headers)
-        val geo = located.filterNotNull().reduceOrNull { earlier, later -> earlier.mergedUnder(later) }
+        val geo = if (readsNoLocation) null else locationOf(config.geo.headers, headers)
 
         return ObservedSecurityContext(
             ipAddress = ipAddress,
@@ -75,9 +74,29 @@ class SecurityContextUtil(
      */
     private val geoSources: List<GeoProvider> by lazy {
         val config = advancedConfig.orThrow().securityContext.geo
-        val autoDetected = if (config.autoDetect) geoProviders.toSortedMap().values else emptyList()
-        autoDetected + config.providers.map { it.resolve(geoProviders) }
+        val autoDetected = if (config.autoDetect) geoProviders.toSortedMap().keys else emptySet()
+        val named = config.providers.map { it.qualifier }
+        (autoDetected.filterNot(named::contains) + named).map(geoProviders::getValue)
     }
+
+    /**
+     * Whether nothing would have a location read, which is what the shipped configuration has and
+     * what lets a request skip the whole of it.
+     */
+    private val readsNoLocation: Boolean by lazy {
+        geoSources.isEmpty() && advancedConfig.orThrow().securityContext.geo.headers == NO_NAMED_HEADERS
+    }
+
+    /**
+     * Where the edges and the headers a deployment named place the request carrying [headers], each
+     * overriding the fields the ones before it answered.
+     */
+    private fun locationOf(
+        config: SecurityContextGeoHeadersConfig,
+        headers: HttpHeaders
+    ): SecurityContextGeo? = (geoSources.map { it.readGeoOrNull(headers) } + namedHeaders(config, headers))
+        .filterNotNull()
+        .reduceOrNull { earlier, later -> earlier.mergedUnder(later) }
 
     /**
      * Reads the location fields out of the headers a deployment named for itself, each as it stands.
@@ -105,5 +124,21 @@ class SecurityContextUtil(
     private fun socketPeerOf(request: HttpRequest<*>): String {
         val remoteAddress = request.remoteAddress
         return remoteAddress.address?.hostAddress ?: remoteAddress.hostString
+    }
+
+    private companion object {
+
+        /**
+         * A deployment that named no header of its own, which is what makes reading none of them a
+         * decision this can take once.
+         */
+        val NO_NAMED_HEADERS = SecurityContextGeoHeadersConfig(
+            countryCode = null,
+            regionCode = null,
+            region = null,
+            city = null,
+            postalCode = null,
+            timeZone = null
+        )
     }
 }

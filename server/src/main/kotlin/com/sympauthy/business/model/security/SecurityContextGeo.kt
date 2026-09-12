@@ -29,8 +29,7 @@ data class SecurityContextGeo(
      * earlier one answered, which is what lets a deployment behind two edges take the country from
      * one and the city from the other.
      */
-    fun mergedUnder(later: SecurityContextGeo?): SecurityContextGeo {
-        if (later == null) return this
+    fun mergedUnder(later: SecurityContextGeo): SecurityContextGeo {
         return SecurityContextGeo(
             countryCode = later.countryCode ?: countryCode,
             regionCode = later.regionCode ?: regionCode,

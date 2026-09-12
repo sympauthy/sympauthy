@@ -31,8 +31,11 @@ all of them. A request flows down through the three and back:
   standard](api-layer-code-standard.md); what it serializes to is [the API
   standard](api-standard.md).
 - **`business`** — the logic. `manager/` holds the use cases, `model/` the domain types managers
-  exchange, `mapper/` the MapStruct mappers that turn an entity into one. Nothing here knows about
-  HTTP. See [the `business` layer standard](business-layer-code-standard.md).
+  exchange, `mapper/` the MapStruct mappers that turn an entity into one. Nothing here is reached
+  from a request rather than called: a manager takes what it needs as a parameter, and a model
+  naming an HTTP type does so because the concept it describes is one a protocol defines — the
+  credentials a provider is called with, the headers an edge writes about a caller. See [the
+  `business` layer standard](business-layer-code-standard.md).
 - **`data`** — persistence against **PostgreSQL or H2** over [Micronaut Data
   R2DBC](https://micronaut-projects.github.io/micronaut-data/latest/guide/#r2dbc), whose
   non-blocking driver is what lets a repository be `suspend`. See [the `data` layer

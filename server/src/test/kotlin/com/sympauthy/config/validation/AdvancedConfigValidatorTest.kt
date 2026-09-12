@@ -10,6 +10,7 @@ import com.sympauthy.config.parsing.ParsedAdvancedConfig
 import com.sympauthy.config.parsing.ParsedHashConfig
 import com.sympauthy.config.parsing.ParsedInvitationConfig
 import com.sympauthy.config.parsing.ParsedPaginationConfig
+import com.sympauthy.config.parsing.ParsedGeoProvider
 import com.sympauthy.config.parsing.ParsedSecurityContextConfig
 import com.sympauthy.config.parsing.ParsedSecurityContextGeoConfig
 import com.sympauthy.config.parsing.ParsedSecurityContextGeoHeaders
@@ -102,6 +103,26 @@ class AdvancedConfigValidatorTest {
         assertEquals(mapOf("provider" to "cloudflare"), ctx.errors.single().values)
     }
 
+    /**
+     * The list reaching the validator holds only what parsed, so an entry the parser dropped leaves
+     * a gap. The duplicate is reported against the position in the file rather than the position in
+     * what is left of it, which is the line the operator has to edit.
+     */
+    @Test
+    fun `validate - Report a duplicate against the position it was written at`() {
+        val ctx = ConfigParsingContext()
+        val parsed = parsedConfig(geoProvidersAt = listOf(1 to "cloudflare", 2 to "cloudflare"))
+
+        assertNull(validator.validate(ctx, parsed))
+        assertEquals(
+            listOf(
+                "advanced.security-context.geo.providers[2]" to
+                    "config.advanced.security_context.duplicate_provider"
+            ),
+            ctx.errors.map { it.key to it.messageId }
+        )
+    }
+
     @Test
     fun `validate - Keep the geo providers in the order they were written`() {
         val ctx = ConfigParsingContext()
@@ -181,6 +202,7 @@ class AdvancedConfigValidatorTest {
         pagination: ParsedPaginationConfig = ParsedPaginationConfig(20, 100),
         autoDetect: Boolean? = null,
         geoProviders: List<String> = emptyList(),
+        geoProvidersAt: List<Pair<Int, String>> = geoProviders.mapIndexed { index, qualifier -> index to qualifier },
         ipHeader: String? = null,
         cityHeader: String? = null
     ): ParsedAdvancedConfig {
@@ -214,7 +236,9 @@ class AdvancedConfigValidatorTest {
                 ip = ParsedSecurityContextIpConfig(provider = null, header = ipHeader),
                 geo = ParsedSecurityContextGeoConfig(
                     autoDetect = autoDetect,
-                    providers = geoProviders.map { ConfiguredImplementation(GeoProvider::class, it) },
+                    providers = geoProvidersAt.map { (index, qualifier) ->
+                        ParsedGeoProvider(index, ConfiguredImplementation(GeoProvider::class, qualifier))
+                    },
                     headers = ParsedSecurityContextGeoHeaders(
                         countryCode = null,
                         regionCode = null,

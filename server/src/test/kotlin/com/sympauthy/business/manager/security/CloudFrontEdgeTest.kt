@@ -32,6 +32,11 @@ class CloudFrontEdgeTest {
     }
 
     @Test
+    fun `readIpOrNull - Unwrap a bracketed address carrying no port`() {
+        assertEquals("2001:db8::1", edge.readIpOrNull(headersOf("CloudFront-Viewer-Address" to "[2001:db8::1]")))
+    }
+
+    @Test
     fun `readIpOrNull - Leave an IPv4 address carrying no port alone`() {
         assertEquals("198.51.100.10", edge.readIpOrNull(headersOf("CloudFront-Viewer-Address" to "198.51.100.10")))
     }

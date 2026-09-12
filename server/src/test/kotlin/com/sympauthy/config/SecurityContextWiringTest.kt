@@ -3,7 +3,12 @@ package com.sympauthy.config
 import com.sympauthy.api.util.SecurityContextUtil
 import com.sympauthy.business.model.security.GeoProvider
 import com.sympauthy.business.model.security.IpProvider
+import com.sympauthy.business.model.security.CALLER_IP
+import com.sympauthy.business.model.security.FORGED_IP
+import com.sympauthy.business.model.security.SOCKET_PEER
 import com.sympauthy.business.model.security.headersOf
+import com.sympauthy.business.model.security.requestFromPeer
+import com.sympauthy.business.model.security.requestOf
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.ConfiguredImplementation
 import com.sympauthy.config.model.SecurityContextConfig
@@ -12,12 +17,8 @@ import com.sympauthy.config.model.SecurityContextIpConfig
 import com.sympauthy.config.model.advancedConfigOf
 import com.sympauthy.config.model.noNamedGeoHeaders
 import com.sympauthy.config.model.orThrow
-import io.micronaut.http.HttpHeaders
-import io.micronaut.http.HttpRequest
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
-import io.mockk.every
 import io.mockk.junit5.MockKExtension
-import io.mockk.mockk
 import jakarta.inject.Inject
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -25,7 +26,6 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
-import java.net.InetSocketAddress
 
 /**
  * The word a deployment writes reaching the edge that reads its requests.
@@ -123,29 +123,8 @@ class SecurityContextWiringTest {
         geoProviders
     )
 
-    /**
-     * A request whose socket peer is left unstubbed, so that a case about the header being believed
-     * fails rather than passes if the address falls back to the peer instead.
-     */
-    private fun requestOf(headers: HttpHeaders): HttpRequest<*> = mockk {
-        every { this@mockk.headers } returns headers
-    }
-
-    private fun requestFromPeer(headers: HttpHeaders): HttpRequest<*> = mockk {
-        every { this@mockk.headers } returns headers
-        every { remoteAddress } returns InetSocketAddress(SOCKET_PEER, 443)
-    }
-
     private companion object {
 
         const val CONNECTING_IP = "CF-Connecting-IP"
-        const val SOCKET_PEER = "198.51.100.1"
-        const val CALLER_IP = "203.0.113.7"
-
-        /**
-         * An address a caller put in a header nobody asked them for, which is believed or ignored
-         * according to the configuration alone.
-         */
-        const val FORGED_IP = "192.0.2.66"
     }
 }

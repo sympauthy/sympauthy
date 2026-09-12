@@ -1,6 +1,5 @@
 package com.sympauthy.config.properties
 
-import com.sympauthy.config.properties.AdvancedConfigurationProperties.Companion.ADVANCED_KEY
 import com.sympauthy.config.properties.SecurityContextIpConfigurationProperties.Companion.SECURITY_CONTEXT_IP_KEY
 import io.micronaut.context.annotation.ConfigurationProperties
 
@@ -29,7 +28,6 @@ interface SecurityContextIpConfigurationProperties {
     val header: String?
 
     companion object {
-        const val SECURITY_CONTEXT_KEY = "$ADVANCED_KEY.security-context"
         const val SECURITY_CONTEXT_IP_KEY = "$SECURITY_CONTEXT_KEY.ip"
     }
 }

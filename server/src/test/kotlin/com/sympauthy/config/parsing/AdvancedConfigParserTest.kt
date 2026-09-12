@@ -96,7 +96,10 @@ class AdvancedConfigParserTest {
 
         val parsed = parse(ctx, geoProviders = listOf("second-edge", "first-edge"))
 
-        assertEquals(listOf("second-edge", "first-edge"), parsed.securityContext.geo.providers.map { it.qualifier })
+        assertEquals(
+            listOf("second-edge", "first-edge"),
+            parsed.securityContext.geo.providers.map { it.implementation.qualifier }
+        )
         assertEquals(emptyList<Pair<String, String>>(), ctx.errors.map { it.key to it.messageId })
     }
 
@@ -106,7 +109,7 @@ class AdvancedConfigParserTest {
 
         val parsed = parse(ctx, geoProviders = listOf("first-edge", "nowhere", "elsewhere"))
 
-        assertEquals(listOf("first-edge"), parsed.securityContext.geo.providers.map { it.qualifier })
+        assertEquals(listOf("first-edge"), parsed.securityContext.geo.providers.map { it.implementation.qualifier })
         assertEquals(
             listOf(
                 "advanced.security-context.geo.providers[1]" to "config.unknown_implementation",
@@ -147,7 +150,7 @@ class AdvancedConfigParserTest {
 
         assertNull(parsed.securityContext.ip.provider)
         assertNull(parsed.securityContext.ip.header)
-        assertEquals(emptyList<String>(), parsed.securityContext.geo.providers.map { it.qualifier })
+        assertEquals(emptyList<String>(), parsed.securityContext.geo.providers.map { it.implementation.qualifier })
         assertNull(parsed.securityContext.geo.autoDetect)
         assertEquals(emptyList<Pair<String, String>>(), ctx.errors.map { it.key to it.messageId })
     }

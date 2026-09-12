@@ -6,7 +6,12 @@ import com.sympauthy.business.manager.security.GcpEdge
 import com.sympauthy.business.manager.security.NginxEdge
 import com.sympauthy.business.model.security.GeoProvider
 import com.sympauthy.business.model.security.IpProvider
+import com.sympauthy.business.model.security.CALLER_IP
+import com.sympauthy.business.model.security.FORGED_IP
+import com.sympauthy.business.model.security.SOCKET_PEER
 import com.sympauthy.business.model.security.headersOf
+import com.sympauthy.business.model.security.requestFromPeer
+import com.sympauthy.business.model.security.requestOf
 import com.sympauthy.config.model.ConfiguredImplementation
 import com.sympauthy.config.model.SecurityContextConfig
 import com.sympauthy.config.model.SecurityContextGeoConfig
@@ -16,15 +21,13 @@ import com.sympauthy.config.model.advancedConfigOf
 import com.sympauthy.config.model.noNamedGeoHeaders
 import com.sympauthy.config.model.trustlessSecurityContext
 import io.micronaut.http.HttpHeaders
-import io.micronaut.http.HttpRequest
-import io.mockk.every
 import io.mockk.junit5.MockKExtension
-import io.mockk.mockk
+import io.mockk.spyk
+import io.mockk.verify
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
-import java.net.InetSocketAddress
 
 /**
  * The trust model, end to end over a request nothing had to have sent.
@@ -184,6 +187,27 @@ class SecurityContextUtilTest {
         assertNull(observed.geo)
     }
 
+    /**
+     * Naming an edge that auto-detection already found moves it to the end, where it wins the fields
+     * it answers. It is read once all the same: the stub would answer the same thing twice, so only
+     * the verification shows the second read is not made.
+     */
+    @Test
+    fun `observe - Read an edge auto-detection already found once, at the position it was named`() {
+        val counted = spyk(CloudflareEdge())
+        val util = SecurityContextUtil(
+            advancedConfigOf(securityContext = securityContextOf(autoDetect = true, geoProviders = listOf("cf"))),
+            ipProviders,
+            mapOf("akamai" to AkamaiEdge(), "cf" to counted)
+        )
+        val headers = headersOf("CF-IPCountry" to "US", "X-Akamai-Edgescape" to "country_code=FR")
+
+        val observed = util.observe(requestFromPeer(headers))
+
+        assertEquals("US", observed.geo?.countryCode)
+        verify(exactly = 1) { counted.readGeoOrNull(headers) }
+    }
+
     @Test
     fun `observe - Read the user agent the request carried`() {
         val util = utilOf(trustlessSecurityContext())
@@ -227,19 +251,6 @@ class SecurityContextUtilTest {
     )
 
     /**
-     * A request whose socket peer is left unstubbed, so that a case about a header being believed
-     * fails rather than passes if the address falls back to the peer instead.
-     */
-    private fun requestOf(headers: HttpHeaders): HttpRequest<*> = mockk {
-        every { this@mockk.headers } returns headers
-    }
-
-    private fun requestFromPeer(headers: HttpHeaders): HttpRequest<*> = mockk {
-        every { this@mockk.headers } returns headers
-        every { remoteAddress } returns InetSocketAddress(SOCKET_PEER, 443)
-    }
-
-    /**
      * Sets this test owns rather than everything the container publishes, so that a case about
      * auto-detection names the edges it is about and an edge added later does not move it.
      */
@@ -261,25 +272,9 @@ class SecurityContextUtilTest {
         const val REAL_IP = "X-Real-IP"
 
         /**
-         * The proxy this server accepted the connection from, which is what a deployment naming no
-         * proxy records for every request.
-         */
-        const val SOCKET_PEER = "198.51.100.1"
-
-        /**
-         * What an edge in front says the caller's address is.
-         */
-        const val CALLER_IP = "203.0.113.7"
-
-        /**
-         * The same caller as seen by an ingress that is one hop nearer, so that a case about which
-         * proxy won names two addresses that could not be confused.
+         * The caller as seen by an ingress one hop nearer than the edge in front of it, so that a
+         * case about which proxy won names two addresses that could not be confused.
          */
         const val INGRESS_SEEN_IP = "203.0.113.99"
-
-        /**
-         * An address a caller put in a header nobody asked them for.
-         */
-        const val FORGED_IP = "192.0.2.66"
     }
 }
