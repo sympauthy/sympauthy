@@ -36,7 +36,8 @@ to the database.
 
 ## Columns
 
-**A primary key is a `uuid`, defaulted by the database.** These identifiers reach URLs and tokens.
+**A business object's primary key is a `uuid`, defaulted by the database.** These identifiers reach
+URLs and tokens.
 
 **A foreign key is declared where a row belongs to another row, and the referencing column is
 indexed.**

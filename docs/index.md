@@ -28,6 +28,8 @@ they are *not* is a user manual: how to configure and integrate with a running S
   looks like, how a collection is paged, the body a failure returns, and why no redirect is a 307.
 - **[Database standard](database-standard.md)** — how a table and a migration are written, and what
   keeps the PostgreSQL and H2 schemas from drifting apart.
+- **[Locking standard](locking-standard.md)** — how two instances take turns over one database: the
+  lock a transaction holds over an object, the batch a run claims, and the lease a job takes.
 - **[Internationalization standard](i18n-standard.md)** — why there is a bundle per audience, how a
   key is named, and how it reaches the reader in their own language.
 - **[Comment standard](comment-standard.md)** — what a KDoc carries, and where the rationale that
