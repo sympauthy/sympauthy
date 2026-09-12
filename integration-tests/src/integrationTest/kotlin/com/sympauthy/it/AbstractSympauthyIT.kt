@@ -310,8 +310,9 @@ abstract class AbstractSympauthyIT {
 
     /**
      * The `at_hash` an id token must carry for [accessToken] — the left half of its SHA-256 digest,
-     * base64url-encoded (OpenID Connect Core §3.1.3.6). SHA-256 is the hash of the default `RS256`
-     * signing algorithm, which every scenario here boots with.
+     * base64url-encoded (OpenID Connect Core §3.1.3.6). SHA-256 is the hash of `es256`, the shipped
+     * default for `advanced.jwt.public-alg`, which no scenario here overrides. A default moving to a
+     * 384- or 512-bit algorithm is a change to this digest.
      */
     protected fun expectedAtHash(accessToken: String): String {
         val digest = MessageDigest.getInstance("SHA-256").digest(accessToken.toByteArray(StandardCharsets.US_ASCII))

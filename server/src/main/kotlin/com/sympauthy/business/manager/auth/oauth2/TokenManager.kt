@@ -154,6 +154,9 @@ open class TokenManager(
      *
      * Throws an [OAuth2Exception] carrying `invalid_grant` if the refresh token validation fails:
      * - one of the validation of [JwtManager.decodeAndVerify].
+     * - `token.invalid_token_id`, where the token names no row of ours, or names one whose subject it
+     *   does not match.
+     * - `token.revoked`, where the row it names has been revoked.
      * - the [client] does not match the one we have issued the token too.
      * - `token.invalid_user`, where the account the token names is one no sign-up finished.
      * - `token.consent_revoked`, where the consent the grant rests on has been revoked.

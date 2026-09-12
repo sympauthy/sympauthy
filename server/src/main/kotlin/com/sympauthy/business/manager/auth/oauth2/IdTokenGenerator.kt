@@ -66,10 +66,10 @@ class IdTokenGenerator(
      * descends from, and only the issue date, the expiry and the claims are read again, which is what
      * OpenID Connect Core §12.2 requires of an id token issued for a refresh.
      *
-     * No `nonce` is claimed. §12.2 names the claims that must carry over from the original id token and
-     * `nonce` is not among them; it binds an id token to an authorization request, and no authorization
-     * request was made here. A client validating `nonce` on every id token it receives rather than only
-     * on the one answering its authorization request will refuse this one.
+     * No `nonce` is claimed, which §12.2 asks for in as many words: a refreshed id token "SHOULD NOT
+     * have a `nonce` Claim, even when the ID Token issued at the time of the original authentication
+     * contained `nonce`". A nonce binds an id token to an authorization request, and no authorization
+     * request was made here.
      */
     suspend fun generateIdToken(
         refreshToken: AuthenticationToken,
@@ -144,7 +144,11 @@ class IdTokenGenerator(
         return tokenMapper.toEncodedAuthenticationToken(entity, encodedToken)
     }
 
-    internal fun shouldGenerateIdToken(scopes: List<String>): Boolean {
+    /**
+     * Return whether a grant carrying [scopes] is owed an id token — that is, whether it is an OpenID
+     * Connect grant at all.
+     */
+    fun shouldGenerateIdToken(scopes: List<String>): Boolean {
         return scopes.contains(BuiltInGrantableScopeId.OPENID)
     }
 

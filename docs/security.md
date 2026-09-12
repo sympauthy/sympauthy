@@ -107,8 +107,9 @@ Connect Core §3.1.3.6. A third-party provider's id token is held to the same cl
 computation, so the rule this server enforces and the rule it obeys cannot drift apart.
 
 **A refresh reissues the identity, not only the access**, where the grant carried `openid`: the
-subject, the audience and the session are the original authentication's, and the claims, the expiry
-and the `at_hash` are this response's. What is read again is the claim values — the consented scopes
+subject and the audience are the original authentication's, the claims, the expiry and the
+`at_hash` are this response's, and the token is filed under the session it descends from, so
+revoking that session reaches it. What is read again is the claim values — the consented scopes
 filtering them are the set recorded with the grant, and a consent revoked since refuses the refresh
 outright rather than narrowing the token it would have issued.
 [The design FAQ](design-faq.md#does-a-refresh-issue-a-new-id-token) argues the alternative.

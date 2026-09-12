@@ -58,6 +58,8 @@ class IdTokenGeneratorTest {
     @InjectMockKs
     lateinit var generator: IdTokenGenerator
 
+    private val savedEntity = slot<AuthenticationTokenEntity>()
+
     @Test
     fun shouldGenerateIdToken() {
         assertTrue(generator.shouldGenerateIdToken(listOf(BuiltInGrantableScopeId.OPENID)))
@@ -77,33 +79,51 @@ class IdTokenGeneratorTest {
 
     @Test
     fun `generateIdToken - Carry the grant of the refresh token it is issued from`() = runTest {
-        val userId = UUID.randomUUID()
         val sessionId = UUID.randomUUID()
-        val refreshToken = mockk<AuthenticationToken> {
-            every { this@mockk.userId } returns userId
+        val refreshToken = mockRefreshToken(sessionId = sessionId)
+
+        issue(refreshToken)
+
+        val entity = savedEntity.captured
+        assertEquals(refreshToken.userId, entity.userId)
+        assertEquals("client", entity.clientId)
+        assertEquals(listOf(BuiltInGrantableScopeId.OPENID), entity.grantedScopes.toList())
+        assertEquals(listOf(CONSENTED_SCOPE), entity.consentedScopes.toList())
+        assertEquals(sessionId, entity.sessionId)
+        assertEquals("refresh_token", entity.grantType)
+    }
+
+    @Test
+    fun `generateIdToken - Claim no nonce on a refresh`() = runTest {
+        val claimsSet = issue(mockRefreshToken(sessionId = UUID.randomUUID()))
+
+        assertNull(claimsSet.getClaim("nonce"))
+    }
+
+    private fun mockRefreshToken(sessionId: UUID): AuthenticationToken {
+        val id = UUID.randomUUID()
+        return mockk {
+            every { userId } returns id
             every { clientId } returns "client"
             every { grantedScopes } returns listOf(BuiltInGrantableScopeId.OPENID)
-            every { consentedScopes } returns listOf("email")
+            every { consentedScopes } returns listOf(CONSENTED_SCOPE)
             every { this@mockk.sessionId } returns sessionId
         }
+    }
+
+    private suspend fun issue(refreshToken: AuthenticationToken): JWTClaimsSet {
         val accessToken = mockk<EncodedAuthenticationToken> {
             every { token } returns "jHkWEdUXMU1BwAsC4vtUsZwnNvTIxEl0z9K3vx5KF0Y"
         }
-        val builder = stubGeneration(userId, consentedScopes = listOf("email"))
+        val builder = stubGeneration(
+            userId = checkNotNull(refreshToken.userId),
+            consentedScopes = refreshToken.consentedScopes
+        )
 
         generator.generateIdToken(refreshToken, accessToken)
 
-        val entity = savedEntity.captured
-        assertEquals(userId, entity.userId)
-        assertEquals("client", entity.clientId)
-        assertEquals(listOf(BuiltInGrantableScopeId.OPENID), entity.grantedScopes.toList())
-        assertEquals(listOf("email"), entity.consentedScopes.toList())
-        assertEquals(sessionId, entity.sessionId)
-        assertEquals("refresh_token", entity.grantType)
-        assertNull(builder.build().getClaim("nonce"))
+        return builder.build()
     }
-
-    private val savedEntity = slot<AuthenticationTokenEntity>()
 
     private fun stubGeneration(
         userId: UUID,
@@ -142,5 +162,9 @@ class IdTokenGeneratorTest {
         )
 
         return builder.build()
+    }
+
+    private companion object {
+        const val CONSENTED_SCOPE = "email"
     }
 }
