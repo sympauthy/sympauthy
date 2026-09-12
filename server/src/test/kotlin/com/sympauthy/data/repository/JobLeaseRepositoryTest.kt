@@ -9,6 +9,7 @@ import com.sympauthy.data.withFixture
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toSet
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import java.time.LocalDateTime
@@ -33,6 +34,21 @@ class JobLeaseRepositoryTest {
         val seeded = repository<JobLeaseRepository>().findAll().map { it.name }.toSet()
 
         assertEquals(ScheduledJob.entries.map(ScheduledJob::leaseName).toSet(), seeded)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `now - Answers the clock the statements are timed by`(database: Database) = withFixture(database) {
+        val leases = repository<JobLeaseRepository>()
+        newLease()
+        leases.acquire(name, holder, BASE_DATE, BASE_DATE.plusMinutes(10))
+
+        val before = leases.now()
+        leases.release(name, holder)
+        val after = leases.now()
+
+        val freed = leases.findById(name)!!.expirationDate
+        assertTrue(freed in before..after, "The clock read back is not the one the release wrote: $freed.")
     }
 
     @ParameterizedTest
@@ -87,10 +103,10 @@ class JobLeaseRepositoryTest {
         newLease()
         leases.acquire(name, holder, taken, taken.plusMinutes(10))
 
-        val released = leases.release(name, holder, taken.plusMinutes(1))
+        val released = leases.release(name, holder)
 
         assertEquals(1, released)
-        assertEquals(1, leases.acquire(name, otherHolder, taken.plusMinutes(2), taken.plusMinutes(12)))
+        assertEquals(1, leases.acquire(name, otherHolder, leases.now(), taken.plusMinutes(12)))
     }
 
     @ParameterizedTest
@@ -103,7 +119,7 @@ class JobLeaseRepositoryTest {
             leases.acquire(name, holder, taken, taken.plusMinutes(10))
             leases.acquire(name, otherHolder, taken.plusMinutes(11), taken.plusMinutes(21))
 
-            val released = leases.release(name, holder, taken.plusMinutes(12))
+            val released = leases.release(name, holder)
 
             assertEquals(0, released)
             assertEquals(taken.plusMinutes(21), leases.findById(name)!!.expirationDate)

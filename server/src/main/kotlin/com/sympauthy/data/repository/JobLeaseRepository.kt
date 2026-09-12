@@ -16,8 +16,22 @@ import java.time.LocalDateTime
 interface JobLeaseRepository : CoroutineCrudRepository<JobLeaseEntity, String> {
 
     /**
+     * Answer what time the database thinks it is.
+     *
+     * It is read rather than written into the statements below because the arithmetic is not portable:
+     * every dialect spells `LOCALTIMESTAMP`, none of them spells adding a bound number of minutes to it
+     * the same way. So the clock comes back here and the duration is added in Kotlin, which costs one
+     * round trip every quarter of an hour and buys every instance comparing against one clock.
+     */
+    @Query("SELECT LOCALTIMESTAMP")
+    suspend fun now(): LocalDateTime
+
+    /**
      * Take the lease [name] until [expiresAt] on behalf of [holder], and answer 1 when this instance got
      * it and 0 when another one holds it.
+     *
+     * [now] and [expiresAt] are read off [now] rather than off this instance's clock, so an instance
+     * running fast cannot hold a lease past its duration and one running slow cannot take a live one.
      *
      * One statement, so the answer does not depend on the isolation level: a second instance blocks on the
      * row, re-reads it as the winner left it, and matches nothing.
@@ -32,11 +46,14 @@ interface JobLeaseRepository : CoroutineCrudRepository<JobLeaseEntity, String> {
     suspend fun acquire(name: String, holder: String, now: LocalDateTime, expiresAt: LocalDateTime): Int
 
     /**
-     * End [holder]'s lease on [name], leaving it free from [now], and answer how many rows that was.
+     * End [holder]'s lease on [name], leaving it free from now, and answer how many rows that was.
+     *
+     * It takes the clock itself rather than being handed one: there is nothing to add to it here, so the
+     * statement can name `LOCALTIMESTAMP` and spare the caller a read.
      *
      * Keyed on the holder as well as the name: an instance whose lease expired under it while its run was
      * still going has already been replaced, and must not free the lease its successor is holding.
      */
-    @Query("UPDATE job_leases SET expiration_date = :now WHERE name = :name AND holder = :holder")
-    suspend fun release(name: String, holder: String, now: LocalDateTime): Int
+    @Query("UPDATE job_leases SET expiration_date = LOCALTIMESTAMP WHERE name = :name AND holder = :holder")
+    suspend fun release(name: String, holder: String): Int
 }

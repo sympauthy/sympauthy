@@ -114,9 +114,12 @@ names a row whatever became of it since it was read.
 **A scheduled job is a value of `ScheduledJob`, and its lease row ships in the same migration.** A
 test holds the enum and the seeded rows equal, on every dialect.
 
-**A leased job is one that stays correct when it runs twice.** A lease expires on a wall clock, so a
-run overtaking its own lease runs beside its successor — the lease saves the work, it does not own
-it.
+**A leased job is one that stays correct when it runs twice.** A lease expires on a clock, so a run
+overtaking its own lease runs beside its successor — the lease saves the work, it does not own it.
+
+**A lease is timed by the database's clock, never by an instance's.** Read the clock back and add
+the duration in Kotlin: it is the one clock every instance shares, and no dialect spells adding a
+bound interval to `LOCALTIMESTAMP` the way the others do.
 
 **A lease is taken and released around the block, never as a transaction the block runs inside.**
 Both statements stand alone and commit on their own; a job's own writes are its own transactions.

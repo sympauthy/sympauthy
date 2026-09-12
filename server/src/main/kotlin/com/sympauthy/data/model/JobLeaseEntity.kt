@@ -13,6 +13,12 @@ import java.time.LocalDateTime
  * [acquiredAt] are null until an instance has taken it for the first time, and stay at the last holder
  * once a run ends — a released lease is one whose [expirationDate] has passed, not one whose holder was
  * erased.
+ *
+ * **Both timestamps are read off the database's clock rather than written from an instance's**, which is
+ * the only way two of them compare against one timeline. They are in whatever zone that database answers
+ * `LOCALTIMESTAMP` in, where every other timestamp in this schema is UTC because the application writing
+ * it forces its own zone to UTC: a deployment whose database runs in another zone has these two columns
+ * in that zone, and nothing compares them against a column of another table.
  */
 @Serdeable
 @MappedEntity("job_leases")

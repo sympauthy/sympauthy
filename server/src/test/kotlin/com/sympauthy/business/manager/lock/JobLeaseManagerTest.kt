@@ -10,6 +10,7 @@ import io.mockk.junit5.MockKExtension
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
@@ -24,10 +25,18 @@ class JobLeaseManagerTest {
     @InjectMockKs
     lateinit var manager: JobLeaseManager
 
+    /** What the database answers when asked the time, which is the only clock this manager reads. */
+    private val databaseNow: LocalDateTime = LocalDateTime.of(2026, 1, 1, 12, 0, 0)
+
+    @BeforeEach
+    fun stubDatabaseClock() {
+        coEvery { jobLeaseRepository.now() } returns databaseNow
+    }
+
     @Test
     fun `withLease - Runs the block and releases the lease it took`() = runTest {
         coEvery { jobLeaseRepository.acquire(any(), any(), any(), any()) } returns 1
-        coEvery { jobLeaseRepository.release(any(), any(), any()) } returns 1
+        coEvery { jobLeaseRepository.release(any(), any()) } returns 1
         var ran = false
 
         val held = manager.withLease(CLEAN_ABANDONED_ACCOUNTS) { ran = true }
@@ -35,22 +44,23 @@ class JobLeaseManagerTest {
         assertTrue(held)
         assertTrue(ran)
         coVerify(exactly = 1) {
-            jobLeaseRepository.release("clean_abandoned_accounts", any(), any())
+            jobLeaseRepository.release("clean_abandoned_accounts", any())
         }
     }
 
     @Test
-    fun `withLease - Takes the lease for the duration the job names`() = runTest {
-        val taken = mutableListOf<LocalDateTime>()
-        val until = mutableListOf<LocalDateTime>()
+    fun `withLease - Times the lease by the database's clock and not by this instance's`() = runTest {
+        coEvery { jobLeaseRepository.release(any(), any()) } returns 1
         coEvery {
-            jobLeaseRepository.acquire("clean_abandoned_accounts", any(), capture(taken), capture(until))
+            jobLeaseRepository.acquire(
+                name = "clean_abandoned_accounts",
+                holder = any(),
+                now = databaseNow,
+                expiresAt = databaseNow.plus(CLEAN_ABANDONED_ACCOUNTS.leaseDuration)
+            )
         } returns 1
-        coEvery { jobLeaseRepository.release(any(), any(), any()) } returns 1
 
-        manager.withLease(CLEAN_ABANDONED_ACCOUNTS) { }
-
-        assertTrue(taken.single().plus(CLEAN_ABANDONED_ACCOUNTS.leaseDuration) == until.single())
+        assertTrue(manager.withLease(CLEAN_ABANDONED_ACCOUNTS) { })
     }
 
     @Test
@@ -62,20 +72,20 @@ class JobLeaseManagerTest {
 
         assertFalse(held)
         assertFalse(ran)
-        coVerify(exactly = 0) { jobLeaseRepository.release(any(), any(), any()) }
+        coVerify(exactly = 0) { jobLeaseRepository.release(any(), any()) }
     }
 
     @Test
     fun `withLease - Releases the lease when the block fails, and lets the failure through`() = runTest {
         coEvery { jobLeaseRepository.acquire(any(), any(), any(), any()) } returns 1
-        coEvery { jobLeaseRepository.release(any(), any(), any()) } returns 1
+        coEvery { jobLeaseRepository.release(any(), any()) } returns 1
 
         assertThrows<IllegalStateException> {
             manager.withLease(CLEAN_ABANDONED_ACCOUNTS) { error("the run failed") }
         }
 
         coVerify(exactly = 1) {
-            jobLeaseRepository.release("clean_abandoned_accounts", any(), any())
+            jobLeaseRepository.release("clean_abandoned_accounts", any())
         }
     }
 
@@ -86,7 +96,7 @@ class JobLeaseManagerTest {
         coEvery {
             jobLeaseRepository.acquire(any(), capture(takenBy), any(), any())
         } returns 1
-        coEvery { jobLeaseRepository.release(any(), capture(releasedBy), any()) } returns 1
+        coEvery { jobLeaseRepository.release(any(), capture(releasedBy)) } returns 1
 
         manager.withLease(CLEAN_ABANDONED_ACCOUNTS) { }
 
