@@ -97,6 +97,49 @@ class JobLeaseRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
+    fun `renew - Pushes back the lease this holder is still holding`(database: Database) =
+        withFixture(database) {
+            val leases = repository<JobLeaseRepository>()
+            val taken = BASE_DATE
+            newLease()
+            leases.acquire(name, holder, taken, taken.plusMinutes(3))
+
+            val renewed = leases.renew(holder, taken.plusMinutes(1), taken.plusMinutes(4))
+
+            assertEquals(1, renewed)
+            assertEquals(taken.plusMinutes(4), leases.findById(name)!!.expirationDate)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `renew - Leaves alone a lease another instance holds`(database: Database) = withFixture(database) {
+        val leases = repository<JobLeaseRepository>()
+        val taken = BASE_DATE
+        newLease()
+        leases.acquire(name, holder, taken, taken.plusMinutes(3))
+
+        val renewed = leases.renew(otherHolder, taken.plusMinutes(1), taken.plusMinutes(4))
+
+        assertEquals(0, renewed)
+        assertEquals(taken.plusMinutes(3), leases.findById(name)!!.expirationDate)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `renew - Leaves alone a lease that has already expired`(database: Database) = withFixture(database) {
+        val leases = repository<JobLeaseRepository>()
+        val taken = BASE_DATE
+        newLease()
+        leases.acquire(name, holder, taken, taken.plusMinutes(3))
+
+        val renewed = leases.renew(holder, taken.plusMinutes(4), taken.plusMinutes(7))
+
+        assertEquals(0, renewed)
+        assertEquals(taken.plusMinutes(3), leases.findById(name)!!.expirationDate)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
     fun `release - Frees the lease for the next instance`(database: Database) = withFixture(database) {
         val leases = repository<JobLeaseRepository>()
         val taken = BASE_DATE

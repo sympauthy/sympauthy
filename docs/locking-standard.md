@@ -114,8 +114,9 @@ names a row whatever became of it since it was read.
 **A scheduled job is a value of `ScheduledJob`, and its lease row ships in the same migration.** A
 test holds the enum and the seeded rows equal, on every dialect.
 
-**A leased job is one that stays correct when it runs twice.** A lease expires on a clock, so a run
-overtaking its own lease runs beside its successor — the lease saves the work, it does not own it.
+**A leased job is one that stays correct when it runs twice.** Nothing an instance stops doing
+proves its run stopped with it, so a run whose instance falls silent goes on beside the one that
+takes the lease next — the lease saves the work, it does not own it.
 
 **A lease is timed by the database's clock, never by an instance's.** Read the clock back and add
 the duration in Kotlin: it is the one clock every instance shares, and no dialect spells adding a
@@ -127,8 +128,13 @@ Both statements stand alone and commit on their own; a job's own writes are its 
 **A lease is released by its holder alone.** The release names the holder, so an instance whose
 lease already expired and was taken elsewhere ends its run without freeing somebody else's.
 
-**A job whose run may outlast its lease says so in the lease duration.** Give the duration the room
-a slow run needs; it is only ever read after the holder has died.
+**A lease expires on how long an instance may go silent, not on how long a job takes.** It is
+renewed for as long as the instance holding it is alive, so no job carries a duration of its own and
+nobody has to guess one.
+
+**A renewal names its holder and passes over a lease that has already expired.** A lease past its
+expiry may have been taken in the meantime, and pulling it back takes the job from the instance now
+running it.
 
 ## Tests
 
@@ -147,9 +153,6 @@ version-guarded update, and [the interactive flow](interactive-flow.md) owns tha
 **A work row leased across transactions.** Nothing yet claims a row, commits, and takes minutes to
 finish it; a queue whose delivery outlives its transaction would need a lease column of its own.
 
-**Renewing a lease.** A run keeps the lease it took for as long as its duration says, and a
-heartbeat that extends one is not written.
-
 **Fairness.** Nothing queues, and an instance that loses a lock or a lease has no claim on the next
 one.
 
@@ -160,7 +163,12 @@ own, and supporting either means the claim becomes a query per dialect — which
 **Retrying after a lock failure.** A timed-out wait surfaces as the failure it is, and the caller
 decides nothing about trying again.
 
-**Leader election.** No instance holds a role, and every one of them is free to take any lease.
+**Leader election.** No instance holds a role, and every one of them is free to take any lease. A
+role would be a lease over the right to schedule rather than over one run, which is a pet in a fleet
+that scales in and out; nothing here yet wants an owner rather than a winner.
+
+**A registry of the instances that are running.** A lease says who holds it and a renewal says that
+instance is alive, which is all this needs; a roster an operator can read is a feature of its own.
 
 ---
 

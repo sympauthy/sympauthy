@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.lock
 
+import com.sympauthy.business.manager.lock.JobLeaseManager.Companion.GRACE_PERIOD
 import com.sympauthy.business.manager.lock.ScheduledJob.CLEAN_ABANDONED_ACCOUNTS
 import com.sympauthy.data.repository.JobLeaseRepository
 import io.mockk.coEvery
@@ -8,6 +9,7 @@ import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -56,11 +58,34 @@ class JobLeaseManagerTest {
                 name = "clean_abandoned_accounts",
                 holder = any(),
                 now = databaseNow,
-                expiresAt = databaseNow.plus(CLEAN_ABANDONED_ACCOUNTS.leaseDuration)
+                expiresAt = databaseNow.plus(GRACE_PERIOD)
             )
         } returns 1
 
         assertTrue(manager.withLease(CLEAN_ABANDONED_ACCOUNTS) { })
+    }
+
+    @Test
+    fun `renewLeases - Pushes every lease this instance holds one grace period further`() = runTest {
+        coEvery {
+            jobLeaseRepository.renew(any(), databaseNow, databaseNow.plus(GRACE_PERIOD))
+        } returns 2
+
+        assertEquals(2, manager.renewLeases())
+    }
+
+    @Test
+    fun `renewLeases - Renews under the holder the leases were taken by`() = runTest {
+        val takenBy = mutableListOf<String>()
+        val renewedBy = mutableListOf<String>()
+        coEvery { jobLeaseRepository.acquire(any(), capture(takenBy), any(), any()) } returns 1
+        coEvery { jobLeaseRepository.release(any(), any()) } returns 1
+        coEvery { jobLeaseRepository.renew(capture(renewedBy), any(), any()) } returns 1
+
+        manager.withLease(CLEAN_ABANDONED_ACCOUNTS) { }
+        manager.renewLeases()
+
+        assertTrue(takenBy.single() == renewedBy.single())
     }
 
     @Test

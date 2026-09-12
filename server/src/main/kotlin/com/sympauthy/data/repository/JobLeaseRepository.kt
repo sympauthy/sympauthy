@@ -46,6 +46,25 @@ interface JobLeaseRepository : CoroutineCrudRepository<JobLeaseEntity, String> {
     suspend fun acquire(name: String, holder: String, now: LocalDateTime, expiresAt: LocalDateTime): Int
 
     /**
+     * Push back to [expiresAt] every lease [holder] is still holding, and answer how many there were.
+     *
+     * One statement for all of them, because the caller is an instance rather than a job: what it has to
+     * say is that it is still alive, and every lease it holds hears the same thing.
+     *
+     * Guarded on the expiry as well as the holder. A lease of this holder's that has already passed its
+     * expiry may have been taken by another instance between the two statements, and pulling it back
+     * would take a job away from the instance now running it.
+     */
+    @Query(
+        """
+        UPDATE job_leases
+        SET expiration_date = :expiresAt
+        WHERE holder = :holder AND expiration_date > :now
+        """
+    )
+    suspend fun renew(holder: String, now: LocalDateTime, expiresAt: LocalDateTime): Int
+
+    /**
      * End [holder]'s lease on [name], leaving it free from now, and answer how many rows that was.
      *
      * It takes the clock itself rather than being handed one: there is nothing to add to it here, so the
