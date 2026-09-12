@@ -47,3 +47,22 @@ fun requestFromPeer(headers: HttpHeaders): HttpRequest<*> = mockk {
     every { this@mockk.headers } returns headers
     every { remoteAddress } returns InetSocketAddress(SOCKET_PEER, 443)
 }
+
+/**
+ * An observation of a request, with the address and its provenance named and the rest left at what a
+ * deployment reading nothing would have produced.
+ *
+ * A fixture rather than a mock because every field of it is read by whatever is under test, and a
+ * relaxed mock answering null for the source would prove the opposite of what a case about it says.
+ */
+fun observedRequestOf(
+    ipAddress: String = CALLER_IP,
+    ipSource: IpSource = IpSource.SOCKET_PEER,
+    userAgent: String? = null,
+    geo: SecurityContextGeo? = null
+) = ObservedRequest(
+    ipAddress = ipAddress,
+    ipSource = ipSource,
+    userAgent = userAgent,
+    geo = geo
+)

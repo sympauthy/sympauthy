@@ -198,13 +198,65 @@ class AdvancedConfigValidatorTest {
         assertEquals("X-My-Proxy-Ip", config!!.securityContext.ip.header)
     }
 
+    @Test
+    fun `validate - Keep six months of retention where the deployment wrote no number`() {
+        val ctx = ConfigParsingContext()
+
+        val config = validator.validate(ctx, parsedConfig(knownUserRetention = null))
+
+        assertNotNull(config)
+        assertEquals(Duration.ofDays(180), config!!.securityContext.knownUserRetention)
+    }
+
+    @Test
+    fun `validate - Keep the retention the deployment wrote`() {
+        val ctx = ConfigParsingContext()
+
+        val config = validator.validate(ctx, parsedConfig(knownUserRetention = Duration.ofDays(30)))
+
+        assertNotNull(config)
+        assertEquals(Duration.ofDays(30), config!!.securityContext.knownUserRetention)
+    }
+
+    /** A retention of nothing would have the sweep delete rows as fast as the flows writing them commit. */
+    @Test
+    fun `validate - Reject a retention of zero`() {
+        val ctx = ConfigParsingContext()
+
+        assertNull(validator.validate(ctx, parsedConfig(knownUserRetention = Duration.ZERO)))
+
+        assertEquals(
+            listOf(
+                "advanced.security-context.known-user-retention" to
+                    "config.advanced.security_context.invalid_known_user_retention"
+            ),
+            ctx.errors.map { it.key to it.messageId }
+        )
+    }
+
+    @Test
+    fun `validate - Reject a negative retention`() {
+        val ctx = ConfigParsingContext()
+
+        assertNull(validator.validate(ctx, parsedConfig(knownUserRetention = Duration.ofDays(-1))))
+
+        assertEquals(
+            listOf(
+                "advanced.security-context.known-user-retention" to
+                    "config.advanced.security_context.invalid_known_user_retention"
+            ),
+            ctx.errors.map { it.key to it.messageId }
+        )
+    }
+
     private fun parsedConfig(
         pagination: ParsedPaginationConfig = ParsedPaginationConfig(20, 100),
         autoDetect: Boolean? = null,
         geoProviders: List<String> = emptyList(),
         geoProvidersAt: List<Pair<Int, String>> = geoProviders.mapIndexed { index, qualifier -> index to qualifier },
         ipHeader: String? = null,
-        cityHeader: String? = null
+        cityHeader: String? = null,
+        knownUserRetention: Duration? = null
     ): ParsedAdvancedConfig {
         val hash = ParsedHashConfig(
             costParameter = 16_384,
@@ -233,6 +285,7 @@ class AdvancedConfigValidatorTest {
             webhookTimeout = Duration.ofSeconds(5),
             pagination = pagination,
             securityContext = ParsedSecurityContextConfig(
+                knownUserRetention = knownUserRetention,
                 ip = ParsedSecurityContextIpConfig(provider = null, header = ipHeader),
                 geo = ParsedSecurityContextGeoConfig(
                     autoDetect = autoDetect,

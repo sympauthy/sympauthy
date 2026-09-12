@@ -45,6 +45,18 @@ what it returns and what it throws, naming the error code a caller has to handle
 | a decision a later reader would re-litigate | `docs/` |
 | about this one declaration | the function's KDoc, a blank line below the contract |
 
+**A comment carries its reason in full, and names no issue for it.** A tracker entry is argued over,
+edited and closed by people who are not reading this file, so a number standing in for the reason
+leaves the declaration saying only that one existed somewhere.
+
+**A reason may point at `docs/`, because that moves in the same commit.** What is outside this
+repository — an issue, a pull request, a wiki — is a copy this change cannot keep true, and a reader
+who cannot reach it is left with less than the comment would have said on its own.
+
+**Citing what a test protects is not this.** An integration test names the RFC section or the issue it
+guards, which is provenance for the case rather than a reason a reader needs in order to change the
+code — [the testing standard](testing-standard.md#integration-tests) owns it.
+
 **The contract is written as prose.** Name the argument, the result and the failure in the sentences
 that say what the function does, and reference an argument as `[name]` so that it links.
 
@@ -72,13 +84,18 @@ a key does, what it accepts and what goes wrong when it is set badly is
 an operator reads. Write why the shipped value is the one it is, where that is not obvious.
 
 ```yaml
-# Empty because naming a proxy promises this server is only reachable through it, and no file
-# shipped with the server can make that promise on a deployment's behalf.
 security-context:
+  known-user-retention: 180d
+  # Empty because naming a proxy promises this server is only reachable through it, and no file
+  # shipped with the server can make that promise on a deployment's behalf.
   geo:
     auto-detect: false
     providers: [ ]
 ```
+
+**A comment sits on what it explains and not on the block above it.** The retention beside that key
+needs no comment — six months is a number an operator changes — and a comment written over the whole
+domain would have read as explaining it too.
 
 **A file shipping an environment says what the environment is and how to turn it on**, at its top.
 That is the preset naming itself, rather than a key documenting itself.

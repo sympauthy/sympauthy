@@ -53,7 +53,8 @@ fun advancedConfigOf(
  */
 fun trustlessSecurityContext() = SecurityContextConfig(
     ip = SecurityContextIpConfig(provider = null, header = null),
-    geo = SecurityContextGeoConfig(autoDetect = false, providers = emptyList(), headers = noNamedGeoHeaders())
+    geo = SecurityContextGeoConfig(autoDetect = false, providers = emptyList(), headers = noNamedGeoHeaders()),
+    knownUserRetention = Duration.ofDays(180)
 )
 
 fun noNamedGeoHeaders() = SecurityContextGeoHeadersConfig(

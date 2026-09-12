@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.manager.security.UserSecurityContextManager
 import com.sympauthy.business.manager.user.ProvisionalAccountManager
 import com.sympauthy.business.model.flow.CancelledInteractiveFlowSession
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
@@ -32,7 +33,13 @@ class InteractiveFlowEngineTest {
     private val purposeRegistry = mockk<InteractiveFlowPurposeRegistry>()
     private val sessionManager = mockk<InteractiveFlowSessionManager>()
     private val provisionalAccountManager = mockk<ProvisionalAccountManager>(relaxed = true)
-    private val engine = InteractiveFlowEngine(purposeRegistry, sessionManager, provisionalAccountManager)
+    private val userSecurityContextManager = mockk<UserSecurityContextManager>(relaxed = true)
+    private val engine = InteractiveFlowEngine(
+        purposeRegistry,
+        sessionManager,
+        provisionalAccountManager,
+        userSecurityContextManager
+    )
 
     @Test
     fun `advance - Failed session maps to Error`() = runTest {

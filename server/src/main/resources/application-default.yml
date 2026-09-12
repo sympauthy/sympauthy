@@ -26,9 +26,10 @@ advanced:
   pagination:
     default-size: 20
     max-size: 100
-  # Empty because naming a proxy promises this server is only reachable through it, and no file
-  # shipped with the server can make that promise on a deployment's behalf.
   security-context:
+    known-user-retention: 180d
+    # Empty because naming a proxy promises this server is only reachable through it, and no file
+    # shipped with the server can make that promise on a deployment's behalf.
     geo:
       auto-detect: false
       providers: [ ]

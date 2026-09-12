@@ -26,6 +26,7 @@ import com.sympauthy.config.properties.InvitationHashConfigurationProperties.Com
 import com.sympauthy.config.properties.HashConfigurationProperties.Companion.HASH_KEY
 import com.sympauthy.config.properties.JwtConfigurationProperties.Companion.JWT_KEY
 import com.sympauthy.config.properties.PaginationConfigurationProperties.Companion.PAGINATION_KEY
+import com.sympauthy.config.properties.SecurityContextConfigurationProperties.Companion.SECURITY_CONTEXT_KEY
 import com.sympauthy.config.properties.SecurityContextGeoConfigurationProperties.Companion.SECURITY_CONTEXT_GEO_KEY
 import com.sympauthy.config.properties.SecurityContextGeoHeadersConfigurationProperties.Companion.GEO_HEADERS_KEY
 import com.sympauthy.config.properties.SecurityContextIpConfigurationProperties.Companion.SECURITY_CONTEXT_IP_KEY
@@ -115,10 +116,31 @@ class AdvancedConfigValidator {
     ): SecurityContextConfig? {
         val ip = validateSecurityContextIpConfig(ctx, parsed.ip)
         val geo = validateSecurityContextGeoConfig(ctx, parsed.geo)
-        if (ip == null || geo == null) {
+        val retention = validateKnownUserRetention(ctx, parsed.knownUserRetention)
+        if (ip == null || geo == null || retention == null) {
             return null
         }
-        return SecurityContextConfig(ip = ip, geo = geo)
+        return SecurityContextConfig(ip = ip, geo = geo, knownUserRetention = retention)
+    }
+
+    /**
+     * How long a place is kept, refused where it is not a length of time at all.
+     *
+     * Zero or a negative retention would have the sweep delete every row as fast as the flows writing
+     * them commit, and say nothing about it — a feature silently doing the opposite of what it is for.
+     */
+    private fun validateKnownUserRetention(ctx: ConfigParsingContext, parsed: Duration?): Duration? {
+        val retention = parsed ?: DEFAULT_KNOWN_USER_RETENTION
+        if (!retention.isPositive) {
+            ctx.addError(
+                configExceptionOf(
+                    "$SECURITY_CONTEXT_KEY.known-user-retention",
+                    "config.advanced.security_context.invalid_known_user_retention"
+                )
+            )
+            return null
+        }
+        return retention
     }
 
     private fun validateSecurityContextIpConfig(
@@ -366,6 +388,13 @@ class AdvancedConfigValidator {
 
     companion object {
         private val DEFAULT_WEBHOOK_TIMEOUT: Duration = Duration.ofSeconds(5)
+
+        /**
+         * Six months, which is long enough for a place somebody uses a few times a year to still be one
+         * this server recognises, and short enough that an operator who never looks is not holding a
+         * year of addresses.
+         */
+        private val DEFAULT_KNOWN_USER_RETENTION: Duration = Duration.ofDays(180)
 
         /**
          * The shape of an HTTP field name, which RFC 9110 section 5.1 defines as a token.

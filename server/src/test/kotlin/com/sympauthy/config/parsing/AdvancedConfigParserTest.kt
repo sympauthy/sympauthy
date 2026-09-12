@@ -14,6 +14,7 @@ import com.sympauthy.config.properties.InvitationConfigurationProperties
 import com.sympauthy.config.properties.InvitationHashConfigurationProperties
 import com.sympauthy.config.properties.JwtConfigurationProperties
 import com.sympauthy.config.properties.PaginationConfigurationProperties
+import com.sympauthy.config.properties.SecurityContextConfigurationProperties
 import com.sympauthy.config.properties.SecurityContextGeoConfigurationProperties
 import com.sympauthy.config.properties.SecurityContextGeoHeadersConfigurationProperties
 import com.sympauthy.config.properties.SecurityContextIpConfigurationProperties
@@ -21,6 +22,7 @@ import com.sympauthy.config.properties.ValidationCodeConfigurationProperties
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
+import java.time.Duration
 
 class AdvancedConfigParserTest {
 
@@ -192,6 +194,23 @@ class AdvancedConfigParserTest {
         assertEquals("X-My-Proxy-Ip", parse(ctx, ipHeader = "X-My-Proxy-Ip").securityContext.ip.header)
     }
 
+    @Test
+    fun `parse - Read the retention a deployment wrote`() {
+        val ctx = ConfigParsingContext()
+
+        assertEquals(
+            Duration.ofDays(30),
+            parse(ctx, knownUserRetention = "30d").securityContext.knownUserRetention
+        )
+    }
+
+    @Test
+    fun `parse - Read no retention where the deployment wrote none`() {
+        val ctx = ConfigParsingContext()
+
+        assertNull(parse(ctx).securityContext.knownUserRetention)
+    }
+
     private fun parse(
         ctx: ConfigParsingContext,
         keysGenerationStrategy: String? = "auto-increment",
@@ -199,7 +218,8 @@ class AdvancedConfigParserTest {
         ipHeader: String? = null,
         autoDetect: String? = null,
         geoProviders: List<String>? = null,
-        geoHeaders: SecurityContextGeoHeadersConfigurationProperties = noGeoHeaders
+        geoHeaders: SecurityContextGeoHeadersConfigurationProperties = noGeoHeaders,
+        knownUserRetention: String? = null
     ) = parser.parse(
         ctx = ctx,
         properties = advancedProperties(keysGenerationStrategy),
@@ -211,6 +231,9 @@ class AdvancedConfigParserTest {
         validationCodeProperties = validationCodeProperties,
         authorizationWebhookProperties = authorizationWebhookProperties,
         paginationProperties = paginationProperties,
+        securityContextProperties = object : SecurityContextConfigurationProperties {
+            override val knownUserRetention = knownUserRetention
+        },
         ipProperties = object : SecurityContextIpConfigurationProperties {
             override val provider = ipProvider
             override val header = ipHeader

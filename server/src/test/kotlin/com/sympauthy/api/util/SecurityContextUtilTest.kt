@@ -6,6 +6,7 @@ import com.sympauthy.business.manager.security.GcpEdge
 import com.sympauthy.business.manager.security.NginxEdge
 import com.sympauthy.business.model.security.GeoProvider
 import com.sympauthy.business.model.security.IpProvider
+import com.sympauthy.business.model.security.IpSource
 import com.sympauthy.business.model.security.CALLER_IP
 import com.sympauthy.business.model.security.FORGED_IP
 import com.sympauthy.business.model.security.SOCKET_PEER
@@ -13,6 +14,7 @@ import com.sympauthy.business.model.security.headersOf
 import com.sympauthy.business.model.security.requestFromPeer
 import com.sympauthy.business.model.security.requestOf
 import com.sympauthy.config.model.ConfiguredImplementation
+import com.sympauthy.config.model.DisabledAdvancedConfig
 import com.sympauthy.config.model.SecurityContextConfig
 import com.sympauthy.config.model.SecurityContextGeoConfig
 import com.sympauthy.config.model.SecurityContextGeoHeadersConfig
@@ -21,6 +23,7 @@ import com.sympauthy.config.model.advancedConfigOf
 import com.sympauthy.config.model.noNamedGeoHeaders
 import com.sympauthy.config.model.trustlessSecurityContext
 import io.micronaut.http.HttpHeaders
+import java.time.Duration
 import io.mockk.junit5.MockKExtension
 import io.mockk.spyk
 import io.mockk.verify
@@ -226,6 +229,71 @@ class SecurityContextUtilTest {
         assertNull(observed.userAgent)
     }
 
+    @Test
+    fun `observe - Name the socket peer as the source where the deployment named no proxy`() {
+        val util = utilOf(trustlessSecurityContext())
+
+        val observed = util.observe(requestFromPeer(headersOf(CONNECTING_IP to FORGED_IP)))
+
+        assertEquals(IpSource.SOCKET_PEER, observed.ipSource)
+    }
+
+    @Test
+    fun `observe - Name the edge as the source where its header answered`() {
+        val util = utilOf(securityContextOf(ipProvider = "cloudflare"))
+
+        val observed = util.observe(requestOf(headersOf(CONNECTING_IP to CALLER_IP)))
+
+        assertEquals(IpSource.NAMED_EDGE, observed.ipSource)
+    }
+
+    /**
+     * A named edge whose header did not arrive falls back to the peer, and the source says so — which is
+     * what stops a consumer treating the proxy's own address as the caller's.
+     */
+    @Test
+    fun `observe - Name the socket peer as the source where the named edge's header did not arrive`() {
+        val util = utilOf(securityContextOf(ipProvider = "nginx"))
+
+        val observed = util.observe(requestFromPeer(headersOf()))
+
+        assertEquals(IpSource.SOCKET_PEER, observed.ipSource)
+    }
+
+    @Test
+    fun `observe - Name the header as the source where the deployment named one`() {
+        val util = utilOf(securityContextOf(ipHeader = REAL_IP))
+
+        val observed = util.observe(requestOf(headersOf(REAL_IP to CALLER_IP)))
+
+        assertEquals(CALLER_IP, observed.ipAddress)
+        assertEquals(IpSource.NAMED_HEADER, observed.ipSource)
+    }
+
+    /**
+     * A filter reads this on every request, so a configuration that did not parse has to answer rather
+     * than throw: throwing would fail the health endpoint an operator reads to find out why.
+     */
+    @Test
+    fun `observe - Answer the socket peer where the configuration did not parse`() {
+        val util = SecurityContextUtil(DisabledAdvancedConfig(emptyList()), ipProviders, geoProviders)
+
+        val observed = util.observe(requestFromPeer(headersOf(CONNECTING_IP to FORGED_IP, REAL_IP to FORGED_IP)))
+
+        assertEquals(SOCKET_PEER, observed.ipAddress)
+        assertEquals(IpSource.SOCKET_PEER, observed.ipSource)
+        assertNull(observed.geo)
+    }
+
+    @Test
+    fun `observe - Read a user agent where the configuration did not parse`() {
+        val util = SecurityContextUtil(DisabledAdvancedConfig(emptyList()), ipProviders, geoProviders)
+
+        val observed = util.observe(requestFromPeer(headersOf(HttpHeaders.USER_AGENT to "Mozilla/5.0")))
+
+        assertEquals("Mozilla/5.0", observed.userAgent)
+    }
+
     private fun utilOf(securityContext: SecurityContextConfig) = SecurityContextUtil(
         advancedConfigOf(securityContext = securityContext),
         ipProviders,
@@ -247,7 +315,8 @@ class SecurityContextUtilTest {
             autoDetect = autoDetect,
             providers = geoProviders.map { ConfiguredImplementation(GeoProvider::class, it) },
             headers = geoHeaders
-        )
+        ),
+        knownUserRetention = Duration.ofDays(180)
     )
 
     /**

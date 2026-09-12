@@ -24,6 +24,8 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
+import com.sympauthy.business.manager.security.UserSecurityContextManager
+import com.sympauthy.business.model.security.observedRequestOf
 import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
@@ -71,6 +73,9 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
     @MockK
     lateinit var reauthenticationManager: InteractiveFlowSessionReauthenticationManager
 
+    @MockK(relaxed = true)
+    lateinit var userSecurityContextManager: UserSecurityContextManager
+
     @MockK
     lateinit var userManager: UserManager
 
@@ -92,6 +97,7 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
 
     private val login = "user@example.com"
     private val password = "s3cret"
+    private val sessionId = UUID.randomUUID()
     private val userId = UUID.randomUUID()
     private val user = User(
         id = userId,
@@ -114,13 +120,14 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
     fun `signInWithPassword - Re-authentication confirms the fixed user without establishing identity`() = runTest {
         val session = mockk<OnGoingInteractiveFlowSession>()
         every { session.userId } returns userId
+        every { session.id } returns sessionId
         val advanced = mockk<InteractiveFlowSession>()
         stubSuccessfulCredential()
         coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.REAUTHENTICATION
         coEvery { reauthenticationManager.markPrimaryCredentialProven(session) } returns mockk()
         coEvery { engine.completeIfNecessary(session) } returns advanced
 
-        val result = manager.signInWithPassword(session, login, password)
+        val result = manager.signInWithPassword(session, login, password, observedRequestOf())
 
         assertSame(advanced, result)
         coVerify { reauthenticationManager.markPrimaryCredentialProven(session) }
@@ -136,7 +143,7 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
         coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.REAUTHENTICATION
 
         val exception = assertThrows<BusinessException> {
-            manager.signInWithPassword(session, login, password)
+            manager.signInWithPassword(session, login, password, observedRequestOf())
         }
 
         assertEquals("flow.reauthentication.wrong_account", exception.detailsId)
@@ -156,7 +163,7 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
         stubSuccessfulCredential()
         coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.MFA_CHALLENGE
 
-        val result = manager.signInWithPassword(session, login, password)
+        val result = manager.signInWithPassword(session, login, password, observedRequestOf())
 
         assertSame(session, result)
         coVerify(exactly = 0) { sessionManager.setAuthenticatedUserId(any(), any(), any()) }
@@ -165,19 +172,102 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
 
     @Test
     fun `signInWithPassword - Normal sign-in establishes identity and skips the re-authentication branch`() = runTest {
-        val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns null }
+        val session = mockk<OnGoingInteractiveFlowSession> {
+            every { this@mockk.userId } returns null
+            every { id } returns sessionId
+        }
         val updated = mockk<OnGoingInteractiveFlowSession>()
         val advanced = mockk<InteractiveFlowSession>()
         stubSuccessfulCredential()
         coEvery { sessionManager.setAuthenticatedUserId(session, userId, any()) } returns updated
         coEvery { engine.completeIfNecessary(updated) } returns advanced
 
-        val result = manager.signInWithPassword(session, login, password)
+        val result = manager.signInWithPassword(session, login, password, observedRequestOf())
 
         assertSame(advanced, result)
         coVerify { sessionManager.setAuthenticatedUserId(session, userId, any()) }
         coVerify(exactly = 0) { reauthenticationManager.markPrimaryCredentialProven(any()) }
         // The user is not yet known on a normal sign-in, so the engine is never walked to detect the purpose.
         coVerify(exactly = 0) { engine.currentPurposeOrNull(any()) }
+    }
+
+    /**
+     * The password is verified against whatever account matches the login, which is not necessarily this
+     * session's. Anybody holding the session's state — which carries no identity and travels in a URL —
+     * can post their own valid credentials into a flow already fixed to somebody else, and the place they
+     * did it from must not be recorded as that person's.
+     */
+    @Test
+    fun `signInWithPassword - Records nothing where the credential resolved no user for this session`() = runTest {
+        // The session is left unable to answer for its id on purpose: observing reads it, so a call that
+        // reached the observation would fail here rather than quietly record the wrong person's address.
+        val session = mockk<OnGoingInteractiveFlowSession>()
+        every { session.userId } returns UUID.randomUUID()
+        stubSuccessfulCredential()
+        coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.MFA_CHALLENGE
+
+        manager.signInWithPassword(session, login, password, observedRequestOf())
+
+        coVerify(exactly = 0) { userSecurityContextManager.stage(any(), any()) }
+    }
+
+    @Test
+    fun `signInWithPassword - Records nothing where the password did not verify`() = runTest {
+        val session = mockk<OnGoingInteractiveFlowSession>()
+        every { manager.signInEnabled } returns true
+        coEvery { manager.findByLogin(login) } returns user
+        coEvery { passwordManager.arePasswordMatching(user, password) } returns false
+
+        assertThrows<BusinessException> {
+            manager.signInWithPassword(session, login, password, observedRequestOf())
+        }
+
+        coVerify(exactly = 0) { userSecurityContextManager.stage(any(), any()) }
+    }
+
+    @Test
+    fun `signInWithPassword - Records nothing where re-authentication named a different account`() = runTest {
+        val session = mockk<OnGoingInteractiveFlowSession> {
+            every { this@mockk.userId } returns UUID.randomUUID()
+        }
+        stubSuccessfulCredential()
+        coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.REAUTHENTICATION
+
+        assertThrows<BusinessException> {
+            manager.signInWithPassword(session, login, password, observedRequestOf())
+        }
+
+        coVerify(exactly = 0) { userSecurityContextManager.stage(any(), any()) }
+    }
+
+    @Test
+    fun `signInWithPassword - Records where a normal sign-in established identity`() = runTest {
+        val session = mockk<OnGoingInteractiveFlowSession> {
+            every { this@mockk.userId } returns null
+            every { id } returns sessionId
+        }
+        val updated = mockk<OnGoingInteractiveFlowSession>()
+        stubSuccessfulCredential()
+        coEvery { sessionManager.setAuthenticatedUserId(session, userId, any()) } returns updated
+        coEvery { engine.completeIfNecessary(updated) } returns mockk()
+
+        manager.signInWithPassword(session, login, password, observedRequestOf())
+
+        coVerify { userSecurityContextManager.stage(sessionId, any()) }
+    }
+
+    @Test
+    fun `signInWithPassword - Records where re-authentication confirmed this session's user`() = runTest {
+        val session = mockk<OnGoingInteractiveFlowSession>()
+        every { session.userId } returns userId
+        every { session.id } returns sessionId
+        stubSuccessfulCredential()
+        coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.REAUTHENTICATION
+        coEvery { reauthenticationManager.markPrimaryCredentialProven(session) } returns mockk()
+        coEvery { engine.completeIfNecessary(session) } returns mockk()
+
+        manager.signInWithPassword(session, login, password, observedRequestOf())
+
+        coVerify { userSecurityContextManager.stage(sessionId, any()) }
     }
 }

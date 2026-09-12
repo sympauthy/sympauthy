@@ -8,6 +8,7 @@ import com.sympauthy.data.repository.InteractiveFlowSessionOAuth2Repository
 import com.sympauthy.data.repository.InteractiveFlowSessionProviderRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionReauthenticationRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
+import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
 import com.sympauthy.data.repository.ValidationCodeRepository
 import io.mockk.coEvery
 import io.mockk.coVerifyOrder
@@ -41,6 +42,9 @@ class InteractiveFlowSessionCleanerTest {
 
     @MockK
     lateinit var linkProviderRepository: InteractiveFlowSessionLinkProviderRepository
+
+    @MockK
+    lateinit var securityContextRepository: InteractiveFlowSessionSecurityContextRepository
 
     @MockK
     lateinit var validationCodeRepository: ValidationCodeRepository
@@ -89,6 +93,7 @@ class InteractiveFlowSessionCleanerTest {
         { confirmRepository.deleteBySessionIdIn(listOf(expiredSessionId)) },
         { reauthenticationRepository.deleteBySessionIdIn(listOf(expiredSessionId)) },
         { linkProviderRepository.deleteBySessionIdIn(listOf(expiredSessionId)) },
+        { securityContextRepository.deleteBySessionIdIn(listOf(expiredSessionId)) },
     )
 
     private fun expiredSessions(vararg ids: UUID) {
@@ -109,6 +114,7 @@ class InteractiveFlowSessionCleanerTest {
         coEvery { confirmRepository.deleteBySessionIdIn(idList) } returns 0
         coEvery { reauthenticationRepository.deleteBySessionIdIn(idList) } returns 0
         coEvery { linkProviderRepository.deleteBySessionIdIn(idList) } returns 0
+        coEvery { securityContextRepository.deleteBySessionIdIn(idList) } returns 0
         coEvery { sessionRepository.deleteByIds(idList) } returns ids.size
     }
 }

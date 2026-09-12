@@ -2,7 +2,9 @@ package com.sympauthy.api.controller.flow
 
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_ENDPOINTS
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
+import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2ProviderManager
+import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.config.model.getUri
 import com.sympauthy.config.model.orThrow
@@ -12,6 +14,7 @@ import io.micronaut.http.HttpResponse
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
 import io.micronaut.http.annotation.QueryValue
+import io.micronaut.http.annotation.RequestAttribute
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.micronaut.security.rules.SecurityRule.IS_ANONYMOUS
@@ -95,6 +98,7 @@ Redirection to either:
     @Secured(IS_ANONYMOUS)
     suspend fun callback(
         providerId: String,
+        @RequestAttribute(OBSERVED_REQUEST) observedRequest: ObservedRequest,
         @QueryValue("code") code: String?,
         @QueryValue("state") state: String?,
         @QueryValue("error") error: String?,
@@ -107,6 +111,7 @@ Redirection to either:
                 providerId = providerId,
                 redirectUri = callbackUri(providerId),
                 authorizeCode = code,
+                observedRequest = observedRequest,
                 providerError = error,
                 providerErrorDescription = errorDescription
             )
