@@ -3,6 +3,8 @@ package com.sympauthy.business.manager.flow.auth
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.manager.security.UserSecurityContextManager
+import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.business.manager.flow.reauth.InteractiveFlowSessionReauthenticationManager
 
 import com.sympauthy.business.exception.internalBusinessExceptionOf
@@ -42,6 +44,7 @@ import kotlin.jvm.optionals.getOrNull
 open class InteractiveAuthFlowSessionPasswordManager(
     @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
+    @Inject private val userSecurityContextManager: UserSecurityContextManager,
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val collectedClaimRepository: CollectedClaimRepository,
@@ -87,11 +90,17 @@ open class InteractiveAuthFlowSessionPasswordManager(
     /**
      * Sign in the end-user using a [login] and a [password] and associate the [InteractiveFlowSession] with the [User]
      * associated to the [login]. Finally, return the updated session.
+     *
+     * [observedRequest] is where the request came from, and it is recorded only on the two branches below that
+     * establish or confirm **this session's** user. The password is verified against whatever account matches
+     * [login], which is not necessarily the session's, so recording it any earlier would let anybody holding
+     * the session's state write their own address into somebody else's history.
      */
     suspend fun signInWithPassword(
         session: OnGoingInteractiveFlowSession,
         login: String?,
-        password: String?
+        password: String?,
+        observedRequest: ObservedRequest
     ): InteractiveFlowSession {
         if (!signInEnabled) {
             throw internalBusinessExceptionOf("flow.password.sign_in.disabled")
@@ -127,12 +136,19 @@ open class InteractiveAuthFlowSessionPasswordManager(
         //   return the session unchanged so the flow redirects to its current step, without switching identity.
         // Checking `userId == null` first keeps the normal sign-in path off the engine walk.
         return when {
-            session.userId == null ->
+            session.userId == null -> {
+                // Staged before the flow advances, because completing it is what folds the observation into
+                // the person's record — one staged afterwards would arrive a completion too late.
+                userSecurityContextManager.stage(session.id, observedRequest)
                 engine.completeIfNecessary(sessionManager.setAuthenticatedUserId(session, user.id))
+            }
 
             engine.currentPurposeOrNull(session) == InteractiveFlowPurpose.REAUTHENTICATION ->
-                confirmReauthenticatedUser(session, user)
+                confirmReauthenticatedUser(session, user, observedRequest)
 
+            // A credential that verified for an account this session's user is already fixed as somebody
+            // else, or at a step where signing in no longer applies. Nothing is recorded: it proves who the
+            // poster is, not who this flow belongs to.
             else -> session
         }
     }
@@ -146,7 +162,8 @@ open class InteractiveAuthFlowSessionPasswordManager(
      */
     private suspend fun confirmReauthenticatedUser(
         session: OnGoingInteractiveFlowSession,
-        user: User
+        user: User,
+        observedRequest: ObservedRequest
     ): InteractiveFlowSession {
         if (user.id != session.userId) {
             throw recoverableBusinessExceptionOf(
@@ -154,6 +171,8 @@ open class InteractiveAuthFlowSessionPasswordManager(
                 descriptionId = "description.flow.reauthentication.wrong_account"
             )
         }
+        // After the match above and not before it: until then the credential proves an account, not this one.
+        userSecurityContextManager.stage(session.id, observedRequest)
         reauthenticationManager.markPrimaryCredentialProven(session)
         return engine.completeIfNecessary(session)
     }
@@ -167,7 +186,8 @@ open class InteractiveAuthFlowSessionPasswordManager(
     suspend fun signUpWithClaimsAndPassword(
         session: OnGoingInteractiveFlowSession,
         unfilteredUpdates: List<CollectedClaimUpdate>,
-        password: String
+        password: String,
+        observedRequest: ObservedRequest
     ): InteractiveFlowSession {
         // Signing up ESTABLISHES identity, so it only runs while the session has none. A second post — a back
         // button, a retry, a duplicated request — would otherwise create a second account and switch the
@@ -176,6 +196,7 @@ open class InteractiveAuthFlowSessionPasswordManager(
         if (session.userId != null) return session
 
         val updatedSession = createAccountWithClaimsAndPassword(session, unfilteredUpdates, password)
+        userSecurityContextManager.stage(updatedSession.id, observedRequest)
 
         // Outside the transaction above, deliberately. Completing runs the terminal effects, the promotion
         // and the completion write in a transaction of its own, and a refusal there has to roll that back

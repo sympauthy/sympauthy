@@ -15,6 +15,7 @@ import com.sympauthy.config.properties.InvitationConfigurationProperties
 import com.sympauthy.config.properties.InvitationHashConfigurationProperties
 import com.sympauthy.config.properties.JwtConfigurationProperties
 import com.sympauthy.config.properties.PaginationConfigurationProperties
+import com.sympauthy.config.properties.SecurityContextConfigurationProperties
 import com.sympauthy.config.properties.SecurityContextGeoConfigurationProperties
 import com.sympauthy.config.properties.SecurityContextGeoHeadersConfigurationProperties
 import com.sympauthy.config.properties.SecurityContextIpConfigurationProperties
@@ -41,6 +42,7 @@ class AdvancedConfigFactory(
         validationCodeProperties: ValidationCodeConfigurationProperties,
         authorizationWebhookProperties: AuthorizationWebhookConfigurationProperties,
         paginationProperties: PaginationConfigurationProperties,
+        securityContextProperties: SecurityContextConfigurationProperties,
         securityContextIpProperties: SecurityContextIpConfigurationProperties,
         securityContextGeoProperties: SecurityContextGeoConfigurationProperties,
         securityContextGeoHeadersProperties: SecurityContextGeoHeadersConfigurationProperties,
@@ -51,6 +53,7 @@ class AdvancedConfigFactory(
             jwtProperties, hashProperties,
             invitationProperties, invitationHashProperties,
             validationCodeProperties, authorizationWebhookProperties, paginationProperties,
+            securityContextProperties,
             securityContextIpProperties, securityContextGeoProperties, securityContextGeoHeadersProperties,
             publishedImplementationReader.read(IpProvider::class),
             publishedImplementationReader.read(GeoProvider::class)

@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.time.Duration
 import org.junit.jupiter.api.extension.ExtendWith
 
 /**
@@ -116,7 +117,8 @@ class SecurityContextWiringTest {
         advancedConfigOf(
             securityContext = SecurityContextConfig(
                 ip = SecurityContextIpConfig(ConfiguredImplementation(IpProvider::class, qualifier), null),
-                geo = SecurityContextGeoConfig(false, emptyList(), noNamedGeoHeaders())
+                geo = SecurityContextGeoConfig(false, emptyList(), noNamedGeoHeaders()),
+                knownUserRetention = Duration.ofDays(180)
             )
         ),
         ipProviders,

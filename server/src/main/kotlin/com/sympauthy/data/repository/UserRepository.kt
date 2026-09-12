@@ -52,13 +52,18 @@ interface UserRepository : CoroutineCrudRepository<UserEntity, UUID> {
      * it self-correcting: an account orphaned by an earlier failure is collected on the next run rather than
      * left forever.
      *
-     * The conditions are the rule this table lives under, written out. Nine tables hold a foreign key to
+     * The conditions are the rule this table lives under, written out. Ten tables hold a foreign key to
      * `users`, and each has to be one of three things or the delete that follows breaks it — and, being one
      * transaction, takes the whole run down with it, every quarter of an hour, for good. Four of them
      * (`passwords`, `collected_claims`, `provider_user_info`, `totp_enrollments`) belong to the account and
-     * are deleted with it. The remaining five are the reasons named below: an account any of them still
-     * refers to is skipped rather than deleted, because a row that outlived its account is a bug to find,
-     * not a run to lose. **A tenth table is a decision to make here.**
+     * are deleted with it. Five are the reasons named below: an account any of them still refers to is
+     * skipped rather than deleted, because a row that outlived its account is a bug to find, not a run to
+     * lose.
+     *
+     * `user_security_contexts` is the tenth and is neither, because it is never written against a
+     * provisional account at all: a place is recorded only once a flow has completed, and that transaction
+     * promotes whatever the session signed up before it commits. So no row there can name an account this
+     * query selects. **An eleventh table is a decision to make here.**
      */
     @Query(
         """

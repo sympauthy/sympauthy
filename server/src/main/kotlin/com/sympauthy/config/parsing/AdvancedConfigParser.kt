@@ -16,6 +16,8 @@ import com.sympauthy.config.properties.InvitationConfigurationProperties.Compani
 import com.sympauthy.config.properties.InvitationHashConfigurationProperties.Companion.INVITATION_HASH_KEY
 import com.sympauthy.config.properties.JwtConfigurationProperties.Companion.JWT_KEY
 import com.sympauthy.config.properties.PaginationConfigurationProperties.Companion.PAGINATION_KEY
+import com.sympauthy.config.properties.SecurityContextConfigurationProperties
+import com.sympauthy.config.properties.SecurityContextConfigurationProperties.Companion.SECURITY_CONTEXT_KEY
 import com.sympauthy.config.properties.SecurityContextGeoConfigurationProperties.Companion.SECURITY_CONTEXT_GEO_KEY
 import com.sympauthy.config.properties.SecurityContextGeoHeadersConfigurationProperties.Companion.GEO_HEADERS_KEY
 import com.sympauthy.config.properties.SecurityContextIpConfigurationProperties.Companion.SECURITY_CONTEXT_IP_KEY
@@ -38,7 +40,8 @@ data class ParsedAdvancedConfig(
 
 data class ParsedSecurityContextConfig(
     val ip: ParsedSecurityContextIpConfig,
-    val geo: ParsedSecurityContextGeoConfig
+    val geo: ParsedSecurityContextGeoConfig,
+    val knownUserRetention: Duration?
 )
 
 data class ParsedSecurityContextIpConfig(
@@ -114,6 +117,7 @@ class AdvancedConfigParser(
         validationCodeProperties: ValidationCodeConfigurationProperties,
         authorizationWebhookProperties: AuthorizationWebhookConfigurationProperties,
         paginationProperties: PaginationConfigurationProperties,
+        securityContextProperties: SecurityContextConfigurationProperties,
         ipProperties: SecurityContextIpConfigurationProperties,
         geoProperties: SecurityContextGeoConfigurationProperties,
         geoHeadersProperties: SecurityContextGeoHeadersConfigurationProperties,
@@ -162,7 +166,13 @@ class AdvancedConfigParser(
         val pagination = parsePaginationConfig(ctx, paginationProperties)
         val securityContext = ParsedSecurityContextConfig(
             ip = parseSecurityContextIpConfig(ctx, ipProperties, ipProviders),
-            geo = parseSecurityContextGeoConfig(ctx, geoProperties, geoHeadersProperties, geoProviders)
+            geo = parseSecurityContextGeoConfig(ctx, geoProperties, geoHeadersProperties, geoProviders),
+            knownUserRetention = ctx.parse {
+                parser.getDuration(
+                    securityContextProperties, "$SECURITY_CONTEXT_KEY.known-user-retention",
+                    SecurityContextConfigurationProperties::knownUserRetention
+                )
+            }
         )
 
         return ParsedAdvancedConfig(

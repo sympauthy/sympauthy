@@ -4,6 +4,8 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.flow.link.InteractiveFlowSessionLinkProviderManager
 import com.sympauthy.business.manager.flow.reauth.InteractiveFlowSessionReauthenticationManager
+import com.sympauthy.business.manager.security.UserSecurityContextManager
+import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderClaimsResolver
 import com.sympauthy.business.manager.provider.ProviderManager
@@ -48,6 +50,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
     @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val providerManager: InteractiveFlowSessionProviderManager,
     @Inject private val reauthenticationManager: InteractiveFlowSessionReauthenticationManager,
+    @Inject private val userSecurityContextManager: UserSecurityContextManager,
     @Inject private val providerConfigManager: ProviderManager,
     @Inject private val providerClaimsManager: ProviderClaimsManager,
     @Inject private val providerClaimsResolver: ProviderClaimsResolver,
@@ -138,6 +141,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
         providerId: String?,
         redirectUri: URI,
         authorizeCode: String?,
+        observedRequest: ObservedRequest,
         providerError: String? = null,
         providerErrorDescription: String? = null
     ): InteractiveFlowSession {
@@ -189,7 +193,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
         if (session.userId != null) {
             return when (engine.currentPurposeOrNull(session)) {
                 InteractiveFlowPurpose.REAUTHENTICATION ->
-                    confirmReauthenticatedProviderUser(session, existingUserInfo, rawUserInfo)
+                    confirmReauthenticatedProviderUser(session, existingUserInfo, rawUserInfo, observedRequest)
                 InteractiveFlowPurpose.LINK_PROVIDER ->
                     linkProviderToSessionUser(session, provider, existingUserInfo, rawUserInfo)
                 else -> session
@@ -204,6 +208,9 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
             existingUserInfo.userId to false
         }
         val updatedSession = sessionManager.setAuthenticatedUserId(session, userId, signedUp = signedUp)
+        // Staged before the flow advances: completing it is what folds the observation into the person's
+        // record. The provider round-trip landed in their own browser, so this is their address.
+        userSecurityContextManager.stage(updatedSession.id, observedRequest)
 
         // Complete the flow if the end-user has no more step to go through.
         return engine.completeIfNecessary(updatedSession)
@@ -239,7 +246,8 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
     private suspend fun confirmReauthenticatedProviderUser(
         session: OnGoingInteractiveFlowSession,
         existingUserInfo: ProviderUserInfo?,
-        rawUserInfo: RawProviderClaims
+        rawUserInfo: RawProviderClaims,
+        observedRequest: ObservedRequest
     ): InteractiveFlowSession {
         if (existingUserInfo == null || existingUserInfo.userId != session.userId) {
             throw recoverableBusinessExceptionOf(
@@ -247,6 +255,8 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
                 descriptionId = "description.flow.reauthentication.provider_not_linked"
             )
         }
+        // After the check above: until then the round-trip proves an account, not this session's.
+        userSecurityContextManager.stage(session.id, observedRequest)
         providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo)
         reauthenticationManager.markPrimaryCredentialProven(session)
         return engine.completeIfNecessary(session)

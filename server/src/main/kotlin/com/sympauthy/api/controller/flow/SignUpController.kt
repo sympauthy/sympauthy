@@ -8,7 +8,9 @@ import com.sympauthy.api.resource.flow.SignUpFlowResource
 import com.sympauthy.api.resource.flow.SignUpInputResource
 import com.sympauthy.api.resource.flow.SimpleFlowResource
 import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionPasswordManager
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
@@ -20,6 +22,7 @@ import io.micronaut.http.HttpRequest
 import io.micronaut.http.annotation.Body
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
+import io.micronaut.http.annotation.RequestAttribute
 import io.micronaut.http.annotation.Post
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
@@ -117,6 +120,7 @@ Only identifier claims are saved on the created account. Any other claim present
     @Post
     suspend fun signUp(
         authentication: Authentication,
+        @RequestAttribute(OBSERVED_REQUEST) observedRequest: ObservedRequest,
         @Body inputResource: SignUpInputResource
     ): SimpleFlowResource =
         interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect(
@@ -126,7 +130,8 @@ Only identifier claims are saved on the created account. Any other claim present
                 passwordFlowManager.signUpWithClaimsAndPassword(
                     session = session,
                     unfilteredUpdates = updates,
-                    password = inputResource.password
+                    password = inputResource.password,
+                    observedRequest = observedRequest
                 )
             },
             mapRedirectUriToResource = { redirectUri -> SimpleFlowResource(redirectUri.toString()) }

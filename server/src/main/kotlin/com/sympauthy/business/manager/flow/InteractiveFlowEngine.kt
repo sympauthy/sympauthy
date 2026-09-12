@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.manager.security.UserSecurityContextManager
 import com.sympauthy.business.manager.user.ProvisionalAccountManager
 import com.sympauthy.business.model.flow.CancelledInteractiveFlowSession
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
@@ -38,7 +39,8 @@ import jakarta.inject.Singleton
 open class InteractiveFlowEngine(
     @Inject private val purposeRegistry: InteractiveFlowPurposeRegistry,
     @Inject private val sessionManager: InteractiveFlowSessionManager,
-    @Inject private val provisionalAccountManager: ProvisionalAccountManager
+    @Inject private val provisionalAccountManager: ProvisionalAccountManager,
+    @Inject private val userSecurityContextManager: UserSecurityContextManager
 ) {
 
     /**
@@ -141,7 +143,13 @@ open class InteractiveFlowEngine(
      */
     private suspend fun complete(session: OnGoingInteractiveFlowSession): InteractiveFlowStepResult {
         return try {
-            InteractiveFlowStepResult(commitCompletion(session), InteractiveFlowStep.Complete)
+            val completed = commitCompletion(session)
+            // Once that transaction has committed, in one of its own. The account is real by then, so nothing
+            // in user_security_contexts ever names one the abandoned-account sweep may delete — and a write
+            // that can violate a unique index is kept out of a transaction whose rollback would answer a
+            // person whose sign-in succeeded with a failure. It fails quietly for the same reason.
+            userSecurityContextManager.fold(completed.id, completed.userId)
+            InteractiveFlowStepResult(completed, InteractiveFlowStep.Complete)
         } catch (refused: TerminalEffectRefusedException) {
             InteractiveFlowStepResult(
                 sessionManager.markAsFailedIfNotRecoverable(session, refused.error),

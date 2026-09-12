@@ -217,6 +217,13 @@ decision.
 the account a sign-up had not finished creating — are collected by a scheduled job. A person starts
 again from the client that sent them.
 
+**One attached record is read rather than collected, where the flow completed.** The place the
+person was observed proving who they were is attached to the session that saw it, and completing the
+flow folds it into that person's own record and consumes the row; what the cleaner collects is
+therefore only the observations of flows that never finished. It is the one thing a session writes
+whose contents outlive it — deliberately, because [security](security.md) keeps a place for months
+and a session for half an hour.
+
 **It does not model steps that branch on client-supplied data.** Every predicate is a function of
 the session and the configuration. A step that needed the client to say which of two paths to take
 would be a purpose, not a step.

@@ -17,6 +17,8 @@ enum class LeasedJob {
 
     CLEAN_ABANDONED_ACCOUNTS,
 
+    CLEAN_EXPIRED_USER_SECURITY_CONTEXTS,
+
     /**
      * Delivering the mails a previous run of this server persisted and did not send, which happens once
      * when an instance becomes ready rather than on a schedule.

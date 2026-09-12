@@ -112,6 +112,14 @@ data class AuthorizationWebhookAdvancedConfig(
 data class SecurityContextConfig(
     val ip: SecurityContextIpConfig,
     val geo: SecurityContextGeoConfig,
+    /**
+     * How long a place a known person signs in from is kept, measured from when it was last seen.
+     *
+     * Nothing names a retention for an unidentified observation because nothing stores one: what is seen
+     * before a person is known is attached to the interactive flow session that saw it, and is collected
+     * with it.
+     */
+    val knownUserRetention: Duration,
 )
 
 /**

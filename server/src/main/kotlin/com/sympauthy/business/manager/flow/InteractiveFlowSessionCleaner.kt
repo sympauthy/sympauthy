@@ -6,6 +6,7 @@ import com.sympauthy.data.repository.InteractiveFlowSessionConfirmRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionLinkProviderRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionOAuth2Repository
 import com.sympauthy.data.repository.InteractiveFlowSessionProviderRepository
+import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionReauthenticationRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
 import com.sympauthy.data.repository.ValidationCodeRepository
@@ -34,6 +35,7 @@ open class InteractiveFlowSessionCleaner(
     @Inject private val confirmRepository: InteractiveFlowSessionConfirmRepository,
     @Inject private val reauthenticationRepository: InteractiveFlowSessionReauthenticationRepository,
     @Inject private val linkProviderRepository: InteractiveFlowSessionLinkProviderRepository,
+    @Inject private val securityContextRepository: InteractiveFlowSessionSecurityContextRepository,
     @Inject private val validationCodeRepository: ValidationCodeRepository,
     @Inject private val authorizationCodeRepository: AuthorizationCodeRepository,
 ) {
@@ -65,6 +67,11 @@ open class InteractiveFlowSessionCleaner(
         val deferredLinkProviderCount = async {
             linkProviderRepository.deleteBySessionIdIn(expiredSessionIds)
         }
+        // Only the observations of flows that never completed are still here: one whose flow completed was
+        // folded into the person's record and the row consumed in the same transaction.
+        val deferredSecurityContextCount = async {
+            securityContextRepository.deleteBySessionIdIn(expiredSessionIds)
+        }
 
         val authorizationCodesCount = deferredAuthorizationCodesCount.await()
         val validationCodesCount = deferredValidationCodesCount.await()
@@ -73,6 +80,7 @@ open class InteractiveFlowSessionCleaner(
         deferredConfirmCount.await()
         deferredReauthenticationCount.await()
         deferredLinkProviderCount.await()
+        deferredSecurityContextCount.await()
 
         val sessionsCount = sessionRepository.deleteByIds(expiredSessionIds)
 

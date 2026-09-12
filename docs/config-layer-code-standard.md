@@ -140,6 +140,11 @@ is indistinguishable from having had nothing to do. The signal is for the server
 only to publish. Serving a request is a different matter — there, the configuration a request needs
 throws where it is read.
 
+**A filter narrows the sealed type rather than throwing.** A request needing a setting throws where
+it reads it and answers that one request with a failure, while something reading on every request
+would fail the health endpoint too and have the server restarted over a file a restart cannot fix.
+Take the `as?` and fall back to what a deployment that configured nothing would have had.
+
 **The verdict is logged above the work that obeyed it.** The listener reporting it is ordered ahead
 of the ones that act, so an operator reading from the top learns whether the configuration is
 usable before they read what ran under it.

@@ -178,14 +178,54 @@ naming a header is saying the value is in it, as it stands. A deployment needing
 a packed header names the edge that knows how. A name no request could carry — one holding a space
 or a colon — is refused at startup rather than silently matching nothing.
 
-**What is read is passed on as an ordinary parameter.** There is no request-scoped bean and no
-thread-local context: [the general standard](general-code-standard.md#dependency-rules) keeps a
-manager callable from a scheduled job and a unit test, and every manager here is `suspend`, so a
-thread-local would be intermittently absent across the coroutine boundaries they cross — recording a
-null address against a real security decision, silently.
+**It is read once, at the boundary, and passed on as an ordinary parameter.** A filter reads every
+request ahead of the security filter and leaves the result on the request; a handler is handed it
+and passes it down. What is refused is a **manager** reaching back for it — there is no
+request-scoped bean and no thread-local: [the general
+standard](general-code-standard.md#dependency-rules) keeps a manager callable from a scheduled job
+and a unit test, and every manager here is `suspend`, so a thread-local would be intermittently
+absent across the coroutine boundaries they cross, recording a null address against a real security
+decision, silently.
 
-**Nothing stores any of it yet.** This is the reading half; the record it will be written to is its
-own work.
+**Reading it early is what lets something act on it.** An address that exists only once a caller has
+been authenticated is no use to anything deciding whether to answer them at all, which is what
+throttling will have to decide about a caller who has presented nothing yet.
+
+**A configuration that did not parse is believed about nothing.** The reading narrows the sealed
+configuration type rather than throwing, and falls back to the socket peer — which is where a
+deployment that configured nothing lands anyway. A file that did not parse names no proxy, so it
+makes none of the promise that believing one rests on; and a reading that threw would fail every
+request in the chain including the one telling an operator which key is at fault.
+
+### What is kept, and for how long
+
+**A place is recorded once a flow completes, against the person it completed for.** What is observed
+when a credential verifies is held against the session that saw it, and folded into that person's
+places once their flow succeeds — deduplicated on the address and the user agent, so a row is a
+place somebody keeps signing in from rather than one per sign-in.
+
+**Nothing unidentified is kept.** An observation made before a person is known belongs to the
+interactive flow session that made it and is collected with it, so a failed sign-in and an abandoned
+flow leave nothing behind. There is no retention setting for a population that is not stored.
+
+**A place is kept for as long as it goes on being used**, and
+`advanced.security-context.known-user-retention` says how long after it stops. The expiry is
+measured from the last sighting rather than the first, because deleting the address somebody has
+signed in from every week for six months is the opposite of what the record is for.
+
+**A place is only as particular as the address it was read from.** Where nothing was configured, the
+address is the socket peer — the proxy's own, identical for every caller — so what a deployment
+behind one accumulates is a row per user agent naming its own ingress, and nothing tells a reader
+that apart from a place. Naming the proxy is what makes the record say anything about where a person
+is.
+
+**A postal code is read and not kept.** It arrives where an edge publishes one and reaches the
+observation, and the record declines it for the reason a coordinate pair is declined: it narrows to
+a street group, and nothing here has a use for that.
+
+**An address is personal data, and the deletion ships with the record rather than after it.** The
+cutoff is computed when the sweep runs, so lowering the retention takes effect on the next run
+instead of on each row's next sighting.
 
 ## What this design does not do
 
@@ -194,9 +234,9 @@ or second-factor attempts — anywhere. An attacker with a valid identifier gets
 whatever the flow is protecting. This is the largest known gap in this document and it is tracked as
 its own work.
 
-**It does not detect anomalies.** It reads where a request came from and does nothing with it: no
-device fingerprint, no impossible-travel check, no risk score, and no geolocation from an IP
-database — only what an edge said. A correct credential is a correct credential.
+**It does not detect anomalies.** It records where a person signs in from and draws no conclusion
+from it: no device fingerprint, no impossible-travel check, no risk score, and no geolocation from
+an IP database — only what an edge said. A correct credential is a correct credential.
 
 **It does not log an audit trail.** Who did what, and when, is reconstructible from application logs
 and from the rows themselves, not from a designed record. An audit primitive is designed and not yet

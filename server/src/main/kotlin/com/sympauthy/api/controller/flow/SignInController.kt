@@ -12,7 +12,9 @@ import com.sympauthy.api.resource.flow.SimpleFlowResource
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
+import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionPasswordManager
 import com.sympauthy.business.manager.password.PasswordManager
@@ -34,6 +36,7 @@ import io.micronaut.http.HttpRequest
 import io.micronaut.http.annotation.Body
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
+import io.micronaut.http.annotation.RequestAttribute
 import io.micronaut.http.annotation.Post
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
@@ -202,6 +205,7 @@ on-going flow. All URLs it contains already include the state query param.
     @Post
     suspend fun signIn(
         authentication: Authentication,
+        @RequestAttribute(OBSERVED_REQUEST) observedRequest: ObservedRequest,
         @Body inputResource: SignInInputResource
     ): SimpleFlowResource =
         interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect(
@@ -210,7 +214,8 @@ on-going flow. All URLs it contains already include the state query param.
                 passwordFlowManager.signInWithPassword(
                     session = session,
                     login = inputResource.login,
-                    password = inputResource.password
+                    password = inputResource.password,
+                    observedRequest = observedRequest
                 )
             },
             mapRedirectUriToResource = { redirectUri -> SimpleFlowResource(redirectUri.toString()) }

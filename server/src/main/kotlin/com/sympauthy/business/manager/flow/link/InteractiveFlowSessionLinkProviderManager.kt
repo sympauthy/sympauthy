@@ -90,8 +90,6 @@ open class InteractiveFlowSessionLinkProviderManager(
      * control and take over the account. Re-authentication is the only proof that the browser user genuinely
      * owns the account; it *confirms* the pre-set user and must never *establish* a different one.
      *
-     * See #294 (this flow) and #295 (the REAUTHENTICATION purpose) for the full rationale.
-     *
      * [userId] must name an account this server has finished creating, which is checked before anything is
      * written: a caller naming one an interactive flow session is still signing up would be attaching a login
      * credential to an account that does not exist yet, and could be made to exist afterwards by whoever owns
