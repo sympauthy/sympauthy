@@ -29,8 +29,10 @@ advanced:
   # Empty because naming a proxy promises this server is only reachable through it, and no file
   # shipped with the server can make that promise on a deployment's behalf.
   security-context:
-    auto-detect: false
-    providers: [ ]
+    ip: { }
+    geo:
+      auto-detect: false
+      providers: [ ]
   validation-code:
     length: 6
     resend-delay: 1m
@@ -193,7 +195,7 @@ claims:
 
 cors:
   allowed-headers:
-    - X-Requested-With # sent by the swagger-ui this server bundles
+    - X-Requested-With # sent by a swagger-ui documenting its API against this server, from its own origin
 
 mfa:
   required: false

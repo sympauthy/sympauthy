@@ -1,7 +1,6 @@
 package com.sympauthy.business.manager.security
 
-import com.sympauthy.business.model.security.EdgeObservation
-import com.sympauthy.business.model.security.EdgeProvider
+import com.sympauthy.business.model.security.IpProvider
 import com.sympauthy.business.model.security.valueOrNull
 import io.micronaut.http.HttpHeaders
 import jakarta.inject.Named
@@ -18,21 +17,17 @@ import jakarta.inject.Singleton
  * ```
  *
  * Without it the header never arrives, the address falls back to the socket peer, and nothing fails.
- * That directive is what a provider reading the same header as this one may not need, and it is why
- * two providers extracting identically are still two: a provider names the operator's world rather
- * than a header.
+ * That directive is what an edge reading the same header as this one may not need, and it is why two
+ * edges extracting identically are still two: an edge names the operator's world rather than a header.
  *
- * nginx publishes no location of its own. A deployment behind it on a private network gets the
- * address and the user agent, and that is the whole of it.
+ * nginx publishes no location, so it implements nothing a deployment could name under the geo
+ * setting.
  */
 @Singleton
 @Named("nginx")
-class NginxEdgeProvider : EdgeProvider {
+class NginxEdge : IpProvider {
 
-    override fun read(headers: HttpHeaders) = EdgeObservation(
-        ipAddress = headers.valueOrNull(REAL_IP_HEADER),
-        geo = null
-    )
+    override fun readIpOrNull(headers: HttpHeaders) = headers.valueOrNull(REAL_IP_HEADER)
 
     private companion object {
 

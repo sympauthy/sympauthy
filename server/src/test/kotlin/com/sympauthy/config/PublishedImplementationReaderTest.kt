@@ -1,7 +1,8 @@
 package com.sympauthy.config
 
 import com.sympauthy.business.model.key.CryptoKeysGenerationStrategy
-import com.sympauthy.business.model.security.EdgeProvider
+import com.sympauthy.business.model.security.GeoProvider
+import com.sympauthy.business.model.security.IpProvider
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.model.AdvancedConfig
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
@@ -32,10 +33,14 @@ class PublishedImplementationReaderTest {
     lateinit var generationStrategies: Map<String, CryptoKeysGenerationStrategy>
 
     /**
-     * The map [com.sympauthy.api.util.SecurityContextUtil] resolves an edge out of.
+     * The maps [com.sympauthy.api.util.SecurityContextUtil] resolves an edge out of, which are two
+     * because an edge publishing no location is not a word the geo setting may name.
      */
     @Inject
-    lateinit var edgeProviders: Map<String, EdgeProvider>
+    lateinit var ipProviders: Map<String, IpProvider>
+
+    @Inject
+    lateinit var geoProviders: Map<String, GeoProvider>
 
     @Inject
     lateinit var advancedConfig: AdvancedConfig
@@ -100,10 +105,8 @@ class PublishedImplementationReaderTest {
 
     @Test
     fun `read - Answer the names the container injects the edges under`() {
-        assertEquals(
-            edgeProviders.keys.sorted(),
-            reader.read(EdgeProvider::class).qualifiers.toList()
-        )
+        assertEquals(ipProviders.keys.sorted(), reader.read(IpProvider::class).qualifiers.toList())
+        assertEquals(geoProviders.keys.sorted(), reader.read(GeoProvider::class).qualifiers.toList())
     }
 
     /**

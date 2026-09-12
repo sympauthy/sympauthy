@@ -1,7 +1,7 @@
 package com.sympauthy.business.manager.security
 
-import com.sympauthy.business.model.security.EdgeObservation
-import com.sympauthy.business.model.security.EdgeProvider
+import com.sympauthy.business.model.security.GeoProvider
+import com.sympauthy.business.model.security.IpProvider
 import com.sympauthy.business.model.security.SecurityContextGeo
 import com.sympauthy.business.model.security.orNullIfEmpty
 import com.sympauthy.business.model.security.valueOrNull
@@ -20,19 +20,18 @@ import jakarta.inject.Singleton
  */
 @Singleton
 @Named("cloudflare")
-class CloudflareEdgeProvider : EdgeProvider {
+class CloudflareEdge : IpProvider, GeoProvider {
 
-    override fun read(headers: HttpHeaders) = EdgeObservation(
-        ipAddress = headers.valueOrNull(CONNECTING_IP_HEADER),
-        geo = SecurityContextGeo(
-            countryCode = headers.valueOrNull(COUNTRY_HEADER),
-            regionCode = headers.valueOrNull(REGION_CODE_HEADER),
-            region = headers.valueOrNull(REGION_HEADER),
-            city = headers.valueOrNull(CITY_HEADER),
-            postalCode = headers.valueOrNull(POSTAL_CODE_HEADER),
-            timeZone = headers.valueOrNull(TIME_ZONE_HEADER)
-        ).orNullIfEmpty()
-    )
+    override fun readIpOrNull(headers: HttpHeaders) = headers.valueOrNull(CONNECTING_IP_HEADER)
+
+    override fun readGeoOrNull(headers: HttpHeaders) = SecurityContextGeo(
+        countryCode = headers.valueOrNull(COUNTRY_HEADER),
+        regionCode = headers.valueOrNull(REGION_CODE_HEADER),
+        region = headers.valueOrNull(REGION_HEADER),
+        city = headers.valueOrNull(CITY_HEADER),
+        postalCode = headers.valueOrNull(POSTAL_CODE_HEADER),
+        timeZone = headers.valueOrNull(TIME_ZONE_HEADER)
+    ).orNullIfEmpty()
 
     private companion object {
 

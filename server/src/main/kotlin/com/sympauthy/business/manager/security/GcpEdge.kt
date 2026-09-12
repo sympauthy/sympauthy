@@ -1,7 +1,7 @@
 package com.sympauthy.business.manager.security
 
-import com.sympauthy.business.model.security.EdgeObservation
-import com.sympauthy.business.model.security.EdgeProvider
+import com.sympauthy.business.model.security.GeoProvider
+import com.sympauthy.business.model.security.IpProvider
 import com.sympauthy.business.model.security.SecurityContextGeo
 import com.sympauthy.business.model.security.orNullIfEmpty
 import com.sympauthy.business.model.security.valueOrNull
@@ -18,7 +18,7 @@ import jakarta.inject.Singleton
  *
  * **The location header is entirely the operator's**, name and format both. Google publishes no
  * location header of its own — it publishes *variables* an operator interpolates into a custom
- * header on the balancer. This provider reads the shape Google's own example produces:
+ * header on the balancer. This edge reads the shape Google's own example produces:
  *
  * ```
  * X-Client-Geo-Location:{client_region},{client_city}
@@ -26,26 +26,24 @@ import jakarta.inject.Singleton
  *
  * which yields `US,Mountain View`, so the first field is a country code and the second a city. A
  * deployment that interpolated a different set of variables, or ordered them differently, names its
- * header under `advanced.security-context.headers` instead, where a value is read as it stands.
+ * header under `advanced.security-context.geo.headers` instead, where a value is read as it stands.
  */
 @Singleton
 @Named("gcp")
-class GcpEdgeProvider : EdgeProvider {
+class GcpEdge : IpProvider, GeoProvider {
 
-    override fun read(headers: HttpHeaders) = EdgeObservation(
-        ipAddress = headers.forwardedForEntries().let { it.getOrNull(it.size - 2) },
-        geo = headers.valueOrNull(GEO_LOCATION_HEADER)?.let(::parseGeo)
-    )
+    override fun readIpOrNull(headers: HttpHeaders) =
+        headers.forwardedForEntries().let { it.getOrNull(it.size - 2) }
 
     /**
-     * The country and the city [value] packs, positionally.
+     * The country and the city the custom header packs, positionally.
      *
      * A field beyond the second is ignored rather than guessed at: the header's shape is the
      * operator's, and reading a third position as though it meant something would put this server's
      * assumption where a deployment's configuration is.
      */
-    private fun parseGeo(value: String): SecurityContextGeo? {
-        val fields = value.split(',').map(String::trim)
+    override fun readGeoOrNull(headers: HttpHeaders): SecurityContextGeo? {
+        val fields = headers.valueOrNull(GEO_LOCATION_HEADER)?.split(',')?.map(String::trim) ?: return null
         return SecurityContextGeo(
             countryCode = fields.getOrNull(0)?.ifBlank { null },
             regionCode = null,

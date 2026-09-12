@@ -2,7 +2,7 @@ package com.sympauthy.config.validation
 
 import com.sympauthy.business.model.jwt.JwtAlgorithm
 import com.sympauthy.business.model.key.CryptoKeysGenerationStrategy
-import com.sympauthy.business.model.security.EdgeProvider
+import com.sympauthy.business.model.security.GeoProvider
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.ConfiguredImplementation
@@ -11,7 +11,9 @@ import com.sympauthy.config.parsing.ParsedHashConfig
 import com.sympauthy.config.parsing.ParsedInvitationConfig
 import com.sympauthy.config.parsing.ParsedPaginationConfig
 import com.sympauthy.config.parsing.ParsedSecurityContextConfig
-import com.sympauthy.config.parsing.ParsedSecurityContextHeaders
+import com.sympauthy.config.parsing.ParsedSecurityContextGeoConfig
+import com.sympauthy.config.parsing.ParsedSecurityContextGeoHeaders
+import com.sympauthy.config.parsing.ParsedSecurityContextIpConfig
 import com.sympauthy.config.parsing.ParsedValidationCodeConfig
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -84,27 +86,30 @@ class AdvancedConfigValidatorTest {
     }
 
     @Test
-    fun `validate - Reject a provider listed twice`() {
+    fun `validate - Reject a geo provider listed twice`() {
         val ctx = ConfigParsingContext()
 
-        val config = validator.validate(ctx, parsedConfig(providers = listOf("nginx", "gcp", "nginx")))
+        val config = validator.validate(ctx, parsedConfig(geoProviders = listOf("cloudflare", "gcp", "cloudflare")))
 
         assertNull(config)
         assertEquals(
-            listOf("advanced.security-context.providers[2]" to "config.advanced.security_context.duplicate_provider"),
+            listOf(
+                "advanced.security-context.geo.providers[2]" to
+                    "config.advanced.security_context.duplicate_provider"
+            ),
             ctx.errors.map { it.key to it.messageId }
         )
-        assertEquals(mapOf("provider" to "nginx"), ctx.errors.single().values)
+        assertEquals(mapOf("provider" to "cloudflare"), ctx.errors.single().values)
     }
 
     @Test
-    fun `validate - Keep the providers in the order they were written`() {
+    fun `validate - Keep the geo providers in the order they were written`() {
         val ctx = ConfigParsingContext()
 
-        val config = validator.validate(ctx, parsedConfig(providers = listOf("gcp", "nginx")))
+        val config = validator.validate(ctx, parsedConfig(geoProviders = listOf("gcp", "cloudflare")))
 
         assertNotNull(config)
-        assertEquals(listOf("gcp", "nginx"), config!!.securityContext.providers.map { it.qualifier })
+        assertEquals(listOf("gcp", "cloudflare"), config!!.securityContext.geo.providers.map { it.qualifier })
     }
 
     @Test
@@ -114,9 +119,9 @@ class AdvancedConfigValidatorTest {
         val config = validator.validate(ctx, parsedConfig())
 
         assertNotNull(config)
-        assertEquals(emptyList<String>(), config!!.securityContext.providers.map { it.qualifier })
-        assertEquals(false, config.securityContext.autoDetect)
-        assertNull(config.securityContext.headers.clientIp)
+        assertNull(config!!.securityContext.ip.provider)
+        assertEquals(emptyList<String>(), config.securityContext.geo.providers.map { it.qualifier })
+        assertEquals(false, config.securityContext.geo.autoDetect)
     }
 
     @Test
@@ -126,13 +131,58 @@ class AdvancedConfigValidatorTest {
         val config = validator.validate(ctx, parsedConfig(autoDetect = null))
 
         assertNotNull(config)
-        assertEquals(false, config!!.securityContext.autoDetect)
+        assertEquals(false, config!!.securityContext.geo.autoDetect)
+    }
+
+    @Test
+    fun `validate - Reject a header named for the address that no request could carry`() {
+        val ctx = ConfigParsingContext()
+
+        val config = validator.validate(ctx, parsedConfig(ipHeader = "X Forwarded For"))
+
+        assertNull(config)
+        assertEquals(
+            listOf(
+                "advanced.security-context.ip.header" to
+                    "config.advanced.security_context.invalid_header_name"
+            ),
+            ctx.errors.map { it.key to it.messageId }
+        )
+        assertEquals(mapOf("header" to "X Forwarded For"), ctx.errors.single().values)
+    }
+
+    @Test
+    fun `validate - Reject a header named for a location field that no request could carry`() {
+        val ctx = ConfigParsingContext()
+
+        val config = validator.validate(ctx, parsedConfig(cityHeader = "X-Real-IP:"))
+
+        assertNull(config)
+        assertEquals(
+            listOf(
+                "advanced.security-context.geo.headers.city" to
+                    "config.advanced.security_context.invalid_header_name"
+            ),
+            ctx.errors.map { it.key to it.messageId }
+        )
+    }
+
+    @Test
+    fun `validate - Keep a header spelled the way a header name is spelled`() {
+        val ctx = ConfigParsingContext()
+
+        val config = validator.validate(ctx, parsedConfig(ipHeader = "X-My-Proxy-Ip"))
+
+        assertNotNull(config)
+        assertEquals("X-My-Proxy-Ip", config!!.securityContext.ip.header)
     }
 
     private fun parsedConfig(
         pagination: ParsedPaginationConfig = ParsedPaginationConfig(20, 100),
         autoDetect: Boolean? = null,
-        providers: List<String> = emptyList()
+        geoProviders: List<String> = emptyList(),
+        ipHeader: String? = null,
+        cityHeader: String? = null
     ): ParsedAdvancedConfig {
         val hash = ParsedHashConfig(
             costParameter = 16_384,
@@ -161,16 +211,18 @@ class AdvancedConfigValidatorTest {
             webhookTimeout = Duration.ofSeconds(5),
             pagination = pagination,
             securityContext = ParsedSecurityContextConfig(
-                autoDetect = autoDetect,
-                providers = providers.map { ConfiguredImplementation(EdgeProvider::class, it) },
-                headers = ParsedSecurityContextHeaders(
-                    clientIp = null,
-                    countryCode = null,
-                    regionCode = null,
-                    region = null,
-                    city = null,
-                    postalCode = null,
-                    timeZone = null
+                ip = ParsedSecurityContextIpConfig(provider = null, header = ipHeader),
+                geo = ParsedSecurityContextGeoConfig(
+                    autoDetect = autoDetect,
+                    providers = geoProviders.map { ConfiguredImplementation(GeoProvider::class, it) },
+                    headers = ParsedSecurityContextGeoHeaders(
+                        countryCode = null,
+                        regionCode = null,
+                        region = null,
+                        city = cityHeader,
+                        postalCode = null,
+                        timeZone = null
+                    )
                 )
             )
         )

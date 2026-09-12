@@ -127,34 +127,56 @@ Cloudflare. That check belongs to the deployment, made once with a firewall rule
 and this is the right place for it: the server cannot know its own topology, and a list of CIDRs in
 a configuration file is a second copy of that topology which goes stale in silence.
 
-**The consequence, stated plainly: if the origin is reachable directly while a provider is named,
+**The consequence, stated plainly: if the origin is reachable directly while a proxy is named,
 anyone can set that header and choose what gets recorded about them.** Nothing in this server can
-detect it. A deployment that cannot guarantee a closed origin names no provider and accepts the
+detect it. A deployment that cannot guarantee a closed origin names no proxy and accepts the
 proxy's address, which is the shipped default.
 
-**Several proxies are named where several sit in front, and the last one named wins each field it
-answers.** A cluster on Google behind an nginx ingress writes `[gcp, nginx]`: the load balancer
-supplies the location and the ingress, being last, supplies the address. The merge is per field
-rather than whole, so a proxy that answers nothing for a field never erases what an earlier one
-answered — which is what makes the pair mean what an operator intended by writing it.
+### The address and the location are configured apart
 
-**`auto-detect` believes every proxy at once, and is wider than naming one.** It applies every
-provider the server publishes, sorted by name, so in practice it believes whichever edge's headers
-are in front of it. That hands the choice of which header is believed to the caller rather than to
-the operator, and where two edges' headers both arrive the later name wins. It needs a closed origin
-all the more, and a deployment that knows what sits in front of it names it instead.
+**The address comes from exactly one named proxy, and the location may come from several or be
+detected.** They are separate settings because they carry different risk and admit different
+answers, and holding them together would give the weaker half the reach of the stronger one.
 
-**A proxy is a rule for extracting values, not a table of header names.** An edge that packs several
+**Only the proxy nearest this server knows the address**, as the peer it accepted a connection from
+rather than a value it was handed. So `advanced.security-context.ip` names one proxy, or one header
+read as it stands, and falls back to the socket peer. There is no detecting it, and no merging two
+answers: an edge reading an entry of `X-Forwarded-For` reads it at a position only its own hop count
+explains, so a server guessing which edge is in front would read that position under the wrong
+assumption and reach an entry the caller wrote — a forgery that works through a *legitimate* proxy,
+which a closed origin does not stop.
+
+**A location is published by each edge under a header of its own** — `CF-IPCountry`,
+`X-Akamai-Edgescape`, `CloudFront-Viewer-City` — rather than at a position in one they share. Two
+edges reading their own headers cannot be read at cross purposes, so
+`advanced.security-context.geo` takes a list applied in order, each entry overriding the fields the
+ones before it answered, and `auto-detect` reads every edge that publishes one. What a wrong answer
+costs there is a wrong location on a record rather than a request attributed to whoever asked for
+it.
+
+**An edge publishing no location cannot be named under the geo setting.** nginx, Traefik, Caddy,
+Fastly and Azure Front Door publish an address and nothing else, so naming one there is refused at
+startup rather than accepted to no effect.
+
+**A Kubernetes cluster on Google behind an nginx ingress is the shape this split is for**: the
+address comes from the ingress, which is adjacent to this server, and the location from the load
+balancer in front of it.
+
+### What is read, and how
+
+**An edge is a rule for extracting values, not a table of header names.** An edge that packs several
 fields into one header, as Google's load balancer and Akamai's EdgeScape do, or a port beside the
-address, as CloudFront does, is one a `Map<field, header>` cannot describe — so each provider
-carries the extraction its own edge needs. That is also why **indexing `X-Forwarded-For` from the
-right is safe and reading it whole is not**: every entry a proxy appends is that proxy's own view of
-its peer, and everything to its left arrived with the request. The provider knows how many hops its
-edge adds; a header name in a configuration file does not.
+address, as CloudFront does, is one a `Map<field, header>` cannot describe — so each carries the
+extraction its own edge needs.
+
+**Where a header arrives more than once, the last value is the edge's.** A caller may have sent it
+already and a proxy may append rather than replace, so everything before the last is the caller's —
+the same rule that makes only the rightmost entries of `X-Forwarded-For` worth reading.
 
 **A header a deployment names for one field replaces that field and never parses.** An operator
 naming a header is saying the value is in it, as it stands. A deployment needing a value dug out of
-a packed header names the provider that knows how.
+a packed header names the edge that knows how. A name no request could carry — one holding a space
+or a colon — is refused at startup rather than silently matching nothing.
 
 **What is read is passed on as an ordinary parameter.** There is no request-scoped bean and no
 thread-local context: [the general standard](general-code-standard.md#dependency-rules) keeps a

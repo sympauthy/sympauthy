@@ -9,20 +9,26 @@ import com.sympauthy.config.model.HashConfig
 import com.sympauthy.config.model.InvitationAdvancedConfig
 import com.sympauthy.config.model.PaginationConfig
 import com.sympauthy.config.model.SecurityContextConfig
-import com.sympauthy.config.model.SecurityContextHeadersConfig
+import com.sympauthy.config.model.SecurityContextGeoConfig
+import com.sympauthy.config.model.SecurityContextGeoHeadersConfig
+import com.sympauthy.config.model.SecurityContextIpConfig
 import com.sympauthy.config.model.ValidationCodeConfig
 import com.sympauthy.config.parsing.ParsedAdvancedConfig
 import com.sympauthy.config.parsing.ParsedHashConfig
 import com.sympauthy.config.parsing.ParsedInvitationConfig
 import com.sympauthy.config.parsing.ParsedPaginationConfig
 import com.sympauthy.config.parsing.ParsedSecurityContextConfig
+import com.sympauthy.config.parsing.ParsedSecurityContextGeoConfig
+import com.sympauthy.config.parsing.ParsedSecurityContextIpConfig
 import com.sympauthy.config.parsing.ParsedValidationCodeConfig
 import com.sympauthy.config.properties.InvitationConfigurationProperties.Companion.INVITATION_KEY
 import com.sympauthy.config.properties.InvitationHashConfigurationProperties.Companion.INVITATION_HASH_KEY
 import com.sympauthy.config.properties.HashConfigurationProperties.Companion.HASH_KEY
 import com.sympauthy.config.properties.JwtConfigurationProperties.Companion.JWT_KEY
 import com.sympauthy.config.properties.PaginationConfigurationProperties.Companion.PAGINATION_KEY
-import com.sympauthy.config.properties.SecurityContextConfigurationProperties.Companion.SECURITY_CONTEXT_KEY
+import com.sympauthy.config.properties.SecurityContextGeoConfigurationProperties.Companion.SECURITY_CONTEXT_GEO_KEY
+import com.sympauthy.config.properties.SecurityContextGeoHeadersConfigurationProperties.Companion.GEO_HEADERS_KEY
+import com.sympauthy.config.properties.SecurityContextIpConfigurationProperties.Companion.SECURITY_CONTEXT_IP_KEY
 import com.sympauthy.config.properties.ValidationCodeConfigurationProperties.Companion.VALIDATION_CODE_KEY
 import jakarta.inject.Singleton
 import java.time.Duration
@@ -103,17 +109,44 @@ class AdvancedConfigValidator {
         }
     }
 
+    private fun validateSecurityContextConfig(
+        ctx: ConfigParsingContext,
+        parsed: ParsedSecurityContextConfig
+    ): SecurityContextConfig? {
+        val subCtx = ctx.child()
+        val ip = validateSecurityContextIpConfig(subCtx, parsed.ip)
+        val geo = validateSecurityContextGeoConfig(subCtx, parsed.geo)
+        ctx.merge(subCtx)
+        if (subCtx.hasErrors || ip == null || geo == null) {
+            return null
+        }
+        return SecurityContextConfig(ip = ip, geo = geo)
+    }
+
+    private fun validateSecurityContextIpConfig(
+        ctx: ConfigParsingContext,
+        parsed: ParsedSecurityContextIpConfig
+    ): SecurityContextIpConfig? {
+        val subCtx = ctx.child()
+        validateHeaderName(subCtx, "$SECURITY_CONTEXT_IP_KEY.header", parsed.header)
+        ctx.merge(subCtx)
+        if (subCtx.hasErrors) {
+            return null
+        }
+        return SecurityContextIpConfig(provider = parsed.provider, header = parsed.header)
+    }
+
     /**
-     * The edges named, once each.
+     * The edges named, once each, and every header named for a field spelled as a header name.
      *
      * A qualifier written twice is refused rather than folded away: the later entry of a list whose
      * entries override one another wins over the earlier, so a word repeated says the operator
      * expected two different things from one name and only one of them can be what they meant.
      */
-    private fun validateSecurityContextConfig(
+    private fun validateSecurityContextGeoConfig(
         ctx: ConfigParsingContext,
-        parsed: ParsedSecurityContextConfig
-    ): SecurityContextConfig? {
+        parsed: ParsedSecurityContextGeoConfig
+    ): SecurityContextGeoConfig? {
         val subCtx = ctx.child()
 
         val seen = mutableSetOf<String>()
@@ -121,7 +154,7 @@ class AdvancedConfigValidator {
             if (!seen.add(provider.qualifier)) {
                 subCtx.addError(
                     configExceptionOf(
-                        "$SECURITY_CONTEXT_KEY.providers[$index]",
+                        "$SECURITY_CONTEXT_GEO_KEY.providers[$index]",
                         "config.advanced.security_context.duplicate_provider",
                         "provider" to provider.qualifier
                     )
@@ -129,23 +162,45 @@ class AdvancedConfigValidator {
             }
         }
 
+        val headers = parsed.headers
+        validateHeaderName(subCtx, "$GEO_HEADERS_KEY.country-code", headers.countryCode)
+        validateHeaderName(subCtx, "$GEO_HEADERS_KEY.region-code", headers.regionCode)
+        validateHeaderName(subCtx, "$GEO_HEADERS_KEY.region", headers.region)
+        validateHeaderName(subCtx, "$GEO_HEADERS_KEY.city", headers.city)
+        validateHeaderName(subCtx, "$GEO_HEADERS_KEY.postal-code", headers.postalCode)
+        validateHeaderName(subCtx, "$GEO_HEADERS_KEY.time-zone", headers.timeZone)
+
         ctx.merge(subCtx)
         if (subCtx.hasErrors) {
             return null
         }
-        return SecurityContextConfig(
+        return SecurityContextGeoConfig(
             autoDetect = parsed.autoDetect ?: false,
             providers = parsed.providers,
-            headers = SecurityContextHeadersConfig(
-                clientIp = parsed.headers.clientIp,
-                countryCode = parsed.headers.countryCode,
-                regionCode = parsed.headers.regionCode,
-                region = parsed.headers.region,
-                city = parsed.headers.city,
-                postalCode = parsed.headers.postalCode,
-                timeZone = parsed.headers.timeZone
+            headers = SecurityContextGeoHeadersConfig(
+                countryCode = headers.countryCode,
+                regionCode = headers.regionCode,
+                region = headers.region,
+                city = headers.city,
+                postalCode = headers.postalCode,
+                timeZone = headers.timeZone
             )
         )
+    }
+
+    /**
+     * Refuses [name] where it is not a header name any request could carry.
+     *
+     * A name holding a space or a colon matches no header ever sent, so the field it was written for
+     * is absent from every request and the deployment believes a proxy that is never read. RFC 9110
+     * section 5.1 calls a field name a token; this is that set.
+     */
+    private fun validateHeaderName(ctx: ConfigParsingContext, key: String, name: String?) {
+        if (name != null && !HEADER_NAME.matches(name)) {
+            ctx.addError(
+                configExceptionOf(key, "config.advanced.security_context.invalid_header_name", "header" to name)
+            )
+        }
     }
 
     private fun validatePaginationConfig(
@@ -313,5 +368,10 @@ class AdvancedConfigValidator {
 
     companion object {
         private val DEFAULT_WEBHOOK_TIMEOUT: Duration = Duration.ofSeconds(5)
+
+        /**
+         * The shape of an HTTP field name, which RFC 9110 section 5.1 defines as a token.
+         */
+        private val HEADER_NAME = Regex("[!#\u0024%&'*+\\-.^_`|~0-9A-Za-z]+")
     }
 }

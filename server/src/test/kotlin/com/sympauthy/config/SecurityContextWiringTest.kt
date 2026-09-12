@@ -1,13 +1,16 @@
 package com.sympauthy.config
 
 import com.sympauthy.api.util.SecurityContextUtil
-import com.sympauthy.business.model.security.EdgeProvider
+import com.sympauthy.business.model.security.GeoProvider
+import com.sympauthy.business.model.security.IpProvider
 import com.sympauthy.business.model.security.headersOf
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.ConfiguredImplementation
 import com.sympauthy.config.model.SecurityContextConfig
+import com.sympauthy.config.model.SecurityContextGeoConfig
+import com.sympauthy.config.model.SecurityContextIpConfig
 import com.sympauthy.config.model.advancedConfigOf
-import com.sympauthy.config.model.noNamedHeaders
+import com.sympauthy.config.model.noNamedGeoHeaders
 import com.sympauthy.config.model.orThrow
 import io.micronaut.http.HttpHeaders
 import io.micronaut.http.HttpRequest
@@ -17,7 +20,9 @@ import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import jakarta.inject.Inject
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import java.net.InetSocketAddress
@@ -28,22 +33,21 @@ import java.net.InetSocketAddress
  * Everything on either side of that is proved somewhere already — that a file binds to the
  * properties, that the parser refuses a word naming no implementation, that an edge reads its own
  * header — and none of it says that the word an operator wrote selects the bean the container
- * published under it. That is what this holds, against the container's own map rather than one a
+ * published under it. That is what this holds, against the container's own maps rather than ones a
  * test assembled.
  *
- * It is also the spoof this feature documents rather than prevents, run: the same request is
- * attributed to the socket peer or to the header it carries according to nothing but which line the
- * deployment wrote.
+ * It also holds the two sets apart: an edge publishing no location is absent from the geo map, which
+ * is what makes naming one under the geo setting a refusal rather than a setting with no effect.
  */
 @MicronautTest(environments = ["default", "test", "h2"])
 @ExtendWith(MockKExtension::class)
 class SecurityContextWiringTest {
 
-    /**
-     * The map [SecurityContextUtil] resolves an edge out of.
-     */
     @Inject
-    lateinit var edgeProviders: Map<String, EdgeProvider>
+    lateinit var ipProviders: Map<String, IpProvider>
+
+    @Inject
+    lateinit var geoProviders: Map<String, GeoProvider>
 
     /**
      * The utility as the container built it, over the configuration the server ships.
@@ -53,6 +57,9 @@ class SecurityContextWiringTest {
 
     @Inject
     lateinit var advancedConfig: AdvancedConfig
+
+    @Inject
+    lateinit var reader: PublishedImplementationReader
 
     @Test
     fun `The shipped configuration attributes a forged header to the socket peer`() {
@@ -66,8 +73,10 @@ class SecurityContextWiringTest {
     fun `The shipped configuration names no proxy and does not auto-detect`() {
         val securityContext = advancedConfig.orThrow().securityContext
 
-        assertEquals(emptyList<String>(), securityContext.providers.map { it.qualifier })
-        assertEquals(false, securityContext.autoDetect)
+        assertNull(securityContext.ip.provider)
+        assertNull(securityContext.ip.header)
+        assertEquals(emptyList<String>(), securityContext.geo.providers.map { it.qualifier })
+        assertFalse(securityContext.geo.autoDetect)
     }
 
     @Test
@@ -79,35 +88,39 @@ class SecurityContextWiringTest {
 
     @Test
     fun `A deployment naming an edge selects the bean published under that word`() {
-        val observed = utilNaming("akamai").observe(
-            headersOf(CONNECTING_IP to FORGED_IP, "True-Client-IP" to CALLER_IP).let(::requestOf)
-        )
+        val headers = headersOf(CONNECTING_IP to FORGED_IP, "True-Client-IP" to CALLER_IP)
 
-        assertEquals(CALLER_IP, observed.ipAddress)
+        assertEquals(CALLER_IP, utilNaming("akamai").observe(requestOf(headers)).ipAddress)
     }
 
     @Test
-    fun `A deployment auto-detecting attributes it to the header with nothing naming cloudflare`() {
-        val autoDetecting = utilOf(
-            SecurityContextConfig(autoDetect = true, providers = emptyList(), headers = noNamedHeaders())
+    fun `Every edge publishes an address, and only the ones with a location publish that`() {
+        assertEquals(
+            setOf("akamai", "azure", "caddy", "cloudflare", "cloudfront", "fastly", "gcp", "nginx", "traefik"),
+            ipProviders.keys
         )
-
-        val observed = autoDetecting.observe(requestOf(headersOf(CONNECTING_IP to FORGED_IP)))
-
-        assertEquals(FORGED_IP, observed.ipAddress)
+        assertEquals(setOf("akamai", "cloudflare", "cloudfront", "gcp"), geoProviders.keys)
     }
 
-    private fun utilNaming(qualifier: String) = utilOf(
-        SecurityContextConfig(
-            autoDetect = false,
-            providers = listOf(ConfiguredImplementation(EdgeProvider::class, qualifier)),
-            headers = noNamedHeaders()
-        )
-    )
+    /**
+     * The set a deployment may name under the geo setting is the one the container publishes, so an
+     * edge with no location to give is refused there rather than accepted to no effect.
+     */
+    @Test
+    fun `An edge publishing no location is not a word the geo setting accepts`() {
+        assertFalse("nginx" in reader.read(GeoProvider::class).qualifiers)
+        assertTrue("nginx" in reader.read(IpProvider::class).qualifiers)
+    }
 
-    private fun utilOf(securityContext: SecurityContextConfig) = SecurityContextUtil(
-        advancedConfigOf(securityContext = securityContext),
-        edgeProviders
+    private fun utilNaming(qualifier: String) = SecurityContextUtil(
+        advancedConfigOf(
+            securityContext = SecurityContextConfig(
+                ip = SecurityContextIpConfig(ConfiguredImplementation(IpProvider::class, qualifier), null),
+                geo = SecurityContextGeoConfig(false, emptyList(), noNamedGeoHeaders())
+            )
+        ),
+        ipProviders,
+        geoProviders
     )
 
     /**

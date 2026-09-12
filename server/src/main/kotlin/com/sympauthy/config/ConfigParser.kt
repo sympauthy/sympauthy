@@ -145,6 +145,23 @@ class ConfigParser {
         return ConfiguredImplementation(published.type, qualifier)
     }
 
+    /**
+     * The implementation a deployment named at [key], or null where it named none.
+     *
+     * Refuses a word naming no published implementation the way [getImplementationOrThrow] does, so
+     * an optional setting of this shape is refused for the same reason and with the same message as
+     * a required one.
+     */
+    fun <C : Any, T : Any> getImplementation(
+        config: C,
+        key: String,
+        published: PublishedImplementations<T>,
+        value: (C) -> String?
+    ): ConfiguredImplementation<T>? {
+        value(config) ?: return null
+        return getImplementationOrThrow(config, key, published, value)
+    }
+
     inline fun <C : Any, reified T : Enum<T>> getEnumOrThrow(
         config: C,
         key: String,

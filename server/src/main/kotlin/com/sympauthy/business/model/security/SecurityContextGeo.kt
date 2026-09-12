@@ -8,9 +8,9 @@ package com.sympauthy.business.model.security
  * it, and a postal code may be a range where an edge publishes ranges. Normalising them would put
  * this server's opinion in front of the only thing it actually knows, which is what its edge said.
  *
- * It carries no latitude and no longitude. Everything here is a name a person could have typed;
- * a coordinate pair is a different order of precision about someone, and nothing in this server has
- * a use for one.
+ * It carries no latitude and no longitude. Everything here is a name a person could have typed; a
+ * coordinate pair is a different order of precision about someone, and nothing in this server has a
+ * use for one.
  */
 data class SecurityContextGeo(
     val countryCode: String?,
@@ -22,8 +22,12 @@ data class SecurityContextGeo(
 ) {
 
     /**
-     * This location with [later] laid over it, field by field, for
-     * [the reason an observation merges][EdgeObservation.mergedUnder].
+     * This location with [later] laid over it, field by field, so an edge at the end of the list
+     * wins each field it answered and leaves the others where they were.
+     *
+     * Field by field rather than whole: an edge answering nothing for a field never erases what an
+     * earlier one answered, which is what lets a deployment behind two edges take the country from
+     * one and the city from the other.
      */
     fun mergedUnder(later: SecurityContextGeo?): SecurityContextGeo {
         if (later == null) return this
@@ -38,29 +42,17 @@ data class SecurityContextGeo(
     }
 
     /**
-     * Whether no field was answered, which is an edge publishing geo that sent none of it rather
-     * than an edge that publishes none.
+     * Whether no field was answered, which is an edge publishing a location that sent none of it
+     * rather than an edge that publishes none.
      */
     val isEmpty: Boolean
         get() = countryCode == null && regionCode == null && region == null &&
             city == null && postalCode == null && timeZone == null
-
-    companion object {
-
-        /**
-         * The location an edge that answered no field describes. [orNullIfEmpty] is what turns it
-         * back into the absence it stands for, so an edge builds one field by field without having
-         * to count how many it filled.
-         */
-        val NONE = SecurityContextGeo(
-            countryCode = null, regionCode = null, region = null,
-            city = null, postalCode = null, timeZone = null
-        )
-    }
 }
 
 /**
- * This location, or null where it holds nothing — so that an observation carries a location only
- * where something is actually known about one.
+ * This location, or null where it holds nothing — so that an edge builds one field by field without
+ * having to count how many it filled, and what comes out carries a location only where something is
+ * actually known about one.
  */
 fun SecurityContextGeo.orNullIfEmpty(): SecurityContextGeo? = if (isEmpty) null else this

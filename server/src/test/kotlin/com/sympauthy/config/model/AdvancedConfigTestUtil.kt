@@ -48,17 +48,15 @@ fun advancedConfigOf(
 }
 
 /**
- * What a deployment that configured nothing has: no proxy named, no auto-detection, no header of its
- * own.
+ * What a deployment that configured nothing has: no proxy named for the address, no edge read for a
+ * location, and no header of its own.
  */
 fun trustlessSecurityContext() = SecurityContextConfig(
-    autoDetect = false,
-    providers = emptyList(),
-    headers = noNamedHeaders()
+    ip = SecurityContextIpConfig(provider = null, header = null),
+    geo = SecurityContextGeoConfig(autoDetect = false, providers = emptyList(), headers = noNamedGeoHeaders())
 )
 
-fun noNamedHeaders() = SecurityContextHeadersConfig(
-    clientIp = null,
+fun noNamedGeoHeaders() = SecurityContextGeoHeadersConfig(
     countryCode = null,
     regionCode = null,
     region = null,

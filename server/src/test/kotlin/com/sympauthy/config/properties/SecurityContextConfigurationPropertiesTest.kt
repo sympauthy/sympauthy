@@ -11,24 +11,24 @@ import org.junit.jupiter.api.Test
  *
  * The parser's own tests hand it a properties object built in Kotlin, which answers what it does
  * with the values and nothing about whether a file produces them. The list is the half worth
- * proving: it is the first key of that shape in this domain, and a spelling the container does not
- * bind leaves the deployment with no proxy named and no error saying so.
+ * proving: it is the only key of that shape in this domain, and a spelling the container does not
+ * bind leaves the deployment with no edge named and no error saying so.
  */
 class SecurityContextConfigurationPropertiesTest {
 
     @Test
-    fun `Bind the providers a file lists, in the order it wrote them`() {
-        withContext("advanced.security-context.providers" to listOf("gcp", "nginx")) { context ->
-            val properties = context.getBean(SecurityContextConfigurationProperties::class.java)
+    fun `Bind the geo providers a file lists, in the order it wrote them`() {
+        withContext("advanced.security-context.geo.providers" to listOf("gcp", "cloudflare")) { context ->
+            val properties = context.getBean(SecurityContextGeoConfigurationProperties::class.java)
 
-            assertEquals(listOf("gcp", "nginx"), properties.providers)
+            assertEquals(listOf("gcp", "cloudflare"), properties.providers)
         }
     }
 
     @Test
-    fun `Bind no provider where the file lists none`() {
-        withContext("advanced.security-context.auto-detect" to "true") { context ->
-            val properties = context.getBean(SecurityContextConfigurationProperties::class.java)
+    fun `Bind no geo provider where the file lists none`() {
+        withContext("advanced.security-context.geo.auto-detect" to "true") { context ->
+            val properties = context.getBean(SecurityContextGeoConfigurationProperties::class.java)
 
             assertNull(properties.providers)
             assertEquals("true", properties.autoDetect)
@@ -36,12 +36,22 @@ class SecurityContextConfigurationPropertiesTest {
     }
 
     @Test
-    fun `Bind the header a file named for one field, and leave the others unnamed`() {
-        withContext("advanced.security-context.headers.city" to "X-My-Proxy-City") { context ->
-            val headers = context.getBean(SecurityContextHeadersConfigurationProperties::class.java)
+    fun `Bind the one proxy a file names for the address`() {
+        withContext("advanced.security-context.ip.provider" to "nginx") { context ->
+            val properties = context.getBean(SecurityContextIpConfigurationProperties::class.java)
+
+            assertEquals("nginx", properties.provider)
+            assertNull(properties.header)
+        }
+    }
+
+    @Test
+    fun `Bind the header a file named for one location field, and leave the others unnamed`() {
+        withContext("advanced.security-context.geo.headers.city" to "X-My-Proxy-City") { context ->
+            val headers = context.getBean(SecurityContextGeoHeadersConfigurationProperties::class.java)
 
             assertEquals("X-My-Proxy-City", headers.city)
-            assertNull(headers.clientIp)
+            assertNull(headers.countryCode)
         }
     }
 

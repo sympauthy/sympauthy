@@ -6,15 +6,19 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
-class CloudflareEdgeProviderTest {
+class CloudflareEdgeTest {
 
-    private val provider = CloudflareEdgeProvider()
+    private val edge = CloudflareEdge()
 
     @Test
-    fun `read - Answer the address and every location header the managed transform adds`() {
-        val observed = provider.read(
+    fun `readIpOrNull - Answer the address the connecting header carries`() {
+        assertEquals("203.0.113.7", edge.readIpOrNull(headersOf("CF-Connecting-IP" to "203.0.113.7")))
+    }
+
+    @Test
+    fun `readGeoOrNull - Answer every location header the managed transform adds`() {
+        val geo = edge.readGeoOrNull(
             headersOf(
-                "CF-Connecting-IP" to "203.0.113.7",
                 "CF-IPCountry" to "US",
                 "cf-region-code" to "CA",
                 "cf-region" to "California",
@@ -24,7 +28,6 @@ class CloudflareEdgeProviderTest {
             )
         )
 
-        assertEquals("203.0.113.7", observed.ipAddress)
         assertEquals(
             SecurityContextGeo(
                 countryCode = "US",
@@ -34,25 +37,20 @@ class CloudflareEdgeProviderTest {
                 postalCode = "94043",
                 timeZone = "America/Los_Angeles"
             ),
-            observed.geo
+            geo
         )
     }
 
     @Test
-    fun `read - Answer the country alone where only IP Geolocation is switched on`() {
-        val observed = provider.read(
-            headersOf("CF-Connecting-IP" to "203.0.113.7", "CF-IPCountry" to "US")
-        )
+    fun `readGeoOrNull - Answer the country alone where only IP Geolocation is switched on`() {
+        val geo = edge.readGeoOrNull(headersOf("CF-IPCountry" to "US"))
 
-        assertEquals("US", observed.geo?.countryCode)
-        assertNull(observed.geo?.city)
+        assertEquals("US", geo?.countryCode)
+        assertNull(geo?.city)
     }
 
     @Test
-    fun `read - Answer no location where neither switch is on`() {
-        val observed = provider.read(headersOf("CF-Connecting-IP" to "203.0.113.7"))
-
-        assertEquals("203.0.113.7", observed.ipAddress)
-        assertNull(observed.geo)
+    fun `readGeoOrNull - Answer no location where neither switch is on`() {
+        assertNull(edge.readGeoOrNull(headersOf("CF-Connecting-IP" to "203.0.113.7")))
     }
 }

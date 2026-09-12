@@ -1,100 +1,102 @@
 package com.sympauthy.api.util
 
-import com.sympauthy.business.model.security.EdgeObservation
-import com.sympauthy.business.model.security.EdgeProvider
+import com.sympauthy.business.model.security.GeoProvider
+import com.sympauthy.business.model.security.IpProvider
 import com.sympauthy.business.model.security.ObservedSecurityContext
 import com.sympauthy.business.model.security.SecurityContextGeo
 import com.sympauthy.business.model.security.orNullIfEmpty
 import com.sympauthy.business.model.security.valueOrNull
 import com.sympauthy.config.model.AdvancedConfig
-import com.sympauthy.config.model.SecurityContextConfig
-import com.sympauthy.config.model.SecurityContextHeadersConfig
+import com.sympauthy.config.model.SecurityContextGeoHeadersConfig
 import com.sympauthy.config.model.orThrow
 import io.micronaut.http.HttpHeaders
 import io.micronaut.http.HttpRequest
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import org.slf4j.LoggerFactory
 
 /**
- * Reads where a request came from, under the trust model a deployment configured.
+ * Reads where a request came from, under the trust model a deployment configured — which
+ * `docs/security.md` carries, including what naming a proxy promises and what it does not.
  *
  * It is a bean rather than a function because which headers may be believed is a deployment's to
- * decide, and it is in the `api` layer because a request is what it reads. What comes out is passed
- * on as an ordinary parameter: `docs/general-code-standard.md` keeps a manager callable without a
- * request, and a thread-local context would be intermittently absent across the coroutine boundaries
- * the managers here cross.
- *
- * **Nothing here checks that a request carrying an edge's header came from that edge.**
- * `docs/security.md` argues where that control lives and what a deployment promises by naming a
- * provider.
+ * decide, and it is in the `api` layer because a request is what it reads.
  */
 @Singleton
 class SecurityContextUtil(
     @Inject private val advancedConfig: AdvancedConfig,
     /**
-     * Every edge the container publishes, by the name each is named with — which is the set of words
-     * `advanced.security-context.providers` accepts.
+     * Every edge publishing an address, by the name each is named with — which is the set of words
+     * `advanced.security-context.ip.provider` accepts.
      */
-    @Inject private val edgeProviders: Map<String, EdgeProvider>
+    @Inject private val ipProviders: Map<String, IpProvider>,
+    /**
+     * Every edge publishing a location, which is the set `advanced.security-context.geo.providers`
+     * accepts. An edge publishing none is absent from it.
+     */
+    @Inject private val geoProviders: Map<String, GeoProvider>
 ) {
 
     /**
      * What [request] shows about where it came from.
      *
-     * The sources apply weakest first — the auto-detected providers, then the ones the deployment
-     * named, then the headers it named for itself — and each overrides only the fields it answers,
-     * so a source that knows the address and one that knows the location both contribute. The
-     * address falls back to the peer of the socket the request arrived on, which is what a
-     * deployment configuring nothing gets for every request.
+     * The address is the header a deployment named, else the edge it named, else the peer of the
+     * socket the request arrived on — one answer from one source, never a merge, because only the
+     * proxy nearest this server knows it. The location is merged across the edges that answered,
+     * each overriding the fields the ones before it filled, and the headers a deployment named win
+     * over all of them.
      */
     fun observe(request: HttpRequest<*>): ObservedSecurityContext {
         val config = advancedConfig.orThrow().securityContext
         val headers = request.headers
 
-        val fromEdges = sources(config)
-            .fold(EdgeObservation.NONE) { observed, provider -> observed.mergedUnder(provider.read(headers)) }
-        val observed = fromEdges.mergedUnder(namedHeaders(config.headers, headers))
+        val ipAddress = config.ip.header?.let(headers::valueOrNull)
+            ?: config.ip.provider?.resolve(ipProviders)?.readIpOrNull(headers)
+            ?: socketPeerOf(request)
+
+        val located = geoSources.map { it.readGeoOrNull(headers) } + namedHeaders(config.geo.headers, headers)
+        val geo = located.filterNotNull().reduceOrNull { earlier, later -> earlier.mergedUnder(later) }
 
         return ObservedSecurityContext(
-            ipAddress = observed.ipAddress ?: socketPeerOf(request),
+            ipAddress = ipAddress,
             userAgent = headers.valueOrNull(HttpHeaders.USER_AGENT),
-            geo = observed.geo
-        ).also(::logObservation)
+            geo = geo
+        )
     }
 
     /**
-     * The edges to apply, weakest first.
+     * The edges whose location is read, weakest first, fixed once because the configuration they
+     * come from is.
      *
-     * Auto-detection is every published provider rather than a provider of its own, sorted so that
-     * the same request is read the same way twice. Each answers only where its own headers arrived,
-     * which is what makes applying all of them mean "whichever edge is in front" — and where two
-     * edges' headers both arrive, the later name wins, as it would in a list an operator wrote.
-     * A deployment that cares which one wins writes the list.
+     * Auto-detection is every edge publishing a location rather than an edge of its own, sorted so
+     * that the same request is read the same way twice. Each answers only where its own headers
+     * arrived, which is what makes applying all of them mean "whichever edge is in front" — and it is
+     * safe here in a way it would not be for the address, because every edge publishes its location
+     * under a header of its own rather than at a position in one they share.
      */
-    private fun sources(config: SecurityContextConfig): List<EdgeProvider> {
-        val autoDetected = if (config.autoDetect) edgeProviders.toSortedMap().values else emptyList()
-        return autoDetected + config.providers.map { it.resolve(edgeProviders) }
+    private val geoSources: List<GeoProvider> by lazy {
+        val config = advancedConfig.orThrow().securityContext.geo
+        val autoDetected = if (config.autoDetect) geoProviders.toSortedMap().values else emptyList()
+        autoDetected + config.providers.map { it.resolve(geoProviders) }
     }
 
     /**
-     * The fields read out of the headers a deployment named for itself, each as it stands.
+     * Reads the location fields out of the headers a deployment named for itself, each as it stands.
      *
      * An override is never a parse: a header named here is read whole, including where it holds a
-     * list or a set of packed pairs. A deployment needing a value dug out of one names the provider
-     * that knows how instead.
+     * set of packed pairs. A deployment needing a value dug out of one names the edge that knows how
+     * instead.
      */
-    private fun namedHeaders(config: SecurityContextHeadersConfig, headers: HttpHeaders) = EdgeObservation(
-        ipAddress = config.clientIp?.let(headers::valueOrNull),
-        geo = SecurityContextGeo(
-            countryCode = config.countryCode?.let(headers::valueOrNull),
-            regionCode = config.regionCode?.let(headers::valueOrNull),
-            region = config.region?.let(headers::valueOrNull),
-            city = config.city?.let(headers::valueOrNull),
-            postalCode = config.postalCode?.let(headers::valueOrNull),
-            timeZone = config.timeZone?.let(headers::valueOrNull)
-        ).orNullIfEmpty()
-    )
+    private fun namedHeaders(
+        config: SecurityContextGeoHeadersConfig,
+        headers: HttpHeaders
+    ): SecurityContextGeo? = SecurityContextGeo(
+        countryCode = config.countryCode?.let(headers::valueOrNull),
+        regionCode = config.regionCode?.let(headers::valueOrNull),
+        region = config.region?.let(headers::valueOrNull),
+        city = config.city?.let(headers::valueOrNull),
+        postalCode = config.postalCode?.let(headers::valueOrNull),
+        timeZone = config.timeZone?.let(headers::valueOrNull)
+    ).orNullIfEmpty()
 
     /**
      * The peer of the socket [request] arrived on, which is the caller where nothing sits in front
@@ -103,24 +105,5 @@ class SecurityContextUtil(
     private fun socketPeerOf(request: HttpRequest<*>): String {
         val remoteAddress = request.remoteAddress
         return remoteAddress.address?.hostAddress ?: remoteAddress.hostString
-    }
-
-    /**
-     * Says what was observed, so that a deployment can see which of its headers is being believed
-     * before anything stores what they say.
-     */
-    private fun logObservation(observed: ObservedSecurityContext) {
-        if (!logger.isDebugEnabled) return
-        logger.debug(
-            "Request observed from {} ({}), user agent {}.",
-            observed.ipAddress,
-            observed.geo?.let { "${it.countryCode}/${it.regionCode}/${it.city}" } ?: "no location",
-            observed.userAgent ?: "none"
-        )
-    }
-
-    private companion object {
-
-        val logger = LoggerFactory.getLogger(SecurityContextUtil::class.java)
     }
 }

@@ -1,7 +1,8 @@
 package com.sympauthy.config.parsing
 
 import com.sympauthy.business.model.key.CryptoKeysGenerationStrategy
-import com.sympauthy.business.model.security.EdgeProvider
+import com.sympauthy.business.model.security.GeoProvider
+import com.sympauthy.business.model.security.IpProvider
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.PublishedImplementations
@@ -13,8 +14,9 @@ import com.sympauthy.config.properties.InvitationConfigurationProperties
 import com.sympauthy.config.properties.InvitationHashConfigurationProperties
 import com.sympauthy.config.properties.JwtConfigurationProperties
 import com.sympauthy.config.properties.PaginationConfigurationProperties
-import com.sympauthy.config.properties.SecurityContextConfigurationProperties
-import com.sympauthy.config.properties.SecurityContextHeadersConfigurationProperties
+import com.sympauthy.config.properties.SecurityContextGeoConfigurationProperties
+import com.sympauthy.config.properties.SecurityContextGeoHeadersConfigurationProperties
+import com.sympauthy.config.properties.SecurityContextIpConfigurationProperties
 import com.sympauthy.config.properties.ValidationCodeConfigurationProperties
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -89,42 +91,64 @@ class AdvancedConfigParserTest {
     }
 
     @Test
-    fun `parse - Read the providers in the order the deployment wrote them`() {
+    fun `parse - Read the geo providers in the order the deployment wrote them`() {
         val ctx = ConfigParsingContext()
 
-        val parsed = parse(ctx, providers = listOf("second-edge", "first-edge"))
+        val parsed = parse(ctx, geoProviders = listOf("second-edge", "first-edge"))
 
-        assertEquals(
-            listOf("second-edge", "first-edge"),
-            parsed.securityContext.providers.map { it.qualifier }
-        )
+        assertEquals(listOf("second-edge", "first-edge"), parsed.securityContext.geo.providers.map { it.qualifier })
         assertEquals(emptyList<Pair<String, String>>(), ctx.errors.map { it.key to it.messageId })
     }
 
     @Test
-    fun `parse - Report a provider naming no implementation against the position it holds`() {
+    fun `parse - Report a geo provider naming no implementation against the position it holds`() {
         val ctx = ConfigParsingContext()
 
-        val parsed = parse(ctx, providers = listOf("first-edge", "nowhere", "elsewhere"))
+        val parsed = parse(ctx, geoProviders = listOf("first-edge", "nowhere", "elsewhere"))
 
-        assertEquals(listOf("first-edge"), parsed.securityContext.providers.map { it.qualifier })
+        assertEquals(listOf("first-edge"), parsed.securityContext.geo.providers.map { it.qualifier })
         assertEquals(
             listOf(
-                "advanced.security-context.providers[1]" to "config.unknown_implementation",
-                "advanced.security-context.providers[2]" to "config.unknown_implementation"
+                "advanced.security-context.geo.providers[1]" to "config.unknown_implementation",
+                "advanced.security-context.geo.providers[2]" to "config.unknown_implementation"
             ),
             ctx.errors.map { it.key to it.messageId }
         )
     }
 
     @Test
-    fun `parse - Read no provider where the deployment named none`() {
+    fun `parse - Read the one proxy the deployment named for the address`() {
+        val ctx = ConfigParsingContext()
+
+        val parsed = parse(ctx, ipProvider = "first-hop")
+
+        assertEquals("first-hop", parsed.securityContext.ip.provider?.qualifier)
+        assertEquals(emptyList<Pair<String, String>>(), ctx.errors.map { it.key to it.messageId })
+    }
+
+    @Test
+    fun `parse - Report a proxy naming no implementation`() {
+        val ctx = ConfigParsingContext()
+
+        val parsed = parse(ctx, ipProvider = "nowhere")
+
+        assertNull(parsed.securityContext.ip.provider)
+        assertEquals(
+            listOf("advanced.security-context.ip.provider" to "config.unknown_implementation"),
+            ctx.errors.map { it.key to it.messageId }
+        )
+    }
+
+    @Test
+    fun `parse - Read nothing where the deployment named neither a proxy nor an edge`() {
         val ctx = ConfigParsingContext()
 
         val parsed = parse(ctx)
 
-        assertEquals(emptyList<String>(), parsed.securityContext.providers.map { it.qualifier })
-        assertNull(parsed.securityContext.autoDetect)
+        assertNull(parsed.securityContext.ip.provider)
+        assertNull(parsed.securityContext.ip.header)
+        assertEquals(emptyList<String>(), parsed.securityContext.geo.providers.map { it.qualifier })
+        assertNull(parsed.securityContext.geo.autoDetect)
         assertEquals(emptyList<Pair<String, String>>(), ctx.errors.map { it.key to it.messageId })
     }
 
@@ -132,9 +156,7 @@ class AdvancedConfigParserTest {
     fun `parse - Read auto-detect as a boolean`() {
         val ctx = ConfigParsingContext()
 
-        val parsed = parse(ctx, autoDetect = "true")
-
-        assertEquals(true, parsed.securityContext.autoDetect)
+        assertEquals(true, parse(ctx, autoDetect = "true").securityContext.geo.autoDetect)
     }
 
     @Test
@@ -143,40 +165,38 @@ class AdvancedConfigParserTest {
 
         val parsed = parse(ctx, autoDetect = "sometimes")
 
-        assertNull(parsed.securityContext.autoDetect)
+        assertNull(parsed.securityContext.geo.autoDetect)
         assertEquals(
-            listOf("advanced.security-context.auto-detect" to "config.invalid_boolean"),
+            listOf("advanced.security-context.geo.auto-detect" to "config.invalid_boolean"),
             ctx.errors.map { it.key to it.messageId }
         )
     }
 
     @Test
-    fun `parse - Read the header a deployment named for one field`() {
+    fun `parse - Read the header a deployment named for one location field`() {
         val ctx = ConfigParsingContext()
 
-        val parsed = parse(
-            ctx,
-            headers = object : SecurityContextHeadersConfigurationProperties {
-                override val clientIp = null
-                override val countryCode = null
-                override val regionCode = null
-                override val region = null
-                override val city = "X-My-Proxy-City"
-                override val postalCode = null
-                override val timeZone = null
-            }
-        )
+        val parsed = parse(ctx, geoHeaders = geoHeadersNaming(city = "X-My-Proxy-City"))
 
-        assertEquals("X-My-Proxy-City", parsed.securityContext.headers.city)
-        assertNull(parsed.securityContext.headers.clientIp)
+        assertEquals("X-My-Proxy-City", parsed.securityContext.geo.headers.city)
+        assertNull(parsed.securityContext.geo.headers.countryCode)
+    }
+
+    @Test
+    fun `parse - Read the header a deployment named for the address`() {
+        val ctx = ConfigParsingContext()
+
+        assertEquals("X-My-Proxy-Ip", parse(ctx, ipHeader = "X-My-Proxy-Ip").securityContext.ip.header)
     }
 
     private fun parse(
         ctx: ConfigParsingContext,
         keysGenerationStrategy: String? = "auto-increment",
+        ipProvider: String? = null,
+        ipHeader: String? = null,
         autoDetect: String? = null,
-        providers: List<String>? = null,
-        headers: SecurityContextHeadersConfigurationProperties = noHeaders
+        geoProviders: List<String>? = null,
+        geoHeaders: SecurityContextGeoHeadersConfigurationProperties = noGeoHeaders
     ) = parser.parse(
         ctx = ctx,
         properties = advancedProperties(keysGenerationStrategy),
@@ -188,37 +208,47 @@ class AdvancedConfigParserTest {
         validationCodeProperties = validationCodeProperties,
         authorizationWebhookProperties = authorizationWebhookProperties,
         paginationProperties = paginationProperties,
-        securityContextProperties = securityContextProperties(autoDetect, providers),
-        securityContextHeadersProperties = headers,
-        edgeProviders = edgeProviders
+        ipProperties = object : SecurityContextIpConfigurationProperties {
+            override val provider = ipProvider
+            override val header = ipHeader
+        },
+        geoProperties = object : SecurityContextGeoConfigurationProperties {
+            override val autoDetect = autoDetect
+            override val providers = geoProviders
+        },
+        geoHeadersProperties = geoHeaders,
+        ipProviders = publishedIpProviders,
+        geoProviders = publishedGeoProviders
     )
 
     /**
-     * A set this test owns, for the reason the generation strategies below are one.
+     * Sets this test owns, for the reason the generation strategies below are one.
      */
-    private val edgeProviders = PublishedImplementations(
-        EdgeProvider::class,
+    private val publishedIpProviders = PublishedImplementations(
+        IpProvider::class,
+        sortedSetOf("first-hop", "second-hop")
+    )
+
+    private val publishedGeoProviders = PublishedImplementations(
+        GeoProvider::class,
         sortedSetOf("first-edge", "second-edge")
     )
 
-    private fun securityContextProperties(autoDetect: String?, providers: List<String>?) =
-        object : SecurityContextConfigurationProperties {
-            override val autoDetect = autoDetect
-            override val providers = providers
-        }
+    private fun geoHeadersNaming(
+        city: String? = null
+    ) = object : SecurityContextGeoHeadersConfigurationProperties {
+        override val countryCode = null
+        override val regionCode = null
+        override val region = null
+        override val city = city
+        override val postalCode = null
+        override val timeZone = null
+    }
 
     /**
      * The shipped state of the overrides: a deployment that named no header of its own.
      */
-    private val noHeaders = object : SecurityContextHeadersConfigurationProperties {
-        override val clientIp = null
-        override val countryCode = null
-        override val regionCode = null
-        override val region = null
-        override val city = null
-        override val postalCode = null
-        override val timeZone = null
-    }
+    private val noGeoHeaders = geoHeadersNaming()
 
     /**
      * A set this test owns rather than whichever implementations the server happens to publish, so

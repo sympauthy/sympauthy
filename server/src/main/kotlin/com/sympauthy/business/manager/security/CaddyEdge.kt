@@ -1,7 +1,6 @@
 package com.sympauthy.business.manager.security
 
-import com.sympauthy.business.model.security.EdgeObservation
-import com.sympauthy.business.model.security.EdgeProvider
+import com.sympauthy.business.model.security.IpProvider
 import io.micronaut.http.HttpHeaders
 import jakarta.inject.Named
 import jakarta.inject.Singleton
@@ -17,10 +16,7 @@ import jakarta.inject.Singleton
  */
 @Singleton
 @Named("caddy")
-class CaddyEdgeProvider : EdgeProvider {
+class CaddyEdge : IpProvider {
 
-    override fun read(headers: HttpHeaders) = EdgeObservation(
-        ipAddress = headers.forwardedForEntries().lastOrNull(),
-        geo = null
-    )
+    override fun readIpOrNull(headers: HttpHeaders) = headers.forwardedForEntries().lastOrNull()
 }
