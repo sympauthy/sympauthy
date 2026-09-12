@@ -172,16 +172,19 @@ abstract class AbstractSympauthyIT {
      * [block] against it, and always tears both down. Dumps the container logs to stderr on failure to
      * make CI diagnostics actionable. Pass [extraConfig] to deep-merge scenario-specific configuration
      * (e.g. a second client) on top of the shared base [config], and [client] to own the flow as a
-     * confidential client (default: a public client using PKCE).
+     * confidential client (default: a public client using PKCE). Pass [scopes] to drive the flow as a
+     * plain OAuth 2.0 client, asking for something other than `openid`; the base [config] allows that
+     * client `openid` alone, so a scenario overriding this overrides `allowed-scopes` with it.
      */
     protected fun withContainer(
         database: Database,
         extraConfig: Map<String, Any> = emptyMap(),
         client: Client = Client.publicClient(clientId),
+        scopes: List<String> = listOf("openid"),
         block: (SympauthyContainer, InteractiveFlowRegistry) -> Unit,
     ) {
         database.createFixture().use { fixture ->
-            InteractiveFlowRegistry.forClient(client).withScopes("openid").use { registry ->
+            InteractiveFlowRegistry.forClient(client).withScopes(*scopes.toTypedArray()).use { registry ->
                 newContainer(fixture, registry, extraConfig).use { sympauthy ->
                     runStarted(sympauthy, registry, block)
                 }
