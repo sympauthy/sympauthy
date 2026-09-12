@@ -1,5 +1,7 @@
 package com.sympauthy.business.manager.mail
 
+import com.sympauthy.business.manager.lock.JobLeaseManager
+import com.sympauthy.business.manager.lock.LeasedJob.MAIL_BACKLOG
 import com.sympauthy.business.model.mail.QueuedMail
 import com.sympauthy.config.ConfigReadiness
 import com.sympauthy.data.model.MailQueueEntity
@@ -24,6 +26,13 @@ import java.util.*
  * On startup, unsent mails that have not expired are replayed; expired records are discarded.
  * Mails with no expiration date are always replayed.
  *
+ * **The replay is one instance's job, taken under a lease.** Without it every instance of a deployment
+ * replays the same rows and every recipient is sent their validation code once per instance. The lease
+ * is held for the whole of the delivery rather than for the reading of it: the rows are deleted as they
+ * are attempted, so a lease released while they were still in a queue would leave the next instance to
+ * boot a backlog it would send again. That is why a replayed mail is sent by the replay itself rather
+ * than handed to the channel — see [com.sympauthy.business.manager.lock.JobLeaseManager].
+ *
  * The replay does not run on a deployment whose configuration has errors. [processMail] deletes the record
  * whatever the send returned, so a mail replayed there has spent the one attempt it gets — sent from a
  * server reporting itself unready, carrying links to one that answers errors. Left in the table it keeps
@@ -38,7 +47,8 @@ class MailQueue(
     @Inject private val mailSender: MailSender?,
     @Inject private val configReadiness: ConfigReadiness,
     @Inject private val mailBuilderFactory: TemplatedMailBuilderFactory,
-    @Inject private val mailQueueRepository: MailQueueRepository
+    @Inject private val mailQueueRepository: MailQueueRepository,
+    @Inject private val jobLeaseManager: JobLeaseManager
 ) : ApplicationEventListener<ServiceReadyEvent> {
 
     private val logger = loggerForClass()
@@ -62,19 +72,30 @@ class MailQueue(
     }
 
     override fun onApplicationEvent(event: ServiceReadyEvent) {
+        scope.launch { replayBacklog() }
+    }
+
+    /**
+     * Deliver the backlog, if this instance is the one that gets to: the deployment's other instances
+     * hold the same rows and would send every one of them again.
+     *
+     * It runs on the queue's own scope rather than on the thread the readiness event arrived on. The
+     * lease is held until the last mail has been attempted, and readiness is not something to hold open
+     * for the length of an SMTP conversation.
+     */
+    internal suspend fun replayBacklog() {
         if (!enabled) return
 
-        runBlocking {
-            launch {
-                if (configReadiness.getConfigurationErrors().isNotEmpty()) {
-                    logger.warn(
-                        "Mail queue: not replaying — the configuration has errors and this server reports " +
-                                "itself unready. Unsent mails stay in the queue for the next startup."
-                    )
-                    return@launch
-                }
-                replayUnsentMails()
-            }
+        if (configReadiness.getConfigurationErrors().isNotEmpty()) {
+            logger.warn(
+                "Mail queue: not replaying — the configuration has errors and this server reports " +
+                        "itself unready. Unsent mails stay in the queue for the next startup."
+            )
+            return
+        }
+
+        jobLeaseManager.withLease(MAIL_BACKLOG) {
+            replayUnsentMails()
         }
     }
 
@@ -112,7 +133,14 @@ class MailQueue(
         channel.send(saved.toQueuedMail())
     }
 
-    private suspend fun replayUnsentMails() {
+    /**
+     * Discard the mails that expired while unsent, then deliver the ones that did not.
+     *
+     * Each is sent here rather than queued for the consumer, because the caller's lease has to cover the
+     * delivery: a lease released once the rows were read would let the next instance to become ready read
+     * the same rows and send them a second time.
+     */
+    internal suspend fun replayUnsentMails() {
         val now = LocalDateTime.now()
         val staleCount = mailQueueRepository.deleteByExpirationDateBefore(now)
         if (staleCount > 0) {
@@ -121,7 +149,7 @@ class MailQueue(
 
         val unsent = mailQueueRepository.findByExpirationDateIsNullOrExpirationDateAfter(now)
         for (entity in unsent) {
-            channel.send(entity.toQueuedMail())
+            processMail(entity.toQueuedMail())
         }
         if (unsent.isNotEmpty()) {
             logger.info("Replayed ${unsent.size} unsent mail(s) from database.")

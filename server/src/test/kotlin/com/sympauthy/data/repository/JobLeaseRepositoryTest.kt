@@ -1,6 +1,6 @@
 package com.sympauthy.data.repository
 
-import com.sympauthy.business.manager.lock.ScheduledJob
+import com.sympauthy.business.manager.lock.LeasedJob
 import com.sympauthy.data.BASE_DATE
 import com.sympauthy.data.Database
 import com.sympauthy.data.RepositoryFixture
@@ -19,7 +19,7 @@ import java.time.LocalDateTime
  *
  * Every acquisition here runs against a lease of this class's own rather than against one of the seeded
  * ones, so a run of this test leaves no job looking as though an instance were still holding it. It
- * names [ScheduledJob] across the layer boundary on purpose: the enum and the rows the migration seeded
+ * names [LeasedJob] across the layer boundary on purpose: the enum and the rows the migration seeded
  * are one fact, and a job whose row is missing is a job that never runs.
  */
 class JobLeaseRepositoryTest {
@@ -33,7 +33,7 @@ class JobLeaseRepositoryTest {
     fun `The migration seeds one row per scheduled job`(database: Database) = withFixture(database) {
         val seeded = repository<JobLeaseRepository>().findAll().map { it.name }.toSet()
 
-        assertEquals(ScheduledJob.entries.map(ScheduledJob::leaseName).toSet(), seeded)
+        assertEquals(LeasedJob.entries.map(LeasedJob::leaseName).toSet(), seeded)
     }
 
     @ParameterizedTest

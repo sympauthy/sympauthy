@@ -2,7 +2,7 @@ package com.sympauthy.cron
 
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionCleaner
 import com.sympauthy.business.manager.lock.JobLeaseManager
-import com.sympauthy.business.manager.lock.ScheduledJob.CLEAN_EXPIRED_INTERACTIVE_FLOW_SESSIONS
+import com.sympauthy.business.manager.lock.LeasedJob.CLEAN_EXPIRED_INTERACTIVE_FLOW_SESSIONS
 import com.sympauthy.util.loggerForClass
 import io.micronaut.scheduling.annotation.Scheduled
 import jakarta.inject.Inject

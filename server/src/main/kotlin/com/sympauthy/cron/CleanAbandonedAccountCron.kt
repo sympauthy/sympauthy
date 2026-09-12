@@ -1,7 +1,7 @@
 package com.sympauthy.cron
 
 import com.sympauthy.business.manager.lock.JobLeaseManager
-import com.sympauthy.business.manager.lock.ScheduledJob.CLEAN_ABANDONED_ACCOUNTS
+import com.sympauthy.business.manager.lock.LeasedJob.CLEAN_ABANDONED_ACCOUNTS
 import com.sympauthy.business.manager.user.ProvisionalAccountManager
 import com.sympauthy.util.loggerForClass
 import io.micronaut.scheduling.annotation.Scheduled

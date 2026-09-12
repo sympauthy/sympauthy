@@ -9,7 +9,7 @@ import java.time.Duration.ofMinutes
 import java.util.*
 
 /**
- * Hands one instance the right to run a scheduled job for this tick, and tells the others to skip it.
+ * Hands one instance the right to run a job, and tells every other instance to skip it.
  *
  * **A lease is not mutual exclusion.** A run whose instance stops renewing runs beside the instance that
  * takes the lease next, because nothing an instance stops doing proves the run stopped with it. What a
@@ -56,7 +56,7 @@ class JobLeaseManager(
      * The lease is released whatever [block] does, and the failure it threw travels on to the caller —
      * for a scheduled job, to whatever Micronaut does with a task that threw.
      */
-    suspend fun withLease(job: ScheduledJob, block: suspend () -> Unit): Boolean {
+    suspend fun withLease(job: LeasedJob, block: suspend () -> Unit): Boolean {
         val now = jobLeaseRepository.now()
         val acquired = jobLeaseRepository.acquire(
             name = job.leaseName,

@@ -1,7 +1,7 @@
 package com.sympauthy.business.manager.lock
 
 import com.sympauthy.business.manager.lock.JobLeaseManager.Companion.GRACE_PERIOD
-import com.sympauthy.business.manager.lock.ScheduledJob.CLEAN_ABANDONED_ACCOUNTS
+import com.sympauthy.business.manager.lock.LeasedJob.CLEAN_ABANDONED_ACCOUNTS
 import com.sympauthy.data.repository.JobLeaseRepository
 import io.mockk.coEvery
 import io.mockk.coVerify

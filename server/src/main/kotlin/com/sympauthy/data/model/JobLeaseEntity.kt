@@ -9,7 +9,7 @@ import java.time.LocalDateTime
  * The lease on one scheduled job: which instance is running it, since when, and until when the next
  * instance must leave it alone.
  *
- * One row per [com.sympauthy.business.manager.lock.ScheduledJob], created by the migration. [holder] and
+ * One row per [com.sympauthy.business.manager.lock.LeasedJob], created by the migration. [holder] and
  * [acquiredAt] are null until an instance has taken it for the first time, and stay at the last holder
  * once a run ends — a released lease is one whose [expirationDate] has passed, not one whose holder was
  * erased.

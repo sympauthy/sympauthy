@@ -111,8 +111,8 @@ names a row whatever became of it since it was read.
 
 ## The lease
 
-**A scheduled job is a value of `ScheduledJob`, and its lease row ships in the same migration.** A
-test holds the enum and the seeded rows equal, on every dialect.
+**A job one instance is enough to run is a value of `LeasedJob`, and its lease row ships in the same
+migration.** A test holds the enum and the seeded rows equal, on every dialect.
 
 **A leased job is one that stays correct when it runs twice.** Nothing an instance stops doing
 proves its run stopped with it, so a run whose instance falls silent goes on beside the one that
@@ -131,6 +131,10 @@ lease already expired and was taken elsewhere ends its run without freeing someb
 **A lease expires on how long an instance may go silent, not on how long a job takes.** It is
 renewed for as long as the instance holding it is alive, so no job carries a duration of its own and
 nobody has to guess one.
+
+**A job that runs once rather than on a schedule holds its lease over the work, not over the reading
+of it.** The mail backlog is the case: a lease released once the rows were read leaves them for the
+next instance to become ready, which reads the same rows and sends them a second time.
 
 **A renewal names its holder and passes over a lease that has already expired.** A lease past its
 expiry may have been taken in the meantime, and pulling it back takes the job from the instance now
