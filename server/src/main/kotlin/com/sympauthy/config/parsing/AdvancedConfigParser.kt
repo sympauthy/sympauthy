@@ -2,6 +2,8 @@ package com.sympauthy.config.parsing
 
 import com.sympauthy.business.model.jwt.JwtAlgorithm
 import com.sympauthy.business.model.key.CryptoKeysGenerationStrategy
+import com.sympauthy.business.model.security.GeoProvider
+import com.sympauthy.business.model.security.IpProvider
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.PublishedImplementations
@@ -14,6 +16,9 @@ import com.sympauthy.config.properties.InvitationConfigurationProperties.Compani
 import com.sympauthy.config.properties.InvitationHashConfigurationProperties.Companion.INVITATION_HASH_KEY
 import com.sympauthy.config.properties.JwtConfigurationProperties.Companion.JWT_KEY
 import com.sympauthy.config.properties.PaginationConfigurationProperties.Companion.PAGINATION_KEY
+import com.sympauthy.config.properties.SecurityContextGeoConfigurationProperties.Companion.SECURITY_CONTEXT_GEO_KEY
+import com.sympauthy.config.properties.SecurityContextGeoHeadersConfigurationProperties.Companion.GEO_HEADERS_KEY
+import com.sympauthy.config.properties.SecurityContextIpConfigurationProperties.Companion.SECURITY_CONTEXT_IP_KEY
 import com.sympauthy.config.properties.ValidationCodeConfigurationProperties.Companion.VALIDATION_CODE_KEY
 import jakarta.inject.Singleton
 import java.time.Duration
@@ -27,7 +32,45 @@ data class ParsedAdvancedConfig(
     val invitation: ParsedInvitationConfig,
     val validationCode: ParsedValidationCodeConfig,
     val webhookTimeout: Duration?,
-    val pagination: ParsedPaginationConfig
+    val pagination: ParsedPaginationConfig,
+    val securityContext: ParsedSecurityContextConfig
+)
+
+data class ParsedSecurityContextConfig(
+    val ip: ParsedSecurityContextIpConfig,
+    val geo: ParsedSecurityContextGeoConfig
+)
+
+data class ParsedSecurityContextIpConfig(
+    val provider: ConfiguredImplementation<IpProvider>?,
+    val header: String?
+)
+
+data class ParsedSecurityContextGeoConfig(
+    val autoDetect: Boolean?,
+    val providers: List<ParsedGeoProvider>,
+    val headers: ParsedSecurityContextGeoHeaders
+)
+
+/**
+ * An edge a deployment named, and the position it was written at.
+ *
+ * The position is carried rather than derived because an entry that did not parse is dropped, so
+ * what survives is no longer indexed the way the file is — and a refusal naming the wrong line is
+ * one an operator corrects in the wrong place.
+ */
+data class ParsedGeoProvider(
+    val index: Int,
+    val implementation: ConfiguredImplementation<GeoProvider>
+)
+
+data class ParsedSecurityContextGeoHeaders(
+    val countryCode: String?,
+    val regionCode: String?,
+    val region: String?,
+    val city: String?,
+    val postalCode: String?,
+    val timeZone: String?
 )
 
 data class ParsedInvitationConfig(
@@ -70,7 +113,12 @@ class AdvancedConfigParser(
         invitationHashProperties: InvitationHashConfigurationProperties,
         validationCodeProperties: ValidationCodeConfigurationProperties,
         authorizationWebhookProperties: AuthorizationWebhookConfigurationProperties,
-        paginationProperties: PaginationConfigurationProperties
+        paginationProperties: PaginationConfigurationProperties,
+        ipProperties: SecurityContextIpConfigurationProperties,
+        geoProperties: SecurityContextGeoConfigurationProperties,
+        geoHeadersProperties: SecurityContextGeoHeadersConfigurationProperties,
+        ipProviders: PublishedImplementations<IpProvider>,
+        geoProviders: PublishedImplementations<GeoProvider>
     ): ParsedAdvancedConfig {
         val keysGenerationStrategy = ctx.parse {
             parser.getImplementationOrThrow(
@@ -112,6 +160,10 @@ class AdvancedConfigParser(
         }
 
         val pagination = parsePaginationConfig(ctx, paginationProperties)
+        val securityContext = ParsedSecurityContextConfig(
+            ip = parseSecurityContextIpConfig(ctx, ipProperties, ipProviders),
+            geo = parseSecurityContextGeoConfig(ctx, geoProperties, geoHeadersProperties, geoProviders)
+        )
 
         return ParsedAdvancedConfig(
             keysGenerationStrategy = keysGenerationStrategy,
@@ -122,7 +174,83 @@ class AdvancedConfigParser(
             invitation = invitation,
             validationCode = validationCode,
             webhookTimeout = webhookTimeout,
-            pagination = pagination
+            pagination = pagination,
+            securityContext = securityContext
+        )
+    }
+
+    /**
+     * The one proxy a deployment named as nearest, and the header it named instead.
+     *
+     * A word naming no published edge is refused by the mechanism every setting of this shape shares.
+     */
+    private fun parseSecurityContextIpConfig(
+        ctx: ConfigParsingContext,
+        properties: SecurityContextIpConfigurationProperties,
+        ipProviders: PublishedImplementations<IpProvider>
+    ): ParsedSecurityContextIpConfig {
+        val provider = ctx.parse {
+            parser.getImplementation(
+                properties, "$SECURITY_CONTEXT_IP_KEY.provider", ipProviders,
+                SecurityContextIpConfigurationProperties::provider
+            )
+        }
+        val header = ctx.parse {
+            parser.getString(
+                properties, "$SECURITY_CONTEXT_IP_KEY.header",
+                SecurityContextIpConfigurationProperties::header
+            )
+        }
+        return ParsedSecurityContextIpConfig(provider = provider, header = header)
+    }
+
+    /**
+     * The edges a deployment named for a location, in the order it wrote them.
+     *
+     * Each is refused against the index it was written at, so a file listing two unknown words
+     * reports both. An edge publishing no location is not in the published set, so naming one is
+     * refused there rather than accepted to no effect.
+     */
+    private fun parseSecurityContextGeoConfig(
+        ctx: ConfigParsingContext,
+        properties: SecurityContextGeoConfigurationProperties,
+        headersProperties: SecurityContextGeoHeadersConfigurationProperties,
+        geoProviders: PublishedImplementations<GeoProvider>
+    ): ParsedSecurityContextGeoConfig {
+        val autoDetect = ctx.parse {
+            parser.getBoolean(
+                properties, "$SECURITY_CONTEXT_GEO_KEY.auto-detect",
+                SecurityContextGeoConfigurationProperties::autoDetect
+            )
+        }
+        val providers = properties.providers
+            ?.mapIndexedNotNull { index, value ->
+                val key = "$SECURITY_CONTEXT_GEO_KEY.providers[$index]"
+                ctx.parse { parser.getImplementationOrThrow(properties, key, geoProviders) { value } }
+                    ?.let { ParsedGeoProvider(index, it) }
+            }
+            ?: emptyList()
+        return ParsedSecurityContextGeoConfig(
+            autoDetect = autoDetect,
+            providers = providers,
+            headers = parseSecurityContextGeoHeaders(ctx, headersProperties)
+        )
+    }
+
+    private fun parseSecurityContextGeoHeaders(
+        ctx: ConfigParsingContext,
+        properties: SecurityContextGeoHeadersConfigurationProperties
+    ): ParsedSecurityContextGeoHeaders {
+        fun header(key: String, value: (SecurityContextGeoHeadersConfigurationProperties) -> String?) = ctx.parse {
+            parser.getString(properties, "$GEO_HEADERS_KEY.$key", value)
+        }
+        return ParsedSecurityContextGeoHeaders(
+            countryCode = header("country-code", SecurityContextGeoHeadersConfigurationProperties::countryCode),
+            regionCode = header("region-code", SecurityContextGeoHeadersConfigurationProperties::regionCode),
+            region = header("region", SecurityContextGeoHeadersConfigurationProperties::region),
+            city = header("city", SecurityContextGeoHeadersConfigurationProperties::city),
+            postalCode = header("postal-code", SecurityContextGeoHeadersConfigurationProperties::postalCode),
+            timeZone = header("time-zone", SecurityContextGeoHeadersConfigurationProperties::timeZone)
         )
     }
 

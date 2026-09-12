@@ -114,6 +114,79 @@ being usable on its own.
 expiry. This is the deliberate cost of not being purely stateless: every request that presents a
 token asks the database about it.
 
+## Where a request came from
+
+The server reads the address a request came from, the user agent it claimed, and whatever location
+the deployment's edge supplied. **It believes no header until an operator names the proxy that sets
+it.** With nothing configured under `advanced.security-context`, the address is the peer of the
+socket the request arrived on, no forwarded header is read at all, and no location is recorded.
+
+**Naming a proxy is a promise that this server is only reachable through it.** There is no proxy
+allow-list here, and nothing checks that a request carrying `CF-Connecting-IP` actually came from
+Cloudflare. That check belongs to the deployment, made once with a firewall rule or an origin lock,
+and this is the right place for it: the server cannot know its own topology, and a list of CIDRs in
+a configuration file is a second copy of that topology which goes stale in silence.
+
+**The consequence, stated plainly: if the origin is reachable directly while a proxy is named,
+anyone can set that header and choose what gets recorded about them.** Nothing in this server can
+detect it. A deployment that cannot guarantee a closed origin names no proxy and accepts the
+proxy's address, which is the shipped default.
+
+### The address and the location are configured apart
+
+**The address comes from exactly one named proxy, and the location may come from several or be
+detected.** They are separate settings because they carry different risk and admit different
+answers, and holding them together would give the weaker half the reach of the stronger one.
+
+**Only the proxy nearest this server knows the address**, as the peer it accepted a connection from
+rather than a value it was handed. So `advanced.security-context.ip` names one proxy, or one header
+read as it stands, and falls back to the socket peer. There is no detecting it, and no merging two
+answers: an edge reading an entry of `X-Forwarded-For` reads it at a position only its own hop count
+explains, so a server guessing which edge is in front would read that position under the wrong
+assumption and reach an entry the caller wrote — a forgery that works through a *legitimate* proxy,
+which a closed origin does not stop.
+
+**A location is published by each edge under a header of its own** — `CF-IPCountry`,
+`X-Akamai-Edgescape`, `CloudFront-Viewer-City` — rather than at a position in one they share. Two
+edges reading their own headers cannot be read at cross purposes, so
+`advanced.security-context.geo` takes a list applied in order, each entry overriding the fields the
+ones before it answered, and `auto-detect` reads every edge that publishes one. What a wrong answer
+costs there is a wrong location on a record rather than a request attributed to whoever asked for
+it.
+
+**An edge publishing no location cannot be named under the geo setting.** nginx, Traefik, Caddy,
+Fastly and Azure Front Door publish an address and nothing else, so naming one there is refused at
+startup rather than accepted to no effect.
+
+**A Kubernetes cluster on Google behind an nginx ingress is the shape this split is for**: the
+address comes from the ingress, which is adjacent to this server, and the location from the load
+balancer in front of it.
+
+### What is read, and how
+
+**An edge is a rule for extracting values, not a table of header names.** An edge that packs several
+fields into one header, as Google's load balancer and Akamai's EdgeScape do, or a port beside the
+address, as CloudFront does, is one a `Map<field, header>` cannot describe — so each carries the
+extraction its own edge needs.
+
+**Where a header arrives more than once, the last value is the edge's.** A caller may have sent it
+already and a proxy may append rather than replace, so everything before the last is the caller's —
+the same rule that makes only the rightmost entries of `X-Forwarded-For` worth reading.
+
+**A header a deployment names for one field replaces that field and never parses.** An operator
+naming a header is saying the value is in it, as it stands. A deployment needing a value dug out of
+a packed header names the edge that knows how. A name no request could carry — one holding a space
+or a colon — is refused at startup rather than silently matching nothing.
+
+**What is read is passed on as an ordinary parameter.** There is no request-scoped bean and no
+thread-local context: [the general standard](general-code-standard.md#dependency-rules) keeps a
+manager callable from a scheduled job and a unit test, and every manager here is `suspend`, so a
+thread-local would be intermittently absent across the coroutine boundaries they cross — recording a
+null address against a real security decision, silently.
+
+**Nothing stores any of it yet.** This is the reading half; the record it will be written to is its
+own work.
+
 ## What this design does not do
 
 **It does not rate-limit or lock out.** Nothing limits password attempts, validation-code attempts,
@@ -121,8 +194,9 @@ or second-factor attempts — anywhere. An attacker with a valid identifier gets
 whatever the flow is protecting. This is the largest known gap in this document and it is tracked as
 its own work.
 
-**It does not detect anomalies.** No device fingerprint, no impossible-travel check, no risk score.
-A correct credential is a correct credential.
+**It does not detect anomalies.** It reads where a request came from and does nothing with it: no
+device fingerprint, no impossible-travel check, no risk score, and no geolocation from an IP
+database — only what an edge said. A correct credential is a correct credential.
 
 **It does not log an audit trail.** Who did what, and when, is reconstructible from application logs
 and from the rows themselves, not from a designed record. An audit primitive is designed and not yet
