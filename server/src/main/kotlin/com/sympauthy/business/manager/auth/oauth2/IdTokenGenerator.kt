@@ -73,7 +73,9 @@ class IdTokenGenerator(
      * contained `nonce`". A nonce binds an id token to an authorization request, and no authorization
      * request was made here.
      *
-     * Returns null where the grant the [refreshToken] descends from does not carry `openid`.
+     * Returns null unless the grant the [refreshToken] descends from names a user and carries `openid`: a
+     * `client_credentials` grant has no identity to assert, and one that never asked for OpenID Connect
+     * asked for none.
      */
     suspend fun generateIdToken(
         refreshToken: AuthenticationToken,

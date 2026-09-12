@@ -107,14 +107,18 @@ id token is the only thing this server signs that says who a person is, and a cl
 ask to know who they are is being answered a question it never put.
 
 Ungating was the compatible answer, and what decided against it is where this server is. It has no
-stable release, so the deployments a break reaches are ones that can still be fixed by adding
-`openid` to the request — which is what a client wanting an id token was always meant to send. The
-same change made after a 1.0 would cost every one of them a migration.
+stable release, so the deployments a break reaches are few and still correctable by hand. The same
+change made after a 1.0 would cost every one of them a migration.
 
-**What a deployment sees.** A client requesting `openid` is unaffected, and the scope is
-auto-granted when requested, so nothing else has to change for it. A client that does not request it
-stops receiving an `id_token` in either response, and reads the person's claims from `/userinfo`,
-which is the endpoint for exactly that.
+**What a deployment sees.** A client requesting `openid` is unaffected: the scope is auto-granted
+when requested. A client that does not request it stops receiving an `id_token` in either response,
+and reads the person's claims from `/userinfo`, which is the endpoint for exactly that.
+
+**What correcting one takes.** The client sends `openid` in its authorization request, which is what
+a client wanting an id token was always meant to send. Where the deployment names `allowed-scopes`
+for that client, `openid` joins it — a scope outside that set is refused as
+`scope.parse_requested.not_allowed` rather than ignored — and it joins `default-scopes` too where
+that is named, for a request that sends no `scope` at all.
 
 ---
 

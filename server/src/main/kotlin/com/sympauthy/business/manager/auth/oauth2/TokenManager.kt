@@ -89,9 +89,10 @@ open class TokenManager(
     /**
      * Generate tokens for a completed authorization code flow.
      *
-     * Always generates an access token. An id token is generated where the [session] granted the `openid`
-     * scope, and a refresh token where the [client] supports the [GrantType.REFRESH_TOKEN] grant type. A
-     * [session] that has expired issues nothing and throws an `OAuth2Exception` carrying `token.expired`.
+     * Always generates an access token. An id token is generated where the grant [oauth2] records carries
+     * the `openid` scope, and a refresh token where the [client] supports the [GrantType.REFRESH_TOKEN]
+     * grant type. A [session] that has expired issues nothing and throws an `OAuth2Exception` carrying
+     * `token.expired`.
      */
     @Transactional
     open suspend fun generateTokens(

@@ -256,6 +256,7 @@ class TokenManagerTest {
 
         assertSame(accessToken, tokens.accessToken)
         assertNull(tokens.refreshToken)
+        assertNull(tokens.idToken)
     }
 
     @Test

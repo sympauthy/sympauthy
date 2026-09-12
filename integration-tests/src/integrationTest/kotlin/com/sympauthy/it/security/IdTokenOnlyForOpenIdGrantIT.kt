@@ -39,7 +39,15 @@ class IdTokenOnlyForOpenIdGrantIT : AbstractSympauthyIT() {
             // No granting rule names REPORTS_SCOPE, so the default behaviour is what grants it.
             "features" to mapOf("grant-unhandled-scopes" to true),
             "scopes" to mapOf(REPORTS_SCOPE to mapOf("enabled" to true)),
-            "clients" to mapOf(clientId to mapOf("allowed-scopes" to listOf(REPORTS_SCOPE))),
+            // Both, or the client is not the plain OAuth 2.0 one this scenario describes: the shipped
+            // `templates.clients.default` supplies `default-scopes: [openid, profile]` to a client that
+            // names none, and a request omitting `scope` would be answered with those.
+            "clients" to mapOf(
+                clientId to mapOf(
+                    "allowed-scopes" to listOf(REPORTS_SCOPE),
+                    "default-scopes" to listOf(REPORTS_SCOPE),
+                ),
+            ),
         )
         val confidentialClient = Client.confidentialClient(clientId, CLIENT_SECRET)
 
@@ -65,8 +73,10 @@ class IdTokenOnlyForOpenIdGrantIT : AbstractSympauthyIT() {
             )
             assertEquals(200, response.statusCode(), "the refresh grant should succeed, body=${response.body()}")
 
+            val refreshed = JSONObjectUtils.parse(response.body())
+            assertNotNull(refreshed["access_token"], "the refresh should answer with a new access token")
             assertNull(
-                JSONObjectUtils.parse(response.body())["id_token"],
+                refreshed["id_token"],
                 "a grant without openid must receive no id_token at the refresh either, body=${response.body()}",
             )
         }
