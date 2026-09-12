@@ -3,10 +3,12 @@ package com.sympauthy.api.controller.openid
 import com.sympauthy.api.controller.openid.OpenIdUserInfoController.Companion.OPENID_USERINFO_ENDPOINT
 import com.sympauthy.api.mapper.UserInfoResourceMapper
 import com.sympauthy.api.resource.openid.UserInfoResource
+import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.security.SecurityRule.IS_USER
 import com.sympauthy.security.consentedScopes
+import com.sympauthy.security.userAuthentication
 import com.sympauthy.security.userId
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
@@ -19,6 +21,7 @@ import jakarta.inject.Inject
 @Controller(OPENID_USERINFO_ENDPOINT)
 @Secured(IS_USER)
 class OpenIdUserInfoController(
+    @Inject private val clientManager: ClientManager,
     @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
     @Inject private val userInfoMapper: UserInfoResourceMapper
 ) {
@@ -36,11 +39,14 @@ class OpenIdUserInfoController(
     suspend fun getUserInfo(
         authentication: Authentication
     ): UserInfoResource {
+        val clientId = authentication.userAuthentication.authenticationToken.clientId
+        val client = clientManager.findClientById(clientId)
         // Use ReadableByUser (not ReadableByClient) because this endpoint is only protected
         // by a bearer token without client authentication, so the caller may be the end-user directly.
         val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByUser(
             userId = authentication.userId,
-            consentedScopes = authentication.consentedScopes.map(Scope::scope)
+            consentedScopes = authentication.consentedScopes.map(Scope::scope),
+            audienceId = client.audience.id
         )
         return userInfoMapper.toResource(authentication.userId, claims)
     }

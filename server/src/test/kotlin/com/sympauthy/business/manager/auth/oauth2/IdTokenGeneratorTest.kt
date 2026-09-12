@@ -5,6 +5,7 @@ import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
+import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.jwt.JwtAlgorithm
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.BuiltInGrantableScopeId
@@ -60,6 +61,8 @@ class IdTokenGeneratorTest {
 
     private val savedEntity = slot<AuthenticationTokenEntity>()
 
+    private val readAudienceId = slot<String>()
+
     @Test
     fun shouldGenerateIdToken() {
         assertTrue(generator.shouldGenerateIdToken(listOf(BuiltInGrantableScopeId.OPENID)))
@@ -69,10 +72,7 @@ class IdTokenGeneratorTest {
     @Test
     fun `generateIdToken - Claim the hash of the access token it was issued beside`() = runTest {
         val userId = UUID.randomUUID()
-        val accessToken = mockk<EncodedAuthenticationToken> {
-            every { token } returns "jHkWEdUXMU1BwAsC4vtUsZwnNvTIxEl0z9K3vx5KF0Y"
-        }
-        val claimsSet = issue(userId, accessToken)
+        val claimsSet = issue(userId, mockAccessToken())
 
         assertEquals("77QmUPtjPfzWtF2AnpK9RQ", claimsSet.getStringClaim("at_hash"))
     }
@@ -100,6 +100,30 @@ class IdTokenGeneratorTest {
         assertNull(claimsSet.getClaim("nonce"))
     }
 
+    @Test
+    fun `generateIdToken - Read the claims for the audience a code exchange names`() = runTest {
+        val userId = UUID.randomUUID()
+        val oauth2 = InteractiveFlowSessionOAuth2(
+            sessionId = UUID.randomUUID(),
+            clientId = "client",
+            redirectUri = "https://example.com/callback",
+            requestedScopes = emptyList(),
+            consentedScopes = listOf(CONSENTED_SCOPE)
+        )
+        stubGeneration(userId, consentedScopes = listOf(CONSENTED_SCOPE))
+
+        generator.generateIdToken(oauth2, userId, AUDIENCE, mockAccessToken())
+
+        assertEquals(AUDIENCE, readAudienceId.captured)
+    }
+
+    @Test
+    fun `generateIdToken - Read the claims for the audience a refresh names`() = runTest {
+        issue(mockRefreshToken(sessionId = UUID.randomUUID()))
+
+        assertEquals(AUDIENCE, readAudienceId.captured)
+    }
+
     private fun mockRefreshToken(sessionId: UUID): AuthenticationToken {
         val id = UUID.randomUUID()
         return mockk {
@@ -111,16 +135,18 @@ class IdTokenGeneratorTest {
         }
     }
 
+    private fun mockAccessToken(): EncodedAuthenticationToken = mockk {
+        every { token } returns "jHkWEdUXMU1BwAsC4vtUsZwnNvTIxEl0z9K3vx5KF0Y"
+    }
+
     private suspend fun issue(refreshToken: AuthenticationToken): JWTClaimsSet {
-        val accessToken = mockk<EncodedAuthenticationToken> {
-            every { token } returns "jHkWEdUXMU1BwAsC4vtUsZwnNvTIxEl0z9K3vx5KF0Y"
-        }
+        val accessToken = mockAccessToken()
         val builder = stubGeneration(
             userId = checkNotNull(refreshToken.userId),
             consentedScopes = refreshToken.consentedScopes
         )
 
-        generator.generateIdToken(refreshToken, accessToken)
+        generator.generateIdToken(refreshToken, AUDIENCE, accessToken)
 
         return builder.build()
     }
@@ -134,7 +160,9 @@ class IdTokenGeneratorTest {
             every { idExpiration } returns Duration.ofMinutes(5)
         }
         coEvery {
-            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes)
+            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
+                userId, consentedScopes, any(), capture(readAudienceId)
+            )
         } returns emptyList()
         coEvery { tokenRepository.save(capture(savedEntity)) } answers { firstArg<AuthenticationTokenEntity>() }
         every { generatedClaimsManager.computeSubject(userId) } returns userId.toString()
@@ -154,6 +182,7 @@ class IdTokenGeneratorTest {
         generator.generateIdToken(
             userId = userId,
             clientId = "client",
+            audienceId = AUDIENCE,
             grantedScopes = emptyList(),
             consentedScopes = emptyList(),
             sessionId = null,
@@ -166,5 +195,6 @@ class IdTokenGeneratorTest {
 
     private companion object {
         const val CONSENTED_SCOPE = "email"
+        const val AUDIENCE = "storefront"
     }
 }

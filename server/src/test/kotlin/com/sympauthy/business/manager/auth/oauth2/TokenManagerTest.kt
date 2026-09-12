@@ -78,7 +78,10 @@ class TokenManagerTest {
     private fun mockClientWithGrantTypes(vararg grantTypes: GrantType): Client {
         return mockk {
             every { supportsGrantType(any()) } answers { grantTypes.contains(firstArg()) }
-            every { audience } returns mockk { every { tokenAudience } returns "https://test-audience" }
+            every { audience } returns mockk {
+                every { tokenAudience } returns "https://test-audience"
+                every { id } returns "test-audience"
+            }
         }
     }
 
@@ -121,12 +124,13 @@ class TokenManagerTest {
                 dpopJkt = null
             )
         } returns refreshToken
-        coEvery { idTokenGenerator.generateIdToken(oauth2, userId, accessToken) } returns idToken
+        coEvery { idTokenGenerator.generateIdToken(oauth2, userId, "test-audience", accessToken) } returns idToken
 
         val result = tokenManager.generateTokens(session, oauth2, client)
 
         assertSame(accessToken, result.accessToken)
         assertSame(refreshToken, result.refreshToken)
+        assertSame(idToken, result.idToken)
     }
 
     @Test
@@ -345,7 +349,7 @@ class TokenManagerTest {
         } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
         every { idTokenGenerator.shouldGenerateIdToken(listOf(BuiltInGrantableScopeId.OPENID)) } returns true
-        coEvery { idTokenGenerator.generateIdToken(refreshToken, accessToken) } returns idToken
+        coEvery { idTokenGenerator.generateIdToken(refreshToken, "test-audience", accessToken) } returns idToken
 
         val tokens = tokenManager.refreshToken(client, "token")
 
@@ -383,7 +387,7 @@ class TokenManagerTest {
         val tokens = tokenManager.refreshToken(client, "token")
 
         assertNull(tokens.idToken)
-        coVerify(exactly = 0) { idTokenGenerator.generateIdToken(refreshToken, accessToken) }
+        coVerify(exactly = 0) { idTokenGenerator.generateIdToken(refreshToken, any(), accessToken) }
     }
 
     @Test

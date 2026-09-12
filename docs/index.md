@@ -41,8 +41,8 @@ they are *not* is a user manual: how to configure and integrate with a running S
 - **[The interactive flow](interactive-flow.md)** — the session, the purposes an engine sequences
   over it, and how a purpose or a step is added.
 - **[Security](security.md)** — how a credential becomes an authentication, what a scope is allowed
-  to mean, what each surface's gate does and does not protect, and which headers a deployment's
-  proxy is believed about.
+  to mean and which audience a claim may be published to, what each surface's gate does and does not
+  protect, and which headers a deployment's proxy is believed about.
 - **[Technology](technology.md)** — the frameworks and runtime the server is built on, and why each
   was picked.
 - **[Documentation standard](docs-standard.md)** — how a standard here is written, and what it

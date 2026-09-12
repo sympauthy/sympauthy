@@ -363,10 +363,15 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         val consentedScopes = listOf("openid", "profile")
         coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns emptyList()
         coEvery {
-            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes)
+            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
+                userId, consentedScopes, audienceId = null
+            )
         } returns emptyList()
+        coEvery { clientManager.findClientById("client-id") } returns mockClient()
         every {
-            consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(any(), consentedScopes)
+            consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(
+                any(), consentedScopes, testAudience.id
+            )
         } returns allRequiredCollected
         every { claimValidationManager.getReasonsToSendValidationCode(any(), any()) } returns reasons
         return oauth2Of(consentedScopes = consentedScopes)

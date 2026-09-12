@@ -109,6 +109,15 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
      * Takes the already-fetched [oauth2] record (rather than re-fetching it) so the caller loads it once.
      * MFA is not part of this status: it is a separate purpose the OAuth2 purpose requires once its own steps
      * are done.
+     *
+     * The required set is the audience's, resolved from the client [oauth2] names: a claim restricted to
+     * another audience does not hold up a flow that did not start from it.
+     *
+     * The collected claims are read across every audience all the same, so what the person already holds is
+     * compared against that set in full. Reading them narrowly would answer the same question — a required
+     * claim belongs to this audience, so a claim of another's can satisfy none of them — and would cost the
+     * validation reasons below the address this person confirmed under another audience, which is confirmed
+     * once for them rather than once per audience.
      */
     internal suspend fun computeStatus(
         session: OnGoingInteractiveFlowSession,
@@ -119,12 +128,17 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
             collectedClaimManager.findIdentifierByUserId(it)
         } ?: emptyList()
         val consentedClaims = session.userId?.let {
-            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(it, consentedScopes)
+            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
+                userId = it,
+                consentedScopes = consentedScopes,
+                audienceId = null
+            )
         } ?: emptyList()
         val missingUser = session.userId == null
         val allClaims = (identifierClaims + consentedClaims).distinctBy { it.claim.id }
+        val audienceId = clientManagerProvider.get().findClientById(oauth2.clientId).audience.id
         val missingRequiredClaims = !consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(
-            allClaims, consentedScopes
+            allClaims, consentedScopes, audienceId
         )
         val missingMediaForClaimValidation = claimValidationManager.getReasonsToSendValidationCode(
             identifierClaims = identifierClaims,

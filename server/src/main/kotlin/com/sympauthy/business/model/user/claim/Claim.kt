@@ -76,6 +76,17 @@ data class Claim(
     fun belongsToScope(scope: String): Boolean = acl.consent.scope == scope
 
     /**
+     * Return true if this claim is one the audience identified by [audienceId] has: either it is restricted to
+     * no audience, or it is restricted to that one.
+     *
+     * This is the whole of the [audienceId] restriction, and it is asked apart from the ACL rather than inside
+     * it: what an audience has is a different question from what a caller may read, and a claim may have to be
+     * tested for the first where no scope applies — the set of required claims a flow computes is one.
+     */
+    fun belongsToAudience(audienceId: String): Boolean =
+        this.audienceId == null || this.audienceId == audienceId
+
+    /**
      * Return true if the end-user can read this claim given the [consentedScopes].
      *
      * Access is granted when [ConsentAcl.readableByUser] is true AND either no consent scope

@@ -139,7 +139,9 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
         coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns identifierClaims
         coEvery {
-            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes)
+            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
+                userId, consentedScopes, audienceId = null
+            )
         } returns consentedClaims
         every {
             manager.getReasonsToSendValidationCode(
@@ -196,7 +198,9 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
         coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns identifierClaims
         coEvery {
-            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes)
+            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
+                userId, consentedScopes, audienceId = null
+            )
         } returns consentedClaims
         every {
             manager.getReasonsToSendValidationCode(
@@ -242,7 +246,9 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
         coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns identifierClaims
         coEvery {
-            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes)
+            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
+                userId, consentedScopes, audienceId = null
+            )
         } returns consentedClaims
         every {
             manager.getReasonsToSendValidationCode(

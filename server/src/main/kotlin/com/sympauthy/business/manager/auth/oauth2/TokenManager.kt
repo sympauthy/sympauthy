@@ -134,6 +134,7 @@ open class TokenManager(
             idTokenGenerator.generateIdToken(
                 oauth2 = oauth2,
                 userId = session.userId,
+                audienceId = client.audience.id,
                 accessToken = accessToken
             )
         }
@@ -214,7 +215,7 @@ open class TokenManager(
         // Why a refresh reissues the identity at all, and only for an OpenID Connect grant:
         // docs/design-faq.md.
         val idToken = if (idTokenGenerator.shouldGenerateIdToken(refreshToken.grantedScopes)) {
-            idTokenGenerator.generateIdToken(refreshToken, accessToken)
+            idTokenGenerator.generateIdToken(refreshToken, client.audience.id, accessToken)
         } else null
 
         GenerateTokenResult(

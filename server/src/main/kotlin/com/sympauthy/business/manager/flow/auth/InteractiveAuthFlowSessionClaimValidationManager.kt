@@ -102,6 +102,9 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
      * and return the latest generated [ValidationCode] (even if it is expired).
      * - Otherwise, send a validation code to the [user] using the provided [media] to validate claims collected by this
      * authorization server.
+     *
+     * The claims are read across every audience: an address or a number is confirmed once for the person, not
+     * once per audience, and the code goes to them rather than to a client.
      */
     @Transactional
     open suspend fun getOrSendValidationCode(
@@ -113,7 +116,8 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
         val identifierClaims = collectedClaimManager.findIdentifierByUserId(user.id)
         val consentedClaims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
             userId = user.id,
-            consentedScopes = consentedScopes
+            consentedScopes = consentedScopes,
+            audienceId = null
         )
 
         val reasons = getReasonsToSendValidationCode(

@@ -50,17 +50,22 @@ class ConsentAwareCollectedClaimManagerTest {
         consentedScopes = consentedScopes
     )
 
-    private fun claimWithConsentScope(scope: String) = Claim(
+    private fun claimWithConsentScope(
+        scope: String,
+        audienceId: String? = null,
+        required: Boolean = false
+    ) = Claim(
         id = "claim_$scope",
 
         enabled = true,
         verifiedId = null,
         dataType = ClaimDataType.STRING,
         group = null,
-        required = false,
+        required = required,
         generated = false,
         userInputted = true,
         allowedValues = null,
+        audienceId = audienceId,
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = scope,
@@ -117,7 +122,7 @@ class ConsentAwareCollectedClaimManagerTest {
 
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedClaim1, collectedClaim2)
 
-        val result = manager.findByUserIdAndReadableByUser(userId, listOf(scope1))
+        val result = manager.findByUserIdAndReadableByUser(userId, listOf(scope1), audienceId = null)
 
         assertEquals(1, result.count())
         assertSame(collectedClaim1, result[0])
@@ -140,7 +145,7 @@ class ConsentAwareCollectedClaimManagerTest {
 
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedStandard, collectedCustom)
 
-        val result = manager.findByUserIdAndReadableByUser(userId, listOf(scope1))
+        val result = manager.findByUserIdAndReadableByUser(userId, listOf(scope1), audienceId = null)
 
         assertEquals(1, result.count())
         assertSame(collectedStandard, result[0])
@@ -164,10 +169,96 @@ class ConsentAwareCollectedClaimManagerTest {
 
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedClaim1, collectedClaim2)
 
-        val result = manager.findByUserIdAndReadableByClient(userId, listOf(scope1))
+        val result = manager.findByUserIdAndReadableByClient(userId, listOf(scope1), audienceId = null)
 
         assertEquals(1, result.count())
         assertSame(collectedClaim1, result[0])
+    }
+
+    @Test
+    fun `findByUserIdAndReadableByUser - Leave out a claim restricted to another audience`() = runTest {
+        val userId = UUID.randomUUID()
+        val scope = "scope1"
+
+        val sharedClaim = claimWithConsentScope(scope)
+        val billingClaim = claimWithConsentScope(scope, audienceId = "billing")
+
+        val collectedShared = mockk<CollectedClaim> {
+            every { claim } returns sharedClaim
+        }
+        val collectedBilling = mockk<CollectedClaim> {
+            every { claim } returns billingClaim
+        }
+
+        coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedShared, collectedBilling)
+
+        val result = manager.findByUserIdAndReadableByUser(userId, listOf(scope), audienceId = "storefront")
+
+        assertEquals(1, result.count())
+        assertSame(collectedShared, result[0])
+    }
+
+    @Test
+    fun `findByUserIdAndReadableByClient - Leave out a claim restricted to another audience`() = runTest {
+        val userId = UUID.randomUUID()
+        val scope = "scope1"
+
+        val sharedClaim = claimWithConsentScope(scope)
+        val billingClaim = claimWithConsentScope(scope, audienceId = "billing")
+
+        val collectedShared = mockk<CollectedClaim> {
+            every { claim } returns sharedClaim
+        }
+        val collectedBilling = mockk<CollectedClaim> {
+            every { claim } returns billingClaim
+        }
+
+        coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedShared, collectedBilling)
+
+        val result = manager.findByUserIdAndReadableByClient(userId, listOf(scope), audienceId = "storefront")
+
+        assertEquals(1, result.count())
+        assertSame(collectedShared, result[0])
+    }
+
+    @Test
+    fun `findByUserIdAndReadableByClient - Answer a claim restricted to the audience named`() = runTest {
+        val userId = UUID.randomUUID()
+        val scope = "scope1"
+
+        val billingClaim = claimWithConsentScope(scope, audienceId = "billing")
+        val collectedBilling = mockk<CollectedClaim> {
+            every { claim } returns billingClaim
+        }
+
+        coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedBilling)
+
+        val result = manager.findByUserIdAndReadableByClient(userId, listOf(scope), audienceId = "billing")
+
+        assertEquals(1, result.count())
+        assertSame(collectedBilling, result[0])
+    }
+
+    @Test
+    fun `findByUserIdAndReadableByClient - Read across every audience when none is named`() = runTest {
+        val userId = UUID.randomUUID()
+        val scope = "scope1"
+
+        val sharedClaim = claimWithConsentScope(scope)
+        val billingClaim = claimWithConsentScope(scope, audienceId = "billing")
+
+        val collectedShared = mockk<CollectedClaim> {
+            every { claim } returns sharedClaim
+        }
+        val collectedBilling = mockk<CollectedClaim> {
+            every { claim } returns billingClaim
+        }
+
+        coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedShared, collectedBilling)
+
+        val result = manager.findByUserIdAndReadableByClient(userId, listOf(scope), audienceId = null)
+
+        assertEquals(2, result.count())
     }
 
     @Test
@@ -201,7 +292,9 @@ class ConsentAwareCollectedClaimManagerTest {
         }
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2(consentedScopes = consentedScopes)
 
-        coEvery { manager.findByUserIdAndReadableByClient(userId, consentedScopes) } returns listOf(collectedClaim1)
+        coEvery {
+            manager.findByUserIdAndReadableByClient(userId, consentedScopes, audienceId = null)
+        } returns listOf(collectedClaim1)
 
         val result = manager.findBySession(session)
 
@@ -233,13 +326,65 @@ class ConsentAwareCollectedClaimManagerTest {
         }
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2(consentedScopes = consentedScopes)
 
-        coEvery { manager.findByUserIdAndReadableByClient(userId, consentedScopes) } returns listOf(collectedClaim1)
+        coEvery {
+            manager.findByUserIdAndReadableByClient(userId, consentedScopes, audienceId = null)
+        } returns listOf(collectedClaim1)
 
         val result = manager.findBySession(session)
 
         assertEquals(1, result.count())
         assertSame(collectedClaim1, result[0])
     }
+
+    @Test
+    fun `areAllRequiredClaimsCollectedByUser - A required claim of the audience must be collected`() = runTest {
+        val scope = "scope1"
+        val required = claimWithConsentScope(scope, audienceId = "storefront", required = true)
+
+        every { claimManager.listRequiredClaims() } returns listOf(required)
+
+        assertFalse(
+            manager.areAllRequiredClaimsCollectedByUser(emptyList(), listOf(scope), audienceId = "storefront")
+        )
+    }
+
+    @Test
+    fun `areAllRequiredClaimsCollectedByUser - A required claim restricted to another audience is not required`() =
+        runTest {
+            val scope = "scope1"
+            val required = claimWithConsentScope(scope, audienceId = "billing", required = true)
+
+            every { claimManager.listRequiredClaims() } returns listOf(required)
+
+            assertTrue(
+                manager.areAllRequiredClaimsCollectedByUser(emptyList(), listOf(scope), audienceId = "storefront")
+            )
+        }
+
+    @Test
+    fun `areAllRequiredClaimsCollectedByUser - A required claim restricted to no audience is every audience's`() =
+        runTest {
+            val scope = "scope1"
+            val required = claimWithConsentScope(scope, required = true)
+
+            every { claimManager.listRequiredClaims() } returns listOf(required)
+
+            assertFalse(
+                manager.areAllRequiredClaimsCollectedByUser(emptyList(), listOf(scope), audienceId = "storefront")
+            )
+        }
+
+    @Test
+    fun `areAllRequiredClaimsCollectedByUser - A required claim outside the consented scopes is not required`() =
+        runTest {
+            val required = claimWithConsentScope("scope1", audienceId = "storefront", required = true)
+
+            every { claimManager.listRequiredClaims() } returns listOf(required)
+
+            assertTrue(
+                manager.areAllRequiredClaimsCollectedByUser(emptyList(), listOf("scope2"), audienceId = "storefront")
+            )
+        }
 
     @Test
     fun `updateByUser - Apply only updates for collectable claims`() = runTest {

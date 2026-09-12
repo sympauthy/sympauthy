@@ -79,6 +79,32 @@ declared once and referenced everywhere — in the security rules, in the API do
 grant logic. A scope spelled by hand in an annotation is one no compiler will ever compare against
 the one that grants it, and the two spellings would differ silently.
 
+## Claims
+
+**A claim may be restricted to one audience, and it then leaves this server only to that audience.**
+`Claim.audienceId` names the restriction and `Claim.belongsToAudience` is the whole of the test: a
+claim naming no audience is every audience's, and a claim restricted to one is answered to no other.
+
+**A read that publishes claims to a client names the audience it is publishing to.** The id token,
+the `/userinfo` response and the client API each resolve it from the client the credential belongs
+to, never from anything the request carried — a client belongs to exactly one audience, so what it
+may be told is settled by what it authenticated as.
+
+**The audience is a parameter of the read and it carries no default.** Null is the answer for every
+audience at once, so a surface publishing to a client cannot reach it by saying nothing.
+
+**What a sign-in requires is the audience's, and what the person already holds is read across every
+audience.** A required claim restricted to another audience does not hold up a flow that did not
+start from it, so each audience holds a person to its own required set. What they hold is matched
+against it whatever audience it was collected under, because a claim belongs to the person rather
+than to the flow that collected it — and an address confirmed once is confirmed.
+
+**The restriction decides what is published and what is required, not what a person may fill in.**
+The collect-claims step offers every claim the consented scopes make collectable, whatever audience
+each is restricted to, and takes what comes back. Someone completing their own profile is not
+handing it to the client they arrived through, which is told only what the read on the way out
+allows.
+
 ## What each surface is protected by
 
 **The OAuth2 surface is protected by the protocol, not by a role.** Client authentication, PKCE,
@@ -110,8 +136,9 @@ computation, so the rule this server enforces and the rule it obeys cannot drift
 subject and the audience are the original authentication's, the claims, the expiry and the
 `at_hash` are this response's, and the token is filed under the session it descends from, so
 revoking that session reaches it. What is read again is the claim values — the consented scopes
-filtering them are the set recorded with the grant, and a consent revoked since refuses the refresh
-outright rather than narrowing the token it would have issued.
+filtering them are the set recorded with the grant, the audience filtering them is the refreshing
+client's, and a consent revoked since refuses the refresh outright rather than narrowing the token
+it would have issued.
 [The design FAQ](design-faq.md#does-a-refresh-issue-a-new-id-token) argues the alternative.
 
 **A token may be bound to a key the client holds**, in which case the proof accompanying the request
