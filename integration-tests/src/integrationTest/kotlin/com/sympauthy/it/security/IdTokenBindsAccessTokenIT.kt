@@ -1,14 +1,11 @@
 package com.sympauthy.it.security
 
-import com.nimbusds.jose.util.Base64URL
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
-import java.nio.charset.StandardCharsets.US_ASCII
-import java.security.MessageDigest
 
 /**
  * Security scenario — **the issued `id_token` must name the access token issued in the same response,
@@ -40,9 +37,8 @@ class IdTokenBindsAccessTokenIT : AbstractSympauthyIT() {
             val idToken = checkNotNull(tokens.idToken()) { "the openid scope should yield an id_token" }
             val claims = verifyIdTokenSignature(sympauthy, idToken)
 
-            val digest = MessageDigest.getInstance("SHA-256").digest(tokens.accessToken().toByteArray(US_ASCII))
             assertEquals(
-                Base64URL.encode(digest.copyOf(digest.size / 2)).toString(),
+                expectedAtHash(tokens.accessToken()),
                 claims.getStringClaim("at_hash"),
                 "the at_hash must be the left half of the access token's hash (OIDC token-substitution mitigation)",
             )

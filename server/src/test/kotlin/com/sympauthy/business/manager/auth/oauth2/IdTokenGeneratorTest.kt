@@ -6,6 +6,7 @@ import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
 import com.sympauthy.business.model.jwt.JwtAlgorithm
+import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.BuiltInGrantableScopeId
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.config.model.EnabledAdvancedConfig
@@ -19,9 +20,11 @@ import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import io.mockk.slot
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -55,6 +58,8 @@ class IdTokenGeneratorTest {
     @InjectMockKs
     lateinit var generator: IdTokenGenerator
 
+    private val savedEntity = slot<AuthenticationTokenEntity>()
+
     @Test
     fun shouldGenerateIdToken() {
         assertTrue(generator.shouldGenerateIdToken(listOf(BuiltInGrantableScopeId.OPENID)))
@@ -72,15 +77,66 @@ class IdTokenGeneratorTest {
         assertEquals("77QmUPtjPfzWtF2AnpK9RQ", claimsSet.getStringClaim("at_hash"))
     }
 
-    private suspend fun issue(userId: UUID, accessToken: EncodedAuthenticationToken): JWTClaimsSet {
+    @Test
+    fun `generateIdToken - Carry the grant of the refresh token it is issued from`() = runTest {
+        val sessionId = UUID.randomUUID()
+        val refreshToken = mockRefreshToken(sessionId = sessionId)
+
+        issue(refreshToken)
+
+        val entity = savedEntity.captured
+        assertEquals(refreshToken.userId, entity.userId)
+        assertEquals("client", entity.clientId)
+        assertEquals(listOf(BuiltInGrantableScopeId.OPENID), entity.grantedScopes.toList())
+        assertEquals(listOf(CONSENTED_SCOPE), entity.consentedScopes.toList())
+        assertEquals(sessionId, entity.sessionId)
+        assertEquals("refresh_token", entity.grantType)
+    }
+
+    @Test
+    fun `generateIdToken - Claim no nonce on a refresh`() = runTest {
+        val claimsSet = issue(mockRefreshToken(sessionId = UUID.randomUUID()))
+
+        assertNull(claimsSet.getClaim("nonce"))
+    }
+
+    private fun mockRefreshToken(sessionId: UUID): AuthenticationToken {
+        val id = UUID.randomUUID()
+        return mockk {
+            every { userId } returns id
+            every { clientId } returns "client"
+            every { grantedScopes } returns listOf(BuiltInGrantableScopeId.OPENID)
+            every { consentedScopes } returns listOf(CONSENTED_SCOPE)
+            every { this@mockk.sessionId } returns sessionId
+        }
+    }
+
+    private suspend fun issue(refreshToken: AuthenticationToken): JWTClaimsSet {
+        val accessToken = mockk<EncodedAuthenticationToken> {
+            every { token } returns "jHkWEdUXMU1BwAsC4vtUsZwnNvTIxEl0z9K3vx5KF0Y"
+        }
+        val builder = stubGeneration(
+            userId = checkNotNull(refreshToken.userId),
+            consentedScopes = refreshToken.consentedScopes
+        )
+
+        generator.generateIdToken(refreshToken, accessToken)
+
+        return builder.build()
+    }
+
+    private fun stubGeneration(
+        userId: UUID,
+        consentedScopes: List<String> = emptyList()
+    ): JWTClaimsSet.Builder {
         every { uncheckedAdvancedConfig.publicJwtAlgorithm } returns JwtAlgorithm.RS256
         every { uncheckedAuthConfig.token } returns mockk<TokenConfig> {
             every { idExpiration } returns Duration.ofMinutes(5)
         }
         coEvery {
-            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, emptyList())
+            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes)
         } returns emptyList()
-        coEvery { tokenRepository.save(any()) } answers { firstArg<AuthenticationTokenEntity>() }
+        coEvery { tokenRepository.save(capture(savedEntity)) } answers { firstArg<AuthenticationTokenEntity>() }
         every { generatedClaimsManager.computeSubject(userId) } returns userId.toString()
         every { tokenMapper.toEncodedAuthenticationToken(any(), any()) } returns mockk()
 
@@ -89,6 +145,11 @@ class IdTokenGeneratorTest {
             arg<JWTClaimsSet.Builder.() -> Unit>(2)(builder)
             "encoded-id-token"
         }
+        return builder
+    }
+
+    private suspend fun issue(userId: UUID, accessToken: EncodedAuthenticationToken): JWTClaimsSet {
+        val builder = stubGeneration(userId)
 
         generator.generateIdToken(
             userId = userId,
@@ -101,5 +162,9 @@ class IdTokenGeneratorTest {
         )
 
         return builder.build()
+    }
+
+    private companion object {
+        const val CONSENTED_SCOPE = "email"
     }
 }

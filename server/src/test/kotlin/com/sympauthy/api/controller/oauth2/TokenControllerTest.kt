@@ -15,8 +15,6 @@ import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
-import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
-import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.DpopBoundRequest
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
@@ -530,13 +528,13 @@ class TokenControllerTest {
         val client = mockClient()
         val accessToken = mockAccessToken("new-access", listOf("openid"))
         val newRefreshToken = mockEncodedToken("new-refresh")
-        every { accessToken.type } returns ACCESS
-        every { newRefreshToken.type } returns REFRESH
+        val idToken = mockEncodedToken("new-id")
 
         coEvery { clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any()) } returns client
-        coEvery { tokenManager.refreshToken(client, "old-refresh", dpopJkt = null) } returns listOf(
-            accessToken,
-            newRefreshToken
+        coEvery { tokenManager.refreshToken(client, "old-refresh", dpopJkt = null) } returns GenerateTokenResult(
+            accessToken = accessToken,
+            refreshToken = newRefreshToken,
+            idToken = idToken
         )
 
         val result = controller.getTokens(
@@ -553,6 +551,7 @@ class TokenControllerTest {
 
         assertEquals("new-access", result.accessToken)
         assertEquals("new-refresh", result.refreshToken)
+        assertEquals("new-id", result.idToken)
     }
 
     @Test
@@ -560,10 +559,13 @@ class TokenControllerTest {
         val request = mockRequest()
         val client = mockClient()
         val accessToken = mockAccessToken("new-access")
-        every { accessToken.type } returns ACCESS
 
         coEvery { clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any()) } returns client
-        coEvery { tokenManager.refreshToken(client, "old-refresh", dpopJkt = null) } returns listOf(accessToken)
+        coEvery { tokenManager.refreshToken(client, "old-refresh", dpopJkt = null) } returns GenerateTokenResult(
+            accessToken = accessToken,
+            refreshToken = null,
+            idToken = null
+        )
 
         val result = controller.getTokens(
             request = request,
@@ -579,6 +581,7 @@ class TokenControllerTest {
 
         assertEquals("new-access", result.accessToken)
         assertEquals("old-refresh", result.refreshToken)
+        assertNull(result.idToken)
     }
 
     @Test

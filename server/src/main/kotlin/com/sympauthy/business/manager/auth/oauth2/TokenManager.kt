@@ -149,11 +149,20 @@ open class TokenManager(
      * Decodes and verify the [encodedRefreshToken] and issues a new access token.
      *
      * Additionally, a new refresh token may be issued if the refresh token expires
-     * before the expiration of the new access token.
+     * before the expiration of the new access token, and a new id token is issued when the grant the
+     * [encodedRefreshToken] came from carried the `openid` scope.
      *
      * Throws an [OAuth2Exception] carrying `invalid_grant` if the refresh token validation fails:
      * - one of the validation of [JwtManager.decodeAndVerify].
+     * - `token.invalid_token_id`, where the token names no row of ours, or names one whose subject it
+     *   does not match.
+     * - `token.revoked`, where the row it names has been revoked.
      * - the [client] does not match the one we have issued the token too.
+     * - `token.invalid_user`, where the account the token names is one no sign-up finished.
+     * - `token.consent_revoked`, where the consent the grant rests on has been revoked.
+     *
+     * Throws an [OAuth2Exception] carrying `invalid_dpop_proof` where the token is bound to a key and
+     * [dpopJkt] is absent (`dpop.missing_header`) or names a different one (`dpop.mismatching_key`).
      *
      * A failure of this server rather than of the token — a signing key that will not load — travels out as
      * itself, so that it is answered as the `5xx` it is.
@@ -163,7 +172,7 @@ open class TokenManager(
         client: Client,
         encodedRefreshToken: String,
         dpopJkt: String? = null
-    ): List<EncodedAuthenticationToken> = supervisorScope {
+    ): GenerateTokenResult = supervisorScope {
         val decodedToken = try {
             jwtManager.decodeAndVerify(REFRESH_KEY, encodedRefreshToken)
         } catch (e: InvalidJwtException) {
@@ -202,8 +211,17 @@ open class TokenManager(
         val refreshedRefreshToken = if (shouldRefreshToken(refreshToken, accessToken)) {
             refreshTokenGenerator.generateRefreshToken(refreshToken, tokenAudience, dpopJkt = effectiveDpopJkt)
         } else null
+        // Why a refresh reissues the identity at all, and only for an OpenID Connect grant:
+        // docs/design-faq.md.
+        val idToken = if (idTokenGenerator.shouldGenerateIdToken(refreshToken.grantedScopes)) {
+            idTokenGenerator.generateIdToken(refreshToken, accessToken)
+        } else null
 
-        listOfNotNull(accessToken, refreshedRefreshToken)
+        GenerateTokenResult(
+            accessToken = accessToken,
+            refreshToken = refreshedRefreshToken,
+            idToken = idToken
+        )
     }
 
     /**

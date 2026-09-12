@@ -85,4 +85,49 @@ is not.
 
 ---
 
+## Tokens
+
+### Does a refresh issue a new id token?
+
+**Decision:** Yes, where the grant being refreshed carried `openid`. The refresh response carries an
+`id_token` beside the access token, holding the subject, the audience and the session of the
+original authentication, with a fresh issue date, expiry, claim set and `at_hash`.
+
+**Options considered:**
+
+- **Issue one** — the refresh reissues the identity as well as the access, from what the refresh
+  token already records.
+- **Issue none** — and delete the `IdTokenGenerator` overload written for it. A client wanting
+  current claims calls `/userinfo`, which is the endpoint for exactly that.
+
+**Rationale:**
+
+Either would conform. OpenID Connect Core §12.2 says the refresh response is the token response of
+§3.1.3.3 "except that it might not contain an `id_token`", so this is a choice, and what settles it
+is what a client holding a long session can otherwise know.
+
+An id token is the only thing this server signs that says who the person is. Issued once at sign-in
+and never again, it describes the account as it was then: a claim the person has since corrected
+stays wrong in it until the session ends. `/userinfo` answers with the current values, but it
+answers only to a client that asks — and a relying party that validates an id token and reads its
+claims, which is the ordinary shape of one, has no reason to.
+
+Refresh is also the one moment after sign-in when this server rechecks consent, and it already
+refuses a refresh the consent behind which was revoked. The identity it reissues is therefore one a
+live consent stands behind, which is not true of the id token still sitting in the client.
+
+**What is read again, and what is not.** The claim values are; the consented scopes that filter them
+are the set recorded with the grant, which each refresh copies forward. Consent here is a yes or a
+no — revoking is what a person does to it, and a revoked consent stops the refresh rather than
+narrowing what it issues. Filtering on `Consent.scopes` as it stands at each refresh would be a
+different decision from this one.
+
+The `openid` condition is what keeps the answer honest. An id token answers a request for `openid`,
+and a grant that never asked for OpenID Connect is not owed one.
+
+**What this does not settle:** the authorization-code response issues an id token whether or not
+`openid` was granted. That predates this decision and is not part of it.
+
+---
+
 ← [Design documentation](index.md)
