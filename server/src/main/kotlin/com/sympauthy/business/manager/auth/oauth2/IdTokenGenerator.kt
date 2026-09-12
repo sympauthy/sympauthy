@@ -61,6 +61,15 @@ class IdTokenGenerator(
      * Only claims the end-user has consented to share with the client are included.
      *
      * [accessToken] is the one issued in the same response, and the token's `at_hash` claim names it.
+     *
+     * The subject, the audience and the session are the ones of the authentication the [refreshToken]
+     * descends from, and only the issue date, the expiry and the claims are read again, which is what
+     * OpenID Connect Core §12.2 requires of an id token issued for a refresh.
+     *
+     * No `nonce` is claimed. §12.2 names the claims that must carry over from the original id token and
+     * `nonce` is not among them; it binds an id token to an authorization request, and no authorization
+     * request was made here. A client validating `nonce` on every id token it receives rather than only
+     * on the one answering its authorization request will refuse this one.
      */
     suspend fun generateIdToken(
         refreshToken: AuthenticationToken,

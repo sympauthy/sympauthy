@@ -18,8 +18,6 @@ import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
-import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
-import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
 import com.sympauthy.business.model.oauth2.DpopBoundRequest
 import com.sympauthy.business.model.oauth2.DpopProof
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
@@ -301,15 +299,15 @@ Client authentication is supported via:
             throw oauth2ExceptionOf(INVALID_GRANT, "token.missing_param", "param" to REFRESH_TOKEN_PARAM)
         }
         val tokens = tokenManager.refreshToken(client, encodedRefreshToken, dpopJkt = dpopProof?.jkt)
-        val accessToken = tokens.first { it.type == ACCESS }
-        val refreshedRefreshToken = tokens.firstOrNull { it.type == REFRESH }
+        val accessToken = tokens.accessToken
         val tokenType = if (dpopProof != null) TOKEN_TYPE_DPOP else TOKEN_TYPE_BEARER
         return TokenResource(
             accessToken = accessToken.token,
             tokenType = tokenType,
             expiresIn = getExpiresIn(accessToken),
             scope = getScope(accessToken),
-            refreshToken = refreshedRefreshToken?.token ?: encodedRefreshToken
+            refreshToken = tokens.refreshToken?.token ?: encodedRefreshToken,
+            idToken = tokens.idToken?.token
         )
     }
 

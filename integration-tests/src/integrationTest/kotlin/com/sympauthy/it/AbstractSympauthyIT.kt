@@ -9,6 +9,7 @@ import com.nimbusds.jose.jwk.gen.ECKeyGenerator
 import com.nimbusds.jose.jwk.source.JWKSourceBuilder
 import com.nimbusds.jose.proc.JWSVerificationKeySelector
 import com.nimbusds.jose.proc.SecurityContext
+import com.nimbusds.jose.util.Base64URL
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import com.nimbusds.jwt.proc.DefaultJWTProcessor
@@ -305,6 +306,16 @@ abstract class AbstractSympauthyIT {
             jwsKeySelector = JWSVerificationKeySelector(signedJwt.header.algorithm, jwkSource)
         }
         return processor.process(signedJwt, null)
+    }
+
+    /**
+     * The `at_hash` an id token must carry for [accessToken] — the left half of its SHA-256 digest,
+     * base64url-encoded (OpenID Connect Core §3.1.3.6). SHA-256 is the hash of the default `RS256`
+     * signing algorithm, which every scenario here boots with.
+     */
+    protected fun expectedAtHash(accessToken: String): String {
+        val digest = MessageDigest.getInstance("SHA-256").digest(accessToken.toByteArray(StandardCharsets.US_ASCII))
+        return Base64URL.encode(digest.copyOf(digest.size / 2)).toString()
     }
 
     /**

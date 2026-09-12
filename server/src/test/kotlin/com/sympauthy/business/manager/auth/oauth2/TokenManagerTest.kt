@@ -18,6 +18,7 @@ import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
+import com.sympauthy.business.model.oauth2.BuiltInGrantableScopeId
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.data.repository.AuthenticationTokenRepository
@@ -195,6 +196,7 @@ class TokenManagerTest {
         every { refreshToken.clientId } returns clientId
         every { refreshToken.dpopJkt } returns null
         every { refreshToken.userId } returns userId
+        every { refreshToken.grantedScopes } returns emptyList()
         coJustRun { userManager.checkPromoted(userId) }
         coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, any()) } returns mockk()
         coEvery {
@@ -212,12 +214,12 @@ class TokenManagerTest {
                 dpopJkt = null
             )
         } returns refreshedRefreshToken
+        every { idTokenGenerator.shouldGenerateIdToken(emptyList()) } returns false
 
         val tokens = tokenManager.refreshToken(client, encodedRefreshToken)
 
-        assertEquals(2, tokens.count())
-        assertSame(accessToken, tokens[0])
-        assertSame(refreshedRefreshToken, tokens[1])
+        assertSame(accessToken, tokens.accessToken)
+        assertSame(refreshedRefreshToken, tokens.refreshToken)
     }
 
     @Test
@@ -240,6 +242,7 @@ class TokenManagerTest {
         every { refreshToken.clientId } returns clientId
         every { refreshToken.dpopJkt } returns null
         every { refreshToken.userId } returns userId
+        every { refreshToken.grantedScopes } returns emptyList()
         coJustRun { userManager.checkPromoted(userId) }
         coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, any()) } returns mockk()
         coEvery {
@@ -250,11 +253,12 @@ class TokenManagerTest {
             )
         } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
+        every { idTokenGenerator.shouldGenerateIdToken(emptyList()) } returns false
 
         val tokens = tokenManager.refreshToken(client, encodedRefreshToken)
 
-        assertEquals(1, tokens.count())
-        assertSame(accessToken, tokens[0])
+        assertSame(accessToken, tokens.accessToken)
+        assertNull(tokens.refreshToken)
     }
 
     @Test
@@ -296,6 +300,7 @@ class TokenManagerTest {
         every { refreshToken.clientId } returns clientId
         every { refreshToken.dpopJkt } returns null
         every { refreshToken.userId } returns null
+        every { refreshToken.grantedScopes } returns emptyList()
         coEvery {
             accessTokenGenerator.generateAccessToken(
                 refreshToken,
@@ -304,11 +309,81 @@ class TokenManagerTest {
             )
         } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
+        every { idTokenGenerator.shouldGenerateIdToken(emptyList()) } returns false
 
         val tokens = tokenManager.refreshToken(client, "token")
 
-        assertEquals(1, tokens.count())
+        assertSame(accessToken, tokens.accessToken)
         coVerify(exactly = 0) { consentManager.findActiveConsentByAudienceOrNull(any(), any()) }
+    }
+
+    @Test
+    fun `refreshToken - Issues an id token when the grant carried openid`() = runTest {
+        val userId = UUID.randomUUID()
+        val clientId = "test-client"
+        val client = mockk<Client>()
+        val decodedToken = DecodedJwt(id = UUID.randomUUID().toString(), subject = "sub", keyId = null)
+        val refreshToken = mockk<AuthenticationToken>()
+        val accessToken = mockk<EncodedAuthenticationToken>()
+        val idToken = mockk<EncodedAuthenticationToken>()
+
+        every { client.id } returns clientId
+        every { client.audience } returns mockk {
+            every { tokenAudience } returns "https://test-audience"
+            every { id } returns "test-audience"
+        }
+        coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, "token") } returns decodedToken
+        coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
+        every { refreshToken.clientId } returns clientId
+        every { refreshToken.dpopJkt } returns null
+        every { refreshToken.userId } returns userId
+        every { refreshToken.grantedScopes } returns listOf(BuiltInGrantableScopeId.OPENID)
+        coJustRun { userManager.checkPromoted(userId) }
+        coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, any()) } returns mockk()
+        coEvery {
+            accessTokenGenerator.generateAccessToken(refreshToken, tokenAudience = any(), dpopJkt = null)
+        } returns accessToken
+        every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
+        every { idTokenGenerator.shouldGenerateIdToken(listOf(BuiltInGrantableScopeId.OPENID)) } returns true
+        coEvery { idTokenGenerator.generateIdToken(refreshToken, accessToken) } returns idToken
+
+        val tokens = tokenManager.refreshToken(client, "token")
+
+        assertSame(idToken, tokens.idToken)
+    }
+
+    @Test
+    fun `refreshToken - Issues no id token when the grant did not carry openid`() = runTest {
+        val userId = UUID.randomUUID()
+        val clientId = "test-client"
+        val client = mockk<Client>()
+        val decodedToken = DecodedJwt(id = UUID.randomUUID().toString(), subject = "sub", keyId = null)
+        val refreshToken = mockk<AuthenticationToken>()
+        val accessToken = mockk<EncodedAuthenticationToken>()
+
+        every { client.id } returns clientId
+        every { client.audience } returns mockk {
+            every { tokenAudience } returns "https://test-audience"
+            every { id } returns "test-audience"
+        }
+        coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, "token") } returns decodedToken
+        coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
+        every { refreshToken.clientId } returns clientId
+        every { refreshToken.dpopJkt } returns null
+        every { refreshToken.userId } returns userId
+        every { refreshToken.grantedScopes } returns listOf("profile")
+        coJustRun { userManager.checkPromoted(userId) }
+        coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, any()) } returns mockk()
+        coEvery {
+            accessTokenGenerator.generateAccessToken(refreshToken, tokenAudience = any(), dpopJkt = null)
+        } returns accessToken
+        every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
+        every { idTokenGenerator.shouldGenerateIdToken(listOf("profile")) } returns false
+
+        val tokens = tokenManager.refreshToken(client, "token")
+
+        assertNull(tokens.idToken)
+        coVerify(exactly = 0) { idTokenGenerator.generateIdToken(refreshToken, accessToken) }
     }
 
     @Test
