@@ -5,6 +5,7 @@ import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
+import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.jwt.JwtAlgorithm
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.BuiltInGrantableScopeId
@@ -23,9 +24,8 @@ import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import java.time.Duration
@@ -61,16 +61,10 @@ class IdTokenGeneratorTest {
     private val savedEntity = slot<AuthenticationTokenEntity>()
 
     @Test
-    fun shouldGenerateIdToken() {
-        assertTrue(generator.shouldGenerateIdToken(listOf(BuiltInGrantableScopeId.OPENID)))
-        assertFalse(generator.shouldGenerateIdToken(emptyList()))
-    }
-
-    @Test
     fun `generateIdToken - Claim the hash of the access token it was issued beside`() = runTest {
         val userId = UUID.randomUUID()
         val accessToken = mockk<EncodedAuthenticationToken> {
-            every { token } returns "jHkWEdUXMU1BwAsC4vtUsZwnNvTIxEl0z9K3vx5KF0Y"
+            every { token } returns ACCESS_TOKEN
         }
         val claimsSet = issue(userId, accessToken)
 
@@ -100,12 +94,59 @@ class IdTokenGeneratorTest {
         assertNull(claimsSet.getClaim("nonce"))
     }
 
-    private fun mockRefreshToken(sessionId: UUID): AuthenticationToken {
+    @Test
+    fun `generateIdToken - Issue one where the authorization granted openid`() = runTest {
+        val userId = UUID.randomUUID()
+        stubGeneration(userId)
+
+        val idToken = generator.generateIdToken(
+            oauth2 = oauth2(grantedScopes = listOf(BuiltInGrantableScopeId.OPENID)),
+            userId = userId,
+            accessToken = mockk { every { token } returns ACCESS_TOKEN }
+        )
+
+        assertNotNull(idToken)
+    }
+
+    @Test
+    fun `generateIdToken - Issue none where the authorization did not grant openid`() = runTest {
+        val idToken = generator.generateIdToken(
+            oauth2 = oauth2(grantedScopes = listOf(CONSENTED_SCOPE)),
+            userId = UUID.randomUUID(),
+            accessToken = mockk()
+        )
+
+        assertNull(idToken)
+    }
+
+    @Test
+    fun `generateIdToken - Issue none where the grant a refresh descends from did not carry openid`() = runTest {
+        val refreshToken = mockRefreshToken(
+            sessionId = UUID.randomUUID(),
+            grantedScopes = listOf(CONSENTED_SCOPE)
+        )
+
+        assertNull(generator.generateIdToken(refreshToken, mockk()))
+    }
+
+    private fun oauth2(grantedScopes: List<String>) = InteractiveFlowSessionOAuth2(
+        sessionId = UUID.randomUUID(),
+        clientId = "client",
+        redirectUri = "https://client.example.com/callback",
+        requestedScopes = grantedScopes,
+        grantedScopes = grantedScopes
+    )
+
+    private fun mockRefreshToken(
+        sessionId: UUID,
+        grantedScopes: List<String> = listOf(BuiltInGrantableScopeId.OPENID)
+    ): AuthenticationToken {
         val id = UUID.randomUUID()
+        val scopes = grantedScopes
         return mockk {
             every { userId } returns id
             every { clientId } returns "client"
-            every { grantedScopes } returns listOf(BuiltInGrantableScopeId.OPENID)
+            every { this@mockk.grantedScopes } returns scopes
             every { consentedScopes } returns listOf(CONSENTED_SCOPE)
             every { this@mockk.sessionId } returns sessionId
         }
@@ -113,7 +154,7 @@ class IdTokenGeneratorTest {
 
     private suspend fun issue(refreshToken: AuthenticationToken): JWTClaimsSet {
         val accessToken = mockk<EncodedAuthenticationToken> {
-            every { token } returns "jHkWEdUXMU1BwAsC4vtUsZwnNvTIxEl0z9K3vx5KF0Y"
+            every { token } returns ACCESS_TOKEN
         }
         val builder = stubGeneration(
             userId = checkNotNull(refreshToken.userId),
@@ -154,7 +195,7 @@ class IdTokenGeneratorTest {
         generator.generateIdToken(
             userId = userId,
             clientId = "client",
-            grantedScopes = emptyList(),
+            grantedScopes = listOf(BuiltInGrantableScopeId.OPENID),
             consentedScopes = emptyList(),
             sessionId = null,
             accessToken = accessToken,
@@ -166,5 +207,6 @@ class IdTokenGeneratorTest {
 
     private companion object {
         const val CONSENTED_SCOPE = "email"
+        const val ACCESS_TOKEN = "jHkWEdUXMU1BwAsC4vtUsZwnNvTIxEl0z9K3vx5KF0Y"
     }
 }

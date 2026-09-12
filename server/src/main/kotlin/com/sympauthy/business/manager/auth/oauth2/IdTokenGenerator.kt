@@ -40,6 +40,8 @@ class IdTokenGenerator(
      * are included.
      *
      * [accessToken] is the one issued in the same response, and the token's `at_hash` claim names it.
+     *
+     * Returns null where the grant [oauth2] records does not carry `openid`.
      */
     suspend fun generateIdToken(
         oauth2: InteractiveFlowSessionOAuth2,
@@ -70,6 +72,8 @@ class IdTokenGenerator(
      * have a `nonce` Claim, even when the ID Token issued at the time of the original authentication
      * contained `nonce`". A nonce binds an id token to an authorization request, and no authorization
      * request was made here.
+     *
+     * Returns null where the grant the [refreshToken] descends from does not carry `openid`.
      */
     suspend fun generateIdToken(
         refreshToken: AuthenticationToken,
@@ -96,6 +100,12 @@ class IdTokenGenerator(
     ): EncodedAuthenticationToken? {
         // ID tokens are only for user authentication, not client credentials
         if (userId == null) {
+            return null
+        }
+        // An id token answers a request for `openid`, and a grant that never asked for OpenID Connect is
+        // owed none. Every caller passes through here, so the authorization code and the refresh cannot
+        // answer the same grant differently: docs/design-faq.md.
+        if (!grantedScopes.contains(BuiltInGrantableScopeId.OPENID)) {
             return null
         }
 
@@ -142,14 +152,6 @@ class IdTokenGenerator(
         }
 
         return tokenMapper.toEncodedAuthenticationToken(entity, encodedToken)
-    }
-
-    /**
-     * Return whether a grant carrying [scopes] is owed an id token — that is, whether it is an OpenID
-     * Connect grant at all.
-     */
-    fun shouldGenerateIdToken(scopes: List<String>): Boolean {
-        return scopes.contains(BuiltInGrantableScopeId.OPENID)
     }
 
     private fun JWTClaimsSet.Builder.withClaim(claim: CollectedClaim) {

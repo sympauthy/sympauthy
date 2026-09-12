@@ -106,12 +106,17 @@ its issuer, audience and expiry checked. Nothing is trusted because it parsed.
 Connect Core §3.1.3.6. A third-party provider's id token is held to the same claim by the same
 computation, so the rule this server enforces and the rule it obeys cannot drift apart.
 
-**A refresh reissues the identity, not only the access**, where the grant carried `openid`: the
-subject and the audience are the original authentication's, the claims, the expiry and the
-`at_hash` are this response's, and the token is filed under the session it descends from, so
-revoking that session reaches it. What is read again is the claim values — the consented scopes
-filtering them are the set recorded with the grant, and a consent revoked since refuses the refresh
-outright rather than narrowing the token it would have issued.
+**An id token is issued only for a grant carrying `openid`**, at the authorization-code exchange and
+at the refresh alike. A grant that never asked for OpenID Connect is a plain OAuth 2.0 one, and
+[the design FAQ](design-faq.md#is-a-grant-that-did-not-ask-for-openid-owed-an-id-token) argues the
+alternative.
+
+**A refresh reissues the identity, not only the access**: the subject and the audience are the
+original authentication's, the claims, the expiry and the `at_hash` are this response's, and the
+token is filed under the session it descends from, so revoking that session reaches it. What is read
+again is the claim values — the consented scopes filtering them are the set recorded with the grant,
+and a consent revoked since refuses the refresh outright rather than narrowing the token it would
+have issued.
 [The design FAQ](design-faq.md#does-a-refresh-issue-a-new-id-token) argues the alternative.
 
 **A token may be bound to a key the client holds**, in which case the proof accompanying the request

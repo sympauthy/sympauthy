@@ -87,10 +87,41 @@ is not.
 
 ## Tokens
 
+### Is a grant that did not ask for `openid` owed an id token?
+
+**Decision:** No. One rule covers every response this server sends: an id token is issued where the
+grant carries `openid`, and `IdTokenGenerator` answers that for the authorization-code exchange and
+the refresh alike.
+
+**Options considered:**
+
+- **Gate both** — ask the condition once, where both grant paths pass, and stop issuing an id token
+  to a grant that did not request an identity.
+- **Ungate both** — drop the condition from the refresh as well, and go on issuing one either way.
+
+**Rationale:**
+
+OpenID Connect Core §3.1.2.1 makes `openid` REQUIRED of an authentication request. A request without
+it is a plain OAuth 2.0 request, and RFC 6749 §5.1 defines no `id_token` in the response to one. An
+id token is the only thing this server signs that says who a person is, and a client that did not
+ask to know who they are is being answered a question it never put.
+
+Ungating was the compatible answer, and what decided against it is where this server is. It has no
+stable release, so the deployments a break reaches are ones that can still be fixed by adding
+`openid` to the request — which is what a client wanting an id token was always meant to send. The
+same change made after a 1.0 would cost every one of them a migration.
+
+**What a deployment sees.** A client requesting `openid` is unaffected, and the scope is
+auto-granted when requested, so nothing else has to change for it. A client that does not request it
+stops receiving an `id_token` in either response, and reads the person's claims from `/userinfo`,
+which is the endpoint for exactly that.
+
+---
+
 ### Does a refresh issue a new id token?
 
-**Decision:** Yes, where the grant being refreshed carried `openid`. The refresh response carries an
-`id_token` beside the access token, holding the subject, the audience and the session of the
+**Decision:** Yes, where the grant is one an id token is owed at all. The refresh response carries
+an `id_token` beside the access token, holding the subject, the audience and the session of the
 original authentication, with a fresh issue date, expiry, claim set and `at_hash`.
 
 **Options considered:**
@@ -122,11 +153,8 @@ no — revoking is what a person does to it, and a revoked consent stops the ref
 narrowing what it issues. Filtering on `Consent.scopes` as it stands at each refresh would be a
 different decision from this one.
 
-The `openid` condition is what keeps the answer honest. An id token answers a request for `openid`,
-and a grant that never asked for OpenID Connect is not owed one.
-
-**What this does not settle:** the authorization-code response issues an id token whether or not
-`openid` was granted. That predates this decision and is not part of it.
+Which grants are owed an id token at all is the question above, and it is not asked a second time
+here: a refresh reissues what the authorization it descends from was issued, or issues nothing.
 
 ---
 
