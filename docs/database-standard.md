@@ -36,11 +36,8 @@ to the database.
 
 ## Columns
 
-**A primary key is a `uuid`, defaulted by the database.** These identifiers reach URLs and tokens.
-
-**A table whose rows the application addresses by what they are keys on that instead.** A key set's
-name, a job's lease and a lock's stripe are never handed out, so none of them needs to be
-unguessable.
+**A business object's primary key is a `uuid`, defaulted by the database.** These identifiers reach
+URLs and tokens.
 
 **A foreign key is declared where a row belongs to another row, and the referencing column is
 indexed.**
