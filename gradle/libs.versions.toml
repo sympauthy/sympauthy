@@ -1,15 +1,15 @@
 [versions]
 # Platform / framework
-micronaut = "5.1.3"
+micronaut = "5.1.5"
 # Gradle plugins
 micronaut-plugin = "5.0.2"
-kotlin = "2.4.10"
-ksp = "2.3.11"
+kotlin = "2.4.20"
+ksp = "2.3.12"
 # Pinned third-party libraries
 kotlinx-coroutines = "1.11.0"
 mapstruct = "1.6.3"
 json-path = "3.0.0"
-bouncycastle = "1.85.2"
+bouncycastle = "1.86"
 freemarker = "2.3.35"
 evalex = "3.7.0"
 jakarta-persistence = "3.2.0"

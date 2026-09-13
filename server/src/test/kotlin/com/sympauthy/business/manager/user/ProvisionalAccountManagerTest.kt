@@ -2,11 +2,13 @@ package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.model.ProviderUserInfoEntity
 import com.sympauthy.data.model.ProviderUserInfoEntityId
 import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
+import com.sympauthy.data.repository.ObjectLockRepository
 import com.sympauthy.data.repository.PasswordRepository
 import com.sympauthy.data.repository.ProviderUserInfoRepository
 import com.sympauthy.data.repository.TotpEnrollmentRepository
@@ -16,12 +18,12 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
 import io.mockk.every
-import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
@@ -52,11 +54,32 @@ class ProvisionalAccountManagerTest {
     @MockK
     lateinit var totpEnrollmentRepository: TotpEnrollmentRepository
 
-    @InjectMockKs
+    /**
+     * The lock manager is the real one over a mocked stripe table, rather than a double answering
+     * whatever it is asked: what these tests have to see is which rows a promotion takes and when, and a
+     * stubbed `withLock` would run the block and prove neither.
+     */
+    @MockK(relaxed = true)
+    lateinit var objectLockRepository: ObjectLockRepository
+
     lateinit var manager: ProvisionalAccountManager
 
     private val sessionId = UUID.randomUUID()
     private val userId = UUID.randomUUID()
+
+    @BeforeEach
+    fun setUp() {
+        manager = ProvisionalAccountManager(
+            claimManager = claimManager,
+            userManager = userManager,
+            lockManager = LockManager(objectLockRepository),
+            userRepository = userRepository,
+            passwordRepository = passwordRepository,
+            collectedClaimRepository = collectedClaimRepository,
+            providerUserInfoRepository = providerUserInfoRepository,
+            totpEnrollmentRepository = totpEnrollmentRepository
+        )
+    }
 
     @Test
     fun `promote - Clears the session of every table the account owns`() = runTest {
@@ -100,11 +123,17 @@ class ProvisionalAccountManagerTest {
         coEvery {
             userManager.isIdentifierValueTaken(listOf("email"), listOf("\"taken@example.com\""))
         } returns true
+        coEvery { providerUserInfoRepository.findByUserId(userId) } returns emptyList()
 
         val exception = assertThrows<BusinessException> { manager.promote(sessionId, userId) }
 
         assertEquals("user.promote.identifier_taken", exception.detailsId)
         coVerify(exactly = 0) { userRepository.clearSessionId(any(), any()) }
+        // Stripe 10 is the value as collected_claims spells it, quotes included, which LockKeyTest holds.
+        coVerifyOrder {
+            objectLockRepository.lock(10)
+            userManager.isIdentifierValueTaken(listOf("email"), listOf("\"taken@example.com\""))
+        }
     }
 
     @Test
@@ -121,6 +150,11 @@ class ProvisionalAccountManagerTest {
         assertEquals("user.promote.provider_subject_taken", exception.detailsId)
         assertEquals("discord", exception.values["providerId"])
         coVerify(exactly = 0) { userRepository.clearSessionId(any(), any()) }
+        // Stripe 62 is the discord identity subject-1, which LockKeyTest holds.
+        coVerifyOrder {
+            objectLockRepository.lock(62)
+            providerUserInfoRepository.findByProviderIdAndSubjectAndSessionIdIsNull("discord", "subject-1")
+        }
     }
 
     @Test
@@ -211,6 +245,28 @@ class ProvisionalAccountManagerTest {
         manager.promote(sessionId, userId)
 
         coVerify { userRepository.clearSessionId(userId, sessionId) }
+        // Stripe 20 is "free@example.com" as collected_claims spells it, which LockKeyTest holds.
+        coVerifyOrder {
+            objectLockRepository.lock(20)
+            userManager.isIdentifierValueTaken(any(), any())
+            userRepository.clearSessionId(userId, sessionId)
+        }
+    }
+
+    @Test
+    fun `promote - Takes no lock for an account holding no identity to take`() = runTest {
+        provisionalUser()
+        noIdentifierClaim()
+        coEvery { providerUserInfoRepository.findByUserId(userId) } returns emptyList()
+        coEvery { passwordRepository.clearSessionId(userId, sessionId) } returns 1
+        coEvery { collectedClaimRepository.clearSessionId(userId, sessionId) } returns 0
+        coEvery { providerUserInfoRepository.clearSessionId(userId, sessionId) } returns 0
+        coEvery { totpEnrollmentRepository.clearSessionId(userId, sessionId) } returns 0
+        coEvery { userRepository.clearSessionId(userId, sessionId) } returns 1
+
+        manager.promote(sessionId, userId)
+
+        coVerify(exactly = 0) { objectLockRepository.lock(any()) }
     }
 
     private fun identifierClaims(vararg ids: String) {

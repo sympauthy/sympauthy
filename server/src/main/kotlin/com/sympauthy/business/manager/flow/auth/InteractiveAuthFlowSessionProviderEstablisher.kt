@@ -1,11 +1,14 @@
 package com.sympauthy.business.manager.flow.auth
 
 import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.flow.ProviderUserEstablisher
 import com.sympauthy.business.manager.flow.ProviderUserEstablishment
 import com.sympauthy.business.manager.invitation.InvitationManager
+import com.sympauthy.business.manager.lock.LockKey
+import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.CreateOrAssociateResult
@@ -43,6 +46,7 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
     @Inject private val providerClaimsManager: ProviderClaimsManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val claimManager: ClaimManager,
+    @Inject private val lockManager: LockManager,
     @Inject private val uncheckedAuthConfig: AuthConfig,
 ) : ProviderUserEstablisher {
 
@@ -69,6 +73,10 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
      * An account this creates is provisional for [sessionId] until the session completes; one it associates
      * to was already committed and stays so, which is why the rows written below take their session id from
      * the user rather than from [sessionId]. See [com.sympauthy.data.model.SessionScoped].
+     *
+     * The whole of it runs under the lock over the identity being linked, and re-reads that identity inside
+     * it: the caller resolved it as unknown before this transaction began, and one of the other two writers
+     * of a committed link may have taken it since. See [LockKey.ProviderSubject].
      */
     @Transactional
     open suspend fun createOrAssociateUserWithProviderUserInfo(
@@ -78,12 +86,35 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
     ): CreateOrAssociateResult {
         val authConfig = uncheckedAuthConfig.orThrow()
         val identifierClaims = resolveIdentifierClaims(authConfig, provider, providerUserInfo)
-        return if (authConfig.userMergingEnabled) {
-            createOrAssociateUserByIdentifierClaimsWithProviderUserInfo(
-                sessionId, identifierClaims, provider, providerUserInfo
+        return lockManager.withLock(LockKey.ProviderSubject(provider.id, providerUserInfo.subject)) {
+            checkSubjectStillFree(provider, providerUserInfo.subject)
+            if (authConfig.userMergingEnabled) {
+                createOrAssociateUserByIdentifierClaimsWithProviderUserInfo(
+                    sessionId, identifierClaims, provider, providerUserInfo
+                )
+            } else {
+                createUserWithProviderUserInfo(sessionId, identifierClaims, provider, providerUserInfo)
+            }
+        }
+    }
+
+    /**
+     * Throw `user.create_with_provider.subject_taken` when a committed account has been linked to the
+     * [subject] of [provider] since the callback read it as unknown.
+     *
+     * **Recoverable on purpose.** The end-user going through the provider again resolves the link that now
+     * exists and signs them in, which is the outcome they came for — where failing the flow would leave them
+     * with an account they cannot reach. It covers the account this would create as well as the one it would
+     * merge into: a provisional link written now against a subject already committed elsewhere fails at the
+     * promotion instead, at the end of the flow and with nothing left to retry.
+     */
+    private suspend fun checkSubjectStillFree(provider: EnabledProvider, subject: String) {
+        if (providerClaimsManager.findByProviderAndSubject(provider, subject) != null) {
+            throw recoverableBusinessExceptionOf(
+                detailsId = "user.create_with_provider.subject_taken",
+                descriptionId = "description.user.create_with_provider.subject_taken",
+                "providerId" to provider.id
             )
-        } else {
-            createUserWithProviderUserInfo(sessionId, identifierClaims, provider, providerUserInfo)
         }
     }
 

@@ -4,10 +4,12 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.invitation.InvitationManager
+import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.provider.EnabledProvider
+import com.sympauthy.business.model.provider.ProviderUserInfo
 import com.sympauthy.business.model.provider.config.ProviderOAuth2Config
 import com.sympauthy.business.model.provider.config.ProviderUserInfoConfig
 import com.sympauthy.business.model.user.RawProviderClaims
@@ -16,9 +18,11 @@ import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.config.model.EnabledAuthConfig
+import com.sympauthy.data.repository.ObjectLockRepository
 import io.mockk.*
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
+import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
@@ -54,6 +58,14 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
 
     @MockK
     lateinit var uncheckedAuthConfig: EnabledAuthConfig
+
+    /**
+     * The real manager over stripes nothing else takes: what the tests below turn on is that the block
+     * runs and that the subject is read again inside it, and a double answering for `withLock` would run
+     * the block whether or not anything was ever locked.
+     */
+    @SpyK
+    var lockManager: LockManager = LockManager(mockk<ObjectLockRepository>(relaxed = true))
 
     @InjectMockKs
     lateinit var establisher: InteractiveAuthFlowSessionProviderEstablisher
@@ -91,6 +103,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
             val emailClaim = mockk<Claim>()
 
             every { uncheckedAuthConfig.userMergingEnabled } returns true
+            coEvery { providerClaimsManager.findByProviderAndSubject(provider, "sub-123") } returns null
             every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
             every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
             coEvery { userManager.findByIdentifierClaims(mapOf("email" to "user@example.com")) } returns existingUser
@@ -115,6 +128,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
             val emailClaim = mockk<Claim>()
 
             every { uncheckedAuthConfig.userMergingEnabled } returns true
+            coEvery { providerClaimsManager.findByProviderAndSubject(provider, "sub-123") } returns null
             every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
             every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
             coEvery { userManager.findByIdentifierClaims(mapOf("email" to "new@example.com")) } returns null
@@ -148,6 +162,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
         val phoneClaim = mockk<Claim>()
 
         every { uncheckedAuthConfig.userMergingEnabled } returns true
+        coEvery { providerClaimsManager.findByProviderAndSubject(provider, "sub-123") } returns null
         every { uncheckedAuthConfig.identifierClaims } returns listOf(
             OpenIdConnectClaimId.EMAIL,
             OpenIdConnectClaimId.PHONE_NUMBER
@@ -179,6 +194,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
             val phoneClaim = mockk<Claim>()
 
             every { uncheckedAuthConfig.userMergingEnabled } returns true
+            coEvery { providerClaimsManager.findByProviderAndSubject(provider, "sub-123") } returns null
             every { uncheckedAuthConfig.identifierClaims } returns listOf(
                 OpenIdConnectClaimId.EMAIL,
                 OpenIdConnectClaimId.PHONE_NUMBER
@@ -260,6 +276,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
             val emailClaim = mockk<Claim>()
 
             every { uncheckedAuthConfig.userMergingEnabled } returns false
+            coEvery { providerClaimsManager.findByProviderAndSubject(provider, "sub-123") } returns null
             every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
             every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
             coEvery { userManager.findByIdentifierClaims(mapOf("email" to "new@example.com")) } returns null
@@ -292,6 +309,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
         val emailClaim = mockk<Claim>()
 
         every { uncheckedAuthConfig.userMergingEnabled } returns false
+        coEvery { providerClaimsManager.findByProviderAndSubject(provider, "sub-123") } returns null
         every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
         every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
         coEvery { userManager.findByIdentifierClaims(mapOf("email" to "existing@example.com")) } returns existingUser
@@ -303,4 +321,29 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
         assertEquals("user.create_with_provider.existing_user", exception.detailsId)
         coVerify(exactly = 0) { userManager.createUser(any()) }
     }
+
+    @Test
+    fun `createOrAssociateUserWithProviderUserInfo - Throw when the subject was linked while the callback ran`() =
+        runTest {
+            val provider = createProvider()
+            val providerUserInfo = RawProviderClaims(
+                subject = "sub-123",
+                email = "new@example.com"
+            )
+
+            every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
+            every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns mockk<Claim>()
+            coEvery {
+                providerClaimsManager.findByProviderAndSubject(provider, "sub-123")
+            } returns mockk<ProviderUserInfo>()
+
+            val exception = assertThrows<BusinessException> {
+                establisher.createOrAssociateUserWithProviderUserInfo(sessionId, provider, providerUserInfo)
+            }
+
+            assertEquals("user.create_with_provider.subject_taken", exception.detailsId)
+            assertTrue(exception.recoverable)
+            coVerify(exactly = 0) { userManager.createUser(any()) }
+            coVerify(exactly = 0) { providerClaimsManager.saveUserInfo(any(), any(), any(), any()) }
+        }
 }

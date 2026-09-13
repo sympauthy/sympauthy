@@ -89,9 +89,10 @@ open class TokenManager(
     /**
      * Generate tokens for a completed authorization code flow.
      *
-     * Always generates an access token and an ID token. A refresh token is only generated if the [client] supports
-     * the [GrantType.REFRESH_TOKEN] grant type. A [session] that has expired issues nothing and throws an
-     * `OAuth2Exception` carrying `token.expired`.
+     * Always generates an access token. An id token is generated where the grant [oauth2] records carries
+     * the `openid` scope, and a refresh token where the [client] supports the [GrantType.REFRESH_TOKEN]
+     * grant type. A [session] that has expired issues nothing and throws an `OAuth2Exception` carrying
+     * `token.expired`.
      */
     @Transactional
     open suspend fun generateTokens(
@@ -212,11 +213,9 @@ open class TokenManager(
         val refreshedRefreshToken = if (shouldRefreshToken(refreshToken, accessToken)) {
             refreshTokenGenerator.generateRefreshToken(refreshToken, tokenAudience, dpopJkt = effectiveDpopJkt)
         } else null
-        // Why a refresh reissues the identity at all, and only for an OpenID Connect grant:
-        // docs/design-faq.md.
-        val idToken = if (idTokenGenerator.shouldGenerateIdToken(refreshToken.grantedScopes)) {
-            idTokenGenerator.generateIdToken(refreshToken, client.audience.id, accessToken)
-        } else null
+        // Why a refresh reissues the identity at all: docs/design-faq.md. Whether this grant is owed one
+        // is the generator's to answer, so that the authorization code cannot answer it differently.
+        val idToken = idTokenGenerator.generateIdToken(refreshToken, client.audience.id, accessToken)
 
         GenerateTokenResult(
             accessToken = accessToken,

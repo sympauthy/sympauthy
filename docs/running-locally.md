@@ -44,7 +44,7 @@ clients:
     allowed-grant-types: [ authorization_code, refresh_token, client_credentials ]
     allowed-redirect-uris: [ https://example.com ]
     default-scopes: [ openid, profile ]
-    allowed-scopes: [ profile, phone, users:read, users:claims:read, users:claims:write ]
+    allowed-scopes: [ openid, profile, phone, users:read, users:claims:read, users:claims:write ]
 
 flows:
   local:

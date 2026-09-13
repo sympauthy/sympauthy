@@ -87,10 +87,47 @@ is not.
 
 ## Tokens
 
+### Is a grant that did not ask for `openid` owed an id token?
+
+**Decision:** No. One rule covers every response this server sends: an id token is issued where the
+grant carries `openid`, and `IdTokenGenerator` answers that for the authorization-code exchange and
+the refresh alike.
+
+**Options considered:**
+
+- **Gate both** — ask the condition once, where both grant paths pass, and stop issuing an id token
+  to a grant that did not request an identity.
+- **Ungate both** — drop the condition from the refresh as well, and go on issuing one either way.
+
+**Rationale:**
+
+OpenID Connect Core §3.1.2.1 makes `openid` REQUIRED of an authentication request. A request without
+it is a plain OAuth 2.0 request, and RFC 6749 §5.1 defines no `id_token` in the response to one. An
+id token is the only thing this server signs that says who a person is, and a client that did not
+ask to know who they are is being answered a question it never put.
+
+Ungating was the compatible answer, and what decided against it is where this server is. It has no
+stable release, so the deployments a break reaches are few and still correctable by hand. The same
+change made after a 1.0 would cost every one of them a migration.
+
+**What a deployment sees.** A client requesting `openid` is unaffected: the scope is auto-granted
+when requested. A client that does not request it stops receiving an `id_token` in either response,
+and reads the person's claims from `/userinfo`, which is the endpoint for exactly that.
+
+**What correcting one takes.** The client sends `openid` in its authorization request, which is what
+a client wanting an id token was always meant to send. Where the deployment names `allowed-scopes`
+for that client, `openid` joins it — a scope outside that set is refused as
+`scope.parse_requested.not_allowed` rather than ignored — and it joins `default-scopes` too where
+that is named, for a request that sends no `scope` at all. The two are [held to each
+other](#may-a-clients-default-scopes-fall-outside-its-allowed-scopes), so naming it in one and not
+the other is refused at startup.
+
+---
+
 ### Does a refresh issue a new id token?
 
-**Decision:** Yes, where the grant being refreshed carried `openid`. The refresh response carries an
-`id_token` beside the access token, holding the subject, the audience and the session of the
+**Decision:** Yes, where the grant is one an id token is owed at all. The refresh response carries
+an `id_token` beside the access token, holding the subject, the audience and the session of the
 original authentication, with a fresh issue date, expiry, claim set and `at_hash`.
 
 **Options considered:**
@@ -122,11 +159,59 @@ no — revoking is what a person does to it, and a revoked consent stops the ref
 narrowing what it issues. Filtering on `Consent.scopes` as it stands at each refresh would be a
 different decision from this one.
 
-The `openid` condition is what keeps the answer honest. An id token answers a request for `openid`,
-and a grant that never asked for OpenID Connect is not owed one.
+Which grants are owed an id token at all is the question above, and it is not asked a second time
+here: a refresh reissues what the authorization it descends from was issued, or issues nothing.
 
-**What this does not settle:** the authorization-code response issues an id token whether or not
-`openid` was granted. That predates this decision and is not part of it.
+---
+
+## Clients
+
+### May a client's default scopes fall outside its allowed scopes?
+
+**Decision:** No. `ClientsConfigValidator` holds a client's `default-scopes` inside its
+`allowed-scopes` and refuses the configuration where they are not, so the set a request naming no
+scope falls back on is one the same file already permits.
+
+**Options considered:**
+
+- **Refuse the configuration** — take readiness down at boot, naming the client, the scope and
+  where the default came from, and let the operator say which of their two lines they meant.
+- **Filter at the request** — have `parseRequestedScopes` intersect the defaults with the allowed
+  set, so nothing stops booting and the narrower reading is picked for them.
+
+**Rationale:**
+
+The allowed set was applied to every scope a request named and to none of the scopes it fell back
+on, so the two lines disagreeing was resolved in favour of the wider one: a client the deployment
+forbade `openid` was granted it by asking for nothing, and `profile` with it.
+
+Which line the operator meant cannot be read off either of them. A client allowed `reports` alone
+and defaulting to `openid` says two things about `openid`, and picking one is guessing between a
+default that should have been narrowed and an allowed set that was written short. This layer answers
+a contradiction between two values the same way everywhere else — a value that cannot apply where it
+was written is
+[refused rather than ignored](config-layer-code-standard.md#the-artifacts-of-a-configuration-domain)
+— and filtering would have left the file saying something the server does not do, which is what hid
+this in the first place.
+
+**What a deployment sees.** A client whose defaults are all allowed is unaffected, and so is one
+with no allowed set at all — its own or a template's — which allows every scope and has nothing to
+contradict. Everything else reports one error per offending scope at startup, against the client,
+because a template one client narrows below is still right for every other client on it.
+
+**What correcting one takes.** The scope joins `allowed-scopes`, or the client names
+`default-scopes` of its own. The shipped `templates.clients.default` gives a client that names none
+`default-scopes: [openid, profile]` — and `email` beside them under the `mail` environment — so
+narrowing `allowed-scopes` without naming defaults is the case this refuses. Either list may have
+been inherited, so the error names the key each of the two was written at rather than a line the
+operator may not have. That break is the compatibility question
+[#453 answered](#is-a-grant-that-did-not-ask-for-openid-owed-an-id-token), answered the same way:
+no stable release, and the deployments it reaches are correctable by hand.
+
+**What is not held.** A template's own two lists. A client falls back on each of them
+independently, so a template that contradicts itself is a client's problem only where that client
+overrides neither — and the pair that decides a grant is the client's resolved one, which is what is
+checked.
 
 ---
 

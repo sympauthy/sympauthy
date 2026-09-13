@@ -50,6 +50,10 @@ data class Client(
     /**
      * List of [EnabledScope] that are issued by default to a token request by this [Client] if the
      * [Client] did not provide them explicitly to the authorization endpoint.
+     *
+     * Every one of them is in [allowedScopes] where that is set: a configuration defaulting to a
+     * scope it does not allow is refused by `ClientsConfigValidator`, so nothing reading these has
+     * to put them through the allowed set a second time.
      */
     val defaultScopes: List<EnabledScope>? = null,
 
