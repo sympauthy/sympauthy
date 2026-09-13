@@ -2,7 +2,6 @@ package com.sympauthy.business.manager.flow.auth
 
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.internalBusinessExceptionOf
-import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.auth.UserScopeGrantingManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.flow.InteractiveFlowPurposeHandler
@@ -22,7 +21,6 @@ import com.sympauthy.config.model.FeaturesConfig
 import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.config.model.orThrow
 import jakarta.inject.Inject
-import jakarta.inject.Provider
 import jakarta.inject.Singleton
 
 /**
@@ -47,7 +45,6 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
     @Inject private val uncheckedMfaConfig: MfaConfig,
     @Inject private val totpManager: TotpManager,
     @Inject private val uncheckedFeaturesConfig: FeaturesConfig,
-    @Inject private val clientManagerProvider: Provider<ClientManager>,
 ) : InteractiveFlowPurposeHandler {
 
     override val purpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE
@@ -109,24 +106,33 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
      * Takes the already-fetched [oauth2] record (rather than re-fetching it) so the caller loads it once.
      * MFA is not part of this status: it is a separate purpose the OAuth2 purpose requires once its own steps
      * are done.
+     *
+     * Everything about the claims is the audience's, resolved from the client [oauth2] names: what is required,
+     * what is read back as collected, and what is left needing a validation code. A claim restricted to another
+     * audience neither holds up a flow that did not start from it nor is asked to be confirmed by one.
      */
     internal suspend fun computeStatus(
         session: OnGoingInteractiveFlowSession,
         oauth2: InteractiveFlowSessionOAuth2
     ): OAuth2AuthorizeInteractiveFlowStatus {
+        // Nothing below this is answerable without a user, and a flow missing one is sent to sign in whatever
+        // the rest would have said — so the claims are neither read nor the audience resolved for it.
+        val userId = session.userId ?: return OAuth2AuthorizeInteractiveFlowStatus(missingUser = true)
+
         val consentedScopes = oauth2.consentedScopes ?: emptyList()
-        val identifierClaims = session.userId?.let {
-            collectedClaimManager.findIdentifierByUserId(it)
-        } ?: emptyList()
-        val consentedClaims = session.userId?.let {
-            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(it, consentedScopes)
-        } ?: emptyList()
-        val missingUser = session.userId == null
+        val audienceId = oauth2Manager.getAudienceId(oauth2)
+        val identifierClaims = collectedClaimManager.findIdentifierByUserId(userId)
+        val consentedClaims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
+            userId = userId,
+            audienceId = audienceId,
+            consentedScopes = consentedScopes
+        )
         val allClaims = (identifierClaims + consentedClaims).distinctBy { it.claim.id }
         val missingRequiredClaims = !consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(
-            allClaims, consentedScopes
+            allClaims, audienceId, consentedScopes
         )
         val missingMediaForClaimValidation = claimValidationManager.getReasonsToSendValidationCode(
+            audienceId = audienceId,
             identifierClaims = identifierClaims,
             consentedClaims = consentedClaims
         )
@@ -134,7 +140,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
             .distinct()
 
         return OAuth2AuthorizeInteractiveFlowStatus(
-            missingUser = missingUser,
+            missingUser = false,
             missingRequiredClaims = missingRequiredClaims,
             missingMediaForClaimValidation = missingMediaForClaimValidation
         )
@@ -188,10 +194,9 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
             )
         }
 
-        val client = clientManagerProvider.get().findClientById(oauth2.clientId)
         consentManager.saveConsent(
             userId = userId,
-            audienceId = client.audience.id,
+            audienceId = oauth2Manager.getAudienceId(oauth2),
             clientId = oauth2.clientId,
             scopes = oauth2.consentedScopes ?: emptyList()
         )

@@ -4,6 +4,7 @@ import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.internalBusinessExceptionOf
+import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionOAuth2Mapper
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.AuthorizationFlow
@@ -36,6 +37,7 @@ import java.util.*
 @Singleton
 open class InteractiveFlowSessionOAuth2Manager(
     @Inject private val sessionManager: InteractiveFlowSessionManager,
+    @Inject private val clientManager: ClientManager,
     @Inject private val oauth2Repository: InteractiveFlowSessionOAuth2Repository,
     @Inject private val oauth2Mapper: InteractiveFlowSessionOAuth2Mapper,
 ) {
@@ -126,6 +128,23 @@ open class InteractiveFlowSessionOAuth2Manager(
         }
         return oauth2Repository.findBySessionId(session.id)
             ?.let(oauth2Mapper::toInteractiveFlowSessionOAuth2)
+    }
+
+    /**
+     * Return the identifier of the audience the [oauth2] request is for — the audience of the client that
+     * started it.
+     *
+     * Consent is recorded per audience, so this is the audience [InteractiveFlowSessionOAuth2.consentedScopes]
+     * were consented for, and the one every consent-scoped read of that session's claims is made for.
+     *
+     * Named `get…` rather than `fetch…`: the client it resolves against is configuration, not a row, unlike
+     * the OAuth2 record its neighbours read.
+     *
+     * Throws an unrecoverable [BusinessException] carrying ```client.invalid_client_id``` where the client the
+     * authorization named is no longer configured.
+     */
+    suspend fun getAudienceId(oauth2: InteractiveFlowSessionOAuth2): String {
+        return clientManager.findClientById(oauth2.clientId).audience.id
     }
 
     /**

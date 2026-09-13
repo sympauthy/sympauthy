@@ -77,7 +77,10 @@ class TokenManagerTest {
     private fun mockClientWithGrantTypes(vararg grantTypes: GrantType): Client {
         return mockk {
             every { supportsGrantType(any()) } answers { grantTypes.contains(firstArg()) }
-            every { audience } returns mockk { every { tokenAudience } returns "https://test-audience" }
+            every { audience } returns mockk {
+                every { tokenAudience } returns "https://test-audience"
+                every { id } returns "test-audience"
+            }
         }
     }
 
@@ -120,12 +123,13 @@ class TokenManagerTest {
                 dpopJkt = null
             )
         } returns refreshToken
-        coEvery { idTokenGenerator.generateIdToken(oauth2, userId, accessToken) } returns idToken
+        coEvery { idTokenGenerator.generateIdToken(oauth2, userId, "test-audience", accessToken) } returns idToken
 
         val result = tokenManager.generateTokens(session, oauth2, client)
 
         assertSame(accessToken, result.accessToken)
         assertSame(refreshToken, result.refreshToken)
+        assertSame(idToken, result.idToken)
     }
 
     @Test
@@ -212,7 +216,7 @@ class TokenManagerTest {
                 dpopJkt = null
             )
         } returns refreshedRefreshToken
-        coEvery { idTokenGenerator.generateIdToken(refreshToken, accessToken) } returns null
+        coEvery { idTokenGenerator.generateIdToken(refreshToken, "test-audience", accessToken) } returns null
 
         val tokens = tokenManager.refreshToken(client, encodedRefreshToken)
 
@@ -250,7 +254,7 @@ class TokenManagerTest {
             )
         } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
-        coEvery { idTokenGenerator.generateIdToken(refreshToken, accessToken) } returns null
+        coEvery { idTokenGenerator.generateIdToken(refreshToken, "test-audience", accessToken) } returns null
 
         val tokens = tokenManager.refreshToken(client, encodedRefreshToken)
 
@@ -292,7 +296,10 @@ class TokenManagerTest {
         val accessToken = mockk<EncodedAuthenticationToken>()
 
         every { client.id } returns clientId
-        every { client.audience } returns mockk { every { tokenAudience } returns "https://test-audience" }
+        every { client.audience } returns mockk {
+            every { tokenAudience } returns "https://test-audience"
+            every { id } returns "test-audience"
+        }
         coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, "token") } returns decodedToken
         coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
         every { refreshToken.clientId } returns clientId
@@ -306,7 +313,7 @@ class TokenManagerTest {
             )
         } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
-        coEvery { idTokenGenerator.generateIdToken(refreshToken, accessToken) } returns null
+        coEvery { idTokenGenerator.generateIdToken(refreshToken, "test-audience", accessToken) } returns null
 
         val tokens = tokenManager.refreshToken(client, "token")
 
@@ -340,7 +347,7 @@ class TokenManagerTest {
             accessTokenGenerator.generateAccessToken(refreshToken, tokenAudience = any(), dpopJkt = null)
         } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
-        coEvery { idTokenGenerator.generateIdToken(refreshToken, accessToken) } returns idToken
+        coEvery { idTokenGenerator.generateIdToken(refreshToken, "test-audience", accessToken) } returns idToken
 
         val tokens = tokenManager.refreshToken(client, "token")
 

@@ -30,6 +30,24 @@ class ClaimsConfigValidator(
             validateClaim(ctx, parsedClaim, audiencesById, scopesById)
         }
 
+        // An identifier claim belongs to no audience, and saying otherwise is refused rather than ignored.
+        // auth.identifier-claims is declared once for the deployment, so every audience signs people in with
+        // the same claim — and a restricted one would be filtered out of the very reads that resolve an
+        // account, leaving a deployment whose sign-in silently stops seeing the value it identifies people by.
+        identifierClaims?.forEach { identifierClaimId ->
+            val identifierClaim = claims.firstOrNull { it.id == identifierClaimId }
+            if (identifierClaim?.audienceId != null) {
+                ctx.addError(
+                    configExceptionOf(
+                        "$CLAIMS_KEY.$identifierClaimId.audience",
+                        "config.claims.identifier_claim.audience_restricted",
+                        "claim" to identifierClaimId,
+                        "audience" to identifierClaim.audienceId
+                    )
+                )
+            }
+        }
+
         // Validate identifier claims are enabled.
         if (userMergingEnabled == true) {
             val enabledClaimIds = claims.filter { it.enabled }.map { it.id }.toSet()

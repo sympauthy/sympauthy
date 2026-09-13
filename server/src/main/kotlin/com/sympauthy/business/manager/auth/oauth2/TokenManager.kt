@@ -135,6 +135,7 @@ open class TokenManager(
             idTokenGenerator.generateIdToken(
                 oauth2 = oauth2,
                 userId = session.userId,
+                audienceId = client.audience.id,
                 accessToken = accessToken
             )
         }
@@ -214,7 +215,7 @@ open class TokenManager(
         } else null
         // Why a refresh reissues the identity at all: docs/design-faq.md. Whether this grant is owed one
         // is the generator's to answer, so that the authorization code cannot answer it differently.
-        val idToken = idTokenGenerator.generateIdToken(refreshToken, accessToken)
+        val idToken = idTokenGenerator.generateIdToken(refreshToken, client.audience.id, accessToken)
 
         GenerateTokenResult(
             accessToken = accessToken,

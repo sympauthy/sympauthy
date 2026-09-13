@@ -34,20 +34,21 @@ open class ConsentAwareCollectedClaimManager(
      * Return the list of [CollectedClaim] collected from the user identified by [userId] and readable
      * by the end-user according to the provided [consentedScopes].
      *
-     * When [audienceId] is provided, only claims that belong to that audience (or have no audience restriction)
-     * are included.
+     * [audienceId] is the audience the answer is for: a claim restricted to another one is left out, and a
+     * claim restricted to none is answered whatever the audience. It is not optional, because
+     * [consentedScopes] are not: consent is recorded per audience, so scopes a person consented to are always
+     * some audience's and the caller holding them knows which.
      *
      * Use this method when the caller is the end-user themselves and there is no client authentication
      * (e.g. the OpenID UserInfo endpoint, which is only protected by a bearer token).
      */
     suspend fun findByUserIdAndReadableByUser(
         userId: UUID,
-        consentedScopes: List<String>,
-        audienceId: String? = null
+        audienceId: String,
+        consentedScopes: List<String>
     ): List<CollectedClaim> {
         return collectedClaimManager.findByUserId(userId).filter {
-            (audienceId == null || it.claim.audienceId == null || it.claim.audienceId == audienceId) &&
-                    it.claim.canBeReadByUser(consentedScopes)
+            it.claim.belongsToAudience(audienceId) && it.claim.canBeReadByUser(consentedScopes)
         }
     }
 
@@ -55,8 +56,10 @@ open class ConsentAwareCollectedClaimManager(
      * Return the list of [CollectedClaim] collected from the user identified by [userId] and readable
      * by a client according to the provided [consentedScopes] and [clientScopes].
      *
-     * When [audienceId] is provided, only claims that belong to that audience (or have no audience restriction)
-     * are included.
+     * [audienceId] is the audience the answer is for: a claim restricted to another one is left out, and a
+     * claim restricted to none is answered whatever the audience. It is not optional, because
+     * [consentedScopes] are not: consent is recorded per audience, so scopes a person consented to are always
+     * some audience's and the caller holding them knows which.
      *
      * The two scope lists are read from different places and a claim is readable when either of them allows it:
      * [consentedScopes] are the scopes the end-user consented to, and [clientScopes] are the ones granted to the
@@ -64,13 +67,12 @@ open class ConsentAwareCollectedClaimManager(
      */
     suspend fun findByUserIdAndReadableByClient(
         userId: UUID,
+        audienceId: String,
         consentedScopes: List<String>,
-        clientScopes: List<String> = emptyList(),
-        audienceId: String? = null
+        clientScopes: List<String> = emptyList()
     ): List<CollectedClaim> {
         return collectedClaimManager.findByUserId(userId).filter {
-            (audienceId == null || it.claim.audienceId == null || it.claim.audienceId == audienceId) &&
-                    it.claim.canBeReadByClient(consentedScopes, clientScopes)
+            it.claim.belongsToAudience(audienceId) && it.claim.canBeReadByClient(consentedScopes, clientScopes)
         }
     }
 
@@ -78,8 +80,8 @@ open class ConsentAwareCollectedClaimManager(
      * Return the list of [CollectedClaim] collected from the end-user associated to the [session].
      *
      * Only the claims that are readable according to the consented scopes of the session's OAuth2 record will
-     * be returned. No client scopes are passed since interactive flow sessions operate in the user consent
-     * context only.
+     * be returned, and only those of the audience that authorization is for. No client scopes are passed since
+     * interactive flow sessions operate in the user consent context only.
      */
     suspend fun findBySession(
         session: InteractiveFlowSession
@@ -88,17 +90,21 @@ open class ConsentAwareCollectedClaimManager(
             is FailedInteractiveFlowSession, is CancelledInteractiveFlowSession -> emptyList()
             is OnGoingInteractiveFlowSession -> {
                 val userId = session.userId ?: return emptyList()
-                val consentedScopes = oauth2Manager.fetchOAuth2(session).consentedScopes ?: return emptyList()
+                val oauth2 = oauth2Manager.fetchOAuth2(session)
+                val consentedScopes = oauth2.consentedScopes ?: return emptyList()
                 findByUserIdAndReadableByClient(
                     userId = userId,
+                    audienceId = oauth2Manager.getAudienceId(oauth2),
                     consentedScopes = consentedScopes
                 )
             }
 
             is CompletedInteractiveFlowSession -> {
-                val consentedScopes = oauth2Manager.fetchOAuth2(session).consentedScopes ?: return emptyList()
+                val oauth2 = oauth2Manager.fetchOAuth2(session)
+                val consentedScopes = oauth2.consentedScopes ?: return emptyList()
                 findByUserIdAndReadableByClient(
                     userId = session.userId,
+                    audienceId = oauth2Manager.getAudienceId(oauth2),
                     consentedScopes = consentedScopes
                 )
             }
@@ -107,17 +113,25 @@ open class ConsentAwareCollectedClaimManager(
 
     /**
      * Return true if all required claims that the end-user can write given the [consentedScopes]
-     * have been collected.
+     * have been collected, for the audience identified by [audienceId].
      *
-     * Required claims outside the consented scopes are not considered, since the end-user
-     * has not consented to provide them in this authorization flow.
+     * A required claim is one of three things at once: it belongs to [audienceId], the end-user consented to
+     * the scope it sits under, and they may write it. Required claims outside the consented scopes are not
+     * considered, since the end-user has not consented to provide them in this authorization flow; required
+     * claims restricted to another audience are not either, because they are not this audience's claims to ask
+     * for — an audience gets its own required set, and a person signing in to one is not held to another's.
+     *
+     * [collectedClaims] is what the caller has of the end-user, and it may hold more than this answer turns
+     * on: an identifier claim is collected whatever the consent. That makes no required claim look collected
+     * that is not.
      */
     fun areAllRequiredClaimsCollectedByUser(
         collectedClaims: List<CollectedClaim>,
+        audienceId: String,
         consentedScopes: List<String>
     ): Boolean {
         val requiredClaims = claimManager.listRequiredClaims()
-            .filter { it.canBeWrittenByUser(consentedScopes) }
+            .filter { it.belongsToAudience(audienceId) && it.canBeWrittenByUser(consentedScopes) }
         if (requiredClaims.isEmpty()) {
             return true
         }
@@ -126,29 +140,37 @@ open class ConsentAwareCollectedClaimManager(
     }
 
     /**
-     * Update the claims collected for the [user] during the authorization flow.
+     * Update the claims collected for the [user] during the authorization flow, for the audience identified
+     * by [audienceId].
      *
-     * Only updates targeting collectable claims (user-inputted, non-identifier, within the
-     * [consentedScopes]) are applied. Other updates are silently ignored.
+     * Only updates targeting collectable claims (user-inputted, non-identifier, of that audience and within
+     * the [consentedScopes]) are applied. Other updates are silently ignored — a flow may only write what it
+     * was entitled to ask for.
      */
     @Transactional
     open suspend fun updateByUser(
         user: User,
+        audienceId: String,
         updates: List<CollectedClaimUpdate>,
         consentedScopes: List<String>
     ): List<CollectedClaim> {
-        val collectableClaims = consentAwareClaimManager.listCollectableClaimsWithScopes(consentedScopes)
+        val collectableClaims = consentAwareClaimManager.listCollectableClaimsWithScopes(audienceId, consentedScopes)
         val applicableUpdates = updates.filter { it.claim in collectableClaims }
         return collectedClaimManager.applyUpdates(user, applicableUpdates)
     }
 
     /**
-     * Update the claims collected for the [user] on behalf of a client.
+     * Update the claims collected for the [user] on behalf of a client of the audience identified by
+     * [audienceId].
      *
-     * Only claims writable by a client according to the [consentedScopes] and [clientScopes] are applied.
-     * Updates targeting claims not writable by the given scopes are silently ignored.
-     * Returns all claims readable by the client for those scopes, which is not the same set: a claim the client
-     * may write and may not read is applied and left out of the answer.
+     * Only claims of that audience and writable by a client according to the [consentedScopes] and
+     * [clientScopes] are applied. Updates targeting any other claim are silently ignored.
+     * Returns all claims of that audience readable by the client for those scopes, which is not the same set:
+     * a claim the client may write and may not read is applied and left out of the answer.
+     *
+     * A claim restricted to another audience is neither written nor answered. The restriction is not a read
+     * rule that a write may step around: a client told nothing about a claim must not be able to set it
+     * either, or it decides what another audience reads.
      *
      * As on the read side, [consentedScopes] are the scopes the end-user consented to and [clientScopes] the
      * ones granted to the client itself, and either of the two may be what permits a write.
@@ -156,12 +178,17 @@ open class ConsentAwareCollectedClaimManager(
     @Transactional
     open suspend fun updateByClient(
         user: User,
+        audienceId: String,
         updates: List<CollectedClaimUpdate>,
         consentedScopes: List<String>,
         clientScopes: List<String> = emptyList()
     ): List<CollectedClaim> {
-        val applicableUpdates = updates.filter { it.claim.canBeWrittenByClient(consentedScopes, clientScopes) }
+        val applicableUpdates = updates.filter {
+            it.claim.belongsToAudience(audienceId) && it.claim.canBeWrittenByClient(consentedScopes, clientScopes)
+        }
         val collectedClaims = collectedClaimManager.applyUpdates(user, applicableUpdates)
-        return collectedClaims.filter { it.claim.canBeReadByClient(consentedScopes, clientScopes) }
+        return collectedClaims.filter {
+            it.claim.belongsToAudience(audienceId) && it.claim.canBeReadByClient(consentedScopes, clientScopes)
+        }
     }
 }

@@ -60,6 +60,8 @@ class IdTokenGeneratorTest {
 
     private val savedEntity = slot<AuthenticationTokenEntity>()
 
+    private val readAudienceId = slot<String>()
+
     @Test
     fun `generateIdToken - Claim the hash of the access token it was issued beside`() = runTest {
         val userId = UUID.randomUUID()
@@ -102,6 +104,7 @@ class IdTokenGeneratorTest {
         val idToken = generator.generateIdToken(
             oauth2 = oauth2(grantedScopes = listOf(BuiltInGrantableScopeId.OPENID)),
             userId = userId,
+            audienceId = AUDIENCE,
             accessToken = mockk { every { token } returns ACCESS_TOKEN }
         )
 
@@ -113,6 +116,7 @@ class IdTokenGeneratorTest {
         val idToken = generator.generateIdToken(
             oauth2 = oauth2(grantedScopes = listOf(CONSENTED_SCOPE)),
             userId = UUID.randomUUID(),
+            audienceId = AUDIENCE,
             accessToken = mockk()
         )
 
@@ -126,7 +130,29 @@ class IdTokenGeneratorTest {
             grantedScopes = listOf(CONSENTED_SCOPE)
         )
 
-        assertNull(generator.generateIdToken(refreshToken, mockk()))
+        assertNull(generator.generateIdToken(refreshToken, AUDIENCE, mockk()))
+    }
+
+    @Test
+    fun `generateIdToken - Read the claims for the audience a code exchange names`() = runTest {
+        val userId = UUID.randomUUID()
+        stubGeneration(userId)
+
+        generator.generateIdToken(
+            oauth2 = oauth2(grantedScopes = listOf(BuiltInGrantableScopeId.OPENID)),
+            userId = userId,
+            audienceId = AUDIENCE,
+            accessToken = mockk { every { token } returns ACCESS_TOKEN }
+        )
+
+        assertEquals(AUDIENCE, readAudienceId.captured)
+    }
+
+    @Test
+    fun `generateIdToken - Read the claims for the audience a refresh names`() = runTest {
+        issue(mockRefreshToken(sessionId = UUID.randomUUID()))
+
+        assertEquals(AUDIENCE, readAudienceId.captured)
     }
 
     private fun oauth2(grantedScopes: List<String>) = InteractiveFlowSessionOAuth2(
@@ -161,7 +187,7 @@ class IdTokenGeneratorTest {
             consentedScopes = refreshToken.consentedScopes
         )
 
-        generator.generateIdToken(refreshToken, accessToken)
+        generator.generateIdToken(refreshToken, AUDIENCE, accessToken)
 
         return builder.build()
     }
@@ -175,7 +201,9 @@ class IdTokenGeneratorTest {
             every { idExpiration } returns Duration.ofMinutes(5)
         }
         coEvery {
-            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes)
+            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
+                userId, capture(readAudienceId), consentedScopes, any()
+            )
         } returns emptyList()
         coEvery { tokenRepository.save(capture(savedEntity)) } answers { firstArg<AuthenticationTokenEntity>() }
         every { generatedClaimsManager.computeSubject(userId) } returns userId.toString()
@@ -195,6 +223,7 @@ class IdTokenGeneratorTest {
         generator.generateIdToken(
             userId = userId,
             clientId = "client",
+            audienceId = AUDIENCE,
             grantedScopes = listOf(BuiltInGrantableScopeId.OPENID),
             consentedScopes = emptyList(),
             sessionId = null,
@@ -207,6 +236,7 @@ class IdTokenGeneratorTest {
 
     private companion object {
         const val CONSENTED_SCOPE = "email"
+        const val AUDIENCE = "storefront"
         const val ACCESS_TOKEN = "jHkWEdUXMU1BwAsC4vtUsZwnNvTIxEl0z9K3vx5KF0Y"
     }
 }

@@ -79,6 +79,45 @@ declared once and referenced everywhere — in the security rules, in the API do
 grant logic. A scope spelled by hand in an annotation is one no compiler will ever compare against
 the one that grants it, and the two spellings would differ silently.
 
+## Claims
+
+**A claim may be restricted to one audience, and it then leaves this server only to that audience.**
+`Claim.audienceId` names the restriction and `Claim.belongsToAudience` is the whole of the test: a
+claim naming no audience is every audience's, and a claim restricted to one is answered to no other.
+
+**A read of a person's claims names the audience it is for, and the audience is not optional.**
+Consent is recorded per user and audience, so a set of consented scopes is always some audience's,
+and whoever holds them knows which. A reader taking the scopes and not the audience would be
+modelling a state that cannot arise.
+
+**What a client is told about is its own audience, resolved from the credential.** The id token, the
+`/userinfo` response and the client API each take it from the client that authenticated, never from
+anything the request carried, because a client belongs to exactly one audience.
+
+**A client writes only its own audience's claims, and naming another's is refused rather than
+ignored.** A restriction enforced on the way out alone would let a client set what it is not allowed
+to read, choosing what another audience is told about a person while never being accountable for the
+value.
+
+**The audience an interactive flow works in is the one its authorization is for**, the audience of
+the client that started it. It decides the whole of what that flow does with claims: which it offers
+to collect, which it accepts, which it holds as required, and which it asks a person to confirm with
+a validation code. Someone signing in to one audience is neither asked for another's claims nor held
+to them.
+
+**The administration surface reads across every audience, and it is the only reader that does.** An
+administrator answers for the deployment rather than for one of its applications, so the audience a
+claim is restricted to is something they are shown rather than something that hides it from them.
+
+**A generated claim belongs to every audience.** `sub` and `updated_at` are computed rather than
+collected, the parser gives them no audience whatever the configuration says, and nothing about a
+person is disclosed by either.
+
+**An identifier claim belongs to every audience, and restricting one is refused at startup.**
+`auth.identifier-claims` is declared once for the deployment, so every audience signs people in with
+the same claim; a restriction on it would be filtered out of the reads that resolve an account, and
+a deployment would lose its sign-in rather than be told. The validator names it instead.
+
 ## What each surface is protected by
 
 **The OAuth2 surface is protected by the protocol, not by a role.** Client authentication, PKCE,
@@ -115,8 +154,8 @@ alternative.
 original authentication's, the claims, the expiry and the `at_hash` are this response's, and the
 token is filed under the session it descends from, so revoking that session reaches it. What is read
 again is the claim values — the consented scopes filtering them are the set recorded with the grant,
-and a consent revoked since refuses the refresh outright rather than narrowing the token it would
-have issued.
+the audience filtering them is the refreshing client's, and a consent revoked since refuses the
+refresh outright rather than narrowing the token it would have issued.
 [The design FAQ](design-faq.md#does-a-refresh-issue-a-new-id-token) argues the alternative.
 
 **A token may be bound to a key the client holds**, in which case the proof accompanying the request

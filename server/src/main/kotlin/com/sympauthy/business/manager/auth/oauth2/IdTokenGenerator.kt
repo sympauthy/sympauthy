@@ -39,6 +39,9 @@ class IdTokenGenerator(
      * session's [oauth2] request record. Only claims the end-user has consented to share with the client
      * are included.
      *
+     * [audienceId] is the audience the client belongs to, and a claim restricted to another one is left out.
+     * It is not the token's own `aud`, which OpenID Connect fixes at the client id.
+     *
      * [accessToken] is the one issued in the same response, and the token's `at_hash` claim names it.
      *
      * Returns null where the grant [oauth2] records does not carry `openid`.
@@ -46,11 +49,13 @@ class IdTokenGenerator(
     suspend fun generateIdToken(
         oauth2: InteractiveFlowSessionOAuth2,
         userId: UUID,
+        audienceId: String,
         accessToken: EncodedAuthenticationToken
     ) = generateIdToken(
         userId = userId,
         sessionId = oauth2.sessionId,
         clientId = oauth2.clientId,
+        audienceId = audienceId,
         grantedScopes = oauth2.grantedScopes ?: emptyList(),
         consentedScopes = oauth2.consentedScopes ?: emptyList(),
         nonce = oauth2.nonce,
@@ -61,6 +66,9 @@ class IdTokenGenerator(
     /**
      * Generate a new id token using the information stored in a [refreshToken].
      * Only claims the end-user has consented to share with the client are included.
+     *
+     * [audienceId] is the audience the client belongs to, and a claim restricted to another one is left out.
+     * It is not the token's own `aud`, which OpenID Connect fixes at the client id.
      *
      * [accessToken] is the one issued in the same response, and the token's `at_hash` claim names it.
      *
@@ -79,10 +87,12 @@ class IdTokenGenerator(
      */
     suspend fun generateIdToken(
         refreshToken: AuthenticationToken,
+        audienceId: String,
         accessToken: EncodedAuthenticationToken
     ) = generateIdToken(
         userId = refreshToken.userId,
         clientId = refreshToken.clientId,
+        audienceId = audienceId,
         grantedScopes = refreshToken.grantedScopes,
         consentedScopes = refreshToken.consentedScopes,
         sessionId = refreshToken.sessionId,
@@ -93,6 +103,7 @@ class IdTokenGenerator(
     internal suspend fun generateIdToken(
         userId: UUID?,
         clientId: String,
+        audienceId: String,
         grantedScopes: List<String>,
         consentedScopes: List<String>,
         sessionId: UUID?,
@@ -116,6 +127,7 @@ class IdTokenGenerator(
 
         val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
             userId = userId,
+            audienceId = audienceId,
             consentedScopes = consentedScopes
         )
 

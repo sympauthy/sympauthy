@@ -43,8 +43,8 @@ they are *not* is a user manual: how to configure and integrate with a running S
 - **[The provisional user](provisional-user.md)** — the account a sign-up has not finished creating:
   the rows it owns, what makes them count, and what collects them when nothing ever does.
 - **[Security](security.md)** — how a credential becomes an authentication, what a scope is allowed
-  to mean, what each surface's gate does and does not protect, and which headers a deployment's
-  proxy is believed about.
+  to mean and which audience a claim may be published to, what each surface's gate does and does not
+  protect, and which headers a deployment's proxy is believed about.
 - **[Technology](technology.md)** — the frameworks and runtime the server is built on, and why each
   was picked.
 - **[Documentation standard](docs-standard.md)** — how a standard here is written, and what it

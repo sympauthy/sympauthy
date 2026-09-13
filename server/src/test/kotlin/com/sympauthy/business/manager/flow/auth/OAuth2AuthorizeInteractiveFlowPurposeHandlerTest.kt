@@ -11,7 +11,6 @@ import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.code.ValidationCodeReason
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
@@ -248,7 +247,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
             grantedScopeObjects
         )
         coEvery { oauth2Manager.setGrantedScopes(session, grantedScopeObjects, any()) } returns oauth2AfterGranted
-        coEvery { clientManager.findClientById(clientId) } returns mockClient()
+        coEvery { oauth2Manager.getAudienceId(oauth2AfterGranted) } returns testAudience.id
         coEvery { consentManager.saveConsent(userId, testAudience.id, clientId, any()) } returns mockk()
 
         val result = handler.applyTerminalEffect(session)
@@ -274,7 +273,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
             grantedScopeObjects
         )
         coEvery { oauth2Manager.setGrantedScopes(session, grantedScopeObjects, any()) } returns oauth2AfterGranted
-        coEvery { clientManager.findClientById(clientId) } returns mockClient()
+        coEvery { oauth2Manager.getAudienceId(oauth2AfterGranted) } returns testAudience.id
         coEvery { consentManager.saveConsent(userId, testAudience.id, clientId, any()) } returns mockk()
         coEvery { invitationManager.consumeInvitation(invitationId, userId) } returns mockk()
 
@@ -320,7 +319,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         coEvery { collectedClaimManager.findByUserId(userId) } returns emptyList()
         coEvery { scopeGrantingManager.grantScopes(session, emptyList()) } returns grantScopesResultOf(emptyList())
         coEvery { oauth2Manager.setGrantedScopes(session, emptyList(), any()) } returns oauth2AfterGranted
-        coEvery { clientManager.findClientById(clientId) } returns mockClient()
+        coEvery { oauth2Manager.getAudienceId(oauth2AfterGranted) } returns testAudience.id
         coEvery { consentManager.saveConsent(userId, any(), clientId, any()) } returns mockk()
 
         val result = handler.applyTerminalEffect(session)
@@ -361,15 +360,21 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         reasons: List<ValidationCodeReason> = emptyList()
     ): InteractiveFlowSessionOAuth2 {
         val consentedScopes = listOf("openid", "profile")
+        val oauth2 = oauth2Of(consentedScopes = consentedScopes)
+        coEvery { oauth2Manager.getAudienceId(oauth2) } returns testAudience.id
         coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns emptyList()
         coEvery {
-            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, consentedScopes)
+            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
+                userId, testAudience.id, consentedScopes
+            )
         } returns emptyList()
         every {
-            consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(any(), consentedScopes)
+            consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(
+                any(), testAudience.id, consentedScopes
+            )
         } returns allRequiredCollected
-        every { claimValidationManager.getReasonsToSendValidationCode(any(), any()) } returns reasons
-        return oauth2Of(consentedScopes = consentedScopes)
+        every { claimValidationManager.getReasonsToSendValidationCode(any(), any(), any()) } returns reasons
+        return oauth2
     }
 
     private fun oauth2Of(
@@ -406,10 +411,6 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     }
 
     /** A client the consent is saved against: only its audience is read. */
-    private fun mockClient(): Client = mockk {
-        every { audience } returns testAudience
-    }
-
     private fun createOnGoingSession(userId: UUID?): OnGoingInteractiveFlowSession {
         return OnGoingInteractiveFlowSession(
             id = UUID.randomUUID(),
