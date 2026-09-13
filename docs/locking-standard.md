@@ -26,6 +26,12 @@ the queries are [the `data` layer standard](data-layer-code-standard.md).
 **A uniqueness one column can express is a constraint, not a lock.** Add the unique index and
 translate the violation in the manager that writes the row.
 
+**A constraint only one dialect can express is a backstop behind a lock, not a substitute for one.**
+A partial unique index is the case: it holds on PostgreSQL and says nothing on H2, so the rule is
+the lock every writer takes and the index is what catches a writer that forgot it. A violation is
+then this server's own failure rather than the caller's, and is answered as one — nothing translates
+it into a conflict the caller could have caused.
+
 **A rule no constraint can express is serialised by a named lock**, taken before the check that
 enforces it. A value spanning several columns, and one whose competitor may not have a row yet, are
 the cases that arise.
@@ -46,8 +52,8 @@ ends.** The manager joins the caller's transaction, so the caller decides how mu
 lock covers.
 
 ```kotlin
-lockManager.withLock(LockKey.IdentifierValue(email)) {
-    checkIdentifierClaimsStillFree(userId)
+lockManager.withLock(*keysOver(identifierValues, links)) {
+    checkIdentifierClaimsStillFree(claimIds, identifierValues)
     collectedClaimRepository.clearSessionId(userId, sessionId)
 }
 ```
@@ -55,8 +61,20 @@ lockManager.withLock(LockKey.IdentifierValue(email)) {
 **One `withLock` per transaction, naming every object that transaction will touch.** A second call
 that is not covered by the first is refused rather than deadlocked.
 
-**A locked block does no I/O beyond the database.** Sending a mail, calling a provider or reading a
-key set inside one holds a row for the length of somebody else's outage.
+**The check a lock protects is read again inside it, never carried in from before.** What a caller
+read before the wait was true of the transaction it then lost to, and only a statement issued after
+the lock sees what the winner committed — which is `READ COMMITTED` seeing it at all, and the
+default every supported dialect is left on.
+
+**A locked block does no I/O beyond the database, and neither does the rest of the transaction
+holding it.** Sending a mail, calling a provider or reading a key set holds a row for the length of
+somebody else's outage — and since the lock outlives the block, what the caller does afterwards is
+under it too.
+
+**A lock a caller still holds refuses the next one.** A method taking a key and then handing control
+to something that takes one of its own — a flow advancing, an engine completing — makes that second
+call a nested one naming keys the first does not hold. Close the block around the check and the
+write, and let the handover happen outside it.
 
 **A lock names a bounded set of keys.** Locking many objects at once serialises against every other
 batch, which is what a claim exists to avoid.

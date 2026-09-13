@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.flow
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.flow.link.InteractiveFlowSessionLinkProviderManager
 import com.sympauthy.business.manager.flow.reauth.InteractiveFlowSessionReauthenticationManager
+import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderClaimsResolver
 import com.sympauthy.business.manager.provider.ProviderManager
@@ -22,6 +23,7 @@ import com.sympauthy.business.model.provider.config.ProviderUserInfoConfig
 import com.sympauthy.business.model.provider.oauth2.ProviderOAuth2Tokens
 import com.sympauthy.business.model.user.RawProviderClaims
 import com.sympauthy.client.oauth2.TokenEndpointClient
+import com.sympauthy.data.repository.ObjectLockRepository
 import io.mockk.*
 import io.mockk.impl.annotations.InjectMockKs
 import com.sympauthy.business.manager.security.UserSecurityContextManager
@@ -79,6 +81,13 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
     @MockK
     lateinit var uncheckedAuthConfig: EnabledAuthConfig
 
+    /**
+     * The real manager over stripes nothing else takes: the link path has to read the subject again inside
+     * the block, and a double answering for `withLock` would run the block whether or not it locked.
+     */
+    @SpyK
+    var lockManager: LockManager = LockManager(mockk<ObjectLockRepository>(relaxed = true))
+
     @SpyK
     @InjectMockKs
     lateinit var manager: InteractiveFlowSessionOAuth2ProviderManager
@@ -131,11 +140,16 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
      * Stub the provider callback chain (token exchange, claim resolution, stored-subject lookup) up to the
      * point where the re-authentication branch is evaluated. fetchTokens is final, stubbed on the spy manager.
      */
+    /**
+     * [committedSince] is what the second read of the subject answers: the link path reads it again under
+     * its lock, and another writer may have committed one in between.
+     */
     private fun stubProviderCallbackChain(
         session: OnGoingInteractiveFlowSession,
         provider: EnabledProvider,
         subject: String,
-        existingUserInfo: ProviderUserInfo?
+        existingUserInfo: ProviderUserInfo?,
+        committedSince: ProviderUserInfo? = existingUserInfo
     ): RawProviderClaims {
         val sessionProvider = mockk<InteractiveFlowSessionProvider> { every { providerId } returns provider.id }
         val tokens = mockk<ProviderOAuth2Tokens>()
@@ -145,7 +159,8 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
         coEvery { manager.fetchTokens(provider, provider.auth, "code", redirectUri) } returns tokens
         coEvery { providerManager.buildProviderNonceOrNull(sessionProvider) } returns null
         coEvery { providerClaimsResolver.resolveClaims(provider, tokens, null) } returns rawUserInfo
-        coEvery { providerClaimsManager.findByProviderAndSubject(provider, subject) } returns existingUserInfo
+        coEvery { providerClaimsManager.findByProviderAndSubject(provider, subject) } returnsMany
+            listOf(existingUserInfo, committedSince)
         return rawUserInfo
     }
 
@@ -331,6 +346,54 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
 
             assertEquals("flow.link_provider.identifier_conflict", exception.detailsId)
             assertFalse(exception.recoverable)
+            coVerify(exactly = 0) { providerClaimsManager.saveUserInfo(any(), any(), any(), any()) }
+        }
+
+    @Test
+    fun `signInOrSignUpUsingProvider - Link hard-fails when another account took the subject under the lock`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val provider = createProvider()
+            val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
+            val takenSince = mockk<ProviderUserInfo> { every { this@mockk.userId } returns UUID.randomUUID() }
+            stubProviderCallbackChain(
+                session, provider, "sub-123", existingUserInfo = null, committedSince = takenSince
+            )
+            coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
+
+            val exception = assertThrows<BusinessException> {
+                manager.signInOrSignUpUsingProvider(
+                    session, provider.id, redirectUri, authorizeCode = "code",
+                    observedRequest = observedRequestOf()
+                )
+            }
+
+            assertEquals("flow.link_provider.subject_conflict", exception.detailsId)
+            coVerify(exactly = 0) { providerClaimsManager.saveUserInfo(any(), any(), any(), any()) }
+        }
+
+    @Test
+    fun `signInOrSignUpUsingProvider - Link refreshes when this account took the subject under the lock`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val provider = createProvider()
+            val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
+            val linkedSince = mockk<ProviderUserInfo> { every { this@mockk.userId } returns userId }
+            val rawUserInfo = stubProviderCallbackChain(
+                session, provider, "sub-123", existingUserInfo = null, committedSince = linkedSince
+            )
+            val advanced = mockk<InteractiveFlowSession>()
+            coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
+            coJustRun { providerClaimsManager.refreshUserInfo(linkedSince, rawUserInfo) }
+            coEvery { engine.completeIfNecessary(session) } returns advanced
+
+            val result = manager.signInOrSignUpUsingProvider(
+                session, provider.id, redirectUri, authorizeCode = "code",
+                observedRequest = observedRequestOf()
+            )
+
+            assertSame(advanced, result)
+            coVerify { providerClaimsManager.refreshUserInfo(linkedSince, rawUserInfo) }
             coVerify(exactly = 0) { providerClaimsManager.saveUserInfo(any(), any(), any(), any()) }
         }
 }

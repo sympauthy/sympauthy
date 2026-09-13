@@ -24,8 +24,12 @@ sealed class LockKey(
 ) {
 
     /**
-     * An account, for a writer touching more than one of the tables it owns. The promotion of a
-     * provisional account and the sweep that collects an abandoned one are the two that do.
+     * An account, for a writer touching more than one of the tables it owns.
+     *
+     * It names what may be locked rather than who locks it. The abandoned-account sweep is the other
+     * writer of those tables and takes nothing: it is a batch, which is what a claim exists for and what
+     * "a lock names a bounded set of keys" refuses, and it re-asserts the provisionality its select
+     * selected by instead.
      */
     class User(userId: UUID) : LockKey("user", userId.toString())
 
@@ -35,8 +39,31 @@ sealed class LockKey(
      * It is the case a constraint cannot express: an end-user signs in with any configured identifier
      * claim, so a value has to be unique across all of them rather than within one column, and the
      * competitor a promotion has to exclude may have no committed row to lock.
+     *
+     * The value is the one `collected_claims` holds — what [com.sympauthy.business.mapper.ClaimValueMapper]
+     * wrote, quotes and all — because that is the spelling the check compares on. A caller holding the
+     * business value maps it before naming it here.
      */
     class IdentifierValue(value: String) : LockKey("identifier_value", value)
+
+    /**
+     * A third-party identity, named by the provider asserting it and the subject it carries.
+     *
+     * Three writers commit a link over it: the promotion of a provisional account, the provider-link flow
+     * and the establisher merging a provider into an existing account. Two of them may hold no row the
+     * others could have locked — a link written against no account yet exists nowhere to be waited on — so
+     * nothing but a key all three name serialises them.
+     *
+     * The unique index PostgreSQL carries over `(provider_id, subject)` is the backstop
+     * `docs/database-standard.md` asks for and not the rule: it is partial, because two provisional links
+     * may share a subject by the same design that lets two sign-ups share an address, and H2 spells no
+     * partial index at all.
+     *
+     * The two halves are joined by the byte the digest already separates the scope with, so no pair of
+     * them collides with another pair.
+     */
+    class ProviderSubject(providerId: String, subject: String) :
+        LockKey("provider_subject", "$providerId\u0000$subject")
 
     /**
      * The row of `object_locks` this key is taken over.

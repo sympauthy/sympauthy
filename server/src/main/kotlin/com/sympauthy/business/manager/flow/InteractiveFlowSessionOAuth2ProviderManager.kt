@@ -4,6 +4,8 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.flow.link.InteractiveFlowSessionLinkProviderManager
 import com.sympauthy.business.manager.flow.reauth.InteractiveFlowSessionReauthenticationManager
+import com.sympauthy.business.manager.lock.LockKey
+import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.security.UserSecurityContextManager
 import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
@@ -59,6 +61,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
     @Inject private val establisher: ProviderUserEstablisher,
     @Inject private val linkProviderManager: InteractiveFlowSessionLinkProviderManager,
     @Inject private val userManager: UserManager,
+    @Inject private val lockManager: LockManager,
     @Inject private val uncheckedAuthConfig: AuthConfig
 ) {
 
@@ -313,6 +316,41 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
             )
         }
 
+        linkSubjectToUser(provider, userId, rawUserInfo)
+        return engine.completeIfNecessary(session)
+    }
+
+    /**
+     * Write the committed link from [provider]'s [rawUserInfo] to [userId], under the lock over the identity
+     * it names.
+     *
+     * The subject read at the top of the callback says what was committed then, and this is a writer of
+     * exactly that — as are the promotion of a provisional account and the establisher merging a provider
+     * into an existing one. So the read is taken again here, under the key all of them name: without it two
+     * of these each find the subject free and both link it, and `provider_user_info` keys on
+     * `(provider_id, user_id)` and stops neither. See [LockKey.ProviderSubject].
+     *
+     * Advancing the flow stays outside: completing takes a lock of its own, and a lock still open would make
+     * that one a nested call naming keys this one does not hold.
+     */
+    private suspend fun linkSubjectToUser(
+        provider: EnabledProvider,
+        userId: UUID,
+        rawUserInfo: RawProviderClaims
+    ) = lockManager.withLock(LockKey.ProviderSubject(provider.id, rawUserInfo.subject)) {
+        val committed = providerClaimsManager.findByProviderAndSubject(provider, rawUserInfo.subject)
+        if (committed != null) {
+            if (committed.userId == userId) {
+                // Linked to this user while this callback was in flight — the outcome it wanted.
+                providerClaimsManager.refreshUserInfo(committed, rawUserInfo)
+                return@withLock
+            }
+            throw businessExceptionOf(
+                "flow.link_provider.subject_conflict",
+                "providerId" to provider.id
+            )
+        }
+
         val identifierOwnerId = findUserOwningIdentifierClaimsOrNull(provider, rawUserInfo)
         if (identifierOwnerId != null && identifierOwnerId != userId) {
             throw businessExceptionOf(
@@ -331,7 +369,6 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
             rawUserInfo.subject,
             userId
         )
-        return engine.completeIfNecessary(session)
     }
 
     /**

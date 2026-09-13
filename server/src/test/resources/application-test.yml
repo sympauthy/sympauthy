@@ -2,8 +2,14 @@ micronaut:
   server:
     port: 18080
 
+claims:
+  email:
+    enabled: true
+
 auth:
   issuer: http://localhost:18080
+  identifier-claims:
+    - email
 
 urls:
   root: http://localhost:18080

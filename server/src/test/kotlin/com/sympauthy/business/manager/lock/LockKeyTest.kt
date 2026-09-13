@@ -32,6 +32,18 @@ class LockKeyTest {
     }
 
     @Test
+    fun `stripe - Maps a provider identity to the row it has always mapped to`() {
+        assertEquals(11, LockKey.ProviderSubject("google", "123").stripe)
+        assertEquals(62, LockKey.ProviderSubject("discord", "subject-1").stripe)
+    }
+
+    @Test
+    fun `stripe - Answers a different row for the same characters split differently`() {
+        assertEquals(45, LockKey.ProviderSubject("google", "1").stripe)
+        assertEquals(60, LockKey.ProviderSubject("google1", "23").stripe)
+    }
+
+    @Test
     fun `stripe - Answers a row the table holds, for every key`() {
         val stripes = (0 until 4096).map { LockKey.IdentifierValue("user$it@example.com").stripe }
 
