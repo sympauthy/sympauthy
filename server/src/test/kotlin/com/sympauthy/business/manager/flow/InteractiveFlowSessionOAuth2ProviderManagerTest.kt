@@ -139,10 +139,9 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
     /**
      * Stub the provider callback chain (token exchange, claim resolution, stored-subject lookup) up to the
      * point where the re-authentication branch is evaluated. fetchTokens is final, stubbed on the spy manager.
-     */
-    /**
-     * [committedSince] is what the second read of the subject answers: the link path reads it again under
-     * its lock, and another writer may have committed one in between.
+     *
+     * [committedSince] is what a second read of the subject answers: the link path reads it again under its
+     * lock, and another writer may have committed one in between.
      */
     private fun stubProviderCallbackChain(
         session: OnGoingInteractiveFlowSession,

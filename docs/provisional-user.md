@@ -57,10 +57,14 @@ answered where it can still act on it: the link flow fails the way it already do
 another account holds, and the merge is *recoverable*, because going through the provider again
 finds the link that now exists and signs the person in.
 
-**Promotion is the first thing the completion transaction does, and its locks outlive it.** They
-are held until that transaction commits, terminal effects included, which is why those stay database
-work: a mail sent or a provider called under them holds an identifier against every other flow for
-the length of somebody else's outage.
+**Promotion is the first thing the completion transaction does, and its locks outlive it.** They are
+held until that transaction commits, terminal effects included, so a terminal effect doing I/O of
+its own is everybody's problem: the OAuth2 effect calls the client's authorization webhook where one
+is configured, and a flow whose identity hashes to the same stripe waits however long that client
+takes to answer. That is the server breaking
+[the rule against holding a lock across I/O](locking-standard.md), not an exception to it — and
+moving that call out is not a reordering, because the effects write consents and a consumed
+invitation against an account the promotion is what makes real.
 
 **An invitation is consumed at completion rather than at sign-up**, for the same reason the
 promotion is there. An invitation is spent on an account that comes to exist, so an abandoned

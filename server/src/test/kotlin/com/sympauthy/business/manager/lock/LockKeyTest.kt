@@ -39,7 +39,7 @@ class LockKeyTest {
 
     @Test
     fun `stripe - Answers a different row for the same characters split differently`() {
-        assertEquals(45, LockKey.ProviderSubject("google", "1").stripe)
+        assertEquals(11, LockKey.ProviderSubject("google", "123").stripe)
         assertEquals(60, LockKey.ProviderSubject("google1", "23").stripe)
     }
 

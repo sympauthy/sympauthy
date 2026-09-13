@@ -198,7 +198,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
                 InteractiveFlowPurpose.REAUTHENTICATION ->
                     confirmReauthenticatedProviderUser(session, existingUserInfo, rawUserInfo, observedRequest)
                 InteractiveFlowPurpose.LINK_PROVIDER ->
-                    linkProviderToSessionUser(session, provider, existingUserInfo, rawUserInfo)
+                    linkProviderToSessionUser(session, provider, rawUserInfo)
                 else -> session
             }
         }
@@ -293,28 +293,18 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
      * - an identifier claim the provider asserts is already owned by **another** account.
      *
      * A subject already linked to **this** user is an idempotent success (the stored claims are refreshed).
+     *
+     * Every one of those answers is [linkSubjectToUser]'s, under the lock, from a read of its own. The
+     * subject the callback resolved before this says only what was committed then, and a branch on it here
+     * would be the copy of the decision that nothing serialises.
      */
     private suspend fun linkProviderToSessionUser(
         session: OnGoingInteractiveFlowSession,
         provider: EnabledProvider,
-        existingUserInfo: ProviderUserInfo?,
         rawUserInfo: RawProviderClaims
     ): InteractiveFlowSession {
         val userId = session.userId
             ?: throw businessExceptionOf("flow.link_provider.missing_user")
-
-        if (existingUserInfo != null) {
-            if (existingUserInfo.userId == userId) {
-                // Already linked to this user: idempotent success.
-                providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo)
-                return engine.completeIfNecessary(session)
-            }
-            // Linked to a different account: an identity cannot belong to two accounts.
-            throw businessExceptionOf(
-                "flow.link_provider.subject_conflict",
-                "providerId" to provider.id
-            )
-        }
 
         linkSubjectToUser(provider, userId, rawUserInfo)
         return engine.completeIfNecessary(session)

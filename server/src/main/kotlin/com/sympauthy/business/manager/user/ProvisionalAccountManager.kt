@@ -7,7 +7,6 @@ import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.data.model.CollectedClaimEntity
-import com.sympauthy.data.model.ProviderUserInfoEntity
 import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.PasswordRepository
@@ -62,9 +61,11 @@ open class ProvisionalAccountManager(
      * when a sign-in with that address matches two accounts. The loser now waits on the winner instead, and
      * re-checks against what the winner committed. See [LockKey] and `docs/locking-standard.md`.
      *
-     * The keys come from a read taken before the lock, which is safe because they name this account's own
-     * rows and no other transaction writes those. They are named in one call because a second one inside
-     * the first is refused.
+     * The keys come from a read taken before the lock, because the lock has to name them. What that read
+     * cannot miss is another promotion, which is what the keys are for; what it may miss is [deleteAbandoned]
+     * collecting this account, and that ends in the rollback below rather than in a promotion of nothing —
+     * every write here re-asserts the session id, and the completion write finds no session to mark. They
+     * are named in one call because a second one inside the first is refused.
      *
      * The whole of it — the checks and the five writes — belongs to the caller's transaction, so an account
      * either becomes real in full or stays provisional and is collected, and the locks are held until that
@@ -78,6 +79,7 @@ open class ProvisionalAccountManager(
         val claimIds = claimManager.listIdentifierClaims().map(Claim::id)
         val identifierValues = identifierValuesOf(userId, claimIds)
         val links = providerUserInfoRepository.findByUserId(userId)
+            .map { ProvisionalLink(providerId = it.id.providerId, subject = it.subject) }
 
         lockManager.withLock(*keysOver(identifierValues, links)) {
             checkIdentifierClaimsStillFree(claimIds, identifierValues)
@@ -108,10 +110,10 @@ open class ProvisionalAccountManager(
      */
     private fun keysOver(
         identifierValues: List<String>,
-        links: List<ProviderUserInfoEntity>
+        links: List<ProvisionalLink>
     ): Array<LockKey> = (
         identifierValues.map(LockKey::IdentifierValue) +
-            links.map { LockKey.ProviderSubject(it.id.providerId, it.subject) }
+            links.map { LockKey.ProviderSubject(it.providerId, it.subject) }
         ).toTypedArray()
 
     /**
@@ -180,19 +182,28 @@ open class ProvisionalAccountManager(
      * One statement per link rather than one over them all: the failure names the provider whose identity
      * was taken, and a single query over every subject could not say which of them lost.
      */
-    internal suspend fun checkProviderSubjectsStillFree(links: List<ProviderUserInfoEntity>) {
+    internal suspend fun checkProviderSubjectsStillFree(links: List<ProvisionalLink>) {
         links.forEach { link ->
             val committed = providerUserInfoRepository.findByProviderIdAndSubjectAndSessionIdIsNull(
-                providerId = link.id.providerId,
+                providerId = link.providerId,
                 subject = link.subject
             )
             if (committed != null) {
                 throw businessExceptionOf(
                     detailsId = "user.promote.provider_subject_taken",
                     descriptionId = "description.user.promote.provider_subject_taken",
-                    "providerId" to link.id.providerId
+                    "providerId" to link.providerId
                 )
             }
         }
     }
+
+    /**
+     * A third-party identity this promotion holds provisionally: the pair that names it as a key, and all
+     * this manager wants of the row carrying it.
+     */
+    internal data class ProvisionalLink(
+        val providerId: String,
+        val subject: String
+    )
 }
