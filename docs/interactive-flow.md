@@ -75,66 +75,11 @@ happen — sign in, confirm, enrol a factor, collect claims, validate them, auth
 — and turning one into a URL happens at the API boundary, from the page addresses a deployment
 configured. That is what keeps the engine transport-free and testable without a controller.
 
-## The account a sign-up has not finished creating
-
-A flow is many requests, and signing up with a third-party provider leaves the server entirely and
-comes back. No database transaction can span that, so the account, its password, its claims, its
-provider links and its second factor are written as the person goes — before consent, before claim
-validation, before MFA. Someone who walks away halfway leaves a real account behind that passed
-none of it.
-
-**A row a sign-up writes carries the id of the session writing it, and does not count until the
-session completes.** The five tables an account is made of carry a nullable `session_id`; the
-interface `SessionScoped` and its KDoc are the authority on what the column means. On success the
-column is cleared — one transaction, every table — and on abandonment the rows are collected with
-the session. It is a long-running transaction emulated with a tombstone and compensating cleanup,
-which is what one does when a real transaction cannot span the work.
-
-**A row is provisional exactly when its user is.** Every row an account owns takes its session id
-from the account rather than from the session the request happens to be serving, so a committed
-account cannot grow a provisional row and a provisional account cannot grow a committed one. Nothing
-at a call site decides it.
-
-**Only a query that reaches an account without holding its id excludes the provisional ones.** That
-invariant is what makes the rest of the reads safe as they are: a read keyed by a user id is already
-exactly as visible as its user. The queries that do filter are the ones that could hand a caller an
-account the server has not finished creating — the user listings, the identifier-claim lookups, the
-provider-subject lookup, and the readers taking an id from outside. The flow reads its own account
-through the session manager, the one reader entitled to a provisional one.
-
-**Identifier uniqueness is settled when an account is promoted, not when it is written.** Nothing in
-the schema enforces it — an end-user may sign in with any configured identifier claim, so a value
-has to be unique across all of them rather than within one column — and the check at sign-up sees
-committed rows only. Two sign-ups may therefore hold one email address at the same time, and neither
-blocks the other, which is what stops an abandoned flow squatting an address until the cleaner runs.
-The check runs again inside the promotion, and the first flow to complete wins; the second fails
-non-recoverably, because at that point every purpose has resolved and no step is left to retry.
-
-**Promotion belongs to the same transaction as the terminal effects and the completion.** That is
-what makes "the account exists" and "the flow succeeded" one fact rather than two. It is also why an
-invitation is consumed at completion rather than at sign-up: an invitation is spent on an account
-that comes to exist, so an abandoned invited sign-up leaves it pending and the invitee's link still
-works.
-
-**Collecting an abandoned account is a cleaner of its own, not a step of the one expiring the
-sessions.** It keys on the session being *gone* rather than on the sessions any one run expired, so
-it needs nothing from the run that removed them and has a cron of its own. Two things follow from
-keeping them apart: it reads an absence every other transaction can see rather than one only its own
-has written, and it never holds a session's lock while waiting for an account's — a completing flow
-takes those two in the opposite order, and together they would deadlock.
-
-**Its deletes carry the predicate its select selected by.** A flow may promote one of the accounts
-between the read that listed it and the deletes that collect it, and an id names a row whatever
-became of it since. Each of the five statements names the session id instead, so a database that
-blocked on the promotion re-checks the account as the promotion left it and skips a promoted one.
-The guarantee on the other side — that a flow whose session the cleaner expired cannot complete —
-is the flow's, and the sweep does not lean on it.
-
-**A table that references `users` is classified when it is added.** Collecting an abandoned account
-means deleting it, and a foreign key that delete breaks would abort the whole sweep — again every
-quarter of an hour, indefinitely. Each such table is either owned by the account and deleted with
-it, or named in the guard that skips an account something still refers to. That guard is the query
-the collection selects by, and it is where the rule is written.
+**Completing is one transaction, and it is where a sign-up becomes an account.** The terminal
+effects, the promotion of whatever the session signed up and the completion write commit together
+or not at all — everything before them is deliberately not, because a flow a person is still
+walking through is many requests and no transaction spans them. What a promotion is, and what it
+has to take turns with, is [the provisional user](provisional-user.md).
 
 ## A purpose handler is pure
 

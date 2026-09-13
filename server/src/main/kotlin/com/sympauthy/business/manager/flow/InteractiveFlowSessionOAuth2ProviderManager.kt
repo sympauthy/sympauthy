@@ -4,6 +4,8 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.flow.link.InteractiveFlowSessionLinkProviderManager
 import com.sympauthy.business.manager.flow.reauth.InteractiveFlowSessionReauthenticationManager
+import com.sympauthy.business.manager.lock.LockKey
+import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.security.UserSecurityContextManager
 import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
@@ -59,6 +61,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
     @Inject private val establisher: ProviderUserEstablisher,
     @Inject private val linkProviderManager: InteractiveFlowSessionLinkProviderManager,
     @Inject private val userManager: UserManager,
+    @Inject private val lockManager: LockManager,
     @Inject private val uncheckedAuthConfig: AuthConfig
 ) {
 
@@ -195,7 +198,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
                 InteractiveFlowPurpose.REAUTHENTICATION ->
                     confirmReauthenticatedProviderUser(session, existingUserInfo, rawUserInfo, observedRequest)
                 InteractiveFlowPurpose.LINK_PROVIDER ->
-                    linkProviderToSessionUser(session, provider, existingUserInfo, rawUserInfo)
+                    linkProviderToSessionUser(session, provider, rawUserInfo)
                 else -> session
             }
         }
@@ -290,23 +293,48 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
      * - an identifier claim the provider asserts is already owned by **another** account.
      *
      * A subject already linked to **this** user is an idempotent success (the stored claims are refreshed).
+     *
+     * Every one of those answers is [linkSubjectToUser]'s, under the lock, from a read of its own. The
+     * subject the callback resolved before this says only what was committed then, and a branch on it here
+     * would be the copy of the decision that nothing serialises.
      */
     private suspend fun linkProviderToSessionUser(
         session: OnGoingInteractiveFlowSession,
         provider: EnabledProvider,
-        existingUserInfo: ProviderUserInfo?,
         rawUserInfo: RawProviderClaims
     ): InteractiveFlowSession {
         val userId = session.userId
             ?: throw businessExceptionOf("flow.link_provider.missing_user")
 
-        if (existingUserInfo != null) {
-            if (existingUserInfo.userId == userId) {
-                // Already linked to this user: idempotent success.
-                providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo)
-                return engine.completeIfNecessary(session)
+        linkSubjectToUser(provider, userId, rawUserInfo)
+        return engine.completeIfNecessary(session)
+    }
+
+    /**
+     * Write the committed link from [provider]'s [rawUserInfo] to [userId], under the lock over the identity
+     * it names.
+     *
+     * The subject read at the top of the callback says what was committed then, and this is a writer of
+     * exactly that — as are the promotion of a provisional account and the establisher merging a provider
+     * into an existing one. So the read is taken again here, under the key all of them name: without it two
+     * of these each find the subject free and both link it, and `provider_user_info` keys on
+     * `(provider_id, user_id)` and stops neither. See [LockKey.ProviderSubject].
+     *
+     * Advancing the flow stays outside: completing takes a lock of its own, and a lock still open would make
+     * that one a nested call naming keys this one does not hold.
+     */
+    private suspend fun linkSubjectToUser(
+        provider: EnabledProvider,
+        userId: UUID,
+        rawUserInfo: RawProviderClaims
+    ) = lockManager.withLock(LockKey.ProviderSubject(provider.id, rawUserInfo.subject)) {
+        val committed = providerClaimsManager.findByProviderAndSubject(provider, rawUserInfo.subject)
+        if (committed != null) {
+            if (committed.userId == userId) {
+                // Linked to this user while this callback was in flight — the outcome it wanted.
+                providerClaimsManager.refreshUserInfo(committed, rawUserInfo)
+                return@withLock
             }
-            // Linked to a different account: an identity cannot belong to two accounts.
             throw businessExceptionOf(
                 "flow.link_provider.subject_conflict",
                 "providerId" to provider.id
@@ -331,7 +359,6 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
             rawUserInfo.subject,
             userId
         )
-        return engine.completeIfNecessary(session)
     }
 
     /**
