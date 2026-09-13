@@ -103,8 +103,8 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
      * - Otherwise, send a validation code to the [user] using the provided [media] to validate claims collected by this
      * authorization server.
      *
-     * The claims are read across every audience: an address or a number is confirmed once for the person, not
-     * once per audience, and the code goes to them rather than to a client.
+     * The claims are the audience's, the one the session's authorization is for: this flow asks a person to
+     * confirm what it was entitled to collect from them and nothing another audience holds.
      */
     @Transactional
     open suspend fun getOrSendValidationCode(
@@ -112,12 +112,13 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
         user: User,
         media: ValidationCodeMedia
     ): ValidationCode? {
-        val consentedScopes = oauth2Manager.fetchOAuth2(session).consentedScopes ?: emptyList()
+        val oauth2 = oauth2Manager.fetchOAuth2(session)
+        val consentedScopes = oauth2.consentedScopes ?: emptyList()
         val identifierClaims = collectedClaimManager.findIdentifierByUserId(user.id)
         val consentedClaims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
             userId = user.id,
-            consentedScopes = consentedScopes,
-            audienceId = null
+            audienceId = oauth2Manager.fetchAudienceId(oauth2),
+            consentedScopes = consentedScopes
         )
 
         val reasons = getReasonsToSendValidationCode(

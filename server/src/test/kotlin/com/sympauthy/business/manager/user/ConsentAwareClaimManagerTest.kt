@@ -33,6 +33,10 @@ class ConsentAwareClaimManagerTest {
     @InjectMockKs
     lateinit var manager: ConsentAwareClaimManager
 
+    private companion object {
+        const val AUDIENCE = "test-audience"
+    }
+
     private fun oauth2(consentedScopes: List<String>?) = InteractiveFlowSessionOAuth2(
         sessionId = UUID.randomUUID(),
         clientId = "test-client",
@@ -47,16 +51,18 @@ class ConsentAwareClaimManagerTest {
         val scope2 = "scope2"
 
         val claim1 = mockk<Claim> {
+            every { belongsToAudience(AUDIENCE) } returns true
             every { canBeWrittenByUser(any()) } answers { (firstArg<List<String>>()).contains(scope1) }
         }
         val claim2 = mockk<Claim> {
+            every { belongsToAudience(AUDIENCE) } returns true
             every { canBeWrittenByUser(any()) } answers { (firstArg<List<String>>()).contains(scope2) }
         }
 
         every { claimManager.listCollectableClaims() } returns listOf(claim1, claim2)
         every { claimManager.listIdentifierClaims() } returns emptyList()
 
-        val result = manager.listCollectableClaimsWithScopes(listOf(scope1))
+        val result = manager.listCollectableClaimsWithScopes(AUDIENCE, listOf(scope1))
 
         assertEquals(1, result.size)
         assertSame(claim1, result[0])
@@ -66,16 +72,18 @@ class ConsentAwareClaimManagerTest {
     fun `listCollectableClaimsWithScopes - Exclude identifier claims`() {
         val scope1 = "scope1"
 
-        // An identifier claim is dropped before anything asks whether the user could write it.
+        // An identifier claim is dropped before anything asks which audience it is for or whether the user
+        // could write it.
         val identifierClaim = mockk<Claim>()
         val regularClaim = mockk<Claim> {
+            every { belongsToAudience(AUDIENCE) } returns true
             every { canBeWrittenByUser(any()) } returns true
         }
 
         every { claimManager.listCollectableClaims() } returns listOf(identifierClaim, regularClaim)
         every { claimManager.listIdentifierClaims() } returns listOf(identifierClaim)
 
-        val result = manager.listCollectableClaimsWithScopes(listOf(scope1))
+        val result = manager.listCollectableClaimsWithScopes(AUDIENCE, listOf(scope1))
 
         assertEquals(1, result.size)
         assertSame(regularClaim, result[0])
@@ -84,13 +92,14 @@ class ConsentAwareClaimManagerTest {
     @Test
     fun `listCollectableClaimsWithScopes - Return empty when no claims match scopes`() {
         val claim1 = mockk<Claim> {
+            every { belongsToAudience(AUDIENCE) } returns true
             every { canBeWrittenByUser(any()) } returns false
         }
 
         every { claimManager.listCollectableClaims() } returns listOf(claim1)
         every { claimManager.listIdentifierClaims() } returns emptyList()
 
-        val result = manager.listCollectableClaimsWithScopes(listOf("unrelated_scope"))
+        val result = manager.listCollectableClaimsWithScopes(AUDIENCE, listOf("unrelated_scope"))
 
         assertTrue(result.isEmpty())
     }
@@ -123,9 +132,11 @@ class ConsentAwareClaimManagerTest {
             val claim1 = mockk<Claim>()
 
             val session = mockk<OnGoingInteractiveFlowSession>()
-            coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2(consentedScopes = consentedScopes)
+            val oauth2 = oauth2(consentedScopes = consentedScopes)
+            coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
+            coEvery { oauth2Manager.fetchAudienceId(oauth2) } returns AUDIENCE
 
-            every { manager.listCollectableClaimsWithScopes(consentedScopes) } returns listOf(claim1)
+            every { manager.listCollectableClaimsWithScopes(AUDIENCE, consentedScopes) } returns listOf(claim1)
 
             val result = manager.listCollectableClaimsBySession(session)
 
@@ -139,9 +150,11 @@ class ConsentAwareClaimManagerTest {
         val claim1 = mockk<Claim>()
 
         val session = mockk<CompletedInteractiveFlowSession>()
-        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2(consentedScopes = consentedScopes)
+        val oauth2 = oauth2(consentedScopes = consentedScopes)
+        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
+        coEvery { oauth2Manager.fetchAudienceId(oauth2) } returns AUDIENCE
 
-        every { manager.listCollectableClaimsWithScopes(consentedScopes) } returns listOf(claim1)
+        every { manager.listCollectableClaimsWithScopes(AUDIENCE, consentedScopes) } returns listOf(claim1)
 
         val result = manager.listCollectableClaimsBySession(session)
 

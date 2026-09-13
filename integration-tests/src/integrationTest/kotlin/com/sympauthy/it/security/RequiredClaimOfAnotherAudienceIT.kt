@@ -37,7 +37,8 @@ class RequiredClaimOfAnotherAudienceIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun requiredClaimOfAnotherAudienceDoesNotHoldUpASignUp(database: Database) {
         database.createFixture().use { fixture ->
-            InteractiveFlowRegistry.forClient(Client.publicClient(clientId)).withScopes(*SCOPES).use { registry ->
+            InteractiveFlowRegistry.forClient(Client.publicClient(OWN_CLIENT_ID))
+                .withFlowId(OWN_FLOW_ID).withScopes(*SCOPES).use { registry ->
                 fixture.applyTo(
                     SympauthyContainer(SympauthyImage.resolve())
                         .withConfig(otherAudienceRequiresAClaimConfig(registry))
@@ -65,7 +66,10 @@ class RequiredClaimOfAnotherAudienceIT : AbstractSympauthyIT() {
 
     private companion object {
 
-        const val EMAIL = "ada@example.com"
+        const val OWN_CLIENT_ID = "required-claim-app"
+        const val OWN_FLOW_ID = "required-claim-flow"
+
+        const val EMAIL = "required-claim@example.com"
         const val PASSWORD = "Str0ngP@ssw0rd!"
 
         val SCOPES = arrayOf("openid", "profile")

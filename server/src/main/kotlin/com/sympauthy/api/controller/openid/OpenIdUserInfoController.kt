@@ -45,8 +45,8 @@ class OpenIdUserInfoController(
         // by a bearer token without client authentication, so the caller may be the end-user directly.
         val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByUser(
             userId = authentication.userId,
-            consentedScopes = authentication.consentedScopes.map(Scope::scope),
-            audienceId = client.audience.id
+            audienceId = client.audience.id,
+            consentedScopes = authentication.consentedScopes.map(Scope::scope)
         )
         return userInfoMapper.toResource(authentication.userId, claims)
     }

@@ -85,25 +85,25 @@ the one that grants it, and the two spellings would differ silently.
 `Claim.audienceId` names the restriction and `Claim.belongsToAudience` is the whole of the test: a
 claim naming no audience is every audience's, and a claim restricted to one is answered to no other.
 
-**A read that publishes claims to a client names the audience it is publishing to.** The id token,
-the `/userinfo` response and the client API each resolve it from the client the credential belongs
-to, never from anything the request carried — a client belongs to exactly one audience, so what it
-may be told is settled by what it authenticated as.
+**A read of a person's claims names the audience it is for, and the audience is not optional.**
+Consent is recorded per user and audience, so a set of consented scopes is always some audience's,
+and whoever holds them knows which. A reader taking the scopes and not the audience would be
+modelling a state that cannot arise.
 
-**The audience is a parameter of the read and it carries no default.** Null is the answer for every
-audience at once, so a surface publishing to a client cannot reach it by saying nothing.
+**What a client is told about is its own audience, resolved from the credential.** The id token, the
+`/userinfo` response and the client API each take it from the client that authenticated, never from
+anything the request carried, because a client belongs to exactly one audience.
 
-**What a sign-in requires is the audience's, and what the person already holds is read across every
-audience.** A required claim restricted to another audience does not hold up a flow that did not
-start from it, so each audience holds a person to its own required set. What they hold is matched
-against it whatever audience it was collected under, because a claim belongs to the person rather
-than to the flow that collected it — and an address confirmed once is confirmed.
+**A client writes only its own audience's claims, and naming another's is refused rather than
+ignored.** A restriction enforced on the way out alone would let a client set what it is not allowed
+to read, choosing what another audience is told about a person while never being accountable for the
+value.
 
-**The restriction decides what is published and what is required, not what a person may fill in.**
-The collect-claims step offers every claim the consented scopes make collectable, whatever audience
-each is restricted to, and takes what comes back. Someone completing their own profile is not
-handing it to the client they arrived through, which is told only what the read on the way out
-allows.
+**The audience an interactive flow works in is the one its authorization is for**, the audience of
+the client that started it. It decides the whole of what that flow does with claims: which it offers
+to collect, which it accepts, which it holds as required, and which it asks a person to confirm with
+a validation code. Someone signing in to one audience is neither asked for another's claims nor held
+to them.
 
 ## What each surface is protected by
 

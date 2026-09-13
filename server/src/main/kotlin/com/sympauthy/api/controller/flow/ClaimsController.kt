@@ -106,10 +106,12 @@ but they chose not to provide a value.
         interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionWithUserThenUpdateAndRedirect(
             state = authentication.stateOrNull,
             update = { session, _, user ->
+                val oauth2 = oauth2Manager.fetchOAuth2(session)
                 consentAwareCollectedClaimManager.updateByUser(
                     user = user,
+                    audienceId = oauth2Manager.fetchAudienceId(oauth2),
                     updates = collectedClaimUpdateMapper.toUpdates(inputResource.claims),
-                    consentedScopes = oauth2Manager.fetchOAuth2(session).consentedScopes ?: emptyList()
+                    consentedScopes = oauth2.consentedScopes ?: emptyList()
                 )
                 session
             },

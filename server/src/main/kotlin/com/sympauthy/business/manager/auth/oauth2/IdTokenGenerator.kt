@@ -115,8 +115,8 @@ class IdTokenGenerator(
 
         val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
             userId = userId,
-            consentedScopes = consentedScopes,
-            audienceId = audienceId
+            audienceId = audienceId,
+            consentedScopes = consentedScopes
         )
 
         val issueDate = LocalDateTime.now()

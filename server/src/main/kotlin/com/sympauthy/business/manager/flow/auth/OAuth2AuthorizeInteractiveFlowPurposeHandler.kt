@@ -110,35 +110,30 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
      * MFA is not part of this status: it is a separate purpose the OAuth2 purpose requires once its own steps
      * are done.
      *
-     * The required set is the audience's, resolved from the client [oauth2] names: a claim restricted to
-     * another audience does not hold up a flow that did not start from it.
-     *
-     * The collected claims are read across every audience all the same, so what the person already holds is
-     * compared against that set in full. Reading them narrowly would answer the same question — a required
-     * claim belongs to this audience, so a claim of another's can satisfy none of them — and would cost the
-     * validation reasons below the address this person confirmed under another audience, which is confirmed
-     * once for them rather than once per audience.
+     * Everything about the claims is the audience's, resolved from the client [oauth2] names: what is required,
+     * what is read back as collected, and what is left needing a validation code. A claim restricted to another
+     * audience neither holds up a flow that did not start from it nor is asked to be confirmed by one.
      */
     internal suspend fun computeStatus(
         session: OnGoingInteractiveFlowSession,
         oauth2: InteractiveFlowSessionOAuth2
     ): OAuth2AuthorizeInteractiveFlowStatus {
         val consentedScopes = oauth2.consentedScopes ?: emptyList()
+        val audienceId = oauth2Manager.fetchAudienceId(oauth2)
         val identifierClaims = session.userId?.let {
             collectedClaimManager.findIdentifierByUserId(it)
         } ?: emptyList()
         val consentedClaims = session.userId?.let {
             consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
                 userId = it,
-                consentedScopes = consentedScopes,
-                audienceId = null
+                audienceId = audienceId,
+                consentedScopes = consentedScopes
             )
         } ?: emptyList()
         val missingUser = session.userId == null
         val allClaims = (identifierClaims + consentedClaims).distinctBy { it.claim.id }
-        val audienceId = clientManagerProvider.get().findClientById(oauth2.clientId).audience.id
         val missingRequiredClaims = !consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(
-            allClaims, consentedScopes, audienceId
+            allClaims, audienceId, consentedScopes
         )
         val missingMediaForClaimValidation = claimValidationManager.getReasonsToSendValidationCode(
             identifierClaims = identifierClaims,

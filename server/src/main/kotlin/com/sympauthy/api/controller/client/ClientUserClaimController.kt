@@ -64,7 +64,7 @@ class ClientUserClaimController(
         clientUserManager.findUserForAudienceOrNull(audienceId, userId).orNotFound()
         val consent = consentManager.findActiveConsentByAudienceOrNull(userId, audienceId).orNotFound()
         val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
-            userId, consent.scopes, clientScopeIds, audienceId = audienceId
+            userId, audienceId, consent.scopes, clientScopeIds
         )
         val generatedClaimValues = generatedClaimsManager.computeValues(userId)
         return claimMapper.toResource(userId, claims, generatedClaimValues)
@@ -103,10 +103,14 @@ class ClientUserClaimController(
         val clientUser = clientUserManager.findUserForAudienceOrNull(audienceId, userId).orNotFound()
         val consent = consentManager.findActiveConsentByAudienceOrNull(userId, audienceId).orNotFound()
 
-        // Validate all keys are claims writable by the client
+        // Validate all keys are claims of this audience and writable by the client. A claim of another
+        // audience is refused rather than ignored, the same as one the client may not write: the caller named
+        // it, and a silent success would read as the value having been stored.
         val invalidClaim = body.keys.firstOrNull { claimId ->
             val claim = claimManager.findByIdOrNull(claimId)
-            claim == null || !claim.canBeWrittenByClient(consent.scopes, clientScopeIds)
+            claim == null ||
+                    !claim.belongsToAudience(audienceId) ||
+                    !claim.canBeWrittenByClient(consent.scopes, clientScopeIds)
         }
         if (invalidClaim != null) {
             throw recoverableBusinessExceptionOf(
@@ -117,11 +121,13 @@ class ClientUserClaimController(
         }
 
         val updates = collectedClaimUpdateMapper.toUpdates(body)
-        consentAwareCollectedClaimManager.updateByClient(clientUser.user, updates, consent.scopes, clientScopeIds)
+        consentAwareCollectedClaimManager.updateByClient(
+            clientUser.user, audienceId, updates, consent.scopes, clientScopeIds
+        )
 
         // Return the full claim set after update
         val allClaims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
-            userId, consent.scopes, clientScopeIds, audienceId = audienceId
+            userId, audienceId, consent.scopes, clientScopeIds
         )
         val generatedClaimValues = generatedClaimsManager.computeValues(userId)
         return claimMapper.toResource(userId, allClaims, generatedClaimValues)

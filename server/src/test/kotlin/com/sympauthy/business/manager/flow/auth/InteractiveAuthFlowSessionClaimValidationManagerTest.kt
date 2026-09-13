@@ -137,10 +137,11 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
         val validationCode = mockk<ValidationCode>()
 
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
+        coEvery { oauth2Manager.fetchAudienceId(oauth2) } returns AUDIENCE
         coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns identifierClaims
         coEvery {
             consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
-                userId, consentedScopes, audienceId = null
+                userId, AUDIENCE, consentedScopes
             )
         } returns consentedClaims
         every {
@@ -196,10 +197,11 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
         }
 
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
+        coEvery { oauth2Manager.fetchAudienceId(oauth2) } returns AUDIENCE
         coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns identifierClaims
         coEvery {
             consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
-                userId, consentedScopes, audienceId = null
+                userId, AUDIENCE, consentedScopes
             )
         } returns consentedClaims
         every {
@@ -244,10 +246,11 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
         val reasons = listOf(PHONE_NUMBER_CLAIM)
 
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
+        coEvery { oauth2Manager.fetchAudienceId(oauth2) } returns AUDIENCE
         coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns identifierClaims
         coEvery {
             consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
-                userId, consentedScopes, audienceId = null
+                userId, AUDIENCE, consentedScopes
             )
         } returns consentedClaims
         every {
@@ -432,5 +435,9 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
                 code = validCode,
             )
         }
+    }
+
+    private companion object {
+        const val AUDIENCE = "test-audience"
     }
 }

@@ -161,7 +161,7 @@ class IdTokenGeneratorTest {
         }
         coEvery {
             consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
-                userId, consentedScopes, any(), capture(readAudienceId)
+                userId, capture(readAudienceId), consentedScopes, any()
             )
         } returns emptyList()
         coEvery { tokenRepository.save(capture(savedEntity)) } answers { firstArg<AuthenticationTokenEntity>() }
