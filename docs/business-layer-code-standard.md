@@ -65,7 +65,7 @@ as a parameter, or puts one in a model's field.
 **A `find…` or `list…` over a session-scoped table answers committed rows only.** Call the
 repository's `…AndSessionIdIsNull` reader. A row an interactive flow session is still writing is not
 one this server has finished creating, and a reader that hands one out has published an account that
-does not exist yet — see [the interactive flow](interactive-flow.md).
+does not exist yet — see [the provisional user](provisional-user.md).
 
 **Two signatures are exempt: one taking the session, and one taking the user id of a row belonging
 to a user.** A session is entitled to the rows it is writing, and a row an account owns is exactly

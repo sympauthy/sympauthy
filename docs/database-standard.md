@@ -85,7 +85,7 @@ as an `_edit` under the version that carries the change.
 **Soft-delete as a schema pattern.** A revoked-at column is a domain state with its own meaning, and
 nothing filters rows on the way out. The nullable session id the tables a sign-up writes carry is
 the one exception, and it is not a soft delete: it says the row is not real yet rather than no
-longer. [The interactive flow](interactive-flow.md) owns it.
+longer. [The provisional user](provisional-user.md) owns it.
 
 **Data retention, except where a table holds personal data.** A scheduled job collects expired
 sessions and the accounts an abandoned sign-up left half-written, and the places a person signs in
