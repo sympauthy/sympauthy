@@ -119,7 +119,8 @@ class ScopeManager(
      * Only returns user scopes (consentable and grantable), not client scopes.
      *
      * This method does the following:
-     * - If no scope is provided by the end-user, return the default scopes defined by the [client].
+     * - If no scope is provided by the end-user, return the default scopes defined by the [client],
+     *   which [Client.defaultScopes] already holds inside the allowed set.
      * - parse the [uncheckedScopes] and throw an unrecoverable exception if it fails.
      * - reject scopes whose audience does not match the [client]'s audience.
      * - reject scopes that are not in the [client]'s allowed scopes.

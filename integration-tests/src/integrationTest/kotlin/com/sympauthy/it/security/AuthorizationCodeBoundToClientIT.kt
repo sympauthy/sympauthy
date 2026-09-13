@@ -36,6 +36,7 @@ class AuthorizationCodeBoundToClientIT : AbstractSympauthyIT() {
                     "public" to true,
                     "allowed-grant-types" to listOf("authorization_code"),
                     "allowed-scopes" to listOf("openid"),
+                    "default-scopes" to listOf("openid"),
                     "allowed-redirect-uris" to listOf("https://other.example/callback"),
                 ),
             ),
