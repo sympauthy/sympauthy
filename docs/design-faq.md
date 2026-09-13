@@ -195,16 +195,16 @@ was written is
 this in the first place.
 
 **What a deployment sees.** A client whose defaults are all allowed is unaffected, and so is one
-naming no `allowed-scopes` at all, which allows every scope and has nothing to contradict.
-Everything else reports one error per offending scope at startup, against the client's
-`default-scopes`.
+with no allowed set at all — its own or a template's — which allows every scope and has nothing to
+contradict. Everything else reports one error per offending scope at startup, against the client,
+because a template one client narrows below is still right for every other client on it.
 
 **What correcting one takes.** The scope joins `allowed-scopes`, or the client names
 `default-scopes` of its own. The shipped `templates.clients.default` gives a client that names none
 `default-scopes: [openid, profile]` — and `email` beside them under the `mail` environment — so
-narrowing `allowed-scopes` without naming defaults is the case this refuses, and the error says
-which template the value came from, because the line being refused is one the operator did not
-write. That break is the compatibility question
+narrowing `allowed-scopes` without naming defaults is the case this refuses. Either list may have
+been inherited, so the error names the key each of the two was written at rather than a line the
+operator may not have. That break is the compatibility question
 [#453 answered](#is-a-grant-that-did-not-ask-for-openid-owed-an-id-token), answered the same way:
 no stable release, and the deployments it reaches are correctable by hand.
 

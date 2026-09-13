@@ -225,8 +225,10 @@ class ClientsConfigFactoryTest {
         val config = assertInstanceOf(DisabledClientsConfig::class.java, result)
         val error = config.configurationErrors!!.filterIsInstance<ConfigurationException>().first()
         assertEquals("config.client.default_scopes.not_allowed", error.messageId)
-        assertEquals("clients.my-app.default-scopes", error.key)
+        assertEquals("clients.my-app.default-scopes[0]", error.key)
         assertEquals("other-scope", error.values["scope"])
+        assertEquals("clients.my-app.default-scopes", error.values["defaultScopesKey"])
+        assertEquals("clients.my-app.allowed-scopes", error.values["allowedScopesKey"])
     }
 
     @Test
@@ -249,8 +251,62 @@ class ClientsConfigFactoryTest {
 
         val config = assertInstanceOf(DisabledClientsConfig::class.java, result)
         val error = config.configurationErrors!!.filterIsInstance<ConfigurationException>().first()
-        assertEquals("config.client.default_scopes.not_allowed_from_template", error.messageId)
-        assertEquals("default", error.values["template"])
+        assertEquals("config.client.default_scopes.not_allowed", error.messageId)
+        assertEquals("clients.my-app.default-scopes", error.key)
+        assertEquals("templates.clients.default.default-scopes", error.values["defaultScopesKey"])
+        assertEquals("clients.my-app.allowed-scopes", error.values["allowedScopesKey"])
+    }
+
+    @Test
+    fun `provideClients - Client may not default to a scope its template does not allow`() = runTest {
+        val allowed = ConsentableUserScope("my-scope")
+        val factory = factoryServing(
+            listOf(allowed, ConsentableUserScope("other-scope")),
+            clientTemplate(
+                id = "default",
+                allowedGrantTypes = setOf(GrantType.AUTHORIZATION_CODE),
+                allowedRedirectUris = listOf("https://example.com/callback"),
+                allowedScopes = setOf(allowed)
+            )
+        )
+        val clients = listOf(
+            clientProperties(id = "my-app", secret = "secret", defaultScopes = listOf("other-scope"))
+        )
+
+        val result = factory.provideClients(clients).first()
+
+        val config = assertInstanceOf(DisabledClientsConfig::class.java, result)
+        val error = config.configurationErrors!!.filterIsInstance<ConfigurationException>().first()
+        assertEquals("config.client.default_scopes.not_allowed", error.messageId)
+        assertEquals("clients.my-app.default-scopes", error.values["defaultScopesKey"])
+        assertEquals("templates.clients.default.allowed-scopes", error.values["allowedScopesKey"])
+    }
+
+    @Test
+    fun `provideClients - Client is not told a scope is disallowed by a list that lost it to an error`() = runTest {
+        val inherited = ConsentableUserScope("other-scope")
+        val factory = factoryServing(
+            listOf(ConsentableUserScope("my-scope"), DisabledScope("other-scope", ScopeType.CONSENTABLE)),
+            clientTemplate(
+                id = "default",
+                allowedGrantTypes = setOf(GrantType.AUTHORIZATION_CODE),
+                allowedRedirectUris = listOf("https://example.com/callback"),
+                defaultScopes = listOf(inherited)
+            )
+        )
+        val clients = listOf(
+            clientProperties(
+                id = "my-app",
+                secret = "secret",
+                allowedScopes = listOf("my-scope", "other-scope")
+            )
+        )
+
+        val result = factory.provideClients(clients).first()
+
+        val config = assertInstanceOf(DisabledClientsConfig::class.java, result)
+        val errors = config.configurationErrors!!.filterIsInstance<ConfigurationException>()
+        assertEquals(listOf("config.client.scope.invalid"), errors.map { it.messageId })
     }
 
     @Test
@@ -270,7 +326,9 @@ class ClientsConfigFactoryTest {
         val result = factory.provideClients(clients).first()
 
         assertInstanceOf(EnabledClientsConfig::class.java, result)
-        assertNull((result as EnabledClientsConfig).clients.first().allowedScopes)
+        val client = (result as EnabledClientsConfig).clients.first()
+        assertNull(client.allowedScopes)
+        assertEquals(listOf("my-scope"), client.defaultScopes?.map { it.scope })
     }
 
     @Test
