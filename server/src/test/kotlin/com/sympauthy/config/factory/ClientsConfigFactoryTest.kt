@@ -6,6 +6,7 @@ import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.business.model.oauth2.ConsentableUserScope
 import com.sympauthy.business.model.oauth2.DisabledScope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.oauth2.ScopeType
 import com.sympauthy.config.ConfigParser
@@ -61,7 +62,8 @@ class ClientsConfigFactoryTest {
         secret: String? = null,
         allowedGrantTypes: List<String>? = null,
         allowedRedirectUris: List<String>? = null,
-        allowedScopes: List<String>? = null
+        allowedScopes: List<String>? = null,
+        defaultScopes: List<String>? = null
     ): ClientConfigurationProperties {
         return ClientConfigurationProperties(id).apply {
             this.template = template
@@ -70,6 +72,7 @@ class ClientsConfigFactoryTest {
             this.allowedGrantTypes = allowedGrantTypes
             this.allowedRedirectUris = allowedRedirectUris
             this.allowedScopes = allowedScopes
+            this.defaultScopes = defaultScopes
         }
     }
 
@@ -81,7 +84,9 @@ class ClientsConfigFactoryTest {
         public: Boolean? = null,
         allowedGrantTypes: Set<GrantType>? = null,
         authorizationFlow: AuthorizationFlow? = null,
-        allowedRedirectUris: List<String>? = null
+        allowedRedirectUris: List<String>? = null,
+        allowedScopes: Set<EnabledScope>? = null,
+        defaultScopes: List<EnabledScope>? = null
     ): ClientTemplate {
         return ClientTemplate(
             id = id,
@@ -90,8 +95,8 @@ class ClientsConfigFactoryTest {
             allowedGrantTypes = allowedGrantTypes,
             authorizationFlow = authorizationFlow,
             allowedRedirectUris = allowedRedirectUris,
-            allowedScopes = null,
-            defaultScopes = null,
+            allowedScopes = allowedScopes,
+            defaultScopes = defaultScopes,
             authorizationWebhook = null
         )
     }
@@ -166,6 +171,106 @@ class ClientsConfigFactoryTest {
 
         val error = assertInstanceOf(DisabledClientsConfig::class.java, result).configurationErrors!!.first()
         assertTrue(error.message!!.contains("config.client.scope.invalid"))
+    }
+
+    @Test
+    fun `provideClients - Client may default to a scope it is allowed`() = runTest {
+        val factory = factoryServing(
+            listOf(ConsentableUserScope("my-scope"), ConsentableUserScope("other-scope")),
+            clientTemplate(
+                id = "default",
+                allowedGrantTypes = setOf(GrantType.AUTHORIZATION_CODE),
+                allowedRedirectUris = listOf("https://example.com/callback")
+            )
+        )
+        val clients = listOf(
+            clientProperties(
+                id = "my-app",
+                secret = "secret",
+                allowedScopes = listOf("my-scope", "other-scope"),
+                defaultScopes = listOf("my-scope")
+            )
+        )
+
+        val result = factory.provideClients(clients).first()
+
+        assertInstanceOf(EnabledClientsConfig::class.java, result)
+        assertEquals(
+            listOf("my-scope"),
+            (result as EnabledClientsConfig).clients.first().defaultScopes?.map { it.scope }
+        )
+    }
+
+    @Test
+    fun `provideClients - Client may not default to a scope outside its allowed scopes`() = runTest {
+        val factory = factoryServing(
+            listOf(ConsentableUserScope("my-scope"), ConsentableUserScope("other-scope")),
+            clientTemplate(
+                id = "default",
+                allowedGrantTypes = setOf(GrantType.AUTHORIZATION_CODE),
+                allowedRedirectUris = listOf("https://example.com/callback")
+            )
+        )
+        val clients = listOf(
+            clientProperties(
+                id = "my-app",
+                secret = "secret",
+                allowedScopes = listOf("my-scope"),
+                defaultScopes = listOf("other-scope")
+            )
+        )
+
+        val result = factory.provideClients(clients).first()
+
+        val config = assertInstanceOf(DisabledClientsConfig::class.java, result)
+        val error = config.configurationErrors!!.filterIsInstance<ConfigurationException>().first()
+        assertEquals("config.client.default_scopes.not_allowed", error.messageId)
+        assertEquals("clients.my-app.default-scopes", error.key)
+        assertEquals("other-scope", error.values["scope"])
+    }
+
+    @Test
+    fun `provideClients - Client may not default to a template scope outside its allowed scopes`() = runTest {
+        val inherited = ConsentableUserScope("other-scope")
+        val factory = factoryServing(
+            listOf(ConsentableUserScope("my-scope"), inherited),
+            clientTemplate(
+                id = "default",
+                allowedGrantTypes = setOf(GrantType.AUTHORIZATION_CODE),
+                allowedRedirectUris = listOf("https://example.com/callback"),
+                defaultScopes = listOf(inherited)
+            )
+        )
+        val clients = listOf(
+            clientProperties(id = "my-app", secret = "secret", allowedScopes = listOf("my-scope"))
+        )
+
+        val result = factory.provideClients(clients).first()
+
+        val config = assertInstanceOf(DisabledClientsConfig::class.java, result)
+        val error = config.configurationErrors!!.filterIsInstance<ConfigurationException>().first()
+        assertEquals("config.client.default_scopes.not_allowed_from_template", error.messageId)
+        assertEquals("default", error.values["template"])
+    }
+
+    @Test
+    fun `provideClients - Client allowed every scope may default to any of them`() = runTest {
+        val factory = factoryServing(
+            listOf(ConsentableUserScope("my-scope")),
+            clientTemplate(
+                id = "default",
+                allowedGrantTypes = setOf(GrantType.AUTHORIZATION_CODE),
+                allowedRedirectUris = listOf("https://example.com/callback")
+            )
+        )
+        val clients = listOf(
+            clientProperties(id = "my-app", secret = "secret", defaultScopes = listOf("my-scope"))
+        )
+
+        val result = factory.provideClients(clients).first()
+
+        assertInstanceOf(EnabledClientsConfig::class.java, result)
+        assertNull((result as EnabledClientsConfig).clients.first().allowedScopes)
     }
 
     @Test

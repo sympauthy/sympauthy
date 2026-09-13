@@ -39,9 +39,8 @@ class IdTokenOnlyForOpenIdGrantIT : AbstractSympauthyIT() {
             // No granting rule names REPORTS_SCOPE, so the default behaviour is what grants it.
             "features" to mapOf("grant-unhandled-scopes" to true),
             "scopes" to mapOf(REPORTS_SCOPE to mapOf("enabled" to true)),
-            // Both, or the client is not the plain OAuth 2.0 one this scenario describes: the shipped
-            // `templates.clients.default` supplies `default-scopes: [openid, profile]` to a client that
-            // names none, and a request omitting `scope` would be answered with those.
+            // Both, or the server refuses to boot: a client's default scopes have to sit inside its
+            // allowed ones, and the base config allows and defaults to `openid` alone.
             "clients" to mapOf(
                 clientId to mapOf(
                     "allowed-scopes" to listOf(REPORTS_SCOPE),

@@ -58,6 +58,7 @@ abstract class AbstractSympauthyIT {
                 "authorizationFlow" to registry.flowId(),
                 "allowed-grant-types" to listOf("authorization_code"),
                 "allowed-scopes" to listOf("openid"),
+                "default-scopes" to listOf("openid"),
                 "allowed-redirect-uris" to listOf(registry.redirectUri()),
             )
         } else {
@@ -67,6 +68,7 @@ abstract class AbstractSympauthyIT {
                 "authorizationFlow" to registry.flowId(),
                 "allowed-grant-types" to listOf("authorization_code", "refresh_token"),
                 "allowed-scopes" to listOf("openid"),
+                "default-scopes" to listOf("openid"),
                 "allowed-redirect-uris" to listOf(registry.redirectUri()),
             )
         }
@@ -174,7 +176,9 @@ abstract class AbstractSympauthyIT {
      * (e.g. a second client) on top of the shared base [config], and [client] to own the flow as a
      * confidential client (default: a public client using PKCE). Pass [scopes] to drive the flow as a
      * plain OAuth 2.0 client, asking for something other than `openid`; the base [config] allows that
-     * client `openid` alone, so a scenario overriding this overrides `allowed-scopes` with it.
+     * client `openid` alone and defaults it to the same, so a scenario overriding this overrides both
+     * `allowed-scopes` and `default-scopes` with it — a default outside the allowed set is refused at
+     * boot.
      */
     protected fun withContainer(
         database: Database,

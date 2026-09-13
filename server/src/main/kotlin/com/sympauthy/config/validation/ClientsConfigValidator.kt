@@ -115,6 +115,7 @@ class ClientsConfigValidator(
 
             else -> parsed.template?.defaultScopes
         }
+        validateDefaultScopesAreAllowed(subCtx, configKeyPrefix, parsed, allowedScopes, defaultScopes)
 
         // Validate webhook (already resolved with template fallback by parser).
         val authorizationWebhook = fieldValidator.validateWebhook(parsed.authorizationWebhook)
@@ -134,6 +135,50 @@ class ClientsConfigValidator(
             defaultScopes = defaultScopes,
             authorizationWebhook = authorizationWebhook
         )
+    }
+
+    /**
+     * Refuse the client when one of its [defaultScopes] is outside its [allowedScopes].
+     *
+     * The default scopes are what a request naming no scope at all is granted, and nothing on that
+     * path puts them through the allowed set, so two lines disagreeing hand the client a scope the
+     * same file says it may not have. Which of the two the operator meant cannot be read off either
+     * of them, so the contradiction is refused here rather than resolved — `docs/design-faq.md`
+     * carries why.
+     *
+     * A client allowing every scope has nothing to contradict, and so does one defaulting to none.
+     */
+    private fun validateDefaultScopesAreAllowed(
+        ctx: ConfigParsingContext,
+        configKeyPrefix: String,
+        parsed: ParsedClient,
+        allowedScopes: Set<EnabledScope>?,
+        defaultScopes: List<EnabledScope>?
+    ) {
+        if (allowedScopes == null || defaultScopes == null) return
+        // Where the client named no defaults of its own, the ones being refused came from a
+        // template, and the operator has to be told which: the line is not one they wrote.
+        val templateId = parsed.template?.id.takeIf { parsed.defaultScopes == null }
+        val allowed = allowedScopes.joinToString(", ") { it.scope }
+        defaultScopes.filter { it !in allowedScopes }.forEach { scope ->
+            val error = if (templateId == null) {
+                configExceptionOf(
+                    "$configKeyPrefix.default-scopes",
+                    "config.client.default_scopes.not_allowed",
+                    "scope" to scope.scope,
+                    "allowedScopes" to allowed
+                )
+            } else {
+                configExceptionOf(
+                    "$configKeyPrefix.default-scopes",
+                    "config.client.default_scopes.not_allowed_from_template",
+                    "scope" to scope.scope,
+                    "template" to templateId,
+                    "allowedScopes" to allowed
+                )
+            }
+            ctx.addError(error)
+        }
     }
 
     private fun validateAndResolveAudience(

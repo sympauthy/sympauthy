@@ -276,6 +276,7 @@ class ClientProviderLinkFeatureIT : AbstractSympauthyIT() {
                 "authorizationFlow" to other.flowId(),
                 "allowed-grant-types" to listOf("authorization_code"),
                 "allowed-scopes" to listOf("openid"),
+                "default-scopes" to listOf("openid"),
                 "allowed-redirect-uris" to listOf(other.redirectUri()),
             )
             )
