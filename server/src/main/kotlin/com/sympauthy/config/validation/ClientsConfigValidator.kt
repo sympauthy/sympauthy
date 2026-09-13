@@ -9,6 +9,7 @@ import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.parsing.ParsedClient
 import com.sympauthy.config.properties.ClientConfigurationProperties.Companion.CLIENTS_KEY
+import com.sympauthy.config.properties.ClientTemplateConfigurationProperties.Companion.TEMPLATES_CLIENTS_KEY
 import com.sympauthy.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -99,6 +100,7 @@ class ClientsConfigValidator(
         }
 
         // Validate scopes.
+        val errorsBeforeScopes = subCtx.errors.size
         val allowedScopes = when {
             parsed.allowedScopes != null -> fieldValidator.validateScopes(
                 subCtx, "$configKeyPrefix.allowed-scopes", parsed.allowedScopes, scopesById,
@@ -114,6 +116,11 @@ class ClientsConfigValidator(
             )
 
             else -> parsed.template?.defaultScopes
+        }
+        // A list that lost an entry to an error above is not the list the file holds, and holding the
+        // two to each other would report a scope as disallowed against a line that allows it.
+        if (subCtx.errors.size == errorsBeforeScopes) {
+            validateDefaultScopesAreAllowed(subCtx, configKeyPrefix, parsed, allowedScopes, defaultScopes)
         }
 
         // Validate webhook (already resolved with template fallback by parser).
@@ -134,6 +141,70 @@ class ClientsConfigValidator(
             defaultScopes = defaultScopes,
             authorizationWebhook = authorizationWebhook
         )
+    }
+
+    /**
+     * Refuse the client when one of its [defaultScopes] is outside its [allowedScopes].
+     *
+     * The default scopes are what a request naming no scope at all is granted, and nothing on that
+     * path puts them through the allowed set, so two lines disagreeing hand the client a scope the
+     * same file says it may not have. Which of the two the operator meant cannot be read off either
+     * of them, so the contradiction is refused here rather than resolved — `docs/design-faq.md`
+     * carries why.
+     *
+     * The error is against the client, which is what the contradiction belongs to: a template one
+     * client narrows below is still right for every other client on it. The message names the key
+     * each of the two lists was written at, so neither half sends the operator to a line they do
+     * not have.
+     *
+     * A client allowing every scope has nothing to contradict, and so does one defaulting to none.
+     */
+    private fun validateDefaultScopesAreAllowed(
+        ctx: ConfigParsingContext,
+        configKeyPrefix: String,
+        parsed: ParsedClient,
+        allowedScopes: Set<EnabledScope>?,
+        defaultScopes: List<EnabledScope>?
+    ) {
+        if (allowedScopes == null || defaultScopes == null) return
+        val ownDefaults = parsed.defaultScopes != null
+        val defaultScopesKey = scopesKey(configKeyPrefix, parsed, "default-scopes", inherited = !ownDefaults)
+        val allowedScopesKey = scopesKey(
+            configKeyPrefix, parsed, "allowed-scopes", inherited = parsed.allowedScopes == null
+        )
+        val allowed = allowedScopes.joinToString(", ") { it.scope }
+        val offending = defaultScopes.withIndex().filter { (_, scope) -> scope !in allowedScopes }
+        // An index locates an entry of a list the client wrote; an inherited one has no position
+        // under the client at all, and the same scope written twice in it is one mistake.
+        val reported = if (ownDefaults) offending else offending.distinctBy { it.value }
+        reported.forEach { (index, scope) ->
+            ctx.addError(
+                configExceptionOf(
+                    if (ownDefaults) "$configKeyPrefix.default-scopes[$index]"
+                    else "$configKeyPrefix.default-scopes",
+                    "config.client.default_scopes.not_allowed",
+                    "scope" to scope.scope,
+                    "defaultScopesKey" to defaultScopesKey,
+                    "allowedScopesKey" to allowedScopesKey,
+                    "allowedScopes" to allowed
+                )
+            )
+        }
+    }
+
+    /**
+     * The configuration key a client's list of [name] was written at: the client's own where it
+     * names one, and the template it falls back on where it does not.
+     */
+    private fun scopesKey(
+        configKeyPrefix: String,
+        parsed: ParsedClient,
+        name: String,
+        inherited: Boolean
+    ): String {
+        val templateId = parsed.template?.id
+        return if (inherited && templateId != null) "$TEMPLATES_CLIENTS_KEY.$templateId.$name"
+        else "$configKeyPrefix.$name"
     }
 
     private fun validateAndResolveAudience(
