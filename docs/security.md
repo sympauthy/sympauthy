@@ -105,6 +105,19 @@ to collect, which it accepts, which it holds as required, and which it asks a pe
 a validation code. Someone signing in to one audience is neither asked for another's claims nor held
 to them.
 
+**The administration surface reads across every audience, and it is the only reader that does.** An
+administrator answers for the deployment rather than for one of its applications, so the audience a
+claim is restricted to is something they are shown rather than something that hides it from them.
+
+**A generated claim belongs to every audience.** `sub` and `updated_at` are computed rather than
+collected, the parser gives them no audience whatever the configuration says, and nothing about a
+person is disclosed by either.
+
+**An identifier claim belongs to every audience, and restricting one is refused at startup.**
+`auth.identifier-claims` is declared once for the deployment, so every audience signs people in with
+the same claim; a restriction on it would be filtered out of the reads that resolve an account, and
+a deployment would lose its sign-in rather than be told. The validator names it instead.
+
 ## What each surface is protected by
 
 **The OAuth2 surface is protected by the protocol, not by a role.** Client authentication, PKCE,

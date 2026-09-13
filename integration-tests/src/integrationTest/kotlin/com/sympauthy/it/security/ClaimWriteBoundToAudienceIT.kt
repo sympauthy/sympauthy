@@ -116,7 +116,6 @@ class ClaimWriteBoundToAudienceIT : AbstractSympauthyIT() {
     private companion object {
 
         const val OWN_CLIENT_ID = "claim-write-app"
-        const val OWN_FLOW_ID = "claim-write-flow"
 
         const val CLIENT_SECRET = "s3cr3t-claims"
         const val EMAIL = "claim-write@example.com"

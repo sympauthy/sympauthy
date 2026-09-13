@@ -109,7 +109,7 @@ but they chose not to provide a value.
                 val oauth2 = oauth2Manager.fetchOAuth2(session)
                 consentAwareCollectedClaimManager.updateByUser(
                     user = user,
-                    audienceId = oauth2Manager.fetchAudienceId(oauth2),
+                    audienceId = oauth2Manager.getAudienceId(oauth2),
                     updates = collectedClaimUpdateMapper.toUpdates(inputResource.claims),
                     consentedScopes = oauth2.consentedScopes ?: emptyList()
                 )

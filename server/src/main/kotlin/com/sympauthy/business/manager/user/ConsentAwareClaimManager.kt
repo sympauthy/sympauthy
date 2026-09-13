@@ -44,7 +44,7 @@ class ConsentAwareClaimManager(
             is OnGoingInteractiveFlowSession, is CompletedInteractiveFlowSession -> {
                 val oauth2 = oauth2Manager.fetchOAuth2(session)
                 val consentedScopes = oauth2.consentedScopes ?: return emptyList()
-                listCollectableClaimsWithScopes(oauth2Manager.fetchAudienceId(oauth2), consentedScopes)
+                listCollectableClaimsWithScopes(oauth2Manager.getAudienceId(oauth2), consentedScopes)
             }
         }
     }

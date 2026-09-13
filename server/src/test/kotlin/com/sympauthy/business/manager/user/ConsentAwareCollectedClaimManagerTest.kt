@@ -274,7 +274,7 @@ class ConsentAwareCollectedClaimManagerTest {
         }
         val oauth2 = oauth2(consentedScopes = consentedScopes)
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
-        coEvery { oauth2Manager.fetchAudienceId(oauth2) } returns AUDIENCE
+        coEvery { oauth2Manager.getAudienceId(oauth2) } returns AUDIENCE
 
         coEvery {
             manager.findByUserIdAndReadableByClient(userId, AUDIENCE, consentedScopes)
@@ -310,7 +310,7 @@ class ConsentAwareCollectedClaimManagerTest {
         }
         val oauth2 = oauth2(consentedScopes = consentedScopes)
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
-        coEvery { oauth2Manager.fetchAudienceId(oauth2) } returns AUDIENCE
+        coEvery { oauth2Manager.getAudienceId(oauth2) } returns AUDIENCE
 
         coEvery {
             manager.findByUserIdAndReadableByClient(userId, AUDIENCE, consentedScopes)

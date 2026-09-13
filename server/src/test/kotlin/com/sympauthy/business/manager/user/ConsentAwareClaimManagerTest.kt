@@ -134,7 +134,7 @@ class ConsentAwareClaimManagerTest {
             val session = mockk<OnGoingInteractiveFlowSession>()
             val oauth2 = oauth2(consentedScopes = consentedScopes)
             coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
-            coEvery { oauth2Manager.fetchAudienceId(oauth2) } returns AUDIENCE
+            coEvery { oauth2Manager.getAudienceId(oauth2) } returns AUDIENCE
 
             every { manager.listCollectableClaimsWithScopes(AUDIENCE, consentedScopes) } returns listOf(claim1)
 
@@ -152,7 +152,7 @@ class ConsentAwareClaimManagerTest {
         val session = mockk<CompletedInteractiveFlowSession>()
         val oauth2 = oauth2(consentedScopes = consentedScopes)
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
-        coEvery { oauth2Manager.fetchAudienceId(oauth2) } returns AUDIENCE
+        coEvery { oauth2Manager.getAudienceId(oauth2) } returns AUDIENCE
 
         every { manager.listCollectableClaimsWithScopes(AUDIENCE, consentedScopes) } returns listOf(claim1)
 

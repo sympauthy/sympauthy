@@ -94,7 +94,7 @@ open class ConsentAwareCollectedClaimManager(
                 val consentedScopes = oauth2.consentedScopes ?: return emptyList()
                 findByUserIdAndReadableByClient(
                     userId = userId,
-                    audienceId = oauth2Manager.fetchAudienceId(oauth2),
+                    audienceId = oauth2Manager.getAudienceId(oauth2),
                     consentedScopes = consentedScopes
                 )
             }
@@ -104,7 +104,7 @@ open class ConsentAwareCollectedClaimManager(
                 val consentedScopes = oauth2.consentedScopes ?: return emptyList()
                 findByUserIdAndReadableByClient(
                     userId = session.userId,
-                    audienceId = oauth2Manager.fetchAudienceId(oauth2),
+                    audienceId = oauth2Manager.getAudienceId(oauth2),
                     consentedScopes = consentedScopes
                 )
             }

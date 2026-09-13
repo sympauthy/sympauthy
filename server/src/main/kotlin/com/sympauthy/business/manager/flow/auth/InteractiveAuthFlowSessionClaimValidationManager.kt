@@ -61,12 +61,18 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
      * [identifierClaims] are the claims identifying the user, which this authorization server validates whether or
      * not the client asked for them; [consentedClaims] are the ones the client holds consent for during this
      * interactive flow session. A claim appearing in both is considered once.
+     *
+     * [audienceId] is the audience the flow is for. A reason is answered from the claim it validates, which is
+     * read from configuration where every audience's claims live, while [consentedClaims] are one audience's —
+     * so a reason naming another audience's claim would find nothing collected, read as unconfirmed, and ask
+     * for a code this flow can neither send nor ever clear.
      */
     fun getReasonsToSendValidationCode(
+        audienceId: String,
         identifierClaims: List<CollectedClaim>,
         consentedClaims: List<CollectedClaim>
     ): List<ValidationCodeReason> {
-        return getUnfilteredReasonsToSendValidationCode(identifierClaims, consentedClaims)
+        return getUnfilteredReasonsToSendValidationCode(audienceId, identifierClaims, consentedClaims)
             .filter { validationCodeManager.canSendValidationCodeForReason(it) }
     }
 
@@ -78,18 +84,22 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
      *
      * [identifierClaims] are the claims identifying the user, which this authorization server validates whether or
      * not the client asked for them; [consentedClaims] are the ones the client holds consent for during this
-     * interactive flow session. A claim appearing in both is considered once.
+     * interactive flow session. A claim appearing in both is considered once. A reason naming a claim outside
+     * [audienceId] is not this flow's to ask about.
      */
     internal fun getUnfilteredReasonsToSendValidationCode(
+        audienceId: String,
         identifierClaims: List<CollectedClaim>,
         consentedClaims: List<CollectedClaim>
     ): List<ValidationCodeReason> {
         val allClaims = (identifierClaims + consentedClaims).distinctBy { it.claim.id }
         return validationCodeReasons.mapNotNull { reason ->
-            getClaimValidatedBy(reason)?.let { claim ->
-                val collectedClaim = allClaims.firstOrNull { it.claim.id == claim.id }
-                if (collectedClaim?.verified != true) reason else null
-            }
+            getClaimValidatedBy(reason)
+                ?.takeIf { it.belongsToAudience(audienceId) }
+                ?.let { claim ->
+                    val collectedClaim = allClaims.firstOrNull { it.claim.id == claim.id }
+                    if (collectedClaim?.verified != true) reason else null
+                }
         }
     }
 
@@ -114,14 +124,16 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
     ): ValidationCode? {
         val oauth2 = oauth2Manager.fetchOAuth2(session)
         val consentedScopes = oauth2.consentedScopes ?: emptyList()
+        val audienceId = oauth2Manager.getAudienceId(oauth2)
         val identifierClaims = collectedClaimManager.findIdentifierByUserId(user.id)
         val consentedClaims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
             userId = user.id,
-            audienceId = oauth2Manager.fetchAudienceId(oauth2),
+            audienceId = audienceId,
             consentedScopes = consentedScopes
         )
 
         val reasons = getReasonsToSendValidationCode(
+            audienceId = audienceId,
             identifierClaims = identifierClaims,
             consentedClaims = consentedClaims
         ).filter { it.media == media }
@@ -149,6 +161,9 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
      *
      * For a code to be resent using a given media, all previous code sent using this media must have passed
      * their [ValidationCode.resendDate]. A null [ValidationCode.resendDate] correspond to a never expiring code.
+     *
+     * The claims it resends against are the ones [getOrSendValidationCode] sent against: the audience's, so
+     * both halves of the step answer from one set rather than the send narrowing and the resend not.
      */
     @Transactional
     open suspend fun resendValidationCode(
@@ -168,7 +183,14 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
             )
         }
 
-        val collectedClaims = collectedClaimManager.findByUserId(userId = user.id)
+        val oauth2 = oauth2Manager.fetchOAuth2(session)
+        val identifierClaims = collectedClaimManager.findIdentifierByUserId(user.id)
+        val consentedClaims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
+            userId = user.id,
+            audienceId = oauth2Manager.getAudienceId(oauth2),
+            consentedScopes = oauth2.consentedScopes ?: emptyList()
+        )
+        val collectedClaims = (identifierClaims + consentedClaims).distinctBy { it.claim.id }
 
         val result = validationCodeManager.refreshAndQueueValidationCode(
             user = user,

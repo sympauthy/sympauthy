@@ -137,10 +137,13 @@ open class InteractiveFlowSessionOAuth2Manager(
      * Consent is recorded per audience, so this is the audience [InteractiveFlowSessionOAuth2.consentedScopes]
      * were consented for, and the one every consent-scoped read of that session's claims is made for.
      *
+     * Named `get…` rather than `fetch…`: the client it resolves against is configuration, not a row, unlike
+     * the OAuth2 record its neighbours read.
+     *
      * Throws an unrecoverable [BusinessException] carrying ```client.invalid_client_id``` where the client the
      * authorization named is no longer configured.
      */
-    suspend fun fetchAudienceId(oauth2: InteractiveFlowSessionOAuth2): String {
+    suspend fun getAudienceId(oauth2: InteractiveFlowSessionOAuth2): String {
         return clientManager.findClientById(oauth2.clientId).audience.id
     }
 
