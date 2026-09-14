@@ -63,6 +63,33 @@ have to be running for the server to start, but a flow cannot be completed witho
 starts and then reports itself unhealthy is telling you to read the startup log. Every error in the
 file is reported at once — see [the `config` layer standard](config-layer-code-standard.md).
 
+### Signing in as an administrator
+
+**The `admin` environment ships the console's client, its audience, the rule that grants the admin
+scopes to a user carrying the `is_sympauthy_admin` claim, and the invitation that bootstraps the
+first one.** Turn it on by adding `admin` to `MICRONAUT_ENVIRONMENTS`, as the run command below
+does. Its client allows two addresses: `${urls.root}/admin/callback`, the console this server
+serves at `/admin`, and `${urls.root}/swagger-ui/oauth2-redirect.html`, the Authorize button of the
+documentation.
+
+**Naming `allowed-redirect-uris` on that client in your own file replaces both of them.** Micronaut
+replaces a list rather than merging it, so a configuration adding the address the admin pages run at
+in development has to restate every address it still signs in from, or the one it dropped answers
+`client.redirect_uri.not_allowed`:
+
+```yaml
+clients:
+  admin:
+    allowed-redirect-uris:
+      - http://localhost:5174/callback
+      - http://localhost:8080/admin/callback
+      - http://localhost:8080/swagger-ui/oauth2-redirect.html
+```
+
+**The admin pages are a separate application too**, packaged into the image by the CI and served
+from `/admin`. Running them from their own repository puts them on their own port, which is the
+first address above, and is why a development configuration usually names both.
+
 ### Choosing a database
 
 H2 in a local file, which is the default above and survives restarts:
