@@ -17,6 +17,7 @@ import com.sympauthy.util.getKeyAndLocalizedMessage
 import com.sympauthy.util.isDefaultActive
 import com.sympauthy.util.loggerForClass
 import com.sympauthy.view.AdminUiController.Companion.ADMIN_UI_ENDPOINT
+import com.sympauthy.view.SwaggerUiController.Companion.SWAGGER_UI_ENDPOINT
 import io.micronaut.context.MessageSource
 import io.micronaut.context.env.Environment
 import io.micronaut.context.event.ApplicationEventListener
@@ -224,7 +225,7 @@ class ApplicationReadinessStatusPrinter(
         val entries = mutableListOf<Pair<String, String>>()
 
         entries.add("OpenAPI documentation" to urlsConfig.getUri(OPENAPI_ENDPOINT).toString())
-        entries.add("Swagger UI" to urlsConfig.getUri("/swagger-ui").toString())
+        entries.add("Swagger UI" to urlsConfig.getUri("$SWAGGER_UI_ENDPOINT/").toString())
         entries.add("Default end-user flow" to urlsConfig.getUri(DEFAULT_WEB_AUTHORIZATION_FLOW_ENDPOINT).toString())
 
         val enabledAdminConfig = adminConfig as? EnabledAdminConfig

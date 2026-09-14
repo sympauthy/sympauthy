@@ -113,6 +113,17 @@ http://localhost:8080/api/oauth2/authorize
 That challenge is the S256 hash of the verifier `dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk`; use
 the verifier when exchanging the code at the token endpoint.
 
+**Swagger UI drives the same API from a browser, at `http://localhost:8080/swagger-ui/`.** Press
+**Authorize**, pick the `admin` scheme, enter the client id `admin` and leave the secret empty: the
+`admin` environment allows Swagger UI's callback and its client is public, so the flow completes
+with PKCE. Signing in needs a user carrying the `is_sympauthy_admin` claim, which the bootstrap
+invitation of that environment sets on the first one.
+
+**A client of your own is usable there once `${urls.root}/swagger-ui/oauth2-redirect.html` is one of
+its `allowed-redirect-uris`.** Swagger UI derives that address from the page it runs on, which is
+why `/swagger-ui` and `/swagger-ui/` both land on `/swagger-ui/index.html`. The other scheme the
+documentation declares, `client`, is client credentials and takes a client id and a secret instead.
+
 **A Bruno collection in `bruno/` drives the API by hand.** Select the **Local** environment, set
 `clientId`, and set `login` and `password` as secret variables — Bruno keeps secret values out of
 the collection files, so nothing is committed.

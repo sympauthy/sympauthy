@@ -29,6 +29,9 @@ clients:
       - refresh_token
     allowed-redirect-uris:
       - "${urls.root}/admin/callback"
+      # Shipped so that the Authorize button of the documentation this server serves reaches the admin
+      # scopes. Swagger UI takes no redirect URI from a build, and sends this one.
+      - "${urls.root}/swagger-ui/oauth2-redirect.html"
     allowed-scopes:
       - openid
       - profile
