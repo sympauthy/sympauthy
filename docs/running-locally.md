@@ -86,6 +86,16 @@ clients:
       - http://localhost:8080/swagger-ui/oauth2-redirect.html
 ```
 
+**The link the bootstrap invitation logs is built from a template, and the page it names is the
+admin pages' own.** Point it at where they run, or the first administrator is sent to a page that
+is not there:
+
+```yaml
+invitations:
+  first-admin:
+    url-template: "http://localhost:5174/register?invitation_token={token}"
+```
+
 **The admin pages are a separate application too**, packaged into the image by the CI and served
 from `/admin`. Running them from their own repository puts them on their own port, which is the
 first address above, and is why a development configuration usually names both.
@@ -140,11 +150,24 @@ http://localhost:8080/api/oauth2/authorize
 That challenge is the S256 hash of the verifier `dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk`; use
 the verifier when exchanging the code at the token endpoint.
 
+**Nothing signs in as an administrator until the first-admin link has been consumed.** While no
+user has consented for the `admin` audience, every startup revokes the previous bootstrap
+invitation, creates another and logs the link it built:
+
+```
+Bootstrap invitation 'first-admin' created for audience 'admin'.
+Registration URL: http://localhost:5174/register?invitation_token=...
+```
+
+**Use the link from the latest startup**, because starting the server revoked the one before it.
+Registering through it is what writes `is_sympauthy_admin` on the account, and the environment's
+rule reads that claim to grant the admin scopes. Once someone has consented for the audience no
+invitation is created again, and the startup logs a line saying it skipped one instead.
+
 **Swagger UI drives the same API from a browser, at `http://localhost:8080/swagger-ui/`.** Press
 **Authorize**, pick the `admin` scheme, enter the client id `admin` and leave the secret empty: the
 `admin` environment allows Swagger UI's callback and its client is public, so the flow completes
-with PKCE. Signing in needs a user carrying the `is_sympauthy_admin` claim, which the bootstrap
-invitation of that environment sets on the first one.
+with PKCE. Signing in needs the administrator registered above.
 
 **A client of your own is usable there once `${urls.root}/swagger-ui/oauth2-redirect.html` is one of
 its `allowed-redirect-uris`.** Swagger UI derives that address from the page it runs on, which is
