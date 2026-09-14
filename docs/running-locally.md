@@ -65,40 +65,27 @@ file is reported at once — see [the `config` layer standard](config-layer-code
 
 ### Signing in as an administrator
 
-**The `admin` environment ships the console's client, its audience, the rule that grants the admin
-scopes to a user carrying the `is_sympauthy_admin` claim, and the invitation that bootstraps the
-first one.** Turn it on by adding `admin` to `MICRONAUT_ENVIRONMENTS`, as the run command below
-does. Its client allows two addresses: `${urls.root}/admin/callback`, the console this server
-serves at `/admin`, and `${urls.root}/swagger-ui/oauth2-redirect.html`, the Authorize button of the
-documentation.
+**Adding `admin` to `MICRONAUT_ENVIRONMENTS` brings the console the server serves at `/admin`**,
+with the client it signs in through and the invitation that creates the first administrator. The
+run command below does it, and a configuration needs nothing more to sign in there.
 
-**Naming `allowed-redirect-uris` on that client in your own file replaces both of them.** Micronaut
-replaces a list rather than merging it, so a configuration adding the address the admin pages run at
-in development has to restate every address it still signs in from, or the one it dropped answers
+**Running the admin pages from their own repository is what needs configuration.** Name the
+addresses they run at — a list named in your file replaces the shipped one rather than adding to
+it, so keep the ones you still sign in from, or the address you dropped answers
 `client.redirect_uri.not_allowed`:
 
 ```yaml
 clients:
   admin:
     allowed-redirect-uris:
-      - http://localhost:5174/callback
-      - http://localhost:8080/admin/callback
-      - http://localhost:8080/swagger-ui/oauth2-redirect.html
-```
+      - http://localhost:5174/callback                         # the admin pages in development
+      - http://localhost:8080/admin/callback                   # the console the server serves
+      - http://localhost:8080/swagger-ui/oauth2-redirect.html  # the Authorize button
 
-**The link the bootstrap invitation logs is built from a template, and the page it names is the
-admin pages' own.** Point it at where they run, or the first administrator is sent to a page that
-is not there:
-
-```yaml
 invitations:
   first-admin:
     url-template: "http://localhost:5174/register?invitation_token={token}"
 ```
-
-**The admin pages are a separate application too**, packaged into the image by the CI and served
-from `/admin`. Running them from their own repository puts them on their own port, which is the
-first address above, and is why a development configuration usually names both.
 
 ### Choosing a database
 
@@ -150,19 +137,17 @@ http://localhost:8080/api/oauth2/authorize
 That challenge is the S256 hash of the verifier `dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk`; use
 the verifier when exchanging the code at the token endpoint.
 
-**Nothing signs in as an administrator until the first-admin link has been consumed.** While no
-user has consented for the `admin` audience, every startup revokes the previous bootstrap
-invitation, creates another and logs the link it built:
+**The first administrator registers through the link the startup logs**, and nothing signs in as
+one before that:
 
 ```
 Bootstrap invitation 'first-admin' created for audience 'admin'.
 Registration URL: http://localhost:5174/register?invitation_token=...
 ```
 
-**Use the link from the latest startup**, because starting the server revoked the one before it.
-Registering through it is what writes `is_sympauthy_admin` on the account, and the environment's
-rule reads that claim to grant the admin scopes. Once someone has consented for the audience no
-invitation is created again, and the startup logs a line saying it skipped one instead.
+**Take the link from the latest startup**, because each one revokes the link before it. Once an
+administrator has registered the line stops appearing, and the console and the Authorize button
+both let them in.
 
 **Swagger UI drives the same API from a browser, at `http://localhost:8080/swagger-ui/`.** Press
 **Authorize**, pick the `admin` scheme, enter the client id `admin` and leave the secret empty: the
