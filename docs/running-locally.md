@@ -63,6 +63,30 @@ have to be running for the server to start, but a flow cannot be completed witho
 starts and then reports itself unhealthy is telling you to read the startup log. Every error in the
 file is reported at once — see [the `config` layer standard](config-layer-code-standard.md).
 
+### Signing in as an administrator
+
+**Adding `admin` to `MICRONAUT_ENVIRONMENTS` brings the console the server serves at `/admin`**,
+with the client it signs in through and the invitation that creates the first administrator. The
+run command below does it, and a configuration needs nothing more to sign in there.
+
+**Running the admin pages from their own repository is what needs configuration.** Name the
+addresses they run at — a list named in your file replaces the shipped one rather than adding to
+it, so keep the ones you still sign in from, or the address you dropped answers
+`client.redirect_uri.not_allowed`:
+
+```yaml
+clients:
+  admin:
+    allowed-redirect-uris:
+      - http://localhost:5174/callback                         # the admin pages in development
+      - http://localhost:8080/admin/callback                   # the console the server serves
+      - http://localhost:8080/swagger-ui/oauth2-redirect.html  # the Authorize button
+
+invitations:
+  first-admin:
+    url-template: "http://localhost:5174/register?invitation_token={token}"
+```
+
 ### Choosing a database
 
 H2 in a local file, which is the default above and survives restarts:
@@ -112,6 +136,28 @@ http://localhost:8080/api/oauth2/authorize
 
 That challenge is the S256 hash of the verifier `dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk`; use
 the verifier when exchanging the code at the token endpoint.
+
+**The first administrator registers through the link the startup logs**, and nothing signs in as
+one before that:
+
+```
+Bootstrap invitation 'first-admin' created for audience 'admin'.
+Registration URL: http://localhost:5174/register?invitation_token=...
+```
+
+**Take the link from the latest startup**, because each one revokes the link before it. Once an
+administrator has registered the line stops appearing, and the console and the Authorize button
+both let them in.
+
+**Swagger UI drives the same API from a browser, at `http://localhost:8080/swagger-ui/`.** Press
+**Authorize**, pick the `admin` scheme, enter the client id `admin` and leave the secret empty: the
+`admin` environment allows Swagger UI's callback and its client is public, so the flow completes
+with PKCE. Signing in needs the administrator registered above.
+
+**A client of your own is usable there once `${urls.root}/swagger-ui/oauth2-redirect.html` is one of
+its `allowed-redirect-uris`.** Swagger UI derives that address from the page it runs on, which is
+why `/swagger-ui` and `/swagger-ui/` both land on `/swagger-ui/index.html`. The other scheme the
+documentation declares, `client`, is client credentials and takes a client id and a secret instead.
 
 **A Bruno collection in `bruno/` drives the API by hand.** Select the **Local** environment, set
 `clientId`, and set `login` and `password` as secret variables — Bruno keeps secret values out of
