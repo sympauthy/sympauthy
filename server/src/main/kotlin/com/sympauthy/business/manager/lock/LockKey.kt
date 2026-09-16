@@ -40,6 +40,15 @@ sealed class LockKey(
      * claim, so a value has to be unique across all of them rather than within one column, and the
      * competitor a promotion has to exclude may have no committed row to lock.
      *
+     * Two writers make one committed: the promotion of a provisional account, and an invitation applying
+     * its pre-assigned claims to an account a provider merge resolved rather than to one the flow created.
+     * Neither holds a row the other could have waited on — the promotion's rows are invisible to a committed
+     * reader, and a value nobody holds yet has no row at all — so nothing but a key both name serialises
+     * them.
+     *
+     * A write to a provisional account takes no key. Its identifier is not one yet: two sign-ups may hold a
+     * value at the same time, and the promotion is where that is settled.
+     *
      * The value is the one `collected_claims` holds — what [com.sympauthy.business.mapper.ClaimValueMapper]
      * wrote, quotes and all — because that is the spelling the check compares on. A caller holding the
      * business value maps it before naming it here.

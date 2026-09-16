@@ -138,7 +138,8 @@ open class UserManager(
 
     /**
      * Return true when a committed account already holds any of the [values] under any of the identifier
-     * claims [claimIds].
+     * claims [claimIds]. [excludingUserId] names an account whose own rows do not count as taking a value,
+     * for a caller asking on behalf of an account that already exists.
      *
      * The uniqueness of an identifier is not a database constraint — an end-user may sign in with any of the
      * configured identifier claims, so a value has to be unique across all of them rather than within one
@@ -146,10 +147,18 @@ open class UserManager(
      *
      * Asked twice of one sign-up, against the same committed-only rows both times: once when the account is
      * created, and again when it is promoted, because an account created in the meantime would not have been
-     * visible the first time. See [com.sympauthy.data.model.SessionScoped].
+     * visible the first time. Neither passes [excludingUserId]: the first has no account yet, and the rows of
+     * the second are still provisional and are excluded already. A writer of a committed account is the
+     * caller that has one to exclude — rewriting a value that account already holds takes nothing from
+     * anybody. See [com.sympauthy.data.model.SessionScoped].
      */
-    suspend fun isIdentifierValueTaken(claimIds: List<String>, values: List<String>): Boolean {
-        return collectedClaimRepository.findAnyClaimMatching(claimIds, values).isNotEmpty()
+    suspend fun isIdentifierValueTaken(
+        claimIds: List<String>,
+        values: List<String>,
+        excludingUserId: UUID? = null
+    ): Boolean {
+        return collectedClaimRepository.findAnyClaimMatching(claimIds, values)
+            .any { it.userId != excludingUserId }
     }
 
     /**
