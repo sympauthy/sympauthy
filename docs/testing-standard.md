@@ -19,7 +19,8 @@ expected to prove, and how little of that a comment has left to say. The compone
 | a flow purpose handler | JUnit and MockK doubles | `server/src/test` |
 | a repository, a migration | a real database of each dialect, started by the test | `server/src/test` |
 | a rule holding two files to each other | JUnit, reading both | `server/src/test` |
-| an endpoint, a whole flow, a protocol rule | the server in a container | `integration-tests` |
+| a controller | JUnit and MockK doubles | `server/src/test` |
+| a whole flow, a protocol rule | the server in a container | `integration-tests` |
 
 ## Unit tests
 
@@ -91,6 +92,20 @@ under test.
 
 They live in their own module, run only when asked for, and boot the server as a container to drive
 it over real HTTP. Running them is [running locally](running-locally.md).
+
+**An integration test covers what a unit test cannot: a feature that spans several controllers and
+needs the whole instance live.** Driving the authorization flow is the case that keeps arising — a
+client's authorize request, the steps a person walks, the callback, the token exchange — and no
+double reproduces it, because what is being proved is the sequence itself.
+
+**Booting the instance is the criterion, and it is the whole criterion.** A rejection one controller
+decides, a filter resolved before anything is read, a status chosen from one manager's answer: each
+is the controller's own behaviour, and a scenario asserting it in a container proves the same thing
+more slowly and more flakily than the table above does.
+
+**A security rule earns one only when the whole instance is what makes it true.** A scope gate, a
+signature, a replay refused across two requests are properties of the assembled server and of
+nothing smaller. A rule one class enforces is tested on that class.
 
 **Every scenario runs against every database**, as a parameterized test over them.
 
