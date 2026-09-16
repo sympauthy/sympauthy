@@ -103,9 +103,16 @@ decides, a filter resolved before anything is read, a status chosen from one man
 is the controller's own behaviour, and a scenario asserting it in a container proves the same thing
 more slowly and more flakily than the table above does.
 
-**A security rule earns one only when the whole instance is what makes it true.** A scope gate, a
-signature, a replay refused across two requests are properties of the assembled server and of
-nothing smaller. A rule one class enforces is tested on that class.
+**A security rule earns one only when the whole instance is what makes it true.** A signature, a
+replay refused across two requests and a flow that must not resume after cancellation are properties
+of the assembled server and of nothing smaller. A rule one class enforces is tested on that class.
+
+**A `@Secured` annotation is not one of them, and no scenario is written to prove one.** What such a
+scenario shows is that the framework enforces the annotation, which is the framework's behaviour and
+identical on every endpoint here; what it cannot show is that the annotation names the right rule,
+since a caller refused for holding the wrong scope is refused either way. That the gate matches the
+surface is a property of the whole set of controllers, and it is checked by reading them — the row
+this table gives to a rule holding two files to each other.
 
 **Every scenario runs against every database**, as a parameterized test over them.
 
