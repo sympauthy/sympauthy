@@ -118,6 +118,13 @@ person is disclosed by either.
 the same claim; a restriction on it would be filtered out of the reads that resolve an account, and
 a deployment would lose its sign-in rather than be told. The validator names it instead.
 
+**No client writes an identifier claim, whatever its scopes.** An identifier is what an account
+signs in with, and nothing in a claim write verifies the value it stores — so a client able to set
+one could repoint an account's sign-in at an address it holds, with nobody asked and nothing sent.
+The scopes that let a client write a claim say what it may record about a person, not what that
+person signs in as. The client surface refuses one by name rather than dropping it, and the manager
+behind it leaves it out the same way the interactive flow already does.
+
 ## What each surface is protected by
 
 **The OAuth2 surface is protected by the protocol, not by a role.** Client authentication, PKCE,
@@ -296,6 +303,11 @@ built.
 
 **It does not encrypt tokens at rest beyond hashing what must be hashed.** What the storage layer
 does underneath is the deployment's.
+
+**It does not change the identifier an account signs in with.** An account takes its identifier
+claims at sign-up and keeps them: no surface writes one, because none of them can prove the person
+controls the new value or that the person is the one asking. Proving both is an interactive flow
+with a purpose of its own, and it is designed and not yet built.
 
 ---
 

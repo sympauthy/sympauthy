@@ -421,6 +421,7 @@ class ConsentAwareCollectedClaimManagerTest {
             every { claim } returns claim1
         }
 
+        every { claimManager.listIdentifierClaims() } returns emptyList()
         coEvery { collectedClaimManager.applyUpdates(user, listOf(update1)) } returns listOf(collectedClaim1)
 
         val result = manager.updateByClient(user, AUDIENCE, listOf(update1, update2), consentedScopes)
@@ -441,9 +442,30 @@ class ConsentAwareCollectedClaimManagerTest {
 
         // applyUpdates is stubbed for the empty list alone: reaching the assertion is proof the refused
         // update never travelled to the write.
+        every { claimManager.listIdentifierClaims() } returns emptyList()
         coEvery { collectedClaimManager.applyUpdates(user, emptyList()) } returns emptyList()
 
         val result = manager.updateByClient(user, "storefront", listOf(update), listOf(scope))
+
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun `updateByClient - Never write an identifier claim`() = runTest {
+        val scope = "scope1"
+        val emailClaim = claimWithConsentScope(scope)
+        val update = mockk<CollectedClaimUpdate> {
+            every { claim } returns emailClaim
+        }
+
+        val user = mockk<User>()
+
+        every { claimManager.listIdentifierClaims() } returns listOf(emailClaim)
+        // applyUpdates is stubbed for the empty list alone: reaching the assertion is proof the refused
+        // update never travelled to the write.
+        coEvery { collectedClaimManager.applyUpdates(user, emptyList()) } returns emptyList()
+
+        val result = manager.updateByClient(user, AUDIENCE, listOf(update), listOf(scope))
 
         assertTrue(result.isEmpty())
     }
@@ -465,6 +487,7 @@ class ConsentAwareCollectedClaimManagerTest {
             every { claim } returns billingClaim
         }
 
+        every { claimManager.listIdentifierClaims() } returns emptyList()
         coEvery {
             collectedClaimManager.applyUpdates(user, listOf(update))
         } returns listOf(collectedShared, collectedBilling)
