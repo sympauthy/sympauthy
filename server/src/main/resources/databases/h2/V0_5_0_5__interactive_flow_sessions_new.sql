@@ -6,6 +6,7 @@ CREATE TABLE interactive_flow_sessions
     initiating_purpose   text       NOT NULL,
     session_date         timestamp NOT NULL,
     flow_id              text,
+    initiating_client_id text,
     expiration_date      timestamp NOT NULL,
 
     user_id              uuid,

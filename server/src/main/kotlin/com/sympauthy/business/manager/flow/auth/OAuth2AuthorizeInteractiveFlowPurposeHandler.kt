@@ -12,14 +12,17 @@ import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.code.ValidationCodeReason
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
+import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.auth.OAuth2AuthorizeInteractiveFlowStatus
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.flow.PurposeDebugInformation
 import com.sympauthy.business.model.flow.TerminalEffectResult
 import com.sympauthy.config.model.FeaturesConfig
 import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.config.model.orThrow
+import com.sympauthy.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
@@ -47,6 +50,12 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
     @Inject private val uncheckedFeaturesConfig: FeaturesConfig,
 ) : InteractiveFlowPurposeHandler {
 
+    companion object {
+        /** What a value an operator may know the existence of, but never the content of, is published as. */
+        private const val PRESENT = "present"
+        private const val ABSENT = "absent"
+    }
+
     override val purpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE
 
     override suspend fun nextStepOrNull(session: OnGoingInteractiveFlowSession): InteractiveFlowStep? {
@@ -65,6 +74,48 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
             else -> null
         }
     }
+
+    /**
+     * The client's request as it stands, the consent and grant decisions taken on it, and whether each of the
+     * three values that must not be published is there.
+     *
+     * `state` and `nonce` are reported as present or absent because they exist so that only the client and the
+     * browser hold them. `code_challenge` is neither — it travelled in the authorize request and the verifier
+     * is never stored here — and is reduced to its method because a 43-character string tells an operator
+     * nothing they can act on. The authorization code is keyed by session id in a table this never reads.
+     */
+    override suspend fun debugInformation(session: InteractiveFlowSession): List<PurposeDebugInformation> {
+        // The fetch refuses a session whose initiating purpose is not this one, and a row this endpoint gets
+        // opened for is a row that may be malformed in exactly that way.
+        val oauth2 = if (session.initiatingPurpose == InteractiveFlowPurpose.OAUTH2_AUTHORIZE) {
+            oauth2Manager.fetchOAuth2OrNull(session)
+        } else null
+        return listOf(
+            PurposeDebugInformation("Client", oauth2?.clientId),
+            PurposeDebugInformation("Redirect URI", oauth2?.redirectUri),
+            PurposeDebugInformation("Requested scopes", oauth2?.requestedScopes?.joinToString(" ")),
+            PurposeDebugInformation("Consented scopes", oauth2?.consentedScopes?.joinToString(" ")),
+            PurposeDebugInformation("Consented at", oauth2?.consentedAt?.toString()),
+            PurposeDebugInformation("Consented by", oauth2?.consentedBy?.wireName),
+            PurposeDebugInformation("Granted scopes", oauth2?.grantedScopes?.joinToString(" ")),
+            PurposeDebugInformation("Granted at", oauth2?.grantedAt?.toString()),
+            PurposeDebugInformation("Granted by", oauth2?.grantedBy?.wireName),
+            PurposeDebugInformation("Invitation", oauth2?.invitationId?.toString()),
+            PurposeDebugInformation("State", oauth2?.let { presence(it.state != null) }),
+            PurposeDebugInformation("Nonce", oauth2?.let { presence(it.nonce != null) }),
+            PurposeDebugInformation("Code challenge", oauth2?.let(::codeChallengePresence))
+        )
+    }
+
+    /**
+     * Whether a PKCE challenge came with the request and, where one did, the method it was built with.
+     */
+    private fun codeChallengePresence(oauth2: InteractiveFlowSessionOAuth2): String {
+        if (oauth2.codeChallenge == null) return ABSENT
+        return oauth2.codeChallengeMethod?.let { "$PRESENT (${it.value})" } ?: PRESENT
+    }
+
+    private fun presence(present: Boolean) = if (present) PRESENT else ABSENT
 
     /**
      * The MFA purpose this OAuth2 session must go through before it can complete, so MFA runs as the final gate

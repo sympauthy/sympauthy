@@ -61,6 +61,7 @@ class ErrorControllerTest {
             id = UUID.randomUUID(),
             purposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE),
             initiatingPurpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE,
+            initiatingClientId = null,
             flowId = "flow-id",
             expirationDate = LocalDateTime.of(2026, 8, 31, 10, 0),
             errorDetailsId = "auth.interactive_flow_session.validate.expired",

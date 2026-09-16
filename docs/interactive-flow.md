@@ -13,9 +13,16 @@ order does not explain it.
 
 `InteractiveFlowSession` is the primitive. It is sealed, and its subtypes are the states a flow can
 be in: `OnGoing`, `Completed`, `Failed`, `Cancelled`. It carries only **flow-generic** state — its
-id, the ordered list of purposes it exists to satisfy, which of them initiated it, the user once one
-is known, whether MFA has been passed, where to redirect on success and on cancel, and when it
-expires.
+id, the ordered list of purposes it exists to satisfy, which of them initiated it and for which
+client, the user once one is known, whether MFA has been passed, where to redirect on success and on
+cancel, and when it expires.
+
+**Which purpose and which client started it are stored rather than derived**, and set once. Gates are
+prepended and follow-ups inserted at runtime, so no positional rule over the purpose list stays
+correct as the chain grows; and the client sits on the attached record of whichever purpose
+initiated the session, so no rule reaching for it there stays correct as purposes gain initiators.
+The client is written in the same transaction as the record it duplicates and never written again,
+which is what keeps the two from disagreeing.
 
 **Concern-specific state is not on the session.** Each purpose that needs to remember something has
 its **own record, keyed by the session id**, in its own table, fetched on demand through its own
@@ -83,12 +90,13 @@ has to take turns with, is [the provisional user](provisional-user.md).
 
 ## A purpose handler is pure
 
-`InteractiveFlowPurposeHandler` has one required member and two with defaults:
+`InteractiveFlowPurposeHandler` has three required members and two with defaults:
 
 | Member | Answers |
 | --- | --- |
 | `purpose` | which value of the enum this handler is for |
 | `nextStepOrNull` | the step this purpose still needs, or nothing if it is satisfied |
+| `debugInformation` | what this purpose has to say about where a session stands |
 | `followUpPurposes` | purposes to insert after this one |
 | `applyTerminalEffect` | the work this purpose does when the flow is about to succeed |
 
@@ -111,15 +119,63 @@ by purpose, so a new handler is wired up by existing. A purpose with no handler 
 and a test asserts that every enum value resolves — so the gap is a build failure, not a production
 one.
 
+## A handler describes its own purpose
+
+**`debugInformation` is what an operator reads when a session is stuck**, one label and one value at a
+time, published by the admin API. The handler owns it because the handler is the only thing that
+knows what its purpose means.
+
+**It is required rather than defaulted to nothing.** A purpose that shipped contributing nothing here
+would be discovered by whoever is debugging that exact purpose, at the worst possible moment — the
+same argument the registry makes for a purpose with no handler, and the same answer: a build failure
+rather than a production one.
+
+**It takes the session in any state, and must answer for any shape of one.** No user, no attached
+record, a terminal status: each emits the label with no value rather than throwing. This is called
+precisely when a session is malformed, and nothing catches around the call — a swallowed exception
+would make a handler that cannot describe a session look like one with nothing to say — so the
+handler's own test is what holds the rule, and it covers those three shapes rather than only the
+happy path. It is the one member taking the base type: the most valuable session to describe is a
+failed one, and every attached-record read it needs already takes the base type too.
+
+**It emits what an operator can act on, and never a credential.** A TOTP seed and the recovery codes
+beside it are never among the entries — one published there is a second factor defeated for good, and
+undoing it means re-enrolling the person. Neither is the authorization code. A value that exists so
+that only the client and the browser hold it — an OAuth2 `state`, an OpenID Connect `nonce` — is
+reported as present or absent rather than published. What stops a caller driving somebody else's flow
+is the signed state, so this may say what a session *is* and never anything that substitutes for what
+drives it.
+
+**A label is not a key.** Nothing may switch on one, because a handler is free to reword its own; a
+caller needing to identify a field is asking for a contract this deliberately does not offer. It is
+not localized either — it is written at the site that knows the value, in the same English as the
+KDoc beside it, and a bundle would put a translation layer between an operator and the thing they are
+debugging.
+
+**A purpose carries a label of its own, and it is declared on the enum rather than on the handler.**
+What a purpose *is* needs no session, no read and no bean, so a caller naming one can read its label
+without resolving the handler that drives it; what a purpose has to *say* varies with the session,
+which is what the handler owns.
+
+**The label says what the purpose means, not what it is called.** It is written as what is happening
+to the person — "Checking a second factor" rather than "MFA challenge" — so a reader scanning a
+session sees the step rather than the constant, and it expands whatever the name abbreviates. That is
+why it is declared on every value rather than derived: no transformation of the Kotlin name produces
+it. Nothing may switch on it, for the reason above.
+
 ## Adding a purpose
 
-1. Add the value to the enum, with a KDoc saying what it is for and which role it plays. 2. Write
-its handler as a bean: the purpose, `nextStepOrNull`, and whichever of the other two it needs. 3. If
+1. Add the value to the enum, with a KDoc saying what it is for, which role it plays, and the label a
+person reads it under. 2. Write
+its handler as a bean: the purpose, `nextStepOrNull`, `debugInformation`, and whichever of the other
+two it needs. 3. If
 it has state of its own, add a record keyed by the session id, its table in both dialects, and a
 manager that reads and writes it. 4. Give it an entry point. There is no generic "start a flow"
 endpoint: each purpose is initiated by whatever asks for it, which creates the session with the
-ordered purpose list and persists any attached record **in the same transaction**. 5. Test the
-handler's branches directly, and add an integration test that drives the flow.
+ordered purpose list, names the client it is for, and persists any attached record **in the same
+transaction**. 5. Test the handler's branches directly — including that `debugInformation` answers
+for a session with no user, no attached record and a terminal status, and that no credential is among
+what it emits — and add an integration test that drives the flow.
 
 ## Adding a step
 

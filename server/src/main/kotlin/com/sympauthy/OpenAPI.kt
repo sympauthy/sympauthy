@@ -78,7 +78,8 @@ import jakarta.inject.Singleton
                         OAuthScope(name = AdminScopeId.USERS_WRITE),
                         OAuthScope(name = AdminScopeId.USERS_DELETE),
                         OAuthScope(name = AdminScopeId.CONSENT_READ),
-                        OAuthScope(name = AdminScopeId.CONSENT_WRITE)
+                        OAuthScope(name = AdminScopeId.CONSENT_WRITE),
+                        OAuthScope(name = AdminScopeId.INTERACTIVE_FLOW_SESSIONS_READ)
                     ]
                 )
             )

@@ -49,6 +49,30 @@ inline fun <reified T : Enum<T>> filterOf(
 )
 
 /**
+ * Resolve the filter query parameter [name], sent as [value], against the [supportedValues] this deployment
+ * holds, answering it back where it names one and null where the caller left it out.
+ *
+ * The twin of the reified [filterOf] for a set a deployment configures rather than one an enum closes — the
+ * clients being the set of that shape. It refuses under the same code for the same reason: a caller asking
+ * for something this deployment cannot have is told so, rather than handed a page that reads as a deployment
+ * holding none of it.
+ */
+fun filterOf(
+    name: String,
+    value: String?,
+    supportedValues: Collection<String>
+): String? {
+    if (value == null) return null
+    return value.takeIf { it in supportedValues }
+        ?: throw recoverableHttpExceptionOf(
+            BAD_REQUEST, "filter.value.unsupported", "description.filter.value.unsupported",
+            "parameter" to name,
+            "value" to value,
+            "supportedValues" to supportedValues.joinToString(", ")
+        )
+}
+
+/**
  * Resolve the sort direction query parameter [name], sent as [value], into the [SortOrder] it names,
  * or null where the caller left it out and takes the direction the listing sorts in by default.
  *

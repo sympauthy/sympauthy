@@ -33,6 +33,7 @@ abstract class InteractiveFlowSessionMapper {
             id = entity.id ?: throw invalidBusinessException("id"),
             purposes = purposes(entity.purposes, "purposes"),
             initiatingPurpose = purpose(entity.initiatingPurpose, "initiatingPurpose"),
+            initiatingClientId = entity.initiatingClientId,
             flowId = entity.flowId,
             expirationDate = entity.expirationDate,
             sessionDate = entity.sessionDate,
@@ -52,6 +53,7 @@ abstract class InteractiveFlowSessionMapper {
             id = entity.id ?: throw invalidBusinessException("id"),
             purposes = purposes(entity.purposes, "purposes"),
             initiatingPurpose = purpose(entity.initiatingPurpose, "initiatingPurpose"),
+            initiatingClientId = entity.initiatingClientId,
             flowId = entity.flowId,
             expirationDate = entity.expirationDate,
             sessionDate = entity.sessionDate,
@@ -73,6 +75,7 @@ abstract class InteractiveFlowSessionMapper {
             id = entity.id ?: throw invalidBusinessException("id"),
             purposes = purposes(entity.purposes, "purposes"),
             initiatingPurpose = purpose(entity.initiatingPurpose, "initiatingPurpose"),
+            initiatingClientId = entity.initiatingClientId,
             flowId = entity.flowId,
             expirationDate = entity.expirationDate,
             userId = entity.userId,
@@ -89,6 +92,7 @@ abstract class InteractiveFlowSessionMapper {
             id = entity.id ?: throw invalidBusinessException("id"),
             purposes = purposes(entity.purposes, "purposes"),
             initiatingPurpose = purpose(entity.initiatingPurpose, "initiatingPurpose"),
+            initiatingClientId = entity.initiatingClientId,
             flowId = entity.flowId,
             expirationDate = entity.expirationDate,
             errorDetailsId = entity.errorDetailsId ?: throw invalidBusinessException("errorDetailsId"),
@@ -103,6 +107,7 @@ abstract class InteractiveFlowSessionMapper {
             id = entity.id ?: throw invalidBusinessException("id"),
             purposes = purposes(entity.purposes, "purposes"),
             initiatingPurpose = purpose(entity.initiatingPurpose, "initiatingPurpose"),
+            initiatingClientId = entity.initiatingClientId,
             flowId = entity.flowId,
             errorDetailsId = "auth.interactive_flow_session.validate.expired",
             errorDescriptionId = "description.oauth2.expired",
@@ -121,6 +126,52 @@ abstract class InteractiveFlowSessionMapper {
             else -> toOnGoingInteractiveFlowSession(entity)
         }
     }
+
+    /**
+     * What became of the session [entity], read from its terminal columns with **expiry evaluated last**.
+     *
+     * This is not the order [toInteractiveFlowSession] walks, and [InteractiveFlowSessionStatus] carries why
+     * the two differ. Read this where the question is what happened to the session; read the projection where
+     * the question is what to do with it now.
+     */
+    fun toStatus(entity: InteractiveFlowSessionEntity): InteractiveFlowSessionStatus = when {
+        entity.errorDate != null -> InteractiveFlowSessionStatus.FAILED
+        entity.cancelDate != null -> InteractiveFlowSessionStatus.CANCELLED
+        entity.completeDate != null -> InteractiveFlowSessionStatus.COMPLETED
+        entity.expirationDate.isBefore(LocalDateTime.now()) -> InteractiveFlowSessionStatus.EXPIRED
+        else -> InteractiveFlowSessionStatus.ONGOING
+    }
+
+    /**
+     * The session [entity] as the subclass [status] names, rather than as [toInteractiveFlowSession] would
+     * project it.
+     *
+     * [InteractiveFlowSessionStatus.EXPIRED] maps to an [OnGoingInteractiveFlowSession]: an abandoned session
+     * still carries its user, its completed purposes and the date it started, and a reader asking which
+     * purpose it stalled on is asking about exactly that session. Handing it over as a
+     * [FailedInteractiveFlowSession] instead would drop all three.
+     */
+    fun toInteractiveFlowSessionAs(
+        entity: InteractiveFlowSessionEntity,
+        status: InteractiveFlowSessionStatus
+    ): InteractiveFlowSession = when (status) {
+        InteractiveFlowSessionStatus.ONGOING,
+        InteractiveFlowSessionStatus.EXPIRED -> toOnGoingInteractiveFlowSession(entity)
+
+        InteractiveFlowSessionStatus.COMPLETED -> toCompletedInteractiveFlowSession(entity)
+        InteractiveFlowSessionStatus.CANCELLED -> toCancelledInteractiveFlowSession(entity)
+        InteractiveFlowSessionStatus.FAILED -> toFailedInteractiveFlowSession(entity)
+    }
+
+    /**
+     * The purposes the session [entity] has resolved, read from its own column.
+     *
+     * For a reader that has to answer for any status: [CancelledInteractiveFlowSession] and
+     * [FailedInteractiveFlowSession] carry no completed-purpose list, and a session in either state is one
+     * somebody is asking how far it got.
+     */
+    fun toCompletedPurposes(entity: InteractiveFlowSessionEntity): List<InteractiveFlowPurpose> =
+        purposes(entity.completedPurposes, "completedPurposes")
 
     /**
      * The purposes the column [property] holds, one per element of [purposes].

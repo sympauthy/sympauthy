@@ -13,12 +13,14 @@ import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.code.ValidationCodeReason
+import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.auth.OAuth2AuthorizeInteractiveFlowStatus
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.TerminalEffectResult
+import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.config.model.EnabledFeaturesConfig
@@ -35,6 +37,7 @@ import jakarta.inject.Provider
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -349,6 +352,92 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     }
 
 
+    @Test
+    fun `debugInformation - Names the client, the request and the decisions taken on it`() = runTest {
+        val session = oauth2SessionMock()
+        coEvery { oauth2Manager.fetchOAuth2OrNull(session) } returns oauth2Of(
+            clientId = "web-app",
+            requestedScopes = listOf("openid", "profile"),
+            consentedScopes = listOf("openid")
+        )
+
+        val information = handler.debugInformation(session).associate { it.displayName to it.value }
+
+        assertEquals("web-app", information["Client"])
+        assertEquals("https://example.com/callback", information["Redirect URI"])
+        assertEquals("openid profile", information["Requested scopes"])
+        assertEquals("openid", information["Consented scopes"])
+        assertEquals("auto", information["Consented by"])
+    }
+
+    @Test
+    fun `debugInformation - Reports the state and the nonce as present rather than publishing them`() = runTest {
+        val session = oauth2SessionMock()
+        coEvery { oauth2Manager.fetchOAuth2OrNull(session) } returns oauth2Of(
+            state = "a-state-only-the-client-holds",
+            nonce = "a-nonce-only-the-browser-holds"
+        )
+
+        val information = handler.debugInformation(session)
+        val emitted = information.mapNotNull { it.value }
+
+        assertEquals("present", information.first { it.displayName == "State" }.value)
+        assertEquals("present", information.first { it.displayName == "Nonce" }.value)
+        assertFalse(emitted.any { it.contains("a-state-only-the-client-holds") })
+        assertFalse(emitted.any { it.contains("a-nonce-only-the-browser-holds") })
+    }
+
+    @Test
+    fun `debugInformation - Reports an absent state and nonce as absent`() = runTest {
+        val session = oauth2SessionMock()
+        coEvery { oauth2Manager.fetchOAuth2OrNull(session) } returns oauth2Of(state = null, nonce = null)
+
+        val information = handler.debugInformation(session)
+
+        assertEquals("absent", information.first { it.displayName == "State" }.value)
+        assertEquals("absent", information.first { it.displayName == "Nonce" }.value)
+    }
+
+    @Test
+    fun `debugInformation - Reduces the code challenge to its method`() = runTest {
+        val session = oauth2SessionMock()
+        coEvery { oauth2Manager.fetchOAuth2OrNull(session) } returns oauth2Of(
+            codeChallenge = "a-challenge-nobody-needs-to-read",
+            codeChallengeMethod = CodeChallengeMethod.S256
+        )
+
+        val information = handler.debugInformation(session)
+
+        assertEquals("present (S256)", information.first { it.displayName == "Code challenge" }.value)
+        assertFalse(
+            information.mapNotNull { it.value }.any { it.contains("a-challenge-nobody-needs-to-read") }
+        )
+    }
+
+    @Test
+    fun `debugInformation - Emits every label with no value when the session carries no OAuth2 record`() =
+        runTest {
+            val session = oauth2SessionMock()
+            coEvery { oauth2Manager.fetchOAuth2OrNull(session) } returns null
+
+            val information = handler.debugInformation(session)
+
+            assertTrue(information.isNotEmpty())
+            assertTrue(information.all { it.value == null })
+        }
+
+    @Test
+    fun `debugInformation - Answers without reading the record when the session was started by another purpose`() =
+        runTest {
+            // oauth2Manager is left unstubbed: reaching the assertion proves the read the fetch would have
+            // refused was never made.
+            val session = mockk<FailedInteractiveFlowSession> {
+                every { initiatingPurpose } returns InteractiveFlowPurpose.MFA_ENROLLMENT
+            }
+
+            assertTrue(handler.debugInformation(session).all { it.value == null })
+        }
+
     private fun onGoingSessionMock(userId: UUID) = mockk<OnGoingInteractiveFlowSession> {
         every { this@mockk.userId } returns userId
     }
@@ -382,14 +471,21 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         consentedScopes: List<String>? = null,
         grantedScopes: List<String>? = null,
         invitationId: UUID? = null,
+        requestedScopes: List<String> = emptyList(),
+        state: String? = "state",
+        nonce: String? = "nonce",
+        codeChallenge: String? = null,
+        codeChallengeMethod: CodeChallengeMethod? = null,
     ): InteractiveFlowSessionOAuth2 {
         return InteractiveFlowSessionOAuth2(
             sessionId = UUID.randomUUID(),
             clientId = clientId,
             redirectUri = "https://example.com/callback",
-            requestedScopes = emptyList(),
-            state = "state",
-            nonce = "nonce",
+            requestedScopes = requestedScopes,
+            state = state,
+            nonce = nonce,
+            codeChallenge = codeChallenge,
+            codeChallengeMethod = codeChallengeMethod,
             consentedScopes = consentedScopes,
             consentedAt = consentedScopes?.let { LocalDateTime.now() },
             consentedBy = consentedScopes?.let { ConsentedBy.AUTO },
@@ -410,12 +506,16 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         )
     }
 
-    /** A client the consent is saved against: only its audience is read. */
+    private fun oauth2SessionMock() = mockk<OnGoingInteractiveFlowSession> {
+        every { initiatingPurpose } returns InteractiveFlowPurpose.OAUTH2_AUTHORIZE
+    }
+
     private fun createOnGoingSession(userId: UUID?): OnGoingInteractiveFlowSession {
         return OnGoingInteractiveFlowSession(
             id = UUID.randomUUID(),
             purposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE),
             initiatingPurpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE,
+            initiatingClientId = null,
             flowId = "flow-id",
             expirationDate = LocalDateTime.now().plusHours(1),
             sessionDate = LocalDateTime.now(),

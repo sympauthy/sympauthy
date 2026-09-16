@@ -3,8 +3,10 @@ package com.sympauthy.business.manager.flow.reauth
 import com.sympauthy.business.manager.flow.InteractiveFlowPurposeHandler
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
+import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.flow.PurposeDebugInformation
 import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.config.model.orThrow
 import jakarta.inject.Inject
@@ -36,6 +38,20 @@ class ReauthenticationInteractiveFlowPurposeHandler(
     override suspend fun nextStepOrNull(session: OnGoingInteractiveFlowSession): InteractiveFlowStep? {
         val proven = reauthenticationManager.fetchReauthenticationOrNull(session)?.primaryCredentialProven ?: false
         return if (proven) null else InteractiveFlowStep.SignIn
+    }
+
+    /**
+     * How far the gate has got: the moment the account's primary credential was proven, and nothing else. The
+     * second factor this gate appends is a purpose of its own and describes itself.
+     */
+    override suspend fun debugInformation(session: InteractiveFlowSession): List<PurposeDebugInformation> {
+        val reauthentication = reauthenticationManager.fetchReauthenticationOrNull(session)
+        return listOf(
+            PurposeDebugInformation(
+                "Primary credential proven date",
+                reauthentication?.primaryCredentialProvenDate?.toString()
+            )
+        )
     }
 
     /**

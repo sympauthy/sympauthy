@@ -1,9 +1,15 @@
 package com.sympauthy.business.manager.flow.mfa
 
 import com.sympauthy.business.manager.flow.InteractiveFlowPurposeHandler
+import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
+import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.flow.PurposeDebugInformation
+import com.sympauthy.business.model.flow.mfaPassedDateOrNull
+import com.sympauthy.business.model.flow.userIdOrNull
+import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
 /**
@@ -22,11 +28,35 @@ import jakarta.inject.Singleton
  * complete once resolved.
  */
 @Singleton
-class MfaEnrollmentInteractiveFlowPurposeHandler : InteractiveFlowPurposeHandler {
+class MfaEnrollmentInteractiveFlowPurposeHandler(
+    @Inject private val totpManager: TotpManager,
+) : InteractiveFlowPurposeHandler {
 
     override val purpose = InteractiveFlowPurpose.MFA_ENROLLMENT
 
     override suspend fun nextStepOrNull(session: OnGoingInteractiveFlowSession): InteractiveFlowStep? {
         return if (session.mfaPassed) null else InteractiveFlowStep.MfaSelectionForEnrollment
+    }
+
+    /**
+     * Which methods the account has ended up with, and when this session resolved the enrollment — which is
+     * the pair that says whether it enrolled one here or arrived with it.
+     *
+     * The enrollments are read for their **type only**. The seed behind a TOTP enrollment and the recovery
+     * codes beside it are never emitted: one published here is a second factor defeated for good, and undoing
+     * it means re-enrolling the person.
+     *
+     * A session with no user has no enrollments to read, and answers both labels with nothing.
+     */
+    override suspend fun debugInformation(session: InteractiveFlowSession): List<PurposeDebugInformation> {
+        return listOf(
+            PurposeDebugInformation("Enrolled methods", enrolledMethodsOf(session)),
+            PurposeDebugInformation("MFA passed date", session.mfaPassedDateOrNull?.toString())
+        )
+    }
+
+    private suspend fun enrolledMethodsOf(session: InteractiveFlowSession): String? {
+        val userId = session.userIdOrNull ?: return null
+        return "totp".takeIf { totpManager.findConfirmedEnrollments(userId).isNotEmpty() }
     }
 }
