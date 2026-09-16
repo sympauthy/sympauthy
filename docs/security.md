@@ -99,6 +99,12 @@ ignored.** A restriction enforced on the way out alone would let a client set wh
 to read, choosing what another audience is told about a person while never being accountable for the
 value.
 
+**An invitation pre-assigns only its own audience's claims, and an administrator is held to that
+too.** An invitation names the audience it is for and is consumed by a client of that one alone, so
+a claim restricted to another is a value chosen for an audience nobody asked and never read back by
+the flow that writes it. A bootstrap invitation is refused at startup rather than at creation,
+because the file it is written in is what the deployment is being told about.
+
 **The audience an interactive flow works in is the one its authorization is for**, the audience of
 the client that started it. It decides the whole of what that flow does with claims: which it offers
 to collect, which it accepts, which it holds as required, and which it asks a person to confirm with

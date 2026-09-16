@@ -215,4 +215,39 @@ checked.
 
 ---
 
+## Claims
+
+### Is an administrator held to an invitation's audience?
+
+**Decision:** Yes. `InvitationManager.validateAndCleanClaims` refuses a pre-assigned claim
+restricted to an audience other than the invitation's own, and it asks that of every caller — the
+client API, the admin API and the bootstrap alike. A bootstrap invitation is refused at startup
+instead, by `BootstrapInvitationsConfigValidator`, so the operator is told by the same report as
+every other configuration error.
+
+**Options considered:**
+
+- **Refuse only a client** — the literal reading of the rule
+  [#454 stated](security.md#claims), beside the ACL check, which is already a client-only question.
+- **Refuse every caller** — the audience asked apart from the ACL, of whoever names it.
+- **Refuse a client, and warn an administrator** — the capability kept, with the mistake reported.
+
+**Rationale:**
+
+The administration surface reads across every audience, so excepting it here would have been
+consistent with the one exception [the security document](security.md#claims) already grants it. It
+is not the same question. Reading across audiences is an administrator answering for the deployment;
+an invitation is an instrument of exactly one audience, consumed by a client of that audience and by
+no other. A claim restricted to another is therefore a value the flow applying it can never read
+back, chosen for an audience nobody asked — a mistake whether an operator or a client makes it, and
+one the admin API names its audience as deliberately as a client does.
+
+What it costs is a capability: an operator can no longer pre-seed one audience's claim on someone
+signing up through a different one. That capability is not lost, only moved — the admin claims API
+writes across audiences and is the surface answering for the deployment. A warning would have kept
+both, and with them the silent success this entry is about: a caller told its invitation was
+created, holding a token that will not do what the request said.
+
+---
+
 ← [Design documentation](index.md)
