@@ -1,10 +1,10 @@
 package com.sympauthy.business.manager.flow
 
-import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.mapper.CollectedClaimMapper
+import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.manager.user.CollectedClaimManager
+import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionMapper
 import com.sympauthy.business.mapper.InteractiveFlowSessionSecurityContextMapper
-import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowPurposeProgress
 import com.sympauthy.business.model.flow.InteractiveFlowPurposeStatus
@@ -19,10 +19,8 @@ import com.sympauthy.business.model.page.map
 import com.sympauthy.business.model.page.orderedPage
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
-import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
-import com.sympauthy.data.repository.UserRepository
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.flow.toList
@@ -45,9 +43,14 @@ import java.util.*
  * expiry window rather than by how long the deployment has been running, so it is smaller than the user table
  * the same approach already serves.
  *
- * **Four reads, and none of them per row.** Every session and every observation, then — once the order has
- * decided which rows are published — the users of that page and their identifier claims. A session the
- * criteria kept but the page left off therefore costs nothing beyond the row itself.
+ * **The search itself is four reads.** Every session and every observation, then — once the order has decided
+ * which rows are published — the users of that page and their identifier claims. A session the criteria kept
+ * but the page left off costs nothing beyond the row it was read from.
+ *
+ * **What is published costs more, per row, and deliberately.** Answering which purpose a session is stopped
+ * at is the engine's walk, and the walk asks every handler in turn — so a page of twenty costs twenty walks,
+ * not one read. That is the question the endpoint exists to answer and it is not stored anywhere; keeping it
+ * on the page rather than on everything the criteria kept is what bounds it.
  *
  * **It reads no attached record for the listing.** The client is a column on the session, so `q` and every
  * filter match against the session row and its one observation. The detail reads the attached records, one
@@ -57,13 +60,10 @@ import java.util.*
 class InteractiveFlowSessionSearchManager(
     @Inject private val sessionRepository: InteractiveFlowSessionRepository,
     @Inject private val securityContextRepository: InteractiveFlowSessionSecurityContextRepository,
-    @Inject private val userRepository: UserRepository,
-    @Inject private val collectedClaimRepository: CollectedClaimRepository,
+    @Inject private val userManager: UserManager,
+    @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val sessionMapper: InteractiveFlowSessionMapper,
     @Inject private val securityContextMapper: InteractiveFlowSessionSecurityContextMapper,
-    @Inject private val userMapper: UserMapper,
-    @Inject private val collectedClaimMapper: CollectedClaimMapper,
-    @Inject private val claimManager: ClaimManager,
     @Inject private val engine: InteractiveFlowEngine,
     @Inject private val purposeRegistry: InteractiveFlowPurposeRegistry
 ) {
@@ -92,22 +92,36 @@ class InteractiveFlowSessionSearchManager(
         val securityContexts = securityContextRepository.findAll().toList()
             .associate { it.sessionId to securityContextMapper.toInteractiveFlowSessionSecurityContext(it) }
 
-        val sessions = sessionRepository.findAll().toList().map { entity ->
-            val sessionStatus = sessionMapper.toStatus(entity)
+        val entitiesById = sessionRepository.findAll().toList().associateBy(sessionMapper::toId)
+
+        val rows = entitiesById.map { (id, entity) ->
             SearchedInteractiveFlowSession(
-                session = sessionMapper.toInteractiveFlowSessionAs(entity, sessionStatus),
-                status = sessionStatus,
+                id = id,
+                status = sessionMapper.toStatus(entity),
+                initiatingPurpose = sessionMapper.toInitiatingPurpose(entity),
+                initiatingClientId = entity.initiatingClientId,
                 sessionDate = entity.sessionDate,
+                expirationDate = entity.expirationDate,
                 userId = entity.userId,
                 signedUp = entity.signedUp,
-                securityContext = securityContexts[entity.id]
+                securityContext = securityContexts[id]
             )
         }
 
-        val matched = sessions.filter { keeps(it, query, clientId, userId, purpose, status) }
-        val page = matched.orderedPage(pageParams, comparatorOf(order))
+        val page = rows.filter { keeps(it, query, clientId, userId, purpose, status) }
+            .orderedPage(pageParams, comparatorOf(order))
         val users = readUsersOf(page.items.mapNotNull(SearchedInteractiveFlowSession::userId))
-        return page.map { toSummary(it, users) }
+        // The sealed model is built for the page and not beside every row: it is read only to walk the
+        // purposes of what is published, so a session the criteria kept but the order left off pays for
+        // neither the mapping nor the walk — and a row that cannot be read back cannot take down a page it
+        // does not appear on.
+        return page.map { searched ->
+            val session = sessionMapper.toInteractiveFlowSessionAs(
+                entitiesById.getValue(searched.id),
+                searched.status
+            )
+            toSummary(searched, session, users)
+        }
     }
 
     /**
@@ -155,13 +169,26 @@ class InteractiveFlowSessionSearchManager(
 
     /**
      * The purpose driving [session], or null where none does — which is every terminal session, since the
-     * engine's walk is over an ongoing one.
+     * engine's walk is over an ongoing one — and where the walk could not answer.
      *
      * A session that was ongoing when it expired is built as ongoing and does have one: which purpose it
      * stalled on is the question an operator opened it with.
+     *
+     * **The walk's failure is caught here, unlike a handler's refusal to describe a session.** The two look
+     * alike and are not: `nextStepOrNull` answers to the engine, which drives a live flow where a missing
+     * attached record or a client the configuration has dropped is a genuine failure and must stop the
+     * person — whereas this listing only asks it a question, about somebody else's session, and one row the
+     * engine would refuse to advance must not take down the page every other row is on.
+     * `debugInformation` was written for this endpoint and its contract is to answer, so nothing catches
+     * around it.
      */
     internal suspend fun currentPurposeOrNull(session: InteractiveFlowSession): InteractiveFlowPurpose? {
-        return (session as? OnGoingInteractiveFlowSession)?.let { engine.currentPurposeOrNull(it) }
+        val ongoing = session as? OnGoingInteractiveFlowSession ?: return null
+        return try {
+            engine.currentPurposeOrNull(ongoing)
+        } catch (_: BusinessException) {
+            null
+        }
     }
 
     /**
@@ -175,9 +202,9 @@ class InteractiveFlowSessionSearchManager(
         purpose: InteractiveFlowPurpose?,
         status: InteractiveFlowSessionStatus?
     ): Boolean {
-        if (clientId != null && searched.session.initiatingClientId != clientId) return false
+        if (clientId != null && searched.initiatingClientId != clientId) return false
         if (userId != null && searched.userId != userId) return false
-        if (purpose != null && searched.session.initiatingPurpose != purpose) return false
+        if (purpose != null && searched.initiatingPurpose != purpose) return false
         if (status != null && searched.status != status) return false
         if (query.isNullOrBlank()) return true
 
@@ -185,7 +212,7 @@ class InteractiveFlowSessionSearchManager(
         return listOfNotNull(
             searched.securityContext?.ip,
             searched.securityContext?.userAgent,
-            searched.session.initiatingClientId
+            searched.initiatingClientId
         ).any { it.lowercase().contains(lowerQuery) }
     }
 
@@ -195,33 +222,26 @@ class InteractiveFlowSessionSearchManager(
     private fun comparatorOf(order: SortOrder?): Comparator<SearchedInteractiveFlowSession> {
         val byDate = compareBy<SearchedInteractiveFlowSession> { it.sessionDate }
         return (if (order == SortOrder.DESC) byDate.reversed() else byDate)
-            .thenBy { it.session.id }
+            .thenBy { it.id }
     }
 
     /**
      * The accounts [userIds] name, with their identifier claims, keyed by identifier.
      *
-     * Two queries whatever the size of the page, and **committed accounts only**: an account a session is
-     * still signing up is one this server has not finished creating, and no reader but that session may have
-     * it (see [com.sympauthy.data.model.SessionScoped]). A session mid-sign-up therefore names no user here,
-     * which is what `signedUp` beside it is for.
+     * Two queries whatever the size of the page, through the two managers that own those reads —
+     * [UserManager.listByIds] answers **committed accounts only**, because an account a session is still
+     * signing up is one this server has not finished creating and no reader but that session may have it
+     * (see [com.sympauthy.data.model.SessionScoped]), and [CollectedClaimManager.listIdentifierByUserIds]
+     * answers what this deployment identifies a person by. A session mid-sign-up therefore names no user
+     * here, which is what `signedUp` beside it is for.
      */
     private suspend fun readUsersOf(userIds: List<UUID>): Map<UUID, InteractiveFlowSessionUser> {
         if (userIds.isEmpty()) return emptyMap()
-        val distinctIds = userIds.distinct()
-
-        val users = userRepository.findByIdInListAndSessionIdIsNull(distinctIds).map(userMapper::toUser)
+        val users = userManager.listByIds(userIds.distinct())
         if (users.isEmpty()) return emptyMap()
 
-        val identifierClaimIds = claimManager.listIdentifierClaims().map { it.id }
-        val claimsByUserId = if (identifierClaimIds.isEmpty()) {
-            emptyMap()
-        } else {
-            collectedClaimRepository
-                .findByUserIdInListAndClaimInList(users.map(User::id), identifierClaimIds)
-                .mapNotNull(collectedClaimMapper::toCollectedClaim)
-                .groupBy(CollectedClaim::userId)
-        }
+        val claimsByUserId = collectedClaimManager.listIdentifierByUserIds(users.map(User::id))
+            .groupBy(CollectedClaim::userId)
 
         return users.associate { user ->
             user.id to InteractiveFlowSessionUser(
@@ -239,31 +259,37 @@ class InteractiveFlowSessionSearchManager(
      */
     private suspend fun toSummary(
         searched: SearchedInteractiveFlowSession,
+        session: InteractiveFlowSession,
         users: Map<UUID, InteractiveFlowSessionUser>
     ) = InteractiveFlowSessionSummary(
-        id = searched.session.id,
+        id = searched.id,
         status = searched.status,
-        initiatingPurpose = searched.session.initiatingPurpose,
-        currentPurpose = currentPurposeOrNull(searched.session),
-        initiatingClientId = searched.session.initiatingClientId,
+        initiatingPurpose = searched.initiatingPurpose,
+        currentPurpose = currentPurposeOrNull(session),
+        initiatingClientId = searched.initiatingClientId,
         signedUp = searched.signedUp,
         user = searched.userId?.let(users::get),
         securityContext = searched.securityContext,
         sessionDate = searched.sessionDate,
-        expirationDate = searched.session.expirationDate
+        expirationDate = searched.expirationDate
     )
 
     /**
      * A session as a search reads it: what the filters, the text search and the order run over.
      *
-     * [sessionDate], [userId] and [signedUp] are read from the row and carried beside [session] rather than
-     * taken off it, because the sealed model drops each of them on some of its states — a failed session has
-     * none of the three — and those are the sessions this listing exists for.
+     * Every field is read off the row rather than off the sealed model, and the model is not carried here at
+     * all. Partly because the model drops some of them on some of its states — a failed session carries
+     * neither its date, nor its user, nor how far it got — and those are the sessions this listing exists
+     * for; and partly because nothing the criteria drop should cost anything more than the row it was read
+     * from.
      */
     internal data class SearchedInteractiveFlowSession(
-        val session: InteractiveFlowSession,
+        val id: UUID,
         val status: InteractiveFlowSessionStatus,
+        val initiatingPurpose: InteractiveFlowPurpose,
+        val initiatingClientId: String?,
         val sessionDate: LocalDateTime,
+        val expirationDate: LocalDateTime,
         val userId: UUID?,
         val signedUp: Boolean,
         val securityContext: InteractiveFlowSessionSecurityContext?

@@ -46,7 +46,9 @@ class MfaEnrollmentInteractiveFlowPurposeHandler(
      * codes beside it are never emitted: one published here is a second factor defeated for good, and undoing
      * it means re-enrolling the person.
      *
-     * A session with no user has no enrollments to read, and answers both labels with nothing.
+     * A session with no user has no enrollments to read, and answers with nothing. An account that has
+     * enrolled none answers `none` instead: those are different facts, and this purpose stalls on the second
+     * of them.
      */
     override suspend fun debugInformation(session: InteractiveFlowSession): List<PurposeDebugInformation> {
         return listOf(
@@ -57,6 +59,6 @@ class MfaEnrollmentInteractiveFlowPurposeHandler(
 
     private suspend fun enrolledMethodsOf(session: InteractiveFlowSession): String? {
         val userId = session.userIdOrNull ?: return null
-        return "totp".takeIf { totpManager.findConfirmedEnrollments(userId).isNotEmpty() }
+        return if (totpManager.findConfirmedEnrollments(userId).isNotEmpty()) "totp" else "none"
     }
 }

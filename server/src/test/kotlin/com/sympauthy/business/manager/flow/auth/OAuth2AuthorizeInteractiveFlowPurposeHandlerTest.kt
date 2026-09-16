@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.flow.auth
 
+import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.auth.UserGrantScopesResult
 import com.sympauthy.business.manager.auth.UserScopeGrantingManager
@@ -425,6 +426,22 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
             assertTrue(information.isNotEmpty())
             assertTrue(information.all { it.value == null })
         }
+
+    @Test
+    fun `debugInformation - Answers for a request that failed validation and never knew its client`() = runTest {
+        // The row is written so the session can carry its error, with no client and no redirect URI; the
+        // model admits neither as null, so reading it back is an internal failure rather than an absence.
+        val session = oauth2SessionMock()
+        coEvery { oauth2Manager.fetchOAuth2OrNull(session) } throws internalBusinessExceptionOf(
+            "mapper.interactive_flow_session_oauth2.invalid_property",
+            "property" to "clientId"
+        )
+
+        val information = handler.debugInformation(session)
+
+        assertTrue(information.isNotEmpty())
+        assertTrue(information.all { it.value == null })
+    }
 
     @Test
     fun `debugInformation - Answers without reading the record when the session was started by another purpose`() =

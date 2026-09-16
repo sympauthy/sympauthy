@@ -1,10 +1,10 @@
 package com.sympauthy.business.manager.flow
 
-import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.mapper.CollectedClaimMapper
+import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.manager.user.CollectedClaimManager
+import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionMapper
 import com.sympauthy.business.mapper.InteractiveFlowSessionSecurityContextMapper
-import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowPurposeStatus
 import com.sympauthy.business.model.flow.InteractiveFlowSession
@@ -17,14 +17,10 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.model.InteractiveFlowSessionSecurityContextEntity
-import com.sympauthy.data.model.UserEntity
-import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
-import com.sympauthy.data.repository.UserRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -57,19 +53,10 @@ class InteractiveFlowSessionSearchManagerTest {
     lateinit var securityContextRepository: InteractiveFlowSessionSecurityContextRepository
 
     @MockK
-    lateinit var userRepository: UserRepository
+    lateinit var userManager: UserManager
 
     @MockK
-    lateinit var collectedClaimRepository: CollectedClaimRepository
-
-    @MockK
-    lateinit var userMapper: UserMapper
-
-    @MockK
-    lateinit var collectedClaimMapper: CollectedClaimMapper
-
-    @MockK
-    lateinit var claimManager: ClaimManager
+    lateinit var collectedClaimManager: CollectedClaimManager
 
     @MockK
     lateinit var engine: InteractiveFlowEngine
@@ -137,6 +124,42 @@ class InteractiveFlowSessionSearchManagerTest {
 
         assertNull(page.items.single().currentPurpose)
     }
+
+    @Test
+    fun `listSessions - Reports no current purpose for a row whose walk refuses to answer`() = runTest {
+        // A session whose client the configuration has since dropped, or whose attached record is gone: the
+        // engine refuses to advance it, and one such row must not take down the page the others are on.
+        val refused = entity(sessionDate = NOW.minusMinutes(5))
+        val walkable = entity(sessionDate = NOW.minusMinutes(1))
+        givenSessions(refused, walkable)
+        givenNoObservation()
+        coEvery { engine.currentPurposeOrNull(match { it.id == refused.id }) } throws
+            businessExceptionOf("client.invalid_client_id")
+        coEvery { engine.currentPurposeOrNull(match { it.id == walkable.id }) } returns
+            InteractiveFlowPurpose.OAUTH2_AUTHORIZE
+
+        val page = manager.listSessions(null, null, null, null, null, null, PageParams(0, 20))
+
+        assertEquals(listOf(refused.id, walkable.id), page.items.map { it.id })
+        assertNull(page.items.first().currentPurpose)
+        assertEquals(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, page.items.last().currentPurpose)
+    }
+
+    @Test
+    fun `listSessions - Builds the sealed session for the page and not for everything the criteria kept`() =
+        runTest {
+            // The off-page row carries a purpose the enum does not name, so mapping it would throw. Reaching
+            // the assertion is proof that only the page's row was mapped.
+            val onPage = entity(sessionDate = NOW.minusMinutes(5))
+            val offPage = entity(sessionDate = NOW.minusMinutes(1), purposes = arrayOf("NOT_A_PURPOSE"))
+            givenSessions(onPage, offPage)
+            givenNoObservation()
+            coEvery { engine.currentPurposeOrNull(any()) } returns null
+
+            val page = manager.listSessions(null, null, null, null, null, null, PageParams(0, 1))
+
+            assertEquals(listOf(onPage.id), page.items.map { it.id })
+        }
 
     @Test
     fun `listSessions - Matches q against the observed address`() = runTest {
@@ -241,9 +264,7 @@ class InteractiveFlowSessionSearchManagerTest {
 
             manager.listSessions(null, null, null, null, null, null, PageParams(0, 1))
 
-            coVerify(exactly = 1) {
-                userRepository.findByIdInListAndSessionIdIsNull(listOf(onPage.userId!!))
-            }
+            coVerify(exactly = 1) { userManager.listByIds(listOf(onPage.userId!!)) }
         }
 
     @Test
@@ -252,7 +273,7 @@ class InteractiveFlowSessionSearchManagerTest {
         givenSessions(entity(userId = provisionalUserId, signedUp = true))
         givenNoObservation()
         // The account is provisional, so the committed-rows-only read answers with nothing.
-        coEvery { userRepository.findByIdInListAndSessionIdIsNull(listOf(provisionalUserId)) } returns emptyList()
+        coEvery { userManager.listByIds(listOf(provisionalUserId)) } returns emptyList()
         coEvery { engine.currentPurposeOrNull(any()) } returns null
 
         val row = manager.listSessions(null, null, null, null, null, null, PageParams(0, 20)).items.single()
@@ -383,28 +404,21 @@ class InteractiveFlowSessionSearchManagerTest {
     }
 
     private fun givenNoUser() {
-        coEvery { userRepository.findByIdInListAndSessionIdIsNull(any()) } returns emptyList()
+        coEvery { userManager.listByIds(any()) } returns emptyList()
     }
 
     private fun givenUser(userId: UUID, email: String) {
-        val entity = UserEntity(status = UserStatus.ENABLED.name, creationDate = NOW, sessionId = null)
-            .apply { id = userId }
         val user = User(id = userId, status = UserStatus.ENABLED, creationDate = NOW, sessionId = null)
-        val claim = mockk<Claim> { every { id } returns "email" }
-        val claimEntity = mockk<CollectedClaimEntity>()
-        coEvery { userRepository.findByIdInListAndSessionIdIsNull(listOf(userId)) } returns listOf(entity)
-        every { userMapper.toUser(entity) } returns user
-        every { claimManager.listIdentifierClaims() } returns listOf(claim)
-        coEvery {
-            collectedClaimRepository.findByUserIdInListAndClaimInList(listOf(userId), listOf("email"))
-        } returns listOf(claimEntity)
-        every { collectedClaimMapper.toCollectedClaim(claimEntity) } returns CollectedClaim(
-            userId = userId,
-            claim = claim,
-            value = email,
-            verified = true,
-            collectionDate = NOW,
-            verificationDate = NOW
+        coEvery { userManager.listByIds(listOf(userId)) } returns listOf(user)
+        coEvery { collectedClaimManager.listIdentifierByUserIds(listOf(userId)) } returns listOf(
+            CollectedClaim(
+                userId = userId,
+                claim = mockk<Claim>(),
+                value = email,
+                verified = true,
+                collectionDate = NOW,
+                verificationDate = NOW
+            )
         )
     }
 

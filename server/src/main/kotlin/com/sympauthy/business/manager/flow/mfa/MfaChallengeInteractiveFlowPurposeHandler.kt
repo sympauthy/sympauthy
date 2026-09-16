@@ -44,11 +44,15 @@ class MfaChallengeInteractiveFlowPurposeHandler(
      * The enrollments are read for their **type only**. No TOTP seed and no recovery code is ever among these
      * entries: one published here is a second factor defeated for good.
      *
-     * A session with no user has no methods to read, and answers with nothing.
+     * A session with no user has no methods to read, and answers with nothing. An account that has enrolled
+     * none answers `none` instead — which is how this purpose stalls, and it must not read as a value nobody
+     * could look up.
      */
     override suspend fun debugInformation(session: InteractiveFlowSession): List<PurposeDebugInformation> {
         val userId = session.userIdOrNull
-        val enrolled = userId?.let { "totp".takeIf { _ -> totpManager.findConfirmedEnrollments(it).isNotEmpty() } }
+        val enrolled = userId?.let {
+            if (totpManager.findConfirmedEnrollments(it).isNotEmpty()) "totp" else "none"
+        }
         return listOf(
             PurposeDebugInformation("MFA passed date", session.mfaPassedDateOrNull?.toString()),
             PurposeDebugInformation("Methods available to challenge", enrolled)

@@ -65,16 +65,19 @@ class MfaChallengeInteractiveFlowPurposeHandlerTest {
     }
 
     @Test
-    fun `debugInformation - Emits no method when the account has enrolled none`() = runTest {
-        val userId = UUID.randomUUID()
-        val session = mockk<OnGoingInteractiveFlowSession> {
-            every { this@mockk.userId } returns userId
-            every { mfaPassedDate } returns null
-        }
-        coEvery { totpManager.findConfirmedEnrollments(userId) } returns emptyList()
+    fun `debugInformation - Says none where the account has enrolled nothing, which the stall looks like`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val session = mockk<OnGoingInteractiveFlowSession> {
+                every { this@mockk.userId } returns userId
+                every { mfaPassedDate } returns null
+            }
+            coEvery { totpManager.findConfirmedEnrollments(userId) } returns emptyList()
 
-        assertTrue(handler.debugInformation(session).all { it.value == null })
-    }
+            val information = handler.debugInformation(session)
+
+            assertEquals("none", information.first { it.displayName == "Methods available to challenge" }.value)
+        }
 
     @Test
     fun `debugInformation - Never emits the secret behind an enrollment`() = runTest {

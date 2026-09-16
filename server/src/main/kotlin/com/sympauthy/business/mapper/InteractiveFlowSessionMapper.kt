@@ -8,6 +8,7 @@ import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import org.mapstruct.Mapper
 import java.net.URI
 import java.time.LocalDateTime
+import java.util.UUID
 
 /**
  * Handle the mapping from the [InteractiveFlowSessionEntity] to the subclasses of the sealed
@@ -162,6 +163,17 @@ abstract class InteractiveFlowSessionMapper {
         InteractiveFlowSessionStatus.CANCELLED -> toCancelledInteractiveFlowSession(entity)
         InteractiveFlowSessionStatus.FAILED -> toFailedInteractiveFlowSession(entity)
     }
+
+    /**
+     * The identifier of the session [entity], refusing a row that has none.
+     */
+    fun toId(entity: InteractiveFlowSessionEntity): UUID = entity.id ?: throw invalidBusinessException("id")
+
+    /**
+     * The purpose the session [entity] says started it, refusing a column naming none.
+     */
+    fun toInitiatingPurpose(entity: InteractiveFlowSessionEntity): InteractiveFlowPurpose =
+        purpose(entity.initiatingPurpose, "initiatingPurpose")
 
     /**
      * The purposes the session [entity] has resolved, read from its own column.

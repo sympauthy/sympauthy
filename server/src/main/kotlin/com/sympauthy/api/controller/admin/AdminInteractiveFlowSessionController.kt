@@ -74,7 +74,8 @@ class AdminInteractiveFlowSessionController(
         ) client: String?,
         @QueryValue @Parameter(
             description = "Filter by the identifier of the user the session identified. A session still " +
-                    "signing an account up matches nothing here, because that account does not exist yet."
+                    "signing that account up does match — it holds the identifier from the moment the " +
+                    "person is identified — but publishes no user beside it until it completes."
         ) user: UUID?,
         @QueryValue @Parameter(
             description = "Filter by the purpose that started the session."

@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.flow.auth
 
+import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.auth.UserScopeGrantingManager
@@ -85,11 +86,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
      * nothing they can act on. The authorization code is keyed by session id in a table this never reads.
      */
     override suspend fun debugInformation(session: InteractiveFlowSession): List<PurposeDebugInformation> {
-        // The fetch refuses a session whose initiating purpose is not this one, and a row this endpoint gets
-        // opened for is a row that may be malformed in exactly that way.
-        val oauth2 = if (session.initiatingPurpose == InteractiveFlowPurpose.OAUTH2_AUTHORIZE) {
-            oauth2Manager.fetchOAuth2OrNull(session)
-        } else null
+        val oauth2 = readOAuth2OrNull(session)
         return listOf(
             PurposeDebugInformation("Client", oauth2?.clientId),
             PurposeDebugInformation("Redirect URI", oauth2?.redirectUri),
@@ -105,6 +102,27 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
             PurposeDebugInformation("Nonce", oauth2?.let { presence(it.nonce != null) }),
             PurposeDebugInformation("Code challenge", oauth2?.let(::codeChallengePresence))
         )
+    }
+
+    /**
+     * The OAuth2 record of [session], or null where there is none and where the one there is cannot be read
+     * back.
+     *
+     * Two shapes reach here that the flow itself never asks about, and both answer null rather than throwing.
+     * A session another purpose started has no such record, and the fetch refuses to go looking for one. A
+     * request that failed validation has a record whose client and redirect URI were never known — the row is
+     * written anyway, so the session can carry the error that explains itself — and
+     * [InteractiveFlowSessionOAuth2] admits neither as null, so reading it back is an internal failure. That
+     * session is the one an operator opens this endpoint for, so it answers with the labels unset; what went
+     * wrong is on the session's own error keys, which is where they would look for it.
+     */
+    private suspend fun readOAuth2OrNull(session: InteractiveFlowSession): InteractiveFlowSessionOAuth2? {
+        if (session.initiatingPurpose != InteractiveFlowPurpose.OAUTH2_AUTHORIZE) return null
+        return try {
+            oauth2Manager.fetchOAuth2OrNull(session)
+        } catch (_: BusinessException) {
+            null
+        }
     }
 
     /**
