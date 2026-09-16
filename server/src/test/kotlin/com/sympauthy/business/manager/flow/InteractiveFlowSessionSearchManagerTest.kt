@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionMapper
@@ -28,12 +29,14 @@ import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mapstruct.factory.Mappers
 import java.time.LocalDateTime
@@ -129,12 +132,23 @@ class InteractiveFlowSessionSearchManagerTest {
     fun `listSessions - Reports no current purpose for a row whose walk refuses to answer`() = runTest {
         // A session whose client the configuration has since dropped, or whose attached record is gone: the
         // engine refuses to advance it, and one such row must not take down the page the others are on.
+        assertOneRefusedWalkLeavesThePageStanding(businessExceptionOf("client.invalid_client_id"))
+    }
+
+    @Test
+    fun `listSessions - Reports no current purpose when the walk reaches a configuration that will not parse`() =
+        runTest {
+            // Not a BusinessException, and not sharing a supertype with one: the walk reads the clients and
+            // the claims through the configuration, and enumerating what it can throw is what gets this wrong.
+            assertOneRefusedWalkLeavesThePageStanding(configExceptionOf("clients", "config.clients.invalid"))
+        }
+
+    private suspend fun assertOneRefusedWalkLeavesThePageStanding(failure: Throwable) {
         val refused = entity(sessionDate = NOW.minusMinutes(5))
         val walkable = entity(sessionDate = NOW.minusMinutes(1))
         givenSessions(refused, walkable)
         givenNoObservation()
-        coEvery { engine.currentPurposeOrNull(match { it.id == refused.id }) } throws
-            businessExceptionOf("client.invalid_client_id")
+        coEvery { engine.currentPurposeOrNull(match { it.id == refused.id }) } throws failure
         coEvery { engine.currentPurposeOrNull(match { it.id == walkable.id }) } returns
             InteractiveFlowPurpose.OAUTH2_AUTHORIZE
 
@@ -143,6 +157,17 @@ class InteractiveFlowSessionSearchManagerTest {
         assertEquals(listOf(refused.id, walkable.id), page.items.map { it.id })
         assertNull(page.items.first().currentPurpose)
         assertEquals(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, page.items.last().currentPurpose)
+    }
+
+    @Test
+    fun `listSessions - Lets a cancellation travel on rather than reporting no current purpose`() = runTest {
+        givenSessions(entity())
+        givenNoObservation()
+        coEvery { engine.currentPurposeOrNull(any()) } throws CancellationException("the caller went away")
+
+        assertThrows<CancellationException> {
+            manager.listSessions(null, null, null, null, null, null, PageParams(0, 20))
+        }
     }
 
     @Test

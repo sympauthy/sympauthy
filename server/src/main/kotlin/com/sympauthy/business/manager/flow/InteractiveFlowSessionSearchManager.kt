@@ -1,6 +1,5 @@
 package com.sympauthy.business.manager.flow
 
-import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionMapper
@@ -21,8 +20,10 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
+import com.sympauthy.util.loggerForClass
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.toList
 import java.time.LocalDateTime
 import java.util.*
@@ -67,6 +68,8 @@ class InteractiveFlowSessionSearchManager(
     @Inject private val engine: InteractiveFlowEngine,
     @Inject private val purposeRegistry: InteractiveFlowPurposeRegistry
 ) {
+
+    private val logger = loggerForClass()
 
     /**
      * Read the page [pageParams] names of the sessions the criteria keep.
@@ -175,18 +178,29 @@ class InteractiveFlowSessionSearchManager(
      * stalled on is the question an operator opened it with.
      *
      * **The walk's failure is caught here, unlike a handler's refusal to describe a session.** The two look
-     * alike and are not: `nextStepOrNull` answers to the engine, which drives a live flow where a missing
-     * attached record or a client the configuration has dropped is a genuine failure and must stop the
-     * person — whereas this listing only asks it a question, about somebody else's session, and one row the
-     * engine would refuse to advance must not take down the page every other row is on.
-     * `debugInformation` was written for this endpoint and its contract is to answer, so nothing catches
-     * around it.
+     * alike and are not. `nextStepOrNull` answers to the engine, which drives a live flow where a missing
+     * attached record, a client the configuration has dropped and a configuration that stopped parsing are
+     * each a genuine failure that must stop the person — whereas this listing only asks it a question, about
+     * somebody else's session, and one row the engine would refuse to advance must not take down the page
+     * every other row is on. `debugInformation` was written for this endpoint and its contract is to answer,
+     * so a failure there is a bug in something this surface owns and nothing catches around it.
+     *
+     * **Which is why what is caught is anything, rather than the failures anybody thought of.** The walk
+     * reaches most of the server — every handler, the records they read, the claims and the configuration
+     * behind them — and those throw out of more than one hierarchy: a `BusinessException` for a client the
+     * configuration no longer declares, a `ConfigurationException` for a configuration that would not parse,
+     * neither of which shares a supertype with the other. Enumerating them is how this was first written and
+     * the second one was already missing. What is not caught is a cancellation, which says the request this
+     * was answering for is gone, and the log is what keeps a swallowed failure from being invisible.
      */
     internal suspend fun currentPurposeOrNull(session: InteractiveFlowSession): InteractiveFlowPurpose? {
         val ongoing = session as? OnGoingInteractiveFlowSession ?: return null
         return try {
             engine.currentPurposeOrNull(ongoing)
-        } catch (_: BusinessException) {
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            logger.warn("Could not tell which purpose session ${ongoing.id} is stopped at.", failure)
             null
         }
     }
