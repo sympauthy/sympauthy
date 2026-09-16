@@ -105,6 +105,13 @@ a claim restricted to another is a value chosen for an audience nobody asked and
 the flow that writes it. A bootstrap invitation is refused at startup rather than at creation,
 because the file it is written in is what the deployment is being told about.
 
+**A granting rule sees the audience's claims, and consent is the only thing it sees past.** What a
+rule may branch on and what a person agreed to disclose to this client are different questions, so
+the rules run on claims regardless of consent — but a rule keyed on a claim restricted to another
+audience decides this authorization from a value it may not be told, which is the restriction one
+indirection away. The authorization webhook is handed that same list and posts it off this server,
+where the value itself would leave.
+
 **The audience an interactive flow works in is the one its authorization is for**, the audience of
 the client that started it. It decides the whole of what that flow does with claims: which it offers
 to collect, which it accepts, which it holds as required, and which it asks a person to confirm with

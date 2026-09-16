@@ -162,14 +162,20 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
      * and the invitee's link still works. It is also what settles two sign-ups holding one invitation: this
      * runs inside the completion transaction, so the first flow to reach it takes it and the second is
      * refused. See [com.sympauthy.data.model.SessionScoped].
+     *
+     * The granting pipeline is shown this audience's claims, consented to or not: what a rule may branch on
+     * and what the end-user agreed to disclose to the client are different questions, and the audience is
+     * neither of them. `docs/security.md` carries what a rule deciding on another audience's value would
+     * reach, and that the authorization webhook would post it off this server outright.
      */
     override suspend fun applyTerminalEffect(session: OnGoingInteractiveFlowSession): TerminalEffectResult {
         val featuresConfig = uncheckedFeaturesConfig.orThrow()
 
-        // Fetch all collected claims regardless of consent so the granting manager can access them all.
         val userId = session.userId
             ?: throw internalBusinessExceptionOf("flow.authorization_flow.complete.missing_user")
+        val audienceId = oauth2Manager.getAudienceId(oauth2Manager.fetchOAuth2(session))
         val allClaims = collectedClaimManager.findByUserId(userId)
+            .filter { it.claim.belongsToAudience(audienceId) }
 
         // Grant only grantable scopes through the granting pipeline
         val grantScopesResult = scopeGrantingManager.grantScopes(
@@ -196,7 +202,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
 
         consentManager.saveConsent(
             userId = userId,
-            audienceId = oauth2Manager.getAudienceId(oauth2),
+            audienceId = audienceId,
             clientId = oauth2.clientId,
             scopes = oauth2.consentedScopes ?: emptyList()
         )

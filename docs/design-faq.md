@@ -248,6 +248,36 @@ writes across audiences and is the surface answering for the deployment. A warni
 both, and with them the silent success this entry is about: a caller told its invitation was
 created, holding a token that will not do what the request said.
 
+### Does a granting rule see claims of every audience?
+
+**Decision:** No. `OAuth2AuthorizeInteractiveFlowPurposeHandler.applyTerminalEffect` filters the
+claims it hands the granting pipeline to the flow's own audience. Consent is still not applied —
+what a rule may branch on and what a person agreed to disclose remain different questions.
+
+**Options considered:**
+
+- **The whole person** — every claim, as before, on the grounds that a deployment's own rules answer
+  for the deployment the way an administrator does.
+- **The audience's claims** — the flow's audience deciding what its own grant may be keyed on.
+- **The audience's for the webhook, the whole person for the rules** — the value filtered only where
+  it actually leaves the server.
+
+**Rationale:**
+
+A rule's value does not leave the server, but what it decides does, and a scope granted in a
+`default` grant because of a `billing` claim publishes that claim's content one indirection away.
+The authorization webhook settles it: it is handed the same list and posts it to an endpoint
+configured on the client, so under the first option a restricted value leaves this server outright,
+to an audience it was restricted from. Splitting the two would have left one list filtered and one
+not — a distinction the next caller of `grantScopes` has to know about and the type does not
+carry.
+
+What it costs is real and silent: a deployment whose rule branches on a claim restricted to
+another audience stops granting that scope, with no error to read. Nothing can tell that rule apart
+from one whose claim is merely absent for this person. The alternative is a server where the
+audience restriction holds everywhere except the one place a value is posted to a third party, and a
+rule about who may know a claim is worth less than the weakest path to it.
+
 ---
 
 ← [Design documentation](index.md)
