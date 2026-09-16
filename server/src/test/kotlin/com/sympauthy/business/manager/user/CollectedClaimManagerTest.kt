@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.mapper.CollectedClaimMapper
 import com.sympauthy.business.mapper.CollectedClaimUpdateMapper
@@ -13,6 +14,7 @@ import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.ObjectLockRepository
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
@@ -36,12 +38,14 @@ class CollectedClaimManagerTest {
     @MockK
     lateinit var userManager: UserManager
 
+    private val objectLockRepository = mockk<ObjectLockRepository>(relaxed = true)
+
     /**
-     * The real manager over stripes nothing else takes: what the tests below turn on is that the check
-     * runs inside the block, and a double answering for `withLock` would run the block whether or not
-     * anything was ever locked.
+     * The real manager over the stripe table, so a test can say which row was taken. A double answering for
+     * `withLock` would run the block whether or not anything was ever locked, and the key naming the value
+     * as `collected_claims` spells it is half of what makes this agree with the promotion.
      */
-    var lockManager: LockManager = LockManager(mockk<ObjectLockRepository>(relaxed = true))
+    var lockManager: LockManager = LockManager(objectLockRepository)
 
     @MockK
     lateinit var collectedClaimRepository: CollectedClaimRepository
@@ -354,8 +358,8 @@ class CollectedClaimManagerTest {
         every { claimManager.listIdentifierClaims() } returns listOf(emailClaim)
         every { collectedClaimUpdateMapper.toValue(update.value) } returns STORED_EMAIL
         coEvery {
-            userManager.isIdentifierValueTaken(listOf(EMAIL_CLAIM), listOf(STORED_EMAIL), user.id)
-        } returns true
+            userManager.findTakenIdentifierClaimIdOrNull(user.id, listOf(EMAIL_CLAIM), mapOf(EMAIL_CLAIM to STORED_EMAIL))
+        } returns EMAIL_CLAIM
 
         // The repository is left unstubbed: reaching the assertion is proof nothing was written.
         val exception = assertThrows<BusinessException> {
@@ -364,6 +368,7 @@ class CollectedClaimManagerTest {
 
         assertEquals("user.claims.identifier_taken", exception.detailsId)
         assertEquals(EMAIL_CLAIM, exception.values["claim"])
+        coVerify { objectLockRepository.lock(LockKey.IdentifierValue(STORED_EMAIL).stripe) }
     }
 
     @Test
@@ -376,14 +381,39 @@ class CollectedClaimManagerTest {
         every { claimManager.listIdentifierClaims() } returns listOf(emailClaim)
         every { collectedClaimUpdateMapper.toValue(update.value) } returns STORED_EMAIL
         coEvery {
-            userManager.isIdentifierValueTaken(listOf(EMAIL_CLAIM), listOf(STORED_EMAIL), user.id)
-        } returns false
+            userManager.findTakenIdentifierClaimIdOrNull(user.id, listOf(EMAIL_CLAIM), mapOf(EMAIL_CLAIM to STORED_EMAIL))
+        } returns null
         coEvery { manager.writeUpdates(user, listOf(update)) } returns listOf(collectedClaim)
 
         val result = manager.applyUpdates(user, listOf(update))
 
         assertEquals(1, result.count())
         assertSame(collectedClaim, result[0])
+        coVerify { objectLockRepository.lock(LockKey.IdentifierValue(STORED_EMAIL).stripe) }
+    }
+
+    @Test
+    fun `applyUpdates - Refuse a value the account itself holds under another identifier claim`() = runTest {
+        val user = committedUser()
+        val phoneClaim = mockk<Claim> {
+            every { id } returns PHONE_CLAIM
+        }
+        val update = mockUpdateOfClaim(phoneClaim, Optional.of(EMAIL))
+
+        every { claimManager.listIdentifierClaims() } returns listOf(mockEmailClaim(), phoneClaim)
+        every { collectedClaimUpdateMapper.toValue(update.value) } returns STORED_EMAIL
+        coEvery {
+            userManager.findTakenIdentifierClaimIdOrNull(
+                user.id, listOf(EMAIL_CLAIM, PHONE_CLAIM), mapOf(PHONE_CLAIM to STORED_EMAIL)
+            )
+        } returns PHONE_CLAIM
+
+        val exception = assertThrows<BusinessException> {
+            manager.applyUpdates(user, listOf(update))
+        }
+
+        assertEquals("user.claims.identifier_taken", exception.detailsId)
+        assertEquals(PHONE_CLAIM, exception.values["claim"])
     }
 
     @Test
@@ -404,25 +434,26 @@ class CollectedClaimManagerTest {
 
         assertEquals(1, result.count())
         assertSame(collectedClaim, result[0])
+        coVerify(exactly = 0) { objectLockRepository.lock(any()) }
     }
 
     @Test
-    fun `applyUpdates - Ask nothing of an identifier value a provisional account writes`() = runTest {
+    fun `applyUpdates - Ask nothing at all of a write to a provisional account`() = runTest {
         val user = mockk<User> {
             every { sessionId } returns UUID.randomUUID()
         }
-        val emailClaim = mockEmailClaim()
-        val update = mockUpdateOfClaim(emailClaim, Optional.of(EMAIL))
+        val update = mockk<CollectedClaimUpdate>()
         val collectedClaim = mockk<CollectedClaim>()
 
-        every { claimManager.listIdentifierClaims() } returns listOf(emailClaim)
-        every { collectedClaimUpdateMapper.toValue(update.value) } returns STORED_EMAIL
+        // The identifier claims are left unstubbed: a provisional write does not even read them, so the
+        // sign-up path pays nothing for a check its promotion is going to run.
         coEvery { manager.writeUpdates(user, listOf(update)) } returns listOf(collectedClaim)
 
         val result = manager.applyUpdates(user, listOf(update))
 
         assertEquals(1, result.count())
         assertSame(collectedClaim, result[0])
+        coVerify(exactly = 0) { objectLockRepository.lock(any()) }
     }
 
     @Test
@@ -443,6 +474,7 @@ class CollectedClaimManagerTest {
 
         assertEquals(1, result.count())
         assertSame(collectedClaim, result[0])
+        coVerify(exactly = 0) { objectLockRepository.lock(any()) }
     }
 
     private fun committedUser(): User = mockk {
@@ -475,6 +507,7 @@ class CollectedClaimManagerTest {
 
     private companion object {
         const val EMAIL_CLAIM = "email"
+        const val PHONE_CLAIM = "phone_number"
         const val EMAIL = "someone@example.com"
 
         /** The value as `collected_claims` spells it, which is what both the key and the check compare on. */

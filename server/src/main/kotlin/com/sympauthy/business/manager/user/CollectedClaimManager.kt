@@ -146,8 +146,11 @@ open class CollectedClaimManager(
         user: User,
         applicableUpdates: List<CollectedClaimUpdate>
     ): List<CollectedClaim> {
-        val identifierValues = identifierValuesIn(applicableUpdates)
-        if (user.sessionId != null || identifierValues.isEmpty()) {
+        if (user.sessionId != null) {
+            return writeUpdates(user, applicableUpdates)
+        }
+        val identifierValues = getIdentifierValuesIn(applicableUpdates)
+        if (identifierValues.isEmpty()) {
             return writeUpdates(user, applicableUpdates)
         }
         val keys = identifierValues.values.map(LockKey::IdentifierValue).toTypedArray()
@@ -161,7 +164,7 @@ open class CollectedClaimManager(
      * The identifier claim values [updates] would write, by the claim writing them, as `collected_claims`
      * spells them. An update clearing a claim is not one: it takes no value from anybody.
      */
-    internal fun identifierValuesIn(updates: List<CollectedClaimUpdate>): Map<String, String> {
+    internal fun getIdentifierValuesIn(updates: List<CollectedClaimUpdate>): Map<String, String> {
         val identifierClaims = claimManager.listIdentifierClaims().toSet()
         if (identifierClaims.isEmpty()) {
             return emptyMap()
@@ -175,28 +178,22 @@ open class CollectedClaimManager(
     }
 
     /**
-     * Throw `user.claims.identifier_taken` when a committed account other than [user] already holds one of
-     * the [identifierValues] under any identifier claim.
-     *
-     * One statement per value rather than one over them all: the failure names the claim whose value was
-     * taken, and a single query over every value could not say which of them lost. [user] is excluded
-     * because rewriting a value it already holds takes nothing from anybody — the account this refuses for
-     * is always another one.
+     * Throw `user.claims.identifier_taken`, naming the claim that lost, when a committed row already holds
+     * one of the [identifierValues] — [UserManager.findTakenIdentifierClaimIdOrNull] is the rule, including
+     * why a row [user] holds itself is a conflict unless it is the one for that same claim.
      *
      * It answers what is committed *now*, which is only worth asking under the lock its caller holds over
      * those values.
      */
     internal suspend fun checkIdentifierValuesFree(user: User, identifierValues: Map<String, String>) {
         val claimIds = claimManager.listIdentifierClaims().map(Claim::id)
-        identifierValues.forEach { (claimId, value) ->
-            if (userManager.isIdentifierValueTaken(claimIds, listOf(value), excludingUserId = user.id)) {
-                throw businessExceptionOf(
-                    detailsId = "user.claims.identifier_taken",
-                    descriptionId = "description.user.claims.identifier_taken",
-                    "claim" to claimId
-                )
-            }
-        }
+        val takenClaimId = userManager.findTakenIdentifierClaimIdOrNull(user.id, claimIds, identifierValues)
+            ?: return
+        throw businessExceptionOf(
+            detailsId = "user.claims.identifier_taken",
+            descriptionId = "description.user.claims.identifier_taken",
+            "claim" to takenClaimId
+        )
     }
 
     internal suspend fun writeUpdates(
