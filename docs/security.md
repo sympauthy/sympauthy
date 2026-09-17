@@ -305,9 +305,11 @@ built.
 does underneath is the deployment's.
 
 **It does not change the identifier an account signs in with.** An account takes its identifier
-claims at sign-up and keeps them: no surface writes one, because none of them can prove the person
-controls the new value or that the person is the one asking. Proving both is an interactive flow
-with a purpose of its own, and it is designed and not yet built.
+claims at sign-up and keeps them. No surface writes one afterwards — not the client claim endpoint,
+which refuses them by name, and not an invitation, whose pre-assigned claims reach an identifier
+only on an account the flow created — because none of them can prove the person controls the new
+value or that the person is the one asking. Proving both is an interactive flow with a purpose of
+its own, and it is designed and not yet built.
 
 ---
 
