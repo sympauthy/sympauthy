@@ -67,6 +67,7 @@ open class InteractiveFlowSessionOAuth2Manager(
         val session = sessionManager.newSession(
             purposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE),
             initiatingPurpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE,
+            initiatingClientId = client?.id,
             flow = flow,
             successRedirectUri = redirectUri,
             redirectType = InteractiveFlowRedirectType.AUTHORIZATION_CODE,

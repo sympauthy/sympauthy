@@ -61,6 +61,7 @@ class InteractiveFlowSessionLinkProviderManagerTest {
                     InteractiveFlowPurpose.LINK_PROVIDER,
                 ),
                 initiatingPurpose = InteractiveFlowPurpose.LINK_PROVIDER,
+                initiatingClientId = initiatingClientId,
                 flow = flow,
                 successRedirectUri = returnUri,
                 redirectType = InteractiveFlowRedirectType.PLAIN,

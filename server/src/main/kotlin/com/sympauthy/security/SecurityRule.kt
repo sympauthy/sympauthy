@@ -21,6 +21,7 @@ object SecurityRule {
     const val ADMIN_CONSENT_WRITE = "SCOPE_${AdminScopeId.CONSENT_WRITE}"
     const val ADMIN_INVITATIONS_READ = "SCOPE_${AdminScopeId.INVITATIONS_READ}"
     const val ADMIN_INVITATIONS_WRITE = "SCOPE_${AdminScopeId.INVITATIONS_WRITE}"
+    const val ADMIN_INTERACTIVE_FLOW_SESSIONS_READ = "SCOPE_${AdminScopeId.INTERACTIVE_FLOW_SESSIONS_READ}"
 
     const val CLIENT_USERS_READ = "SCOPE_${BuiltInClientScopeId.USERS_READ}"
     const val CLIENT_USERS_CLAIMS_READ = "SCOPE_${BuiltInClientScopeId.USERS_CLAIMS_READ}"

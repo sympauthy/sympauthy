@@ -6,6 +6,7 @@ import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
+import com.sympauthy.business.model.flow.InteractiveFlowSessionStatus
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
@@ -221,12 +222,126 @@ class InteractiveFlowSessionMapperTest {
         assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
     }
 
+    @Test
+    fun `toInteractiveFlowSession - carries the initiating client id`() {
+        val session = mapper.toInteractiveFlowSession(entity(initiatingClientId = "web-app"))
+
+        assertEquals("web-app", session.initiatingClientId)
+    }
+
+    @Test
+    fun `toStatus - Reads failed from the error date`() {
+        val entity = entity(errorDate = LocalDateTime.now().minusMinutes(1), errorDetailsId = "some.error")
+
+        assertEquals(InteractiveFlowSessionStatus.FAILED, mapper.toStatus(entity))
+    }
+
+    @Test
+    fun `toStatus - Reads cancelled from the cancel date`() {
+        val entity = entity(cancelDate = LocalDateTime.now().minusMinutes(1))
+
+        assertEquals(InteractiveFlowSessionStatus.CANCELLED, mapper.toStatus(entity))
+    }
+
+    @Test
+    fun `toStatus - Reads completed from the complete date`() {
+        val entity = entity(completeDate = LocalDateTime.now().minusMinutes(1))
+
+        assertEquals(InteractiveFlowSessionStatus.COMPLETED, mapper.toStatus(entity))
+    }
+
+    @Test
+    fun `toStatus - Reads expired only when no terminal column is set`() {
+        val entity = entity(expirationDate = LocalDateTime.now().minusMinutes(1))
+
+        assertEquals(InteractiveFlowSessionStatus.EXPIRED, mapper.toStatus(entity))
+    }
+
+    @Test
+    fun `toStatus - Stays completed for a session that has since expired`() {
+        val entity = entity(
+            completeDate = LocalDateTime.now().minusMinutes(30),
+            expirationDate = LocalDateTime.now().minusMinutes(1)
+        )
+
+        assertEquals(InteractiveFlowSessionStatus.COMPLETED, mapper.toStatus(entity))
+        assertTrue(mapper.toInteractiveFlowSession(entity) is FailedInteractiveFlowSession)
+    }
+
+    @Test
+    fun `toStatus - Stays cancelled for a session that has since expired`() {
+        val entity = entity(
+            cancelDate = LocalDateTime.now().minusMinutes(30),
+            expirationDate = LocalDateTime.now().minusMinutes(1)
+        )
+
+        assertEquals(InteractiveFlowSessionStatus.CANCELLED, mapper.toStatus(entity))
+    }
+
+    @Test
+    fun `toStatus - Reads ongoing when nothing terminal happened and the session is live`() {
+        assertEquals(InteractiveFlowSessionStatus.ONGOING, mapper.toStatus(entity()))
+    }
+
+    @Test
+    fun `toInteractiveFlowSessionAs - Builds an expired session as OnGoing`() {
+        val userId = UUID.randomUUID()
+        val entity = entity(
+            userId = userId,
+            expirationDate = LocalDateTime.now().minusMinutes(1),
+            completedPurposes = arrayOf(InteractiveFlowPurpose.CONFIRM.name)
+        )
+
+        val session = mapper.toInteractiveFlowSessionAs(entity, InteractiveFlowSessionStatus.EXPIRED)
+
+        assertTrue(session is OnGoingInteractiveFlowSession)
+        session as OnGoingInteractiveFlowSession
+        assertEquals(userId, session.userId)
+        assertEquals(listOf(InteractiveFlowPurpose.CONFIRM), session.completedPurposes)
+    }
+
+    @Test
+    fun `toInteractiveFlowSessionAs - Builds a completed session that has since expired as Completed`() {
+        val entity = entity(
+            userId = UUID.randomUUID(),
+            completeDate = LocalDateTime.now().minusMinutes(30),
+            expirationDate = LocalDateTime.now().minusMinutes(1),
+            successRedirectUri = "https://client.example.com/callback",
+            redirectType = InteractiveFlowRedirectType.AUTHORIZATION_CODE.name,
+        )
+
+        val session = mapper.toInteractiveFlowSessionAs(entity, InteractiveFlowSessionStatus.COMPLETED)
+
+        assertTrue(session is CompletedInteractiveFlowSession)
+    }
+
+    @Test
+    fun `toCompletedPurposes - Reads the column whatever the status of the session`() {
+        val entity = entity(
+            completedPurposes = arrayOf(InteractiveFlowPurpose.CONFIRM.name),
+            errorDate = LocalDateTime.now().minusMinutes(1),
+            errorDetailsId = "some.error"
+        )
+
+        assertEquals(listOf(InteractiveFlowPurpose.CONFIRM), mapper.toCompletedPurposes(entity))
+    }
+
+    @Test
+    fun `toCompletedPurposes - Throws when a completed purpose is unknown`() {
+        val entity = entity(completedPurposes = arrayOf("NOT_A_PURPOSE"))
+
+        val exception = assertThrows<BusinessException> { mapper.toCompletedPurposes(entity) }
+
+        assertEquals("mapper.interactive_flow_session.invalid_property", exception.detailsId)
+    }
+
     private fun entity(
         id: UUID? = UUID.randomUUID(),
         rawPurposes: Array<String>? = null,
         completedPurposes: Array<String> = emptyArray(),
         purpose: InteractiveFlowPurpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE,
         flowId: String? = "flow",
+        initiatingClientId: String? = null,
         sessionDate: LocalDateTime = LocalDateTime.now().minusMinutes(2),
         expirationDate: LocalDateTime = LocalDateTime.now().plusMinutes(10),
         version: Long = 0,
@@ -246,6 +361,7 @@ class InteractiveFlowSessionMapperTest {
             version = version,
             purposes = rawPurposes ?: arrayOf(purpose.name),
             initiatingPurpose = purpose.name,
+            initiatingClientId = initiatingClientId,
             completedPurposes = completedPurposes,
             sessionDate = sessionDate,
             flowId = flowId,

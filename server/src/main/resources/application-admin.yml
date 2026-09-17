@@ -43,6 +43,7 @@ clients:
       - admin:consent:write
       - admin:invitations:read
       - admin:invitations:write
+      - admin:interactive-flow-sessions:read
     default-scopes:
       - openid
       - profile
@@ -54,6 +55,7 @@ clients:
       - admin:consent:write
       - admin:invitations:read
       - admin:invitations:write
+      - admin:interactive-flow-sessions:read
 
 rules:
   user:
@@ -66,6 +68,7 @@ rules:
         - admin:consent:write
         - admin:invitations:read
         - admin:invitations:write
+        - admin:interactive-flow-sessions:read
       expressions:
         - 'CLAIM("is_sympauthy_admin") = "true"'
 

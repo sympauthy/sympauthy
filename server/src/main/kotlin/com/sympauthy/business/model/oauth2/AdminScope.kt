@@ -10,6 +10,7 @@ package com.sympauthy.business.model.oauth2
  * - `config`: read server configuration (clients, flows, etc.).
  * - `users`: manage end-users (read, write, delete).
  * - `consent`: manage consents and force logout.
+ * - `interactive-flow-sessions`: read the interactive flow sessions currently in flight.
  *
  * @see AdminScopeId for the string constants used in configuration and token claims.
  */
@@ -23,7 +24,8 @@ enum class AdminScope(
     CONSENT_READ(AdminScopeId.CONSENT_READ),
     CONSENT_WRITE(AdminScopeId.CONSENT_WRITE),
     INVITATIONS_READ(AdminScopeId.INVITATIONS_READ),
-    INVITATIONS_WRITE(AdminScopeId.INVITATIONS_WRITE);
+    INVITATIONS_WRITE(AdminScopeId.INVITATIONS_WRITE),
+    INTERACTIVE_FLOW_SESSIONS_READ(AdminScopeId.INTERACTIVE_FLOW_SESSIONS_READ);
 }
 
 /**
@@ -40,4 +42,13 @@ object AdminScopeId {
     const val CONSENT_WRITE = "admin:consent:write"
     const val INVITATIONS_READ = "admin:invitations:read"
     const val INVITATIONS_WRITE = "admin:invitations:write"
+
+    /**
+     * Not `admin:sessions:read`: a session on an admin surface reads as the logged-in sessions and tokens a
+     * console lists and revokes, which is a different surface nobody has built yet and the one that would
+     * naturally want the short name. Nor `admin:flows:read`, a flow being configuration and already under
+     * [CONFIG_READ]. Renaming a path later is a version; renaming a scope is something every deployment has
+     * to re-grant.
+     */
+    const val INTERACTIVE_FLOW_SESSIONS_READ = "admin:interactive-flow-sessions:read"
 }

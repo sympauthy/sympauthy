@@ -46,6 +46,21 @@ sealed class InteractiveFlowSession(
     val initiatingPurpose: InteractiveFlowPurpose,
 
     /**
+     * The identifier of the client that initiated the session, or null where an administrator initiated it
+     * and where the initiating purpose has no client at all.
+     *
+     * Set once when the session is created and never updated, for the reason [initiatingPurpose] is: the
+     * client is on the attached record of whichever purpose initiated the session
+     * ([InteractiveFlowSessionOAuth2] for an authorization, [InteractiveFlowSessionConfirm] for a gated one),
+     * so no rule over [purposes] reaching for it stays correct as purposes gain initiators. It is written in
+     * the same transaction as the record it duplicates, which is what keeps the two from disagreeing.
+     *
+     * It names a client this deployment configured at the moment the session started. Configuration is not a
+     * table, so a session may outlive the client it names.
+     */
+    val initiatingClientId: String?,
+
+    /**
      * The identifier of the interactive flow the user is going through.
      * null for non-interactive flows.
      */
@@ -61,6 +76,7 @@ class OnGoingInteractiveFlowSession(
     id: UUID,
     purposes: List<InteractiveFlowPurpose>,
     initiatingPurpose: InteractiveFlowPurpose,
+    initiatingClientId: String?,
     flowId: String?,
     expirationDate: LocalDateTime,
 
@@ -133,6 +149,7 @@ class OnGoingInteractiveFlowSession(
     id = id,
     purposes = purposes,
     initiatingPurpose = initiatingPurpose,
+    initiatingClientId = initiatingClientId,
     flowId = flowId,
     expirationDate = expirationDate
 ) {
@@ -152,6 +169,7 @@ class OnGoingInteractiveFlowSession(
         id = this.id,
         purposes = purposes ?: this.purposes,
         initiatingPurpose = this.initiatingPurpose,
+        initiatingClientId = this.initiatingClientId,
         flowId = this.flowId,
         expirationDate = this.expirationDate,
         sessionDate = this.sessionDate,
@@ -176,6 +194,7 @@ class CompletedInteractiveFlowSession(
     id: UUID,
     purposes: List<InteractiveFlowPurpose>,
     initiatingPurpose: InteractiveFlowPurpose,
+    initiatingClientId: String?,
     flowId: String?,
     expirationDate: LocalDateTime,
 
@@ -232,6 +251,7 @@ class CompletedInteractiveFlowSession(
     id = id,
     purposes = purposes,
     initiatingPurpose = initiatingPurpose,
+    initiatingClientId = initiatingClientId,
     flowId = flowId,
     expirationDate = expirationDate
 )
@@ -243,6 +263,7 @@ class FailedInteractiveFlowSession(
     id: UUID,
     purposes: List<InteractiveFlowPurpose>,
     initiatingPurpose: InteractiveFlowPurpose,
+    initiatingClientId: String?,
     flowId: String?,
     expirationDate: LocalDateTime,
 
@@ -271,6 +292,7 @@ class FailedInteractiveFlowSession(
     id = id,
     purposes = purposes,
     initiatingPurpose = initiatingPurpose,
+    initiatingClientId = initiatingClientId,
     flowId = flowId,
     expirationDate = expirationDate
 )
@@ -286,6 +308,7 @@ class CancelledInteractiveFlowSession(
     id: UUID,
     purposes: List<InteractiveFlowPurpose>,
     initiatingPurpose: InteractiveFlowPurpose,
+    initiatingClientId: String?,
     flowId: String?,
     expirationDate: LocalDateTime,
 
@@ -321,6 +344,38 @@ class CancelledInteractiveFlowSession(
     id = id,
     purposes = purposes,
     initiatingPurpose = initiatingPurpose,
+    initiatingClientId = initiatingClientId,
     flowId = flowId,
     expirationDate = expirationDate
 )
+
+/**
+ * The user this session identified, or null where it never identified one — and where the session failed,
+ * since a failed session is read without its user by design.
+ *
+ * The sealed base does not carry the id because three of the four subtypes disagree about it: a completed
+ * session always has one, an ongoing and a cancelled one may, and a failed one is not read for it. This is
+ * for a reader that has to answer for any of them, and it is deliberately not named `userId`: a caller
+ * holding the subtype should reach that subtype's own property and get the nullability it actually has.
+ */
+val InteractiveFlowSession.userIdOrNull: UUID?
+    get() = when (this) {
+        is OnGoingInteractiveFlowSession -> userId
+        is CompletedInteractiveFlowSession -> userId
+        is CancelledInteractiveFlowSession -> userId
+        is FailedInteractiveFlowSession -> null
+    }
+
+/**
+ * When the end-user passed the MFA step of this session, or null where they did not — and where the session
+ * is one that does not carry the date.
+ *
+ * A cancelled and a failed session drop it, so this answers null for both rather than saying MFA was never
+ * passed. See [userIdOrNull] for why the name is not the subtypes' own.
+ */
+val InteractiveFlowSession.mfaPassedDateOrNull: LocalDateTime?
+    get() = when (this) {
+        is OnGoingInteractiveFlowSession -> mfaPassedDate
+        is CompletedInteractiveFlowSession -> mfaPassedDate
+        is CancelledInteractiveFlowSession, is FailedInteractiveFlowSession -> null
+    }

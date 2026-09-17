@@ -15,6 +15,7 @@ class InteractiveFlowSessionTest {
         id = UUID.randomUUID(),
         purposes = purposes,
         initiatingPurpose = initiatingPurpose,
+        initiatingClientId = null,
         flowId = null,
         expirationDate = LocalDateTime.now().plusMinutes(5),
         sessionDate = LocalDateTime.now(),

@@ -34,13 +34,14 @@ through the session manager, the one reader entitled to a provisional one.
 
 ## Becoming an account
 
-**Identifier uniqueness is settled when an account is promoted, not when it is written.** Nothing in
-the schema enforces it — an end-user may sign in with any configured identifier claim, so a value
-has to be unique across all of them rather than within one column — and the check at sign-up sees
-committed rows only. Two sign-ups may therefore hold one email address at the same time, and neither
-blocks the other, which is what stops an abandoned flow squatting an address until the cleaner runs.
-The check runs again inside the promotion, and the first flow to complete wins; the second fails
-non-recoverably, because at that point every purpose has resolved and no step is left to retry.
+**The identifier uniqueness of an account being signed up is settled when it is promoted, not when
+it is written.** Nothing in the schema enforces it — an end-user may sign in with any configured
+identifier claim, so a value has to be unique across all of them rather than within one column —
+and the check at sign-up sees committed rows only. Two sign-ups may therefore hold one email address
+at the same time, and neither blocks the other, which is what stops an abandoned flow squatting an
+address until the cleaner runs. The check runs again inside the promotion, and the first flow to
+complete wins; the second fails non-recoverably, because at that point every purpose has resolved
+and no step is left to retry.
 
 **What makes the first of them the only one is a lock over the values themselves.** The promotion
 names every identifier value and every provider subject it is about to make committed as a
@@ -50,12 +51,25 @@ Both halves are serialised on every dialect; the unique index PostgreSQL carries
 subject is a backstop behind the lock rather than the rule, since H2 spells no partial index and a
 partial index is what two provisional links sharing a subject requires.
 
-**A provider subject has two more writers, and they take the same key.** Linking a provider to an
-account and merging one into an existing account each commit a link after their own committed-only
-check, and in that race neither holds a row the other could have waited on. The loser of either is
-answered where it can still act on it: the link flow fails the way it already does for a subject
-another account holds, and the merge is *recoverable*, because going through the provider again
-finds the link that now exists and signs the person in.
+**A promotion is not the only writer of those keys.** A value or a subject it is about to make
+committed may be taken meanwhile by something that is not a sign-up at all, and none of those
+writers holds a row the others could have waited on. The key is what puts them in order: whoever
+arrives second waits, reads again what the first committed, and is refused against that rather than
+against the rows it saw before the first existed. Which writers take `LockKey.IdentifierValue` and
+`LockKey.ProviderSubject` is the sealed type's KDoc to say — [the locking
+standard](locking-standard.md) makes that list the authority, and a writer is added there rather
+than here.
+
+**A write to an account that is still provisional takes no key and checks nothing.** Its identifier
+is not one yet, and this is where it becomes one: locking there would serialise sign-ups against
+each other, which is the thing the provisional row exists to avoid, and it would put a second lock
+in transactions that already hold one.
+
+**The loser of one of these races is answered where it can still act on it.** A promotion that finds
+a value or a subject taken fails non-recoverably: every purpose has resolved, and no step is left
+for the end-user to retry. A writer that loses earlier in a flow still has one, and is answered
+recoverably where going through that step again reaches the outcome the person came for. Which
+failure each of them raises is written at the writer.
 
 **Promotion is the first thing the completion transaction does, and its locks outlive it.** They are
 held until that transaction commits, terminal effects included, so a terminal effect doing I/O of

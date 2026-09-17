@@ -1,10 +1,12 @@
 package com.sympauthy.business.manager.flow.reauth
 
 import com.sympauthy.business.manager.mfa.TotpManager
+import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSessionReauthentication
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.flow.PurposeDebugInformation
 import com.sympauthy.config.model.EnabledMfaConfig
 import io.mockk.coEvery
 import io.mockk.every
@@ -18,6 +20,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import java.time.LocalDateTime
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
@@ -62,6 +65,39 @@ class ReauthenticationInteractiveFlowPurposeHandlerTest {
         coEvery { reauthenticationManager.fetchReauthenticationOrNull(session) } returns record
 
         assertNull(handler.nextStepOrNull(session))
+    }
+
+    @Test
+    fun `debugInformation - Names when the primary credential was proven`() = runTest {
+        val provenDate = LocalDateTime.now()
+        coEvery { reauthenticationManager.fetchReauthenticationOrNull(session) } returns
+            InteractiveFlowSessionReauthentication(
+                sessionId = UUID.randomUUID(),
+                primaryCredentialProvenDate = provenDate
+            )
+
+        assertEquals(
+            listOf(PurposeDebugInformation("Primary credential proven date", provenDate.toString())),
+            handler.debugInformation(session)
+        )
+    }
+
+    @Test
+    fun `debugInformation - Emits the label with no value when the session carries no record`() = runTest {
+        coEvery { reauthenticationManager.fetchReauthenticationOrNull(session) } returns null
+
+        assertEquals(
+            listOf(PurposeDebugInformation("Primary credential proven date", null)),
+            handler.debugInformation(session)
+        )
+    }
+
+    @Test
+    fun `debugInformation - Answers for a session that has no user and reached a terminal status`() = runTest {
+        val failed = mockk<FailedInteractiveFlowSession>()
+        coEvery { reauthenticationManager.fetchReauthenticationOrNull(failed) } returns null
+
+        assertEquals(1, handler.debugInformation(failed).size)
     }
 
     @Test

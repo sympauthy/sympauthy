@@ -153,6 +153,35 @@ open class UserManager(
     }
 
     /**
+     * Return the id of the first identifier claim in [valuesByClaimId] whose value a committed row already
+     * holds under one of the identifier claims [claimIds], for a caller about to write them against the
+     * account [userId]. Otherwise, return null.
+     *
+     * The question [isIdentifierValueTaken] asks, for the caller that holds an account rather than one being
+     * created: a row that account itself holds **under the same claim** is not a conflict, because rewriting
+     * a value it already holds takes nothing from anybody. Every other row is, including one of its own
+     * under a different identifier claim — an account holding one value under two of them matches itself
+     * twice, and the read resolving an identifier answers one row or fails.
+     *
+     * One query over every value, because an end-user signs in with any of the configured identifier claims
+     * and a value therefore has to be free across all of them rather than within one column. The values are
+     * the ones `collected_claims` holds, which is what the rows compare on.
+     */
+    suspend fun findTakenIdentifierClaimIdOrNull(
+        userId: UUID,
+        claimIds: List<String>,
+        valuesByClaimId: Map<String, String>
+    ): String? {
+        if (claimIds.isEmpty() || valuesByClaimId.isEmpty()) {
+            return null
+        }
+        val committed = collectedClaimRepository.findAnyClaimMatching(claimIds, valuesByClaimId.values.toList())
+        return valuesByClaimId.entries.firstOrNull { (claimId, value) ->
+            committed.any { it.value == value && (it.userId != userId || it.claim != claimId) }
+        }?.key
+    }
+
+    /**
      * Create a new [User], provisional for the interactive flow session [sessionId] when it is signing the
      * account up, permanent from the start when it is null.
      *
