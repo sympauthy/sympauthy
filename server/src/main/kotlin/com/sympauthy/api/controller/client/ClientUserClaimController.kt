@@ -12,6 +12,7 @@ import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.user.ClientUserManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
+import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.security.SecurityRule.CLIENT_USERS_CLAIMS_READ
 import com.sympauthy.security.SecurityRule.CLIENT_USERS_CLAIMS_WRITE
 import com.sympauthy.security.clientAuthentication
@@ -77,7 +78,7 @@ class ClientUserClaimController(
             ApiResponse(responseCode = "200", description = "Updated user claims."),
             ApiResponse(
                 responseCode = "400",
-                description = "Attempted to modify a non-custom claim."
+                description = "Attempted to modify a non-custom claim, or an identifier claim."
             ),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
@@ -102,6 +103,22 @@ class ClientUserClaimController(
 
         val clientUser = clientUserManager.findUserForAudienceOrNull(audienceId, userId).orNotFound()
         val consent = consentManager.findActiveConsentByAudienceOrNull(userId, audienceId).orNotFound()
+
+        // Asked before the ACL below, because no answer the ACL could give would change this one: an
+        // identifier is what the account signs in with, nothing in a claim write verifies the value it
+        // stores, and a client able to set one could move an account's sign-in to an address it holds. A
+        // deployment that granted the write scope over it is told that, rather than told it lacks a scope.
+        // Nothing here changes an identifier either: proving the new value and the person asking is a flow,
+        // and `docs/security.md` records that the server does not serve one.
+        val identifierClaimIds = claimManager.listIdentifierClaims().map(Claim::id).toSet()
+        val identifierClaim = body.keys.firstOrNull { it in identifierClaimIds }
+        if (identifierClaim != null) {
+            throw recoverableBusinessExceptionOf(
+                "client.identifier_claim",
+                "description.client.identifier_claim",
+                "claim" to identifierClaim
+            )
+        }
 
         // Validate all keys are claims of this audience and writable by the client. A claim of another
         // audience is refused rather than ignored, the same as one the client may not write: the caller named

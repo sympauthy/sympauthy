@@ -172,6 +172,12 @@ open class ConsentAwareCollectedClaimManager(
      * rule that a write may step around: a client told nothing about a claim must not be able to set it
      * either, or it decides what another audience reads.
      *
+     * **An identifier claim is left out whatever the scopes**, which is the rule [updateByUser] already gets
+     * from [ConsentAwareClaimManager.listCollectableClaimsWithScopes]. It is what an account signs in with,
+     * so a client that could rewrite it could move an account's sign-in to an address it controls — and the
+     * account would be none the wiser, since nothing in a claim write verifies the value it stores. The
+     * surface says so rather than silently dropping it: see `ClientUserClaimController.updateUserClaims`.
+     *
      * As on the read side, [consentedScopes] are the scopes the end-user consented to and [clientScopes] the
      * ones granted to the client itself, and either of the two may be what permits a write.
      */
@@ -183,8 +189,11 @@ open class ConsentAwareCollectedClaimManager(
         consentedScopes: List<String>,
         clientScopes: List<String> = emptyList()
     ): List<CollectedClaim> {
+        val identifierClaims = claimManager.listIdentifierClaims().toSet()
         val applicableUpdates = updates.filter {
-            it.claim.belongsToAudience(audienceId) && it.claim.canBeWrittenByClient(consentedScopes, clientScopes)
+            it.claim !in identifierClaims &&
+                it.claim.belongsToAudience(audienceId) &&
+                it.claim.canBeWrittenByClient(consentedScopes, clientScopes)
         }
         val collectedClaims = collectedClaimManager.applyUpdates(user, applicableUpdates)
         return collectedClaims.filter {

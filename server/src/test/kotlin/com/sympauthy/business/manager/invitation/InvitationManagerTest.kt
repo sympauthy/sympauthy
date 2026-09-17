@@ -64,6 +64,11 @@ class InvitationManagerTest {
         every { this@mockk.enabled } returns enabled
     }
 
+    /** An account the flow is still signing up, which an invitation may give an identifier claim. */
+    private fun provisionalUser(): User = mockk {
+        every { sessionId } returns UUID.randomUUID()
+    }
+
     private fun createInvitation(
         id: UUID = UUID.randomUUID(),
         audienceId: String = "default",
@@ -287,7 +292,7 @@ class InvitationManagerTest {
             claims = mapOf("custom_role" to "admin")
         )
         val claim = mockk<Claim>()
-        val user = mockk<User>()
+        val user = provisionalUser()
         val entity = mockk<InvitationEntity>()
 
         coEvery { invitationRepository.findById(invitationId) } returns entity
@@ -316,6 +321,60 @@ class InvitationManagerTest {
     }
 
     @Test
+    fun `applyInvitationClaims - Leave an identifier claim alone on an account the flow resolved`() = runTest {
+        val invitationId = UUID.randomUUID()
+        val invitation = createInvitation(
+            id = invitationId,
+            claims = mapOf("email" to "invited@example.com", "custom_role" to "admin")
+        )
+        val emailClaim = mockk<Claim> {
+            every { id } returns "email"
+        }
+        val roleClaim = mockk<Claim>()
+        val user = mockk<User> {
+            every { sessionId } returns null
+        }
+        val entity = mockk<InvitationEntity>()
+
+        coEvery { invitationRepository.findById(invitationId) } returns entity
+        every { invitationMapper.toInvitation(entity) } returns invitation
+        every { claimManager.listIdentifierClaims() } returns listOf(emailClaim)
+        every { claimManager.findByIdOrNull("email") } returns emailClaim
+        every { claimManager.findByIdOrNull("custom_role") } returns roleClaim
+        coEvery { collectedClaimManager.update(user, any()) } returns emptyList()
+
+        manager.applyInvitationClaims(invitationId, user)
+
+        coVerify { collectedClaimManager.update(user, match { it.size == 1 && it[0].claim == roleClaim }) }
+    }
+
+    @Test
+    fun `applyInvitationClaims - Write nothing when an account the flow resolved is sent identifiers only`() =
+        runTest {
+            val invitationId = UUID.randomUUID()
+            val invitation = createInvitation(
+                id = invitationId,
+                claims = mapOf("email" to "invited@example.com")
+            )
+            val emailClaim = mockk<Claim> {
+                every { id } returns "email"
+            }
+            val user = mockk<User> {
+                every { sessionId } returns null
+            }
+            val entity = mockk<InvitationEntity>()
+
+            coEvery { invitationRepository.findById(invitationId) } returns entity
+            every { invitationMapper.toInvitation(entity) } returns invitation
+            every { claimManager.listIdentifierClaims() } returns listOf(emailClaim)
+            every { claimManager.findByIdOrNull("email") } returns emailClaim
+
+            manager.applyInvitationClaims(invitationId, user)
+
+            coVerify(exactly = 0) { collectedClaimManager.update(any(), any()) }
+        }
+
+    @Test
     fun `applyInvitationClaims - Skips unknown claims`() = runTest {
         val invitationId = UUID.randomUUID()
         val invitation = createInvitation(
@@ -323,7 +382,7 @@ class InvitationManagerTest {
             claims = mapOf("known" to "value", "unknown" to "value")
         )
         val knownClaim = mockk<Claim>()
-        val user = mockk<User>()
+        val user = provisionalUser()
         val entity = mockk<InvitationEntity>()
 
         coEvery { invitationRepository.findById(invitationId) } returns entity

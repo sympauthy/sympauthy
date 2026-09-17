@@ -1,6 +1,10 @@
 package com.sympauthy.business.manager.user
 
+import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.manager.lock.LockKey
+import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.mapper.CollectedClaimMapper
 import com.sympauthy.business.mapper.CollectedClaimUpdateMapper
 import com.sympauthy.business.model.user.CollectedClaim
@@ -20,6 +24,8 @@ import java.util.*
 @Singleton
 open class CollectedClaimManager(
     @Inject private val claimManager: ClaimManager,
+    @Inject private val userManager: UserManager,
+    @Inject private val lockManager: LockManager,
     @Inject private val collectedClaimRepository: CollectedClaimRepository,
     @Inject private val collectedClaimMapper: CollectedClaimMapper,
     @Inject private val collectedClaimUpdateMapper: CollectedClaimUpdateMapper
@@ -98,6 +104,8 @@ open class CollectedClaimManager(
      * Update the claims collected for the [user] and return all the claims collected for the user.
      * All [updates] will be applied without any scope restriction.
      *
+     * Throws the `user.claims.identifier_taken` of [applyUpdates] under the same conditions.
+     *
      * For consent-restricted updates, use [ConsentedClaimManager.update] instead.
      */
     @Transactional
@@ -111,9 +119,84 @@ open class CollectedClaimManager(
     /**
      * Update the claims collected for the [user] and return all the claims collected for the user
      * (including one previously collected but not updated by the call to this method).
+     *
+     * Throws a non-recoverable [BusinessException] `user.claims.identifier_taken` when one of the
+     * [applicableUpdates] would give a **committed** [user] an identifier value another committed account
+     * already holds. This is the manager every writer of a collected claim goes through, and it is the only
+     * place that uniqueness is enforced on a write: an account signing in with any of the configured
+     * identifier claims means a value has to be unique across all of them rather than within one column, so
+     * no constraint expresses it and nothing below this refuses it. Two accounts left holding one value make
+     * [com.sympauthy.data.repository.findAnyClaimMatching] match twice, and every later sign-in with that
+     * value fails for both of them.
+     *
+     * **A write to a provisional account is checked by nothing here, deliberately.** Its identifier is not
+     * one yet: two sign-ups may hold one value at a time, and the collision is settled under the same key by
+     * [ProvisionalAccountManager.promote]. Checking here would answer a question that account is not yet
+     * asking, and — since the promotion and the sign-up both already lock and check — would only add a
+     * second `withLock` to transactions that already hold one. See [com.sympauthy.data.model.SessionScoped]
+     * and `docs/provisional-user.md`.
+     *
+     * **The check is serialised by the values being written**, held over the check and the writes both, and
+     * the competitor it has to exclude is whichever of the promotion and another write commits first. The
+     * keys name the value as `collected_claims` spells it, which is what both sides compare on. See
+     * [LockKey.IdentifierValue] and `docs/locking-standard.md`.
      */
     @Transactional
     open suspend fun applyUpdates(
+        user: User,
+        applicableUpdates: List<CollectedClaimUpdate>
+    ): List<CollectedClaim> {
+        if (user.sessionId != null) {
+            return writeUpdates(user, applicableUpdates)
+        }
+        val identifierValues = getIdentifierValuesIn(applicableUpdates)
+        if (identifierValues.isEmpty()) {
+            return writeUpdates(user, applicableUpdates)
+        }
+        val keys = identifierValues.values.map(LockKey::IdentifierValue).toTypedArray()
+        return lockManager.withLock(*keys) {
+            checkIdentifierValuesFree(user, identifierValues)
+            writeUpdates(user, applicableUpdates)
+        }
+    }
+
+    /**
+     * The identifier claim values [updates] would write, by the claim writing them, as `collected_claims`
+     * spells them. An update clearing a claim is not one: it takes no value from anybody.
+     */
+    internal fun getIdentifierValuesIn(updates: List<CollectedClaimUpdate>): Map<String, String> {
+        val identifierClaims = claimManager.listIdentifierClaims().toSet()
+        if (identifierClaims.isEmpty()) {
+            return emptyMap()
+        }
+        return updates
+            .filter { it.claim in identifierClaims }
+            .mapNotNull { update ->
+                collectedClaimUpdateMapper.toValue(update.value)?.let { update.claim.id to it }
+            }
+            .toMap()
+    }
+
+    /**
+     * Throw `user.claims.identifier_taken`, naming the claim that lost, when a committed row already holds
+     * one of the [identifierValues] — [UserManager.findTakenIdentifierClaimIdOrNull] is the rule, including
+     * why a row [user] holds itself is a conflict unless it is the one for that same claim.
+     *
+     * It answers what is committed *now*, which is only worth asking under the lock its caller holds over
+     * those values.
+     */
+    internal suspend fun checkIdentifierValuesFree(user: User, identifierValues: Map<String, String>) {
+        val claimIds = claimManager.listIdentifierClaims().map(Claim::id)
+        val takenClaimId = userManager.findTakenIdentifierClaimIdOrNull(user.id, claimIds, identifierValues)
+            ?: return
+        throw businessExceptionOf(
+            detailsId = "user.claims.identifier_taken",
+            descriptionId = "description.user.claims.identifier_taken",
+            "claim" to takenClaimId
+        )
+    }
+
+    internal suspend fun writeUpdates(
         user: User,
         applicableUpdates: List<CollectedClaimUpdate>
     ): List<CollectedClaim> = coroutineScope {

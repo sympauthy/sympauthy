@@ -17,6 +17,7 @@ import com.sympauthy.config.model.InvitationAdvancedConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.InvitationEntity
 import com.sympauthy.data.repository.InvitationRepository
+import com.sympauthy.util.loggerForClass
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -42,6 +43,8 @@ open class InvitationManager(
     @Inject private val invitationMapper: InvitationMapper,
     @Inject private val uncheckedAdvancedConfig: AdvancedConfig
 ) {
+
+    private val logger = loggerForClass()
 
     private val invitationConfig: InvitationAdvancedConfig
         get() = uncheckedAdvancedConfig.orThrow().invitationConfig
@@ -239,6 +242,14 @@ open class InvitationManager(
      *
      * Does nothing if no invitation is bound to the attempt.
      *
+     * **An identifier claim is applied only to an account the flow created.** [user] is a committed account
+     * whenever the flow resolved one instead — a provider merge landing on an account that already exists —
+     * and that account already signs in with an identifier of its own. Replacing it would repoint its
+     * sign-in at whatever address the invitation carries, which hands the account to whoever wrote the
+     * invitation and tells its owner nothing; the invitee named no claim and is not the one at fault. The
+     * invitation still applies every other claim it carries, and still works: what it cannot do is change
+     * who an existing account is. `docs/security.md` is where that rule lives.
+     *
      * Applying the claims and consuming the invitation are deliberately apart. This runs at sign-up, where
      * the claims it writes are as provisional as the account they land on; [consumeInvitation] runs when the
      * session completes, so an abandoned invited sign-up leaves the invitation intact and the invitee's link
@@ -250,8 +261,18 @@ open class InvitationManager(
         val claims = findById(invitationId).claims
         if (claims.isNullOrEmpty()) return
 
+        val refusedClaims = if (user.sessionId == null) claimManager.listIdentifierClaims().toSet() else emptySet()
         val claimUpdates = claims.mapNotNull { (claimId, value) ->
             val claim = claimManager.findByIdOrNull(claimId) ?: return@mapNotNull null
+            if (claim in refusedClaims) {
+                logger.info(
+                    "Invitation {} pre-assigns the identifier claim {}, and the flow resolved an existing " +
+                        "account rather than creating one. The claim is left alone.",
+                    invitationId,
+                    claim.id
+                )
+                return@mapNotNull null
+            }
             CollectedClaimUpdate(
                 claim = claim,
                 value = Optional.of(value)
