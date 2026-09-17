@@ -358,7 +358,9 @@ class CollectedClaimManagerTest {
         every { claimManager.listIdentifierClaims() } returns listOf(emailClaim)
         every { collectedClaimUpdateMapper.toValue(update.value) } returns STORED_EMAIL
         coEvery {
-            userManager.findTakenIdentifierClaimIdOrNull(user.id, listOf(EMAIL_CLAIM), mapOf(EMAIL_CLAIM to STORED_EMAIL))
+            userManager.findTakenIdentifierClaimIdOrNull(
+                user.id, listOf(EMAIL_CLAIM), mapOf(EMAIL_CLAIM to STORED_EMAIL)
+            )
         } returns EMAIL_CLAIM
 
         // The repository is left unstubbed: reaching the assertion is proof nothing was written.
@@ -381,7 +383,9 @@ class CollectedClaimManagerTest {
         every { claimManager.listIdentifierClaims() } returns listOf(emailClaim)
         every { collectedClaimUpdateMapper.toValue(update.value) } returns STORED_EMAIL
         coEvery {
-            userManager.findTakenIdentifierClaimIdOrNull(user.id, listOf(EMAIL_CLAIM), mapOf(EMAIL_CLAIM to STORED_EMAIL))
+            userManager.findTakenIdentifierClaimIdOrNull(
+                user.id, listOf(EMAIL_CLAIM), mapOf(EMAIL_CLAIM to STORED_EMAIL)
+            )
         } returns null
         coEvery { manager.writeUpdates(user, listOf(update)) } returns listOf(collectedClaim)
 
