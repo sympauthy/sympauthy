@@ -41,12 +41,18 @@ class ActAsRuleManager(
      * - at equal order, a [DENY] rule wins over an [ALLOW] rule.
      *
      * **Fail closed:** if no rule matches, the delegation is denied.
+     *
+     * Only the claims [client]'s own audience has are bound into the expressions, whatever [targetUserClaims]
+     * carries. A rule keyed on a claim restricted to another audience would decide this delegation from a value
+     * the acting client may not be told, and an act-as token is that decision leaving the server. The narrowing
+     * is here rather than in the caller so that every caller is held to it.
      */
     suspend fun isActAsAllowed(
         client: Client,
         targetUserClaims: List<CollectedClaim>
     ): Boolean {
-        val configuration = actAsRuleExpressionExecutor.getConfiguration(client, targetUserClaims)
+        val audienceClaims = targetUserClaims.filter { it.claim.belongsToAudience(client.audience.id) }
+        val configuration = actAsRuleExpressionExecutor.getConfiguration(client, audienceClaims)
         val winningRule = listActAsRules()
             .filter { rule -> isRuleMatched(rule, configuration) }
             .sortedWith(

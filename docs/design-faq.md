@@ -242,17 +242,20 @@ no other. A claim restricted to another is therefore a value the flow applying i
 back, chosen for an audience nobody asked — a mistake whether an operator or a client makes it, and
 one the admin API names its audience as deliberately as a client does.
 
-What it costs is a capability: an operator can no longer pre-seed one audience's claim on someone
-signing up through a different one. That capability is not lost, only moved — the admin claims API
-writes across audiences and is the surface answering for the deployment. A warning would have kept
-both, and with them the silent success this entry is about: a caller told its invitation was
-created, holding a token that will not do what the request said.
+What it costs is a capability, and it is removed rather than moved. Nothing else writes a claim on
+the administration surface — `AdminUserClaimController` reads and nothing more — so an operator who
+was pre-seeding another audience's claim through an invitation has nowhere left to do it. That is
+accepted here because the invitation was never the right instrument for it: it wrote a value the
+sign-up applying it could not read back, and an operator would have had no way to see the result.
+A warning would have kept the capability, and with it the silent success this entry is about — a
+caller told its invitation was created, holding a token that will not do what the request said.
 
 ### Does a granting rule see claims of every audience?
 
-**Decision:** No. `OAuth2AuthorizeInteractiveFlowPurposeHandler.applyTerminalEffect` filters the
-claims it hands the granting pipeline to the flow's own audience. Consent is still not applied —
-what a rule may branch on and what a person agreed to disclose remain different questions.
+**Decision:** No. `UserScopeGrantingManager.grantScopes` narrows the claims it hands each granting
+method to the authorization's own audience, and `ActAsRuleManager.isActAsAllowed` does the same for
+the act-as rules. Consent is still not applied — what a rule may branch on and what a person agreed
+to disclose remain different questions.
 
 **Options considered:**
 
@@ -261,6 +264,8 @@ what a rule may branch on and what a person agreed to disclose remain different 
 - **The audience's claims** — the flow's audience deciding what its own grant may be keyed on.
 - **The audience's for the webhook, the whole person for the rules** — the value filtered only where
   it actually leaves the server.
+- **Filtered by each caller that loads the claims** — the narrowing written at the two call sites
+  rather than inside the managers that own the rules.
 
 **Rationale:**
 
@@ -269,8 +274,12 @@ A rule's value does not leave the server, but what it decides does, and a scope 
 The authorization webhook settles it: it is handed the same list and posts it to an endpoint
 configured on the client, so under the first option a restricted value leaves this server outright,
 to an audience it was restricted from. Splitting the two would have left one list filtered and one
-not — a distinction the next caller of `grantScopes` has to know about and the type does not
-carry.
+not — a distinction the next caller of `grantScopes` has to know about and the type does not carry.
+
+Filtering at the call sites has the same flaw one level up, and the act-as rules are the proof: they
+are a second rule engine, reached from the token exchange rather than from the flow, and a fix
+written only in `applyTerminalEffect` would have left them deciding on every audience's claims. So
+each manager that owns a kind of rule narrows what it binds, and a caller cannot get it wrong.
 
 What it costs is real and silent: a deployment whose rule branches on a claim restricted to
 another audience stops granting that scope, with no error to read. Nothing can tell that rule apart

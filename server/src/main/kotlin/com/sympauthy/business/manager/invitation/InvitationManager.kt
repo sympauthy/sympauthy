@@ -261,10 +261,10 @@ open class InvitationManager(
      * session completes, so an abandoned invited sign-up leaves the invitation intact and the invitee's link
      * still works. See [com.sympauthy.data.model.SessionScoped].
      *
-     * A claim the invitation's own audience does not have is dropped, the same as one that has since been
-     * disabled. [validateAndCleanClaims] refused it when the invitation was minted, so what reaches here is a
-     * restriction the configuration gained afterwards — and there is nobody left to refuse: the creator is
-     * long gone and the invitee is mid-sign-up, answering for a value they never chose.
+     * A claim the invitation's own audience does not have is dropped rather than written. Two things reach
+     * here past [validateAndCleanClaims]: an invitation minted before that check existed, and a restriction
+     * the configuration gained after the token was issued. Neither leaves anybody to refuse — the creator is
+     * long gone, and the invitee is mid-sign-up answering for a value they never chose.
      */
     @Transactional
     open suspend fun applyInvitationClaims(invitationId: UUID?, user: User) {

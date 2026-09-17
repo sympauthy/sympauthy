@@ -105,12 +105,16 @@ a claim restricted to another is a value chosen for an audience nobody asked and
 the flow that writes it. A bootstrap invitation is refused at startup rather than at creation,
 because the file it is written in is what the deployment is being told about.
 
-**A granting rule sees the audience's claims, and consent is the only thing it sees past.** What a
-rule may branch on and what a person agreed to disclose to this client are different questions, so
-the rules run on claims regardless of consent — but a rule keyed on a claim restricted to another
-audience decides this authorization from a value it may not be told, which is the restriction one
-indirection away. The authorization webhook is handed that same list and posts it off this server,
-where the value itself would leave.
+**A configured rule sees the audience's claims, and consent is the only thing it sees past.** What a
+rule may branch on and what a person agreed to disclose are different questions, so a rule runs on
+claims regardless of consent — but one keyed on a claim restricted to another audience decides from
+a value it may not be told, and what it decides leaves the server: a granted scope, an act-as token.
+The authorization webhook is handed the same claims and posts them off this server outright.
+
+**Each manager owning a kind of rule narrows the claims itself**, rather than trusting the caller
+that loaded them. `UserScopeGrantingManager.grantScopes` does it for the granting methods and
+`ActAsRuleManager.isActAsAllowed` for the act-as rules, so a new caller of either, and a new method
+in the granting pipeline, is held to the restriction without knowing it exists.
 
 **The audience an interactive flow works in is the one its authorization is for**, the audience of
 the client that started it. It decides the whole of what that flow does with claims: which it offers

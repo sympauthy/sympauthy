@@ -44,15 +44,23 @@ class UserScopeGrantingManager(
      * granted when requested, without going through the granting rules.
      *
      * Some methods may require access to the claims collected by the authorization flow during the authorization
-     * process, it should be provided in the [allClaims] parameter.
+     * process; [allClaims] carries them, and each method is handed the ones this authorization's audience has
+     * rather than all of them. Consent is not applied — what a rule may branch on and what the end-user agreed
+     * to disclose to the client are different questions — but the audience is, because a method deciding on a
+     * value restricted to another publishes it: a scope granted is the decision leaving the server, and the
+     * authorization webhook posts the value itself. The narrowing is here rather than in the caller so that
+     * every method [getScopeGrantingMethods] returns is held to it, including the next one added.
      */
     suspend fun grantScopes(
         session: OnGoingInteractiveFlowSession,
         allClaims: List<CollectedClaim>
     ): UserGrantScopesResult {
-        val allRequestedScopes = oauth2Manager.fetchOAuth2(session).requestedScopes.map {
+        val oauth2 = oauth2Manager.fetchOAuth2(session)
+        val allRequestedScopes = oauth2.requestedScopes.map {
             scopeManager.findOrThrow(it)
         }
+        val audienceId = oauth2Manager.getAudienceId(oauth2)
+        val audienceClaims = allClaims.filter { it.claim.belongsToAudience(audienceId) }
         // Only grantable scopes go through the granting pipeline
         val requestedGrantableScopes = allRequestedScopes.filterIsInstance<GrantableUserScope>()
 
@@ -81,7 +89,7 @@ class UserScopeGrantingManager(
             val result = method.invoke(
                 session,
                 unhandledRequestedScopes,
-                allClaims
+                audienceClaims
             )
             results.add(result)
         }
