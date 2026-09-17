@@ -215,4 +215,81 @@ checked.
 
 ---
 
+## Claims
+
+### Is an administrator held to an invitation's audience?
+
+**Decision:** Yes. `InvitationManager.validateAndCleanClaims` refuses a pre-assigned claim
+restricted to an audience other than the invitation's own, and it asks that of every caller — the
+client API, the admin API and the bootstrap alike. A bootstrap invitation is refused at startup
+instead, by `BootstrapInvitationsConfigValidator`, so the operator is told by the same report as
+every other configuration error.
+
+**Options considered:**
+
+- **Refuse only a client** — the literal reading of the rule
+  [#454 stated](security.md#claims), beside the ACL check, which is already a client-only question.
+- **Refuse every caller** — the audience asked apart from the ACL, of whoever names it.
+- **Refuse a client, and warn an administrator** — the capability kept, with the mistake reported.
+
+**Rationale:**
+
+The administration surface reads across every audience, so excepting it here would have been
+consistent with the one exception [the security document](security.md#claims) already grants it. It
+is not the same question. Reading across audiences is an administrator answering for the deployment;
+an invitation is an instrument of exactly one audience, consumed by a client of that audience and by
+no other. A claim restricted to another is therefore a value the flow applying it can never read
+back, chosen for an audience nobody asked — a mistake whether an operator or a client makes it, and
+one the admin API names its audience as deliberately as a client does.
+
+What it costs is a capability, and it is removed rather than moved. Nothing else writes a claim on
+the administration surface — `AdminUserClaimController` reads and nothing more — so an operator who
+was pre-seeding another audience's claim through an invitation has nowhere left to do it. That is
+accepted here because the invitation was never the right instrument for it: it wrote a value the
+sign-up applying it could not read back, and an operator would have had no way to see the result.
+A warning would have kept the capability, and with it the silent success this entry is about — a
+caller told its invitation was created, holding a token that will not do what the request said.
+
+### Does a granting rule see claims of every audience?
+
+**Decision:** No. Each caller reads the claims of the audience its decision lands in, through
+`CollectedClaimManager.findByUserIdAndAudience`: `applyTerminalEffect` reads the flow's audience
+before granting, and the token exchange reads the audience the act-as token is being issued for.
+Consent is still not applied — what a rule may branch on and what a person agreed to disclose
+remain different questions.
+
+**Options considered:**
+
+- **The whole person** — every claim, as before, on the grounds that a deployment's own rules answer
+  for the deployment the way an administrator does.
+- **The audience's claims** — the flow's audience deciding what its own grant may be keyed on.
+- **The audience's for the webhook, the whole person for the rules** — the value filtered only where
+  it actually leaves the server.
+- **Narrowed inside the managers that own the rules** — `grantScopes` and `isActAsAllowed` filtering
+  what their callers hand them.
+
+**Rationale:**
+
+A rule's value does not leave the server, but what it decides does, and a scope granted in a
+`default` grant because of a `billing` claim publishes that claim's content one indirection away.
+The authorization webhook settles it: it is handed the same list and posts it to an endpoint
+configured on the client, so under the first option a restricted value leaves this server outright,
+to an audience it was restricted from. Splitting the two would have left one list filtered and one
+not — a distinction the next caller of `grantScopes` has to know about and the type does not carry.
+
+The act-as rules are a second rule engine, reached from the token exchange rather than the flow, and
+they answer the same question for a different audience: the one the exchange names, which may be
+neither the acting client's nor anything the flow would have resolved. A manager narrowing on its
+callers' behalf would have had to guess which, so the read is the caller's — the caller is what
+knows where its decision lands. And it is a read rather than a filter, because loading a value a
+rule may not see and dropping it afterwards is one refactor away from not dropping it.
+
+What it costs is real and silent: a deployment whose rule branches on a claim restricted to
+another audience stops granting that scope, with no error to read. Nothing can tell that rule apart
+from one whose claim is merely absent for this person. The alternative is a server where the
+audience restriction holds everywhere except the one place a value is posted to a third party, and a
+rule about who may know a claim is worth less than the weakest path to it.
+
+---
+
 ← [Design documentation](index.md)

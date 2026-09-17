@@ -231,19 +231,29 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
      * and the invitee's link still works. It is also what settles two sign-ups holding one invitation: this
      * runs inside the completion transaction, so the first flow to reach it takes it and the second is
      * refused. See [com.sympauthy.data.model.SessionScoped].
+     *
+     * The claims handed to the granting pipeline are the ones this authorization's audience has, read that way
+     * rather than read whole and narrowed after: a rule deciding on a claim restricted to another audience
+     * publishes it, the granted scope being the decision leaving the server and the authorization webhook
+     * posting the value itself. Consent is not applied to them — what a rule may branch on and what the
+     * end-user agreed to disclose to the client are different questions.
      */
     override suspend fun applyTerminalEffect(session: OnGoingInteractiveFlowSession): TerminalEffectResult {
         val featuresConfig = uncheckedFeaturesConfig.orThrow()
 
-        // Fetch all collected claims regardless of consent so the granting manager can access them all.
         val userId = session.userId
             ?: throw internalBusinessExceptionOf("flow.authorization_flow.complete.missing_user")
-        val allClaims = collectedClaimManager.findByUserId(userId)
+        // Fetched once here and threaded downward: the granting pipeline and the consent below both answer for
+        // the audience it names, and neither reads the record again.
+        val oauth2BeforeGranting = oauth2Manager.fetchOAuth2(session)
+        val audienceId = oauth2Manager.getAudienceId(oauth2BeforeGranting)
+        val audienceClaims = collectedClaimManager.findByUserIdAndAudience(userId, audienceId)
 
         // Grant only grantable scopes through the granting pipeline
         val grantScopesResult = scopeGrantingManager.grantScopes(
             session = session,
-            allClaims = allClaims
+            oauth2 = oauth2BeforeGranting,
+            audienceClaims = audienceClaims
         )
         val oauth2 = oauth2Manager.setGrantedScopes(
             session = session,
@@ -265,7 +275,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
 
         consentManager.saveConsent(
             userId = userId,
-            audienceId = oauth2Manager.getAudienceId(oauth2),
+            audienceId = audienceId,
             clientId = oauth2.clientId,
             scopes = oauth2.consentedScopes ?: emptyList()
         )

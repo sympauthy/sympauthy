@@ -71,7 +71,7 @@ class TokenExchangeManagerTest {
 
     /** The acting client's own audience, read only where the request names none of its own. */
     private fun stubClientAudience() {
-        every { actingClient.audience } returns mockk { every { tokenAudience } returns "default-aud" }
+        every { actingClient.audience } returns defaultAudience
     }
 
     /**
@@ -88,7 +88,14 @@ class TokenExchangeManagerTest {
     private fun stubKnownUser() {
         val user = mockk<User> { every { id } returns userId }
         coEvery { userManager.findByIdOrNull(userId) } returns user
-        coEvery { collectedClaimManager.findByUserId(userId) } returns emptyList()
+    }
+
+    /**
+     * The target user's claims as the audience the token is being issued for has them. Naming that audience is
+     * the assertion: a manager reading the acting client's instead, or reading them unnarrowed, reaches no stub.
+     */
+    private fun stubTargetAudienceClaims(audienceId: String) {
+        coEvery { collectedClaimManager.findByUserIdAndAudience(userId, audienceId) } returns emptyList()
     }
 
     @Test
@@ -188,6 +195,8 @@ class TokenExchangeManagerTest {
     fun `denied by act-as rules is rejected`() = runTest {
         stubValidSubjectToken(mockActorToken())
         stubKnownUser()
+        stubClientAudience()
+        stubTargetAudienceClaims("default")
         coEvery { actAsRuleManager.isActAsAllowed(actingClient, emptyList()) } returns false
         val ex = assertFailsWith<OAuth2Exception> {
             manager().exchangeForActAsToken(actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), null)
@@ -199,7 +208,6 @@ class TokenExchangeManagerTest {
     fun `unknown requested audience is rejected`() = runTest {
         stubValidSubjectToken(mockActorToken())
         stubKnownUser()
-        coEvery { actAsRuleManager.isActAsAllowed(actingClient, emptyList()) } returns true
         val ex = assertFailsWith<OAuth2Exception> {
             manager().exchangeForActAsToken(
                 actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), audience = "unknown"
@@ -212,6 +220,7 @@ class TokenExchangeManagerTest {
     fun `success without requested audience defaults to the client audience`() = runTest {
         val actorToken = mockActorToken()
         stubClientAudience()
+        stubTargetAudienceClaims("default")
         stubValidSubjectToken(actorToken)
         stubKnownUser()
         coEvery { actAsRuleManager.isActAsAllowed(actingClient, emptyList()) } returns true
@@ -242,6 +251,7 @@ class TokenExchangeManagerTest {
         val actorToken = mockActorToken()
         stubValidSubjectToken(actorToken)
         stubKnownUser()
+        stubTargetAudienceClaims("backend")
         coEvery { actAsRuleManager.isActAsAllowed(actingClient, emptyList()) } returns true
         val encoded = mockk<EncodedAuthenticationToken>()
         coEvery { accessTokenGenerator.generateActAsAccessToken(any(), any(), any(), any()) } returns encoded
@@ -259,6 +269,25 @@ class TokenExchangeManagerTest {
             )
         }
     }
+
+    @Test
+    fun `act-as rules read the target user's claims in the requested audience, not the acting client's`() =
+        runTest {
+            stubValidSubjectToken(mockActorToken())
+            stubKnownUser()
+            stubTargetAudienceClaims("backend")
+            coEvery { actAsRuleManager.isActAsAllowed(actingClient, emptyList()) } returns true
+            coEvery {
+                accessTokenGenerator.generateActAsAccessToken(any(), any(), any(), any())
+            } returns mockk<EncodedAuthenticationToken>()
+
+            manager().exchangeForActAsToken(
+                actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), audience = "backend"
+            )
+
+            coVerify { collectedClaimManager.findByUserIdAndAudience(userId, "backend") }
+            coVerify(exactly = 0) { collectedClaimManager.findByUserIdAndAudience(userId, "default") }
+        }
 
     @Test
     fun `resource parameter is rejected as unsupported and never resolves the audience`() = runTest {

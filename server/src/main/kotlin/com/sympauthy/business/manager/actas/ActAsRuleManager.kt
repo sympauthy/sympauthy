@@ -41,6 +41,11 @@ class ActAsRuleManager(
      * - at equal order, a [DENY] rule wins over an [ALLOW] rule.
      *
      * **Fail closed:** if no rule matches, the delegation is denied.
+     *
+     * [targetUserClaims] are the claims the audience the token is being issued for has, read that way by the
+     * caller — not the acting client's, which is only the default when the request names no target. A rule keyed
+     * on a claim restricted to some other audience would decide this delegation from a value that audience may
+     * not be told, and the act-as token is that decision arriving there.
      */
     suspend fun isActAsAllowed(
         client: Client,

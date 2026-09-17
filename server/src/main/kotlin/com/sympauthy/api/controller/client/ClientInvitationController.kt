@@ -42,6 +42,11 @@ class ClientInvitationController(
         tags = ["client"],
         responses = [
             ApiResponse(responseCode = "201", description = "Invitation created."),
+            ApiResponse(
+                responseCode = "400",
+                description = "A pre-assigned claim was refused. The client may pre-assign only its " +
+                        "own audience's claims, and only those it may write."
+            ),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
                 responseCode = "403",

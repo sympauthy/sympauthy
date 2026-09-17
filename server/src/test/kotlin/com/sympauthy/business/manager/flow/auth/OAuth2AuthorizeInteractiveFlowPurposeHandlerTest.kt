@@ -24,6 +24,7 @@ import com.sympauthy.business.model.flow.TerminalEffectResult
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.EnabledScope
+import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.config.model.EnabledFeaturesConfig
 import com.sympauthy.config.model.EnabledMfaConfig
 import io.mockk.coEvery
@@ -246,12 +247,11 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         val session = createOnGoingSession(userId = userId)
         val oauth2AfterGranted = oauth2Of(clientId = clientId, grantedScopes = listOf("read"))
 
-        coEvery { collectedClaimManager.findByUserId(userId) } returns emptyList()
-        coEvery { scopeGrantingManager.grantScopes(session, emptyList()) } returns grantScopesResultOf(
+        val oauth2 = stubAudienceClaims(session, userId, emptyList())
+        coEvery { scopeGrantingManager.grantScopes(session, oauth2, emptyList()) } returns grantScopesResultOf(
             grantedScopeObjects
         )
         coEvery { oauth2Manager.setGrantedScopes(session, grantedScopeObjects, any()) } returns oauth2AfterGranted
-        coEvery { oauth2Manager.getAudienceId(oauth2AfterGranted) } returns testAudience.id
         coEvery { consentManager.saveConsent(userId, testAudience.id, clientId, any()) } returns mockk()
 
         val result = handler.applyTerminalEffect(session)
@@ -272,12 +272,11 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
             invitationId = invitationId
         )
 
-        coEvery { collectedClaimManager.findByUserId(userId) } returns emptyList()
-        coEvery { scopeGrantingManager.grantScopes(session, emptyList()) } returns grantScopesResultOf(
+        val oauth2 = stubAudienceClaims(session, userId, emptyList())
+        coEvery { scopeGrantingManager.grantScopes(session, oauth2, emptyList()) } returns grantScopesResultOf(
             grantedScopeObjects
         )
         coEvery { oauth2Manager.setGrantedScopes(session, grantedScopeObjects, any()) } returns oauth2AfterGranted
-        coEvery { oauth2Manager.getAudienceId(oauth2AfterGranted) } returns testAudience.id
         coEvery { consentManager.saveConsent(userId, testAudience.id, clientId, any()) } returns mockk()
         coEvery { invitationManager.consumeInvitation(invitationId, userId) } returns mockk()
 
@@ -298,8 +297,9 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         )
 
         every { uncheckedFeaturesConfig.allowAccessToClientWithoutScope } returns false
-        coEvery { collectedClaimManager.findByUserId(userId) } returns emptyList()
-        coEvery { scopeGrantingManager.grantScopes(session, emptyList()) } returns grantScopesResultOf(emptyList())
+        val oauth2 = stubAudienceClaims(session, userId, emptyList())
+        coEvery { scopeGrantingManager.grantScopes(session, oauth2, emptyList()) } returns
+                grantScopesResultOf(emptyList())
         coEvery { oauth2Manager.setGrantedScopes(session, emptyList(), any()) } returns oauth2AfterGranted
 
         val result = handler.applyTerminalEffect(session)
@@ -320,15 +320,32 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         )
 
         every { uncheckedFeaturesConfig.allowAccessToClientWithoutScope } returns true
-        coEvery { collectedClaimManager.findByUserId(userId) } returns emptyList()
-        coEvery { scopeGrantingManager.grantScopes(session, emptyList()) } returns grantScopesResultOf(emptyList())
+        val oauth2 = stubAudienceClaims(session, userId, emptyList())
+        coEvery { scopeGrantingManager.grantScopes(session, oauth2, emptyList()) } returns
+                grantScopesResultOf(emptyList())
         coEvery { oauth2Manager.setGrantedScopes(session, emptyList(), any()) } returns oauth2AfterGranted
-        coEvery { oauth2Manager.getAudienceId(oauth2AfterGranted) } returns testAudience.id
         coEvery { consentManager.saveConsent(userId, any(), clientId, any()) } returns mockk()
 
         val result = handler.applyTerminalEffect(session)
 
         assertEquals(TerminalEffectResult.Proceed, result)
+    }
+
+    @Test
+    fun `applyTerminalEffect - Read the claims of the audience the authorization is for`() = runTest {
+        val userId = UUID.randomUUID()
+        val clientId = "client-id"
+        val session = createOnGoingSession(userId = userId)
+        val oauth2AfterGranted = oauth2Of(clientId = clientId, grantedScopes = listOf("read"))
+        val audienceClaims = listOf(mockk<CollectedClaim>())
+
+        val oauth2 = stubAudienceClaims(session, userId, audienceClaims)
+        coEvery { scopeGrantingManager.grantScopes(session, oauth2, audienceClaims) } returns
+                grantScopesResultOf(emptyList())
+        coEvery { oauth2Manager.setGrantedScopes(session, emptyList(), any()) } returns oauth2AfterGranted
+        coEvery { consentManager.saveConsent(userId, testAudience.id, clientId, any()) } returns mockk()
+
+        assertEquals(TerminalEffectResult.Proceed, handler.applyTerminalEffect(session))
     }
 
     @Test
@@ -454,6 +471,23 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
 
             assertTrue(handler.debugInformation(session).all { it.value == null })
         }
+
+
+    /**
+     * The record the audience is resolved from before anything is granted, and the read made with it. Nothing
+     * stubs `findByUserId`, so a handler reading the claims unnarrowed reaches no stub at all.
+     */
+    private fun stubAudienceClaims(
+        session: OnGoingInteractiveFlowSession,
+        userId: UUID,
+        audienceClaims: List<CollectedClaim>,
+    ): InteractiveFlowSessionOAuth2 {
+        val oauth2 = oauth2Of(clientId = "client-id")
+        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
+        coEvery { oauth2Manager.getAudienceId(oauth2) } returns testAudience.id
+        coEvery { collectedClaimManager.findByUserIdAndAudience(userId, testAudience.id) } returns audienceClaims
+        return oauth2
+    }
 
     private fun onGoingSessionMock(userId: UUID) = mockk<OnGoingInteractiveFlowSession> {
         every { this@mockk.userId } returns userId

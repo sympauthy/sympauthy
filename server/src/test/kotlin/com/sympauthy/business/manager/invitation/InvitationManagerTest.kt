@@ -59,14 +59,42 @@ class InvitationManagerTest {
     @InjectMockKs
     lateinit var manager: InvitationManager
 
-    /** A claim the manager only asks whether it is enabled; its value is the validator's business. */
-    private fun createClaim(enabled: Boolean = true): Claim = mockk {
-        every { this@mockk.enabled } returns enabled
+    private companion object {
+        const val AUDIENCE = "default"
+        const val OTHER_AUDIENCE = "billing"
+    }
+
+    /**
+     * A claim as [InvitationManager.validateAndCleanClaims] asks after it: whether it is enabled and which
+     * audience it is for. Its value is the validator's business. [audienceId] null is every audience's claim.
+     */
+    private fun createClaim(audienceId: String? = null): Claim = mockk {
+        every { enabled } returns true
+        every { belongsToAudience(any()) } answers { audienceId == null || audienceId == firstArg() }
+    }
+
+    /**
+     * A claim as [InvitationManager.applyInvitationClaims] asks after it. That one is applying values already
+     * validated, so the audience is the only question left.
+     */
+    private fun createStoredClaim(audienceId: String? = null): Claim = mockk {
+        every { belongsToAudience(any()) } answers { audienceId == null || audienceId == firstArg() }
     }
 
     /** An account the flow is still signing up, which an invitation may give an identifier claim. */
     private fun provisionalUser(): User = mockk {
         every { sessionId } returns UUID.randomUUID()
+    }
+
+    /** A committed account the flow resolved rather than created, which keeps the identifier it has. */
+    private fun resolvedUser(): User = mockk {
+        every { sessionId } returns null
+    }
+
+    /** An identifier claim as [InvitationManager.applyInvitationClaims] asks after it, its id read to log it. */
+    private fun identifierClaim(): Claim = mockk {
+        every { id } returns "email"
+        every { belongsToAudience(any()) } returns true
     }
 
     private fun createInvitation(
@@ -94,13 +122,13 @@ class InvitationManagerTest {
 
     @Test
     fun `validateAndCleanClaims - Returns null when claims are null`() {
-        val result = manager.validateAndCleanClaims(null, null)
+        val result = manager.validateAndCleanClaims(null, AUDIENCE, null)
         assertNull(result)
     }
 
     @Test
     fun `validateAndCleanClaims - Returns input when claims are empty`() {
-        val result = manager.validateAndCleanClaims(emptyMap(), null)
+        val result = manager.validateAndCleanClaims(emptyMap(), AUDIENCE, null)
         assertTrue(result.isNullOrEmpty())
     }
 
@@ -109,7 +137,7 @@ class InvitationManagerTest {
         every { claimManager.findByIdOrNull("unknown_claim") } returns null
 
         val exception = assertThrows<BusinessException> {
-            manager.validateAndCleanClaims(mapOf("unknown_claim" to "value"), null)
+            manager.validateAndCleanClaims(mapOf("unknown_claim" to "value"), AUDIENCE, null)
         }
         assertEquals("invitation.unknown_claim", exception.detailsId)
         assertTrue(exception.recoverable)
@@ -117,11 +145,11 @@ class InvitationManagerTest {
 
     @Test
     fun `validateAndCleanClaims - Throws when claim is disabled`() {
-        val claim = createClaim(enabled = false)
+        val claim = mockk<Claim> { every { enabled } returns false }
         every { claimManager.findByIdOrNull("disabled_claim") } returns claim
 
         val exception = assertThrows<BusinessException> {
-            manager.validateAndCleanClaims(mapOf("disabled_claim" to "value"), null)
+            manager.validateAndCleanClaims(mapOf("disabled_claim" to "value"), AUDIENCE, null)
         }
         assertEquals("invitation.unknown_claim", exception.detailsId)
     }
@@ -134,7 +162,7 @@ class InvitationManagerTest {
                 BusinessException(recoverable = true, detailsId = "user.claim_value_validator.invalid_boolean")
 
         val exception = assertThrows<BusinessException> {
-            manager.validateAndCleanClaims(mapOf("my_boolean" to "not_a_boolean"), null)
+            manager.validateAndCleanClaims(mapOf("my_boolean" to "not_a_boolean"), AUDIENCE, null)
         }
         assertEquals("user.claim_value_validator.invalid_boolean", exception.detailsId)
     }
@@ -145,7 +173,7 @@ class InvitationManagerTest {
         every { claimManager.findByIdOrNull("my_boolean") } returns claim
         every { claimValueValidator.validateAndCleanValueForClaim(claim, "TRUE") } returns Optional.of("true")
 
-        val result = manager.validateAndCleanClaims(mapOf("my_boolean" to "TRUE"), null)
+        val result = manager.validateAndCleanClaims(mapOf("my_boolean" to "TRUE"), AUDIENCE, null)
         assertEquals(mapOf("my_boolean" to "true"), result)
     }
 
@@ -158,6 +186,7 @@ class InvitationManagerTest {
         val exception = assertThrows<BusinessException> {
             manager.validateAndCleanClaims(
                 mapOf("custom_role" to "admin"),
+                AUDIENCE,
                 listOf("invitations:write")
             )
         }
@@ -166,12 +195,51 @@ class InvitationManagerTest {
     }
 
     @Test
+    fun `validateAndCleanClaims - Throws when the claim is restricted to another audience`() {
+        val claim = createClaim(audienceId = OTHER_AUDIENCE)
+        every { claimManager.findByIdOrNull("custom_tier") } returns claim
+
+        val exception = assertThrows<BusinessException> {
+            manager.validateAndCleanClaims(
+                mapOf("custom_tier" to "gold"),
+                AUDIENCE,
+                listOf("users:claims:write")
+            )
+        }
+        assertEquals("invitation.claim_of_another_audience", exception.detailsId)
+        assertTrue(exception.recoverable)
+        verify(exactly = 0) { claim.canBeWrittenByClient(any(), any()) }
+    }
+
+    @Test
+    fun `validateAndCleanClaims - Throws when the claim is of another audience and no ACL applies`() {
+        val claim = createClaim(audienceId = OTHER_AUDIENCE)
+        every { claimManager.findByIdOrNull("custom_tier") } returns claim
+
+        val exception = assertThrows<BusinessException> {
+            manager.validateAndCleanClaims(mapOf("custom_tier" to "gold"), AUDIENCE, null)
+        }
+        assertEquals("invitation.claim_of_another_audience", exception.detailsId)
+    }
+
+    @Test
+    fun `validateAndCleanClaims - Accepts a claim restricted to the invitation's own audience`() {
+        val claim = createClaim(audienceId = AUDIENCE)
+        every { claimManager.findByIdOrNull("custom_tier") } returns claim
+        every { claimValueValidator.validateAndCleanValueForClaim(claim, "gold") } returns Optional.of("gold")
+
+        val result = manager.validateAndCleanClaims(mapOf("custom_tier" to "gold"), AUDIENCE, null)
+
+        assertEquals(mapOf("custom_tier" to "gold"), result)
+    }
+
+    @Test
     fun `validateAndCleanClaims - Skips ACL check when clientScopeIds is null`() {
         val claim = createClaim()
         every { claimManager.findByIdOrNull("custom_role") } returns claim
         every { claimValueValidator.validateAndCleanValueForClaim(claim, "admin") } returns Optional.of("admin")
 
-        val result = manager.validateAndCleanClaims(mapOf("custom_role" to "admin"), null)
+        val result = manager.validateAndCleanClaims(mapOf("custom_role" to "admin"), AUDIENCE, null)
 
         assertEquals(mapOf("custom_role" to "admin"), result)
         verify(exactly = 0) { claim.canBeWrittenByClient(any(), any()) }
@@ -291,7 +359,7 @@ class InvitationManagerTest {
             id = invitationId,
             claims = mapOf("custom_role" to "admin")
         )
-        val claim = mockk<Claim>()
+        val claim = createStoredClaim()
         val user = provisionalUser()
         val entity = mockk<InvitationEntity>()
 
@@ -321,19 +389,39 @@ class InvitationManagerTest {
     }
 
     @Test
+    fun `applyInvitationClaims - Skips a claim the audience lost since the invitation was created`() = runTest {
+        val invitationId = UUID.randomUUID()
+        val invitation = createInvitation(
+            id = invitationId,
+            audienceId = AUDIENCE,
+            claims = mapOf("custom_region" to "eu-west", "custom_tier" to "gold")
+        )
+        val ownClaim = createStoredClaim(audienceId = AUDIENCE)
+        val otherAudienceClaim = createStoredClaim(audienceId = OTHER_AUDIENCE)
+        val user = provisionalUser()
+        val entity = mockk<InvitationEntity>()
+
+        coEvery { invitationRepository.findById(invitationId) } returns entity
+        every { invitationMapper.toInvitation(entity) } returns invitation
+        every { claimManager.findByIdOrNull("custom_region") } returns ownClaim
+        every { claimManager.findByIdOrNull("custom_tier") } returns otherAudienceClaim
+        coEvery { collectedClaimManager.update(user, any()) } returns emptyList()
+
+        manager.applyInvitationClaims(invitationId, user)
+
+        coVerify { collectedClaimManager.update(user, match { it.size == 1 && it[0].claim == ownClaim }) }
+    }
+
+    @Test
     fun `applyInvitationClaims - Leave an identifier claim alone on an account the flow resolved`() = runTest {
         val invitationId = UUID.randomUUID()
         val invitation = createInvitation(
             id = invitationId,
             claims = mapOf("email" to "invited@example.com", "custom_role" to "admin")
         )
-        val emailClaim = mockk<Claim> {
-            every { id } returns "email"
-        }
-        val roleClaim = mockk<Claim>()
-        val user = mockk<User> {
-            every { sessionId } returns null
-        }
+        val emailClaim = identifierClaim()
+        val roleClaim = createStoredClaim()
+        val user = resolvedUser()
         val entity = mockk<InvitationEntity>()
 
         coEvery { invitationRepository.findById(invitationId) } returns entity
@@ -356,12 +444,8 @@ class InvitationManagerTest {
                 id = invitationId,
                 claims = mapOf("email" to "invited@example.com")
             )
-            val emailClaim = mockk<Claim> {
-                every { id } returns "email"
-            }
-            val user = mockk<User> {
-                every { sessionId } returns null
-            }
+            val emailClaim = identifierClaim()
+            val user = resolvedUser()
             val entity = mockk<InvitationEntity>()
 
             coEvery { invitationRepository.findById(invitationId) } returns entity
@@ -375,13 +459,14 @@ class InvitationManagerTest {
         }
 
     @Test
+
     fun `applyInvitationClaims - Skips unknown claims`() = runTest {
         val invitationId = UUID.randomUUID()
         val invitation = createInvitation(
             id = invitationId,
             claims = mapOf("known" to "value", "unknown" to "value")
         )
-        val knownClaim = mockk<Claim>()
+        val knownClaim = createStoredClaim()
         val user = provisionalUser()
         val entity = mockk<InvitationEntity>()
 

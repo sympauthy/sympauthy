@@ -56,6 +56,9 @@ open class InvitationManager(
      * [clientScopeIds] carries the scopes the client holds when the invitation comes from the client API, and
      * is what the pre-assigned [claims] are checked against through the unconditional ACL. The admin API and
      * the bootstrap pass null, which means no ACL check at all rather than a client holding no scope.
+     *
+     * [audienceId] is the audience the invitation is for, and the pre-assigned [claims] are held to it whoever
+     * is creating it — see [validateAndCleanClaims].
      */
     @Transactional
     open suspend fun createInvitation(
@@ -67,7 +70,7 @@ open class InvitationManager(
         createdById: String? = null,
         clientScopeIds: List<String>? = null
     ): Pair<Invitation, String> {
-        val validatedClaims = validateAndCleanClaims(claims, clientScopeIds)
+        val validatedClaims = validateAndCleanClaims(claims, audienceId, clientScopeIds)
 
         val config = invitationConfig
         val now = LocalDateTime.now()
@@ -100,17 +103,23 @@ open class InvitationManager(
     }
 
     /**
-     * Validate that all claim keys in the map correspond to existing enabled claims
-     * and that the values are valid for the claim type.
+     * Validate that all claim keys in the map correspond to existing enabled claims, that each is one
+     * [audienceId] has, and that the values are valid for the claim type.
      *
-     * When [clientScopeIds] is provided (client API), additionally checks that the client
-     * has unconditional write access to each claim.
-     * When null (admin API, bootstrap), no ACL check is performed.
+     * The audience is asked of every caller, and it is asked whatever [clientScopeIds] says. A claim restricted
+     * to another audience is not something a caller may or may not be permitted to write: an invitation is
+     * consumed by a client of [audienceId] and by no other, so pre-assigning one is writing a value the flow
+     * that applies it can never read back, chosen for an audience that was never asked. The admin API and the
+     * bootstrap name the audience as deliberately as a client does, and neither is spared the question.
+     *
+     * When [clientScopeIds] is provided (client API), additionally checks that the client has unconditional
+     * write access to each claim. When null (admin API, bootstrap), no ACL check is performed.
      *
      * Returns a new map with cleaned values.
      */
     internal fun validateAndCleanClaims(
         claims: Map<String, String>?,
+        audienceId: String,
         clientScopeIds: List<String>?
     ): Map<String, String>? {
         if (claims.isNullOrEmpty()) return claims
@@ -121,6 +130,14 @@ open class InvitationManager(
                     detailsId = "invitation.unknown_claim",
                     descriptionId = "description.invitation.unknown_claim",
                     "claim" to claimId
+                )
+            }
+            if (!claim.belongsToAudience(audienceId)) {
+                throw recoverableBusinessExceptionOf(
+                    detailsId = "invitation.claim_of_another_audience",
+                    descriptionId = "description.invitation.claim_of_another_audience",
+                    "claim" to claimId,
+                    "audience" to audienceId
                 )
             }
             if (clientScopeIds != null && !claim.canBeWrittenByClient(emptyList(), clientScopeIds)) {
@@ -254,16 +271,24 @@ open class InvitationManager(
      * the claims it writes are as provisional as the account they land on; [consumeInvitation] runs when the
      * session completes, so an abandoned invited sign-up leaves the invitation intact and the invitee's link
      * still works. See [com.sympauthy.data.model.SessionScoped].
+     *
+     * A claim the invitation's own audience does not have is dropped rather than written. Two things reach
+     * here past [validateAndCleanClaims]: an invitation minted before that check existed, and a restriction
+     * the configuration gained after the token was issued. Neither leaves anybody to refuse — the creator is
+     * long gone, and the invitee is mid-sign-up answering for a value they never chose.
      */
     @Transactional
     open suspend fun applyInvitationClaims(invitationId: UUID?, user: User) {
         if (invitationId == null) return
-        val claims = findById(invitationId).claims
+        val invitation = findById(invitationId)
+        val claims = invitation.claims
         if (claims.isNullOrEmpty()) return
 
         val refusedClaims = if (user.sessionId == null) claimManager.listIdentifierClaims().toSet() else emptySet()
         val claimUpdates = claims.mapNotNull { (claimId, value) ->
-            val claim = claimManager.findByIdOrNull(claimId) ?: return@mapNotNull null
+            val claim = claimManager.findByIdOrNull(claimId)
+                ?.takeIf { it.belongsToAudience(invitation.audienceId) }
+                ?: return@mapNotNull null
             if (claim in refusedClaims) {
                 logger.info(
                     "Invitation {} pre-assigns the identifier claim {}, and the flow resolved an existing " +

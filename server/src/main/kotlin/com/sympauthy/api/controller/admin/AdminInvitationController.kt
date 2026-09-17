@@ -40,6 +40,11 @@ class AdminInvitationController(
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "201", description = "Invitation created."),
+            ApiResponse(
+                responseCode = "400",
+                description = "A pre-assigned claim was refused. Only claims the named audience has " +
+                        "may be pre-assigned."
+            ),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
                 responseCode = "403",

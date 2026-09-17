@@ -58,6 +58,21 @@ open class CollectedClaimManager(
     }
 
     /**
+     * Return the list of [CollectedClaim] the audience identified by [audienceId] has, collected from the user
+     * identified by [userId] — those restricted to that audience and those restricted to none.
+     *
+     * Note: This method is not restricted by consent or scopes, only by audience. It is what a caller acting
+     * for one audience reads where consent does not apply to the question it is asking, a rule deciding a
+     * grant being the case; [ConsentAwareCollectedClaimManager] is what applies both.
+     */
+    suspend fun findByUserIdAndAudience(userId: UUID, audienceId: String): List<CollectedClaim> {
+        return findByUserIdAndClaims(
+            userId = userId,
+            claims = claimManager.listAllClaims().filter { it.belongsToAudience(audienceId) }
+        )
+    }
+
+    /**
      * Return the list of [CollectedClaim] for the identifier claims collected from the user identified by [userId].
      *
      * Note: This method is not restricted by consent or scopes.

@@ -1,7 +1,6 @@
 package com.sympauthy.business.manager.auth
 
 import com.sympauthy.business.manager.ScopeManager
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.rule.ScopeGrantingRuleManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.flow.InteractiveFlowSession
@@ -38,9 +37,6 @@ class UserScopeGrantingManagerTest {
     lateinit var scopeGrantingRuleManager: ScopeGrantingRuleManager
 
     @MockK
-    lateinit var oauth2Manager: InteractiveFlowSessionOAuth2Manager
-
-    @MockK
     lateinit var featuresConfig: EnabledFeaturesConfig
 
     @SpyK
@@ -50,7 +46,7 @@ class UserScopeGrantingManagerTest {
     @Test
     fun `grantScopes - apply methods returned by getScopeGrantingMethods`() = runBlocking {
         val session = mockk<OnGoingInteractiveFlowSession>()
-        coEvery { oauth2Manager.fetchOAuth2(session) } returns InteractiveFlowSessionOAuth2(
+        val oauth2 = InteractiveFlowSessionOAuth2(
             sessionId = UUID.randomUUID(),
             clientId = "test-client",
             redirectUri = "https://example.com/callback",
@@ -92,7 +88,8 @@ class UserScopeGrantingManagerTest {
 
         val result = scopeGrantingManager.grantScopes(
             session = session,
-            allClaims = emptyList()
+            oauth2 = oauth2,
+            audienceClaims = emptyList()
         )
 
         assertEquals(listOf(grantedScope1, declinedScope1, declinedScope2), result.requestedScopes)

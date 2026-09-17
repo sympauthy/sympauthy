@@ -8,6 +8,7 @@ import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
@@ -75,18 +76,20 @@ class TokenExchangeManager(
         val actorToken = validateActorSubjectToken(actingClient, subjectToken)
 
         val targetUser = resolveTargetUser(requestedSubject)
-        val targetClaims = collectedClaimManager.findByUserId(targetUser)
+        // Resolved before the rule runs, because the audience the token is being issued for is what decides
+        // which of the target user's claims a rule may be keyed on: that audience is where the token goes and
+        // where what the rule decides ends up, and it is not always the acting client's own.
+        val targetAudience = resolveTargetAudience(actingClient, audience)
+        val targetClaims = collectedClaimManager.findByUserIdAndAudience(targetUser, targetAudience.id)
 
         if (!actAsRuleManager.isActAsAllowed(actingClient, targetClaims)) {
             throw oauth2ExceptionOf(ACCESS_DENIED, "token_exchange.not_allowed")
         }
 
-        val tokenAudience = resolveTargetAudience(actingClient, audience)
-
         return accessTokenGenerator.generateActAsAccessToken(
             userId = targetUser,
             actorToken = actorToken,
-            tokenAudience = tokenAudience,
+            tokenAudience = targetAudience.tokenAudience,
             dpopJkt = dpopJkt
         )
     }
@@ -141,21 +144,24 @@ class TokenExchangeManager(
     }
 
     /**
-     * Resolve the issued token's audience from the RFC 8693 [audience] parameter (the logical name of the target
-     * service), matched against a configured audience by token audience or id. Defaults to the acting client's own
-     * audience when [audience] is not provided.
+     * Resolve the audience the token is issued for from the RFC 8693 [audience] parameter (the logical name of the
+     * target service), matched against a configured audience by token audience or id. Defaults to the acting
+     * client's own audience when [audience] is not provided.
+     *
+     * The whole [Audience] is returned rather than its token audience alone: the caller needs the id to read the
+     * target user's claims for it, and a second lookup to get back from one to the other would be a second
+     * chance to disagree.
      */
     private fun resolveTargetAudience(
         actingClient: Client,
         audience: String?
-    ): String {
+    ): Audience {
         if (audience.isNullOrBlank()) {
-            return actingClient.audience.tokenAudience
+            return actingClient.audience
         }
         val audiences = uncheckedAudiencesConfig.orThrow().audiences
-        return (audiences.firstOrNull { it.tokenAudience == audience || it.id == audience }
-            ?: throw oauth2ExceptionOf(INVALID_TARGET, "token_exchange.invalid_target", "target" to audience))
-            .tokenAudience
+        return audiences.firstOrNull { it.tokenAudience == audience || it.id == audience }
+            ?: throw oauth2ExceptionOf(INVALID_TARGET, "token_exchange.invalid_target", "target" to audience)
     }
 
     companion object {

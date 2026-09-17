@@ -1,6 +1,8 @@
 package com.sympauthy.api.controller.client
 
 import com.sympauthy.api.mapper.client.ClientInvitationResourceMapper
+import com.sympauthy.api.resource.client.ClientCreateInvitationInputResource
+import com.sympauthy.api.resource.client.ClientCreatedInvitationResource
 import com.sympauthy.api.resource.client.ClientInvitationResource
 import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.business.manager.ClientManager
@@ -11,7 +13,10 @@ import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.invitation.InvitationStatus
+import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.AuthenticationToken
+import com.sympauthy.business.model.oauth2.ClientScope
 import com.sympauthy.security.ClientAuthentication
 import io.mockk.coEvery
 import io.mockk.every
@@ -49,11 +54,11 @@ class ClientInvitationControllerTest {
 
     private val createdAt: LocalDateTime = LocalDateTime.of(2025, 1, 1, 0, 0)
 
-    private fun clientAuthentication(clientId: String): ClientAuthentication {
+    private fun clientAuthentication(clientId: String, vararg scopes: String): ClientAuthentication {
         val authenticationToken = mockk<AuthenticationToken> {
             every { this@mockk.clientId } returns clientId
         }
-        return ClientAuthentication(authenticationToken, emptyList())
+        return ClientAuthentication(authenticationToken, scopes.map(::ClientScope))
     }
 
     private fun id(last: Int): UUID = UUID.fromString("00000000-0000-0000-0000-00000000000$last")
@@ -74,6 +79,16 @@ class ClientInvitationControllerTest {
         revokedAt = null
     )
 
+    private fun createdResource(invitationId: UUID) = ClientCreatedInvitationResource(
+        invitationId = invitationId,
+        token = "raw-token",
+        status = "pending",
+        claims = null,
+        note = null,
+        createdAt = createdAt,
+        expiresAt = createdAt.plusDays(7)
+    )
+
     private fun mockResource(invitationId: UUID) = ClientInvitationResource(
         invitationId = invitationId,
         tokenPrefix = "abcdefgh",
@@ -85,6 +100,42 @@ class ClientInvitationControllerTest {
         userId = null,
         consumedAt = null
     )
+
+    /**
+     * Nothing in the request names an audience, so the stub matching the client's own is the assertion: a
+     * controller taking it from anywhere else reaches no stub at all. Refusing a claim that names another
+     * audience is [com.sympauthy.business.manager.invitation.InvitationManager]'s, and is proved there.
+     */
+    @Test
+    fun `createInvitation - Hold the pre-assigned claims to the authenticated client's own audience`() = runTest {
+        val invitation = invitation(id(1), createdAt)
+        val resource = createdResource(invitation.id)
+        val claims = mapOf("custom_region" to "eu-west")
+
+        coEvery { clientManager.findClientById("client") } returns mockk<Client> {
+            every { id } returns "client"
+            every { audience } returns Audience(id = "default", tokenAudience = "https://default.example.com")
+        }
+        coEvery {
+            invitationManager.createInvitation(
+                audienceId = "default",
+                claims = claims,
+                note = "welcome",
+                expiresAt = null,
+                createdBy = InvitationCreatedBy.CLIENT,
+                createdById = "client",
+                clientScopeIds = listOf("invitations:write", "users:claims:write"),
+            )
+        } returns (invitation to "raw-token")
+        every { invitationMapper.toCreatedResource(invitation, "raw-token") } returns resource
+
+        val result = controller.createInvitation(
+            clientAuthentication("client", "invitations:write", "users:claims:write"),
+            ClientCreateInvitationInputResource(expiresAt = null, claims = claims, note = "welcome"),
+        )
+
+        assertSame(resource, result)
+    }
 
     @Test
     fun `listInvitations - Map every invitation the page holds, and publish the page it came in`() = runTest {
