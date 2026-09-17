@@ -49,12 +49,19 @@ open class InteractiveFlowSessionManager(
      * The session is saved even if it is created in error (i.e. [error] is non-null), in which case a
      * [FailedInteractiveFlowSession] is returned.
      *
+     * [initiatingClientId] names the client this session was started for, and is null where an administrator
+     * started it or where nothing named a client. It takes no default: a session-creating path added later
+     * should not compile until somebody has decided what its client is, and a default of null would make "no
+     * client" the silent answer for every purpose after this one. It is set here and never updated — see
+     * [InteractiveFlowSession.initiatingClientId].
+     *
      * This method is not transactional on its own so it can participate in the caller's transaction (e.g.
      * to persist an attached record atomically with the session).
      */
     suspend fun newSession(
         purposes: List<InteractiveFlowPurpose>,
         initiatingPurpose: InteractiveFlowPurpose,
+        initiatingClientId: String?,
         flow: AuthorizationFlow? = null,
         successRedirectUri: URI? = null,
         redirectType: InteractiveFlowRedirectType? = null,
@@ -65,6 +72,7 @@ open class InteractiveFlowSessionManager(
         val entity = InteractiveFlowSessionEntity(
             purposes = purposes.map(InteractiveFlowPurpose::name).toTypedArray(),
             initiatingPurpose = initiatingPurpose.name,
+            initiatingClientId = initiatingClientId,
             flowId = flow?.id,
             sessionDate = now,
             expirationDate = now.plus(uncheckedAuthConfig.orThrow().authorizationCode.expiration),
@@ -235,6 +243,7 @@ open class InteractiveFlowSessionManager(
             id = session.id,
             purposes = session.purposes,
             initiatingPurpose = session.initiatingPurpose,
+            initiatingClientId = session.initiatingClientId,
             flowId = session.flowId,
             errorDate = errorDate,
             errorDetailsId = error.detailsId,
@@ -277,6 +286,7 @@ open class InteractiveFlowSessionManager(
             id = session.id,
             purposes = session.purposes,
             initiatingPurpose = session.initiatingPurpose,
+            initiatingClientId = session.initiatingClientId,
             flowId = session.flowId,
             expirationDate = session.expirationDate,
             userId = session.userId,
@@ -335,6 +345,7 @@ open class InteractiveFlowSessionManager(
             id = session.id,
             purposes = session.purposes,
             initiatingPurpose = session.initiatingPurpose,
+            initiatingClientId = session.initiatingClientId,
             flowId = session.flowId,
             expirationDate = session.expirationDate,
             sessionDate = session.sessionDate,

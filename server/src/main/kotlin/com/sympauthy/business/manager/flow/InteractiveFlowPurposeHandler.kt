@@ -1,8 +1,10 @@
 package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
+import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.flow.PurposeDebugInformation
 import com.sympauthy.business.model.flow.TerminalEffectResult
 
 /**
@@ -50,4 +52,29 @@ interface InteractiveFlowPurposeHandler {
      */
     suspend fun applyTerminalEffect(session: OnGoingInteractiveFlowSession): TerminalEffectResult =
         TerminalEffectResult.Proceed
+
+    /**
+     * What this purpose has to say about where [session] stands, for an operator reading the session on the
+     * admin API. Each entry is a label and the value behind it, in the order the operator reads them.
+     *
+     * **Required rather than defaulted to nothing**, so that adding a purpose does not compile until somebody
+     * has decided what an operator should see when it stalls. A purpose that shipped contributing nothing here
+     * would be discovered by the person debugging that exact purpose, at the worst possible moment.
+     *
+     * It takes the base [InteractiveFlowSession] rather than an ongoing one, unlike every other member: the
+     * most valuable session to describe is a failed one, and a handler that could only describe an ongoing
+     * session would go quiet exactly when it is needed. Every attached-record read it needs already takes the
+     * base type.
+     *
+     * **It must answer for a session in any shape** — no user, no attached record, a terminal status — and
+     * emit the label with no value rather than throwing. This is called when a session is malformed, and
+     * nothing catches around it: a handler that threw would take down the one page an operator has, and a
+     * backstop that swallowed it would make a handler that cannot describe a session look like one with
+     * nothing to say. Its own test is what holds the rule.
+     *
+     * **It emits what an operator can act on, and never a credential.** A TOTP seed, a recovery code and an
+     * authorization code are never among the entries; a value that exists so that only the client and the
+     * browser hold it — `state`, `nonce` — is reported as present or absent rather than published.
+     */
+    suspend fun debugInformation(session: InteractiveFlowSession): List<PurposeDebugInformation>
 }

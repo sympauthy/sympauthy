@@ -75,6 +75,7 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
             sessionManager.newSession(
                 purposes = listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.MFA_ENROLLMENT),
                 initiatingPurpose = InteractiveFlowPurpose.MFA_ENROLLMENT,
+                initiatingClientId = clientId,
                 flow = flow,
                 successRedirectUri = returnUri,
                 redirectType = InteractiveFlowRedirectType.PLAIN,
@@ -104,6 +105,7 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
             sessionManager.newSession(
                 purposes = listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.MFA_ENROLLMENT),
                 initiatingPurpose = InteractiveFlowPurpose.MFA_ENROLLMENT,
+                initiatingClientId = clientId,
                 flow = flow,
                 successRedirectUri = returnUri,
                 redirectType = InteractiveFlowRedirectType.PLAIN,
@@ -138,7 +140,7 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
             },
         )
 
-        coVerify(exactly = 0) { sessionManager.newSession(any(), any(), any(), any(), any(), any(), any()) }
+        coVerify(exactly = 0) { sessionManager.newSession(any(), any(), any(), any(), any(), any(), any(), any()) }
     }
 
     @Test
@@ -155,6 +157,7 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
                 sessionManager.newSession(
                     purposes = listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.MFA_ENROLLMENT),
                     initiatingPurpose = InteractiveFlowPurpose.MFA_ENROLLMENT,
+                    initiatingClientId = null,
                     flow = flow,
                     successRedirectUri = returnUri,
                     redirectType = InteractiveFlowRedirectType.PLAIN,

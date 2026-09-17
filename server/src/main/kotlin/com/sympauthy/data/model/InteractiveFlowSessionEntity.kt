@@ -23,6 +23,11 @@ class InteractiveFlowSessionEntity(
     val initiatingPurpose: String,
     val sessionDate: LocalDateTime,
     val flowId: String? = null,
+    // A second copy of interactive_flow_session_oauth2.client_id / interactive_flow_session_confirm.client_id,
+    // written in the same transaction as the record it duplicates and never written again. No foreign key:
+    // a client is configuration rather than a table, so a live session may name one the configuration no
+    // longer declares.
+    val initiatingClientId: String? = null,
     val expirationDate: LocalDateTime,
 
     // User identification

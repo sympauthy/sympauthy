@@ -5,8 +5,27 @@ package com.sympauthy.business.model.flow
  *
  * A session carries an ordered list of purposes; each value selects the handler that owns that purpose's step
  * state machine, and — for the session's initiating purpose — its terminal handoff.
+ *
+ * [displayName] is declared here rather than on the handler, unlike what a purpose has to say about a
+ * session: it is a fact about the value and needs no session, no read and no bean, so a caller naming a
+ * purpose can read it without resolving the handler that drives it. It is the one thing about a purpose that
+ * does not vary.
  */
-enum class InteractiveFlowPurpose {
+enum class InteractiveFlowPurpose(
+    /**
+     * What this purpose puts the end-user through, phrased for a person, and not localized — the same rule
+     * and the same reason as [PurposeDebugInformation.displayName].
+     *
+     * It says what the purpose *means* rather than restating its name, which is why it is declared on every
+     * value rather than derived: no transformation of `MFA_CHALLENGE` produces "Checking a second factor".
+     * Write it as what is happening to the person, so that a reader scanning a session sees the step rather
+     * than the constant.
+     *
+     * **Nothing may switch on it.** A value is identified by the name it is published under; this is a label,
+     * and rewording one must not break a caller.
+     */
+    val displayName: String
+) {
     /**
      * A gate the signed-in end-user must clear before the rest of the session runs: they must explicitly
      * approve an action a client (or an administrator) initiated on their behalf. Prepended in front of the
@@ -14,26 +33,26 @@ enum class InteractiveFlowPurpose {
      * never a session's [InteractiveFlowSession.initiatingPurpose]. What is being confirmed is described by
      * the session's attached confirm record ([InteractiveFlowSessionConfirm]).
      */
-    CONFIRM,
+    CONFIRM("Approving an action started on their behalf"),
 
     /**
      * The session backs the OAuth2 / OpenID Connect authorization flow initiated by a client at
      * `/api/oauth2/authorize`.
      */
-    OAUTH2_AUTHORIZE,
+    OAUTH2_AUTHORIZE("Signing in at a client's request"),
 
     /**
      * The end-user must enroll a multi-factor authentication method (TOTP). Appended to another purpose
      * (e.g. [OAUTH2_AUTHORIZE]) that requires MFA and whose user is not yet enrolled, or run standalone from
      * a client-initiated enrollment.
      */
-    MFA_ENROLLMENT,
+    MFA_ENROLLMENT("Setting up a second factor"),
 
     /**
      * The end-user must pass a multi-factor authentication challenge (TOTP) with an already-enrolled method.
      * Appended to another purpose (e.g. [OAUTH2_AUTHORIZE]) that requires MFA and whose user is enrolled.
      */
-    MFA_CHALLENGE,
+    MFA_CHALLENGE("Checking a second factor"),
 
     /**
      * A gate that makes the end-user prove they control the account they are **already** identified as
@@ -48,7 +67,7 @@ enum class InteractiveFlowPurpose {
      * Prepended in front of a sensitive purpose by a consumer (e.g. provider-link); progress is tracked by the
      * session's attached re-authentication record ([InteractiveFlowSessionReauthentication]).
      */
-    REAUTHENTICATION,
+    REAUTHENTICATION("Proving the account again"),
 
     /**
      * Link a third-party identity provider to the end-user's **already-fixed** account
@@ -62,5 +81,5 @@ enum class InteractiveFlowPurpose {
      * [CONFIRM] gate): linking a provider mints a durable login credential, so the browser must prove it
      * genuinely owns the account before the link commits.
      */
-    LINK_PROVIDER
+    LINK_PROVIDER("Linking a third-party provider")
 }
