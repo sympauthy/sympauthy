@@ -42,17 +42,16 @@ class ActAsRuleManager(
      *
      * **Fail closed:** if no rule matches, the delegation is denied.
      *
-     * Only the claims [client]'s own audience has are bound into the expressions, whatever [targetUserClaims]
-     * carries. A rule keyed on a claim restricted to another audience would decide this delegation from a value
-     * the acting client may not be told, and an act-as token is that decision leaving the server. The narrowing
-     * is here rather than in the caller so that every caller is held to it.
+     * [targetUserClaims] are the claims the audience the token is being issued for has, read that way by the
+     * caller — not the acting client's, which is only the default when the request names no target. A rule keyed
+     * on a claim restricted to some other audience would decide this delegation from a value that audience may
+     * not be told, and the act-as token is that decision arriving there.
      */
     suspend fun isActAsAllowed(
         client: Client,
         targetUserClaims: List<CollectedClaim>
     ): Boolean {
-        val audienceClaims = targetUserClaims.filter { it.claim.belongsToAudience(client.audience.id) }
-        val configuration = actAsRuleExpressionExecutor.getConfiguration(client, audienceClaims)
+        val configuration = actAsRuleExpressionExecutor.getConfiguration(client, targetUserClaims)
         val winningRule = listActAsRules()
             .filter { rule -> isRuleMatched(rule, configuration) }
             .sortedWith(

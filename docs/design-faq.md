@@ -252,10 +252,11 @@ caller told its invitation was created, holding a token that will not do what th
 
 ### Does a granting rule see claims of every audience?
 
-**Decision:** No. `UserScopeGrantingManager.grantScopes` narrows the claims it hands each granting
-method to the authorization's own audience, and `ActAsRuleManager.isActAsAllowed` does the same for
-the act-as rules. Consent is still not applied — what a rule may branch on and what a person agreed
-to disclose remain different questions.
+**Decision:** No. Each caller reads the claims of the audience its decision lands in, through
+`CollectedClaimManager.findByUserIdAndAudience`: `applyTerminalEffect` reads the flow's audience
+before granting, and the token exchange reads the audience the act-as token is being issued for.
+Consent is still not applied — what a rule may branch on and what a person agreed to disclose
+remain different questions.
 
 **Options considered:**
 
@@ -264,8 +265,8 @@ to disclose remain different questions.
 - **The audience's claims** — the flow's audience deciding what its own grant may be keyed on.
 - **The audience's for the webhook, the whole person for the rules** — the value filtered only where
   it actually leaves the server.
-- **Filtered by each caller that loads the claims** — the narrowing written at the two call sites
-  rather than inside the managers that own the rules.
+- **Narrowed inside the managers that own the rules** — `grantScopes` and `isActAsAllowed` filtering
+  what their callers hand them.
 
 **Rationale:**
 
@@ -276,10 +277,12 @@ configured on the client, so under the first option a restricted value leaves th
 to an audience it was restricted from. Splitting the two would have left one list filtered and one
 not — a distinction the next caller of `grantScopes` has to know about and the type does not carry.
 
-Filtering at the call sites has the same flaw one level up, and the act-as rules are the proof: they
-are a second rule engine, reached from the token exchange rather than from the flow, and a fix
-written only in `applyTerminalEffect` would have left them deciding on every audience's claims. So
-each manager that owns a kind of rule narrows what it binds, and a caller cannot get it wrong.
+The act-as rules are a second rule engine, reached from the token exchange rather than the flow, and
+they answer the same question for a different audience: the one the exchange names, which may be
+neither the acting client's nor anything the flow would have resolved. A manager narrowing on its
+callers' behalf would have had to guess which, so the read is the caller's — the caller is what
+knows where its decision lands. And it is a read rather than a filter, because loading a value a
+rule may not see and dropping it afterwards is one refactor away from not dropping it.
 
 What it costs is real and silent: a deployment whose rule branches on a claim restricted to
 another audience stops granting that scope, with no error to read. Nothing can tell that rule apart

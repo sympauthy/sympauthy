@@ -111,10 +111,14 @@ claims regardless of consent — but one keyed on a claim restricted to another 
 a value it may not be told, and what it decides leaves the server: a granted scope, an act-as token.
 The authorization webhook is handed the same claims and posts them off this server outright.
 
-**Each manager owning a kind of rule narrows the claims itself**, rather than trusting the caller
-that loaded them. `UserScopeGrantingManager.grantScopes` does it for the granting methods and
-`ActAsRuleManager.isActAsAllowed` for the act-as rules, so a new caller of either, and a new method
-in the granting pipeline, is held to the restriction without knowing it exists.
+**The claims a rule sees are read for one audience rather than read whole and narrowed after.**
+`CollectedClaimManager.findByUserIdAndAudience` is that read, and it applies no consent — the
+audience is a different question from what a person agreed to disclose.
+
+**The audience is the one the decision lands in, which is not always the caller's own.** An
+authorization grants scopes to the client that started the flow, so the flow's audience is the
+flow's own; an act-as token is issued for the audience the exchange names, which may be neither the
+acting client's nor the default it falls back to. Read the target's claims, not the asker's.
 
 **The audience an interactive flow works in is the one its authorization is for**, the audience of
 the client that started it. It decides the whole of what that flow does with claims: which it offers

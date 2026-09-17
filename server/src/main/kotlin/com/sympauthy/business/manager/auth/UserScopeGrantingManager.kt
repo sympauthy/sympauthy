@@ -1,10 +1,10 @@
 package com.sympauthy.business.manager.auth
 
 import com.sympauthy.business.manager.ScopeManager
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.rule.ScopeGrantingRuleManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.user.CollectedClaim
@@ -32,7 +32,6 @@ class UserScopeGrantingManager(
     @Inject private val scopeManager: ScopeManager,
     @Inject private val authorizationWebhookScopeGrantingManager: AuthorizationWebhookUserScopeGrantingManager,
     @Inject private val scopeGrantingRuleManager: ScopeGrantingRuleManager,
-    @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
     @Inject private val featuresConfig: FeaturesConfig
 ) {
 
@@ -44,23 +43,21 @@ class UserScopeGrantingManager(
      * granted when requested, without going through the granting rules.
      *
      * Some methods may require access to the claims collected by the authorization flow during the authorization
-     * process; [allClaims] carries them, and each method is handed the ones this authorization's audience has
-     * rather than all of them. Consent is not applied — what a rule may branch on and what the end-user agreed
-     * to disclose to the client are different questions — but the audience is, because a method deciding on a
-     * value restricted to another publishes it: a scope granted is the decision leaving the server, and the
-     * authorization webhook posts the value itself. The narrowing is here rather than in the caller so that
-     * every method [getScopeGrantingMethods] returns is held to it, including the next one added.
+     * process, it should be provided in the [audienceClaims] parameter. They are the claims of the audience
+     * [oauth2] is an authorization for, and the caller reads them that way: a method deciding on a claim
+     * restricted to another audience would publish it, a granted scope being the decision leaving the server
+     * and the authorization webhook posting the value itself.
+     *
+     * [oauth2] is the record the caller already fetched, so this loads nothing it was handed.
      */
     suspend fun grantScopes(
         session: OnGoingInteractiveFlowSession,
-        allClaims: List<CollectedClaim>
+        oauth2: InteractiveFlowSessionOAuth2,
+        audienceClaims: List<CollectedClaim>
     ): UserGrantScopesResult {
-        val oauth2 = oauth2Manager.fetchOAuth2(session)
         val allRequestedScopes = oauth2.requestedScopes.map {
             scopeManager.findOrThrow(it)
         }
-        val audienceId = oauth2Manager.getAudienceId(oauth2)
-        val audienceClaims = allClaims.filter { it.claim.belongsToAudience(audienceId) }
         // Only grantable scopes go through the granting pipeline
         val requestedGrantableScopes = allRequestedScopes.filterIsInstance<GrantableUserScope>()
 

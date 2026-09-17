@@ -1,7 +1,6 @@
 package com.sympauthy.business.manager.auth
 
 import com.sympauthy.business.manager.ScopeManager
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.rule.ScopeGrantingRuleManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.flow.InteractiveFlowSession
@@ -38,18 +37,11 @@ class UserScopeGrantingManagerTest {
     lateinit var scopeGrantingRuleManager: ScopeGrantingRuleManager
 
     @MockK
-    lateinit var oauth2Manager: InteractiveFlowSessionOAuth2Manager
-
-    @MockK
     lateinit var featuresConfig: EnabledFeaturesConfig
 
     @SpyK
     @InjectMockKs
     lateinit var scopeGrantingManager: UserScopeGrantingManager
-
-    private companion object {
-        const val AUDIENCE = "default"
-    }
 
     @Test
     fun `grantScopes - apply methods returned by getScopeGrantingMethods`() = runBlocking {
@@ -60,8 +52,6 @@ class UserScopeGrantingManagerTest {
             redirectUri = "https://example.com/callback",
             requestedScopes = listOf("grantedScope1", "declinedScope1", "declinedScope2")
         )
-        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
-        coEvery { oauth2Manager.getAudienceId(oauth2) } returns AUDIENCE
 
         val grantedScope1 = GrantableUserScope("grantedScope1", discoverable = false)
         val declinedScope1 = GrantableUserScope("declinedScope1", discoverable = false)
@@ -98,55 +88,13 @@ class UserScopeGrantingManagerTest {
 
         val result = scopeGrantingManager.grantScopes(
             session = session,
-            allClaims = emptyList()
+            oauth2 = oauth2,
+            audienceClaims = emptyList()
         )
 
         assertEquals(listOf(grantedScope1, declinedScope1, declinedScope2), result.requestedScopes)
         assertEquals(listOf(grantedScope1), result.grantedScopes)
         assertEquals(listOf(declinedScope1, declinedScope2), result.declinedScopes)
-    }
-
-    @Test
-    fun `grantScopes - hand each method only the claims this authorization's audience has`() = runBlocking {
-        val session = mockk<OnGoingInteractiveFlowSession>()
-        val oauth2 = InteractiveFlowSessionOAuth2(
-            sessionId = UUID.randomUUID(),
-            clientId = "test-client",
-            redirectUri = "https://example.com/callback",
-            requestedScopes = listOf("scope")
-        )
-        val scope = GrantableUserScope("scope", discoverable = false)
-        val ownClaim = collectedClaimOf(belongsToAudience = true)
-        val otherAudienceClaim = collectedClaimOf(belongsToAudience = false)
-
-        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
-        coEvery { oauth2Manager.getAudienceId(oauth2) } returns AUDIENCE
-        coEvery { scopeManager.findOrThrow("scope") } returns scope
-
-        val seenByMethod = mutableListOf<List<CollectedClaim>>()
-        val recordingMethod: suspend (
-            session: InteractiveFlowSession,
-            requestedScopes: List<EnabledScope>,
-            collectedClaims: List<CollectedClaim>
-        ) -> ScopeGrantingMethodResult =
-            { _, requestedScopes, collectedClaims ->
-                seenByMethod.add(collectedClaims)
-                ScopeGrantingMethodResult(grantedScopes = requestedScopes, declinedScopes = emptyList())
-            }
-        every { scopeGrantingManager.getScopeGrantingMethods() } returns listOf(recordingMethod)
-
-        scopeGrantingManager.grantScopes(
-            session = session,
-            allClaims = listOf(ownClaim, otherAudienceClaim)
-        )
-
-        assertEquals(listOf(listOf(ownClaim)), seenByMethod)
-    }
-
-    private fun collectedClaimOf(belongsToAudience: Boolean) = mockk<CollectedClaim> {
-        every { claim } returns mockk {
-            every { belongsToAudience(AUDIENCE) } returns belongsToAudience
-        }
     }
 
     @Test
