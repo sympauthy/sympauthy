@@ -17,8 +17,8 @@ id, the ordered list of purposes it exists to satisfy, which of them initiated i
 client, the user once one is known, whether MFA has been passed, where to redirect on success and on
 cancel, and when it expires.
 
-**Which purpose and which client started it are stored rather than derived**, and set once. Gates are
-prepended and follow-ups inserted at runtime, so no positional rule over the purpose list stays
+**Which purpose and which client started it are stored rather than derived**, and set once. Gates
+are prepended and follow-ups inserted at runtime, so no positional rule over the purpose list stays
 correct as the chain grows; and the client sits on the attached record of whichever purpose
 initiated the session, so no rule reaching for it there stays correct as purposes gain initiators.
 The client is written in the same transaction as the record it duplicates and never written again,
@@ -68,11 +68,12 @@ A session's purposes are **ordered**, gates first and the initiating purpose las
 only thing that mutates the session. It walks the purposes in order and asks each one, through its
 handler, whether it still needs a step:
 
-1. The first purpose whose handler returns a step yields that step, and the walk stops. 2. A purpose
-whose handler returns nothing is complete. The engine marks it so and inserts that purpose's
-follow-ups **immediately after it** — which is why a gate's follow-up runs *before* the purpose the
-gate was protecting. 3. When every purpose has resolved, the engine runs each terminal effect in
-order and moves the session to completed or failed.
+1. The first purpose whose handler returns a step yields that step, and the walk stops.
+2. A purpose whose handler returns nothing is complete. The engine marks it so and inserts that
+   purpose's follow-ups **immediately after it** — which is why a gate's follow-up runs *before* the
+   purpose the gate was protecting.
+3. When every purpose has resolved, the engine runs each terminal effect in order and moves the
+   session to completed or failed.
 
 It returns an `InteractiveFlowStepResult`: the session as it now stands, and the step to send the
 person to.
@@ -121,14 +122,14 @@ one.
 
 ## A handler describes its own purpose
 
-**`debugInformation` is what an operator reads when a session is stuck**, one label and one value at a
-time, published by the admin API. The handler owns it because the handler is the only thing that
+**`debugInformation` is what an operator reads when a session is stuck**, one label and one value at
+a time, published by the admin API. The handler owns it because the handler is the only thing that
 knows what its purpose means.
 
-**It is required rather than defaulted to nothing.** A purpose that shipped contributing nothing here
-would be discovered by whoever is debugging that exact purpose, at the worst possible moment — the
-same argument the registry makes for a purpose with no handler, and the same answer: a build failure
-rather than a production one.
+**It is required rather than defaulted to nothing.** A purpose that shipped contributing nothing
+here would be discovered by whoever is debugging that exact purpose, at the worst possible moment —
+the same argument the registry makes for a purpose with no handler, and the same answer: a build
+failure rather than a production one.
 
 **It takes the session in any state, and must answer for any shape of one.** No user, no attached
 record, a terminal status: each emits the label with no value rather than throwing. This is called
@@ -139,51 +140,55 @@ happy path. It is the one member taking the base type: the most valuable session
 failed one, and every attached-record read it needs already takes the base type too.
 
 **It emits what an operator can act on, and never a credential.** A TOTP seed and the recovery codes
-beside it are never among the entries — one published there is a second factor defeated for good, and
-undoing it means re-enrolling the person. Neither is the authorization code. A value that exists so
-that only the client and the browser hold it — an OAuth2 `state`, an OpenID Connect `nonce` — is
-reported as present or absent rather than published. What stops a caller driving somebody else's flow
-is the signed state, so this may say what a session *is* and never anything that substitutes for what
-drives it.
+beside it are never among the entries — one published there is a second factor defeated for good,
+and undoing it means re-enrolling the person. Neither is the authorization code. A value that exists
+so that only the client and the browser hold it — an OAuth2 `state`, an OpenID Connect `nonce` — is
+reported as present or absent rather than published. What stops a caller driving somebody else's
+flow is the signed state, so this may say what a session *is* and never anything that substitutes
+for what drives it.
 
 **A label is not a key.** Nothing may switch on one, because a handler is free to reword its own; a
 caller needing to identify a field is asking for a contract this deliberately does not offer. It is
 not localized either — it is written at the site that knows the value, in the same English as the
-KDoc beside it, and a bundle would put a translation layer between an operator and the thing they are
-debugging.
+KDoc beside it, and a bundle would put a translation layer between an operator and the thing they
+are debugging.
 
-**A purpose carries a label of its own, and it is declared on the enum rather than on the handler.**
-What a purpose *is* needs no session, no read and no bean, so a caller naming one can read its label
-without resolving the handler that drives it; what a purpose has to *say* varies with the session,
-which is what the handler owns.
+## A purpose carries its own label
+
+**A purpose's label is declared on the enum rather than on the handler.** What a purpose *is* needs
+no session, no read and no bean, so a caller naming one can read its label without resolving the
+handler that drives it; what a purpose has to *say* varies with the session, which is what the
+handler owns.
 
 **The label says what the purpose means, not what it is called.** It is written as what is happening
 to the person — "Checking a second factor" rather than "MFA challenge" — so a reader scanning a
-session sees the step rather than the constant, and it expands whatever the name abbreviates. That is
-why it is declared on every value rather than derived: no transformation of the Kotlin name produces
-it. Nothing may switch on it, for the reason above.
+session sees the step rather than the constant, and it expands whatever the name abbreviates. That
+is why it is declared on every value rather than derived: no transformation of the Kotlin name
+produces it. Nothing may switch on it either, for the reason no `debugInformation` label may be
+switched on.
 
 ## Adding a purpose
 
-1. Add the value to the enum, with a KDoc saying what it is for, which role it plays, and the label a
-person reads it under. 2. Write
-its handler as a bean: the purpose, `nextStepOrNull`, `debugInformation`, and whichever of the other
-two it needs. 3. If
-it has state of its own, add a record keyed by the session id, its table in both dialects, and a
-manager that reads and writes it. 4. Give it an entry point. There is no generic "start a flow"
-endpoint: each purpose is initiated by whatever asks for it, which creates the session with the
-ordered purpose list, names the client it is for, and persists any attached record **in the same
-transaction**. 5. Test the handler's branches directly — including that `debugInformation` answers
-for a session with no user, no attached record and a terminal status, and that no credential is among
-what it emits — and add an integration test that drives the flow.
+1. Add the value to the enum, with a KDoc saying what it is for, which role it plays, and the label
+   a person reads it under.
+2. Write its handler as a bean: the purpose, `nextStepOrNull`, `debugInformation`, and whichever of
+   the other two it needs.
+3. If it has state of its own, add a record keyed by the session id, its table in both dialects, and
+   a manager that reads and writes it.
+4. Give it an entry point. There is no generic "start a flow" endpoint: each purpose is initiated by
+   whatever asks for it, which creates the session with the ordered purpose list, names the client
+   it is for, and persists any attached record **in the same transaction**.
+5. Test the handler's branches directly — including that `debugInformation` answers for a session
+   with no user, no attached record and a terminal status, and that no credential is among what it
+   emits — and add an integration test that drives the flow.
 
 ## Adding a step
 
-1. Add it to the sealed step type — an object, or a class when the step is parameterised. 2. Map it
-to a redirect, from the page address the flow's configuration names. 3. Serve it as an endpoint
-under the flow surface, gated on the session token, going through the controller helper rather than
-decoding the state itself. 4. Make its applicability predicate mirror the handler's, or expect a
-loop.
+1. Add it to the sealed step type — an object, or a class when the step is parameterised.
+2. Map it to a redirect, from the page address the flow's configuration names.
+3. Serve it as an endpoint under the flow surface, gated on the session token, going through the
+   controller helper rather than decoding the state itself.
+4. Make its applicability predicate mirror the handler's, or expect a loop.
 
 ## Writing a step endpoint
 
@@ -222,8 +227,8 @@ again from the client that sent them.
 person was observed proving who they were is attached to the session that saw it, and completing the
 flow folds it into that person's own record and consumes the row; what the cleaner collects is
 therefore only the observations of flows that never finished. It is the one thing a session writes
-whose contents outlive it — deliberately, because [security](security.md) keeps a place for months
-and a session for half an hour.
+whose contents outlive it — deliberately, because [the security
+context](security-context.md) keeps a place for months and a session for half an hour.
 
 **It does not model steps that branch on client-supplied data.** Every predicate is a function of
 the session and the configuration. A step that needed the client to say which of two paths to take

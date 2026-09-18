@@ -53,9 +53,9 @@ leaves the declaration saying only that one existed somewhere.
 repository — an issue, a pull request, a wiki — is a copy this change cannot keep true, and a reader
 who cannot reach it is left with less than the comment would have said on its own.
 
-**Citing what a test protects is not this.** An integration test names the RFC section or the issue it
-guards, which is provenance for the case rather than a reason a reader needs in order to change the
-code — [the testing standard](testing-standard.md#integration-tests) owns it.
+**Citing what a test protects is not this.** An integration test names the RFC section or the issue
+it guards, which is provenance for the case rather than a reason a reader needs in order to change
+the code — [the testing standard](testing-standard.md#integration-tests) owns it.
 
 **The contract is written as prose.** Name the argument, the result and the failure in the sentences
 that say what the function does, and reference an argument as `[name]` so that it links.

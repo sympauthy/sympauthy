@@ -34,6 +34,12 @@ through the session manager, the one reader entitled to a provisional one.
 
 ## Becoming an account
 
+Promotion is the transaction that turns a provisional account into a real one. Most of what follows
+is about the part it cannot settle alone: which of several sign-ups racing for the same identifier
+gets to keep it.
+
+### When uniqueness is settled
+
 **The identifier uniqueness of an account being signed up is settled when it is promoted, not when
 it is written.** Nothing in the schema enforces it — an end-user may sign in with any configured
 identifier claim, so a value has to be unique across all of them rather than within one column —
@@ -50,6 +56,8 @@ against what the winner committed rather than against the rows it read before th
 Both halves are serialised on every dialect; the unique index PostgreSQL carries over a provider
 subject is a backstop behind the lock rather than the rule, since H2 spells no partial index and a
 partial index is what two provisional links sharing a subject requires.
+
+### What else takes the same key
 
 **A promotion is not the only writer of those keys.** A value or a subject it is about to make
 committed may be taken meanwhile by something that is not a sign-up at all, and none of those
@@ -70,6 +78,8 @@ a value or a subject taken fails non-recoverably: every purpose has resolved, an
 for the end-user to retry. A writer that loses earlier in a flow still has one, and is answered
 recoverably where going through that step again reaches the outcome the person came for. Which
 failure each of them raises is written at the writer.
+
+### What the completion transaction commits
 
 **Promotion is the first thing the completion transaction does, and its locks outlive it.** They are
 held until that transaction commits, terminal effects included, so a terminal effect doing I/O of

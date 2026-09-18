@@ -228,19 +228,20 @@ every other configuration error.
 **Options considered:**
 
 - **Refuse only a client** — the literal reading of the rule
-  [#454 stated](security.md#claims), beside the ACL check, which is already a client-only question.
+  [#454 stated](security.md#claims-and-audiences), beside the ACL check, which is already a
+  client-only question.
 - **Refuse every caller** — the audience asked apart from the ACL, of whoever names it.
 - **Refuse a client, and warn an administrator** — the capability kept, with the mistake reported.
 
 **Rationale:**
 
 The administration surface reads across every audience, so excepting it here would have been
-consistent with the one exception [the security document](security.md#claims) already grants it. It
-is not the same question. Reading across audiences is an administrator answering for the deployment;
-an invitation is an instrument of exactly one audience, consumed by a client of that audience and by
-no other. A claim restricted to another is therefore a value the flow applying it can never read
-back, chosen for an audience nobody asked — a mistake whether an operator or a client makes it, and
-one the admin API names its audience as deliberately as a client does.
+consistent with the one exception [the security document](security.md#claims-and-audiences) already
+grants it. It is not the same question. Reading across audiences is an administrator answering for
+the deployment; an invitation is an instrument of exactly one audience, consumed by a client of that
+audience and by no other. A claim restricted to another is therefore a value the flow applying it
+can never read back, chosen for an audience nobody asked — a mistake whether an operator or a client
+makes it, and one the admin API names its audience as deliberately as a client does.
 
 What it costs is a capability, and it is removed rather than moved. Nothing else writes a claim on
 the administration surface — `AdminUserClaimController` reads and nothing more — so an operator who

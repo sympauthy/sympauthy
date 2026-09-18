@@ -8,7 +8,7 @@ import io.micronaut.context.annotation.ConfigurationProperties
  * Which proxy is believed about the address a request came from.
  *
  * With nothing set here the address is the peer of the socket the request arrived on and no
- * forwarded header is read at all. `docs/security.md` carries the trust model: what naming a proxy
+ * forwarded header is read at all. `docs/security-context.md` carries the trust model: what naming a proxy
  * promises, and why this half is named while the location half may be detected.
  */
 @ConfigurationProperties(SECURITY_CONTEXT_IP_KEY)

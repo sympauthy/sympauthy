@@ -46,6 +46,50 @@ and **`security`** turns a credential into an `Authentication` the controllers c
 are drawn across the three layers because both are consumed by all of them:
 [the `config` layer standard](config-layer-code-standard.md) and [security](security.md).
 
+## A model per layer
+
+Each layer defines its **own** model and translates at the boundary — the API resources, the
+business models, and the persistence entities are separate types even when they describe the same
+concept. Keeping them apart means each changes for its own reasons: a column can be added without
+touching a published contract, and the domain is never shaped by either.
+
+The rule that enforces it is that **a manager never returns an entity**. When the boundary is
+broken, it is broken there first, by a method that returns a `…Entity` because it was quicker.
+
+## The split stops at `api`
+
+`business` and `data` are shared whole. Revoking a consent is the same use case over the same domain
+model whether an administrator asked for it or the person did, so managers are divided by **domain**
+— user, client, consent, token, flow — never by caller. An `admin/` package below the HTTP boundary
+would be a second copy of the domain, and the two copies would drift.
+
+## Beside the layers
+
+Some packages sit next to the three rather than inside one of them, and the test is the same in
+every case: **a package belongs beside the layers when it owns no layer's model.** The ones there
+today:
+
+- **`client/`** — requests *leaving* this server: the token, UserInfo and discovery endpoints of a
+  third-party identity provider, and the authorization webhook. One package per protocol, each with
+  its own `model/` of response types. Those types are a foreign contract, exactly as a database row
+  is, and they get the rule `data` already lives under: a client's response type does not reach a
+  manager unmapped.
+- **`exception/`** — `LocalizedException`, the root every failure in this server extends, and the
+  mapper that renders one against a message bundle. It is above all three layers because `business`
+  and `api` both throw, and neither may depend on the other. See [the exception
+  standard](exception-code-standard.md).
+- **`expression/`** — the small language a deployment writes its rules in: the functions an
+  expression may call, and the compiler that turns one into a boolean or a failure. It is beside the
+  layers because `config` refuses an expression when the file is read and `business` evaluates one
+  when a request is served, so putting the grammar in either would force the other to import it.
+- **`health/`** — what this server reports about itself to whatever is watching it. A health
+  indicator answers for a layer without belonging to it, and configuration in particular must not
+  depend on the thing that publishes its verdict.
+- **`cron/`** and **`server/`** — scheduled cleanup, and the factories that publish the message
+  sources and the executor.
+- **`view/`** and **`util/`** — the controllers that serve the two bundled single-page applications,
+  and the extension functions shared everywhere.
+
 ## Surfaces
 
 SympAuthy answers to several very different callers, and the split is visible in the route. **A
@@ -77,23 +121,6 @@ chain them together and force a bump on one surface for another's benefit.
 surface be gated once, in the security configuration, instead of one annotation at a time. What each
 gate does and does not protect against is [security](security.md).
 
-## A model per layer
-
-Each layer defines its **own** model and translates at the boundary — the API resources, the
-business models, and the persistence entities are separate types even when they describe the same
-concept. Keeping them apart means each changes for its own reasons: a column can be added without
-touching a published contract, and the domain is never shaped by either.
-
-The rule that enforces it is that **a manager never returns an entity**. When the boundary is
-broken, it is broken there first, by a method that returns a `…Entity` because it was quicker.
-
-## The split stops at `api`
-
-`business` and `data` are shared whole. Revoking a consent is the same use case over the same domain
-model whether an administrator asked for it or the person did, so managers are divided by **domain**
-— user, client, consent, token, flow — never by caller. An `admin/` package below the HTTP boundary
-would be a second copy of the domain, and the two copies would drift.
-
 ## One schema, more than one database
 
 Every repository interface has an empty implementation per dialect, selected by a condition on the
@@ -118,33 +145,6 @@ client, decides which step comes next.
 
 This is the one subsystem where reading the code in file order does not explain it, so it has its
 own description: [the interactive flow](interactive-flow.md).
-
-## Beside the layers
-
-Some packages sit next to the three rather than inside one of them, and the test is the same in
-every case: **a package belongs beside the layers when it owns no layer's model.** The ones there
-today:
-
-- **`client/`** — requests *leaving* this server: the token, UserInfo and discovery endpoints of a
-  third-party identity provider, and the authorization webhook. One package per protocol, each with
-  its own `model/` of response types. Those types are a foreign contract, exactly as a database row
-  is, and they get the rule `data` already lives under: a client's response type does not reach a
-  manager unmapped.
-- **`exception/`** — `LocalizedException`, the root every failure in this server extends, and the
-  mapper that renders one against a message bundle. It is above all three layers because `business`
-  and `api` both throw, and neither may depend on the other. See [the exception
-  standard](exception-code-standard.md).
-- **`expression/`** — the small language a deployment writes its rules in: the functions an
-  expression may call, and the compiler that turns one into a boolean or a failure. It is beside the
-  layers because `config` refuses an expression when the file is read and `business` evaluates one
-  when a request is served, so putting the grammar in either would force the other to import it.
-- **`health/`** — what this server reports about itself to whatever is watching it. A health
-  indicator answers for a layer without belonging to it, and configuration in particular must not
-  depend on the thing that publishes its verdict.
-- **`cron/`** and **`server/`** — scheduled cleanup, and the factories that publish the message
-  sources and the executor.
-- **`view/`** and **`util/`** — the controllers that serve the two bundled single-page applications,
-  and the extension functions shared everywhere.
 
 ## Project layout
 

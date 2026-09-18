@@ -9,7 +9,7 @@ import io.micronaut.context.annotation.ConfigurationProperties
  * published here knows to look.
  *
  * The fields are declared rather than left a map so that a name none of them matches is refused as a
- * key binding to nothing. What a value named here means is `docs/security.md`.
+ * key binding to nothing. What a value named here means is `docs/security-context.md`.
  */
 @ConfigurationProperties(GEO_HEADERS_KEY)
 interface SecurityContextGeoHeadersConfigurationProperties {

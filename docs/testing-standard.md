@@ -17,7 +17,7 @@ expected to prove, and how little of that a comment has left to say. The compone
 | a mapper, a parser, a validator | JUnit, no doubles | `server/src/test` |
 | a manager | JUnit and MockK doubles | `server/src/test` |
 | a flow purpose handler | JUnit and MockK doubles | `server/src/test` |
-| a repository, a migration | a real database of each dialect, started by the test | `server/src/test` |
+| a repository, a migration | a real database per dialect, started by the test | `server/src/test` |
 | a rule holding two files to each other | JUnit, reading both | `server/src/test` |
 | a controller | JUnit and MockK doubles | `server/src/test` |
 | a whole flow, a protocol rule | the server in a container | `integration-tests` |
@@ -180,10 +180,10 @@ one.
 document.
 
 **The interactive frontend in a browser.** The pages a person signs in through are their own
-project, and an integration test drives the flow through the mock frontend `testcontainers-sympauthy`
-provides: the sequence of steps and the values each one posts, never a rendered page. That is the
-contract this server owns — what a browser would prove on top of it belongs to the frontend that
-renders it.
+project, and an integration test drives the flow through the mock frontend
+`testcontainers-sympauthy` provides: the sequence of steps and the values each one posts, never a
+rendered page. That is the contract this server owns — what a browser would prove on top of it
+belongs to the frontend that renders it.
 
 ---
 

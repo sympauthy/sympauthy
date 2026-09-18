@@ -21,7 +21,7 @@ import jakarta.inject.Singleton
 
 /**
  * Reads where a request came from, under the trust model a deployment configured — which
- * `docs/security.md` carries, including what naming a proxy promises and what it does not.
+ * `docs/security-context.md` carries, including what naming a proxy promises and what it does not.
  *
  * It is a bean rather than a function because which headers may be believed is a deployment's to
  * decide, and it is in the `api` layer because a request is what it reads.
@@ -71,7 +71,7 @@ class SecurityContextUtil(
 
     /**
      * The address [request] is attributed to and which answer gave it, in the order
-     * `docs/security.md` fixes: a header the deployment named, then the edge it named, then the peer
+     * `docs/security-context.md` fixes: a header the deployment named, then the edge it named, then the peer
      * of the socket.
      *
      * Each step answers only where the thing before it did not, so the fallback carries no

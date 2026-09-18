@@ -8,7 +8,7 @@ import io.micronaut.context.annotation.ConfigurationProperties
  * Which proxies are believed about where the address a request came from is.
  *
  * Several may be named, and they may be detected instead, because every edge publishes its location
- * under a header of its own rather than at a position in one they share. `docs/security.md` says
+ * under a header of its own rather than at a position in one they share. `docs/security-context.md` says
  * what that buys and what it does not.
  */
 @ConfigurationProperties(SECURITY_CONTEXT_GEO_KEY)

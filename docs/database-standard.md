@@ -89,9 +89,9 @@ longer. [The provisional user](provisional-user.md) owns it.
 
 **Data retention, except where a table holds personal data.** A scheduled job collects expired
 sessions and the accounts an abandoned sign-up left half-written, and the places a person signs in
-from carry a retention of their own because an address is personal data — [security](security.md)
-holds it. How long a revoked token or a used validation code is kept is still a policy nobody has
-set.
+from carry a retention of their own because an address is personal data — [the security
+context](security-context.md) holds it. How long a revoked token or a used validation code is kept
+is still a policy nobody has set.
 
 **Encryption at rest and column-level encryption.** Secrets are hashed where they are secrets, and
 what the storage does underneath is the deployment's business.

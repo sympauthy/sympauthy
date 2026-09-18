@@ -68,7 +68,7 @@ private fun fingerprintOf(ip: String, userAgent: String?): String {
  * [address] rendered the one way this server spells it, or null where it is not an address literal.
  *
  * **It never resolves a name, and that is the point of doing the parsing by hand.** The value may be
- * the contents of a header, which `docs/security.md` states is the caller's to write wherever a proxy is
+ * the contents of a header, which `docs/security-context.md` states is the caller's to write wherever a proxy is
  * named and the origin stays reachable — so handing it to a resolver would have this server look up
  * whatever a caller put there, once per sign-in, from inside the flow. Only what is already a literal is
  * canonicalised; anything else is keyed as it stands, which costs a duplicate row at worst.
@@ -103,7 +103,7 @@ private fun ipv4BytesOrNull(address: String): ByteArray? {
  * `InetAddress.getByName` parses a literal only when the first character is a hex digit or a colon, and
  * hands everything else to the platform's name service — so a value like `.:1`, which is nothing but
  * hex digits, colons and dots, reaches a resolver. That value can be the contents of a header, which
- * `docs/security.md` states is the caller's to write wherever a proxy is named and the origin stays
+ * `docs/security-context.md` states is the caller's to write wherever a proxy is named and the origin stays
  * reachable: a blocking lookup of somebody's choosing, once per sign-in, from inside the flow.
  */
 private fun ipv6BytesOrNull(address: String): ByteArray? {

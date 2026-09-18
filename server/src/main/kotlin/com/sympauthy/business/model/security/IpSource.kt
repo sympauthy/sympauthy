@@ -4,7 +4,7 @@ package com.sympauthy.business.model.security
  * Which of the answers `SecurityContextUtil` takes gave [ObservedRequest.ipAddress] its value.
  *
  * **It is a source and not a `trusted` flag.** Naming a proxy is a promise an operator makes, and
- * `docs/security.md` states that nothing here verifies it — so a server answering "trusted" would be
+ * `docs/security-context.md` states that nothing here verifies it — so a server answering "trusted" would be
  * asserting what it cannot know. This says what it actually did, and what that is worth belongs to
  * whoever reads it.
  *

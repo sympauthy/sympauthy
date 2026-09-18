@@ -64,7 +64,7 @@ class UserSecurityContextManagerTest {
 
     /**
      * The postal code is read at the boundary and deliberately not kept: it narrows to a street group and
-     * nothing reads it, which is the answer `docs/security.md` already gives a coordinate pair. An edge
+     * nothing reads it, which is the answer `docs/security-context.md` already gives a coordinate pair. An edge
      * that sent nothing else therefore leaves a row with no location at all.
      */
     @Test

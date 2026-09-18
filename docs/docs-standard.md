@@ -116,8 +116,8 @@ that caused it and the discussion that settled it.
 **Link between documents relatively, keeping the `.md`.** Link to the [public
 documentation](https://sympauthy.github.io) with an absolute URL.
 
-**A new standard joins [the index](index.md)'s contents in the same commit, and is symlinked into
-`.claude/rules/`.** The symlink carries the [frontmatter](#frontmatter) with it.
+**A new standard joins [the index](index.md)'s standards section in the same commit, and is
+symlinked into `.claude/rules/`.** The symlink carries the [frontmatter](#frontmatter) with it.
 
 ## What this standard does not cover
 

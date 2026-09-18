@@ -15,8 +15,33 @@ they are *not* is a user manual: how to configure and integrate with a running S
 
 ## Contents
 
+### How the system works
+
+What the server is, how each of its parts works, and why it is built the way it is.
+
 - **[Architecture](architecture.md)** — the layers and what cuts across them, what makes something
   its own API surface and which of them carry a version, and the project layout on disk.
+- **[Technology](technology.md)** — the frameworks and runtime the server is built on, and why each
+  was picked.
+- **[The interactive flow](interactive-flow.md)** — the session, the purposes an engine sequences
+  over it, and how a purpose or a step is added.
+- **[The provisional user](provisional-user.md)** — the account a sign-up has not finished creating:
+  the rows it owns, what makes them count, and what collects them when nothing ever does.
+- **[Security](security.md)** — how a credential becomes an authentication, what a scope is allowed
+  to mean and which audience a claim may be published to, and what each surface's gate does and does
+  not protect.
+- **[The security context](security-context.md)** — the address, the user agent and the location a
+  request is believed to carry: which proxy a deployment names, what naming one promises and what it
+  does not, and how long a place somebody signs in from is kept.
+- **[Design FAQ](design-faq.md)** — decisions taken once, with the options that lost.
+- **[Running locally](running-locally.md)** — setting the project up, running it on the JVM and as a
+  native image, and running both test suites.
+
+### How the code is written
+
+The rules a change is held to. Each is named `<subject>-standard.md`, holds one subject, and reaches
+an agent when a file it governs is read.
+
 - **[General code standard](general-code-standard.md)** — the components a feature is made of, what
   each layer may import from another, and the naming that holds everywhere. Each layer then has its
   own: [`api`](api-layer-code-standard.md), [`business`](business-layer-code-standard.md),
@@ -38,20 +63,8 @@ they are *not* is a user manual: how to configure and integrate with a running S
   test lives, how it is named, what it is expected to prove, and why it carries almost no comment.
 - **[Native image standard](native-image-standard.md)** — the closed-world rules that compile
   cleanly, pass every test, and then fail in production.
-- **[The interactive flow](interactive-flow.md)** — the session, the purposes an engine sequences
-  over it, and how a purpose or a step is added.
-- **[The provisional user](provisional-user.md)** — the account a sign-up has not finished creating:
-  the rows it owns, what makes them count, and what collects them when nothing ever does.
-- **[Security](security.md)** — how a credential becomes an authentication, what a scope is allowed
-  to mean and which audience a claim may be published to, what each surface's gate does and does not
-  protect, and which headers a deployment's proxy is believed about.
-- **[Technology](technology.md)** — the frameworks and runtime the server is built on, and why each
-  was picked.
 - **[Documentation standard](docs-standard.md)** — how a standard here is written, and what it
   states in place of the code that happens to follow it.
-- **[Design FAQ](design-faq.md)** — decisions taken once, with the options that lost.
-- **[Running locally](running-locally.md)** — setting the project up, running it on the JVM and as a
-  native image, and running both test suites.
 
 ## Goals
 
