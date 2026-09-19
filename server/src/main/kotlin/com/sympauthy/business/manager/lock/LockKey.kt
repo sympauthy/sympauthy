@@ -40,19 +40,21 @@ sealed class LockKey(
      * claim, so a value has to be unique across all of them rather than within one column, and the
      * competitor a caller has to exclude may have no committed row to lock.
      *
-     * A transaction whose answer turns on which committed account holds one of these values takes it —
-     * `ProvisionalAccountManager.promote`, `CollectedClaimManager.applyUpdates`, and the provider link in
-     * `InteractiveFlowSessionOAuth2ProviderManager`, which writes no value of its own and takes the key so
-     * that what it refuses on is what a promotion committed. None of them holds a row the others could have
-     * waited on — a promotion's rows are invisible to a committed reader, and a value nobody holds yet has
-     * no row at all — so nothing but a key all of them name serialises them.
+     * It is taken where the competitor may hold no row to wait on: `ProvisionalAccountManager.promote` and
+     * `CollectedClaimManager.applyUpdates`, which make one of these values committed, and the provider link
+     * in `InteractiveFlowSessionOAuth2ProviderManager`, which makes none committed and refuses on no
+     * account holding one. A promotion's rows are invisible to a committed reader and a value nobody holds
+     * yet has no row at all, so nothing but a key all of them name serialises them.
      *
      * `CollectedClaimManager.applyUpdates` is reached by no caller today — every surface that writes a
      * collected claim leaves identifier claims out — and takes the key anyway, so that the writer which
      * will reach it arrives into a manager already agreeing with the rest.
      *
-     * A write to a provisional account takes no key. Its identifier is not one yet: two sign-ups may hold a
-     * value at the same time, and the promotion is where that is settled.
+     * Nothing takes it where the collision is settled elsewhere. A write to a provisional account takes no
+     * key — its identifier is not one yet, two sign-ups may hold a value at the same time, and the
+     * promotion is where that is settled — and neither does `InteractiveAuthFlowSessionProviderEstablisher`
+     * merging a provider into an account already holding these values committed, which is the row that
+     * refuses a promotion racing it.
      *
      * The value is the one `collected_claims` holds — what [com.sympauthy.business.mapper.ClaimValueMapper]
      * wrote, quotes and all — because that is the spelling the check compares on. A caller holding the
@@ -63,12 +65,13 @@ sealed class LockKey(
     /**
      * A third-party identity, named by the provider asserting it and the subject it carries.
      *
-     * A transaction whose answer turns on which committed account one of these identities is linked to
-     * takes it — `ProvisionalAccountManager.promote`, the provider link in
+     * A transaction that commits a link over one of these identities takes it —
+     * `ProvisionalAccountManager.promote`, the provider link in
      * `InteractiveFlowSessionOAuth2ProviderManager`, and `InteractiveAuthFlowSessionProviderEstablisher`
      * merging a provider into an existing account. None of them holds a row the others could have waited
      * on — a provisional link is invisible to a committed reader, and an identity nobody has linked yet has
-     * no row at all — so nothing but a key all of them name serialises them.
+     * no row at all — so nothing but a key all of them name serialises them. A transaction that only reads
+     * which account holds one, as a re-authentication does, commits no link and takes nothing.
      *
      * The unique index PostgreSQL carries over `(provider_id, subject)` is the backstop
      * `docs/database-standard.md` asks for and not the rule: it is partial, because two provisional links

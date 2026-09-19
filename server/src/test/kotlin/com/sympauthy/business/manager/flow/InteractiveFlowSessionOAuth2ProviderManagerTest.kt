@@ -369,6 +369,34 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
         }
 
     @Test
+    fun `signInOrSignUpUsingProvider - Link is written when the session user already owns the identifier`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val provider = createProvider()
+            val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
+            val rawUserInfo = stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo = null)
+            val advanced = mockk<InteractiveFlowSession>()
+            // The account the provider's address resolves to is the one being linked to, which is what an
+            // end-user linking a provider to the account they opened with that address arrives at.
+            val owner = mockk<User> { every { id } returns userId }
+            coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
+            every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
+            every { claimValueMapper.toEntity(email) } returns storedEmail
+            coEvery { userManager.findByIdentifierClaims(mapOf(OpenIdConnectClaimId.EMAIL to email)) } returns
+                owner
+            coEvery { providerClaimsManager.saveUserInfo(provider, userId, null, rawUserInfo) } returns mockk()
+            coEvery { engine.completeIfNecessary(session) } returns advanced
+
+            val result = manager.signInOrSignUpUsingProvider(
+                session, provider.id, redirectUri, authorizeCode = "code",
+                observedRequest = observedRequestOf()
+            )
+
+            assertSame(advanced, result)
+            coVerify { providerClaimsManager.saveUserInfo(provider, userId, null, rawUserInfo) }
+        }
+
+    @Test
     fun `signInOrSignUpUsingProvider - Link hard-fails when another account took the subject under the lock`() =
         runTest {
             val userId = UUID.randomUUID()
@@ -468,8 +496,9 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             assertSame(advanced, result)
             // userManager is left unstubbed: the conflict cannot be evaluated when a claim is missing, so
             // reaching the write is proof it was never asked — and a key over a check that did not run
-            // would make a promotion wait for nothing.
-            coVerify(exactly = 0) { objectLockRepository.lock(LockKey.IdentifierValue(storedEmail).stripe) }
+            // would make a promotion wait for nothing. One row, and it is the subject's: naming a stripe
+            // that must not be taken would say nothing about a key built from some other spelling.
+            coVerify(exactly = 1) { objectLockRepository.lock(any()) }
             coVerify { objectLockRepository.lock(LockKey.ProviderSubject(provider.id, "sub-123").stripe) }
         }
 }
