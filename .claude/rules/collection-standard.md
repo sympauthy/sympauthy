@@ -1,0 +1,1 @@
+../../docs/collection-standard.md

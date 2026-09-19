@@ -1,0 +1,138 @@
+package com.sympauthy.business.manager.collection
+
+import com.sympauthy.business.manager.AudienceManager
+import com.sympauthy.business.manager.ScopeManager
+import com.sympauthy.business.model.collection.CollectionCriteria
+import com.sympauthy.api.util.criteriaOf
+import com.sympauthy.business.model.oauth2.ConsentableUserScope
+import com.sympauthy.business.model.oauth2.DisabledScope
+import com.sympauthy.business.model.oauth2.GrantableUserScope
+import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.ScopeType
+import com.sympauthy.business.model.page.PageParams
+import com.sympauthy.business.model.user.claim.Claim
+import io.mockk.coEvery
+import io.mockk.every
+import io.mockk.impl.annotations.InjectMockKs
+import io.mockk.impl.annotations.MockK
+import io.mockk.junit5.MockKExtension
+import io.mockk.mockk
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
+
+@ExtendWith(MockKExtension::class)
+class ScopeCollectionManagerTest {
+
+    @MockK
+    lateinit var scopeManager: ScopeManager
+
+    @MockK
+    lateinit var audienceManager: AudienceManager
+
+    @InjectMockKs
+    lateinit var scopeCollectionManager: ScopeCollectionManager
+
+    private val enabledScope = ConsentableUserScope(scope = "profile")
+    private val disabledScope = DisabledScope(scope = "email", type = ScopeType.CONSENTABLE)
+    private val grantableScope = GrantableUserScope(scope = "openid", discoverable = true)
+
+    private val firstPage = PageParams(page = 0, size = 20)
+
+    @Test
+    fun `listScopes - Keep every scope when the criteria name nothing`() = runTest {
+        knownScopes(enabledScope, disabledScope, grantableScope)
+
+        val result = scopeCollectionManager.listScopes(criteriaOf(), firstPage)
+
+        assertEquals(listOf(disabledScope, grantableScope, enabledScope), result.items.map { it.scope })
+    }
+
+    @Test
+    fun `listScopes - Keep the scopes of the type the criterion names`() = runTest {
+        knownScopes(enabledScope, grantableScope)
+
+        val result = scopeCollectionManager.listScopes(criteriaOf("type" to "consentable"), firstPage)
+
+        assertEquals(listOf(enabledScope), result.items.map { it.scope })
+    }
+
+    @Test
+    fun `listScopes - Keep the scopes the deployment serves`() = runTest {
+        knownScopes(enabledScope, disabledScope)
+
+        val result = scopeCollectionManager.listScopes(criteriaOf("enabled" to "true"), firstPage)
+
+        assertEquals(listOf(enabledScope), result.items.map { it.scope })
+    }
+
+    @Test
+    fun `listScopes - Keep the scopes the deployment turned off`() = runTest {
+        knownScopes(enabledScope, disabledScope)
+
+        val result = scopeCollectionManager.listScopes(criteriaOf("enabled" to "false"), firstPage)
+
+        assertEquals(listOf(disabledScope), result.items.map { it.scope })
+    }
+
+    @Test
+    fun `listScopes - Keep the scopes both criteria name`() = runTest {
+        knownScopes(enabledScope, disabledScope, grantableScope)
+
+        val criteria = criteriaOf("type" to "consentable", "enabled" to "true")
+        val result = scopeCollectionManager.listScopes(criteria, firstPage)
+
+        assertEquals(listOf(enabledScope), result.items.map { it.scope })
+    }
+
+    @Test
+    fun `listScopes - Answer each scope with the claims it protects`() = runTest {
+        val gatedClaim = mockk<Claim>()
+        coEvery { scopeManager.listAllScopes() } returns listOf(enabledScope, grantableScope)
+        coEvery { scopeManager.listClaimsProtectedByScope(enabledScope) } returns listOf(gatedClaim)
+        coEvery { scopeManager.listClaimsProtectedByScope(grantableScope) } returns emptyList()
+
+        val result = scopeCollectionManager.listScopes(criteriaOf(), firstPage)
+
+        assertEquals(listOf(gatedClaim), result.items.first { it.scope == enabledScope }.protectedClaims)
+        assertTrue(result.items.first { it.scope == grantableScope }.protectedClaims.isEmpty())
+    }
+
+    @Test
+    fun `listScopes - Order by scope before slicing`() = runTest {
+        // Handed last-first, the first page of two still holds the two scopes the order puts first.
+        knownScopes(enabledScope, grantableScope, disabledScope)
+
+        val result = scopeCollectionManager.listScopes(criteriaOf(), PageParams(page = 0, size = 2))
+
+        assertEquals(listOf(disabledScope, grantableScope), result.items.map { it.scope })
+    }
+
+    @Test
+    fun `listScopes - Return the page the parameters name, out of everything the criteria kept`() = runTest {
+        knownScopes(enabledScope, grantableScope, disabledScope)
+
+        val result = scopeCollectionManager.listScopes(criteriaOf(), PageParams(page = 1, size = 2))
+
+        assertEquals(listOf(enabledScope), result.items.map { it.scope })
+        assertEquals(1, result.page)
+        assertEquals(2, result.size)
+        assertEquals(3, result.total)
+    }
+
+    private fun knownScopes(vararg scopes: Scope) {
+        coEvery { scopeManager.listAllScopes() } returns scopes.toList()
+        coEvery { scopeManager.listClaimsProtectedByScope(any()) } returns emptyList()
+    }
+
+    private suspend fun criteriaOf(
+        vararg filters: Pair<String, String>,
+        sort: String? = null,
+        query: String? = null
+    ): CollectionCriteria {
+        every { audienceManager.listAudiences() } returns emptyList()
+        return scopeCollectionManager.capabilities().criteriaOf(*filters, sort = sort, query = query)
+    }
+}

@@ -3,10 +3,13 @@ package com.sympauthy.api.controller.admin
 import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.exception.LocalizedHttpException
+import com.sympauthy.api.mapper.admin.AdminCollectionCapabilitiesResourceMapper
 import com.sympauthy.api.mapper.admin.AdminUserProviderResourceMapper
 import com.sympauthy.api.resource.admin.AdminUserProviderLinkInputResource
 import com.sympauthy.api.resource.admin.AdminUserProviderResource
 import com.sympauthy.api.util.defaultPaginationUtil
+import com.sympauthy.api.util.collectionRequest
+import com.sympauthy.api.util.noCapabilities
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.client.ClientRedirectUriManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
@@ -14,7 +17,7 @@ import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManage
 import com.sympauthy.business.manager.flow.link.InteractiveFlowSessionLinkProviderManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderManager
-import com.sympauthy.business.manager.provider.UserProviderSearchManager
+import com.sympauthy.business.manager.collection.UserProviderCollectionManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.InteractiveFlow
@@ -57,7 +60,7 @@ class AdminUserProviderControllerTest {
     lateinit var providerClaimsManager: ProviderClaimsManager
 
     @MockK
-    lateinit var userProviderSearchManager: UserProviderSearchManager
+    lateinit var userProviderCollectionManager: UserProviderCollectionManager
 
     @MockK
     lateinit var interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager
@@ -82,6 +85,9 @@ class AdminUserProviderControllerTest {
 
     @MockK
     lateinit var userProviderMapper: AdminUserProviderResourceMapper
+
+    @MockK
+    lateinit var capabilitiesMapper: AdminCollectionCapabilitiesResourceMapper
 
     @Suppress("unused")
     private val paginationUtil = defaultPaginationUtil()
@@ -120,13 +126,14 @@ class AdminUserProviderControllerTest {
             subject = "123456789012345678",
             linkedAt = linkedAt
         )
+        coEvery { userProviderCollectionManager.capabilities() } returns noCapabilities()
         coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
         coEvery {
-            userProviderSearchManager.listUserProviders(userId, PageParams(0, 20))
+            userProviderCollectionManager.listUserProviders(userId, any(), PageParams(0, 20))
         } returns Page(items = listOf(providerInfo), page = 3, size = 7, total = 42)
         every { userProviderMapper.toResource(providerInfo) } returns resource
 
-        val result = controller.listProviders(userId, null, null)
+        val result = controller.listProviders(collectionRequest(), userId, null, null, null, null)
 
         assertSame(resource, result.providers.single())
         assertEquals(3, result.page)
@@ -136,10 +143,11 @@ class AdminUserProviderControllerTest {
 
     @Test
     fun `listProviders - Returns 404 when user not found`() = runTest {
+        coEvery { userProviderCollectionManager.capabilities() } returns noCapabilities()
         coEvery { userManager.findByIdOrNull(userId) } returns null
 
         val exception = assertThrows<LocalizedHttpException> {
-            controller.listProviders(userId, null, null)
+            controller.listProviders(collectionRequest(), userId, null, null, null, null)
         }
 
         assertEquals(HttpStatus.NOT_FOUND, exception.status)
@@ -147,12 +155,13 @@ class AdminUserProviderControllerTest {
 
     @Test
     fun `listProviders - Returns empty list when user has no providers`() = runTest {
+        coEvery { userProviderCollectionManager.capabilities() } returns noCapabilities()
         coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
         coEvery {
-            userProviderSearchManager.listUserProviders(userId, PageParams(0, 20))
+            userProviderCollectionManager.listUserProviders(userId, any(), PageParams(0, 20))
         } returns Page(items = emptyList(), page = 0, size = 20, total = 0)
 
-        val result = controller.listProviders(userId, null, null)
+        val result = controller.listProviders(collectionRequest(), userId, null, null, null, null)
 
         assertTrue(result.providers.isEmpty())
         assertEquals(0, result.total)

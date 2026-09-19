@@ -12,7 +12,7 @@ import io.swagger.v3.oas.annotations.media.Schema
 data class AdminInteractiveFlowPurposeResource(
     @get:Schema(
         description = "The purpose. This is the contract: branch on it, and send it back as the 'purpose' " +
-                "filter of the listing.",
+                "filter of the collection.",
         allowableValues = [
             "confirm", "oauth2_authorize", "mfa_enrollment", "mfa_challenge", "reauthentication", "link_provider"
         ]

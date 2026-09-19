@@ -7,7 +7,7 @@ import java.time.LocalDateTime
 import java.util.*
 
 @Schema(
-    description = "One interactive flow session, as the listing shows it."
+    description = "One interactive flow session, as the collection shows it."
 )
 @Serdeable
 data class AdminInteractiveFlowSessionSummaryResource(

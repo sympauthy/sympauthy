@@ -41,6 +41,8 @@ class ClientsConfigValidator(
         val subCtx = ctx.child()
         val configKeyPrefix = "$CLIENTS_KEY.${parsed.id}"
 
+        subCtx.refuseReservedIdentifier(configKeyPrefix, parsed.id)
+
         // Validate audience cross-reference.
         val audience = validateAndResolveAudience(subCtx, parsed, audiencesById, configKeyPrefix)
 

@@ -10,8 +10,8 @@ import com.sympauthy.data.withFixture
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import kotlinx.coroutines.flow.toList
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
@@ -55,7 +55,7 @@ class LockManagerTransactionTest {
                 }
             }
 
-            assertEquals(emptyList<UserEntity>(), users.findByStatusAndSessionIdIsNull(status).toList())
+            assertNull(written?.id?.let { users.findById(it) })
         }
 
     @Test

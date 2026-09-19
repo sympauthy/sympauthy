@@ -1,7 +1,7 @@
 package com.sympauthy.api.mapper.admin
 
 import com.sympauthy.api.resource.admin.AdminUserResource
-import com.sympauthy.business.manager.user.UserSearchManager.UserWithClaims
+import com.sympauthy.business.manager.collection.UserCollectionManager.UserWithClaims
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.Claim
@@ -29,10 +29,10 @@ class AdminUserResourceMapper {
     /**
      * Publish [user], carrying the values it holds for [claims] and nothing else.
      *
-     * The twin of the listing's [toResource] for a surface that has already read exactly the claims it
+     * The twin of the collection's [toResource] for a surface that has already read exactly the claims it
      * publishes — the identifier claims a session names its person by — rather than selecting them out of
      * everything the user holds. Nothing is computed here for that reason: a generated value is one this
-     * server derives for a claim, and a caller wanting those is reading the user listing.
+     * server derives for a claim, and a caller wanting those is reading the user collection.
      */
     fun toResource(
         user: User,

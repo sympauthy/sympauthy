@@ -1,20 +1,23 @@
 package com.sympauthy.api.controller.admin
 
+import com.sympauthy.api.mapper.admin.AdminCollectionCapabilitiesResourceMapper
 import com.sympauthy.api.mapper.admin.AdminInvitationResourceMapper
+import com.sympauthy.api.resource.admin.AdminCollectionCapabilitiesResource
 import com.sympauthy.api.resource.admin.AdminCreateInvitationInputResource
 import com.sympauthy.api.resource.admin.AdminCreatedInvitationResource
 import com.sympauthy.api.resource.admin.AdminInvitationListResource
 import com.sympauthy.api.resource.admin.AdminInvitationResource
 import com.sympauthy.api.util.PaginationUtil
+import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.api.util.filterOf
 import com.sympauthy.business.manager.invitation.InvitationManager
-import com.sympauthy.business.manager.invitation.InvitationSearchManager
+import com.sympauthy.business.manager.collection.InvitationCollectionManager
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
-import com.sympauthy.business.model.invitation.InvitationStatus
 import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.security.SecurityRule.ADMIN_INVITATIONS_READ
 import com.sympauthy.security.SecurityRule.ADMIN_INVITATIONS_WRITE
+import com.sympauthy.util.orDefault
+import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpStatus
 import io.micronaut.http.annotation.*
 import io.micronaut.security.annotation.Secured
@@ -29,8 +32,9 @@ import java.util.*
 @Controller("/api/v1/admin/invitations")
 class AdminInvitationController(
     @Inject private val invitationManager: InvitationManager,
-    @Inject private val invitationSearchManager: InvitationSearchManager,
+    @Inject private val invitationCollectionManager: InvitationCollectionManager,
     @Inject private val invitationMapper: AdminInvitationResourceMapper,
+    @Inject private val capabilitiesMapper: AdminCollectionCapabilitiesResourceMapper,
     @Inject private val paginationUtil: PaginationUtil
 ) {
 
@@ -71,12 +75,18 @@ class AdminInvitationController(
     }
 
     @Operation(
-        description = "Retrieve a paginated list of invitations, optionally filtered by audience. " +
-                "Invitations are ordered by creation date, oldest first, then by identifier.",
+        description = "Retrieve a paginated list of invitations. Invitations are ordered by creation " +
+                "date, oldest first, then by identifier, unless another order is asked for. " +
+                "Which fields this collection can be filtered, ordered and searched on is published at " +
+                "/api/v1/admin/invitations/capabilities.",
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of invitations."),
-            ApiResponse(responseCode = "400", description = "Invalid page or size."),
+            ApiResponse(
+                responseCode = "400",
+                description = "Invalid page or size, an unknown field, an operator the field does not " +
+                        "accept, or a value it does not hold."
+            ),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
                 responseCode = "403",
@@ -88,20 +98,25 @@ class AdminInvitationController(
     @Secured(ADMIN_INVITATIONS_READ)
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.INVITATIONS_READ])
     suspend fun listInvitations(
-        @QueryValue("audience_id") @Parameter(description = "Filter by audience identifier.") audienceId: String?,
-        @QueryValue @Parameter(description = "Filter by invitation status.") status: String?,
+        request: HttpRequest<*>,
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
         @QueryValue @Parameter(
             description = "Number of results per page. Defaults to the size this server is configured " +
                     "with, and may not exceed its configured maximum."
-        ) size: Int?
+        ) size: Int?,
+        @QueryValue @Parameter(
+            description = "Comma-separated list of keys to order by, each prefixed with - to read it " +
+                    "from the largest value to the smallest. The keys are published by the capabilities " +
+                    "endpoint."
+        ) sort: String?,
+        @QueryValue @Parameter(
+            description = "Partial case-insensitive search across the fields the capabilities endpoint " +
+                    "publishes as searchable."
+        ) q: String?
     ): AdminInvitationListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
-        val invitations = invitationSearchManager.listInvitations(
-            audienceId = audienceId,
-            status = filterOf<InvitationStatus>("status", status),
-            pageParams = pageParams
-        )
+        val criteria = collectionCriteriaOf(request, invitationCollectionManager.capabilities(), sort, q)
+        val invitations = invitationCollectionManager.listInvitations(criteria, pageParams)
         return AdminInvitationListResource(
             invitations = invitations.items.map(invitationMapper::toResource),
             page = invitations.page,
@@ -109,6 +124,28 @@ class AdminInvitationController(
             total = invitations.total
         )
     }
+
+    @Operation(
+        description = "Retrieve what the invitation collection accepts: the fields it filters on and the " +
+                "operators each admits, the fields it orders on, the fields a free-text search matches " +
+                "against, and the order it takes when none is asked for. " +
+                "The names it carries are read in the language the request asked for and may be reworded " +
+                "in any release.",
+        tags = ["admin"],
+        responses = [
+            ApiResponse(responseCode = "200", description = "What the collection accepts."),
+            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(
+                responseCode = "403",
+                description = "The access token does not include the required scope: admin:invitations:read."
+            )
+        ]
+    )
+    @Get("/capabilities")
+    @Secured(ADMIN_INVITATIONS_READ)
+    @SecurityRequirement(name = "admin", scopes = [AdminScopeId.INVITATIONS_READ])
+    suspend fun getInvitationCapabilities(request: HttpRequest<*>): AdminCollectionCapabilitiesResource =
+        capabilitiesMapper.toResource(invitationCollectionManager.capabilities(), request.locale.orDefault())
 
     @Operation(
         description = "Retrieve a single invitation by its identifier.",

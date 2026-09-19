@@ -50,7 +50,10 @@ an agent when a file it governs is read.
   code names both its technical message and the one an end-user reads, and the one place the OAuth2
   specification overrides the rule.
 - **[API standard](api-standard.md)** — what a client sees: how a route is spelled, what the JSON
-  looks like, how a collection is paged, the body a failure returns, and why no redirect is a 307.
+  looks like, the body a failure returns, and why no redirect is a 307.
+- **[Collection standard](collection-standard.md)** — what a paged collection answers with and what
+  a caller may ask of one: the response, the paging, the filter, order and search grammar, and the
+  document a collection publishes saying which of its fields it accepts.
 - **[Database standard](database-standard.md)** — how a table and a migration are written, and what
   keeps the PostgreSQL and H2 schemas from drifting apart.
 - **[Locking standard](locking-standard.md)** — how two instances take turns over one database: the

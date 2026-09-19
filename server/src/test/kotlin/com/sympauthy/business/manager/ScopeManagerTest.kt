@@ -273,7 +273,7 @@ class ScopeManagerTest {
     }
 
     /**
-     * A manager reading a real configuration, so that which half of it a listing reads is what the
+     * A manager reading a real configuration, so that which half of it a collection reads is what the
      * assertion turns on rather than what a double was told to return.
      */
     private fun managerConfiguredWith(vararg scopes: Scope) =

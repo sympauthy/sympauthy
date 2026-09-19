@@ -31,7 +31,7 @@ class AdminInteractiveFlowSessionAllowableValuesTest {
     }
 
     @Test
-    fun `Every session status is published on the listing row`() {
+    fun `Every session status is published on the collection row`() {
         assertEquals(
             InteractiveFlowSessionStatus.entries.map { it.wireName },
             allowableValuesOf(AdminInteractiveFlowSessionSummaryResource::class, "status")

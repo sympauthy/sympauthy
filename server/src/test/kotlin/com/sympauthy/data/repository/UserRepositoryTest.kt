@@ -12,8 +12,8 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
 /**
- * The user, whose reader by status is the one query in the model that is not `suspend`: it hands back a
- * [kotlinx.coroutines.flow.Flow] the caller collects itself.
+ * The user, whose reader of every committed row is the one query in the model that is not `suspend`: it
+ * hands back a [kotlinx.coroutines.flow.Flow] the caller collects itself.
  *
  * It is also where the provisional row is proved invisible: every reader here answers committed rows only,
  * except the one the owning session reads its own account through.
@@ -21,7 +21,6 @@ import org.junit.jupiter.params.provider.EnumSource
 class UserRepositoryTest {
 
     private val status = "user-repository-test-enabled"
-    private val otherStatus = "user-repository-test-locked"
 
     @ParameterizedTest
     @EnumSource(Database::class)
@@ -46,35 +45,6 @@ class UserRepositoryTest {
             val id = newUser(status = status, sessionId = session.id)
 
             assertEquals(session.id, repository<UserRepository>().findById(id)?.sessionId)
-        }
-
-    @ParameterizedTest
-    @EnumSource(Database::class)
-    fun `findByStatusAndSessionIdIsNull - Streams the committed users holding the status`(database: Database) =
-        withFixture(database) {
-            val users = repository<UserRepository>()
-            val session = newSession()
-            val first = newUser(status = status)
-            val second = newUser(status = status)
-            newUser(status = otherStatus)
-            newUser(status = status, sessionId = session.id)
-
-            val found = users.findByStatusAndSessionIdIsNull(status).toList().map { it.id!! }
-
-            assertEquals(setOf(first, second), found.toSet())
-        }
-
-    @ParameterizedTest
-    @EnumSource(Database::class)
-    fun `findByStatusAndSessionIdIsNull - Streams nothing when no user holds the status`(database: Database) =
-        withFixture(database) {
-            newUser(status = status)
-
-            val found = repository<UserRepository>()
-                .findByStatusAndSessionIdIsNull("user-repository-test-absent")
-                .toList()
-
-            assertTrue(found.isEmpty())
         }
 
     @ParameterizedTest

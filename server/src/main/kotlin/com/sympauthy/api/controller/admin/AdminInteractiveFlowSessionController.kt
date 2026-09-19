@@ -1,20 +1,19 @@
 package com.sympauthy.api.controller.admin
 
+import com.sympauthy.api.mapper.admin.AdminCollectionCapabilitiesResourceMapper
 import com.sympauthy.api.mapper.admin.AdminInteractiveFlowSessionResourceMapper
+import com.sympauthy.api.resource.admin.AdminCollectionCapabilitiesResource
 import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionDetailResource
 import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionListResource
 import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionSecurityContextListResource
 import com.sympauthy.api.util.PaginationUtil
-import com.sympauthy.api.util.filterOf
+import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.api.util.orderOf
-import com.sympauthy.business.manager.ClientManager
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionSearchManager
-import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.flow.InteractiveFlowPurpose
-import com.sympauthy.business.model.flow.InteractiveFlowSessionStatus
+import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.security.SecurityRule.ADMIN_INTERACTIVE_FLOW_SESSIONS_READ
+import com.sympauthy.util.orDefault
+import io.micronaut.http.HttpRequest
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
 import io.micronaut.http.annotation.PathVariable
@@ -31,9 +30,9 @@ import java.util.*
 @Secured(ADMIN_INTERACTIVE_FLOW_SESSIONS_READ)
 @SecurityRequirement(name = "admin", scopes = [AdminScopeId.INTERACTIVE_FLOW_SESSIONS_READ])
 class AdminInteractiveFlowSessionController(
-    @Inject private val searchManager: InteractiveFlowSessionSearchManager,
-    @Inject private val clientManager: ClientManager,
+    @Inject private val sessionCollectionManager: InteractiveFlowSessionCollectionManager,
     @Inject private val sessionMapper: AdminInteractiveFlowSessionResourceMapper,
+    @Inject private val capabilitiesMapper: AdminCollectionCapabilitiesResourceMapper,
     @Inject private val paginationUtil: PaginationUtil
 ) {
 
@@ -42,14 +41,17 @@ class AdminInteractiveFlowSessionController(
                 "This is not a history: expired sessions are collected every fifteen minutes, so the window " +
                 "is the session lifetime plus up to a quarter of an hour, and an empty result means 'nothing " +
                 "in flight' rather than 'nothing ever happened'. " +
-                "Sessions are ordered by the date they started, oldest first, then by identifier, which stays " +
-                "ascending under order=desc.",
+                "Sessions are ordered by the date they started, oldest first, then by identifier, unless " +
+                "another order is asked for; that identifier stays ascending whichever direction is asked for. " +
+                "Which fields this collection can be filtered, ordered and searched on is published at " +
+                "/api/v1/admin/interactive-flow-sessions/capabilities.",
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of interactive flow sessions."),
             ApiResponse(
                 responseCode = "400",
-                description = "Invalid page, size, client, purpose, status or sort direction."
+                description = "Invalid page or size, an unknown field, an operator the field does not " +
+                        "accept, or a value it does not hold."
             ),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
@@ -61,47 +63,26 @@ class AdminInteractiveFlowSessionController(
     )
     @Get
     suspend fun listInteractiveFlowSessions(
+        request: HttpRequest<*>,
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
         @QueryValue @Parameter(
             description = "Number of results per page. Defaults to the size this server is configured " +
                     "with, and may not exceed its configured maximum."
         ) size: Int?,
         @QueryValue @Parameter(
-            description = "Partial case-insensitive search across the address and user agent of every " +
-                    "place the session was driven from, and the initiating client identifier."
-        ) q: String?,
+            description = "Comma-separated list of keys to order by, each prefixed with - to read it " +
+                    "from the largest value to the smallest. The keys are published by the capabilities " +
+                    "endpoint."
+        ) sort: String?,
         @QueryValue @Parameter(
-            description = "Filter by the identifier of the client the session was started for."
-        ) client: String?,
-        @QueryValue @Parameter(
-            description = "Filter by the identifier of the user the session identified. A session still " +
-                    "signing that account up does match — it holds the identifier from the moment the " +
-                    "person is identified — but publishes no user beside it until it completes."
-        ) user: UUID?,
-        @QueryValue @Parameter(
-            description = "Filter by the purpose that started the session."
-        ) purpose: String?,
-        @QueryValue @Parameter(
-            description = "Filter by what became of the session: ongoing, completed, cancelled, failed or expired."
-        ) status: String?,
-        @QueryValue @Parameter(description = "Sort direction: asc or desc. Defaults to asc.") order: String?
+            description = "Partial case-insensitive search across the fields the capabilities endpoint " +
+                    "publishes as searchable: the address and user agent of every place the session was " +
+                    "driven from, and the initiating client identifier."
+        ) q: String?
     ): AdminInteractiveFlowSessionListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
-        // Resolved before anything is read, so a filter or a direction naming nothing is refused on its own.
-        val resolvedClient = filterOf("client", client, clientManager.listClients().map(Client::id))
-        val resolvedPurpose = filterOf<InteractiveFlowPurpose>("purpose", purpose)
-        val resolvedStatus = filterOf<InteractiveFlowSessionStatus>("status", status)
-        val resolvedOrder = orderOf("order", order)
-
-        val sessions = searchManager.listSessions(
-            query = q,
-            clientId = resolvedClient,
-            userId = user,
-            purpose = resolvedPurpose,
-            status = resolvedStatus,
-            order = resolvedOrder,
-            pageParams = pageParams
-        )
+        val criteria = collectionCriteriaOf(request, sessionCollectionManager.capabilities(), sort, q)
+        val sessions = sessionCollectionManager.listSessions(criteria, pageParams)
 
         return AdminInteractiveFlowSessionListResource(
             sessions = sessions.items.map(sessionMapper::toResource),
@@ -110,6 +91,29 @@ class AdminInteractiveFlowSessionController(
             total = sessions.total
         )
     }
+
+    @Operation(
+        description = "Retrieve what the interactive flow session collection accepts: the fields it filters " +
+                "on and the operators each admits, the fields it orders on, the fields a free-text search " +
+                "matches against, and the order it takes when none is asked for. " +
+                "The names it carries are read in the language the request asked for and may be reworded " +
+                "in any release.",
+        tags = ["admin"],
+        responses = [
+            ApiResponse(responseCode = "200", description = "What the collection accepts."),
+            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(
+                responseCode = "403",
+                description = "The access token does not include the required scope: " +
+                        "admin:interactive-flow-sessions:read."
+            )
+        ]
+    )
+    @Get("/capabilities")
+    suspend fun getInteractiveFlowSessionCapabilities(
+        request: HttpRequest<*>
+    ): AdminCollectionCapabilitiesResource =
+        capabilitiesMapper.toResource(sessionCollectionManager.capabilities(), request.locale.orDefault())
 
     @Operation(
         description = "Retrieve one interactive flow session: every purpose it carries, where each one stands, " +
@@ -138,7 +142,7 @@ class AdminInteractiveFlowSessionController(
     suspend fun getInteractiveFlowSession(
         @PathVariable @Parameter(description = "Unique identifier of the interactive flow session.") sessionId: UUID
     ): AdminInteractiveFlowSessionDetailResource {
-        return sessionMapper.toResource(searchManager.findSessionOrNull(sessionId).orNotFound())
+        return sessionMapper.toResource(sessionCollectionManager.findSessionOrNull(sessionId).orNotFound())
     }
 
     @Operation(
@@ -171,15 +175,26 @@ class AdminInteractiveFlowSessionController(
     )
     @Get("/{sessionId}/security-contexts")
     suspend fun listInteractiveFlowSessionSecurityContexts(
+        request: HttpRequest<*>,
         @PathVariable @Parameter(description = "Unique identifier of the interactive flow session.") sessionId: UUID,
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
         @QueryValue @Parameter(
             description = "Number of results per page. Defaults to the size this server is configured " +
                     "with, and may not exceed its configured maximum."
-        ) size: Int?
+        ) size: Int?,
+        @QueryValue @Parameter(
+            description = "Comma-separated list of keys to order by, each prefixed with - to read it " +
+                    "from the largest value to the smallest. The keys are published by the capabilities " +
+                    "endpoint."
+        ) sort: String?,
+        @QueryValue @Parameter(
+            description = "Partial case-insensitive search across the fields the capabilities endpoint " +
+                    "publishes as searchable."
+        ) q: String?
     ): AdminInteractiveFlowSessionSecurityContextListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
-        val places = searchManager.listSecurityContexts(sessionId, pageParams).orNotFound()
+        val criteria = collectionCriteriaOf(request, sessionCollectionManager.securityContextCapabilities(), sort, q)
+        val places = sessionCollectionManager.listSecurityContexts(sessionId, criteria, pageParams).orNotFound()
         return AdminInteractiveFlowSessionSecurityContextListResource(
             securityContexts = places.items.map(sessionMapper::toResource),
             page = places.page,
@@ -187,4 +202,32 @@ class AdminInteractiveFlowSessionController(
             total = places.total
         )
     }
+
+    @Operation(
+        description = "Retrieve what the collection of the places one session was driven from accepts: the " +
+                "fields it filters on and the operators each admits, the fields it orders on, the fields " +
+                "a free-text search matches against, and the order it takes when none is asked for. " +
+                "It describes the collection rather than one session, so it reads the same for every session " +
+                "identifier and looks none of them up. " +
+                "The names it carries are read in the language the request asked for and may be reworded " +
+                "in any release.",
+        tags = ["admin"],
+        responses = [
+            ApiResponse(responseCode = "200", description = "What the collection accepts."),
+            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(
+                responseCode = "403",
+                description = "The access token does not include the required scope: " +
+                        "admin:interactive-flow-sessions:read."
+            )
+        ]
+    )
+    @Get("/{sessionId}/security-contexts/capabilities")
+    suspend fun getSecurityContextCapabilities(
+        request: HttpRequest<*>,
+        @PathVariable @Parameter(description = "Unique identifier of the interactive flow session.") sessionId: UUID
+    ): AdminCollectionCapabilitiesResource = capabilitiesMapper.toResource(
+        sessionCollectionManager.securityContextCapabilities(),
+        request.locale.orDefault()
+    )
 }

@@ -4,11 +4,14 @@ import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.mapper.admin.AdminClientResourceMapper
 import com.sympauthy.api.resource.admin.AdminClientResource
 import com.sympauthy.api.resource.admin.AdminClientSummaryResource
+import com.sympauthy.api.mapper.admin.AdminCollectionCapabilitiesResourceMapper
 import com.sympauthy.api.util.DEFAULT_PAGE
 import com.sympauthy.api.util.TEST_DEFAULT_PAGE_SIZE
 import com.sympauthy.api.util.defaultPaginationUtil
+import com.sympauthy.api.util.collectionRequest
+import com.sympauthy.api.util.noCapabilities
 import com.sympauthy.business.manager.ClientManager
-import com.sympauthy.business.manager.ClientSearchManager
+import com.sympauthy.business.manager.collection.ClientCollectionManager
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.client.Client
@@ -32,10 +35,13 @@ class AdminClientControllerTest {
     lateinit var clientManager: ClientManager
 
     @MockK
-    lateinit var clientSearchManager: ClientSearchManager
+    lateinit var clientCollectionManager: ClientCollectionManager
 
     @MockK
     lateinit var clientMapper: AdminClientResourceMapper
+
+    @MockK
+    lateinit var capabilitiesMapper: AdminCollectionCapabilitiesResourceMapper
 
     @Suppress("unused")
     private val paginationUtil = defaultPaginationUtil()
@@ -67,7 +73,10 @@ class AdminClientControllerTest {
         val client = mockk<Client>()
         val resource = mockSummaryResource("c1")
 
-        coEvery { clientSearchManager.listClients(PageParams(DEFAULT_PAGE, TEST_DEFAULT_PAGE_SIZE)) } returns Page(
+        coEvery { clientCollectionManager.capabilities() } returns noCapabilities()
+        coEvery {
+            clientCollectionManager.listClients(any(), PageParams(DEFAULT_PAGE, TEST_DEFAULT_PAGE_SIZE))
+        } returns Page(
             items = listOf(client),
             page = 3,
             size = 7,
@@ -75,7 +84,7 @@ class AdminClientControllerTest {
         )
         every { clientMapper.toSummaryResource(client) } returns resource
 
-        val result = controller.listClients(null, null)
+        val result = controller.listClients(collectionRequest(), null, null, null, null)
 
         assertSame(resource, result.clients.single())
         assertEquals(3, result.page)

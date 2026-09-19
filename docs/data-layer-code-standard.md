@@ -94,7 +94,7 @@ they are a future one that has not happened yet, and only the queries that could
 it. [The provisional user](provisional-user.md) is where that lives.
 
 **Pagination in the repository.** Page and size arrive as ordinary parameters, and the defaults and
-caps are [the API standard's](api-standard.md).
+caps are [the collection standard's](collection-standard.md).
 
 **Read replicas, sharding and any second datasource.** One logical database, one connection pool.
 

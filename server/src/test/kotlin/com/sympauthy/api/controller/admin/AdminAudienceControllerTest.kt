@@ -3,9 +3,12 @@ package com.sympauthy.api.controller.admin
 import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.mapper.admin.AdminAudienceResourceMapper
 import com.sympauthy.api.resource.admin.AdminAudienceResource
+import com.sympauthy.api.mapper.admin.AdminCollectionCapabilitiesResourceMapper
 import com.sympauthy.api.util.defaultPaginationUtil
-import com.sympauthy.business.manager.AudienceSearchManager
-import com.sympauthy.business.manager.AudienceSearchManager.AudienceWithClientCount
+import com.sympauthy.api.util.collectionRequest
+import com.sympauthy.api.util.noCapabilities
+import com.sympauthy.business.manager.collection.AudienceCollectionManager
+import com.sympauthy.business.manager.collection.AudienceCollectionManager.AudienceWithClientCount
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
@@ -25,10 +28,13 @@ import org.junit.jupiter.api.extension.ExtendWith
 class AdminAudienceControllerTest {
 
     @MockK
-    lateinit var audienceSearchManager: AudienceSearchManager
+    lateinit var audienceCollectionManager: AudienceCollectionManager
 
     @MockK
     lateinit var audienceMapper: AdminAudienceResourceMapper
+
+    @MockK
+    lateinit var capabilitiesMapper: AdminCollectionCapabilitiesResourceMapper
 
     @Suppress("unused")
     private val paginationUtil = defaultPaginationUtil()
@@ -51,7 +57,8 @@ class AdminAudienceControllerTest {
         val admin = audience("admin")
         val resource = mockResource("admin")
 
-        coEvery { audienceSearchManager.listAudiences(PageParams(0, 20)) } returns Page(
+        coEvery { audienceCollectionManager.capabilities() } returns noCapabilities()
+        coEvery { audienceCollectionManager.listAudiences(any(), PageParams(0, 20)) } returns Page(
             items = listOf(AudienceWithClientCount(admin, 4)),
             page = 3,
             size = 7,
@@ -59,7 +66,7 @@ class AdminAudienceControllerTest {
         )
         every { audienceMapper.toResource(admin, 4) } returns resource
 
-        val result = controller.listAudiences(null, null)
+        val result = controller.listAudiences(collectionRequest(), null, null, null, null)
 
         assertSame(resource, result.audiences.single())
         assertEquals(3, result.page)
@@ -72,7 +79,7 @@ class AdminAudienceControllerTest {
         val admin = audience("admin")
         val resource = mockResource("admin")
 
-        coEvery { audienceSearchManager.findAudienceByIdOrNull("admin") } returns AudienceWithClientCount(admin, 4)
+        coEvery { audienceCollectionManager.findAudienceByIdOrNull("admin") } returns AudienceWithClientCount(admin, 4)
         every { audienceMapper.toResource(admin, 4) } returns resource
 
         val result = controller.getAudience("admin")
@@ -82,7 +89,7 @@ class AdminAudienceControllerTest {
 
     @Test
     fun `getAudience - Throw 404 when no audience matches`() = runTest {
-        coEvery { audienceSearchManager.findAudienceByIdOrNull("unknown") } returns null
+        coEvery { audienceCollectionManager.findAudienceByIdOrNull("unknown") } returns null
 
         val exception = assertThrows<LocalizedHttpException> {
             controller.getAudience("unknown")

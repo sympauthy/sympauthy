@@ -28,9 +28,9 @@ at a call site decides it.
 **Only a query that reaches an account without holding its id excludes the provisional ones.** That
 invariant is what makes the rest of the reads safe as they are: a read keyed by a user id is already
 exactly as visible as its user. The queries that do filter are the ones that could hand a caller an
-account the server has not finished creating — the user listings, the identifier-claim lookups, the
-provider-subject lookup, and the readers taking an id from outside. The flow reads its own account
-through the session manager, the one reader entitled to a provisional one.
+account the server has not finished creating — the user collections, the identifier-claim lookups,
+the provider-subject lookup, and the readers taking an id from outside. The flow reads its own
+account through the session manager, the one reader entitled to a provisional one.
 
 ## Becoming an account
 

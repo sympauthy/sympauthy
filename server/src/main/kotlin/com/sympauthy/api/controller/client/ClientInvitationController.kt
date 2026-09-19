@@ -6,21 +6,25 @@ import com.sympauthy.api.resource.client.ClientCreatedInvitationResource
 import com.sympauthy.api.resource.client.ClientInvitationListResource
 import com.sympauthy.api.resource.client.ClientInvitationResource
 import com.sympauthy.api.util.PaginationUtil
+import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.invitation.InvitationManager
-import com.sympauthy.business.manager.invitation.InvitationSearchManager
+import com.sympauthy.business.manager.collection.InvitationCollectionManager
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
 import com.sympauthy.security.SecurityRule.CLIENT_INVITATIONS_READ
 import com.sympauthy.security.SecurityRule.CLIENT_INVITATIONS_WRITE
 import com.sympauthy.security.clientAuthentication
+import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpStatus
 import io.micronaut.http.annotation.*
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
+import io.swagger.v3.oas.annotations.enums.ParameterIn.QUERY
+import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
@@ -31,10 +35,22 @@ import java.util.*
 class ClientInvitationController(
     @Inject private val clientManager: ClientManager,
     @Inject private val invitationManager: InvitationManager,
-    @Inject private val invitationSearchManager: InvitationSearchManager,
+    @Inject private val invitationCollectionManager: InvitationCollectionManager,
     @Inject private val invitationMapper: ClientInvitationResourceMapper,
     @Inject private val paginationUtil: PaginationUtil
 ) {
+
+    companion object {
+        private const val INVITATION_ID = "Keep the invitations this identifier names."
+        private const val STATUS = "Keep the invitations in this state: pending, consumed, revoked or expired."
+        private const val TOKEN_PREFIX = "Keep the invitations whose token begins with this."
+        private const val NOTE = "Keep the invitations carrying this note."
+        private const val CREATED_AT = "Keep the invitations created at this moment, ISO-8601 with no zone."
+        private const val EXPIRES_AT = "Keep the invitations expiring at this moment, ISO-8601 with no zone."
+        private const val CONSUMED_AT = "Keep the invitations consumed at this moment, ISO-8601 with no zone."
+        private const val REVOKED_AT = "Keep the invitations revoked at this moment, ISO-8601 with no zone."
+        private const val CONSUMED_BY = "Keep the invitation the account this identifier names consumed."
+    }
 
     @Operation(
         description =
@@ -80,11 +96,41 @@ class ClientInvitationController(
 
     @Operation(
         description = "Retrieve a paginated list of invitations created by this client. Invitations are " +
-                "ordered by creation date, oldest first, then by identifier.",
+                "ordered by creation date, oldest first, then by identifier, unless another order is " +
+                "asked for. " +
+                "They can be filtered on status, note, token_prefix, created_at, expires_at, consumed_at, " +
+                "revoked_at, consumed_by_user_id and id, and searched with q across the note and the " +
+                "token prefix. An operator other than an exact match is written as a dotted suffix on the " +
+                "field name: status.in, created_at.gte, note.contains.",
         tags = ["client"],
+        parameters = [
+            Parameter(name = "id", `in` = QUERY, description = INVITATION_ID, schema = Schema(type = "string")),
+            Parameter(name = "status", `in` = QUERY, description = STATUS, schema = Schema(type = "string")),
+            Parameter(
+                name = "token_prefix",
+                `in` = QUERY,
+                description = TOKEN_PREFIX,
+                schema = Schema(type = "string")
+            ),
+            Parameter(name = "note", `in` = QUERY, description = NOTE, schema = Schema(type = "string")),
+            Parameter(name = "created_at", `in` = QUERY, description = CREATED_AT, schema = Schema(type = "string")),
+            Parameter(name = "expires_at", `in` = QUERY, description = EXPIRES_AT, schema = Schema(type = "string")),
+            Parameter(name = "consumed_at", `in` = QUERY, description = CONSUMED_AT, schema = Schema(type = "string")),
+            Parameter(name = "revoked_at", `in` = QUERY, description = REVOKED_AT, schema = Schema(type = "string")),
+            Parameter(
+                name = "consumed_by_user_id",
+                `in` = QUERY,
+                description = CONSUMED_BY,
+                schema = Schema(type = "string")
+            )
+        ],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of invitations."),
-            ApiResponse(responseCode = "400", description = "Invalid page or size."),
+            ApiResponse(
+                responseCode = "400",
+                description = "Invalid page or size, an unknown field, an operator the field does not " +
+                        "accept, or a value it does not hold."
+            ),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
                 responseCode = "403",
@@ -96,16 +142,29 @@ class ClientInvitationController(
     @Secured(CLIENT_INVITATIONS_READ)
     @SecurityRequirement(name = "client", scopes = [BuiltInClientScopeId.INVITATIONS_READ])
     suspend fun listInvitations(
+        request: HttpRequest<*>,
         authentication: Authentication,
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
         @QueryValue @Parameter(
             description = "Number of results per page. Defaults to the size this server is configured " +
                     "with, and may not exceed its configured maximum."
-        ) size: Int?
+        ) size: Int?,
+        @QueryValue @Parameter(
+            description = "Comma-separated list of keys to order by, each prefixed with - to read it " +
+                    "from the largest value to the smallest."
+        ) sort: String?,
+        @QueryValue @Parameter(
+            description = "Partial case-insensitive search across the note and the token prefix."
+        ) q: String?
     ): ClientInvitationListResource {
         val clientAuth = authentication.clientAuthentication
         val pageParams = paginationUtil.resolvePageParams(page, size)
-        val invitations = invitationSearchManager.listInvitationsCreatedBy(clientAuth.clientId, pageParams)
+        val criteria = collectionCriteriaOf(request, invitationCollectionManager.clientCapabilities(), sort, q)
+        val invitations = invitationCollectionManager.listInvitationsCreatedBy(
+            createdById = clientAuth.clientId,
+            criteria = criteria,
+            pageParams = pageParams
+        )
         return ClientInvitationListResource(
             invitations = invitations.items.map(invitationMapper::toResource),
             page = invitations.page,

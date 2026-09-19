@@ -34,6 +34,8 @@ class ProvidersConfigValidator {
         val subCtx = ctx.child()
         val keyPrefix = "$PROVIDERS_KEY.${parsed.id}"
 
+        subCtx.refuseReservedIdentifier(keyPrefix, parsed.id)
+
         // Validate auth section present.
         if (!parsed.hasOidc && !parsed.hasOAuth2) {
             subCtx.addError(configExceptionOf(keyPrefix, "config.auth.missing"))

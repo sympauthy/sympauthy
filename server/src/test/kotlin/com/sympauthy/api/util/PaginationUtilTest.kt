@@ -50,35 +50,35 @@ class PaginationUtilTest {
 
     @Test
     fun `resolvePageParams - Reject a negative page`() {
-        assertBadRequest("pagination.page.negative") {
+        assertBadRequest("collection.page.negative") {
             paginationUtil.resolvePageParams(-1, null)
         }
     }
 
     @Test
     fun `resolvePageParams - Reject a size below one`() {
-        assertBadRequest("pagination.size.too_small") {
+        assertBadRequest("collection.size.too_small") {
             paginationUtil.resolvePageParams(null, 0)
         }
     }
 
     @Test
     fun `resolvePageParams - Reject a negative size`() {
-        assertBadRequest("pagination.size.too_small") {
+        assertBadRequest("collection.size.too_small") {
             paginationUtil.resolvePageParams(null, -1)
         }
     }
 
     @Test
     fun `resolvePageParams - Reject a size above the configured maximum`() {
-        assertBadRequest("pagination.size.too_large") {
+        assertBadRequest("collection.size.too_large") {
             paginationUtil.resolvePageParams(null, 101)
         }
     }
 
     @Test
     fun `resolvePageParams - Reject a page whose offset does not fit in an Int`() {
-        assertBadRequest("pagination.page.too_large") {
+        assertBadRequest("collection.page.too_large") {
             paginationUtil.resolvePageParams(200_000_000, 20)
         }
     }
@@ -92,7 +92,7 @@ class PaginationUtilTest {
 
     @Test
     fun `resolvePageParams - Report the page before the offset when both are wrong`() {
-        assertBadRequest("pagination.page.negative") {
+        assertBadRequest("collection.page.negative") {
             paginationUtil.resolvePageParams(-1, 0)
         }
     }

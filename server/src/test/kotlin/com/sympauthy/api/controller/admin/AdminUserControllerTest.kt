@@ -1,6 +1,7 @@
 package com.sympauthy.api.controller.admin
 
 import com.sympauthy.api.exception.LocalizedHttpException
+import com.sympauthy.api.mapper.admin.AdminCollectionCapabilitiesResourceMapper
 import com.sympauthy.api.mapper.admin.AdminUserDetailResourceMapper
 import com.sympauthy.api.mapper.admin.AdminUserResourceMapper
 import com.sympauthy.api.resource.admin.AdminUserDetailResource
@@ -8,18 +9,22 @@ import com.sympauthy.api.resource.admin.AdminUserResource
 import com.sympauthy.api.util.DEFAULT_PAGE
 import com.sympauthy.api.util.TEST_DEFAULT_PAGE_SIZE
 import com.sympauthy.api.util.defaultPaginationUtil
+import com.sympauthy.api.util.collectionRequest
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
-import com.sympauthy.business.manager.user.UserSearchManager
+import com.sympauthy.business.manager.collection.UserCollectionManager
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
-import com.sympauthy.business.model.page.SortOrder
+import com.sympauthy.business.model.collection.CollectionCapabilities
+import com.sympauthy.business.model.collection.CollectionCriteria
+import com.sympauthy.business.model.collection.CollectionField
+import com.sympauthy.business.model.collection.CollectionFieldType
+import com.sympauthy.business.model.collection.CollectionOperator
+import com.sympauthy.business.model.collection.enumFieldValues
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
-import com.sympauthy.business.manager.user.UserSearchManager.UserWithClaims
-import io.micronaut.http.HttpParameters
-import io.micronaut.http.HttpRequest
+import com.sympauthy.business.manager.collection.UserCollectionManager.UserWithClaims
 import io.micronaut.http.HttpStatus
 import io.mockk.coEvery
 import io.mockk.every
@@ -27,6 +32,7 @@ import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import io.mockk.slot
 import java.time.LocalDateTime
 import java.util.*
 import kotlinx.coroutines.test.runTest
@@ -42,7 +48,7 @@ class AdminUserControllerTest {
     lateinit var userManager: UserManager
 
     @MockK
-    lateinit var userSearchManager: UserSearchManager
+    lateinit var userCollectionManager: UserCollectionManager
 
     @MockK
     lateinit var collectedClaimManager: CollectedClaimManager
@@ -52,6 +58,9 @@ class AdminUserControllerTest {
 
     @MockK
     lateinit var userDetailMapper: AdminUserDetailResourceMapper
+
+    @MockK
+    lateinit var capabilitiesMapper: AdminCollectionCapabilitiesResourceMapper
 
     @Suppress("unused")
     private val paginationUtil = defaultPaginationUtil()
@@ -71,14 +80,25 @@ class AdminUserControllerTest {
         total = users.size
     )
 
-    private fun requestWithoutClaimFilter(): HttpRequest<*> {
-        val parameters = mockk<HttpParameters> {
-            every { asMap() } returns emptyMap()
-        }
-        return mockk {
-            every { this@mockk.parameters } returns parameters
-        }
-    }
+    private val statusField = CollectionField(
+        name = "status",
+        type = CollectionFieldType.ENUM,
+        key = "fields.user_status",
+        operators = setOf(CollectionOperator.EQ),
+        values = enumFieldValues<UserStatus>("fields.user_status"),
+        sortable = true
+    )
+
+    private val emailField = CollectionField(
+        name = "email",
+        type = CollectionFieldType.EMAIL,
+        key = "claims.email",
+        operators = setOf(CollectionOperator.EQ, CollectionOperator.CONTAINS),
+        sortable = true,
+        searchable = true
+    )
+
+    private val capabilities = CollectionCapabilities(listOf(statusField, emailField), emptyList())
 
     private fun userWithClaims(creationDate: LocalDateTime) = UserWithClaims(
         user = User(
@@ -108,20 +128,19 @@ class AdminUserControllerTest {
             claims = null
         )
 
-        coEvery { userSearchManager.listSelectedClaims(null) } returns emptyList()
-        coEvery {
-            userSearchManager.listUsers(null, null, emptyMap(), null, null, defaultPage)
-        } returns pageOf(first, second)
+        coEvery { userCollectionManager.capabilities() } returns capabilities
+        coEvery { userCollectionManager.listSelectedClaims(null) } returns emptyList()
+        coEvery { userCollectionManager.listUsers(any(), defaultPage) } returns pageOf(first, second)
         every { userMapper.toResource(first, emptyList()) } returns firstResource
         every { userMapper.toResource(second, emptyList()) } returns secondResource
 
-        val result = controller.listUsers(requestWithoutClaimFilter(), null, null, null, null, null, null, null)
+        val result = controller.listUsers(collectionRequest(), null, null, null, null, null)
 
         assertEquals(listOf(first.user.id, second.user.id), result.users.map { it.userId })
     }
 
     @Test
-    fun `listUsers - Ask the search for the order and the page the parameters name`() = runTest {
+    fun `listUsers - Hand the manager every criterion, the order and the page the request names`() = runTest {
         val user = userWithClaims(creationDate)
         val resource = AdminUserResource(
             userId = user.user.id,
@@ -129,20 +148,35 @@ class AdminUserControllerTest {
             createdAt = creationDate,
             claims = null
         )
+        val criteria = slot<CollectionCriteria>()
 
-        coEvery { userSearchManager.listSelectedClaims(null) } returns emptyList()
-        coEvery {
-            userSearchManager.listUsers(
-                UserStatus.ENABLED, "jane", emptyMap(), "email", SortOrder.DESC, PageParams(1, 2)
-            )
-        } returns pageOf(user)
+        coEvery { userCollectionManager.capabilities() } returns capabilities
+        coEvery { userCollectionManager.listSelectedClaims(null) } returns emptyList()
+        coEvery { userCollectionManager.listUsers(capture(criteria), PageParams(1, 2)) } returns pageOf(user)
         every { userMapper.toResource(user, emptyList()) } returns resource
 
         val result = controller.listUsers(
-            requestWithoutClaimFilter(), 1, 2, "enabled", null, "jane", "email", "desc"
+            collectionRequest("status=enabled&email.contains=ana"), 1, 2, null, "-email", "jane"
         )
 
         assertSame(resource, result.users.single())
+        assertEquals(
+            listOf("status" to CollectionOperator.EQ, "email" to CollectionOperator.CONTAINS),
+            criteria.captured.filters.map { it.field.name to it.operator }
+        )
+        assertEquals("-email", criteria.captured.sort.single().spelling)
+        assertEquals("jane", criteria.captured.query)
+    }
+
+    @Test
+    fun `listUsers - Keep the claims parameter out of the criteria it selects nothing with`() = runTest {
+        coEvery { userCollectionManager.capabilities() } returns capabilities
+        coEvery { userCollectionManager.listSelectedClaims(listOf("email")) } returns emptyList()
+        coEvery { userCollectionManager.listUsers(CollectionCriteria.NONE, defaultPage) } returns pageOf()
+
+        val result = controller.listUsers(collectionRequest("claims=email"), null, null, "email", null, null)
+
+        assertEquals(0, result.total)
     }
 
     @Test
@@ -155,15 +189,12 @@ class AdminUserControllerTest {
             claims = null
         )
 
-        coEvery { userSearchManager.listSelectedClaims(listOf("email", "name")) } returns emptyList()
-        coEvery {
-            userSearchManager.listUsers(null, null, emptyMap(), null, null, defaultPage)
-        } returns pageOf(user)
+        coEvery { userCollectionManager.capabilities() } returns capabilities
+        coEvery { userCollectionManager.listSelectedClaims(listOf("email", "name")) } returns emptyList()
+        coEvery { userCollectionManager.listUsers(any(), defaultPage) } returns pageOf(user)
         every { userMapper.toResource(user, emptyList()) } returns resource
 
-        val result = controller.listUsers(
-            requestWithoutClaimFilter(), null, null, null, " email , name ", null, null, null
-        )
+        val result = controller.listUsers(collectionRequest(), null, null, " email , name ", null, null)
 
         assertEquals(listOf(user.user.id), result.users.map { it.userId })
     }
@@ -178,25 +209,24 @@ class AdminUserControllerTest {
             claims = null
         )
 
-        coEvery { userSearchManager.listSelectedClaims(emptyList()) } returns null
-        coEvery {
-            userSearchManager.listUsers(null, null, emptyMap(), null, null, defaultPage)
-        } returns pageOf(user)
+        coEvery { userCollectionManager.capabilities() } returns capabilities
+        coEvery { userCollectionManager.listSelectedClaims(emptyList()) } returns null
+        coEvery { userCollectionManager.listUsers(any(), defaultPage) } returns pageOf(user)
         every { userMapper.toResource(user, null) } returns resource
 
-        val result = controller.listUsers(requestWithoutClaimFilter(), null, null, null, "", null, null, null)
+        val result = controller.listUsers(collectionRequest(), null, null, "", null, null)
 
         assertEquals(listOf(user.user.id), result.users.map { it.userId })
     }
 
     @Test
-    fun `listUsers - Publish the page the search answered, not the one that was asked for`() = runTest {
-        coEvery { userSearchManager.listSelectedClaims(null) } returns emptyList()
-        coEvery {
-            userSearchManager.listUsers(null, null, emptyMap(), null, null, defaultPage)
-        } returns Page(items = emptyList(), page = 3, size = 7, total = 42)
+    fun `listUsers - Publish the page the manager answered, not the one that was asked for`() = runTest {
+        coEvery { userCollectionManager.capabilities() } returns capabilities
+        coEvery { userCollectionManager.listSelectedClaims(null) } returns emptyList()
+        coEvery { userCollectionManager.listUsers(any(), defaultPage) } returns
+                Page(items = emptyList(), page = 3, size = 7, total = 42)
 
-        val result = controller.listUsers(requestWithoutClaimFilter(), null, null, null, null, null, null, null)
+        val result = controller.listUsers(collectionRequest(), null, null, null, null, null)
 
         assertEquals(3, result.page)
         assertEquals(7, result.size)
@@ -205,26 +235,42 @@ class AdminUserControllerTest {
 
     @Test
     fun `listUsers - Refuse a status the set does not hold`() = runTest {
-        // Neither the request nor the search is stubbed on purpose: reaching the assertion is proof
-        // that a status naming nothing is refused before either of them is read.
+        // The manager is not stubbed on purpose: reaching the assertion is proof that a status naming
+        // nothing is refused before anything is read.
+        coEvery { userCollectionManager.capabilities() } returns capabilities
+
         val exception = assertThrows<LocalizedHttpException> {
-            controller.listUsers(mockk(), null, null, "disabl", null, null, null, null)
+            controller.listUsers(collectionRequest("status=disabl"), null, null, null, null, null)
         }
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.status)
-        assertEquals("filter.value.unsupported", exception.detailsId)
+        assertEquals("collection.filter.value.unsupported", exception.detailsId)
     }
 
     @Test
-    fun `listUsers - Refuse an order naming neither direction`() = runTest {
-        // Unstubbed for the same reason: a direction naming nothing is refused before anything is read,
-        // rather than sorting the page the other way around in silence.
+    fun `listUsers - Refuse an operator the field does not admit`() = runTest {
+        coEvery { userCollectionManager.capabilities() } returns capabilities
+
         val exception = assertThrows<LocalizedHttpException> {
-            controller.listUsers(mockk(), null, null, null, null, null, null, "ascending")
+            controller.listUsers(collectionRequest("status.contains=ena"), null, null, null, null, null)
         }
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.status)
-        assertEquals("order.value.unsupported", exception.detailsId)
+        assertEquals("collection.filter.unsupported_operator", exception.detailsId)
+    }
+
+    @Test
+    fun `listUsers - Refuse a sort key this collection is not ordered by`() = runTest {
+        // Unstubbed for the same reason: a key naming nothing is refused before anything is read,
+        // rather than sorting the page by something else in silence.
+        coEvery { userCollectionManager.capabilities() } returns capabilities
+
+        val exception = assertThrows<LocalizedHttpException> {
+            controller.listUsers(collectionRequest(), null, null, null, "surname", null)
+        }
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.status)
+        assertEquals("collection.sort.unknown_field", exception.detailsId)
     }
 
     @Test

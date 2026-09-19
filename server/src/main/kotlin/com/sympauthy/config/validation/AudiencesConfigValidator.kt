@@ -15,6 +15,8 @@ class AudiencesConfigValidator {
     ): List<Audience> {
         val audiences = parsed.mapNotNull { it.toAudienceOrNull() }
 
+        audiences.forEach { ctx.refuseReservedIdentifier("$AUDIENCES_KEY.${it.id}", it.id) }
+
         val duplicateIds = audiences.groupBy { it.id }
             .filter { it.value.size > 1 }
             .keys
