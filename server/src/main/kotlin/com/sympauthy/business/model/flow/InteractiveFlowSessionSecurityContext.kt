@@ -4,32 +4,37 @@ import java.time.LocalDateTime
 import java.util.*
 
 /**
- * Where the person behind an [InteractiveFlowSession] was observed proving who they are, as the row attached
- * to that session holds it.
+ * One place an [InteractiveFlowSession] was driven from, as the row attached to that session holds it.
  *
  * Keyed by [sessionId] like the five other attached records, but written and consumed by
- * [com.sympauthy.business.manager.security.UserSecurityContextManager] rather than by a purpose: it is staged
- * when a credential verifies and resolves the session's user, and deleted as the completing flow folds it into
- * that person's own record. **A session therefore holds one only between those two moments**, and a stalled
- * sign-in — the session an operator most wants to look at — has none. Staging is best-effort too, so an
- * absence proves nothing about what happened.
+ * [com.sympauthy.business.manager.security.UserSecurityContextManager] rather than by a purpose: a row is
+ * opened where the session is created and at every request that resolves it, bumped where that place was
+ * already seen, and every one of them is deleted as the completing flow folds the proven one into that
+ * person's own record. **A session holds one row per distinct place**, so a stalled sign-in — the session
+ * an operator most wants to look at — has one, and a session driven from two places is a trail of two.
+ *
+ * **[provenDate] is what a credential proof left behind, and it is the only thing the fold reads.** The
+ * state a flow travels under carries no identity, so anybody holding it can have a place recorded against
+ * that session; a row nothing proved says a request arrived and nothing more.
+ *
+ * Writing is best-effort, so an absence proves nothing about what happened.
  *
  * The geo fields are the edge's words, unaltered, and every one of them is nullable on its own — see
  * [com.sympauthy.business.model.security.SecurityContextGeo], which the observation is built from.
  *
- * **It carries no fingerprint.** That column is the key the fold deduplicates a person's places on, and it
- * answers no question a reader of the session has.
+ * **It carries no fingerprint.** That column is the key a place is deduplicated on, and it answers no
+ * question a reader of the session has.
  */
 data class InteractiveFlowSessionSecurityContext(
     /**
-     * Identifier of the [InteractiveFlowSession] this observation is attached to.
+     * Identifier of the [InteractiveFlowSession] this place is attached to.
      */
     val sessionId: UUID,
 
     /**
-     * The address the request was observed coming from, under the trust model the deployment configured. A
-     * deployment that named no proxy records the socket peer, which is that proxy's own address rather than
-     * anybody's — see [com.sympauthy.business.model.security.IpSource].
+     * The address the requests were observed coming from, under the trust model the deployment configured.
+     * A deployment that named no proxy records the socket peer, which is that proxy's own address rather
+     * than anybody's — see [com.sympauthy.business.model.security.IpSource].
      */
     val ip: String,
 
@@ -45,8 +50,20 @@ data class InteractiveFlowSessionSecurityContext(
     val timeZone: String?,
 
     /**
-     * When the observation was taken, which is when the credential was proven rather than when the session
-     * started.
+     * When this place was first seen driving the session, and when it was last seen.
      */
-    val observedDate: LocalDateTime
+    val firstSeenDate: LocalDateTime,
+    val lastSeenDate: LocalDateTime,
+
+    /**
+     * How many requests of this session came from here. A session driven from one place for eleven
+     * requests is one row saying eleven rather than eleven rows.
+     */
+    val observationCount: Int,
+
+    /**
+     * When a credential last verified *and* resolved the session's user at this place, or null for a place
+     * nothing but a request was seen from.
+     */
+    val provenDate: LocalDateTime?
 )

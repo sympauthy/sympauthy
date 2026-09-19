@@ -101,9 +101,27 @@ when a credential verifies is held against the session that saw it, then folded 
 places once their flow succeeds — deduplicated on the address and the user agent, so a row is a
 place somebody keeps signing in from rather than one per sign-in.
 
-**Nothing unidentified is kept.** An observation made before a person is known belongs to the
-interactive flow session that made it and is collected with it, so a failed sign-in and an abandoned
-flow leave nothing behind. There is no retention setting for a population that is not stored.
+**A session records every place it is driven from, and a person's record is fed by one of them.**
+Creating an interactive flow session and every request that resolves one write a place against that
+session — deduplicated the same way, counted the same way — so a flow stalled at the sign-in step,
+one that failed validating the authorize request and an enrollment an operator started all say
+where they came from. What a credential proof writes is the same row with the moment of the proof
+stamped on it, and the fold reads the latest stamp and nothing else. That is what keeps a record
+against a person as narrow as it was when only a proof wrote one: the state a flow travels under
+carries [no identity](security.md#the-state-authentication-is-not-a-session), so anybody holding it
+can write against its session, and nothing they write is visible to the fold.
+
+**A session holds a bounded number of distinct places**, because the user agent is the caller's to
+choose and an unbounded table would let one session mint a row per request. Past the bound the
+place nobody has been seen at for longest makes room for the new one — what a session is read for
+is where it is being driven from now — and a place a credential was proven at goes last, so
+presenting user agents cannot roll somebody's proof out. A rollover is logged, because a session
+presenting that many places is either a person on a train or somebody enumerating.
+
+**Nothing unidentified is kept.** A place a session recorded belongs to that session and is
+collected with it, so a failed sign-in and an abandoned flow leave nothing behind, and completing a
+flow consumes every place it held. There is no retention setting for a population that is not
+stored.
 
 **A place is kept for as long as it goes on being used**, and
 `advanced.security-context.known-user-retention` says how long after it stops. The expiry is

@@ -96,6 +96,20 @@ constants in `security/`, and put anything narrower than the surface's default i
 **A parameter is documented on the parameter**, in an annotation on the method argument itself. The
 type, whether it is required and its format are inferred from the Kotlin.
 
+## The flow controller
+
+**Where a request came from is recorded by the controller's helper, never by a manager.** Every flow
+handler goes through `InteractiveAuthFlowSessionControllerUtil`, which records the place before the
+work runs, so a manager writing one too counts the same request twice. What a manager may add is
+what only it knows — that a credential verified and resolved this session's user — by marking the
+place that is already there.
+
+**A controller that starts an interactive flow session hands it to
+`InteractiveAuthFlowSessionControllerUtil.observeStartedSession`**, before it asks the engine what
+comes next. That call is what records where the session was started from, and the managers that
+create one take no observed request — so a controller that skips it leaves that session saying
+nothing about the browser it was started from.
+
 ## The utility
 
 **A rule the controllers of a surface all apply identically, and that needs an injected

@@ -32,8 +32,9 @@ class AdminInteractiveFlowSessionResourceMapper(
     /**
      * Publish [summary] as one row of the listing.
      *
-     * The observation reaches this resource as the address and the user agent alone: an operator scanning a
-     * page is matching those two, and the place the edge put them is on the detail.
+     * The observation reaches this resource as the address and the user agent of the place the session was
+     * last driven from: an operator scanning a page is matching those two, and the rest of the trail — and
+     * the place the edge put each entry — is on the detail.
      */
     fun toResource(summary: InteractiveFlowSessionSummary) = AdminInteractiveFlowSessionSummaryResource(
         id = summary.id,
@@ -62,7 +63,6 @@ class AdminInteractiveFlowSessionResourceMapper(
         signedUp = detail.signedUp,
         sessionDate = detail.sessionDate,
         expirationDate = detail.expirationDate,
-        securityContext = detail.securityContext?.let(::toSecurityContextResource),
         errorDetailsId = detail.errorDetailsId,
         errorDescriptionId = detail.errorDescriptionId,
         errorValues = detail.errorValues,
@@ -84,7 +84,10 @@ class AdminInteractiveFlowSessionResourceMapper(
     private fun toUserResource(user: InteractiveFlowSessionUser): AdminUserResource =
         userMapper.toResource(user.user, user.identifierClaims)
 
-    private fun toSecurityContextResource(
+    /**
+     * Publish [securityContext] as one entry of a session's places.
+     */
+    fun toResource(
         securityContext: InteractiveFlowSessionSecurityContext
     ) = AdminInteractiveFlowSessionSecurityContextResource(
         ip = securityContext.ip,
@@ -94,7 +97,10 @@ class AdminInteractiveFlowSessionResourceMapper(
         region = securityContext.region,
         city = securityContext.city,
         timeZone = securityContext.timeZone,
-        observedDate = securityContext.observedDate
+        firstSeenDate = securityContext.firstSeenDate,
+        lastSeenDate = securityContext.lastSeenDate,
+        observationCount = securityContext.observationCount,
+        provenDate = securityContext.provenDate
     )
 
     private fun toPurposeProgressResource(

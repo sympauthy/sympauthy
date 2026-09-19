@@ -1,6 +1,8 @@
 package com.sympauthy.api.controller.admin
 
 import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
+import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
+import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.api.mapper.admin.AdminUserProviderResourceMapper
 import com.sympauthy.api.resource.admin.AdminUserProviderLinkInputResource
 import com.sympauthy.api.resource.admin.AdminUserProviderLinkResource
@@ -17,6 +19,7 @@ import com.sympauthy.business.manager.provider.ProviderManager
 import com.sympauthy.business.manager.provider.UserProviderSearchManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
+import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.security.SecurityRule.ADMIN_USERS_READ
 import com.sympauthy.security.SecurityRule.ADMIN_USERS_WRITE
 import io.micronaut.http.HttpStatus
@@ -41,6 +44,7 @@ class AdminUserProviderController(
     @Inject private val linkProviderManager: InteractiveFlowSessionLinkProviderManager,
     @Inject private val engine: InteractiveFlowEngine,
     @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
+    @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil,
     @Inject private val userProviderMapper: AdminUserProviderResourceMapper,
     @Inject private val paginationUtil: PaginationUtil,
 ) {
@@ -147,6 +151,7 @@ class AdminUserProviderController(
     suspend fun startLink(
         @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
         @PathVariable @Parameter(description = "Identifier of the provider to link.") providerId: String,
+        @RequestAttribute(OBSERVED_REQUEST) observedRequest: ObservedRequest,
         @Body resource: AdminUserProviderLinkInputResource
     ): AdminUserProviderLinkResource {
         // Both the target user and the named client must exist.
@@ -179,6 +184,7 @@ class AdminUserProviderController(
             initiatingClientId = null,
             cancelUri = cancelUri
         )
+        interactiveAuthFlowSessionControllerUtil.observeStartedSession(session, observedRequest)
 
         // The resulting redirect URI already carries the signed state as a query parameter.
         val (steppedSession, step) = engine.advance(session)

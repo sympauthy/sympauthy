@@ -1,6 +1,7 @@
 package com.sympauthy.api.controller.client
 
 import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
+import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.resource.client.ClientMfaEnrollmentInputResource
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClientManager
@@ -16,6 +17,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.InteractiveFlowStepResult
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.AuthenticationToken
+import com.sympauthy.business.model.security.observedRequestOf
 import com.sympauthy.config.model.DisabledMfaConfig
 import com.sympauthy.config.model.EnabledMfaConfig
 import com.sympauthy.config.model.MfaConfig
@@ -61,6 +63,11 @@ class ClientMfaEnrollmentControllerTest {
     @MockK
     lateinit var sessionManager: InteractiveFlowSessionManager
 
+    @MockK(relaxed = true)
+    lateinit var interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
+
+    private val observed = observedRequestOf()
+
     private fun controller(mfaConfig: MfaConfig) = ClientMfaEnrollmentController(
         interactiveAuthFlowSessionManager = interactiveAuthFlowSessionManager,
         clientRedirectUriManager = clientRedirectUriManager,
@@ -69,6 +76,7 @@ class ClientMfaEnrollmentControllerTest {
         mfaEnrollmentManager = mfaEnrollmentManager,
         engine = engine,
         stepUriMapper = stepUriMapper,
+        interactiveAuthFlowSessionControllerUtil = interactiveAuthFlowSessionControllerUtil,
         sessionManager = sessionManager,
         uncheckedMfaConfig = mfaConfig,
     )
@@ -122,6 +130,7 @@ class ClientMfaEnrollmentControllerTest {
 
             val result = controller(EnabledMfaConfig(totp = true, required = false)).startEnrollment(
                 authentication,
+                observed,
                 ClientMfaEnrollmentInputResource(
                     accessToken = "user-access-token",
                     returnUri = "https://client.example.com/done"
@@ -130,6 +139,7 @@ class ClientMfaEnrollmentControllerTest {
 
             assertEquals("encoded-state", result.state)
             assertEquals(enrollUri.toString(), result.redirectUrl)
+            coVerify { interactiveAuthFlowSessionControllerUtil.observeStartedSession(session, observed) }
         }
 
     @Test
@@ -178,6 +188,7 @@ class ClientMfaEnrollmentControllerTest {
 
         val result = controller(EnabledMfaConfig(totp = true, required = false)).startEnrollment(
             authentication,
+            observed,
             ClientMfaEnrollmentInputResource(
                 accessToken = "user-access-token",
                 returnUri = "https://client.example.com/done",
@@ -195,6 +206,7 @@ class ClientMfaEnrollmentControllerTest {
         val exception = assertThrows<BusinessException> {
             controller(mockk<DisabledMfaConfig>()).startEnrollment(
                 authentication,
+                observed,
                 ClientMfaEnrollmentInputResource(
                     accessToken = "user-access-token",
                     returnUri = "https://client.example.com/done"
@@ -217,6 +229,7 @@ class ClientMfaEnrollmentControllerTest {
         val exception = assertThrows<BusinessException> {
             controller(EnabledMfaConfig(totp = true, required = false)).startEnrollment(
                 authentication,
+                observed,
                 ClientMfaEnrollmentInputResource(
                     accessToken = "bad-token",
                     returnUri = "https://client.example.com/done"
@@ -243,6 +256,7 @@ class ClientMfaEnrollmentControllerTest {
             val exception = assertThrows<BusinessException> {
                 controller(EnabledMfaConfig(totp = true, required = false)).startEnrollment(
                     authentication,
+                    observed,
                     ClientMfaEnrollmentInputResource(
                         accessToken = "client-token",
                         returnUri = "https://client.example.com/done"

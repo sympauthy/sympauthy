@@ -3,6 +3,7 @@ package com.sympauthy.api.controller.admin
 import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.mapper.admin.AdminInteractiveFlowSessionResourceMapper
 import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionDetailResource
+import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionSecurityContextResource
 import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionSummaryResource
 import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.business.manager.ClientManager
@@ -11,6 +12,7 @@ import com.sympauthy.business.manager.flow.InteractiveFlowSessionSearchManager.I
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionSearchManager.InteractiveFlowSessionSummary
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
+import com.sympauthy.business.model.flow.InteractiveFlowSessionSecurityContext
 import com.sympauthy.business.model.flow.InteractiveFlowSessionStatus
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
@@ -164,6 +166,36 @@ class AdminInteractiveFlowSessionControllerTest {
 
         assertEquals(HttpStatus.NOT_FOUND, exception.status)
     }
+
+    @Test
+    fun `listInteractiveFlowSessionSecurityContexts - Map every place the page holds, and publish the page`() =
+        runTest {
+            val place = mockk<InteractiveFlowSessionSecurityContext>()
+            val resource = mockk<AdminInteractiveFlowSessionSecurityContextResource>()
+            coEvery {
+                searchManager.listSecurityContexts(sessionId, PageParams(0, 20))
+            } returns Page(items = listOf(place), page = 2, size = 5, total = 9)
+            every { sessionMapper.toResource(place) } returns resource
+
+            val result = controller.listInteractiveFlowSessionSecurityContexts(sessionId, null, null)
+
+            assertSame(resource, result.securityContexts.single())
+            assertEquals(2, result.page)
+            assertEquals(5, result.size)
+            assertEquals(9, result.total)
+        }
+
+    @Test
+    fun `listInteractiveFlowSessionSecurityContexts - Answer not found for a session already collected`() =
+        runTest {
+            coEvery { searchManager.listSecurityContexts(sessionId, PageParams(0, 20)) } returns null
+
+            val exception = assertThrows<LocalizedHttpException> {
+                controller.listInteractiveFlowSessionSecurityContexts(sessionId, null, null)
+            }
+
+            assertEquals(HttpStatus.NOT_FOUND, exception.status)
+        }
 
     private fun givenClients(vararg ids: String) {
         coEvery { clientManager.listClients() } returns ids.map { id ->

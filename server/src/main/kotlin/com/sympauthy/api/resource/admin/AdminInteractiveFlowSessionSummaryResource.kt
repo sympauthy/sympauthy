@@ -52,8 +52,8 @@ data class AdminInteractiveFlowSessionSummaryResource(
     @get:JsonProperty("user")
     val user: AdminUserResource?,
     @get:Schema(
-        description = "Address the person was observed at proving who they are. Absent where the session " +
-                "holds no observation."
+        description = "Address the session was last driven from. Absent where nothing was recorded against " +
+                "it; the places before this one are on the session's own page."
     )
     @get:JsonProperty("ip")
     val ip: String?,

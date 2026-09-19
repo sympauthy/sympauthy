@@ -1,6 +1,8 @@
 package com.sympauthy.api.controller.client
 
 import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
+import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
+import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.api.resource.client.ClientMfaEnrollmentInputResource
 import com.sympauthy.api.resource.client.ClientMfaEnrollmentResource
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
@@ -12,6 +14,7 @@ import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
 import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaEnrollmentManager
 import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
+import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.config.model.EnabledMfaConfig
 import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.security.SecurityRule.CLIENT_USERS_MFA_WRITE
@@ -19,6 +22,7 @@ import com.sympauthy.security.clientAuthentication
 import io.micronaut.http.annotation.Body
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Post
+import io.micronaut.http.annotation.RequestAttribute
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.swagger.v3.oas.annotations.Operation
@@ -50,6 +54,7 @@ class ClientMfaEnrollmentController(
     @Inject private val mfaEnrollmentManager: InteractiveFlowSessionMfaEnrollmentManager,
     @Inject private val engine: InteractiveFlowEngine,
     @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
+    @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil,
     @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val uncheckedMfaConfig: MfaConfig,
 ) {
@@ -86,6 +91,7 @@ end-user's browser to. Once enrollment completes, the end-user is redirected to 
     @SecurityRequirement(name = "client", scopes = [BuiltInClientScopeId.USERS_MFA_WRITE])
     suspend fun startEnrollment(
         authentication: Authentication,
+        @RequestAttribute(OBSERVED_REQUEST) observedRequest: ObservedRequest,
         @Body resource: ClientMfaEnrollmentInputResource
     ): ClientMfaEnrollmentResource {
         // Fail fast (before creating any session) when MFA is not enabled on this server.
@@ -127,6 +133,7 @@ end-user's browser to. Once enrollment completes, the end-user is redirected to 
             initiatingClientId = client.id,
             cancelUri = cancelUri
         )
+        interactiveAuthFlowSessionControllerUtil.observeStartedSession(session, observedRequest)
 
         val (steppedSession, step) = engine.advance(session)
         val redirectUri = stepUriMapper.toRedirectUri(steppedSession, flow, step)

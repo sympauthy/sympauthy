@@ -1,16 +1,19 @@
 package com.sympauthy.api.controller.flow
 
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
+import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.api.resource.flow.SimpleFlowResource
 import com.sympauthy.api.resource.flow.TotpEnrollDataFlowResource
 import com.sympauthy.api.resource.flow.TotpEnrollInputResource
 import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionTotpEnrollmentManager
+import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
 import io.micronaut.http.annotation.Body
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
 import io.micronaut.http.annotation.Post
+import io.micronaut.http.annotation.RequestAttribute
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.swagger.v3.oas.annotations.Operation
@@ -42,10 +45,12 @@ Any previously unconfirmed enrollment for the user is discarded and replaced wit
     )
     @Get
     suspend fun getEnrollmentData(
-        authentication: Authentication
+        authentication: Authentication,
+        @RequestAttribute(OBSERVED_REQUEST) observedRequest: ObservedRequest
     ): TotpEnrollDataFlowResource =
         interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionWithUserThenRun(
             state = authentication.stateOrNull,
+            observedRequest = observedRequest,
             run = { _, _, user ->
                 val data = enrollmentManager.getEnrollmentData(user)
                 TotpEnrollDataFlowResource(uri = data.uri, secret = data.secret)
@@ -75,10 +80,12 @@ On failure, a recoverable 4xx error is returned so the end-user can retry with t
     @Post
     suspend fun confirmEnrollment(
         authentication: Authentication,
+        @RequestAttribute(OBSERVED_REQUEST) observedRequest: ObservedRequest,
         @Body inputResource: TotpEnrollInputResource
     ): SimpleFlowResource =
         interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionWithUserThenUpdateAndRedirect(
             state = authentication.stateOrNull,
+            observedRequest = observedRequest,
             update = { session, _, user ->
                 enrollmentManager.confirmEnrollment(session, user, inputResource.code)
             },

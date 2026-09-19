@@ -293,4 +293,41 @@ rule about who may know a claim is worth less than the weakest path to it.
 
 ---
 
+## Where a request came from
+
+### Should the places a session is driven from share the table the fold reads?
+
+**Decision:** One table. `interactive_flow_session_security_context` holds a row per distinct place
+a session was driven from, and a `proven_date` — set only where a credential verified and resolved
+that session's user — is what the fold reads. Every other row is invisible to it.
+
+**Options considered:**
+
+- **One table, a proven column** — one shape, one fingerprint, and the fold's gate left at the
+  five call sites that prove a credential.
+- **A second table for the places no proof wrote** — the fold could not read them if it wanted to.
+- **Two columns on `interactive_flow_sessions`** — where the session started, written once, and no
+  writer on the flow path at all.
+
+**Rationale:**
+
+The second option is the structurally safest and was rejected on what it duplicates: the two tables
+would carry the same ten columns and the same fingerprint, computed by the same
+`SecurityContextKey` for the same reason, and the copy that drifts is the one nothing reads until
+an operator is looking at a stalled flow. A column the fold filters on keeps the gate where the
+safety already comes from — the call sites that know a credential verified — and a row anybody
+holding the state wrote is outside the fold by construction rather than by a filter somebody has to
+remember.
+
+The third answers only *where it started*. A session driven from a second place would look
+identical to one that was not, and the change of place is the whole signal; it also puts
+request-shaped state on a row [the interactive flow](interactive-flow.md) keeps flow-generic.
+
+**What it costs.** A table a caller can write to feeds, at one remove, a record kept for months —
+which is why the number of distinct places one session may hold is bounded, why the place rolled
+out to make room is the one seen least recently rather than the one just observed, and why a proven
+place is the last to go. [The security context](security-context.md) holds them.
+
+---
+
 ← [Design documentation](index.md)

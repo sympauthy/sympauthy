@@ -9,10 +9,10 @@ import org.testcontainers.utility.DockerImageName
  * A database a repository test runs against.
  *
  * The dialect is chosen by one property. [com.sympauthy.data.h2.DefaultDataSourceIsH2] and
- * [com.sympauthy.data.postgresql.DefaultDataSourceIsPostgreSQL] select the repository twins by
+ * [com.sympauthy.data.postgresql.DefaultDataSourceIsPostgreSQL] select that dialect's repositories by
  * inspecting the R2DBC connection factory, and each dialect's data source factory derives the JDBC
  * connection Flyway migrates through from the same place. Pointing `r2dbc.datasources.default.url` at
- * a database therefore selects its twins and builds its schema.
+ * a database therefore selects its repositories and builds its schema.
  */
 enum class Database(
     private val configure: ApplicationContextBuilder.() -> ApplicationContextBuilder

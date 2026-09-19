@@ -61,10 +61,12 @@ defined in ```urls.flow.error``` configuration.
     @Get(FLOW_PROVIDER_AUTHORIZE_ENDPOINT)
     suspend fun authorizeWithProvider(
         authentication: Authentication,
+        @RequestAttribute(OBSERVED_REQUEST) observedRequest: ObservedRequest,
         providerId: String
     ): HttpResponse<*> =
         interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenRunAndRedirect(
             state = authentication.stateOrNull,
+            observedRequest = observedRequest,
             run = { session, _ ->
                 interactiveFlowSessionOAuth2ProviderManager.authorizeWithProvider(
                     session,
@@ -105,6 +107,7 @@ Redirection to either:
         @QueryValue("error_description") errorDescription: String?
     ) = interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect(
         state = state,
+        observedRequest = observedRequest,
         update = { session, _ ->
             interactiveFlowSessionOAuth2ProviderManager.signInOrSignUpUsingProvider(
                 session = session,

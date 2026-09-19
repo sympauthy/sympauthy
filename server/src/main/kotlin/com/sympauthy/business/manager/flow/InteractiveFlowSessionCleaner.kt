@@ -67,8 +67,9 @@ open class InteractiveFlowSessionCleaner(
         val deferredLinkProviderCount = async {
             linkProviderRepository.deleteBySessionIdIn(expiredSessionIds)
         }
-        // Only the observations of flows that never completed are still here: one whose flow completed was
-        // folded into the person's record and the row consumed in the same transaction.
+        // Only the places of flows that never completed are still here, several per session where a session
+        // was driven from several: a completed flow folded the one a credential was proven at into the
+        // person's record and consumed every row in the same transaction.
         val deferredSecurityContextCount = async {
             securityContextRepository.deleteBySessionIdIn(expiredSessionIds)
         }

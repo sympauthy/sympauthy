@@ -1,6 +1,7 @@
 package com.sympauthy.api.controller.client
 
 import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
+import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.resource.client.ClientProviderLinkInputResource
 import com.sympauthy.business.exception.BusinessException
@@ -19,6 +20,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowStepResult
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.provider.EnabledProvider
+import com.sympauthy.business.model.security.observedRequestOf
 import com.sympauthy.security.ClientAuthentication
 import io.micronaut.http.HttpStatus
 import io.mockk.coEvery
@@ -66,8 +68,13 @@ class ClientProviderLinkControllerTest {
     @MockK
     lateinit var sessionManager: InteractiveFlowSessionManager
 
+    @MockK(relaxed = true)
+    lateinit var interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
+
     @InjectMockKs
     lateinit var controller: ClientProviderLinkController
+
+    private val observed = observedRequestOf()
 
     private fun clientAuthentication(clientId: String): ClientAuthentication {
         val authenticationToken = mockk<AuthenticationToken> {
@@ -102,7 +109,9 @@ class ClientProviderLinkControllerTest {
             } returns returnUri
             coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
             coEvery {
-                linkProviderManager.startLinkProviderSession(userId, "discord", returnUri, flow, "client-id", null)
+                linkProviderManager.startLinkProviderSession(
+                    userId, "discord", returnUri, flow, "client-id", null
+                )
             } returns session
             coEvery { engine.advance(session) } returns
                 InteractiveFlowStepResult(steppedSession, InteractiveFlowStep.Confirm)
@@ -112,6 +121,7 @@ class ClientProviderLinkControllerTest {
             val result = controller.startLink(
                 authentication,
                 "discord",
+                observed,
                 ClientProviderLinkInputResource(
                     accessToken = "user-access-token",
                     returnUri = "https://client.example.com/linked"
@@ -120,6 +130,7 @@ class ClientProviderLinkControllerTest {
 
             assertEquals("encoded-state", result.state)
             assertEquals(nextUri.toString(), result.redirectUrl)
+            coVerify { interactiveAuthFlowSessionControllerUtil.observeStartedSession(session, observed) }
         }
 
     @Test
@@ -134,6 +145,7 @@ class ClientProviderLinkControllerTest {
             controller.startLink(
                 authentication,
                 "discord",
+                observed,
                 ClientProviderLinkInputResource(
                     accessToken = "client-token",
                     returnUri = "https://client.example.com/linked"
@@ -162,6 +174,7 @@ class ClientProviderLinkControllerTest {
             controller.startLink(
                 authentication,
                 "bad-provider",
+                observed,
                 ClientProviderLinkInputResource(
                     accessToken = "user-access-token",
                     returnUri = "https://client.example.com/linked"
