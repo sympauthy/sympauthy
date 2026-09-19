@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.user
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.lock.LockKey
+import com.sympauthy.business.manager.lock.HeldStripes
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.mapper.CollectedClaimMapper
 import com.sympauthy.business.mapper.CollectedClaimUpdateMapper
@@ -45,7 +46,7 @@ class CollectedClaimManagerTest {
      * `withLock` would run the block whether or not anything was ever locked, and the key naming the value
      * as `collected_claims` spells it is half of what makes this agree with the promotion.
      */
-    var lockManager: LockManager = LockManager(objectLockRepository)
+    var lockManager: LockManager = LockManager(objectLockRepository, HeldStripes())
 
     @MockK
     lateinit var collectedClaimRepository: CollectedClaimRepository

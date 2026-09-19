@@ -320,8 +320,8 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
      * of these each find the subject free and both link it, and `provider_user_info` keys on
      * `(provider_id, user_id)` and stops neither. See [LockKey.ProviderSubject].
      *
-     * Advancing the flow stays outside: completing takes a lock of its own, and a lock still open would make
-     * that one a nested call naming keys this one does not hold.
+     * Advancing the flow stays outside: completing takes a lock of its own, and a transaction still
+     * holding this one would refuse it as a second lock naming keys this one does not hold.
      */
     private suspend fun linkSubjectToUser(
         provider: EnabledProvider,
