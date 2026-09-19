@@ -49,12 +49,6 @@ data class AdminInteractiveFlowSessionDetailResource(
     @get:JsonProperty("expiration_date")
     val expirationDate: LocalDateTime,
     @get:Schema(
-        description = "Every place the session was driven from, oldest first — the trail a session that " +
-                "moved mid-flow leaves. Empty where nothing was recorded against it."
-    )
-    @get:JsonProperty("security_contexts")
-    val securityContexts: List<AdminInteractiveFlowSessionSecurityContextResource>,
-    @get:Schema(
         description = "Identifier of the message detailing, technically, what the session failed with. " +
                 "Published as the key it is rather than as a rendered sentence, so it can be searched for. " +
                 "Absent unless the session failed."

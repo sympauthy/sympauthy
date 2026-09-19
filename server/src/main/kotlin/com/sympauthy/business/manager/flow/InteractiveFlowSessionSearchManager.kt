@@ -56,7 +56,9 @@ import java.util.*
  * **It reads no attached record for the listing.** The client is a column on the session, so `q` and every
  * filter match against the session row and the places it was driven from — any of them, since a session that
  * moved mid-flow holds several and an operator searching for an address means whichever of them it appeared
- * in. The detail reads the attached records, one session at a time, through the handlers that own them.
+ * in. The detail reads the attached records, one session at a time, through the handlers that own them, and
+ * the places a session holds are a collection of their own rather than something the detail carries: they
+ * are a trail an operator opens deliberately, and they are the one attached record with no handler.
  */
 @Singleton
 class InteractiveFlowSessionSearchManager(
@@ -153,9 +155,6 @@ class InteractiveFlowSessionSearchManager(
             signedUp = entity.signedUp,
             sessionDate = entity.sessionDate,
             expirationDate = entity.expirationDate,
-            securityContexts = securityContextRepository.findBySessionId(id)
-                .map(securityContextMapper::toInteractiveFlowSessionSecurityContext)
-                .sortedBy(InteractiveFlowSessionSecurityContext::firstSeenDate),
             errorDetailsId = entity.errorDetailsId,
             errorDescriptionId = entity.errorDescriptionId,
             errorValues = entity.errorValues,
@@ -171,6 +170,27 @@ class InteractiveFlowSessionSearchManager(
                 )
             }
         )
+    }
+
+    /**
+     * Read the page [pageParams] names of the places [sessionId] was driven from, or null where no session
+     * holds that identifier — which, past the expiry window, is every session this server ever ran.
+     *
+     * **Most recently seen first**, because what a reader opens a stalled session for is where it is being
+     * driven from now. That is a column every request rewrites, so two calls agree on a snapshot and a walk
+     * in progress can see a place twice or skip one; the endpoint's own description says so.
+     *
+     * The order ends on the address and the user agent, which are unique within a session by construction:
+     * they are what the fingerprint the places are deduplicated on is computed from.
+     */
+    suspend fun listSecurityContexts(
+        sessionId: UUID,
+        pageParams: PageParams
+    ): Page<InteractiveFlowSessionSecurityContext>? {
+        sessionRepository.findById(sessionId) ?: return null
+        return securityContextRepository.findBySessionId(sessionId)
+            .map(securityContextMapper::toInteractiveFlowSessionSecurityContext)
+            .orderedPage(pageParams, MOST_RECENTLY_SEEN_FIRST)
     }
 
     /**
@@ -302,6 +322,15 @@ class InteractiveFlowSessionSearchManager(
      * for; and partly because nothing the criteria drop should cost anything more than the row it was read
      * from.
      */
+    private companion object {
+
+        /** See [listSecurityContexts] for why it ends where it does. */
+        val MOST_RECENTLY_SEEN_FIRST: Comparator<InteractiveFlowSessionSecurityContext> =
+            compareByDescending<InteractiveFlowSessionSecurityContext> { it.lastSeenDate }
+                .thenBy { it.ip }
+                .thenBy(nullsLast()) { it.userAgent }
+    }
+
     internal data class SearchedInteractiveFlowSession(
         val id: UUID,
         val status: InteractiveFlowSessionStatus,
@@ -353,10 +382,6 @@ class InteractiveFlowSessionSearchManager(
     /**
      * One session, every purpose it carries and where each one stands.
      *
-     * [securityContexts] is every place the session was driven from, oldest first, which is the trail an
-     * operator reading a stalled flow is looking for: a session that started in one place and whose last
-     * post came from another is two entries.
-     *
      * The three error fields are the keys the session failed with and the values they interpolate, carried
      * unrendered: they are what a reader can grep for, whereas a sentence in the wrong locale says less. They
      * are absent for every status but [InteractiveFlowSessionStatus.FAILED].
@@ -371,7 +396,6 @@ class InteractiveFlowSessionSearchManager(
         val signedUp: Boolean,
         val sessionDate: LocalDateTime,
         val expirationDate: LocalDateTime,
-        val securityContexts: List<InteractiveFlowSessionSecurityContext>,
         val errorDetailsId: String?,
         val errorDescriptionId: String?,
         val errorValues: Map<String, String>?,

@@ -1,7 +1,7 @@
 package com.sympauthy.it.feature
 
 import com.sympauthy.api.client.api.AdminApi
-import com.sympauthy.api.client.model.AdminInteractiveFlowSessionDetailResource
+import com.sympauthy.api.client.model.AdminInteractiveFlowSessionSecurityContextResource
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
 import com.sympauthy.it.DatabaseFixture
@@ -56,9 +56,9 @@ class InteractiveFlowSessionPlacesFeatureIT : AbstractSympauthyIT() {
             repeat(2) { assertEquals(200, httpGet(signInStep, headers = agent(AGENT)).statusCode()) }
 
             val sessionId = ongoingSessionId(sympauthy, adminToken)
-            val stalled = session(sympauthy, adminToken, sessionId)
-            val place = stalled.securityContexts.singleOrNull()
-                ?: fail("a session driven from one place should hold one entry: ${stalled.securityContexts}")
+            val stalled = places(sympauthy, adminToken, sessionId)
+            val place = stalled.singleOrNull()
+                ?: fail("a session driven from one place should hold one entry: $stalled")
             // The authorize request that created the session, and the two that asked for the sign-in step.
             assertEquals(3, place.observationCount, "the entry should count every request from that place")
             assertEquals(AGENT, place.userAgent, "the entry should carry the agent those requests claimed")
@@ -71,11 +71,11 @@ class InteractiveFlowSessionPlacesFeatureIT : AbstractSympauthyIT() {
             assertEquals(FlowOutcome.SUCCESS, result.outcome(), "the flow should complete")
             assertNotNull(result.terminalParam("code"), "completing should hand the client a code")
 
-            val completed = session(sympauthy, adminToken, sessionId)
+            val completed = places(sympauthy, adminToken, sessionId)
             assertTrue(
-                completed.securityContexts.isEmpty(),
+                completed.isEmpty(),
                 "completing folds the proven place into the person's record and consumes them all, was: " +
-                    "${completed.securityContexts}",
+                    "$completed",
             )
         }
     }
@@ -100,7 +100,7 @@ class InteractiveFlowSessionPlacesFeatureIT : AbstractSympauthyIT() {
             }
 
             val sessionId = ongoingSessionId(sympauthy, adminToken)
-            val places = session(sympauthy, adminToken, sessionId).securityContexts
+            val places = places(sympauthy, adminToken, sessionId)
             val agents = places.map { it.userAgent }
             assertTrue(
                 places.size < PLACES,
@@ -152,13 +152,14 @@ class InteractiveFlowSessionPlacesFeatureIT : AbstractSympauthyIT() {
             ?: fail("exactly one session should be ongoing, were: ${listed.sessions.map { it.id }}")
     }
 
-    private fun session(
+    /** The places the session holds, as its own collection publishes them: most recently seen first. */
+    private fun places(
         sympauthy: SympauthyContainer,
         token: String,
         sessionId: UUID,
-    ): AdminInteractiveFlowSessionDetailResource = withApiClient(sympauthy, token = token) { ctx ->
-        ctx.getBean(AdminApi::class.java).getInteractiveFlowSession(sessionId).block()
-    } ?: fail("the session $sessionId should be readable")
+    ): List<AdminInteractiveFlowSessionSecurityContextResource> = withApiClient(sympauthy, token = token) { ctx ->
+        ctx.getBean(AdminApi::class.java).listInteractiveFlowSessionSecurityContexts(sessionId).block()
+    }?.securityContexts ?: fail("the places of session $sessionId should be readable")
 
     private fun agent(userAgent: String) = mapOf("User-Agent" to userAgent)
 

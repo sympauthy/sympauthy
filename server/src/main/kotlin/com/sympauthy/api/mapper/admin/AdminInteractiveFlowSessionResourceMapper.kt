@@ -63,7 +63,6 @@ class AdminInteractiveFlowSessionResourceMapper(
         signedUp = detail.signedUp,
         sessionDate = detail.sessionDate,
         expirationDate = detail.expirationDate,
-        securityContexts = detail.securityContexts.map(::toSecurityContextResource),
         errorDetailsId = detail.errorDetailsId,
         errorDescriptionId = detail.errorDescriptionId,
         errorValues = detail.errorValues,
@@ -85,7 +84,10 @@ class AdminInteractiveFlowSessionResourceMapper(
     private fun toUserResource(user: InteractiveFlowSessionUser): AdminUserResource =
         userMapper.toResource(user.user, user.identifierClaims)
 
-    private fun toSecurityContextResource(
+    /**
+     * Publish [securityContext] as one entry of a session's places.
+     */
+    fun toResource(
         securityContext: InteractiveFlowSessionSecurityContext
     ) = AdminInteractiveFlowSessionSecurityContextResource(
         ip = securityContext.ip,

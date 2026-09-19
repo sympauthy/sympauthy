@@ -3,6 +3,7 @@ package com.sympauthy.api.controller.admin
 import com.sympauthy.api.mapper.admin.AdminInteractiveFlowSessionResourceMapper
 import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionDetailResource
 import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionListResource
+import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionSecurityContextListResource
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.filterOf
 import com.sympauthy.api.util.orNotFound
@@ -138,5 +139,52 @@ class AdminInteractiveFlowSessionController(
         @PathVariable @Parameter(description = "Unique identifier of the interactive flow session.") sessionId: UUID
     ): AdminInteractiveFlowSessionDetailResource {
         return sessionMapper.toResource(searchManager.findSessionOrNull(sessionId).orNotFound())
+    }
+
+    @Operation(
+        description = "Retrieve a paginated list of the places one interactive flow session was driven " +
+                "from: one entry per distinct address and user agent, counting the requests that came " +
+                "from it rather than repeating them. " +
+                "The list is bounded — once a session holds as many places as it may, a request from a " +
+                "new one rolls out the place seen least recently, and a place a credential was proven " +
+                "at is the last to go, so a place a reader saw earlier may be gone and a place rolled " +
+                "out and seen again returns counting from one. " +
+                "Entries are ordered by the last sighting, most recent first, then by address and user " +
+                "agent. That first key is rewritten by every request the session makes, so two calls " +
+                "agree on a snapshot while a walk in progress may see an entry twice or skip one.",
+        tags = ["admin"],
+        responses = [
+            ApiResponse(responseCode = "200", description = "Paginated list of places."),
+            ApiResponse(responseCode = "400", description = "Invalid page or size."),
+            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(
+                responseCode = "403",
+                description = "The access token does not include the required scope: " +
+                        "admin:interactive-flow-sessions:read."
+            ),
+            ApiResponse(
+                responseCode = "404",
+                description = "No interactive flow session found with the given identifier, or it has " +
+                        "already been collected."
+            )
+        ]
+    )
+    @Get("/{sessionId}/security-contexts")
+    suspend fun listInteractiveFlowSessionSecurityContexts(
+        @PathVariable @Parameter(description = "Unique identifier of the interactive flow session.") sessionId: UUID,
+        @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
+        @QueryValue @Parameter(
+            description = "Number of results per page. Defaults to the size this server is configured " +
+                    "with, and may not exceed its configured maximum."
+        ) size: Int?
+    ): AdminInteractiveFlowSessionSecurityContextListResource {
+        val pageParams = paginationUtil.resolvePageParams(page, size)
+        val places = searchManager.listSecurityContexts(sessionId, pageParams).orNotFound()
+        return AdminInteractiveFlowSessionSecurityContextListResource(
+            securityContexts = places.items.map(sessionMapper::toResource),
+            page = places.page,
+            size = places.size,
+            total = places.total
+        )
     }
 }
