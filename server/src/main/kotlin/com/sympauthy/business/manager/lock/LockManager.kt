@@ -5,10 +5,6 @@ import com.sympauthy.data.repository.ObjectLockRepository
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.withContext
-import kotlin.coroutines.AbstractCoroutineContextElement
-import kotlin.coroutines.CoroutineContext
 
 /**
  * Takes the lock two transactions have to agree on before either of them may act on what it names.
@@ -22,7 +18,8 @@ import kotlin.coroutines.CoroutineContext
  */
 @Singleton
 open class LockManager(
-    @Inject private val objectLockRepository: ObjectLockRepository
+    @Inject private val objectLockRepository: ObjectLockRepository,
+    @Inject private val heldStripes: HeldStripes
 ) {
 
     /**
@@ -37,41 +34,32 @@ open class LockManager(
      * The stripes are taken in ascending order, so two callers whose sets of keys overlap take the
      * shared rows in the same order and cannot deadlock over them.
      *
-     * **Every object a transaction will touch is named in one call.** A second call inside the first is
-     * the one ordering this cannot impose, so it is refused unless the first already covers it —
-     * `lock.nested`, which is the server's own failure and not the caller's.
+     * **Every object a transaction will touch is named in one call.** A second call in one transaction —
+     * inside the first block or issued after it returned, which is the same lock either way — is the one
+     * ordering this cannot impose, so it is refused unless the first already covers it: `lock.second`,
+     * which is the server's own failure and not the caller's. A call naming no key takes nothing and
+     * refuses nothing after it.
      */
     @Transactional
     open suspend fun <T> withLock(vararg keys: LockKey, block: suspend () -> T): T {
         val stripes = keys.map(LockKey::stripe).distinct().sorted()
-        val held = currentCoroutineContext()[HeldStripes]
+        val held = heldStripes.held()
 
-        if (held != null) {
-            if (!held.stripes.containsAll(stripes)) {
+        if (held.isNotEmpty()) {
+            if (!held.containsAll(stripes)) {
                 throw internalBusinessExceptionOf(
-                    detailsId = "lock.nested",
-                    "held" to held.stripes.joinToString(),
+                    detailsId = "lock.second",
+                    "held" to held.joinToString(),
                     "requested" to stripes.joinToString()
                 )
             }
             return block()
         }
 
-        stripes.forEach { objectLockRepository.lock(it) }
-        return withContext(HeldStripes(stripes)) { block() }
+        stripes.forEach {
+            objectLockRepository.lock(it)
+            heldStripes.hold(it)
+        }
+        return block()
     }
-}
-
-/**
- * The stripes the transaction running this coroutine already holds.
- *
- * Carried in the coroutine context rather than in a field, because what holds a lock is a transaction
- * and what a transaction is, here, is a coroutine: two requests served by one instance share the
- * manager and must not share what it believes it is holding.
- */
-internal class HeldStripes(
-    val stripes: List<Int>
-) : AbstractCoroutineContextElement(HeldStripes) {
-
-    companion object Key : CoroutineContext.Key<HeldStripes>
 }

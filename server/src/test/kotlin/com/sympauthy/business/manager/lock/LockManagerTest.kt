@@ -8,6 +8,8 @@ import io.mockk.coVerifyOrder
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
+import io.mockk.just
+import io.mockk.runs
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -23,6 +25,9 @@ class LockManagerTest {
     @MockK
     lateinit var objectLockRepository: ObjectLockRepository
 
+    @MockK
+    lateinit var heldStripes: HeldStripes
+
     @InjectMockKs
     lateinit var manager: LockManager
 
@@ -33,6 +38,8 @@ class LockManagerTest {
 
     @Test
     fun `withLock - Takes the stripes in ascending order, whatever order the keys came in`() = runTest {
+        coEvery { heldStripes.held() } returns emptyList()
+        coEvery { heldStripes.hold(any()) } just runs
         coEvery { objectLockRepository.lock(any()) } returns 0
 
         manager.withLock(otherUser, identifier, user) { }
@@ -46,6 +53,8 @@ class LockManagerTest {
 
     @Test
     fun `withLock - Takes one stripe once when two keys share it`() = runTest {
+        coEvery { heldStripes.held() } returns emptyList()
+        coEvery { heldStripes.hold(any()) } just runs
         coEvery { objectLockRepository.lock(any()) } returns 0
 
         manager.withLock(identifier, LockKey.IdentifierValue("someone@example.com")) { }
@@ -54,7 +63,35 @@ class LockManagerTest {
     }
 
     @Test
+    fun `withLock - Records each stripe against the transaction as it takes it`() = runTest {
+        coEvery { heldStripes.held() } returns emptyList()
+        coEvery { heldStripes.hold(any()) } just runs
+        coEvery { objectLockRepository.lock(any()) } returns 0
+
+        manager.withLock(otherUser, user) { }
+
+        coVerifyOrder {
+            objectLockRepository.lock(11)
+            heldStripes.hold(11)
+            objectLockRepository.lock(63)
+            heldStripes.hold(63)
+        }
+    }
+
+    @Test
+    fun `withLock - Records nothing, and takes nothing, when it was named no key`() = runTest {
+        coEvery { heldStripes.held() } returns emptyList()
+
+        manager.withLock { }
+
+        coVerify(exactly = 0) { heldStripes.hold(any()) }
+        coVerify(exactly = 0) { objectLockRepository.lock(any()) }
+    }
+
+    @Test
     fun `withLock - Runs the block once and answers what it answered`() = runTest {
+        coEvery { heldStripes.held() } returns emptyList()
+        coEvery { heldStripes.hold(any()) } just runs
         coEvery { objectLockRepository.lock(any()) } returns 0
         var runs = 0
 
@@ -68,30 +105,26 @@ class LockManagerTest {
     }
 
     @Test
-    fun `withLock - Runs a nested block without taking anything the outer call already holds`() = runTest {
-        coEvery { objectLockRepository.lock(any()) } returns 0
+    fun `withLock - Runs the block without taking anything the transaction already holds`() = runTest {
+        coEvery { heldStripes.held() } returns listOf(11, 13)
         var ran = false
 
-        manager.withLock(user, identifier) {
-            manager.withLock(identifier) { ran = true }
-        }
+        manager.withLock(identifier) { ran = true }
 
         assertTrue(ran)
-        coVerify(exactly = 1) { objectLockRepository.lock(13) }
+        coVerify(exactly = 0) { objectLockRepository.lock(any()) }
     }
 
     @Test
-    fun `withLock - Refuses a nested lock the outer call does not cover`() = runTest {
-        coEvery { objectLockRepository.lock(any()) } returns 0
+    fun `withLock - Refuses a lock the transaction does not already hold`() = runTest {
+        coEvery { heldStripes.held() } returns listOf(11)
         var ran = false
 
         val thrown = assertThrows<BusinessException> {
-            manager.withLock(user) {
-                manager.withLock(otherUser) { ran = true }
-            }
+            manager.withLock(otherUser) { ran = true }
         }
 
-        assertEquals("lock.nested", thrown.detailsId)
+        assertEquals("lock.second", thrown.detailsId)
         assertFalse(ran)
         coVerify(exactly = 0) { objectLockRepository.lock(63) }
     }

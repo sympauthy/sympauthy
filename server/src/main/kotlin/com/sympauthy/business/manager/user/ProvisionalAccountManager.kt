@@ -65,7 +65,7 @@ open class ProvisionalAccountManager(
      * cannot miss is another promotion, which is what the keys are for; what it may miss is [deleteAbandoned]
      * collecting this account, and that ends in the rollback below rather than in a promotion of nothing —
      * every write here re-asserts the session id, and the completion write finds no session to mark. They
-     * are named in one call because a second one inside the first is refused.
+     * are named in one call because a second one in that transaction is refused.
      *
      * The whole of it — the checks and the five writes — belongs to the caller's transaction, so an account
      * either becomes real in full or stays provisional and is collected, and the locks are held until that
