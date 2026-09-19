@@ -46,6 +46,12 @@ export GITHUB_ACTOR=$(gh api user --jq .login) GITHUB_TOKEN=$(gh auth token)
 
 Full setup is `docs/running-locally.md`.
 
+## Issues
+
+**A new issue opens in the earliest open milestone**, unless the user names another. That milestone
+is the next release; read the list rather than assuming which one it is, since it moves as releases
+ship.
+
 ## Architecture — `docs/architecture.md`, `docs/general-code-standard.md`
 
 - **`api`** — HTTP boundary. Controllers, resources, mappers, filters, error handlers.
