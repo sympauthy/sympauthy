@@ -38,7 +38,7 @@ class AdminAudienceController(
         description = "Retrieve all configured audiences. Since audiences are defined in configuration files, " +
                 "this endpoint exposes them as read-only resources. Audiences are ordered by identifier " +
                 "unless another order is asked for. " +
-                "Which fields this collection can be filtered, ordered and row on is published at " +
+                "Which fields this collection can be filtered, ordered and searched on is published at " +
                 "/api/v1/admin/audiences/capabilities.",
         tags = ["admin"],
         responses = [

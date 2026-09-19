@@ -77,7 +77,7 @@ class AdminInvitationController(
     @Operation(
         description = "Retrieve a paginated list of invitations. Invitations are ordered by creation " +
                 "date, oldest first, then by identifier, unless another order is asked for. " +
-                "Which fields this collection can be filtered, ordered and row on is published at " +
+                "Which fields this collection can be filtered, ordered and searched on is published at " +
                 "/api/v1/admin/invitations/capabilities.",
         tags = ["admin"],
         responses = [

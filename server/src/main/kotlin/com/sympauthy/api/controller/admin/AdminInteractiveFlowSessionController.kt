@@ -43,7 +43,7 @@ class AdminInteractiveFlowSessionController(
                 "in flight' rather than 'nothing ever happened'. " +
                 "Sessions are ordered by the date they started, oldest first, then by identifier, unless " +
                 "another order is asked for; that identifier stays ascending whichever direction is asked for. " +
-                "Which fields this collection can be filtered, ordered and row on is published at " +
+                "Which fields this collection can be filtered, ordered and searched on is published at " +
                 "/api/v1/admin/interactive-flow-sessions/capabilities.",
         tags = ["admin"],
         responses = [

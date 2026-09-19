@@ -2,7 +2,7 @@ package com.sympauthy.business.manager.collection
 
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.model.collection.CollectionCriteria
-import com.sympauthy.business.model.collection.criteriaOf
+import com.sympauthy.api.util.criteriaOf
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.provider.ProviderUserInfo
 import com.sympauthy.business.model.user.RawProviderClaims

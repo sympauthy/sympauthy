@@ -3,7 +3,7 @@ package com.sympauthy.business.manager.collection
 import com.sympauthy.business.manager.AudienceManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.model.collection.CollectionCriteria
-import com.sympauthy.business.model.collection.criteriaOf
+import com.sympauthy.api.util.criteriaOf
 import com.sympauthy.business.model.oauth2.ConsentableUserScope
 import com.sympauthy.business.model.oauth2.DisabledScope
 import com.sympauthy.business.model.oauth2.GrantableUserScope

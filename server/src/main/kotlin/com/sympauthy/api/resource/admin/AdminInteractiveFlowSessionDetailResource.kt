@@ -50,7 +50,7 @@ data class AdminInteractiveFlowSessionDetailResource(
     val expirationDate: LocalDateTime,
     @get:Schema(
         description = "Identifier of the message detailing, technically, what the session failed with. " +
-                "Published as the key it is rather than as a rendered sentence, so it can be row for. " +
+                "Published as the key it is rather than as a rendered sentence, so it can be searched for. " +
                 "Absent unless the session failed."
     )
     @get:JsonProperty("error_details_id")

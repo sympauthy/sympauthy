@@ -49,6 +49,14 @@ class ClaimsConfigValidatorTest {
     }
 
     @Test
+    fun `validate - Refuse a claim named as the word a capability document answers for`() {
+        val ctx = validate(listOf(parsedClaim("capabilities")), null)
+
+        assertEquals(listOf("config.reserved_identifier"), ctx.errors.map { it.messageId })
+        assertEquals(listOf("claims.capabilities"), ctx.errors.map { it.key })
+    }
+
+    @Test
     fun `validate - Refuse an identifier claim restricted to an audience`() {
         val ctx = validate(listOf(parsedClaim("email", audienceId = "billing")), listOf("email"))
 

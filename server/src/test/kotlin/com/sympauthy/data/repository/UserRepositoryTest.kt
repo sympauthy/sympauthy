@@ -12,8 +12,8 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
 /**
- * The user, whose reader by status is the one query in the model that is not `suspend`: it hands back a
- * [kotlinx.coroutines.flow.Flow] the caller collects itself.
+ * The user, whose reader of every committed row is the one query in the model that is not `suspend`: it
+ * hands back a [kotlinx.coroutines.flow.Flow] the caller collects itself.
  *
  * It is also where the provisional row is proved invisible: every reader here answers committed rows only,
  * except the one the owning session reads its own account through.
@@ -21,7 +21,6 @@ import org.junit.jupiter.params.provider.EnumSource
 class UserRepositoryTest {
 
     private val status = "user-repository-test-enabled"
-    private val otherStatus = "user-repository-test-locked"
 
     @ParameterizedTest
     @EnumSource(Database::class)

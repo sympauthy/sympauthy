@@ -18,7 +18,7 @@ class ConfigTemplateResolver {
      *
      * A placeholder naming a key [context] does not hold is a mistake in the deployment's file, so
      * it throws a `ConfigurationException` with the code `config.unknown_template`, reported
-     * against [configKey] and collection the keys that were available.
+     * against [configKey] and listing the keys that were available.
      */
     fun resolve(value: String, context: Map<String, String>, configKey: String): String {
         return templateRegex.replace(value) { match ->

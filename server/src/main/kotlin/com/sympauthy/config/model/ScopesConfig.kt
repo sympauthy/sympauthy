@@ -19,7 +19,7 @@ data class EnabledScopesConfig(
     /**
      * The half of [scopes] this server serves, which is what a caller may name: a client's allowed
      * scopes, a granting rule's scopes. Validating what a scope the deployment turned off is
-     * configured with needs [scopes] instead, and so does collection them.
+     * configured with needs [scopes] instead, and so does listing them.
      */
     val enabledScopes: List<EnabledScope> = scopes.filterIsInstance<EnabledScope>()
 }

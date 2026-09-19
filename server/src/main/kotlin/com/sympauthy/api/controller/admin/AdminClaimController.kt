@@ -35,7 +35,7 @@ class AdminClaimController(
         description = "Retrieve all configured claims (standard and custom). Since claims are defined in " +
                 "configuration files, this endpoint exposes them as read-only resources. Claims are ordered " +
                 "with the enabled ones first, then by identifier, unless another order is asked for. " +
-                "Which fields this collection can be filtered, ordered and row on is published at " +
+                "Which fields this collection can be filtered, ordered and searched on is published at " +
                 "/api/v1/admin/claims/capabilities.",
         tags = ["admin"],
         responses = [

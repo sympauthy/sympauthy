@@ -38,7 +38,7 @@ class AdminUserClaimController(
     @Operation(
         description = "Retrieve a paginated list of claims for a given user, with metadata. " +
                 "Claims are ordered by identifier unless another order is asked for. " +
-                "Which fields this collection can be filtered, ordered and row on is published at " +
+                "Which fields this collection can be filtered, ordered and searched on is published at " +
                 "/api/v1/admin/users/{userId}/claims/capabilities.",
         tags = ["admin"],
         responses = [

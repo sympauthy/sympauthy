@@ -56,7 +56,7 @@ class AdminUserController(
                 "so a filter on one is written the way every other filter is. " +
                 "Users are ordered by creation date, oldest first, then by user identifier, unless another " +
                 "order is asked for; that identifier stays ascending whichever direction is asked for. " +
-                "Which fields this collection can be filtered, ordered and row on is published at " +
+                "Which fields this collection can be filtered, ordered and searched on is published at " +
                 "/api/v1/admin/users/capabilities.",
         tags = ["admin"],
         responses = [

@@ -6,7 +6,7 @@ import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.mapper.CollectedClaimMapper
 import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.collection.CollectionCriteria
-import com.sympauthy.business.model.collection.criteriaOf
+import com.sympauthy.api.util.criteriaOf
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
@@ -231,6 +231,17 @@ class UserCollectionManagerTest {
 
         val fields = manager.capabilities().fields.map { it.name }
 
+        assertEquals(listOf("id", "status", "created_at", "email"), fields)
+    }
+
+    @Test
+    fun `listUsers - Offer no field for a claim named as a parameter of the grammar`() = runTest {
+        every { claimManager.listEnabledClaims() } returns listOf(emailClaim, claim("q"), claim("sort"))
+
+        val fields = manager.capabilities().fields.map { it.name }
+
+        // A field under one of those names is one no criterion could reach: the resolver reads them
+        // for the free text and the order before it reads anything as a criterion.
         assertEquals(listOf("id", "status", "created_at", "email"), fields)
     }
 

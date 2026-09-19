@@ -61,13 +61,14 @@ class UserCollectionManager(
         criteria: CollectionCriteria,
         pageParams: PageParams
     ): Page<UserWithClaims> {
-        val userEntities = userRepository.findBySessionIdIsNull().toList()
-        if (userEntities.isEmpty()) {
-            return fields().page(emptyList(), criteria, pageParams).map { toUserWithClaims(it) }
+        val users = userRepository.findBySessionIdIsNull().toList().map(userMapper::toUser)
+        // The one call an empty table must not make: an IN-list of nothing is not a query worth
+        // sending, and everything below it answers correctly on an empty input.
+        val claimEntities = if (users.isEmpty()) {
+            emptyList()
+        } else {
+            collectedClaimRepository.findByUserIdInList(users.map(User::id))
         }
-
-        val users = userEntities.map(userMapper::toUser)
-        val claimEntities = collectedClaimRepository.findByUserIdInList(users.map(User::id))
         val claimsByUserId = claimEntities
             .mapNotNull(collectedClaimMapper::toCollectedClaim)
             .groupBy(CollectedClaim::userId)
@@ -77,14 +78,14 @@ class UserCollectionManager(
             .groupBy { it.userId }
             .mapValues { (_, rows) -> rows.maxOf { it.collectionDate } }
 
-        val row = users.map { user ->
+        val rows = users.map { user ->
             UserRow(
                 user = user,
                 collectedClaims = claimsByUserId[user.id] ?: emptyList(),
                 latestCollectionDate = latestCollectionDates[user.id]
             )
         }
-        return fields().page(row, criteria, pageParams).map { toUserWithClaims(it) }
+        return fields().page(rows, criteria, pageParams).map { toUserWithClaims(it) }
     }
 
     /**
@@ -100,9 +101,10 @@ class UserCollectionManager(
      * one would mean computing it for every account rather than for the page — and the free text has
      * never matched one, since nothing is collected for it.
      *
-     * **A claim named as one of the account's own fields is shadowed by it.** The capability
-     * document says which the collection took, so a caller reading it is never told a field is there
-     * and then answered about another one.
+     * **A claim named as one of the account's own fields, or as a parameter of the grammar, is left
+     * out.** Either way the name is taken, and a field published under one would be a field no
+     * criterion could ever reach — the document says what the collection accepts, so it may not
+     * name one it would answer about something else.
      */
     private suspend fun fields(): CollectionFields<UserRow> = collectionFields(
         uniqueKey = compareBy { it.user.id }
@@ -111,10 +113,9 @@ class UserCollectionManager(
         enumeration<UserStatus>("status", key = "fields.user_status", sortable = true) { it.user.status }
         field("created_at", DATE_TIME, sortable = true) { it.user.creationDate }
 
-        val ownFields = setOf("id", "status", "created_at")
         claimManager.listEnabledClaims()
             .filterNot(Claim::generated)
-            .filterNot { it.id in ownFields }
+            .filterNot { it.id in SHADOWED_CLAIM_IDS }
             .forEach { claim ->
                 field(
                     name = claim.id,
@@ -178,6 +179,16 @@ class UserCollectionManager(
         }
     }
 
+    private companion object {
+
+        /**
+         * The names a claim may not take a field under: the account's own fields, and the four
+         * parameters [com.sympauthy.api.util.collectionCriteriaOf] reads for something other than a
+         * criterion.
+         */
+        val SHADOWED_CLAIM_IDS = setOf("id", "status", "created_at", "page", "size", "sort", "q", "claims")
+    }
+
     /**
      * A user as this collection reads them: what the criteria, the free text and the order run over.
      *
@@ -196,7 +207,7 @@ class UserCollectionManager(
     )
 
     /**
-     * A user, and every claim value a caller collection them may publish.
+     * A user, and every claim value a caller listing them may publish.
      *
      * The values come from two places — [collectedClaims] is what was collected from the user, and
      * [generatedClaimValues] what this server computes for them, keyed by claim identifier — and

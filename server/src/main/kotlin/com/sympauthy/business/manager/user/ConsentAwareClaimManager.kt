@@ -18,7 +18,7 @@ import jakarta.inject.Singleton
  * (for admin, configuration, discovery, and internal use), this manager filters claims
  * based on what the end-user has consented to during the authorization flow.
  *
- * Use this manager when collection claims to present to the end-user during the authorization flow.
+ * Use this manager when listing claims to present to the end-user during the authorization flow.
  * Use [ClaimManager] directly for admin endpoints, OpenID discovery, configuration,
  * entity-to-model mapping, and any context where scope filtering is not applicable.
  */

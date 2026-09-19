@@ -1,5 +1,6 @@
 package com.sympauthy.business.model.collection
 
+import com.sympauthy.api.util.criteriaOf
 import com.sympauthy.business.model.collection.CollectionFieldType.BOOLEAN
 import com.sympauthy.business.model.collection.CollectionFieldType.DATE
 import com.sympauthy.business.model.collection.CollectionFieldType.DATE_TIME
@@ -10,6 +11,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import java.time.LocalDate
 import java.time.LocalDateTime
 
@@ -18,7 +20,7 @@ class CollectionFieldsTest {
     private data class Row(
         val id: String,
         val name: String? = null,
-        val size: Long = 0,
+        val weight: Long = 0,
         val enabled: Boolean = true,
         val startedAt: LocalDateTime = LocalDateTime.of(2026, 1, 1, 0, 0),
         /** Read as a string, the way a date claim is stored. */
@@ -31,12 +33,12 @@ class CollectionFieldsTest {
     private suspend fun fields() = collectionFields<Row>(uniqueKey = compareBy(Row::id)) {
         field("id", STRING, read = Row::id)
         field("name", STRING, nullable = true, sortable = true, searchable = true, read = Row::name)
-        field("size", NUMBER, sortable = true, read = Row::size)
+        field("weight", NUMBER, sortable = true, read = Row::weight)
         field("enabled", BOOLEAN, sortable = true, read = Row::enabled)
         field("started_at", DATE_TIME, sortable = true, read = Row::startedAt)
         field("birth_date", DATE, nullable = true, sortable = true, read = Row::birthDate)
         field("tag", STRING, nullable = true, searchable = true, read = Row::tags)
-        defaultSort("-size")
+        defaultSort("-weight")
     }
 
     private suspend fun page(
@@ -88,16 +90,16 @@ class CollectionFieldsTest {
 
     @Test
     fun `page - Keep the rows one of a comma-separated list names under in`() = runTest {
-        val rows = listOf(Row("a", size = 1), Row("b", size = 2), Row("c", size = 3))
+        val rows = listOf(Row("a", weight = 1), Row("b", weight = 2), Row("c", weight = 3))
 
-        assertEquals(listOf("a", "c"), page("size.in" to "1,3", sort = "size", rows = rows))
+        assertEquals(listOf("a", "c"), page("weight.in" to "1,3", sort = "weight", rows = rows))
     }
 
     @Test
     fun `page - Compare a number rather than the text it is written as`() = runTest {
-        val rows = listOf(Row("a", size = 9), Row("b", size = 10))
+        val rows = listOf(Row("a", weight = 9), Row("b", weight = 10))
 
-        assertEquals(listOf("b"), page("size.gt" to "9", rows = rows))
+        assertEquals(listOf("b"), page("weight.gt" to "9", rows = rows))
     }
 
     @Test
@@ -123,9 +125,9 @@ class CollectionFieldsTest {
 
     @Test
     fun `page - Compose two criteria over one field with and`() = runTest {
-        val rows = listOf(Row("a", size = 1), Row("b", size = 5), Row("c", size = 9))
+        val rows = listOf(Row("a", weight = 1), Row("b", weight = 5), Row("c", weight = 9))
 
-        assertEquals(listOf("b"), page("size.gte" to "2", "size.lte" to "8", rows = rows))
+        assertEquals(listOf("b"), page("weight.gte" to "2", "weight.lte" to "8", rows = rows))
     }
 
     @Test
@@ -133,6 +135,15 @@ class CollectionFieldsTest {
         val rows = listOf(Row("a", tags = listOf("red", "blue")), Row("b", tags = listOf("green")))
 
         assertEquals(listOf("a"), page("tag" to "blue", rows = rows))
+    }
+
+    @Test
+    fun `page - Ask ne of the row rather than of a value where a field reads several`() = runTest {
+        val rows = listOf(Row("a", tags = listOf("red", "blue")), Row("b", tags = listOf("green")))
+
+        // "a" holds a tag that is not red, and is dropped all the same: ne asks that the row hold no
+        // red tag, which is what a caller excluding red asked for.
+        assertEquals(listOf("b"), page("tag.ne" to "red", rows = rows))
     }
 
     @Test
@@ -144,14 +155,14 @@ class CollectionFieldsTest {
 
     @Test
     fun `page - Narrow what the filters kept with the free text search rather than widening it`() = runTest {
-        val rows = listOf(Row("a", name = "Ariane", size = 1), Row("b", name = "Ariane", size = 2))
+        val rows = listOf(Row("a", name = "Ariane", weight = 1), Row("b", name = "Ariane", weight = 2))
 
-        assertEquals(listOf("a"), page("size" to "1", query = "aria", rows = rows))
+        assertEquals(listOf("a"), page("weight" to "1", query = "aria", rows = rows))
     }
 
     @Test
     fun `page - Take the collection's own order where the caller names no key`() = runTest {
-        val rows = listOf(Row("a", size = 1), Row("b", size = 3), Row("c", size = 2))
+        val rows = listOf(Row("a", weight = 1), Row("b", weight = 3), Row("c", weight = 2))
 
         assertEquals(listOf("b", "c", "a"), page(rows = rows))
     }
@@ -159,19 +170,19 @@ class CollectionFieldsTest {
     @Test
     fun `page - Read the keys left to right`() = runTest {
         val rows = listOf(
-            Row("a", enabled = false, size = 9),
-            Row("b", enabled = true, size = 1),
-            Row("c", enabled = true, size = 2)
+            Row("a", enabled = false, weight = 9),
+            Row("b", enabled = true, weight = 1),
+            Row("c", enabled = true, weight = 2)
         )
 
-        assertEquals(listOf("c", "b", "a"), page(sort = "-enabled,-size", rows = rows))
+        assertEquals(listOf("c", "b", "a"), page(sort = "-enabled,-weight", rows = rows))
     }
 
     @Test
     fun `page - End the order on the unique key, ascending, whichever direction is asked for`() = runTest {
-        val rows = listOf(Row("b", size = 1), Row("a", size = 1))
+        val rows = listOf(Row("b", weight = 1), Row("a", weight = 1))
 
-        assertEquals(listOf("a", "b"), page(sort = "-size", rows = rows))
+        assertEquals(listOf("a", "b"), page(sort = "-weight", rows = rows))
     }
 
     @Test
@@ -183,7 +194,7 @@ class CollectionFieldsTest {
 
     @Test
     fun `page - Answer the slice the parameters name, out of everything the criteria kept`() = runTest {
-        val rows = listOf(Row("a", size = 3), Row("b", size = 2), Row("c", size = 1))
+        val rows = listOf(Row("a", weight = 3), Row("b", weight = 2), Row("c", weight = 1))
         val fields = fields()
         val criteria = fields.capabilities.criteriaOf()
 
@@ -198,7 +209,7 @@ class CollectionFieldsTest {
         val fields = fields().capabilities
 
         assertTrue(CollectionOperator.IS_NULL in fields.fieldOrNull("name")!!.operators)
-        assertTrue(CollectionOperator.IS_NULL !in fields.fieldOrNull("size")!!.operators)
+        assertTrue(CollectionOperator.IS_NULL !in fields.fieldOrNull("weight")!!.operators)
     }
 
     @Test
@@ -206,12 +217,24 @@ class CollectionFieldsTest {
         val fields = fields().capabilities
 
         assertTrue(CollectionOperator.IN !in fields.fieldOrNull("name")!!.operators)
-        assertTrue(CollectionOperator.IN in fields.fieldOrNull("size")!!.operators)
+        assertTrue(CollectionOperator.IN in fields.fieldOrNull("weight")!!.operators)
+    }
+
+    @Test
+    fun `collectionFields - Refuse a field name the collection already declared`() = runTest {
+        val failure = assertThrows<IllegalArgumentException> {
+            collectionFields<Row>(uniqueKey = compareBy(Row::id)) {
+                field("name", STRING, read = Row::name)
+                field("name", STRING, read = Row::id)
+            }
+        }
+
+        assertEquals("This collection declares the field name twice.", failure.message)
     }
 
     @Test
     fun `collectionFields - Publish the collection's own order the way sort is spelled`() = runTest {
-        assertEquals(listOf("-size"), fields().capabilities.defaultSort.map(CollectionSortKey::spelling))
+        assertEquals(listOf("-weight"), fields().capabilities.defaultSort.map(CollectionSortKey::spelling))
     }
 
     @Test

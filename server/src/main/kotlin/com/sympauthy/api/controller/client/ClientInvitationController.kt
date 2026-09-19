@@ -23,6 +23,8 @@ import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
+import io.swagger.v3.oas.annotations.enums.ParameterIn.QUERY
+import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
@@ -37,6 +39,18 @@ class ClientInvitationController(
     @Inject private val invitationMapper: ClientInvitationResourceMapper,
     @Inject private val paginationUtil: PaginationUtil
 ) {
+
+    companion object {
+        private const val INVITATION_ID = "Keep the invitations this identifier names."
+        private const val STATUS = "Keep the invitations in this state: pending, consumed, revoked or expired."
+        private const val TOKEN_PREFIX = "Keep the invitations whose token begins with this."
+        private const val NOTE = "Keep the invitations carrying this note."
+        private const val CREATED_AT = "Keep the invitations created at this moment, ISO-8601 with no zone."
+        private const val EXPIRES_AT = "Keep the invitations expiring at this moment, ISO-8601 with no zone."
+        private const val CONSUMED_AT = "Keep the invitations consumed at this moment, ISO-8601 with no zone."
+        private const val REVOKED_AT = "Keep the invitations revoked at this moment, ISO-8601 with no zone."
+        private const val CONSUMED_BY = "Keep the invitation the account this identifier names consumed."
+    }
 
     @Operation(
         description =
@@ -85,10 +99,31 @@ class ClientInvitationController(
                 "ordered by creation date, oldest first, then by identifier, unless another order is " +
                 "asked for. " +
                 "They can be filtered on status, note, token_prefix, created_at, expires_at, consumed_at, " +
-                "revoked_at, consumed_by_user_id and id, and row with q across the note and the " +
+                "revoked_at, consumed_by_user_id and id, and searched with q across the note and the " +
                 "token prefix. An operator other than an exact match is written as a dotted suffix on the " +
                 "field name: status.in, created_at.gte, note.contains.",
         tags = ["client"],
+        parameters = [
+            Parameter(name = "id", `in` = QUERY, description = INVITATION_ID, schema = Schema(type = "string")),
+            Parameter(name = "status", `in` = QUERY, description = STATUS, schema = Schema(type = "string")),
+            Parameter(
+                name = "token_prefix",
+                `in` = QUERY,
+                description = TOKEN_PREFIX,
+                schema = Schema(type = "string")
+            ),
+            Parameter(name = "note", `in` = QUERY, description = NOTE, schema = Schema(type = "string")),
+            Parameter(name = "created_at", `in` = QUERY, description = CREATED_AT, schema = Schema(type = "string")),
+            Parameter(name = "expires_at", `in` = QUERY, description = EXPIRES_AT, schema = Schema(type = "string")),
+            Parameter(name = "consumed_at", `in` = QUERY, description = CONSUMED_AT, schema = Schema(type = "string")),
+            Parameter(name = "revoked_at", `in` = QUERY, description = REVOKED_AT, schema = Schema(type = "string")),
+            Parameter(
+                name = "consumed_by_user_id",
+                `in` = QUERY,
+                description = CONSUMED_BY,
+                schema = Schema(type = "string")
+            )
+        ],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of invitations."),
             ApiResponse(

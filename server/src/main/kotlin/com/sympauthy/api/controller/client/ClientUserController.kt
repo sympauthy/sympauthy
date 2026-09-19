@@ -20,6 +20,8 @@ import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
+import io.swagger.v3.oas.annotations.enums.ParameterIn
+import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
@@ -41,9 +43,24 @@ class ClientUserController(
                 "each time a user authorizes again, which moves them to the end of the list, so a client " +
                 "walking every page while users are signing in may miss one or see one twice. " +
                 "They can be filtered on provider_id, and on subject together with it; each is an exact " +
-                "match and accepts no other operator. This collection is not ordered or row by a " +
+                "match and accepts no other operator. This collection is not ordered or searched by a " +
                 "caller.",
         tags = ["client"],
+        parameters = [
+            Parameter(
+                name = "provider_id",
+                `in` = ParameterIn.QUERY,
+                description = "Keep the users linked to the provider this names.",
+                schema = Schema(type = "string")
+            ),
+            Parameter(
+                name = "subject",
+                `in` = ParameterIn.QUERY,
+                description = "Keep the user the provider named by provider_id knows under this " +
+                        "subject. It identifies nobody on its own, so it is refused without one.",
+                schema = Schema(type = "string")
+            )
+        ],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of users."),
             ApiResponse(

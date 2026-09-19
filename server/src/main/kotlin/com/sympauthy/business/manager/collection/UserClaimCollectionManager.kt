@@ -70,7 +70,7 @@ class UserClaimCollectionManager(
                 CollectedUserClaim(claim, isIdentifier, collectedClaims[claim.id])
             }
         }
-        return fields().page(userClaims, criteria, pageParams)
+        return fieldsOf(claims).page(userClaims, criteria, pageParams)
     }
 
     /**
@@ -91,14 +91,20 @@ class UserClaimCollectionManager(
      * value this server computes is neither: nothing was collected for it, and the value beside it
      * is this server's own.
      */
-    private suspend fun fields(): CollectionFields<UserClaim> = collectionFields(
+    private suspend fun fields(): CollectionFields<UserClaim> = fieldsOf(listableClaims())
+
+    /**
+     * The fields this collection offers over [claims], which the caller has already read: one pass
+     * over the configured set answers both what the collection accepts and what it reads.
+     */
+    private suspend fun fieldsOf(claims: List<Claim>): CollectionFields<UserClaim> = collectionFields(
         uniqueKey = compareBy { it.claim.id }
     ) {
         field(
             name = "claim_id",
             type = ENUM,
             key = "fields.claim_id",
-            values = listableClaims().map { CollectionFieldValue(it.id, "claims.${it.id}") },
+            values = claims.map { CollectionFieldValue(it.id, "claims.${it.id}") },
             searchable = true
         ) { it.claim.id }
         field("identifier", BOOLEAN, sortable = true, read = UserClaim::identifier)

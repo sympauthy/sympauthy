@@ -36,7 +36,7 @@ class AdminScopeController(
                 "including the ones this deployment turned off. Since scopes are defined in configuration, " +
                 "this endpoint exposes them as read-only resources. Scopes are ordered by scope unless " +
                 "another order is asked for. " +
-                "Which fields this collection can be filtered, ordered and row on is published at " +
+                "Which fields this collection can be filtered, ordered and searched on is published at " +
                 "/api/v1/admin/scopes/capabilities.",
         tags = ["admin"],
         responses = [

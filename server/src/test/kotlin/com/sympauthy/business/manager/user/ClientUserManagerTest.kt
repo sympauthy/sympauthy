@@ -5,7 +5,7 @@ import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.model.collection.CollectionCriteria
-import com.sympauthy.business.model.collection.criteriaOf
+import com.sympauthy.api.util.criteriaOf
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.provider.ProviderUserInfo
 import com.sympauthy.business.model.user.CollectedClaim
@@ -266,6 +266,18 @@ class ClientUserManagerTest {
         }
 
         assertEquals("client.subject_without_provider", exception.detailsId)
+    }
+
+    @Test
+    fun `listUsersForAudience - Answer nothing where one field carries two values`() = runTest {
+        // Nothing is stubbed on purpose: no row holds both providers, and the query takes one value
+        // per field, so the answer is given without asking the database for it.
+        val criteria = criteriaOf("provider_id" to "google", "provider_id" to "github")
+
+        val page = manager.listUsersForAudience(audienceId, criteria, PageParams(0, 20))
+
+        assertTrue(page.items.isEmpty())
+        assertEquals(0, page.total)
     }
 
     private suspend fun criteriaOf(vararg filters: Pair<String, String>) =

@@ -18,7 +18,7 @@ import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.PurposeDebugInformation
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.collection.CollectionCriteria
-import com.sympauthy.business.model.collection.criteriaOf
+import com.sympauthy.api.util.criteriaOf
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User

@@ -14,7 +14,7 @@ sealed class MfaRoutingResult
 data class MfaAutoRedirect(val step: InteractiveFlowStep) : MfaRoutingResult()
 
 /**
- * The UI must render a selection screen collection [methods]; [skippable] indicates whether a skip is offered.
+ * The UI must render a selection screen listing [methods]; [skippable] indicates whether a skip is offered.
  */
 data class MfaMethodSelection(
     val methods: List<AvailableMfaMethod>,

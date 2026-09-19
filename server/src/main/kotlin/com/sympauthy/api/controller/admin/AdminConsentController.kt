@@ -42,7 +42,7 @@ class AdminConsentController(
         description = "Retrieve a paginated list of active consents for a given user. Consents are ordered " +
                 "by the date they were granted, oldest first, then by identifier, unless another order is " +
                 "asked for. " +
-                "Which fields this collection can be filtered, ordered and row on is published at " +
+                "Which fields this collection can be filtered, ordered and searched on is published at " +
                 "/api/v1/admin/users/{userId}/consents/capabilities.",
         tags = ["admin"],
         responses = [

@@ -68,7 +68,7 @@ class DeclaredConfigurationKey(
      * the ids they chose included. Null where the two differ nowhere, where the key runs past this one's
      * end, or where the differing segment is nothing like the ones declared there.
      *
-     * How many stand in its place is settled rather than row for. The correction keeps every other
+     * How many stand in its place is settled rather than searched for. The correction keeps every other
      * segment the operator wrote, so a key one segment longer than theirs replaces one segment with two,
      * and a key no longer than theirs replaces it with one: a name spelt wrong is the second of those,
      * and a name that moved deeper is the first. That is what answers

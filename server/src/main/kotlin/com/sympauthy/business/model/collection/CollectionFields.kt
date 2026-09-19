@@ -185,6 +185,9 @@ class CollectionFieldsBuilder<T> {
         operators: Set<CollectionOperator> = type.operators,
         read: (T) -> Any?
     ) {
+        // A name declared twice would publish two entries backed by whichever reader came last, so a
+        // collection whose fields are this deployment's says what it left out instead.
+        require(name !in readers) { "This collection declares the field $name twice." }
         declared += CollectionField(
             name = name,
             type = type,

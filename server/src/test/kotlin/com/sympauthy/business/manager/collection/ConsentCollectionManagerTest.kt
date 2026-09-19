@@ -5,7 +5,7 @@ import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.collection.criteriaOf
+import com.sympauthy.api.util.criteriaOf
 import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.page.PageParams
 import io.mockk.coEvery

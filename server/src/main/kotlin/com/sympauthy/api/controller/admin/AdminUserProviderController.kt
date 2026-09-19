@@ -59,7 +59,7 @@ class AdminUserProviderController(
         description = "Retrieve a paginated list of external identity providers linked to a user. Providers " +
                 "are ordered by the date they were linked, oldest first, then by provider identifier, " +
                 "unless another order is asked for. " +
-                "Which fields this collection can be filtered, ordered and row on is published at " +
+                "Which fields this collection can be filtered, ordered and searched on is published at " +
                 "/api/v1/admin/users/{userId}/providers/capabilities.",
         tags = ["admin"],
         responses = [

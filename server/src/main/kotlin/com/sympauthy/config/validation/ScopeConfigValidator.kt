@@ -96,7 +96,8 @@ class ScopeConfigValidator {
             )
             return false
         }
-        if (ctx.refuseReservedIdentifier(configKeyPrefix, parsed.id)) {
+        if (isReservedIdentifier(parsed.id)) {
+            ctx.refuseReservedIdentifier(configKeyPrefix, parsed.id)
             return false
         }
         return true

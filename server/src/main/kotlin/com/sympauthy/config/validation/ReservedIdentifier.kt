@@ -16,17 +16,25 @@ import com.sympauthy.config.exception.configExceptionOf
 const val RESERVED_IDENTIFIER = "capabilities"
 
 /**
+ * Whether [identifier] is the one a capability document already answers for.
+ *
+ * A validator that must stop building the item asks this; every other one records the refusal and
+ * carries on, since any configuration error takes readiness down anyway.
+ */
+fun isReservedIdentifier(identifier: String): Boolean =
+    identifier.equals(RESERVED_IDENTIFIER, ignoreCase = true)
+
+/**
  * Record an error under [key] where [identifier] is the one a capability document already answers
- * for, and answer whether it was.
+ * for.
  *
  * A deployment is refused rather than left with a row it cannot read: the identifier is what every
  * other part of the configuration references the item by, so it is cheap to change at startup and
  * not afterwards.
  */
-fun ConfigParsingContext.refuseReservedIdentifier(key: String, identifier: String): Boolean {
-    if (!identifier.equals(RESERVED_IDENTIFIER, ignoreCase = true)) return false
+fun ConfigParsingContext.refuseReservedIdentifier(key: String, identifier: String) {
+    if (!isReservedIdentifier(identifier)) return
     addError(
         configExceptionOf(key, "config.reserved_identifier", "identifier" to identifier)
     )
-    return true
 }

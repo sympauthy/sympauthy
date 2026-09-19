@@ -25,17 +25,17 @@ data class CollectionCriteria(
 ) {
 
     /**
-     * The word the caller sent as an exact match on [field], or null where they filtered on
-     * something else.
+     * Every word the caller sent as an exact match on [field], in the order they sent them.
      *
-     * It is for a collection whose criteria reach the database rather than the rows in memory: it
-     * declares the fields it can answer under `eq` alone, so the one value each of them may carry is
-     * the whole of what the caller asked.
+     * It is for a collection whose criteria reach the database rather than the rows in memory,
+     * declaring the fields it can answer under `eq` alone. **It answers a list because criteria
+     * compose with `and`**: a caller naming one field twice asked for a row holding both values,
+     * which is nothing rather than either of them, and reading only the first would hand them one
+     * of the two as though they had asked for it.
      */
-    fun exactValueOrNull(field: String): String? = filters
-        .firstOrNull { it.field.name == field && it.operator == CollectionOperator.EQ }
-        ?.values
-        ?.firstOrNull() as? String
+    fun exactValuesOf(field: String): List<String> = filters
+        .filter { it.field.name == field && it.operator == CollectionOperator.EQ }
+        .mapNotNull { it.values.firstOrNull() as? String }
 
     companion object {
         /**

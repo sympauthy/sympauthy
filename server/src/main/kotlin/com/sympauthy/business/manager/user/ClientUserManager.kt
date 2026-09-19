@@ -57,7 +57,8 @@ class ClientUserManager(
      *
      * `provider_id` restricts the page to users linked to that provider, and `subject` narrows it further to
      * the account bearing it. A `subject` without a `provider_id` identifies nobody — a subject is a
-     * provider's own word for a person — and throws `client.subject_without_provider`.
+     * provider's own word for a person — and throws `client.subject_without_provider`. Either field named
+     * twice asks for a row holding both values, and answers an empty page.
      *
      * The page, the filter and the total are one query each, and the three batch reads that follow are also one
      * query each, so the number of round trips does not grow with [size].
@@ -67,14 +68,22 @@ class ClientUserManager(
         criteria: CollectionCriteria,
         pageParams: PageParams
     ): Page<ClientUser> = coroutineScope {
-        val providerId = criteria.exactValueOrNull("provider_id")
-        val subject = criteria.exactValueOrNull("subject")
-        if (subject != null && providerId == null) {
+        val providerIds = criteria.exactValuesOf("provider_id")
+        val subjects = criteria.exactValuesOf("subject")
+        if (subjects.isNotEmpty() && providerIds.isEmpty()) {
             throw recoverableBusinessExceptionOf(
                 "client.subject_without_provider",
                 "description.client.subject_without_provider"
             )
         }
+        // Two values for one field compose with `and`, and no row holds both. The query takes one
+        // value per field, so the answer is given here rather than asked of the database.
+        if (providerIds.size > 1 || subjects.size > 1) {
+            return@coroutineScope pageOf(emptyList(), pageParams, 0)
+        }
+        val providerId = providerIds.firstOrNull()
+        val subject = subjects.firstOrNull()
+
         val deferredTotal = async {
             consentManager.countActiveConsentsByAudience(
                 audienceId = audienceId,

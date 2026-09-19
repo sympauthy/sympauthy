@@ -22,7 +22,7 @@ import java.util.*
  *
  * The invariant is what lets a read keyed by a user id stay as it was. Such a read already trusts the
  * id it was handed, and the row it finds is exactly as visible as the user is. Only a query that
- * reaches a user **without holding its id** — a collection, an identifier lookup, a provider subject —
+ * reaches a user **without holding its id** — a listing, an identifier lookup, a provider subject —
  * has to exclude the provisional rows, because it is the one that could hand a caller an account the
  * server has not finished creating.
  *

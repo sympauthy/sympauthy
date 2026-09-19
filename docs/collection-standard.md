@@ -80,8 +80,12 @@ That is why the text types are without it and the words are not.
 asked for — `created_at.gte` beside `created_at.lte` — and there is no `or` and no grouping.
 
 **A field reading several values off one row is satisfied where any of them satisfies the
-criterion.** The claims of a user and the places a session was driven from are read that way, and
-`is_null` on such a field asks that the row carry none.
+criterion.** The claims of a user and the places a session was driven from are read that way.
+
+**The two operators that ask about an absence are satisfied by the row rather than by a value.**
+`ne` asks that the row carry no value equal to the one sent and `is_null` that it carry none at all,
+because a row holding both `openid` and `profile` is not one a caller excluding `openid` asked for —
+which is what reading them the other way round would answer.
 
 **A value is read as the field's type says**, so a date arrives as the ISO form
 [the API standard](api-standard.md#json) fixes and a value over a closed set is matched ignoring
