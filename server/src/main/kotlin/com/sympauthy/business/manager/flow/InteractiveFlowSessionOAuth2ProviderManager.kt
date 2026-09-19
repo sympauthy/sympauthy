@@ -211,9 +211,9 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
             existingUserInfo.userId to false
         }
         val updatedSession = sessionManager.setAuthenticatedUserId(session, userId, signedUp = signedUp)
-        // Staged before the flow advances: completing it is what folds the observation into the person's
+        // Stamped before the flow advances: completing it is what folds the observation into the person's
         // record. The provider round-trip landed in their own browser, so this is their address.
-        userSecurityContextManager.stage(updatedSession.id, observedRequest)
+        userSecurityContextManager.markProven(updatedSession.id, observedRequest)
 
         // Complete the flow if the end-user has no more step to go through.
         return engine.completeIfNecessary(updatedSession)
@@ -259,7 +259,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
             )
         }
         // After the check above: until then the round-trip proves an account, not this session's.
-        userSecurityContextManager.stage(session.id, observedRequest)
+        userSecurityContextManager.markProven(session.id, observedRequest)
         providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo)
         reauthenticationManager.markPrimaryCredentialProven(session)
         return engine.completeIfNecessary(session)

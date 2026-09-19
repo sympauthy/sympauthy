@@ -24,9 +24,9 @@ interface PostgreSQLInteractiveFlowSessionSecurityContextRepository :
         """
         INSERT INTO interactive_flow_session_security_context
             (session_id, fingerprint, ip, user_agent, country_code, region_code, region, city, time_zone,
-             first_seen_date, last_seen_date, proven_date)
+             first_seen_date, last_seen_date)
         SELECT :sessionId, :fingerprint, :ip, :userAgent, :countryCode, :regionCode, :region, :city,
-               :timeZone, :observedDate, :observedDate, :provenDate
+               :timeZone, :observedDate, :observedDate
         WHERE EXISTS (
                 SELECT 1 FROM interactive_flow_session_security_context
                 WHERE session_id = :sessionId AND fingerprint = :fingerprint
@@ -42,8 +42,7 @@ interface PostgreSQLInteractiveFlowSessionSecurityContextRepository :
             region_code = :regionCode,
             region = :region,
             city = :city,
-            time_zone = :timeZone,
-            proven_date = COALESCE(:provenDate, interactive_flow_session_security_context.proven_date)
+            time_zone = :timeZone
         """
     )
     override suspend fun observe(
@@ -57,7 +56,6 @@ interface PostgreSQLInteractiveFlowSessionSecurityContextRepository :
         city: String?,
         timeZone: String?,
         observedDate: LocalDateTime,
-        provenDate: LocalDateTime?,
         maxPlaces: Int
     ): Int
 }

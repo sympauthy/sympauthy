@@ -208,7 +208,7 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
 
         manager.signInWithPassword(session, login, password, observedRequestOf())
 
-        coVerify(exactly = 0) { userSecurityContextManager.stage(any(), any()) }
+        coVerify(exactly = 0) { userSecurityContextManager.markProven(any(), any()) }
     }
 
     @Test
@@ -222,7 +222,7 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
             manager.signInWithPassword(session, login, password, observedRequestOf())
         }
 
-        coVerify(exactly = 0) { userSecurityContextManager.stage(any(), any()) }
+        coVerify(exactly = 0) { userSecurityContextManager.markProven(any(), any()) }
     }
 
     @Test
@@ -237,7 +237,7 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
             manager.signInWithPassword(session, login, password, observedRequestOf())
         }
 
-        coVerify(exactly = 0) { userSecurityContextManager.stage(any(), any()) }
+        coVerify(exactly = 0) { userSecurityContextManager.markProven(any(), any()) }
     }
 
     @Test
@@ -253,7 +253,7 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
 
         manager.signInWithPassword(session, login, password, observedRequestOf())
 
-        coVerify { userSecurityContextManager.stage(sessionId, any()) }
+        coVerify { userSecurityContextManager.markProven(sessionId, any()) }
     }
 
     @Test
@@ -268,6 +268,6 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
 
         manager.signInWithPassword(session, login, password, observedRequestOf())
 
-        coVerify { userSecurityContextManager.stage(sessionId, any()) }
+        coVerify { userSecurityContextManager.markProven(sessionId, any()) }
     }
 }

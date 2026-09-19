@@ -19,7 +19,6 @@ import io.r2dbc.spi.R2dbcDataIntegrityViolationException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -45,7 +44,7 @@ class UserSecurityContextManagerTest {
     private val userId = UUID.randomUUID()
 
     @Test
-    fun `observe - Records where the request came from without proving anything`() = runTest {
+    fun `observe - Records where the request came from`() = runTest {
         val observed = observedRequestOf(
             ipAddress = "203.0.113.7",
             userAgent = "Mozilla/5.0",
@@ -62,19 +61,31 @@ class UserSecurityContextManagerTest {
         assertEquals("FR", recorded.captured.countryCode)
         assertEquals("Lyon", recorded.captured.city)
         assertEquals("Europe/Paris", recorded.captured.timeZone)
-        assertNull(recorded.captured.provenDate)
     }
 
+    /** One request is one row: the helper recorded the place, and this only stamps it. */
     @Test
-    fun `stage - Records where the request came from and dates the proof`() = runTest {
-        val recorded = observation()
+    fun `markProven - Stamps the place the request came from without recording it again`() = runTest {
+        val fingerprint = slot<String>()
+        coEvery { sessionRepository.markProven(eq(sessionId), capture(fingerprint), any()) } returns 1
 
-        manager.stage(sessionId, observedRequestOf(ipAddress = "203.0.113.7"))
+        val observed = observedRequestOf(ipAddress = "203.0.113.7")
+        manager.markProven(sessionId, observed)
 
-        assertEquals(sessionId, recorded.captured.sessionId)
-        assertEquals("203.0.113.7", recorded.captured.ip)
-        assertNotNull(recorded.captured.provenDate)
-        assertEquals(recorded.captured.observedDate, recorded.captured.provenDate)
+        assertEquals(observed.securityContextKey().fingerprint, fingerprint.captured)
+        coVerify(exactly = 0) {
+            sessionRepository.observe(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
+            )
+        }
+    }
+
+    /** The place was rolled out before the proof landed: the sighting is lost, the flow is not. */
+    @Test
+    fun `markProven - Does not fail the flow where the session no longer holds that place`() = runTest {
+        coEvery { sessionRepository.markProven(any(), any(), any()) } returns 0
+
+        manager.markProven(sessionId, observedRequestOf())
     }
 
     /**
@@ -83,10 +94,10 @@ class UserSecurityContextManagerTest {
      * that sent nothing else therefore leaves a row with no location at all.
      */
     @Test
-    fun `stage - Keeps no location where the only field an edge sent was a postal code`() = runTest {
+    fun `observe - Keeps no location where the only field an edge sent was a postal code`() = runTest {
         val recorded = observation()
 
-        manager.stage(sessionId, observedRequestOf(geo = SecurityContextGeo(null, null, null, null, "69001", null)))
+        manager.observe(sessionId, observedRequestOf(geo = SecurityContextGeo(null, null, null, null, "69001", null)))
 
         assertNull(recorded.captured.countryCode)
         assertNull(recorded.captured.regionCode)
@@ -108,11 +119,11 @@ class UserSecurityContextManagerTest {
 
             coVerifyOrder {
                 sessionRepository.observe(
-                    any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
+                    any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
                 )
                 sessionRepository.deleteLeastRecentPlace(sessionId)
                 sessionRepository.observe(
-                    any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
+                    any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
                 )
             }
             assertEquals("203.0.113.7", recorded.captured.ip)
@@ -133,7 +144,7 @@ class UserSecurityContextManagerTest {
     fun `observe - Does not fail the flow when the row cannot be written`() = runTest {
         coEvery {
             sessionRepository.observe(
-                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
             )
         } throws IllegalStateException("down")
 
@@ -141,14 +152,10 @@ class UserSecurityContextManagerTest {
     }
 
     @Test
-    fun `stage - Does not fail the flow when the row cannot be written`() = runTest {
-        coEvery {
-            sessionRepository.observe(
-                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
-            )
-        } throws IllegalStateException("down")
+    fun `markProven - Does not fail the flow when the stamp cannot be written`() = runTest {
+        coEvery { sessionRepository.markProven(any(), any(), any()) } throws IllegalStateException("down")
 
-        manager.stage(sessionId, observedRequestOf())
+        manager.markProven(sessionId, observedRequestOf())
     }
 
     @Test
@@ -318,7 +325,6 @@ class UserSecurityContextManagerTest {
                 city = any(),
                 timeZone = any(),
                 observedDate = any(),
-                provenDate = any(),
                 maxPlaces = any()
             )
         } answers {
@@ -332,8 +338,7 @@ class UserSecurityContextManagerTest {
                 region = arg(6),
                 city = arg(7),
                 timeZone = arg(8),
-                observedDate = arg(9),
-                provenDate = arg(10)
+                observedDate = arg(9)
             )
             recordedRows.getOrElse(call++) { recordedRows.last() }
         }
@@ -350,8 +355,7 @@ class UserSecurityContextManagerTest {
         val region: String?,
         val city: String?,
         val timeZone: String?,
-        val observedDate: LocalDateTime,
-        val provenDate: LocalDateTime?
+        val observedDate: LocalDateTime
     )
 
     private fun row(

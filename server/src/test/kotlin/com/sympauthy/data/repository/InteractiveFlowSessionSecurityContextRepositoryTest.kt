@@ -89,21 +89,56 @@ class InteractiveFlowSessionSecurityContextRepositoryTest {
             assertTrue(stored.all { it.observationCount == 1 })
         }
 
+    /** The place is recorded by the request; the proof only stamps the row that request already wrote. */
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `observe - Dates the proof where a credential verified, and leaves it where none did`(
-        database: Database
-    ) = withFixture(database) {
+    fun `markProven - Stamps the place it names and leaves what the requests recorded`(database: Database) =
+        withFixture(database) {
+            val records = repository<InteractiveFlowSessionSecurityContextRepository>()
+            val session = newSession()
+            observe(session.id!!)
+
+            assertEquals(1, records.markProven(session.id!!, fingerprint, BASE_DATE.plusMinutes(1)))
+            observe(session.id!!, observedDate = BASE_DATE.plusMinutes(2))
+
+            val stored = places(session.id!!).single()
+            assertEquals(BASE_DATE.plusMinutes(1), stored.provenDate)
+            assertEquals(BASE_DATE.plusMinutes(2), stored.lastSeenDate)
+            assertEquals(2, stored.observationCount)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `markProven - Stamps no place but the one it names`(database: Database) = withFixture(database) {
+        val records = repository<InteractiveFlowSessionSecurityContextRepository>()
         val session = newSession()
+        val other = newSession()
         observe(session.id!!)
+        observe(session.id!!, fingerprint = otherFingerprint)
+        observe(other.id!!)
 
-        observe(session.id!!, observedDate = BASE_DATE.plusMinutes(1), provenDate = BASE_DATE.plusMinutes(1))
-        observe(session.id!!, observedDate = BASE_DATE.plusMinutes(2))
+        records.markProven(session.id!!, fingerprint, BASE_DATE)
 
-        val stored = places(session.id!!).single()
-        assertEquals(BASE_DATE.plusMinutes(1), stored.provenDate)
-        assertEquals(BASE_DATE.plusMinutes(2), stored.lastSeenDate)
+        assertEquals(
+            listOf(fingerprint),
+            places(session.id!!).filter { it.provenDate != null }.map { it.fingerprint }
+        )
+        assertNull(places(other.id!!).single().provenDate)
     }
+
+    /** A place rolled out before the proof landed: the sighting is lost rather than a row opened. */
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `markProven - Answers zero where the session no longer holds that place`(database: Database) =
+        withFixture(database) {
+            val records = repository<InteractiveFlowSessionSecurityContextRepository>()
+            val session = newSession()
+            observe(session.id!!)
+
+            assertEquals(0, records.markProven(session.id!!, otherFingerprint, BASE_DATE))
+
+            assertEquals(1, places(session.id!!).size)
+        }
 
     /** Zero is what tells the caller to make room, rather than a failure. */
     @ParameterizedTest
@@ -141,7 +176,9 @@ class InteractiveFlowSessionSecurityContextRepositoryTest {
         database: Database
     ) = withFixture(database) {
         val session = newSession()
-        observe(session.id!!, observedDate = BASE_DATE, provenDate = BASE_DATE)
+        observe(session.id!!, observedDate = BASE_DATE)
+        repository<InteractiveFlowSessionSecurityContextRepository>()
+            .markProven(session.id!!, fingerprint, BASE_DATE)
         observe(session.id!!, fingerprint = otherFingerprint, observedDate = BASE_DATE.plusMinutes(5))
 
         repository<InteractiveFlowSessionSecurityContextRepository>().deleteLeastRecentPlace(session.id!!)
@@ -251,7 +288,6 @@ class InteractiveFlowSessionSecurityContextRepositoryTest {
         userAgent: String? = null,
         city: String? = null,
         observedDate: LocalDateTime = BASE_DATE,
-        provenDate: LocalDateTime? = null,
         maxPlaces: Int = 10
     ): Int {
         val records = repository<InteractiveFlowSessionSecurityContextRepository>()
@@ -266,7 +302,6 @@ class InteractiveFlowSessionSecurityContextRepositoryTest {
             city = city,
             timeZone = null,
             observedDate = observedDate,
-            provenDate = provenDate,
             maxPlaces = maxPlaces
         )
         deleteOnEnd { records.deleteBySessionIdIn(listOf(sessionId)) }

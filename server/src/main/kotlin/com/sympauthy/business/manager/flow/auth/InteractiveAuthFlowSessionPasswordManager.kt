@@ -91,10 +91,11 @@ open class InteractiveAuthFlowSessionPasswordManager(
      * Sign in the end-user using a [login] and a [password] and associate the [InteractiveFlowSession] with the [User]
      * associated to the [login]. Finally, return the updated session.
      *
-     * [observedRequest] is where the request came from, and it is recorded only on the two branches below that
-     * establish or confirm **this session's** user. The password is verified against whatever account matches
-     * [login], which is not necessarily the session's, so recording it any earlier would let anybody holding
-     * the session's state write their own address into somebody else's history.
+     * [observedRequest] names the place this request came from, which the controller helper has already
+     * recorded against the session; it is marked as one a credential was proven at only on the two branches
+     * below that establish or confirm **this session's** user. The password is verified against whatever
+     * account matches [login], which is not necessarily the session's, so marking it any earlier would let
+     * anybody holding the session's state write their own address into somebody else's history.
      */
     suspend fun signInWithPassword(
         session: OnGoingInteractiveFlowSession,
@@ -137,9 +138,9 @@ open class InteractiveAuthFlowSessionPasswordManager(
         // Checking `userId == null` first keeps the normal sign-in path off the engine walk.
         return when {
             session.userId == null -> {
-                // Staged before the flow advances, because completing it is what folds the observation into
-                // the person's record — one staged afterwards would arrive a completion too late.
-                userSecurityContextManager.stage(session.id, observedRequest)
+                // Stamped before the flow advances, because completing it is what folds the observation
+                // into the person's record — one stamped afterwards would arrive a completion too late.
+                userSecurityContextManager.markProven(session.id, observedRequest)
                 engine.completeIfNecessary(sessionManager.setAuthenticatedUserId(session, user.id))
             }
 
@@ -172,7 +173,7 @@ open class InteractiveAuthFlowSessionPasswordManager(
             )
         }
         // After the match above and not before it: until then the credential proves an account, not this one.
-        userSecurityContextManager.stage(session.id, observedRequest)
+        userSecurityContextManager.markProven(session.id, observedRequest)
         reauthenticationManager.markPrimaryCredentialProven(session)
         return engine.completeIfNecessary(session)
     }
@@ -196,7 +197,7 @@ open class InteractiveAuthFlowSessionPasswordManager(
         if (session.userId != null) return session
 
         val updatedSession = createAccountWithClaimsAndPassword(session, unfilteredUpdates, password)
-        userSecurityContextManager.stage(updatedSession.id, observedRequest)
+        userSecurityContextManager.markProven(updatedSession.id, observedRequest)
 
         // Outside the transaction above, deliberately. Completing runs the terminal effects, the promotion
         // and the completion write in a transaction of its own, and a refusal there has to roll that back

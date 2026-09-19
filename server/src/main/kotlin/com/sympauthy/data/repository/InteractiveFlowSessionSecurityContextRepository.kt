@@ -33,8 +33,8 @@ interface InteractiveFlowSessionSecurityContextRepository :
      * again says where that address is now rather than where an edge's database put it the first time.
      * The address and the user agent are not, since the fingerprint is what they are.
      *
-     * [provenDate] is null for a request that merely touched the session and the instant for one that
-     * proved a credential, and a null never clears what an earlier proof stamped.
+     * It never touches `proven_date`: what a credential proof leaves behind is [markProven]'s, and it
+     * stamps the row this already wrote for that same request.
      */
     suspend fun observe(
         sessionId: UUID,
@@ -47,9 +47,26 @@ interface InteractiveFlowSessionSecurityContextRepository :
         city: String?,
         timeZone: String?,
         observedDate: LocalDateTime,
-        provenDate: LocalDateTime?,
         maxPlaces: Int
     ): Int
+
+    /**
+     * Stamp the place [fingerprint] names as one a credential was proven at, at [provenDate], and answer
+     * how many rows that moved.
+     *
+     * **It only ever stamps a place the same request already recorded**, which is what keeps one request
+     * to one row: the helper every flow handler goes through observes the place, and this marks it. A
+     * place that is no longer there answers zero rather than opening one — the sighting is lost, which is
+     * what the caller logs, and nothing is written that the fold would then read as a proof.
+     */
+    @Query(
+        """
+        UPDATE interactive_flow_session_security_context
+        SET proven_date = :provenDate
+        WHERE session_id = :sessionId AND fingerprint = :fingerprint
+        """
+    )
+    suspend fun markProven(sessionId: UUID, fingerprint: String, provenDate: LocalDateTime): Int
 
     /**
      * Drop the one place of [sessionId] worth keeping least, and answer how many rows that removed —

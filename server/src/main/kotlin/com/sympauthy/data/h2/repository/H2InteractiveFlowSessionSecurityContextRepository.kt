@@ -33,8 +33,7 @@ interface H2InteractiveFlowSessionSecurityContextRepository : InteractiveFlowSes
                    CAST(:ip AS text) AS ip, CAST(:userAgent AS text) AS user_agent,
                    CAST(:countryCode AS text) AS country_code, CAST(:regionCode AS text) AS region_code,
                    CAST(:region AS text) AS region, CAST(:city AS text) AS city,
-                   CAST(:timeZone AS text) AS time_zone, CAST(:observedDate AS timestamp) AS observed_date,
-                   CAST(:provenDate AS timestamp) AS proven_date
+                   CAST(:timeZone AS text) AS time_zone, CAST(:observedDate AS timestamp) AS observed_date
             WHERE EXISTS (
                     SELECT 1 FROM interactive_flow_session_security_context
                     WHERE session_id = :sessionId AND fingerprint = :fingerprint
@@ -52,15 +51,14 @@ interface H2InteractiveFlowSessionSecurityContextRepository : InteractiveFlowSes
             context.region_code = observation.region_code,
             context.region = observation.region,
             context.city = observation.city,
-            context.time_zone = observation.time_zone,
-            context.proven_date = COALESCE(observation.proven_date, context.proven_date)
+            context.time_zone = observation.time_zone
         WHEN NOT MATCHED THEN INSERT
             (session_id, fingerprint, ip, user_agent, country_code, region_code, region, city, time_zone,
-             first_seen_date, last_seen_date, proven_date)
+             first_seen_date, last_seen_date)
             VALUES (observation.session_id, observation.fingerprint, observation.ip,
                     observation.user_agent, observation.country_code, observation.region_code,
                     observation.region, observation.city, observation.time_zone,
-                    observation.observed_date, observation.observed_date, observation.proven_date)
+                    observation.observed_date, observation.observed_date)
         """,
         readOnly = false
     )
@@ -75,7 +73,6 @@ interface H2InteractiveFlowSessionSecurityContextRepository : InteractiveFlowSes
         city: String?,
         timeZone: String?,
         observedDate: LocalDateTime,
-        provenDate: LocalDateTime?,
         maxPlaces: Int
     ): Int
 }

@@ -19,17 +19,18 @@ import java.util.*
 
 /**
  * Keeps the places a person signs in from: records every place a session is driven from against that
- * session, and folds the one a credential was proven at into that person's record once their flow
- * completes.
+ * session, marks the one a credential was proven at, and folds that one into the person's record once
+ * their flow completes.
  *
  * **One manager owns both tables, which departs from the manager-per-attached-record the five other
  * `interactive_flow_session_*` records follow.** Recording and folding are one rule with two halves —
  * what is recorded is only ever read by the fold, and the fold only ever reads what was recorded — and
  * splitting them would put that rule in two packages where neither states it.
  *
- * **Neither half may fail a flow.** A person signing in must not be answered with an error because a
- * row nothing yet reads could not be written, so both catch what they cannot finish and say so in the
- * log instead. That is the cost of recording history beside a credential check rather than inside it.
+ * **None of it may fail a flow.** A person signing in must not be answered with an error because a row
+ * nothing yet reads could not be written, so recording, marking and folding each catch what they cannot
+ * finish and say so in the log instead. That is the cost of recording history beside a credential check
+ * rather than inside it.
  *
  * **A cancellation is not one of those failures.** It says the request this was recording for is gone, so
  * it travels on rather than being logged as a database that would not answer.
@@ -48,15 +49,16 @@ open class UserSecurityContextManager(
      *
      * **Call this wherever a request touches an interactive flow session** — where one is created, and
      * where one is resolved from the state a request carried. Nothing about it is gated, because nothing
-     * it writes is read against a person: [fold] takes what [stage] stamped and is blind to this by
-     * construction, so a row here is what a session knows about itself and is collected with it.
+     * it writes is read against a person: [fold] takes what [markProven] stamped and is blind to the
+     * rest by construction, so a row here is what a session knows about itself and is collected with it.
      */
     suspend fun observe(sessionId: UUID, observedRequest: ObservedRequest) {
-        record(sessionId, observedRequest, proven = false)
+        record(sessionId, observedRequest)
     }
 
     /**
-     * Record that the person behind [sessionId] was observed at [observedRequest] proving who they are.
+     * Stamp the place [observedRequest] came from as one where the person behind [sessionId] proved who
+     * they are.
      *
      * **Call this only where a credential has verified *and* resolved this session's user.** The
      * password check answers for whatever account matches the login, and a flow whose user is already
@@ -65,17 +67,34 @@ open class UserSecurityContextManager(
      * says carries no identity and travels in a URL, write their own address into somebody else's
      * record.
      *
-     * It stamps the place with the moment of the proof rather than replacing what an earlier step of the
-     * same flow recorded, and the fold reads the latest stamp — so a flow proving a credential twice
-     * still folds the place the person last proved who they were.
+     * **It stamps rather than records.** The request making this call came through the helper every flow
+     * handler goes through, which already recorded the place it came from — so one request is one row,
+     * counted once. A place that is not there is a sighting lost rather than a row opened: the fold reads
+     * a stamp as a proof, and this is not where one would be established.
+     *
+     * It stamps the moment of the proof rather than replacing what an earlier step of the same flow
+     * recorded, and the fold reads the latest stamp — so a flow proving a credential twice still folds
+     * the place the person last proved who they were.
      */
-    suspend fun stage(sessionId: UUID, observedRequest: ObservedRequest) {
-        record(sessionId, observedRequest, proven = true)
+    suspend fun markProven(sessionId: UUID, observedRequest: ObservedRequest) {
+        val fingerprint = observedRequest.securityContextKey().fingerprint
+        try {
+            if (sessionRepository.markProven(sessionId, fingerprint, LocalDateTime.now()) == 0) {
+                logger.warn(
+                    "Session $sessionId proved a credential at a place it no longer holds, so nothing " +
+                        "will be folded into that person's record."
+                )
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            logger.warn("Could not record where session $sessionId proved a credential.", failure)
+        }
     }
 
     /**
-     * The one write both halves make: bump the place [observedRequest] names, or open it where this
-     * session has room for another, and stamp it as proven where [proven].
+     * The one write every request makes: bump the place [observedRequest] names, or open it where this
+     * session has room for another.
      *
      * **A session at its bound rolls a place out rather than refusing the new one.** What a session is
      * read for is where it is being driven from now — a stalled sign-in, a step posted from somewhere
@@ -83,15 +102,15 @@ open class UserSecurityContextManager(
      * makes room. The bound therefore holds without the freshest sighting being the one it costs.
      *
      * **A place a credential was proven at is the last to go**, because it is the only one the fold ever
-     * reads and the only one nobody can write without a credential. Every unproven place is rolled out
-     * before it, which is what stops whoever holds a session's state from evicting somebody's proof by
-     * presenting user agents.
+     * reads and the only one nobody can write without a credential — [markProven] is gated where it can
+     * be. Every unproven place is rolled out before it, which is what stops whoever holds a session's
+     * state from evicting somebody's proof by presenting user agents.
      */
-    private suspend fun record(sessionId: UUID, observedRequest: ObservedRequest, proven: Boolean) {
+    private suspend fun record(sessionId: UUID, observedRequest: ObservedRequest) {
         val key = observedRequest.securityContextKey()
         val now = LocalDateTime.now()
         try {
-            if (writePlace(sessionId, key, observedRequest, now, proven) == 0) {
+            if (writePlace(sessionId, key, observedRequest, now) == 0) {
                 // A session presenting more than a handful of distinct places is either a person on a train
                 // or somebody enumerating, and neither should be silent.
                 logger.warn(
@@ -101,7 +120,7 @@ open class UserSecurityContextManager(
                 sessionRepository.deleteLeastRecentPlace(sessionId)
                 // Once more, and once only: a second empty answer means a concurrent request took the room
                 // this one just made, and the line above already says a session is presenting too many.
-                writePlace(sessionId, key, observedRequest, now, proven)
+                writePlace(sessionId, key, observedRequest, now)
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -118,8 +137,7 @@ open class UserSecurityContextManager(
         sessionId: UUID,
         key: SecurityContextKey,
         observedRequest: ObservedRequest,
-        observedAt: LocalDateTime,
-        proven: Boolean
+        observedAt: LocalDateTime
     ): Int = sessionRepository.observe(
         sessionId = sessionId,
         fingerprint = key.fingerprint,
@@ -131,7 +149,6 @@ open class UserSecurityContextManager(
         city = observedRequest.geo?.city,
         timeZone = observedRequest.geo?.timeZone,
         observedDate = observedAt,
-        provenDate = if (proven) observedAt else null,
         maxPlaces = MAX_OBSERVATIONS_PER_SESSION
     )
 
