@@ -76,11 +76,13 @@ on-going flow. All URLs it contains already include the state query param.
     @Get
     suspend fun getSignInConfiguration(
         authentication: Authentication,
+        @RequestAttribute(OBSERVED_REQUEST) observedRequest: ObservedRequest,
         httpRequest: HttpRequest<*>
     ): SignInFlowResource {
         val locale = httpRequest.locale.orDefault()
         return interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenRunAndRedirect(
             state = authentication.stateOrNull,
+            observedRequest = observedRequest,
             run = { session, flow ->
                 if (signInApplies(session, flow)) {
                     buildSignInConfiguration(session, flow, locale)
@@ -210,6 +212,7 @@ on-going flow. All URLs it contains already include the state query param.
     ): SimpleFlowResource =
         interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect(
             state = authentication.stateOrNull,
+            observedRequest = observedRequest,
             update = { session, _ ->
                 passwordFlowManager.signInWithPassword(
                     session = session,

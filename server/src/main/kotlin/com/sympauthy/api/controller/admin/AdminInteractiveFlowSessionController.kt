@@ -66,8 +66,8 @@ class AdminInteractiveFlowSessionController(
                     "with, and may not exceed its configured maximum."
         ) size: Int?,
         @QueryValue @Parameter(
-            description = "Partial case-insensitive search across the observed address, the observed user " +
-                    "agent and the initiating client identifier."
+            description = "Partial case-insensitive search across the address and user agent of every " +
+                    "place the session was driven from, and the initiating client identifier."
         ) q: String?,
         @QueryValue @Parameter(
             description = "Filter by the identifier of the client the session was started for."

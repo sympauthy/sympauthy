@@ -1,6 +1,7 @@
 package com.sympauthy.api.controller.admin
 
 import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
+import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.mapper.admin.AdminUserMfaMethodResourceMapper
 import com.sympauthy.api.resource.admin.AdminUserMfaEnrollmentInputResource
@@ -23,6 +24,7 @@ import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.mfa.TotpEnrollment
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
+import com.sympauthy.business.model.security.observedRequestOf
 import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.DisabledMfaConfig
 import com.sympauthy.config.model.EnabledMfaConfig
@@ -77,6 +79,9 @@ class AdminUserMfaControllerTest {
     @MockK
     lateinit var stepUriMapper: InteractiveFlowStepUriMapper
 
+    @MockK(relaxed = true)
+    lateinit var interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
+
     private fun controller(
         mfaConfig: MfaConfig = EnabledMfaConfig(totp = true, required = false)
     ) = AdminUserMfaController(
@@ -90,10 +95,12 @@ class AdminUserMfaControllerTest {
         mfaEnrollmentManager = mfaEnrollmentManager,
         engine = engine,
         stepUriMapper = stepUriMapper,
+        interactiveAuthFlowSessionControllerUtil = interactiveAuthFlowSessionControllerUtil,
         uncheckedMfaConfig = mfaConfig,
         paginationUtil = defaultPaginationUtil(),
     )
 
+    private val observed = observedRequestOf()
     private val userId: UUID = UUID.randomUUID()
     private val mfaId: UUID = UUID.randomUUID()
     private val confirmedDate: LocalDateTime = LocalDateTime.of(2026, 2, 10, 8, 45, 0)
@@ -241,6 +248,7 @@ class AdminUserMfaControllerTest {
 
             val result = controller().startEnrollment(
                 userId,
+                observed,
                 AdminUserMfaEnrollmentInputResource(
                     clientId = "client-id",
                     returnUri = "https://client.example.com/done"
@@ -248,6 +256,7 @@ class AdminUserMfaControllerTest {
             )
 
             assertEquals(redirectUri.toString(), result.redirectUrl)
+            coVerify { interactiveAuthFlowSessionControllerUtil.observeStartedSession(session, observed) }
         }
 
     @Test
@@ -289,6 +298,7 @@ class AdminUserMfaControllerTest {
 
         val result = controller().startEnrollment(
             userId,
+            observed,
             AdminUserMfaEnrollmentInputResource(
                 clientId = "client-id",
                 returnUri = "https://client.example.com/done",
@@ -304,6 +314,7 @@ class AdminUserMfaControllerTest {
         val exception = assertThrows<BusinessException> {
             controller(mockk<DisabledMfaConfig>()).startEnrollment(
                 userId,
+                observed,
                 AdminUserMfaEnrollmentInputResource(
                     clientId = "client-id",
                     returnUri = "https://client.example.com/done"
@@ -324,6 +335,7 @@ class AdminUserMfaControllerTest {
         val exception = assertThrows<LocalizedHttpException> {
             controller().startEnrollment(
                 userId,
+                observed,
                 AdminUserMfaEnrollmentInputResource(
                     clientId = "client-id",
                     returnUri = "https://client.example.com/done"
@@ -345,6 +357,7 @@ class AdminUserMfaControllerTest {
         val exception = assertThrows<LocalizedHttpException> {
             controller().startEnrollment(
                 userId,
+                observed,
                 AdminUserMfaEnrollmentInputResource(
                     clientId = "client-id",
                     returnUri = "https://client.example.com/done"

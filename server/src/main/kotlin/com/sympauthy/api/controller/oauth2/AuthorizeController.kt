@@ -1,16 +1,20 @@
 package com.sympauthy.api.controller.oauth2
 
+import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.controller.oauth2.AuthorizeController.Companion.OAUTH2_AUTHORIZE_ENDPOINT
 import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
 import com.sympauthy.api.exception.oauth2ExceptionOf
+import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.UNSUPPORTED_RESPONSE_TYPE
 import com.sympauthy.business.model.oauth2.ResponseType
+import com.sympauthy.business.model.security.ObservedRequest
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
 import io.micronaut.http.annotation.QueryValue
+import io.micronaut.http.annotation.RequestAttribute
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.rules.SecurityRule.IS_ANONYMOUS
 import io.swagger.v3.oas.annotations.ExternalDocumentation
@@ -26,7 +30,8 @@ import jakarta.inject.Inject
 open class AuthorizeController(
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
     @Inject private val engine: InteractiveFlowEngine,
-    @Inject private val stepUriMapper: InteractiveFlowStepUriMapper
+    @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
+    @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
 ) {
 
     @Operation(
@@ -124,6 +129,7 @@ The authorization server includes this value unmodified in the ID Token.
     )
     @Get
     suspend fun authorize(
+        @RequestAttribute(OBSERVED_REQUEST) observedRequest: ObservedRequest,
         @QueryValue("response_type")
         responseType: String?,
         @QueryValue("client_id")
@@ -148,6 +154,7 @@ The authorization server includes this value unmodified in the ID Token.
         }
         return when (ResponseType.fromWireNameOrNull(responseType)) {
             ResponseType.CODE -> authorizeWithCodeFlow(
+                observedRequest = observedRequest,
                 uncheckedClientId = uncheckedClientId,
                 uncheckedClientState = uncheckedClientState,
                 uncheckedClientNonce = uncheckedClientNonce,
@@ -166,6 +173,7 @@ The authorization server includes this value unmodified in the ID Token.
     }
 
     private suspend fun authorizeWithCodeFlow(
+        observedRequest: ObservedRequest,
         uncheckedClientId: String?,
         uncheckedClientState: String?,
         uncheckedClientNonce: String?,
@@ -185,6 +193,8 @@ The authorization server includes this value unmodified in the ID Token.
             uncheckedCodeChallengeMethod = uncheckedCodeChallengeMethod,
             uncheckedInvitationToken = uncheckedInvitationToken
         )
+        interactiveAuthFlowSessionControllerUtil.observeStartedSession(session, observedRequest)
+
         val (steppedSession, step) = engine.advance(session)
         val redirectUri = stepUriMapper.toRedirectUri(
             session = steppedSession,

@@ -1,6 +1,6 @@
 ---
-description: The entity and the repository, what each may hold, and the dialect twins every
-  repository needs.
+description: The entity and the repository, what each may hold, and the per-dialect
+  implementations every repository needs.
 paths:
   - "server/src/main/kotlin/com/sympauthy/data/**"
 ---
@@ -67,8 +67,14 @@ parameter and annotate the identifier, so the name never joins assignments with 
 **A raw query is written in the intersection of every dialect.** One string is sent to all of
 them, so keep every construct to what each of them understands.
 
+**A statement no intersection can express is spelled once per dialect**, as an override carrying
+that dialect's own query. An upsert is the case that arises, and it is worth a copy per dialect
+only where a read-then-write would be a race the table's unique index would then refuse. Declare
+the method on the shared interface, documented there, so every spelling answers one contract.
+
 **A parameter whose type the driver cannot infer carries an explicit type definition.** An array
-bound into a raw query is the case that occurs here.
+bound into a raw query is one case. A value selected into a derived table is the other: H2 types
+that source from the statement alone, so cast each one to its column's type.
 
 **A `json` column is written through a derived method, never through a raw query.** A map bound as a
 raw-query parameter is stored as its `toString()` and fails on the next read; where a raw statement

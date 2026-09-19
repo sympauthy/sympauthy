@@ -9,9 +9,11 @@ import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.SuccessVerifyEncodedStateResult
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
+import com.sympauthy.business.manager.security.UserSecurityContextManager
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlow
+import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.business.model.user.User
 import io.micronaut.http.HttpStatus
 import io.micronaut.security.authentication.Authentication
@@ -26,13 +28,20 @@ import java.net.URI
  * - the [OnGoingInteractiveFlowSession] associated to the state in the [Authentication].
  * - the [User] associated to the [OnGoingInteractiveFlowSession].
  * - the [InteractiveFlow] associated to the [OnGoingInteractiveFlowSession].
+ *
+ * **It is also where a request against a session is recorded as having been seen.** Every flow handler
+ * comes through here to resolve one, and every controller that starts one comes through
+ * [observeStartedSession] — which is what makes one place enough: a step added later is observed by having
+ * been written the ordinary way. The [ObservedRequest] is threaded in from the controller that bound it
+ * rather than reached back for, which `docs/security-context.md` refuses.
  */
 @Singleton
 class InteractiveAuthFlowSessionControllerUtil(
     @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
     @Inject private val engine: InteractiveFlowEngine,
-    @Inject private val stepUriMapper: InteractiveFlowStepUriMapper
+    @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
+    @Inject private val userSecurityContextManager: UserSecurityContextManager
 ) {
 
     /**
@@ -54,9 +63,10 @@ class InteractiveAuthFlowSessionControllerUtil(
      */
     suspend fun <Resource> fetchOnGoingSessionThenRun(
         state: String?,
+        observedRequest: ObservedRequest,
         run: suspend (OnGoingInteractiveFlowSession, InteractiveFlow) -> Resource
     ): Resource {
-        val session = fetchSession(state)
+        val session = fetchSessionAndObserveRequest(state, observedRequest)
         val flow = interactiveAuthFlowSessionManager.findById(session.flowId)
         val onGoingSession = (session as? OnGoingInteractiveFlowSession) ?: throw httpExceptionOf(
             status = HttpStatus.BAD_REQUEST,
@@ -72,9 +82,10 @@ class InteractiveAuthFlowSessionControllerUtil(
      */
     suspend fun <Resource> fetchOnGoingSessionWithUserThenRun(
         state: String?,
+        observedRequest: ObservedRequest,
         run: suspend (OnGoingInteractiveFlowSession, InteractiveFlow, User) -> Resource
     ): Resource {
-        return fetchOnGoingSessionThenRun(state) { onGoingSession, flow ->
+        return fetchOnGoingSessionThenRun(state, observedRequest) { onGoingSession, flow ->
             val user = sessionManager.getUser(onGoingSession)
             run(onGoingSession, flow, user)
         }
@@ -99,11 +110,12 @@ class InteractiveAuthFlowSessionControllerUtil(
      */
     suspend fun <Result, FlowResource> fetchOnGoingSessionThenRunAndRedirect(
         state: String?,
+        observedRequest: ObservedRequest,
         run: suspend (OnGoingInteractiveFlowSession, InteractiveFlow) -> Result?,
         mapRedirectUriToResource: suspend (URI) -> FlowResource,
         mapResultToResource: (suspend (Result) -> FlowResource)? = null
     ): FlowResource {
-        val session = fetchSession(state)
+        val session = fetchSessionAndObserveRequest(state, observedRequest)
         val onGoingSession = session as? OnGoingInteractiveFlowSession
 
         val flow = try {
@@ -159,11 +171,12 @@ class InteractiveAuthFlowSessionControllerUtil(
      */
     suspend fun <Result, FlowResource> fetchOnGoingSessionWithUserThenRunAndRedirect(
         state: String?,
+        observedRequest: ObservedRequest,
         run: suspend (OnGoingInteractiveFlowSession, InteractiveFlow, User) -> Result?,
         mapRedirectUriToResource: suspend (URI) -> FlowResource,
         mapResultToResource: (suspend (Result) -> FlowResource)? = null,
     ): FlowResource {
-        val session = fetchSession(state)
+        val session = fetchSessionAndObserveRequest(state, observedRequest)
         val flow = try {
             interactiveAuthFlowSessionManager.findById(session.flowId)
         } catch (_: BusinessException) {
@@ -223,10 +236,11 @@ class InteractiveAuthFlowSessionControllerUtil(
      */
     suspend fun <FlowResource> fetchOnGoingSessionThenUpdateAndRedirect(
         state: String?,
+        observedRequest: ObservedRequest,
         update: suspend (OnGoingInteractiveFlowSession, InteractiveFlow) -> InteractiveFlowSession,
         mapRedirectUriToResource: suspend (URI) -> FlowResource,
     ): FlowResource {
-        val session = fetchSession(state)
+        val session = fetchSessionAndObserveRequest(state, observedRequest)
 
         val flow = try {
             interactiveAuthFlowSessionManager.findById(session.flowId)
@@ -275,10 +289,11 @@ class InteractiveAuthFlowSessionControllerUtil(
      */
     suspend fun <FlowResource> fetchOnGoingSessionWithUserThenUpdateAndRedirect(
         state: String?,
+        observedRequest: ObservedRequest,
         update: suspend (OnGoingInteractiveFlowSession, InteractiveFlow, User) -> InteractiveFlowSession,
         mapRedirectUriToResource: suspend (URI) -> FlowResource,
     ): FlowResource {
-        val session = fetchSession(state)
+        val session = fetchSessionAndObserveRequest(state, observedRequest)
 
         val flow = try {
             interactiveAuthFlowSessionManager.findById(session.flowId)
@@ -321,15 +336,39 @@ class InteractiveAuthFlowSessionControllerUtil(
     }
 
     /**
-     * Fetches and validates the interactive flow session associated with the given [state].
+     * Record that the just-created [session] was started from [observedRequest].
+     *
+     * **For the controller that created it, rather than for the manager that wrote it.** A session is
+     * written in a transaction of its own, and recording must never fail a flow: a statement that failed
+     * inside that transaction would abort it on PostgreSQL and take the creation down with it. Calling it
+     * here also keeps the [ObservedRequest] out of the managers, which have no other use for one.
+     *
+     * Call it before the engine is asked what comes next, so a session that resolves immediately is folded
+     * with the place it was started from rather than after it.
+     */
+    suspend fun observeStartedSession(session: InteractiveFlowSession, observedRequest: ObservedRequest) {
+        userSecurityContextManager.observe(session.id, observedRequest)
+    }
+
+    /**
+     * Fetches and validates the interactive flow session associated with the given [state], and records
+     * that it was driven from [observedRequest].
      *
      * If the state is valid and corresponds to a session, the associated [InteractiveFlowSession] is
      * returned. Otherwise, an exception is thrown to indicate an error during the validation process.
+     *
+     * The recording happens here rather than at each of the five entry points above, because this is the
+     * one thing all of them do — and after the state has verified, so a request naming no session writes
+     * nothing.
      */
-    internal suspend fun fetchSession(state: String?): InteractiveFlowSession {
+    internal suspend fun fetchSessionAndObserveRequest(
+        state: String?,
+        observedRequest: ObservedRequest
+    ): InteractiveFlowSession {
         val verifyResult = sessionManager.verifyEncodedInternalState(state)
         return when (verifyResult) {
             is SuccessVerifyEncodedStateResult -> verifyResult.session
+                .also { userSecurityContextManager.observe(it.id, observedRequest) }
             is FailedVerifyEncodedStateResult -> {
                 // We cannot redirect the user to a proper error page, we throw to let the error handler still
                 // respond with an error but without a redirect uri.

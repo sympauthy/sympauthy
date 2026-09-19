@@ -334,6 +334,38 @@ class InteractiveFlowSessionSearchManagerTest {
         assertEquals("Mozilla/5.0", row.securityContext?.userAgent)
     }
 
+    /** A session driven from two places is one row, and the row says where it was last driven from. */
+    @Test
+    fun `listSessions - Publishes the place the session was last driven from`() = runTest {
+        val session = entity()
+        givenSessions(session)
+        givenObservations(
+            observation(session.id!!, ip = "203.0.113.9", lastSeenDate = NOW.minusMinutes(5)),
+            observation(session.id!!, ip = "198.51.100.4", lastSeenDate = NOW)
+        )
+        coEvery { engine.currentPurposeOrNull(any()) } returns null
+
+        val row = manager.listSessions(null, null, null, null, null, null, PageParams(0, 20)).items.single()
+
+        assertEquals("198.51.100.4", row.securityContext?.ip)
+    }
+
+    /** An operator searching for an address finds the session it appeared in, latest place or not. */
+    @Test
+    fun `listSessions - Matches q against every place the session was driven from`() = runTest {
+        val matching = entity()
+        givenSessions(matching, entity())
+        givenObservations(
+            observation(matching.id!!, ip = "203.0.113.9", lastSeenDate = NOW.minusMinutes(5)),
+            observation(matching.id!!, ip = "198.51.100.4", lastSeenDate = NOW)
+        )
+        coEvery { engine.currentPurposeOrNull(any()) } returns null
+
+        val page = manager.listSessions("203.0.113.9", null, null, null, null, null, PageParams(0, 20))
+
+        assertEquals(listOf(matching.id), page.items.map { it.id })
+    }
+
     @Test
     fun `findSessionOrNull - Returns null when no session holds the identifier`() = runTest {
         val id = UUID.randomUUID()
@@ -362,6 +394,27 @@ class InteractiveFlowSessionSearchManagerTest {
             ),
             detail?.purposes?.map { it.status }
         )
+    }
+
+    /** The trail an operator reading a stalled flow is after: oldest place first, not newest. */
+    @Test
+    fun `findSessionOrNull - Answers every place the session was driven from, oldest first`() = runTest {
+        val session = entity()
+        givenDetailReads(session)
+        coEvery { securityContextRepository.findBySessionId(session.id!!) } returns listOf(
+            observation(session.id!!, ip = "198.51.100.4", lastSeenDate = NOW),
+            observation(
+                session.id!!,
+                ip = "203.0.113.9",
+                firstSeenDate = NOW.minusMinutes(9),
+                lastSeenDate = NOW.minusMinutes(5)
+            )
+        )
+        coEvery { engine.currentPurposeOrNull(any()) } returns null
+
+        val detail = manager.findSessionOrNull(session.id!!)
+
+        assertEquals(listOf("203.0.113.9", "198.51.100.4"), detail?.securityContexts?.map { it.ip })
     }
 
     @Test
@@ -449,7 +502,7 @@ class InteractiveFlowSessionSearchManagerTest {
 
     private fun givenDetailReads(session: InteractiveFlowSessionEntity) {
         coEvery { sessionRepository.findById(session.id!!) } returns session
-        coEvery { securityContextRepository.findBySessionId(session.id!!) } returns null
+        coEvery { securityContextRepository.findBySessionId(session.id!!) } returns emptyList()
         session.purposes.forEach { purpose ->
             val handler = mockk<InteractiveFlowPurposeHandler>()
             coEvery { handler.debugInformation(capture(handedToHandlers)) } returns
@@ -461,13 +514,18 @@ class InteractiveFlowSessionSearchManagerTest {
     private fun observation(
         sessionId: UUID,
         ip: String = "127.0.0.1",
-        userAgent: String? = null
+        userAgent: String? = null,
+        firstSeenDate: LocalDateTime = NOW.minusMinutes(1),
+        lastSeenDate: LocalDateTime = NOW,
+        provenDate: LocalDateTime? = null
     ) = InteractiveFlowSessionSecurityContextEntity(
         sessionId = sessionId,
-        fingerprint = "fingerprint",
+        fingerprint = "fingerprint-$ip-$userAgent",
         ip = ip,
         userAgent = userAgent,
-        observedDate = NOW
+        firstSeenDate = firstSeenDate,
+        lastSeenDate = lastSeenDate,
+        provenDate = provenDate
     )
 
     private fun entity(

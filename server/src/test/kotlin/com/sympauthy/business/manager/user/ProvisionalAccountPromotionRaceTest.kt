@@ -30,7 +30,7 @@ import java.util.*
  * refuse. What has to be seen is the loser reaching the lock, waiting there, and answering against what the
  * winner committed once it lets go.
  *
- * Both halves run against both dialects, which is the point of the identity being a key rather than a
+ * Both halves run against every dialect, which is the point of the identity being a key rather than a
  * constraint: the unique index over a provider subject holds on PostgreSQL alone.
  */
 class ProvisionalAccountPromotionRaceTest {

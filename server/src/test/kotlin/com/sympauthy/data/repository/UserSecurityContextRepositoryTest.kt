@@ -97,8 +97,8 @@ class UserSecurityContextRepositoryTest {
     /**
      * A departure from leaving a constraint to the database: `UserSecurityContextManager` catches this
      * exact violation and folds again as an update, so a dialect not enforcing the index leaves that
-     * branch unreachable and duplicates a person's places instead. The H2 twin of `consents` drops its
-     * partial unique index, which is what makes proving this one on both dialects worth a case.
+     * branch unreachable and duplicates a person's places instead. The H2 spelling of `consents` drops
+     * its partial unique index, which is what makes proving this one on every dialect worth a case.
      */
     @ParameterizedTest
     @EnumSource(Database::class)

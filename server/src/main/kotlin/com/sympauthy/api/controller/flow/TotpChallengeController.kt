@@ -1,14 +1,17 @@
 package com.sympauthy.api.controller.flow
 
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
+import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.api.resource.flow.SimpleFlowResource
 import com.sympauthy.api.resource.flow.TotpChallengeInputResource
 import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionTotpChallengeManager
+import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
 import io.micronaut.http.annotation.Body
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Post
+import io.micronaut.http.annotation.RequestAttribute
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.swagger.v3.oas.annotations.Operation
@@ -45,10 +48,12 @@ On failure, a recoverable 4xx error is returned so the end-user can retry with t
     @Post
     suspend fun submitChallenge(
         authentication: Authentication,
+        @RequestAttribute(OBSERVED_REQUEST) observedRequest: ObservedRequest,
         @Body inputResource: TotpChallengeInputResource
     ): SimpleFlowResource =
         interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionWithUserThenUpdateAndRedirect(
             state = authentication.stateOrNull,
+            observedRequest = observedRequest,
             update = { session, _, user ->
                 challengeManager.validateTotpChallenge(session, user, inputResource.code)
             },

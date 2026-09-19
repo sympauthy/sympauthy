@@ -9,6 +9,7 @@ import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSessionConfirm
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.security.observedRequestOf
 import com.sympauthy.security.StateAuthentication
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -56,15 +57,15 @@ class ConfirmControllerTest {
             coEvery {
                 interactiveAuthFlowSessionControllerUtil
                     .fetchOnGoingSessionThenRunAndRedirect<ConfirmFlowResource, ConfirmFlowResource>(
-                        eq("encoded-state"), any(), any(), any()
+                        eq("encoded-state"), any(), any(), any(), any()
                     )
             } coAnswers {
-                val run = arg<suspend (OnGoingInteractiveFlowSession, InteractiveFlow) -> ConfirmFlowResource?>(1)
-                val mapResultToResource = arg<suspend (ConfirmFlowResource) -> ConfirmFlowResource>(3)
+                val run = arg<suspend (OnGoingInteractiveFlowSession, InteractiveFlow) -> ConfirmFlowResource?>(2)
+                val mapResultToResource = arg<suspend (ConfirmFlowResource) -> ConfirmFlowResource>(4)
                 mapResultToResource(run(session, flow)!!)
             }
 
-            val result = controller.getConfirmation(StateAuthentication("encoded-state"))
+            val result = controller.getConfirmation(StateAuthentication("encoded-state"), observedRequestOf())
 
             assertEquals("ENROLL_MFA", result.action)
             assertEquals("client-x", result.initiatingClientId)
@@ -90,15 +91,15 @@ class ConfirmControllerTest {
         coEvery {
             interactiveAuthFlowSessionControllerUtil
                 .fetchOnGoingSessionThenRunAndRedirect<ConfirmFlowResource, ConfirmFlowResource>(
-                    eq("encoded-state"), any(), any(), any()
+                    eq("encoded-state"), any(), any(), any(), any()
                 )
         } coAnswers {
-            val run = arg<suspend (OnGoingInteractiveFlowSession, InteractiveFlow) -> ConfirmFlowResource?>(1)
-            val mapResultToResource = arg<suspend (ConfirmFlowResource) -> ConfirmFlowResource>(3)
+            val run = arg<suspend (OnGoingInteractiveFlowSession, InteractiveFlow) -> ConfirmFlowResource?>(2)
+            val mapResultToResource = arg<suspend (ConfirmFlowResource) -> ConfirmFlowResource>(4)
             mapResultToResource(run(session, flow)!!)
         }
 
-        val result = controller.getConfirmation(StateAuthentication("encoded-state"))
+        val result = controller.getConfirmation(StateAuthentication("encoded-state"), observedRequestOf())
 
         assertEquals("LINK_PROVIDER", result.action)
         assertNull(result.initiatingClientId)
@@ -114,16 +115,16 @@ class ConfirmControllerTest {
         coEvery {
             interactiveAuthFlowSessionControllerUtil
                 .fetchOnGoingSessionThenRunAndRedirect<ConfirmFlowResource, ConfirmFlowResource>(
-                    eq("encoded-state"), any(), any(), any()
+                    eq("encoded-state"), any(), any(), any(), any()
                 )
         } coAnswers {
-            val run = arg<suspend (OnGoingInteractiveFlowSession, InteractiveFlow) -> ConfirmFlowResource?>(1)
-            val mapRedirectUriToResource = arg<suspend (URI) -> ConfirmFlowResource>(2)
+            val run = arg<suspend (OnGoingInteractiveFlowSession, InteractiveFlow) -> ConfirmFlowResource?>(2)
+            val mapRedirectUriToResource = arg<suspend (URI) -> ConfirmFlowResource>(3)
             assertNull(run(session, flow))
             mapRedirectUriToResource(redirectUri)
         }
 
-        val result = controller.getConfirmation(StateAuthentication("encoded-state"))
+        val result = controller.getConfirmation(StateAuthentication("encoded-state"), observedRequestOf())
 
         assertEquals(redirectUri.toString(), result.redirectUrl)
         assertNull(result.action)
@@ -135,16 +136,16 @@ class ConfirmControllerTest {
         coEvery { confirmManager.markConfirmed(session) } returns mockk()
         coEvery {
             interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect<SimpleFlowResource>(
-                eq("encoded-state"), any(), any()
+                eq("encoded-state"), any(), any(), any()
             )
         } coAnswers {
-            val update = arg<suspend (OnGoingInteractiveFlowSession, InteractiveFlow) -> Any>(1)
-            val mapRedirectUriToResource = arg<suspend (URI) -> SimpleFlowResource>(2)
+            val update = arg<suspend (OnGoingInteractiveFlowSession, InteractiveFlow) -> Any>(2)
+            val mapRedirectUriToResource = arg<suspend (URI) -> SimpleFlowResource>(3)
             assertSame(session, update(session, flow))
             mapRedirectUriToResource(redirectUri)
         }
 
-        val result = controller.confirm(StateAuthentication("encoded-state"))
+        val result = controller.confirm(StateAuthentication("encoded-state"), observedRequestOf())
 
         assertEquals(redirectUri.toString(), result.redirectUrl)
         coVerify { confirmManager.markConfirmed(session) }

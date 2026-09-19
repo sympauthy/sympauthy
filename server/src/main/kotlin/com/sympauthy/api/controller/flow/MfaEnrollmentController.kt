@@ -1,16 +1,19 @@
 package com.sympauthy.api.controller.flow
 
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
+import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.api.resource.flow.MfaFlowResource
 import com.sympauthy.api.resource.flow.MfaMethodResource
 import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaEnrollmentManager
 import com.sympauthy.business.manager.flow.mfa.MfaAutoRedirect
 import com.sympauthy.business.manager.flow.mfa.MfaMethodSelection
+import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
+import io.micronaut.http.annotation.RequestAttribute
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.swagger.v3.oas.annotations.Operation
@@ -53,10 +56,12 @@ Returns one of two response shapes:
     )
     @Get
     suspend fun getEnrollmentSelection(
-        authentication: Authentication
+        authentication: Authentication,
+        @RequestAttribute(OBSERVED_REQUEST) observedRequest: ObservedRequest
     ): MfaFlowResource =
         interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionWithUserThenRun(
             state = authentication.stateOrNull,
+            observedRequest = observedRequest,
             run = { session, flow, _ ->
                 when (val result = mfaEnrollmentManager.getEnrollmentRoutingResult(session)) {
                     is MfaAutoRedirect -> MfaFlowResource(
@@ -94,10 +99,12 @@ client-initiated one. The MFA step is marked as resolved so the flow does not pr
     )
     @Get("/skip")
     suspend fun skipEnrollment(
-        authentication: Authentication
+        authentication: Authentication,
+        @RequestAttribute(OBSERVED_REQUEST) observedRequest: ObservedRequest
     ): HttpResponse<*> =
         interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect(
             state = authentication.stateOrNull,
+            observedRequest = observedRequest,
             update = { session, _ ->
                 mfaEnrollmentManager.skipMfa(session)
             },

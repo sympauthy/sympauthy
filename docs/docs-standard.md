@@ -82,6 +82,10 @@ illustration of the criterion.
 sealed type's KDoc.
 ```
 
+**A set that will grow is never counted.** A rule saying *twins*, *twice* or *the second copy* is
+false the day a third dialect, provider or surface arrives, so write it at any size — *once per
+dialect*, *a copy per dialect* — and let the criterion say what the members are.
+
 ## What a standard sends elsewhere
 
 **A rule the code breaks is still written as the rule.** File the breach as an issue and leave the

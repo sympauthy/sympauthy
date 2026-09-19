@@ -1,6 +1,8 @@
 package com.sympauthy.api.controller.client
 
 import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
+import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
+import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.api.resource.client.ClientProviderLinkInputResource
 import com.sympauthy.api.resource.client.ClientProviderLinkResource
 import com.sympauthy.api.util.orNotFound
@@ -14,12 +16,14 @@ import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManage
 import com.sympauthy.business.manager.flow.link.InteractiveFlowSessionLinkProviderManager
 import com.sympauthy.business.manager.provider.ProviderManager
 import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
+import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.security.SecurityRule.CLIENT_USERS_PROVIDERS_WRITE
 import com.sympauthy.security.clientAuthentication
 import io.micronaut.http.annotation.Body
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.PathVariable
 import io.micronaut.http.annotation.Post
+import io.micronaut.http.annotation.RequestAttribute
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.swagger.v3.oas.annotations.Operation
@@ -54,6 +58,7 @@ class ClientProviderLinkController(
     @Inject private val linkProviderManager: InteractiveFlowSessionLinkProviderManager,
     @Inject private val engine: InteractiveFlowEngine,
     @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
+    @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil,
     @Inject private val sessionManager: InteractiveFlowSessionManager,
 ) {
 
@@ -92,6 +97,7 @@ re-authenticate before the link is created; once it completes they are redirecte
     suspend fun startLink(
         authentication: Authentication,
         @PathVariable @Parameter(description = "Identifier of the provider to link.") providerId: String,
+        @RequestAttribute(OBSERVED_REQUEST) observedRequest: ObservedRequest,
         @Body resource: ClientProviderLinkInputResource
     ): ClientProviderLinkResource {
         val client = clientManager.findClientById(authentication.clientAuthentication.clientId)
@@ -130,6 +136,7 @@ re-authenticate before the link is created; once it completes they are redirecte
             initiatingClientId = client.id,
             cancelUri = cancelUri
         )
+        interactiveAuthFlowSessionControllerUtil.observeStartedSession(session, observedRequest)
 
         val (steppedSession, step) = engine.advance(session)
         val redirectUri = stepUriMapper.toRedirectUri(steppedSession, flow, step)

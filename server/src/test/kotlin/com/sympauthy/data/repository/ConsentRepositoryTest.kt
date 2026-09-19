@@ -68,8 +68,8 @@ class ConsentRepositoryTest {
     }
 
     /**
-     * The tiebreak is asserted as determinism rather than as a direction: the two dialects collate a `uuid`
-     * as unsigned bytes and Kotlin compares it signed, so naming which of the tied pair comes first would
+     * The tiebreak is asserted as determinism rather than as a direction: a dialect collates a `uuid` as
+     * unsigned bytes and Kotlin compares it signed, so naming which of the tied pair comes first would
      * pin a collation this query does not care about. What it needs is that the pair does not swap.
      */
     @ParameterizedTest

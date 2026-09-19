@@ -168,8 +168,8 @@ drives the server out of process, so every protocol rule it proves reads as unco
 understates by a margin nothing can compute. Read the report as a map of where no unit test reaches,
 and let the table above decide what is worth testing.
 
-**A dialect a test does not name.** `Database` holds the two the server supports, and adding a third
-is a change to it before it is a change to any test.
+**A dialect a test does not name.** `Database` holds the dialects the server supports, and adding
+one is a change to it before it is a change to any test.
 
 **Load and performance testing.** No benchmark, no budget, no regression gate.
 

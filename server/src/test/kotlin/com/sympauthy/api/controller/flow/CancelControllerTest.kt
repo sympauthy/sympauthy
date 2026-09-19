@@ -6,6 +6,7 @@ import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.model.flow.CancelledInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.security.observedRequestOf
 import com.sympauthy.security.StateAuthentication
 import io.mockk.coEvery
 import io.mockk.impl.annotations.MockK
@@ -42,16 +43,16 @@ class CancelControllerTest {
         // Exercise the update + redirect lambdas the controller passes to the shared plumbing.
         coEvery {
             interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect<SimpleFlowResource>(
-                eq("encoded-state"), any(), any()
+                eq("encoded-state"), any(), any(), any()
             )
         } coAnswers {
-            val update = arg<suspend (OnGoingInteractiveFlowSession, InteractiveFlow) -> Any>(1)
-            val mapRedirectUriToResource = arg<suspend (URI) -> SimpleFlowResource>(2)
+            val update = arg<suspend (OnGoingInteractiveFlowSession, InteractiveFlow) -> Any>(2)
+            val mapRedirectUriToResource = arg<suspend (URI) -> SimpleFlowResource>(3)
             assertSame(cancelledSession, update(ongoingSession, flow))
             mapRedirectUriToResource(cancelUri)
         }
 
-        val result = controller.cancel(StateAuthentication("encoded-state"))
+        val result = controller.cancel(StateAuthentication("encoded-state"), observedRequestOf())
 
         assertEquals(cancelUri.toString(), result.redirectUrl)
     }

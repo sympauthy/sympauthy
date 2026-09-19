@@ -1,6 +1,7 @@
 package com.sympauthy.api.controller.admin
 
 import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
+import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.mapper.admin.AdminUserProviderResourceMapper
 import com.sympauthy.api.resource.admin.AdminUserProviderLinkInputResource
@@ -24,6 +25,7 @@ import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.provider.ProviderUserInfo
+import com.sympauthy.business.model.security.observedRequestOf
 import com.sympauthy.business.model.user.RawProviderClaims
 import com.sympauthy.business.model.user.User
 import io.micronaut.http.HttpStatus
@@ -84,9 +86,13 @@ class AdminUserProviderControllerTest {
     @Suppress("unused")
     private val paginationUtil = defaultPaginationUtil()
 
+    @MockK(relaxed = true)
+    lateinit var interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
+
     @InjectMockKs
     lateinit var controller: AdminUserProviderController
 
+    private val observed = observedRequestOf()
     private val userId: UUID = UUID.randomUUID()
     private val linkedAt: LocalDateTime = LocalDateTime.of(2026, 1, 15, 14, 30, 0)
 
@@ -219,6 +225,7 @@ class AdminUserProviderControllerTest {
         val result = controller.startLink(
             userId,
             "discord",
+            observed,
             AdminUserProviderLinkInputResource(
                 clientId = "client-id",
                 returnUri = "https://client.example.com/linked"
@@ -226,7 +233,10 @@ class AdminUserProviderControllerTest {
         )
 
         assertEquals(nextUri.toString(), result.redirectUrl)
-        coVerify { linkProviderManager.startLinkProviderSession(userId, "discord", returnUri, flow, null, null) }
+        coVerify { interactiveAuthFlowSessionControllerUtil.observeStartedSession(session, observed) }
+        coVerify {
+            linkProviderManager.startLinkProviderSession(userId, "discord", returnUri, flow, null, null)
+        }
     }
 
     @Test
@@ -237,6 +247,7 @@ class AdminUserProviderControllerTest {
             controller.startLink(
                 userId,
                 "discord",
+                observed,
                 AdminUserProviderLinkInputResource(
                     clientId = "client-id",
                     returnUri = "https://client.example.com/linked"
@@ -259,6 +270,7 @@ class AdminUserProviderControllerTest {
             controller.startLink(
                 userId,
                 "discord",
+                observed,
                 AdminUserProviderLinkInputResource(
                     clientId = "missing-client",
                     returnUri = "https://client.example.com/linked"
@@ -284,6 +296,7 @@ class AdminUserProviderControllerTest {
             controller.startLink(
                 userId,
                 "bad-provider",
+                observed,
                 AdminUserProviderLinkInputResource(
                     clientId = "client-id",
                     returnUri = "https://client.example.com/linked"

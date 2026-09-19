@@ -9,8 +9,8 @@ import org.mapstruct.Mapper
  * Handle the mapping from the [InteractiveFlowSessionSecurityContextEntity] to the
  * [InteractiveFlowSessionSecurityContext] business model.
  *
- * The row's `fingerprint` is deliberately left behind: it is the key the fold deduplicates on and it belongs
- * to that write path, not to anything reading the observation back.
+ * The row's `fingerprint` is deliberately left behind: it is the key a place is deduplicated on and it
+ * belongs to that write path, not to anything reading the observation back.
  */
 @Mapper(
     config = ToBusinessMapperConfig::class
@@ -29,7 +29,10 @@ abstract class InteractiveFlowSessionSecurityContextMapper {
             region = entity.region,
             city = entity.city,
             timeZone = entity.timeZone,
-            observedDate = entity.observedDate,
+            firstSeenDate = entity.firstSeenDate,
+            lastSeenDate = entity.lastSeenDate,
+            observationCount = entity.observationCount,
+            provenDate = entity.provenDate,
         )
     }
 }

@@ -1,6 +1,7 @@
 package com.sympauthy.api.controller.oauth2
 
 import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
+import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
@@ -9,6 +10,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.InteractiveFlowStepResult
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.UNSUPPORTED_RESPONSE_TYPE
+import com.sympauthy.business.model.security.observedRequestOf
 import io.micronaut.http.HttpStatus
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -35,13 +37,19 @@ class AuthorizeControllerTest {
     @MockK
     lateinit var stepUriMapper: InteractiveFlowStepUriMapper
 
+    @MockK(relaxed = true)
+    lateinit var interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
+
     @InjectMockKs
     lateinit var controller: AuthorizeController
+
+    private val observed = observedRequestOf()
 
     @Test
     fun `authorize - Throws UNSUPPORTED_RESPONSE_TYPE when response_type is null`() = runTest {
         val exception = assertThrows<OAuth2Exception> {
             controller.authorize(
+                observedRequest = observed,
                 responseType = null,
                 uncheckedClientId = "client",
                 uncheckedRedirectUri = "https://example.com/callback",
@@ -61,6 +69,7 @@ class AuthorizeControllerTest {
     fun `authorize - Throws UNSUPPORTED_RESPONSE_TYPE when response_type is blank`() = runTest {
         val exception = assertThrows<OAuth2Exception> {
             controller.authorize(
+                observedRequest = observed,
                 responseType = "   ",
                 uncheckedClientId = "client",
                 uncheckedRedirectUri = "https://example.com/callback",
@@ -80,6 +89,7 @@ class AuthorizeControllerTest {
     fun `authorize - Throws UNSUPPORTED_RESPONSE_TYPE when response_type is token`() = runTest {
         val exception = assertThrows<OAuth2Exception> {
             controller.authorize(
+                observedRequest = observed,
                 responseType = "token",
                 uncheckedClientId = "client",
                 uncheckedRedirectUri = "https://example.com/callback",
@@ -99,6 +109,7 @@ class AuthorizeControllerTest {
     fun `authorize - Throws UNSUPPORTED_RESPONSE_TYPE when response_type is unknown value`() = runTest {
         val exception = assertThrows<OAuth2Exception> {
             controller.authorize(
+                observedRequest = observed,
                 responseType = "id_token",
                 uncheckedClientId = "client",
                 uncheckedRedirectUri = "https://example.com/callback",
@@ -118,6 +129,7 @@ class AuthorizeControllerTest {
     fun `authorize - Throws UNSUPPORTED_RESPONSE_TYPE when response_type has wrong casing`() = runTest {
         val exception = assertThrows<OAuth2Exception> {
             controller.authorize(
+                observedRequest = observed,
                 responseType = "Code",
                 uncheckedClientId = "client",
                 uncheckedRedirectUri = "https://example.com/callback",
@@ -155,6 +167,7 @@ class AuthorizeControllerTest {
         stubCurrentStep(session, flow, InteractiveFlowStep.SignIn, signInUri)
 
         val result = controller.authorize(
+            observedRequest = observed,
             responseType = "code",
             uncheckedClientId = "client",
             uncheckedRedirectUri = "https://example.com/callback",
@@ -168,6 +181,7 @@ class AuthorizeControllerTest {
 
         assertEquals(HttpStatus.SEE_OTHER, result.status)
         assertEquals(signInUri, result.header("Location")?.let { URI(it) })
+        coVerify { interactiveAuthFlowSessionControllerUtil.observeStartedSession(session, observed) }
     }
 
     @Test
@@ -191,6 +205,7 @@ class AuthorizeControllerTest {
         stubCurrentStep(session, flow, InteractiveFlowStep.SignIn, signInUri)
 
         controller.authorize(
+            observedRequest = observed,
             responseType = "code",
             uncheckedClientId = "my-client",
             uncheckedRedirectUri = "https://example.com/cb",
@@ -237,6 +252,7 @@ class AuthorizeControllerTest {
         stubCurrentStep(session, flow, InteractiveFlowStep.SignIn, signInUri)
 
         controller.authorize(
+            observedRequest = observed,
             responseType = "code",
             uncheckedClientId = "client",
             uncheckedRedirectUri = null,

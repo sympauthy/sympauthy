@@ -57,11 +57,13 @@ on-going flow. All URLs it contains already include the state query param.
     @Get
     suspend fun getSignUpConfiguration(
         authentication: Authentication,
+        @RequestAttribute(OBSERVED_REQUEST) observedRequest: ObservedRequest,
         httpRequest: HttpRequest<*>
     ): SignUpFlowResource {
         val locale = httpRequest.locale.orDefault()
         return interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenRunAndRedirect(
             state = authentication.stateOrNull,
+            observedRequest = observedRequest,
             run = { session, flow ->
                 if (signUpApplies(session)) {
                     buildSignUpConfiguration(session, flow, locale)
@@ -125,6 +127,7 @@ Only identifier claims are saved on the created account. Any other claim present
     ): SimpleFlowResource =
         interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect(
             state = authentication.stateOrNull,
+            observedRequest = observedRequest,
             update = { session, _ ->
                 val updates = collectedClaimUpdateMapper.toUpdates(inputResource.claims)
                 passwordFlowManager.signUpWithClaimsAndPassword(

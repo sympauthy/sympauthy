@@ -173,11 +173,13 @@ switched on.
    a person reads it under.
 2. Write its handler as a bean: the purpose, `nextStepOrNull`, `debugInformation`, and whichever of
    the other two it needs.
-3. If it has state of its own, add a record keyed by the session id, its table in both dialects, and
-   a manager that reads and writes it.
+3. If it has state of its own, add a record keyed by the session id, its table in every dialect,
+   and a manager that reads and writes it.
 4. Give it an entry point. There is no generic "start a flow" endpoint: each purpose is initiated by
    whatever asks for it, which creates the session with the ordered purpose list, names the client
-   it is for, and persists any attached record **in the same transaction**.
+   it is for, and persists any attached record **in the same transaction** — then hands the session
+   it got back to the controller helper, which records where it was started from, as
+   [the `api` layer standard](api-layer-code-standard.md#the-flow-controller) requires.
 5. Test the handler's branches directly — including that `debugInformation` answers for a session
    with no user, no attached record and a terminal status, and that no credential is among what it
    emits — and add an integration test that drives the flow.
@@ -193,10 +195,16 @@ switched on.
 ## Writing a step endpoint
 
 **Every flow handler goes through the shared controller helper.** It verifies the signed state,
-loads the session, runs the work, asks the engine what comes next, turns that into a redirect, and
-translates a failure into either a retryable error or a failed session. A controller that decodes
-state, loads a session or builds a redirect itself is doing four things the helper already does
-identically everywhere else — and doing at least one of them slightly differently.
+loads the session, records where the request came from, runs the work, asks the engine what comes
+next, turns that into a redirect, and translates a failure into either a retryable error or a
+failed session. A controller that decodes state, loads a session or builds a redirect itself is
+doing five things the helper already does identically everywhere else — and doing at least one of
+them slightly differently.
+
+**A handler binds the observed request and passes it to the helper.** It is read once at the
+boundary and threaded down as an ordinary parameter, which [the security
+context](security-context.md) requires of everything that reads where a request came from; a step
+that binds it is a step whose places are recorded by having been written the ordinary way.
 
 **A step exposes at most two operations.** A `GET` returns the step's configuration *or* a redirect,
 never both; a `POST` applies the action and returns a redirect. When the redirect is present, the
@@ -223,12 +231,14 @@ decision.
 the account a sign-up had not finished creating — are collected by a scheduled job. A person starts
 again from the client that sent them.
 
-**One attached record is read rather than collected, where the flow completed.** The place the
-person was observed proving who they were is attached to the session that saw it, and completing the
-flow folds it into that person's own record and consumes the row; what the cleaner collects is
-therefore only the observations of flows that never finished. It is the one thing a session writes
-whose contents outlive it — deliberately, because [the security
-context](security-context.md) keeps a place for months and a session for half an hour.
+**One attached record is read rather than collected, where the flow completed.** The places a
+session was driven from are attached to it — one row per distinct place, written where the session
+is created and at every request that resolves it, both through the shared controller helper.
+Completing the flow folds the one a credential was proven at into that person's own record and
+consumes them all; what the cleaner collects is therefore only the places of flows that never
+finished. It is the one thing a session writes whose contents outlive it — deliberately, because
+[the security context](security-context.md) keeps a place for months and a session for half an
+hour, and only the row a proof stamped is ever read that way.
 
 **It does not model steps that branch on client-supplied data.** Every predicate is a function of
 the session and the configuration. A step that needed the client to say which of two paths to take

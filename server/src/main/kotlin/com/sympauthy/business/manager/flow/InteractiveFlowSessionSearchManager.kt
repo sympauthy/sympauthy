@@ -44,9 +44,9 @@ import java.util.*
  * expiry window rather than by how long the deployment has been running, so it is smaller than the user table
  * the same approach already serves.
  *
- * **The search itself is four reads.** Every session and every observation, then — once the order has decided
- * which rows are published — the users of that page and their identifier claims. A session the criteria kept
- * but the page left off costs nothing beyond the row it was read from.
+ * **The search itself is four reads.** Every session and every place any of them was driven from, then —
+ * once the order has decided which rows are published — the users of that page and their identifier claims.
+ * A session the criteria kept but the page left off costs nothing beyond the rows it was read from.
  *
  * **What is published costs more, per row, and deliberately.** Answering which purpose a session is stopped
  * at is the engine's walk, and the walk asks every handler in turn — so a page of twenty costs twenty walks,
@@ -54,8 +54,9 @@ import java.util.*
  * on the page rather than on everything the criteria kept is what bounds it.
  *
  * **It reads no attached record for the listing.** The client is a column on the session, so `q` and every
- * filter match against the session row and its one observation. The detail reads the attached records, one
- * session at a time, through the handlers that own them.
+ * filter match against the session row and the places it was driven from — any of them, since a session that
+ * moved mid-flow holds several and an operator searching for an address means whichever of them it appeared
+ * in. The detail reads the attached records, one session at a time, through the handlers that own them.
  */
 @Singleton
 class InteractiveFlowSessionSearchManager(
@@ -75,9 +76,9 @@ class InteractiveFlowSessionSearchManager(
      * Read the page [pageParams] names of the sessions the criteria keep.
      *
      * Every criterion is optional and they compose: [query] is a partial, case-insensitive match across the
-     * observed address, the observed user agent and the initiating client id; [clientId], [userId], [purpose]
-     * and [status] are exact. [order] is the direction the page is read in, ascending where the caller named
-     * none.
+     * address and the user agent of every place the session was driven from, and the initiating client id;
+     * [clientId], [userId], [purpose] and [status] are exact. [order] is the direction the page is read in,
+     * ascending where the caller named none.
      *
      * The order is the session date then the session's identifier, so it is total and a new session appends at
      * the tail. The identifier stays ascending under [SortOrder.DESC]: it is not what the caller asked to sort
@@ -93,7 +94,8 @@ class InteractiveFlowSessionSearchManager(
         pageParams: PageParams
     ): Page<InteractiveFlowSessionSummary> {
         val securityContexts = securityContextRepository.findAll().toList()
-            .associate { it.sessionId to securityContextMapper.toInteractiveFlowSessionSecurityContext(it) }
+            .map(securityContextMapper::toInteractiveFlowSessionSecurityContext)
+            .groupBy(InteractiveFlowSessionSecurityContext::sessionId)
 
         val entitiesById = sessionRepository.findAll().toList().associateBy(sessionMapper::toId)
 
@@ -107,7 +109,7 @@ class InteractiveFlowSessionSearchManager(
                 expirationDate = entity.expirationDate,
                 userId = entity.userId,
                 signedUp = entity.signedUp,
-                securityContext = securityContexts[id]
+                securityContexts = securityContexts[id].orEmpty()
             )
         }
 
@@ -151,8 +153,9 @@ class InteractiveFlowSessionSearchManager(
             signedUp = entity.signedUp,
             sessionDate = entity.sessionDate,
             expirationDate = entity.expirationDate,
-            securityContext = securityContextRepository.findBySessionId(id)
-                ?.let(securityContextMapper::toInteractiveFlowSessionSecurityContext),
+            securityContexts = securityContextRepository.findBySessionId(id)
+                .map(securityContextMapper::toInteractiveFlowSessionSecurityContext)
+                .sortedBy(InteractiveFlowSessionSecurityContext::firstSeenDate),
             errorDetailsId = entity.errorDetailsId,
             errorDescriptionId = entity.errorDescriptionId,
             errorValues = entity.errorValues,
@@ -223,11 +226,11 @@ class InteractiveFlowSessionSearchManager(
         if (query.isNullOrBlank()) return true
 
         val lowerQuery = query.lowercase()
-        return listOfNotNull(
-            searched.securityContext?.ip,
-            searched.securityContext?.userAgent,
-            searched.initiatingClientId
-        ).any { it.lowercase().contains(lowerQuery) }
+        // Every place the session was driven from, because a session matches on any of them: an operator
+        // searching for an address finds the session it appeared in whether or not it is the latest one.
+        val searchable = searched.securityContexts.flatMap { listOfNotNull(it.ip, it.userAgent) } +
+            listOfNotNull(searched.initiatingClientId)
+        return searchable.any { it.lowercase().contains(lowerQuery) }
     }
 
     /**
@@ -283,7 +286,9 @@ class InteractiveFlowSessionSearchManager(
         initiatingClientId = searched.initiatingClientId,
         signedUp = searched.signedUp,
         user = searched.userId?.let(users::get),
-        securityContext = searched.securityContext,
+        securityContext = searched.securityContexts.maxByOrNull(
+            InteractiveFlowSessionSecurityContext::lastSeenDate
+        ),
         sessionDate = searched.sessionDate,
         expirationDate = searched.expirationDate
     )
@@ -306,7 +311,7 @@ class InteractiveFlowSessionSearchManager(
         val expirationDate: LocalDateTime,
         val userId: UUID?,
         val signedUp: Boolean,
-        val securityContext: InteractiveFlowSessionSecurityContext?
+        val securityContexts: List<InteractiveFlowSessionSecurityContext>
     )
 
     /**
@@ -328,8 +333,9 @@ class InteractiveFlowSessionSearchManager(
      * is one this very session is still signing up. [signedUp] is what tells those two apart, and it is why
      * it is on the row.
      *
-     * [securityContext] is absent for every session outside the window in which an observation is staged —
-     * see [InteractiveFlowSessionSecurityContext].
+     * [securityContext] is the place the session was last driven from, and it is absent only where nothing
+     * was recorded against it at all. The rest of the trail is on the detail — see
+     * [InteractiveFlowSessionSecurityContext].
      */
     data class InteractiveFlowSessionSummary(
         val id: UUID,
@@ -347,6 +353,10 @@ class InteractiveFlowSessionSearchManager(
     /**
      * One session, every purpose it carries and where each one stands.
      *
+     * [securityContexts] is every place the session was driven from, oldest first, which is the trail an
+     * operator reading a stalled flow is looking for: a session that started in one place and whose last
+     * post came from another is two entries.
+     *
      * The three error fields are the keys the session failed with and the values they interpolate, carried
      * unrendered: they are what a reader can grep for, whereas a sentence in the wrong locale says less. They
      * are absent for every status but [InteractiveFlowSessionStatus.FAILED].
@@ -361,7 +371,7 @@ class InteractiveFlowSessionSearchManager(
         val signedUp: Boolean,
         val sessionDate: LocalDateTime,
         val expirationDate: LocalDateTime,
-        val securityContext: InteractiveFlowSessionSecurityContext?,
+        val securityContexts: List<InteractiveFlowSessionSecurityContext>,
         val errorDetailsId: String?,
         val errorDescriptionId: String?,
         val errorValues: Map<String, String>?,

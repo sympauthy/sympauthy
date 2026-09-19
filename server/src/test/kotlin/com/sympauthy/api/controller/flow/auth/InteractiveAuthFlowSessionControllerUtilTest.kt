@@ -1,16 +1,21 @@
 package com.sympauthy.api.controller.flow.auth
 
 import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
+import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
+import com.sympauthy.business.manager.flow.FailedVerifyEncodedStateResult
+import com.sympauthy.business.manager.flow.SuccessVerifyEncodedStateResult
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
+import com.sympauthy.business.manager.security.UserSecurityContextManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.security.observedRequestOf
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -43,10 +48,48 @@ class InteractiveAuthFlowSessionControllerUtilTest {
     @MockK
     lateinit var stepUriMapper: InteractiveFlowStepUriMapper
 
+    @MockK(relaxed = true)
+    lateinit var userSecurityContextManager: UserSecurityContextManager
+
     @InjectMockKs
     lateinit var util: InteractiveAuthFlowSessionControllerUtil
 
     private val concurrentModification = InteractiveFlowSessionManager.CONCURRENT_MODIFICATION_DETAILS_ID
+
+    private val observed = observedRequestOf()
+
+    @Test
+    fun `fetchSessionAndObserveRequest - Records where the request that resolved the session came from`() = runTest {
+        val sessionId = UUID.randomUUID()
+        val session = mockk<OnGoingInteractiveFlowSession> { every { id } returns sessionId }
+        coEvery { sessionManager.verifyEncodedInternalState("encoded-state") } returns
+            SuccessVerifyEncodedStateResult(session)
+
+        assertSame(session, util.fetchSessionAndObserveRequest("encoded-state", observed))
+
+        coVerify { userSecurityContextManager.observe(sessionId, observed) }
+    }
+
+    @Test
+    fun `fetchSessionAndObserveRequest - Records nothing where the state named no session`() = runTest {
+        coEvery { sessionManager.verifyEncodedInternalState("forged-state") } returns
+            FailedVerifyEncodedStateResult("flow.state.invalid")
+
+        assertThrows<LocalizedHttpException> { util.fetchSessionAndObserveRequest("forged-state", observed) }
+
+        coVerify(exactly = 0) { userSecurityContextManager.observe(any(), any()) }
+    }
+
+    @Test
+    fun `observeStartedSession - Records where the session a controller just created was started from`() =
+        runTest {
+            val sessionId = UUID.randomUUID()
+            val session = mockk<OnGoingInteractiveFlowSession> { every { id } returns sessionId }
+
+            util.observeStartedSession(session, observed)
+
+            coVerify { userSecurityContextManager.observe(sessionId, observed) }
+        }
 
     @Test
     fun `handleException - Returns the session unchanged when there is no exception`() = runTest {
