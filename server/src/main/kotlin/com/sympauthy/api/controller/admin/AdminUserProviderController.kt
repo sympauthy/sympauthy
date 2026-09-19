@@ -3,11 +3,14 @@ package com.sympauthy.api.controller.admin
 import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
+import com.sympauthy.api.mapper.admin.AdminCollectionCapabilitiesResourceMapper
 import com.sympauthy.api.mapper.admin.AdminUserProviderResourceMapper
+import com.sympauthy.api.resource.admin.AdminCollectionCapabilitiesResource
 import com.sympauthy.api.resource.admin.AdminUserProviderLinkInputResource
 import com.sympauthy.api.resource.admin.AdminUserProviderLinkResource
 import com.sympauthy.api.resource.admin.AdminUserProviderListResource
 import com.sympauthy.api.util.PaginationUtil
+import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.client.ClientRedirectUriManager
@@ -16,12 +19,14 @@ import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManage
 import com.sympauthy.business.manager.flow.link.InteractiveFlowSessionLinkProviderManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderManager
-import com.sympauthy.business.manager.provider.UserProviderSearchManager
+import com.sympauthy.business.manager.collection.UserProviderCollectionManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.security.SecurityRule.ADMIN_USERS_READ
 import com.sympauthy.security.SecurityRule.ADMIN_USERS_WRITE
+import com.sympauthy.util.orDefault
+import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpStatus
 import io.micronaut.http.annotation.*
 import io.micronaut.security.annotation.Secured
@@ -36,7 +41,7 @@ import java.util.*
 class AdminUserProviderController(
     @Inject private val userManager: UserManager,
     @Inject private val providerClaimsManager: ProviderClaimsManager,
-    @Inject private val userProviderSearchManager: UserProviderSearchManager,
+    @Inject private val userProviderCollectionManager: UserProviderCollectionManager,
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
     @Inject private val clientRedirectUriManager: ClientRedirectUriManager,
     @Inject private val clientManager: ClientManager,
@@ -46,16 +51,24 @@ class AdminUserProviderController(
     @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
     @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil,
     @Inject private val userProviderMapper: AdminUserProviderResourceMapper,
+    @Inject private val capabilitiesMapper: AdminCollectionCapabilitiesResourceMapper,
     @Inject private val paginationUtil: PaginationUtil,
 ) {
 
     @Operation(
         description = "Retrieve a paginated list of external identity providers linked to a user. Providers " +
-                "are ordered by the date they were linked, oldest first, then by provider identifier.",
+                "are ordered by the date they were linked, oldest first, then by provider identifier, " +
+                "unless another order is asked for. " +
+                "Which fields this collection can be filtered, ordered and row on is published at " +
+                "/api/v1/admin/users/{userId}/providers/capabilities.",
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of linked providers."),
-            ApiResponse(responseCode = "400", description = "Invalid page or size."),
+            ApiResponse(
+                responseCode = "400",
+                description = "Invalid page or size, an unknown field, an operator the field does not " +
+                        "accept, or a value it does not hold."
+            ),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
                 responseCode = "403",
@@ -68,16 +81,27 @@ class AdminUserProviderController(
     @Secured(ADMIN_USERS_READ)
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.USERS_READ])
     suspend fun listProviders(
+        request: HttpRequest<*>,
         @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
         @QueryValue @Parameter(
             description = "Number of results per page. Defaults to the size this server is configured " +
                     "with, and may not exceed its configured maximum."
-        ) size: Int?
+        ) size: Int?,
+        @QueryValue @Parameter(
+            description = "Comma-separated list of keys to order by, each prefixed with - to read it " +
+                    "from the largest value to the smallest. The keys are published by the capabilities " +
+                    "endpoint."
+        ) sort: String?,
+        @QueryValue @Parameter(
+            description = "Partial case-insensitive search across the fields the capabilities endpoint " +
+                    "publishes as searchable."
+        ) q: String?
     ): AdminUserProviderListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
+        val criteria = collectionCriteriaOf(request, userProviderCollectionManager.capabilities(), sort, q)
         userManager.findByIdOrNull(userId).orNotFound()
-        val providers = userProviderSearchManager.listUserProviders(userId, pageParams)
+        val providers = userProviderCollectionManager.listUserProviders(userId, criteria, pageParams)
         return AdminUserProviderListResource(
             providers = providers.items.map(userProviderMapper::toResource),
             page = providers.page,
@@ -85,6 +109,33 @@ class AdminUserProviderController(
             total = providers.total
         )
     }
+
+    @Operation(
+        description = "Retrieve what the linked provider collection accepts: the fields it filters on and " +
+                "the operators each admits, the fields it orders on, the fields a free-text search " +
+                "matches against, and the order it takes when none is asked for. " +
+                "It describes the collection rather than one account, so it reads the same for every user " +
+                "identifier and looks none of them up. " +
+                "The names it carries are read in the language the request asked for and may be reworded " +
+                "in any release.",
+        tags = ["admin"],
+        responses = [
+            ApiResponse(responseCode = "200", description = "What the collection accepts."),
+            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(
+                responseCode = "403",
+                description = "The access token does not include the required scope: admin:users:read."
+            )
+        ]
+    )
+    @Get("/capabilities")
+    @Secured(ADMIN_USERS_READ)
+    @SecurityRequirement(name = "admin", scopes = [AdminScopeId.USERS_READ])
+    suspend fun getUserProviderCapabilities(
+        request: HttpRequest<*>,
+        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID
+    ): AdminCollectionCapabilitiesResource =
+        capabilitiesMapper.toResource(userProviderCollectionManager.capabilities(), request.locale.orDefault())
 
     @Operation(
         description = "Remove the link between a user and an external identity provider.",

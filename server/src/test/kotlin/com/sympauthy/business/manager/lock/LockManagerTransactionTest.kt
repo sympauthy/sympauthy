@@ -6,8 +6,7 @@ import com.sympauthy.data.bean
 import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.UserRepository
 import com.sympauthy.data.withFixture
-import kotlinx.coroutines.flow.toList
-import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
@@ -43,6 +42,6 @@ class LockManagerTransactionTest {
                 }
             }
 
-            assertEquals(emptyList<UserEntity>(), users.findByStatusAndSessionIdIsNull(status).toList())
+            assertNull(written?.id?.let { users.findById(it) })
         }
 }

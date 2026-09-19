@@ -21,9 +21,9 @@ granted by a rule and one only a client may hold each become a type under one su
 **A configured item that failed validation is a disabled variant carrying the reason.** The caller
 then has to say what it does about the disabled case in order to compile.
 
-**A model one manager alone builds is declared inside it.** `ScopeSearchManager.ScopeWithClaims` is
-a row of that manager's answer and nothing else assembles one, so the model package keeps what more
-than one caller shares.
+**A model one manager alone builds is declared inside it.** `ScopeCollectionManager.ScopeWithClaims`
+is a row of that manager's answer and nothing else assembles one, so the model package keeps what
+more than one caller shares.
 
 ## The mapper
 
@@ -124,15 +124,19 @@ have the assertion call it.
 **Managers are split by domain and compose by injection.** One manager per concept, and a use case
 spanning two injects the other rather than reaching into its repository.
 
-**Reading a collection a surface pages is one method.** It takes one parameter per criterion plus
-the `PageParams` the caller asked for, and answers a `Page` it ordered itself, so that the criteria,
-the order and the slice can become one query.
+**Reading a collection a surface pages is one method.** It takes the criteria a caller asked for
+plus the `PageParams`, and answers a `Page` it ordered itself, so that the criteria, the order and
+the slice can become one query.
 
-**A listing that is a concept of its own is a `…SearchManager`**, composing the manager that owns
-the concept or reading the repositories where it is that manager. A manager whose whole subject is
-that one collection keeps its listing, the way `ClientUserManager` does.
+**A collection that is a concept of its own is a `…CollectionManager`**, composing the manager that
+owns the concept or reading the repositories where it is that manager. A manager whose whole subject
+is that one collection reads it itself, the way `ClientUserManager` does.
 
-**A row a `…SearchManager` assembles is read one at a time by that same manager.** A surface
+**Every `…CollectionManager` sits in `business.manager.collection`**, whichever concept it reads.
+What one declares, what its criteria mean and what it publishes about itself are
+[the collection standard's](collection-standard.md).
+
+**A row a `…CollectionManager` assembles is read one at a time by that same manager.** A surface
 publishing one of those rows on its own calls its `find…OrNull`, rather than fetching the concept
 and what the row carries beside it apart and pairing them itself.
 

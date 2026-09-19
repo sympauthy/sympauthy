@@ -21,6 +21,11 @@ resources are the set that exists.
 **A class asking for messages names its bundle by qualifier.** Say which audience is reading before
 asking for a string.
 
+**A name an operator reads is asked of the administrator's bundle first, and of the bundle that
+already names the thing after it.** A claim is named by `claims.<id>.name` wherever it is displayed,
+so [a capability document](collection-standard.md#where-a-name-in-it-comes-from) naming one reads
+the name a deployment wrote once rather than asking for a second copy of it.
+
 ## Keys
 
 **An error code is its key**, and the same code prefixed with `description.` names the end-user's
@@ -29,6 +34,11 @@ code is built.
 
 **A display key is the identifier of the thing displayed, with the facet appended.** A deployment
 derives the keys it may override from the claims it configured.
+
+**A field of a collection and a value it holds are displayed things, and their identifier is the one
+the field declares.** `fields.user_status.name` names the field and
+`fields.user_status.enabled.name` one of its values; [the collection
+standard](collection-standard.md) owns what declares them.
 
 **A mail key names the template and the usage.** The template segment is the FreeMarker file's name
 without its extension.

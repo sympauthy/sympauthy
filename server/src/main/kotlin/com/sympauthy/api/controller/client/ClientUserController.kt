@@ -4,13 +4,14 @@ import com.sympauthy.api.mapper.client.ClientUserResourceMapper
 import com.sympauthy.api.resource.client.ClientUserListResource
 import com.sympauthy.api.resource.client.ClientUserResource
 import com.sympauthy.api.util.PaginationUtil
+import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.user.ClientUserManager
 import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
 import com.sympauthy.security.SecurityRule.CLIENT_USERS_READ
 import com.sympauthy.security.clientAuthentication
+import io.micronaut.http.HttpRequest
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
 import io.micronaut.http.annotation.PathVariable
@@ -38,11 +39,18 @@ class ClientUserController(
         description = "Retrieve a paginated list of end-users who have granted scopes to the requesting client. " +
                 "Users are ordered by the date of their current consent, oldest first. That date is rewritten " +
                 "each time a user authorizes again, which moves them to the end of the list, so a client " +
-                "walking every page while users are signing in may miss one or see one twice.",
+                "walking every page while users are signing in may miss one or see one twice. " +
+                "They can be filtered on provider_id, and on subject together with it; each is an exact " +
+                "match and accepts no other operator. This collection is not ordered or row by a " +
+                "caller.",
         tags = ["client"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of users."),
-            ApiResponse(responseCode = "400", description = "Invalid query parameters."),
+            ApiResponse(
+                responseCode = "400",
+                description = "Invalid page or size, an unknown field, an operator the field does not " +
+                        "accept, or a subject sent without a provider_id."
+            ),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
                 responseCode = "403",
@@ -52,33 +60,21 @@ class ClientUserController(
     )
     @Get
     suspend fun listUsers(
+        request: HttpRequest<*>,
         authentication: Authentication,
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
         @QueryValue @Parameter(
             description = "Number of results per page. Defaults to the size this server is configured " +
                     "with, and may not exceed its configured maximum."
-        ) size: Int?,
-        @QueryValue("provider_id")
-        @Parameter(description = "Filter users linked to a specific provider.")
-        providerId: String?,
-        @QueryValue
-        @Parameter(description = "Filter by provider subject ID. Must be used together with provider_id.")
-        subject: String?
+        ) size: Int?
     ): ClientUserListResource {
-        if (subject != null && providerId == null) {
-            throw recoverableBusinessExceptionOf(
-                "client.subject_without_provider",
-                "description.client.subject_without_provider"
-            )
-        }
-
         val clientAuth = authentication.clientAuthentication
         val client = clientManager.findClientById(clientAuth.clientId)
         val pageParams = paginationUtil.resolvePageParams(page, size)
+        val criteria = collectionCriteriaOf(request, clientUserManager.capabilities())
         val users = clientUserManager.listUsersForAudience(
             audienceId = client.audience.id,
-            providerId = providerId,
-            subject = subject,
+            criteria = criteria,
             pageParams = pageParams
         )
 

@@ -1,6 +1,6 @@
 ---
-description: What a client sees — how a route is spelled, what the JSON looks like, how a collection
-  is paged, and the shape of a failure.
+description: What a client sees — how a route is spelled, what the JSON looks like, and the shape of
+  a failure.
 paths:
   - "server/src/main/kotlin/com/sympauthy/api/**"
 ---
@@ -8,8 +8,8 @@ paths:
 # API standard
 
 [The code standards](general-code-standard.md) say what a feature looks like once it is written.
-This document says what a client sees: how a route is spelled, what the JSON looks like, how a
-collection is paged, and the shape of a failure. The Kotlin behind it is
+This document says what a client sees: how a route is spelled, what the JSON looks like, and the
+shape of a failure. The Kotlin behind it is
 [the `api` layer standard](api-layer-code-standard.md).
 
 ## Routes
@@ -88,45 +88,9 @@ two conventions, and one enum behind both: converted on the way from a response 
 
 ## Collections
 
-**A collection response is an object.** The items sit under the plural name of what they are, with
-the paging beside them:
-
-```json
-{ "users": [ … ], "page": 0, "size": 20, "total": 413 }
-```
-
-**`page` is 0-based, and an omitted `size` is the one the deployment configured.** Both arrive as
-ordinary query parameters and both are optional.
-
-**A page or a size outside its bounds is a `400` naming the parameter.** A negative page, a size
-below one, and a page whose offset overflows the integer the layer below counts rows with are each
-refused rather than clamped.
-
-**A filter value naming nothing the set holds is a `400` naming the parameter.** A caller asking for
-something this deployment cannot have is told so, rather than handed an empty page that reads as a
-deployment holding none of it; an identifier filter is not a set, and one naming no row still
-answers with an empty page.
-
-**`size` has a ceiling, and a deployment sets it.** The default size and the ceiling are
-configuration, and the shipped values are in the default configuration file.
-
-**The bounds are checked where the two numbers are resolved**, so every paged endpoint answers the
-same way and a new collection inherits the answer.
-
-**A paged collection is returned in a total order, and the order is part of the contract.** End the
-sort on a key that is unique by construction.
-
-**The order is ascending on a moment the row does not later rewrite**, so a new row appends at the
-tail and a client walking pages 0..N is never shifted under.
-
-**An endpoint sorting on a column the row rewrites says so where it is documented.** Two calls still
-agree on a snapshot; a walk in progress can skip a row or see it twice.
-
-**A sort direction is `asc` or `desc`, and a word naming neither is a `400` naming the parameter.**
-A caller who named no direction takes the endpoint's own; one who named a direction and spelled it
-wrong is told so, rather than handed the opposite of what they asked for.
-
-**The order is named in the endpoint's own description**, which is what an integrator reads.
+**A collection is [the collection standard](collection-standard.md)'s, whole.** The object it
+answers with, the page a caller asks for and its bounds, the criteria that narrow it, and the
+document a collection publishes about itself are written there.
 
 ## Errors
 

@@ -3,17 +3,20 @@ package com.sympauthy.api.controller.admin
 import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.exception.LocalizedHttpException
+import com.sympauthy.api.mapper.admin.AdminCollectionCapabilitiesResourceMapper
 import com.sympauthy.api.mapper.admin.AdminUserMfaMethodResourceMapper
 import com.sympauthy.api.resource.admin.AdminUserMfaEnrollmentInputResource
 import com.sympauthy.api.resource.admin.AdminUserMfaMethodResource
 import com.sympauthy.api.util.defaultPaginationUtil
+import com.sympauthy.api.util.collectionRequest
+import com.sympauthy.api.util.noCapabilities
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.client.ClientRedirectUriManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
 import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaEnrollmentManager
-import com.sympauthy.business.manager.mfa.MfaEnrollmentSearchManager
+import com.sympauthy.business.manager.collection.MfaEnrollmentCollectionManager
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.client.Client
@@ -68,7 +71,10 @@ class AdminUserMfaControllerTest {
     lateinit var clientManager: ClientManager
 
     @MockK
-    lateinit var mfaEnrollmentSearchManager: MfaEnrollmentSearchManager
+    lateinit var mfaEnrollmentCollectionManager: MfaEnrollmentCollectionManager
+
+    @MockK
+    lateinit var capabilitiesMapper: AdminCollectionCapabilitiesResourceMapper
 
     @MockK
     lateinit var mfaEnrollmentManager: InteractiveFlowSessionMfaEnrollmentManager
@@ -87,8 +93,9 @@ class AdminUserMfaControllerTest {
     ) = AdminUserMfaController(
         userManager = userManager,
         totpManager = totpManager,
-        mfaEnrollmentSearchManager = mfaEnrollmentSearchManager,
+        mfaEnrollmentCollectionManager = mfaEnrollmentCollectionManager,
         mfaMapper = mfaMapper,
+        capabilitiesMapper = capabilitiesMapper,
         interactiveAuthFlowSessionManager = interactiveAuthFlowSessionManager,
         clientRedirectUriManager = clientRedirectUriManager,
         clientManager = clientManager,
@@ -127,13 +134,14 @@ class AdminUserMfaControllerTest {
     fun `listMfaMethods - Map every enrollment the page holds, and publish the page it came in`() = runTest {
         val enrollment = mockEnrollment()
         val resource = mockResource()
+        coEvery { mfaEnrollmentCollectionManager.capabilities() } returns noCapabilities()
         coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
         coEvery {
-            mfaEnrollmentSearchManager.listConfirmedEnrollments(userId, PageParams(0, 20))
+            mfaEnrollmentCollectionManager.listConfirmedEnrollments(userId, any(), PageParams(0, 20))
         } returns Page(items = listOf(enrollment), page = 3, size = 7, total = 42)
         every { mfaMapper.toResource(enrollment) } returns resource
 
-        val result = controller().listMfaMethods(userId, null, null)
+        val result = controller().listMfaMethods(collectionRequest(), userId, null, null, null)
 
         assertEquals(mfaId, result.mfaMethods.single().mfaId)
         assertEquals(3, result.page)
@@ -143,10 +151,11 @@ class AdminUserMfaControllerTest {
 
     @Test
     fun `listMfaMethods - Returns 404 when user not found`() = runTest {
+        coEvery { mfaEnrollmentCollectionManager.capabilities() } returns noCapabilities()
         coEvery { userManager.findByIdOrNull(userId) } returns null
 
         val exception = assertThrows<LocalizedHttpException> {
-            controller().listMfaMethods(userId, null, null)
+            controller().listMfaMethods(collectionRequest(), userId, null, null, null)
         }
 
         assertEquals(HttpStatus.NOT_FOUND, exception.status)
@@ -154,12 +163,13 @@ class AdminUserMfaControllerTest {
 
     @Test
     fun `listMfaMethods - Returns empty list when user has no MFA`() = runTest {
+        coEvery { mfaEnrollmentCollectionManager.capabilities() } returns noCapabilities()
         coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
         coEvery {
-            mfaEnrollmentSearchManager.listConfirmedEnrollments(userId, PageParams(0, 20))
+            mfaEnrollmentCollectionManager.listConfirmedEnrollments(userId, any(), PageParams(0, 20))
         } returns Page(items = emptyList(), page = 0, size = 20, total = 0)
 
-        val result = controller().listMfaMethods(userId, null, null)
+        val result = controller().listMfaMethods(collectionRequest(), userId, null, null, null)
 
         assertTrue(result.mfaMethods.isEmpty())
         assertEquals(0, result.total)

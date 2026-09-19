@@ -5,9 +5,11 @@ import com.sympauthy.api.resource.client.ClientCreateInvitationInputResource
 import com.sympauthy.api.resource.client.ClientCreatedInvitationResource
 import com.sympauthy.api.resource.client.ClientInvitationResource
 import com.sympauthy.api.util.defaultPaginationUtil
+import com.sympauthy.api.util.collectionRequest
+import com.sympauthy.api.util.noCapabilities
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.invitation.InvitationManager
-import com.sympauthy.business.manager.invitation.InvitationSearchManager
+import com.sympauthy.business.manager.collection.InvitationCollectionManager
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.invitation.Invitation
@@ -41,7 +43,7 @@ class ClientInvitationControllerTest {
     lateinit var invitationManager: InvitationManager
 
     @MockK
-    lateinit var invitationSearchManager: InvitationSearchManager
+    lateinit var invitationCollectionManager: InvitationCollectionManager
 
     @MockK
     lateinit var invitationMapper: ClientInvitationResourceMapper
@@ -142,12 +144,15 @@ class ClientInvitationControllerTest {
         val invitation = invitation(id(1), createdAt)
         val resource = mockResource(invitation.id)
 
+        coEvery { invitationCollectionManager.clientCapabilities() } returns noCapabilities()
         coEvery {
-            invitationSearchManager.listInvitationsCreatedBy("client", PageParams(0, 20))
+            invitationCollectionManager.listInvitationsCreatedBy("client", any(), PageParams(0, 20))
         } returns Page(items = listOf(invitation), page = 3, size = 7, total = 42)
         every { invitationMapper.toResource(invitation) } returns resource
 
-        val result = controller.listInvitations(clientAuthentication("client"), null, null)
+        val result = controller.listInvitations(
+            collectionRequest(), clientAuthentication("client"), null, null, null, null
+        )
 
         assertSame(resource, result.invitations.single())
         assertEquals(3, result.page)

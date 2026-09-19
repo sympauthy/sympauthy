@@ -24,8 +24,8 @@ import kotlin.io.path.readText
  * whole of the sources is read for the literal — which never fails on a site the position rules do
  * not recognise.
  *
- * `display_messages` and `mail_messages` are out of scope and stay out: a deployment derives their
- * keys from the claims and the templates it configured, so there is no fixed set to compare against.
+ * The other bundles are out of scope and stay out: a deployment derives their keys from the claims,
+ * the templates and the fields its collections configured, so there is no fixed set to compare against.
  */
 class ErrorMessageBundleTest {
 

@@ -14,7 +14,7 @@ import jakarta.inject.Singleton
  * This manager does not apply any scope-based filtering. Use it for admin endpoints, OpenID discovery,
  * configuration, entity-to-model mapping, and any context where consent-based filtering is not applicable.
  *
- * When listing claims to present to the end-user during the authorization flow,
+ * When collection claims to present to the end-user during the authorization flow,
  * use [com.sympauthy.business.manager.user.ConsentAwareClaimManager] instead,
  * which filters claims based on the end-user's consented scopes.
  */

@@ -25,10 +25,10 @@ class PaginationUtil(
      * Resolve the [page] and [size] a caller sent, substituting the configured defaults for the ones
      * left null, and refuse a pair no collection can be read with.
      *
-     * A negative [page] is `pagination.page.negative`, a [size] below one is
-     * `pagination.size.too_small`, a [size] above the configured maximum is
-     * `pagination.size.too_large`, and a [page] whose offset into the collection does not fit in an
-     * `Int` is `pagination.page.too_large`.
+     * A negative [page] is `collection.page.negative`, a [size] below one is
+     * `collection.size.too_small`, a [size] above the configured maximum is
+     * `collection.size.too_large`, and a [page] whose offset into the collection does not fit in an
+     * `Int` is `collection.page.too_large`.
      *
      * That last one is not reachable by asking for an absurd size, since the maximum has already
      * refused it — it is reachable by asking for an ordinary size of an enormous page, and the
@@ -44,19 +44,19 @@ class PaginationUtil(
 
         if (resolvedPage < 0) {
             throw recoverableHttpExceptionOf(
-                BAD_REQUEST, "pagination.page.negative", "description.pagination.page.negative",
+                BAD_REQUEST, "collection.page.negative", "description.collection.page.negative",
                 "page" to resolvedPage.toString()
             )
         }
         if (resolvedSize < 1) {
             throw recoverableHttpExceptionOf(
-                BAD_REQUEST, "pagination.size.too_small", "description.pagination.size.too_small",
+                BAD_REQUEST, "collection.size.too_small", "description.collection.size.too_small",
                 "size" to resolvedSize.toString()
             )
         }
         if (resolvedSize > pagination.maxSize) {
             throw recoverableHttpExceptionOf(
-                BAD_REQUEST, "pagination.size.too_large", "description.pagination.size.too_large",
+                BAD_REQUEST, "collection.size.too_large", "description.collection.size.too_large",
                 "size" to resolvedSize.toString(),
                 "maxSize" to pagination.maxSize.toString()
             )
@@ -65,7 +65,7 @@ class PaginationUtil(
         val maxPage = Int.MAX_VALUE.toLong() / resolvedSize
         if (resolvedPage > maxPage) {
             throw recoverableHttpExceptionOf(
-                BAD_REQUEST, "pagination.page.too_large", "description.pagination.page.too_large",
+                BAD_REQUEST, "collection.page.too_large", "description.collection.page.too_large",
                 "page" to resolvedPage.toString(),
                 "size" to resolvedSize.toString(),
                 "maxPage" to maxPage.toString()

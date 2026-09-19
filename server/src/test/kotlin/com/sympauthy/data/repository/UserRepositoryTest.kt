@@ -50,35 +50,6 @@ class UserRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `findByStatusAndSessionIdIsNull - Streams the committed users holding the status`(database: Database) =
-        withFixture(database) {
-            val users = repository<UserRepository>()
-            val session = newSession()
-            val first = newUser(status = status)
-            val second = newUser(status = status)
-            newUser(status = otherStatus)
-            newUser(status = status, sessionId = session.id)
-
-            val found = users.findByStatusAndSessionIdIsNull(status).toList().map { it.id!! }
-
-            assertEquals(setOf(first, second), found.toSet())
-        }
-
-    @ParameterizedTest
-    @EnumSource(Database::class)
-    fun `findByStatusAndSessionIdIsNull - Streams nothing when no user holds the status`(database: Database) =
-        withFixture(database) {
-            newUser(status = status)
-
-            val found = repository<UserRepository>()
-                .findByStatusAndSessionIdIsNull("user-repository-test-absent")
-                .toList()
-
-            assertTrue(found.isEmpty())
-        }
-
-    @ParameterizedTest
-    @EnumSource(Database::class)
     fun `findBySessionIdIsNull - Excludes the users a session is still signing up`(database: Database) =
         withFixture(database) {
             val session = newSession()

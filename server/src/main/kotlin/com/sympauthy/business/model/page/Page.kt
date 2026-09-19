@@ -11,7 +11,7 @@ data class PageParams(
 /**
  * One page of a collection, and how many the whole collection holds.
  *
- * A listing answers with this rather than with everything it read, so that the criteria, the order
+ * A collection answers with this rather than with everything it read, so that the criteria, the order
  * and the slice are one call and can become one query the day the collection outgrows memory.
  */
 data class Page<T>(

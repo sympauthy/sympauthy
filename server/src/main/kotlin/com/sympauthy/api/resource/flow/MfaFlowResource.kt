@@ -10,7 +10,7 @@ Response from the MFA router endpoint.
 
 Exactly one of the two shapes is returned:
 - **Auto-redirect**: only `redirect_url` is present. The UI must follow it immediately without showing any screen.
-- **Method selection**: `methods` is present. The UI must render a selection screen listing the available methods.
+- **Method selection**: `methods` is present. The UI must render a selection screen collection the available methods.
   When `skip_redirect_url` is also present, a skip button must be shown alongside the method list.
     """
 )

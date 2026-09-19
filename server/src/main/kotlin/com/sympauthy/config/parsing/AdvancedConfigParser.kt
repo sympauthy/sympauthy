@@ -217,7 +217,7 @@ class AdvancedConfigParser(
     /**
      * The edges a deployment named for a location, in the order it wrote them.
      *
-     * Each is refused against the index it was written at, so a file listing two unknown words
+     * Each is refused against the index it was written at, so a file collection two unknown words
      * reports both. An edge publishing no location is not in the published set, so naming one is
      * refused there rather than accepted to no effect.
      */

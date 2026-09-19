@@ -75,6 +75,8 @@ class ClaimsConfigValidator(
     ): Claim? {
         val configKeyPrefix = "$CLAIMS_KEY.${parsed.id}"
 
+        ctx.refuseReservedIdentifier(configKeyPrefix, parsed.id)
+
         // Validate audience cross-reference.
         val audienceId = validateAudienceId(
             ctx, parsed.audienceId, audiencesById,

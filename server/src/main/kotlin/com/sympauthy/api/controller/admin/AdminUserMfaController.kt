@@ -4,11 +4,14 @@ import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.exception.httpExceptionOf
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
+import com.sympauthy.api.mapper.admin.AdminCollectionCapabilitiesResourceMapper
 import com.sympauthy.api.mapper.admin.AdminUserMfaMethodResourceMapper
+import com.sympauthy.api.resource.admin.AdminCollectionCapabilitiesResource
 import com.sympauthy.api.resource.admin.AdminUserMfaEnrollmentInputResource
 import com.sympauthy.api.resource.admin.AdminUserMfaEnrollmentResource
 import com.sympauthy.api.resource.admin.AdminUserMfaMethodListResource
 import com.sympauthy.api.util.PaginationUtil
+import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClientManager
@@ -16,7 +19,7 @@ import com.sympauthy.business.manager.client.ClientRedirectUriManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
 import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaEnrollmentManager
-import com.sympauthy.business.manager.mfa.MfaEnrollmentSearchManager
+import com.sympauthy.business.manager.collection.MfaEnrollmentCollectionManager
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
@@ -25,6 +28,8 @@ import com.sympauthy.config.model.EnabledMfaConfig
 import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.security.SecurityRule.ADMIN_USERS_READ
 import com.sympauthy.security.SecurityRule.ADMIN_USERS_WRITE
+import com.sympauthy.util.orDefault
+import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpStatus
 import io.micronaut.http.HttpStatus.NOT_FOUND
 import io.micronaut.http.annotation.*
@@ -40,8 +45,9 @@ import java.util.*
 class AdminUserMfaController(
     @Inject private val userManager: UserManager,
     @Inject private val totpManager: TotpManager,
-    @Inject private val mfaEnrollmentSearchManager: MfaEnrollmentSearchManager,
+    @Inject private val mfaEnrollmentCollectionManager: MfaEnrollmentCollectionManager,
     @Inject private val mfaMapper: AdminUserMfaMethodResourceMapper,
+    @Inject private val capabilitiesMapper: AdminCollectionCapabilitiesResourceMapper,
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
     @Inject private val clientRedirectUriManager: ClientRedirectUriManager,
     @Inject private val clientManager: ClientManager,
@@ -55,11 +61,18 @@ class AdminUserMfaController(
 
     @Operation(
         description = "Retrieve a paginated list of registered MFA methods for a given user. Methods are " +
-                "ordered by the date the user confirmed them, oldest first, then by identifier.",
+                "ordered by the date the user confirmed them, oldest first, then by identifier, unless " +
+                "another order is asked for. " +
+                "Which fields this collection can be filtered and ordered on is published at " +
+                "/api/v1/admin/users/{userId}/mfa/capabilities.",
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of MFA methods."),
-            ApiResponse(responseCode = "400", description = "Invalid page or size."),
+            ApiResponse(
+                responseCode = "400",
+                description = "Invalid page or size, an unknown field, an operator the field does not " +
+                        "accept, or a value it does not hold."
+            ),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
                 responseCode = "403",
@@ -72,16 +85,23 @@ class AdminUserMfaController(
     @Secured(ADMIN_USERS_READ)
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.USERS_READ])
     suspend fun listMfaMethods(
+        request: HttpRequest<*>,
         @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
         @QueryValue @Parameter(
             description = "Number of results per page. Defaults to the size this server is configured " +
                     "with, and may not exceed its configured maximum."
-        ) size: Int?
+        ) size: Int?,
+        @QueryValue @Parameter(
+            description = "Comma-separated list of keys to order by, each prefixed with - to read it " +
+                    "from the largest value to the smallest. The keys are published by the capabilities " +
+                    "endpoint."
+        ) sort: String?
     ): AdminUserMfaMethodListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
+        val criteria = collectionCriteriaOf(request, mfaEnrollmentCollectionManager.capabilities(), sort)
         userManager.findByIdOrNull(userId).orNotFound()
-        val enrollments = mfaEnrollmentSearchManager.listConfirmedEnrollments(userId, pageParams)
+        val enrollments = mfaEnrollmentCollectionManager.listConfirmedEnrollments(userId, criteria, pageParams)
         return AdminUserMfaMethodListResource(
             mfaMethods = enrollments.items.map(mfaMapper::toResource),
             page = enrollments.page,
@@ -89,6 +109,33 @@ class AdminUserMfaController(
             total = enrollments.total
         )
     }
+
+    @Operation(
+        description = "Retrieve what the multi-factor method collection accepts: the fields it filters on " +
+                "and the operators each admits, the fields it orders on, and the order it takes when none " +
+                "is asked for. It names no searchable field, so this collection answers no free-text q. " +
+                "It describes the collection rather than one account, so it reads the same for every user " +
+                "identifier and looks none of them up. " +
+                "The names it carries are read in the language the request asked for and may be reworded " +
+                "in any release.",
+        tags = ["admin"],
+        responses = [
+            ApiResponse(responseCode = "200", description = "What the collection accepts."),
+            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(
+                responseCode = "403",
+                description = "The access token does not include the required scope: admin:users:read."
+            )
+        ]
+    )
+    @Get("/capabilities")
+    @Secured(ADMIN_USERS_READ)
+    @SecurityRequirement(name = "admin", scopes = [AdminScopeId.USERS_READ])
+    suspend fun getMfaCapabilities(
+        request: HttpRequest<*>,
+        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID
+    ): AdminCollectionCapabilitiesResource =
+        capabilitiesMapper.toResource(mfaEnrollmentCollectionManager.capabilities(), request.locale.orDefault())
 
     @Operation(
         description = "Revoke a specific MFA method registered by a user. " +

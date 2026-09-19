@@ -1,7 +1,13 @@
 package com.sympauthy.business.manager.user
 
+import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
+import com.sympauthy.business.model.collection.CollectionCapabilities
+import com.sympauthy.business.model.collection.CollectionCriteria
+import com.sympauthy.business.model.collection.CollectionField
+import com.sympauthy.business.model.collection.CollectionFieldType.STRING
+import com.sympauthy.business.model.collection.CollectionOperator.EQ
 import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
@@ -27,21 +33,48 @@ class ClientUserManager(
 ) {
 
     /**
-     * Read the page [pageParams] names of the users who have an active consent for the given
-     * [audienceId], oldest consent first, out of every user the filter matches.
+     * What this collection accepts.
      *
-     * [providerId] restricts the page to users linked to that provider, and [subject] narrows it further to the
-     * account bearing it. A [subject] without a [providerId] is refused before reaching here.
+     * **It declares its fields without binding them to a row**, because this is the one collection whose
+     * criteria reach the database: the page, the filter and the total are each a query, and nothing here
+     * ever holds the collection to run a criterion over. It therefore offers the two fields that query can
+     * answer, each under an exact match and nothing else.
+     *
+     * Nothing publishes it: what reads the client surface is generated from the published specification,
+     * and the values it would enumerate belong to the one client asking.
+     */
+    suspend fun capabilities(): CollectionCapabilities = CollectionCapabilities(
+        fields = listOf(
+            CollectionField(name = "provider_id", type = STRING, key = "fields.provider_id", operators = setOf(EQ)),
+            CollectionField(name = "subject", type = STRING, key = "fields.subject", operators = setOf(EQ))
+        ),
+        defaultSort = emptyList()
+    )
+
+    /**
+     * Read the page [pageParams] names of the users who have an active consent for the given
+     * [audienceId], oldest consent first, out of every user [criteria] keep.
+     *
+     * `provider_id` restricts the page to users linked to that provider, and `subject` narrows it further to
+     * the account bearing it. A `subject` without a `provider_id` identifies nobody — a subject is a
+     * provider's own word for a person — and throws `client.subject_without_provider`.
      *
      * The page, the filter and the total are one query each, and the three batch reads that follow are also one
      * query each, so the number of round trips does not grow with [size].
      */
     suspend fun listUsersForAudience(
         audienceId: String,
-        providerId: String?,
-        subject: String?,
+        criteria: CollectionCriteria,
         pageParams: PageParams
     ): Page<ClientUser> = coroutineScope {
+        val providerId = criteria.exactValueOrNull("provider_id")
+        val subject = criteria.exactValueOrNull("subject")
+        if (subject != null && providerId == null) {
+            throw recoverableBusinessExceptionOf(
+                "client.subject_without_provider",
+                "description.client.subject_without_provider"
+            )
+        }
         val deferredTotal = async {
             consentManager.countActiveConsentsByAudience(
                 audienceId = audienceId,

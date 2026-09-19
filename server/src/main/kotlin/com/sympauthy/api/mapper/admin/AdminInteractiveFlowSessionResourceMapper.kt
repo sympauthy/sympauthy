@@ -7,9 +7,9 @@ import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionPurposeProgre
 import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionSecurityContextResource
 import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionSummaryResource
 import com.sympauthy.api.resource.admin.AdminUserResource
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionSearchManager.InteractiveFlowSessionDetail
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionSearchManager.InteractiveFlowSessionSummary
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionSearchManager.InteractiveFlowSessionUser
+import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager.InteractiveFlowSessionDetail
+import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager.InteractiveFlowSessionSummary
+import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager.InteractiveFlowSessionUser
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowPurposeProgress
 import com.sympauthy.business.model.flow.InteractiveFlowSessionSecurityContext
@@ -22,7 +22,7 @@ import jakarta.inject.Singleton
  * Publishes the interactive flow sessions an operator reads.
  *
  * Written by hand rather than generated because it composes [AdminUserResourceMapper]: a session names its
- * person with the resource the user listing already publishes, so a console renders both with one component.
+ * person with the resource the user collection already publishes, so a console renders both with one component.
  */
 @Singleton
 class AdminInteractiveFlowSessionResourceMapper(
@@ -30,7 +30,7 @@ class AdminInteractiveFlowSessionResourceMapper(
 ) {
 
     /**
-     * Publish [summary] as one row of the listing.
+     * Publish [summary] as one row of the collection.
      *
      * The observation reaches this resource as the address and the user agent of the place the session was
      * last driven from: an operator scanning a page is matching those two, and the rest of the trail — and

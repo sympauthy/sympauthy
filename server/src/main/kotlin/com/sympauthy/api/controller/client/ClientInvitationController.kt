@@ -6,15 +6,17 @@ import com.sympauthy.api.resource.client.ClientCreatedInvitationResource
 import com.sympauthy.api.resource.client.ClientInvitationListResource
 import com.sympauthy.api.resource.client.ClientInvitationResource
 import com.sympauthy.api.util.PaginationUtil
+import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.invitation.InvitationManager
-import com.sympauthy.business.manager.invitation.InvitationSearchManager
+import com.sympauthy.business.manager.collection.InvitationCollectionManager
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
 import com.sympauthy.security.SecurityRule.CLIENT_INVITATIONS_READ
 import com.sympauthy.security.SecurityRule.CLIENT_INVITATIONS_WRITE
 import com.sympauthy.security.clientAuthentication
+import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpStatus
 import io.micronaut.http.annotation.*
 import io.micronaut.security.annotation.Secured
@@ -31,7 +33,7 @@ import java.util.*
 class ClientInvitationController(
     @Inject private val clientManager: ClientManager,
     @Inject private val invitationManager: InvitationManager,
-    @Inject private val invitationSearchManager: InvitationSearchManager,
+    @Inject private val invitationCollectionManager: InvitationCollectionManager,
     @Inject private val invitationMapper: ClientInvitationResourceMapper,
     @Inject private val paginationUtil: PaginationUtil
 ) {
@@ -80,11 +82,20 @@ class ClientInvitationController(
 
     @Operation(
         description = "Retrieve a paginated list of invitations created by this client. Invitations are " +
-                "ordered by creation date, oldest first, then by identifier.",
+                "ordered by creation date, oldest first, then by identifier, unless another order is " +
+                "asked for. " +
+                "They can be filtered on status, note, token_prefix, created_at, expires_at, consumed_at, " +
+                "revoked_at, consumed_by_user_id and id, and row with q across the note and the " +
+                "token prefix. An operator other than an exact match is written as a dotted suffix on the " +
+                "field name: status.in, created_at.gte, note.contains.",
         tags = ["client"],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of invitations."),
-            ApiResponse(responseCode = "400", description = "Invalid page or size."),
+            ApiResponse(
+                responseCode = "400",
+                description = "Invalid page or size, an unknown field, an operator the field does not " +
+                        "accept, or a value it does not hold."
+            ),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
                 responseCode = "403",
@@ -96,16 +107,29 @@ class ClientInvitationController(
     @Secured(CLIENT_INVITATIONS_READ)
     @SecurityRequirement(name = "client", scopes = [BuiltInClientScopeId.INVITATIONS_READ])
     suspend fun listInvitations(
+        request: HttpRequest<*>,
         authentication: Authentication,
         @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
         @QueryValue @Parameter(
             description = "Number of results per page. Defaults to the size this server is configured " +
                     "with, and may not exceed its configured maximum."
-        ) size: Int?
+        ) size: Int?,
+        @QueryValue @Parameter(
+            description = "Comma-separated list of keys to order by, each prefixed with - to read it " +
+                    "from the largest value to the smallest."
+        ) sort: String?,
+        @QueryValue @Parameter(
+            description = "Partial case-insensitive search across the note and the token prefix."
+        ) q: String?
     ): ClientInvitationListResource {
         val clientAuth = authentication.clientAuthentication
         val pageParams = paginationUtil.resolvePageParams(page, size)
-        val invitations = invitationSearchManager.listInvitationsCreatedBy(clientAuth.clientId, pageParams)
+        val criteria = collectionCriteriaOf(request, invitationCollectionManager.clientCapabilities(), sort, q)
+        val invitations = invitationCollectionManager.listInvitationsCreatedBy(
+            createdById = clientAuth.clientId,
+            criteria = criteria,
+            pageParams = pageParams
+        )
         return ClientInvitationListResource(
             invitations = invitations.items.map(invitationMapper::toResource),
             page = invitations.page,

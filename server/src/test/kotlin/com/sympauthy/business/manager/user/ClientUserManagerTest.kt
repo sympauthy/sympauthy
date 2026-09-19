@@ -3,6 +3,9 @@ package com.sympauthy.business.manager.user
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.model.oauth2.Consent
+import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.model.collection.CollectionCriteria
+import com.sympauthy.business.model.collection.criteriaOf
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.provider.ProviderUserInfo
 import com.sympauthy.business.model.user.CollectedClaim
@@ -18,6 +21,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import java.time.LocalDateTime
 import java.util.*
@@ -85,7 +89,7 @@ class ClientUserManagerTest {
         coEvery { consentManager.listActiveConsentsByAudience(audienceId, null, null, 0, 20) } returns emptyList()
         coEvery { consentManager.countActiveConsentsByAudience(audienceId, null, null) } returns 0
 
-        val page = manager.listUsersForAudience(audienceId, null, null, PageParams(0, 20))
+        val page = manager.listUsersForAudience(audienceId, CollectionCriteria.NONE, PageParams(0, 20))
 
         assertTrue(page.items.isEmpty())
         assertEquals(0, page.total)
@@ -96,7 +100,7 @@ class ClientUserManagerTest {
         coEvery { consentManager.listActiveConsentsByAudience(audienceId, null, null, 5, 20) } returns emptyList()
         coEvery { consentManager.countActiveConsentsByAudience(audienceId, null, null) } returns 42
 
-        val page = manager.listUsersForAudience(audienceId, null, null, PageParams(5, 20))
+        val page = manager.listUsersForAudience(audienceId, CollectionCriteria.NONE, PageParams(5, 20))
 
         assertTrue(page.items.isEmpty())
         assertEquals(42, page.total)
@@ -114,7 +118,7 @@ class ClientUserManagerTest {
         coEvery { collectedClaimManager.listIdentifierByUserIds(listOf(userId)) } returns emptyList()
         coEvery { providerClaimsManager.listByUserIds(listOf(userId)) } returns emptyList()
 
-        val page = manager.listUsersForAudience(audienceId, null, null, PageParams(0, 20))
+        val page = manager.listUsersForAudience(audienceId, CollectionCriteria.NONE, PageParams(0, 20))
 
         assertEquals(1, page.items.size)
         assertEquals(userId, page.items[0].user.id)
@@ -144,7 +148,7 @@ class ClientUserManagerTest {
         } returns listOf(claim1)
         coEvery { providerClaimsManager.listByUserIds(listOf(userId1, userId2)) } returns listOf(provider2)
 
-        val page = manager.listUsersForAudience(audienceId, null, null, PageParams(0, 20))
+        val page = manager.listUsersForAudience(audienceId, CollectionCriteria.NONE, PageParams(0, 20))
 
         assertEquals(listOf(claim1), page.items[0].identifierClaims)
         assertTrue(page.items[0].providers.isEmpty())
@@ -167,7 +171,7 @@ class ClientUserManagerTest {
         coEvery { collectedClaimManager.listIdentifierByUserIds(userIds) } returns emptyList()
         coEvery { providerClaimsManager.listByUserIds(userIds) } returns emptyList()
 
-        val page = manager.listUsersForAudience(audienceId, null, null, PageParams(0, 20))
+        val page = manager.listUsersForAudience(audienceId, CollectionCriteria.NONE, PageParams(0, 20))
 
         assertEquals(userIds, page.items.map { it.user.id })
     }
@@ -184,7 +188,7 @@ class ClientUserManagerTest {
         coEvery { collectedClaimManager.listIdentifierByUserIds(listOf(userId1, userId2)) } returns emptyList()
         coEvery { providerClaimsManager.listByUserIds(listOf(userId1, userId2)) } returns emptyList()
 
-        val page = manager.listUsersForAudience(audienceId, null, null, PageParams(0, 20))
+        val page = manager.listUsersForAudience(audienceId, CollectionCriteria.NONE, PageParams(0, 20))
 
         assertEquals(listOf(userId2), page.items.map { it.user.id })
     }
@@ -203,7 +207,9 @@ class ClientUserManagerTest {
         coEvery { collectedClaimManager.listIdentifierByUserIds(listOf(userId)) } returns emptyList()
         coEvery { providerClaimsManager.listByUserIds(listOf(userId)) } returns listOf(provider)
 
-        val page = manager.listUsersForAudience(audienceId, "discord", "123", PageParams(1, 2))
+        val page = manager.listUsersForAudience(
+            audienceId, criteriaOf("provider_id" to "discord", "subject" to "123"), PageParams(1, 2)
+        )
 
         assertEquals(listOf(userId), page.items.map { it.user.id })
         assertEquals(3, page.total)
@@ -250,4 +256,18 @@ class ClientUserManagerTest {
 
         assertNull(result)
     }
+
+    @Test
+    fun `listUsersForAudience - Refuse a subject sent without the provider it belongs to`() = runTest {
+        // Nothing is stubbed on purpose: reaching the assertion is proof no query was run for a
+        // subject that identifies nobody on its own.
+        val exception = assertThrows<BusinessException> {
+            manager.listUsersForAudience(audienceId, criteriaOf("subject" to "123"), PageParams(0, 20))
+        }
+
+        assertEquals("client.subject_without_provider", exception.detailsId)
+    }
+
+    private suspend fun criteriaOf(vararg filters: Pair<String, String>) =
+        manager.capabilities().criteriaOf(*filters)
 }

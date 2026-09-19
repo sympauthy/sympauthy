@@ -72,14 +72,14 @@ PKCE parses back, rather than a published name.
 **Controllers route and translate.** Bind the request, call one manager method, map the result,
 return it.
 
-**A listing's filters are resolved into domain criteria, and its page is read by a manager.** The
-controller binds the parameters, resolves the paging bounds and maps the page it gets back; the
-criteria, the order and the slice are the manager's.
+**A collection's page is read by a manager, and its criteria are resolved before they reach it.**
+The controller binds the paging pair, `sort` and `q`, resolves the bounds and maps the page it gets
+back; the criteria, the order and the slice are the manager's.
 
-**A filter naming one value out of a closed set is resolved by `filterOf`, and a sort direction by
-`orderOf`.** A wire word naming no member of that set is refused there, so what reaches the manager
-is the domain value or nothing. The two sit over one resolution and name a code apiece: the
-description a caller reads says which parameter they got wrong, and an ordering is not a filter.
+**Criteria are resolved by `collectionCriteriaOf` against the fields that manager declared.** A
+field, an operator or a value the collection does not admit is refused there, so what reaches the
+manager is criteria it can answer — the grammar and every refusal are
+[the collection standard's](collection-standard.md).
 
 **Every handler is `suspend`**, for [the reason the general standard
 gives](general-code-standard.md#concurrency).

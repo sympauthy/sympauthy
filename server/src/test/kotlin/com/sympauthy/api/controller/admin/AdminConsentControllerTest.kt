@@ -1,10 +1,13 @@
 package com.sympauthy.api.controller.admin
 
+import com.sympauthy.api.mapper.admin.AdminCollectionCapabilitiesResourceMapper
 import com.sympauthy.api.mapper.admin.AdminConsentResourceMapper
 import com.sympauthy.api.resource.admin.AdminConsentResource
 import com.sympauthy.api.util.defaultPaginationUtil
+import com.sympauthy.api.util.collectionRequest
+import com.sympauthy.api.util.noCapabilities
 import com.sympauthy.business.manager.consent.ConsentManager
-import com.sympauthy.business.manager.consent.ConsentSearchManager
+import com.sympauthy.business.manager.collection.ConsentCollectionManager
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.manager.user.UserManager
@@ -33,10 +36,13 @@ class AdminConsentControllerTest {
     lateinit var consentManager: ConsentManager
 
     @MockK
-    lateinit var consentSearchManager: ConsentSearchManager
+    lateinit var consentCollectionManager: ConsentCollectionManager
 
     @MockK
     lateinit var consentMapper: AdminConsentResourceMapper
+
+    @MockK
+    lateinit var capabilitiesMapper: AdminCollectionCapabilitiesResourceMapper
 
     @Suppress("unused")
     private val paginationUtil = defaultPaginationUtil()
@@ -79,7 +85,8 @@ class AdminConsentControllerTest {
         val resource = mockResource(consent.id)
 
         coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
-        coEvery { consentSearchManager.listUserConsents(userId, PageParams(0, 20)) } returns Page(
+        coEvery { consentCollectionManager.capabilities() } returns noCapabilities()
+        coEvery { consentCollectionManager.listUserConsents(userId, any(), PageParams(0, 20)) } returns Page(
             items = listOf(consent),
             page = 3,
             size = 7,
@@ -87,7 +94,7 @@ class AdminConsentControllerTest {
         )
         every { consentMapper.toResource(consent) } returns resource
 
-        val result = controller.listConsents(userId, null, null)
+        val result = controller.listConsents(collectionRequest(), userId, null, null, null, null)
 
         assertSame(resource, result.consents.single())
         assertEquals(3, result.page)
