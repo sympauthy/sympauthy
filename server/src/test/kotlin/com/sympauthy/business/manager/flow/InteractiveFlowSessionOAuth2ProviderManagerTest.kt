@@ -3,11 +3,13 @@ package com.sympauthy.business.manager.flow
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.flow.link.InteractiveFlowSessionLinkProviderManager
 import com.sympauthy.business.manager.flow.reauth.InteractiveFlowSessionReauthenticationManager
+import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderClaimsResolver
 import com.sympauthy.business.manager.provider.ProviderManager
 import com.sympauthy.business.manager.user.UserManager
+import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.config.model.EnabledAuthConfig
@@ -79,20 +81,31 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
     lateinit var userManager: UserManager
 
     @MockK
+    lateinit var claimValueMapper: ClaimValueMapper
+
+    @MockK
     lateinit var uncheckedAuthConfig: EnabledAuthConfig
 
+    private val objectLockRepository = mockk<ObjectLockRepository>(relaxed = true)
+
     /**
-     * The real manager over stripes nothing else takes: the link path has to read the subject again inside
-     * the block, and a double answering for `withLock` would run the block whether or not it locked.
+     * The real manager over the stripe table, so a test can say which rows a link had to hold: it reads the
+     * subject and the owner of the identifier values again inside the block, and a double answering for
+     * `withLock` would run that block whether or not anything was ever locked.
      */
     @SpyK
-    var lockManager: LockManager = LockManager(mockk<ObjectLockRepository>(relaxed = true))
+    var lockManager: LockManager = LockManager(objectLockRepository)
 
     @SpyK
     @InjectMockKs
     lateinit var manager: InteractiveFlowSessionOAuth2ProviderManager
 
     private val redirectUri = URI.create("https://auth.example.com/api/v1/flow/providers/test-provider/callback")
+
+    private val email = "user@example.com"
+
+    /** The same address as `collected_claims` spells it, which is what a key over it names. */
+    private val storedEmail = "\"user@example.com\""
 
     private fun createProvider(): EnabledProvider {
         return EnabledProvider(
@@ -141,18 +154,20 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
      * point where the re-authentication branch is evaluated. fetchTokens is final, stubbed on the spy manager.
      *
      * [committedSince] is what a second read of the subject answers: the link path reads it again under its
-     * lock, and another writer may have committed one in between.
+     * lock, and another writer may have committed one in between. [assertedEmail] is null for a provider
+     * that omits the claim.
      */
     private fun stubProviderCallbackChain(
         session: OnGoingInteractiveFlowSession,
         provider: EnabledProvider,
         subject: String,
         existingUserInfo: ProviderUserInfo?,
-        committedSince: ProviderUserInfo? = existingUserInfo
+        committedSince: ProviderUserInfo? = existingUserInfo,
+        assertedEmail: String? = email
     ): RawProviderClaims {
         val sessionProvider = mockk<InteractiveFlowSessionProvider> { every { providerId } returns provider.id }
         val tokens = mockk<ProviderOAuth2Tokens>()
-        val rawUserInfo = RawProviderClaims(subject = subject, email = "user@example.com")
+        val rawUserInfo = RawProviderClaims(subject = subject, email = assertedEmail)
         coEvery { providerManager.fetchProviderOrNull(session) } returns sessionProvider
         coEvery { providerConfigManager.findByIdAndCheckEnabled(provider.id) } returns provider
         coEvery { manager.fetchTokens(provider, provider.auth, "code", redirectUri) } returns tokens
@@ -290,6 +305,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             val rawUserInfo = stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo)
             val advanced = mockk<InteractiveFlowSession>()
             coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
+            every { uncheckedAuthConfig.identifierClaims } returns emptyList()
             coJustRun { providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo) }
             coEvery { engine.completeIfNecessary(session) } returns advanced
 
@@ -311,6 +327,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
         val existingUserInfo = mockk<ProviderUserInfo> { every { this@mockk.userId } returns UUID.randomUUID() }
         stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo)
         coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
+        every { uncheckedAuthConfig.identifierClaims } returns emptyList()
 
         val exception = assertThrows<BusinessException> {
             manager.signInOrSignUpUsingProvider(
@@ -334,7 +351,9 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             val otherUser = mockk<User> { every { id } returns UUID.randomUUID() }
             coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
             every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
-            coEvery { userManager.findByIdentifierClaims(mapOf("email" to "user@example.com")) } returns otherUser
+            every { claimValueMapper.toEntity(email) } returns storedEmail
+            coEvery { userManager.findByIdentifierClaims(mapOf(OpenIdConnectClaimId.EMAIL to email)) } returns
+                otherUser
 
             val exception = assertThrows<BusinessException> {
                 manager.signInOrSignUpUsingProvider(
@@ -345,6 +364,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
 
             assertEquals("flow.link_provider.identifier_conflict", exception.detailsId)
             assertFalse(exception.recoverable)
+            coVerify { objectLockRepository.lock(LockKey.IdentifierValue(storedEmail).stripe) }
             coVerify(exactly = 0) { providerClaimsManager.saveUserInfo(any(), any(), any(), any()) }
         }
 
@@ -359,6 +379,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
                 session, provider, "sub-123", existingUserInfo = null, committedSince = takenSince
             )
             coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
+            every { uncheckedAuthConfig.identifierClaims } returns emptyList()
 
             val exception = assertThrows<BusinessException> {
                 manager.signInOrSignUpUsingProvider(
@@ -383,6 +404,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             )
             val advanced = mockk<InteractiveFlowSession>()
             coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
+            every { uncheckedAuthConfig.identifierClaims } returns emptyList()
             coJustRun { providerClaimsManager.refreshUserInfo(linkedSince, rawUserInfo) }
             coEvery { engine.completeIfNecessary(session) } returns advanced
 
@@ -394,5 +416,60 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             assertSame(advanced, result)
             coVerify { providerClaimsManager.refreshUserInfo(linkedSince, rawUserInfo) }
             coVerify(exactly = 0) { providerClaimsManager.saveUserInfo(any(), any(), any(), any()) }
+        }
+
+    @Test
+    fun `signInOrSignUpUsingProvider - Link holds the identifier values its conflict check compares`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val provider = createProvider()
+            val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
+            val rawUserInfo = stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo = null)
+            val advanced = mockk<InteractiveFlowSession>()
+            coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
+            every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
+            every { claimValueMapper.toEntity(email) } returns storedEmail
+            coEvery { userManager.findByIdentifierClaims(mapOf(OpenIdConnectClaimId.EMAIL to email)) } returns null
+            coEvery { providerClaimsManager.saveUserInfo(provider, userId, null, rawUserInfo) } returns mockk()
+            coEvery { engine.completeIfNecessary(session) } returns advanced
+
+            val result = manager.signInOrSignUpUsingProvider(
+                session, provider.id, redirectUri, authorizeCode = "code",
+                observedRequest = observedRequestOf()
+            )
+
+            assertSame(advanced, result)
+            // The address as well as the subject: the promotion this has to be excluded from commits an
+            // account holding that address, and the key it takes names the address.
+            coVerify { objectLockRepository.lock(LockKey.ProviderSubject(provider.id, "sub-123").stripe) }
+            coVerify { objectLockRepository.lock(LockKey.IdentifierValue(storedEmail).stripe) }
+        }
+
+    @Test
+    fun `signInOrSignUpUsingProvider - Link holds no identifier value when the provider asserts none`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val provider = createProvider()
+            val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
+            val rawUserInfo = stubProviderCallbackChain(
+                session, provider, "sub-123", existingUserInfo = null, assertedEmail = null
+            )
+            val advanced = mockk<InteractiveFlowSession>()
+            coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
+            every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
+            coEvery { providerClaimsManager.saveUserInfo(provider, userId, null, rawUserInfo) } returns mockk()
+            coEvery { engine.completeIfNecessary(session) } returns advanced
+
+            val result = manager.signInOrSignUpUsingProvider(
+                session, provider.id, redirectUri, authorizeCode = "code",
+                observedRequest = observedRequestOf()
+            )
+
+            assertSame(advanced, result)
+            // userManager is left unstubbed: the conflict cannot be evaluated when a claim is missing, so
+            // reaching the write is proof it was never asked — and a key over a check that did not run
+            // would make a promotion wait for nothing.
+            coVerify(exactly = 0) { objectLockRepository.lock(LockKey.IdentifierValue(storedEmail).stripe) }
+            coVerify { objectLockRepository.lock(LockKey.ProviderSubject(provider.id, "sub-123").stripe) }
         }
 }

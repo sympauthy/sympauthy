@@ -12,6 +12,7 @@ import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderClaimsResolver
 import com.sympauthy.business.manager.provider.ProviderManager
 import com.sympauthy.business.manager.user.UserManager
+import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
@@ -61,6 +62,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
     @Inject private val establisher: ProviderUserEstablisher,
     @Inject private val linkProviderManager: InteractiveFlowSessionLinkProviderManager,
     @Inject private val userManager: UserManager,
+    @Inject private val claimValueMapper: ClaimValueMapper,
     @Inject private val lockManager: LockManager,
     @Inject private val uncheckedAuthConfig: AuthConfig
 ) {
@@ -311,14 +313,21 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
     }
 
     /**
-     * Write the committed link from [provider]'s [rawUserInfo] to [userId], under the lock over the identity
-     * it names.
+     * Write the committed link from [provider]'s [rawUserInfo] to [userId], under the lock over every
+     * identity it names.
      *
      * The subject read at the top of the callback says what was committed then, and this is a writer of
      * exactly that — as are the promotion of a provisional account and the establisher merging a provider
      * into an existing one. So the read is taken again here, under the key all of them name: without it two
      * of these each find the subject free and both link it, and `provider_user_info` keys on
      * `(provider_id, user_id)` and stops neither. See [LockKey.ProviderSubject].
+     *
+     * The identifier values the provider asserts are named in the same call, because the conflict below
+     * compares on them. A promotion is what commits an account holding one, and it holds
+     * [LockKey.IdentifierValue] over that value rather than over this subject: locking the subject alone
+     * excludes it from nothing, so the link reads no owner, the promotion commits, and what is left is the
+     * end state `flow.link_provider.identifier_conflict` exists to refuse. One call naming both, since a
+     * second one inside the first is refused.
      *
      * Advancing the flow stays outside: completing takes a lock of its own, and a lock still open would make
      * that one a nested call naming keys this one does not hold.
@@ -327,58 +336,79 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
         provider: EnabledProvider,
         userId: UUID,
         rawUserInfo: RawProviderClaims
-    ) = lockManager.withLock(LockKey.ProviderSubject(provider.id, rawUserInfo.subject)) {
-        val committed = providerClaimsManager.findByProviderAndSubject(provider, rawUserInfo.subject)
-        if (committed != null) {
-            if (committed.userId == userId) {
-                // Linked to this user while this callback was in flight — the outcome it wanted.
-                providerClaimsManager.refreshUserInfo(committed, rawUserInfo)
-                return@withLock
+    ) {
+        val asserted = getAssertedIdentifiersOrNull(rawUserInfo)
+        val keys = listOf(LockKey.ProviderSubject(provider.id, rawUserInfo.subject)) + asserted?.lockKeys.orEmpty()
+
+        lockManager.withLock(*keys.toTypedArray()) {
+            val committed = providerClaimsManager.findByProviderAndSubject(provider, rawUserInfo.subject)
+            if (committed != null) {
+                if (committed.userId == userId) {
+                    // Linked to this user while this callback was in flight — the outcome it wanted.
+                    providerClaimsManager.refreshUserInfo(committed, rawUserInfo)
+                    return@withLock
+                }
+                throw businessExceptionOf(
+                    "flow.link_provider.subject_conflict",
+                    "providerId" to provider.id
+                )
             }
-            throw businessExceptionOf(
-                "flow.link_provider.subject_conflict",
-                "providerId" to provider.id
+
+            val identifierOwnerId = asserted?.let { userManager.findByIdentifierClaims(it.values)?.id }
+            if (identifierOwnerId != null && identifierOwnerId != userId) {
+                throw businessExceptionOf(
+                    "flow.link_provider.identifier_conflict",
+                    "providerId" to provider.id
+                )
+            }
+
+            // A permanent link, never a provisional one: the account was checked promoted before this session
+            // was created (InteractiveFlowSessionLinkProviderManager.startLinkProviderSession), and promotion
+            // is one-way, so its session id is null and reading it back would only re-answer that.
+            providerClaimsManager.saveUserInfo(provider, userId, sessionId = null, rawUserInfo)
+            logger.info(
+                "Linked provider {} (subject {}) to user {}.",
+                provider.id,
+                rawUserInfo.subject,
+                userId
             )
         }
+    }
 
-        val identifierOwnerId = findUserOwningIdentifierClaimsOrNull(provider, rawUserInfo)
-        if (identifierOwnerId != null && identifierOwnerId != userId) {
-            throw businessExceptionOf(
-                "flow.link_provider.identifier_conflict",
-                "providerId" to provider.id
-            )
+    /**
+     * The identifier claim values [rawUserInfo] asserts, or null when the conflict they would be checked
+     * for cannot be evaluated — no identifier claim is configured, or the provider omits one — in which
+     * case the subject check remains the primary defense.
+     *
+     * The values the check compares and the keys locking them come out of this one read, and null answers
+     * for both: a key over a check that does not run excludes a promotion for nothing, and a check with no
+     * key over it is the one this answer exists to keep out. Only the identifier **values** are needed (not
+     * the resolved claim objects), so this is a plain lookup rather than the full sign-up claim resolution.
+     */
+    private fun getAssertedIdentifiersOrNull(rawUserInfo: RawProviderClaims): AssertedIdentifiers? {
+        val identifierClaims = uncheckedAuthConfig.orThrow().identifierClaims
+        if (identifierClaims.isEmpty()) return null
+        val values = identifierClaims.associateWith { claimId ->
+            rawUserInfo.getClaimValueOrNull(claimId) ?: return null
         }
-
-        // A permanent link, never a provisional one: the account was checked promoted before this session
-        // was created (InteractiveFlowSessionLinkProviderManager.startLinkProviderSession), and promotion is
-        // one-way, so its session id is null and reading it back would only re-answer that.
-        providerClaimsManager.saveUserInfo(provider, userId, sessionId = null, rawUserInfo)
-        logger.info(
-            "Linked provider {} (subject {}) to user {}.",
-            provider.id,
-            rawUserInfo.subject,
-            userId
+        return AssertedIdentifiers(
+            values = values,
+            lockKeys = values.values.map { value ->
+                LockKey.IdentifierValue(claimValueMapper.toEntity(value) ?: return null)
+            }
         )
     }
 
     /**
-     * Return the id of a user that already owns the identifier claim values [provider] asserts in
-     * [rawUserInfo], or null when there is none — or when the conflict cannot be evaluated (no identifier
-     * claims configured, or the provider omits one), in which case the subject check remains the primary
-     * defense. Only the identifier **values** are needed here (not the resolved claim objects), so this is a
-     * plain lookup rather than the full sign-up claim resolution.
+     * The identifier claim values a provider asserts, in the two spellings the link needs them in:
+     * [values] is the business value per claim, which [UserManager.findByIdentifierClaims] compares against
+     * committed accounts, and [lockKeys] names those same values as `collected_claims` holds them — the
+     * spelling the promotion racing this one locks under. See [LockKey.IdentifierValue].
      */
-    private suspend fun findUserOwningIdentifierClaimsOrNull(
-        provider: EnabledProvider,
-        rawUserInfo: RawProviderClaims
-    ): UUID? {
-        val identifierClaims = uncheckedAuthConfig.orThrow().identifierClaims
-        if (identifierClaims.isEmpty()) return null
-        val identifierValues = identifierClaims.associateWith { claimId ->
-            rawUserInfo.getClaimValueOrNull(claimId) ?: return null
-        }
-        return userManager.findByIdentifierClaims(identifierValues)?.id
-    }
+    private class AssertedIdentifiers(
+        val values: Map<String, String>,
+        val lockKeys: List<LockKey>
+    )
 
     suspend fun fetchTokens(
         provider: Provider,
