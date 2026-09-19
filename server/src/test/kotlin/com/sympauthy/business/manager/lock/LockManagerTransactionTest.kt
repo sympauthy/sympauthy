@@ -36,6 +36,7 @@ class LockManagerTransactionTest {
 
     private val status = "lock-manager-transaction-test"
 
+    /** Stripe 50 and 11 respectively, which is what makes one of them cover neither the other nor both. */
     private val first = LockKey.IdentifierValue("$status-first")
     private val second = LockKey.IdentifierValue("$status-second")
 
@@ -72,6 +73,20 @@ class LockManagerTransactionTest {
         withFixture(Database.H2) {
             database.bean<SequentialLocks>().inATransactionEach(first, second)
         }
+
+    @Test
+    fun `withLock - Takes nothing again for a second lock the transaction already covers`() =
+        withFixture(Database.H2) {
+            val held = database.bean<SequentialLocks>().aSetThenASubsetOfIt(first, second)
+
+            assertEquals(held.distinct(), held, "A stripe the transaction already held was taken again.")
+        }
+
+    @Test
+    fun `withLock - Takes a lock after one that named no key at all`() =
+        withFixture(Database.H2) {
+            database.bean<SequentialLocks>().nothingThenASet(first)
+        }
 }
 
 /**
@@ -83,7 +98,8 @@ class LockManagerTransactionTest {
  */
 @Singleton
 open class SequentialLocks(
-    @Inject private val lockManager: LockManager
+    @Inject private val lockManager: LockManager,
+    @Inject private val heldStripes: HeldStripes
 ) {
 
     @Transactional
@@ -95,5 +111,18 @@ open class SequentialLocks(
     suspend fun inATransactionEach(first: LockKey, second: LockKey) {
         lockManager.withLock(first) { }
         lockManager.withLock(second) { }
+    }
+
+    /** Answers what the transaction holds once both calls have returned. */
+    @Transactional
+    open suspend fun aSetThenASubsetOfIt(first: LockKey, second: LockKey): List<Int> {
+        lockManager.withLock(first, second) { }
+        return lockManager.withLock(second) { heldStripes.held() }
+    }
+
+    @Transactional
+    open suspend fun nothingThenASet(key: LockKey) {
+        lockManager.withLock { }
+        lockManager.withLock(key) { }
     }
 }

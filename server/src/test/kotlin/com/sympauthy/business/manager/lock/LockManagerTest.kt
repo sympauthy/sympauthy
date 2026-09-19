@@ -63,7 +63,7 @@ class LockManagerTest {
     }
 
     @Test
-    fun `withLock - Records the stripes against the transaction before taking any of them`() = runTest {
+    fun `withLock - Records each stripe against the transaction as it takes it`() = runTest {
         coEvery { heldStripes.held() } returns emptyList()
         coEvery { heldStripes.hold(any()) } just runs
         coEvery { objectLockRepository.lock(any()) } returns 0
@@ -71,9 +71,21 @@ class LockManagerTest {
         manager.withLock(otherUser, user) { }
 
         coVerifyOrder {
-            heldStripes.hold(listOf(11, 63))
             objectLockRepository.lock(11)
+            heldStripes.hold(11)
+            objectLockRepository.lock(63)
+            heldStripes.hold(63)
         }
+    }
+
+    @Test
+    fun `withLock - Records nothing, and takes nothing, when it was named no key`() = runTest {
+        coEvery { heldStripes.held() } returns emptyList()
+
+        manager.withLock { }
+
+        coVerify(exactly = 0) { heldStripes.hold(any()) }
+        coVerify(exactly = 0) { objectLockRepository.lock(any()) }
     }
 
     @Test

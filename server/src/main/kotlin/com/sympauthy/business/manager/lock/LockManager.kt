@@ -56,10 +56,10 @@ open class LockManager(
             return block()
         }
 
-        // Recorded ahead of being taken: a wait that times out part of the way through the set leaves the
-        // transaction holding the rows it did take, and a record written afterwards would name none of them.
-        heldStripes.hold(stripes)
-        stripes.forEach { objectLockRepository.lock(it) }
+        stripes.forEach {
+            objectLockRepository.lock(it)
+            heldStripes.hold(it)
+        }
         return block()
     }
 }
