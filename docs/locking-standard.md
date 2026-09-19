@@ -59,7 +59,16 @@ lockManager.withLock(*keysOver(identifierValues, links)) {
 ```
 
 **One `withLock` per transaction, naming every object that transaction will touch.** A second call
-that is not covered by the first is refused rather than deadlocked.
+that is not covered by the first is refused rather than deadlocked, whether it was issued inside the
+first block or after that block returned.
+
+**What a transaction holds is recorded against the transaction, never against the block.**
+`HeldStripes` keeps the record on the connection the transaction is open on, because a block's scope
+ends while the lock it took is still held — and a guard that ended with it would let the next call
+find nothing held and take a fresh set behind the first.
+
+**A call naming no key takes nothing, and refuses nothing after it.** A transaction holding no
+stripe is ordered against nobody, so it stays free to take a set later.
 
 **The check a lock protects is read again inside it, never carried in from before.** What a caller
 read before the wait was true of the transaction it then lost to, and only a statement issued after
@@ -73,8 +82,8 @@ under it too.
 
 **A lock a caller still holds refuses the next one.** A method taking a key and then handing control
 to something that takes one of its own — a flow advancing, an engine completing — makes that second
-call a nested one naming keys the first does not hold. Close the block around the check and the
-write, and let the handover happen outside it.
+call one naming keys the transaction does not hold. Close the block around the check and the write,
+and let the handover happen outside the transaction rather than merely outside the block.
 
 **A lock names a bounded set of keys.** Locking many objects at once serialises against every other
 batch, which is what a claim exists to avoid.

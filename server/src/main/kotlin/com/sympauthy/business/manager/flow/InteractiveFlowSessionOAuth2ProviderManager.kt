@@ -327,10 +327,10 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
      * [LockKey.IdentifierValue] over that value rather than over this subject: locking the subject alone
      * excludes it from nothing, so the link reads no owner, the promotion commits, and what is left is the
      * end state `flow.link_provider.identifier_conflict` exists to refuse. One call naming both, since a
-     * second one inside the first is refused.
+     * second one in this transaction is refused.
      *
-     * Advancing the flow stays outside: completing takes a lock of its own, and a lock still open would make
-     * that one a nested call naming keys this one does not hold.
+     * Advancing the flow stays outside: completing takes a lock of its own, and a transaction still
+     * holding this one would refuse it as a second lock naming keys this one does not hold.
      */
     private suspend fun linkSubjectToUser(
         provider: EnabledProvider,

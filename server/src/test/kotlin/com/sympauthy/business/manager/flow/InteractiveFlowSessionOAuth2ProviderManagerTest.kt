@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.flow
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.flow.link.InteractiveFlowSessionLinkProviderManager
 import com.sympauthy.business.manager.flow.reauth.InteractiveFlowSessionReauthenticationManager
+import com.sympauthy.business.manager.lock.HeldStripes
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
@@ -94,7 +95,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
      * `withLock` would run that block whether or not anything was ever locked.
      */
     @SpyK
-    var lockManager: LockManager = LockManager(objectLockRepository)
+    var lockManager: LockManager = LockManager(objectLockRepository, HeldStripes())
 
     @SpyK
     @InjectMockKs

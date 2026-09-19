@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.manager.lock.HeldStripes
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.model.ProviderUserInfoEntity
@@ -72,7 +73,7 @@ class ProvisionalAccountManagerTest {
         manager = ProvisionalAccountManager(
             claimManager = claimManager,
             userManager = userManager,
-            lockManager = LockManager(objectLockRepository),
+            lockManager = LockManager(objectLockRepository, HeldStripes()),
             userRepository = userRepository,
             passwordRepository = passwordRepository,
             collectedClaimRepository = collectedClaimRepository,

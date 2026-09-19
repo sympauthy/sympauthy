@@ -4,6 +4,7 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.invitation.InvitationManager
+import com.sympauthy.business.manager.lock.HeldStripes
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
@@ -65,7 +66,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
      * the block whether or not anything was ever locked.
      */
     @SpyK
-    var lockManager: LockManager = LockManager(mockk<ObjectLockRepository>(relaxed = true))
+    var lockManager: LockManager = LockManager(mockk<ObjectLockRepository>(relaxed = true), HeldStripes())
 
     @InjectMockKs
     lateinit var establisher: InteractiveAuthFlowSessionProviderEstablisher
