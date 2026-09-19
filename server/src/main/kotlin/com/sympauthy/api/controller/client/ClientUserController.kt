@@ -3,7 +3,9 @@ package com.sympauthy.api.controller.client
 import com.sympauthy.api.mapper.client.ClientUserResourceMapper
 import com.sympauthy.api.resource.client.ClientUserListResource
 import com.sympauthy.api.resource.client.ClientUserResource
+import com.sympauthy.api.util.PAGE_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.PaginationUtil
+import com.sympauthy.api.util.SIZE_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.manager.ClientManager
@@ -79,11 +81,8 @@ class ClientUserController(
     suspend fun listUsers(
         request: HttpRequest<*>,
         authentication: Authentication,
-        @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
-        @QueryValue @Parameter(
-            description = "Number of results per page. Defaults to the size this server is configured " +
-                    "with, and may not exceed its configured maximum."
-        ) size: Int?
+        @QueryValue @Parameter(description = PAGE_PARAMETER_DESCRIPTION) page: Int?,
+        @QueryValue @Parameter(description = SIZE_PARAMETER_DESCRIPTION) size: Int?
     ): ClientUserListResource {
         val clientAuth = authentication.clientAuthentication
         val client = clientManager.findClientById(clientAuth.clientId)

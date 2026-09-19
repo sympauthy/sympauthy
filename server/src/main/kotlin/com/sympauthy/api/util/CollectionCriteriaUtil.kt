@@ -22,6 +22,65 @@ import io.micronaut.http.HttpStatus.BAD_REQUEST
 private val RESERVED_PARAMETERS = setOf("page", "size", "sort", "q")
 
 /**
+ * The name the criteria are declared under in the published specification.
+ *
+ * It is never sent: the parameter is an object serialized the way a query string spells one, so what
+ * reaches the server is the criteria it holds, each under the name of the field it narrows. It is the
+ * word the capability document already publishes them under.
+ */
+const val FILTER_PARAMETER_NAME = "filter"
+
+/**
+ * What the published specification says about each parameter the grammar fixes, on every collection
+ * that binds one.
+ *
+ * Each rule is on the parameter it governs, where a caller writing a query string reads it, and each
+ * is written once here rather than per controller. What is particular to one collection — the fields
+ * it searches, where it publishes what it offers — is on that collection's own operation.
+ */
+const val PAGE_PARAMETER_DESCRIPTION = "Zero-indexed page number. A page outside the bounds of this " +
+    "collection is refused rather than clamped."
+
+/**
+ * @see PAGE_PARAMETER_DESCRIPTION
+ */
+const val SIZE_PARAMETER_DESCRIPTION = "Number of results per page. Defaults to the size this server " +
+    "is configured with and may not exceed its configured maximum; a size outside those bounds is " +
+    "refused rather than clamped."
+
+/**
+ * A criterion names a field the collection declared, so there is no parameter a specification could
+ * enumerate; one object-typed parameter is how OpenAPI says that a query string carries names it does
+ * not know ahead of the request.
+ *
+ * @see PAGE_PARAMETER_DESCRIPTION
+ */
+const val FILTER_PARAMETER_DESCRIPTION = "Criteria narrowing this collection, each sent as a query " +
+    "parameter of its own — this parameter is never sent under its own name. A bare `field=value` " +
+    "is an exact match, and every other operator is a dotted suffix on the field name: `.eq` `.ne`, " +
+    "`.lt` `.lte` `.gt` `.gte`, `.in` over a comma-separated list, `.contains` `.starts_with` " +
+    "partially and ignoring case, and `.is_null=true` for a row carrying no value at all. Which of " +
+    "them a field admits follows from its type. Criteria compose with `and` — `created_at.gte` " +
+    "beside `created_at.lte` is a range — and there is no `or` and no grouping. A field this " +
+    "collection does not offer, an operator it does not admit and a value its set does not hold are " +
+    "each a 400 naming the parameter. Example: " +
+    "`status=enabled&email.contains=ana&created_at.gte=2026-01-01T00:00:00`."
+
+/**
+ * @see PAGE_PARAMETER_DESCRIPTION
+ */
+const val SORT_PARAMETER_DESCRIPTION = "Comma-separated list of keys to order by, read left to " +
+    "right, each descending when prefixed with `-`: `sort=-created_at,email` reads the newest first " +
+    "and settles ties by email. A key this collection does not order on is refused, and the order " +
+    "ends on a key that is unique whichever direction is asked for."
+
+/**
+ * @see PAGE_PARAMETER_DESCRIPTION
+ */
+const val SEARCH_PARAMETER_DESCRIPTION = "Partial, case-insensitive match across the fields this " +
+    "collection searches. It narrows what the criteria kept rather than widening it."
+
+/**
  * Read everything [request] asks of a collection beyond the page it wants, against the [capabilities]
  * that collection declared.
  *

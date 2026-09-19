@@ -10,7 +10,12 @@ import com.sympauthy.api.resource.admin.AdminCollectionCapabilitiesResource
 import com.sympauthy.api.resource.admin.AdminUserMfaEnrollmentInputResource
 import com.sympauthy.api.resource.admin.AdminUserMfaEnrollmentResource
 import com.sympauthy.api.resource.admin.AdminUserMfaMethodListResource
+import com.sympauthy.api.util.FILTER_PARAMETER_DESCRIPTION
+import com.sympauthy.api.util.FILTER_PARAMETER_NAME
+import com.sympauthy.api.util.PAGE_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.PaginationUtil
+import com.sympauthy.api.util.SIZE_PARAMETER_DESCRIPTION
+import com.sympauthy.api.util.SORT_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
@@ -36,6 +41,10 @@ import io.micronaut.http.annotation.*
 import io.micronaut.security.annotation.Secured
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
+import io.swagger.v3.oas.annotations.enums.Explode
+import io.swagger.v3.oas.annotations.enums.ParameterIn
+import io.swagger.v3.oas.annotations.enums.ParameterStyle
+import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
@@ -66,6 +75,20 @@ class AdminUserMfaController(
                 "Which fields this collection can be filtered and ordered on is published at " +
                 "/api/v1/admin/users/{userId}/mfa/capabilities.",
         tags = ["admin"],
+        parameters = [
+            Parameter(
+                name = FILTER_PARAMETER_NAME,
+                `in` = ParameterIn.QUERY,
+                description = FILTER_PARAMETER_DESCRIPTION,
+                style = ParameterStyle.FORM,
+                explode = Explode.TRUE,
+                schema = Schema(
+                    type = "object",
+                    additionalProperties = Schema.AdditionalPropertiesValue.USE_ADDITIONAL_PROPERTIES_ANNOTATION,
+                    additionalPropertiesSchema = String::class
+                )
+            )
+        ],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of MFA methods."),
             ApiResponse(
@@ -87,16 +110,9 @@ class AdminUserMfaController(
     suspend fun listMfaMethods(
         request: HttpRequest<*>,
         @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
-        @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
-        @QueryValue @Parameter(
-            description = "Number of results per page. Defaults to the size this server is configured " +
-                    "with, and may not exceed its configured maximum."
-        ) size: Int?,
-        @QueryValue @Parameter(
-            description = "Comma-separated list of keys to order by, each prefixed with - to read it " +
-                    "from the largest value to the smallest. The keys are published by the capabilities " +
-                    "endpoint."
-        ) sort: String?
+        @QueryValue @Parameter(description = PAGE_PARAMETER_DESCRIPTION) page: Int?,
+        @QueryValue @Parameter(description = SIZE_PARAMETER_DESCRIPTION) size: Int?,
+        @QueryValue @Parameter(description = SORT_PARAMETER_DESCRIPTION) sort: String?
     ): AdminUserMfaMethodListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
         val criteria = collectionCriteriaOf(request, mfaEnrollmentCollectionManager.capabilities(), sort)

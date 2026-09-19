@@ -150,6 +150,10 @@ deployment's decision.
 **The document names no address at build time.** It carries a placeholder, and the controller
 serving it substitutes the configured public URL on the way out.
 
+**A rule a caller needs while writing a request is on the parameter it governs.** An operation's own
+description says what the operation is for, and a tag's sits above every operation of the surface at
+once, so neither is where a reader looks for what one parameter accepts.
+
 **A client is generated from the published document.** Two annotation processors produce a
 specification here and they do not agree; the published one is what an integrator gets.
 

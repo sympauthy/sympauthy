@@ -6,7 +6,13 @@ import com.sympauthy.api.mapper.admin.AdminUserResourceMapper
 import com.sympauthy.api.resource.admin.AdminCollectionCapabilitiesResource
 import com.sympauthy.api.resource.admin.AdminUserDetailResource
 import com.sympauthy.api.resource.admin.AdminUserListResource
+import com.sympauthy.api.util.FILTER_PARAMETER_DESCRIPTION
+import com.sympauthy.api.util.FILTER_PARAMETER_NAME
+import com.sympauthy.api.util.PAGE_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.PaginationUtil
+import com.sympauthy.api.util.SEARCH_PARAMETER_DESCRIPTION
+import com.sympauthy.api.util.SIZE_PARAMETER_DESCRIPTION
+import com.sympauthy.api.util.SORT_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.manager.user.CollectedClaimManager
@@ -23,6 +29,10 @@ import io.micronaut.http.annotation.QueryValue
 import io.micronaut.security.annotation.Secured
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
+import io.swagger.v3.oas.annotations.enums.Explode
+import io.swagger.v3.oas.annotations.enums.ParameterIn
+import io.swagger.v3.oas.annotations.enums.ParameterStyle
+import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
@@ -59,6 +69,20 @@ class AdminUserController(
                 "Which fields this collection can be filtered, ordered and searched on is published at " +
                 "/api/v1/admin/users/capabilities.",
         tags = ["admin"],
+        parameters = [
+            Parameter(
+                name = FILTER_PARAMETER_NAME,
+                `in` = ParameterIn.QUERY,
+                description = FILTER_PARAMETER_DESCRIPTION,
+                style = ParameterStyle.FORM,
+                explode = Explode.TRUE,
+                schema = Schema(
+                    type = "object",
+                    additionalProperties = Schema.AdditionalPropertiesValue.USE_ADDITIONAL_PROPERTIES_ANNOTATION,
+                    additionalPropertiesSchema = String::class
+                )
+            )
+        ],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of users."),
             ApiResponse(
@@ -76,24 +100,14 @@ class AdminUserController(
     @Get
     suspend fun listUsers(
         request: HttpRequest<*>,
-        @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
-        @QueryValue @Parameter(
-            description = "Number of results per page. Defaults to the size this server is configured " +
-                    "with, and may not exceed its configured maximum."
-        ) size: Int?,
+        @QueryValue @Parameter(description = PAGE_PARAMETER_DESCRIPTION) page: Int?,
+        @QueryValue @Parameter(description = SIZE_PARAMETER_DESCRIPTION) size: Int?,
         @QueryValue @Parameter(
             description = "Comma-separated list of claim IDs to include in the response. " +
                     "Absent: all enabled claims. Empty string: no claims. Example: email,name."
         ) claims: String?,
-        @QueryValue @Parameter(
-            description = "Comma-separated list of keys to order by, each prefixed with - to read it " +
-                    "from the largest value to the smallest. The keys are published by the capabilities " +
-                    "endpoint."
-        ) sort: String?,
-        @QueryValue @Parameter(
-            description = "Partial case-insensitive search across the fields the capabilities endpoint " +
-                    "publishes as searchable."
-        ) q: String?
+        @QueryValue @Parameter(description = SORT_PARAMETER_DESCRIPTION) sort: String?,
+        @QueryValue @Parameter(description = SEARCH_PARAMETER_DESCRIPTION) q: String?
     ): AdminUserListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
         val criteria = collectionCriteriaOf(request, userCollectionManager.capabilities(), sort, q, SELECTION_PARAMS)

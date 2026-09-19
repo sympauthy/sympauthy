@@ -96,6 +96,14 @@ constants in `security/`, and put anything narrower than the surface's default i
 **A parameter is documented on the parameter**, in an annotation on the method argument itself. The
 type, whether it is required and its format are inferred from the Kotlin.
 
+**A parameter with no argument to sit on is declared on the operation**, with the type and the
+serialization the Kotlin no longer says. A collection's criteria and the fields a client filters on
+are read off the request, so the operation is the only place they are declared.
+
+**A description every surface would write the same way is a constant, named for what it
+describes.** The paging pair, `sort` and `q` mean one thing wherever they are bound, and a
+controller appends what is particular to its own collection rather than restating them.
+
 ## The flow controller
 
 **Where a request came from is recorded by the controller's helper, never by a manager.** Every flow

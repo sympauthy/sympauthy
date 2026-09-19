@@ -146,13 +146,48 @@ refused.** `page`, `size`, `sort` and `q` are reserved everywhere, and a collect
 its own names it where it resolves its criteria.
 
 **A collection declares `sort` as a parameter where it orders on something, and `q` where it
-searches something**, beside the paging pair. Those are what the grammar fixes and therefore what
-the published specification carries; a criterion is not a parameter anything can declare, and it is
-resolved off the request against the fields the collection named.
+searches something**, beside the paging pair. Those four are what the grammar fixes, so they are
+bound to the handler's own arguments; a criterion names a field instead, and it is resolved off the
+request against the fields the collection declared.
 
 **A collection binding neither still refuses one that arrives.** What is read off the request is
 what decides, so a `sort` or a `q` a collection cannot answer is a `400` rather than a parameter
 nothing looked at.
+
+## What the specification says
+
+**Each rule of the grammar is on the parameter it governs**, so that the bounds are read on `size`,
+the operators on the criteria, the leading `-` on `sort` and what a free text matches on `q`. A
+reader meets a parameter while writing one, which is not where a description of the whole collection
+would have reached them.
+
+**Those descriptions are constants in `CollectionCriteriaUtil`, one per parameter**, and a
+collection appends what is particular to it rather than restating the rule. The fields one searches
+are its own; that `q` narrows rather than widens is every collection's.
+
+**A collection declares one parameter for its criteria**, an object serialized the way a query
+string spells one, so that the names it holds reach the wire as the parameters they are:
+
+```yaml
+- name: filter
+  in: query
+  style: form
+  explode: true
+  schema: { type: object, additionalProperties: { type: string } }
+```
+
+**A collection whose every spelling is already a parameter of its own declares none.** The
+object-typed one says that names the document does not hold are accepted, and a collection over two
+fields under an exact match accepts none — so declaring it there would invite the `400` it names.
+
+**The declaration is written the same way on every collection**, `additionalProperties` included.
+That member reads as redundant beside `additionalPropertiesSchema` and is what resolves it: written
+without it the schema class is dropped in silence, and the parameter reaches the document as an
+object holding nothing.
+
+**The document names no field.** What a collection offers is [what it publishes about
+itself](#the-capability-document) on the administration surface, and the parameters the operation
+declares on the client one.
 
 ## The capability document
 
@@ -265,6 +300,13 @@ one stops being reasonable.
 **A capability document on the client surface.** The grammar binds it like everything else, but
 nothing describes it at runtime: what reads that surface is generated from the published
 specification, and the values it filters on belong to the one client asking.
+
+**A parameter per field and per operator.** The specification carries one parameter holding every
+criterion rather than `email.contains` beside `email.starts_with`, so a generated client takes them
+as a map and a form renders a pair of inputs rather than a typed field over the values it holds.
+Enumerating them would mean building the document where the deployment's fields are known, which is
+the served document rather than the generated one, and what that document may name is a question
+about who reads it.
 
 **Saved or shareable filters.** Nothing stores a set of criteria under a name.
 

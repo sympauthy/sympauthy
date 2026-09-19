@@ -5,7 +5,13 @@ import com.sympauthy.api.resource.client.ClientCreateInvitationInputResource
 import com.sympauthy.api.resource.client.ClientCreatedInvitationResource
 import com.sympauthy.api.resource.client.ClientInvitationListResource
 import com.sympauthy.api.resource.client.ClientInvitationResource
+import com.sympauthy.api.util.FILTER_PARAMETER_DESCRIPTION
+import com.sympauthy.api.util.FILTER_PARAMETER_NAME
+import com.sympauthy.api.util.PAGE_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.PaginationUtil
+import com.sympauthy.api.util.SEARCH_PARAMETER_DESCRIPTION
+import com.sympauthy.api.util.SIZE_PARAMETER_DESCRIPTION
+import com.sympauthy.api.util.SORT_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.manager.ClientManager
@@ -23,7 +29,9 @@ import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
+import io.swagger.v3.oas.annotations.enums.Explode
 import io.swagger.v3.oas.annotations.enums.ParameterIn.QUERY
+import io.swagger.v3.oas.annotations.enums.ParameterStyle
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
@@ -100,8 +108,7 @@ class ClientInvitationController(
                 "asked for. " +
                 "They can be filtered on status, note, token_prefix, created_at, expires_at, consumed_at, " +
                 "revoked_at, consumed_by_user_id and id, and searched with q across the note and the " +
-                "token prefix. An operator other than an exact match is written as a dotted suffix on the " +
-                "field name: status.in, created_at.gte, note.contains.",
+                "token prefix.",
         tags = ["client"],
         parameters = [
             Parameter(name = "id", `in` = QUERY, description = INVITATION_ID, schema = Schema(type = "string")),
@@ -122,6 +129,18 @@ class ClientInvitationController(
                 `in` = QUERY,
                 description = CONSUMED_BY,
                 schema = Schema(type = "string")
+            ),
+            Parameter(
+                name = FILTER_PARAMETER_NAME,
+                `in` = QUERY,
+                description = FILTER_PARAMETER_DESCRIPTION,
+                style = ParameterStyle.FORM,
+                explode = Explode.TRUE,
+                schema = Schema(
+                    type = "object",
+                    additionalProperties = Schema.AdditionalPropertiesValue.USE_ADDITIONAL_PROPERTIES_ANNOTATION,
+                    additionalPropertiesSchema = String::class
+                )
             )
         ],
         responses = [
@@ -144,17 +163,11 @@ class ClientInvitationController(
     suspend fun listInvitations(
         request: HttpRequest<*>,
         authentication: Authentication,
-        @QueryValue @Parameter(description = "Zero-indexed page number.") page: Int?,
+        @QueryValue @Parameter(description = PAGE_PARAMETER_DESCRIPTION) page: Int?,
+        @QueryValue @Parameter(description = SIZE_PARAMETER_DESCRIPTION) size: Int?,
+        @QueryValue @Parameter(description = SORT_PARAMETER_DESCRIPTION) sort: String?,
         @QueryValue @Parameter(
-            description = "Number of results per page. Defaults to the size this server is configured " +
-                    "with, and may not exceed its configured maximum."
-        ) size: Int?,
-        @QueryValue @Parameter(
-            description = "Comma-separated list of keys to order by, each prefixed with - to read it " +
-                    "from the largest value to the smallest."
-        ) sort: String?,
-        @QueryValue @Parameter(
-            description = "Partial case-insensitive search across the note and the token prefix."
+            description = SEARCH_PARAMETER_DESCRIPTION + " Here that is the note and the token prefix."
         ) q: String?
     ): ClientInvitationListResource {
         val clientAuth = authentication.clientAuthentication
