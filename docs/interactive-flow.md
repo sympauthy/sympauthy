@@ -233,7 +233,8 @@ again from the client that sent them.
 
 **One attached record is read rather than collected, where the flow completed.** The places a
 session was driven from are attached to it — one row per distinct place, written where the session
-is created and at every request that resolves it, both through the shared controller helper.
+is created and at every request that resolves one still in flight, both through the shared
+controller helper.
 Completing the flow folds the one a credential was proven at into that person's own record and
 consumes them all; what the cleaner collects is therefore only the places of flows that never
 finished. It is the one thing a session writes whose contents outlive it — deliberately, because

@@ -351,6 +351,33 @@ class InteractiveAuthFlowSessionControllerUtil(
     }
 
     /**
+     * Record [session] as driven from [observedRequest], where it is still a session a request can drive.
+     *
+     * **A session that has reached a terminal state is not recorded against.** Completing one folds the
+     * place a credential was proven at into that person's record and consumes every row it held, and the
+     * signed state outlives the flow — so a replay would re-open rows on a session that is over, which
+     * only the cleaner would then collect.
+     *
+     * **An expired one is not either, and that is the sharper reason.** `InteractiveFlowSessionCleaner`
+     * deletes a session's places and the session itself in one transaction: a row inserted between the
+     * two takes a key lock the parent delete then fails on, and on PostgreSQL that rolls the whole
+     * collection back — every expired session, authorization code and validation code with it, until a
+     * run gets through.
+     *
+     * A session created already failed is still recorded, by the entry point that created it: that row is
+     * the only thing such a session will ever say about the browser that started it.
+     */
+    private suspend fun observeIfStillDrivable(
+        session: InteractiveFlowSession,
+        observedRequest: ObservedRequest
+    ) {
+        if (session !is OnGoingInteractiveFlowSession || session.expired) {
+            return
+        }
+        userSecurityContextManager.observe(session.id, observedRequest)
+    }
+
+    /**
      * Fetches and validates the interactive flow session associated with the given [state], and records
      * that it was driven from [observedRequest].
      *
@@ -368,7 +395,7 @@ class InteractiveAuthFlowSessionControllerUtil(
         val verifyResult = sessionManager.verifyEncodedInternalState(state)
         return when (verifyResult) {
             is SuccessVerifyEncodedStateResult -> verifyResult.session
-                .also { userSecurityContextManager.observe(it.id, observedRequest) }
+                .also { observeIfStillDrivable(it, observedRequest) }
             is FailedVerifyEncodedStateResult -> {
                 // We cannot redirect the user to a proper error page, we throw to let the error handler still
                 // respond with an error but without a redirect uri.

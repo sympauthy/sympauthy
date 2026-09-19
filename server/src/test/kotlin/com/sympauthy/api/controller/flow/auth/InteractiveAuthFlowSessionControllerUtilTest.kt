@@ -56,12 +56,22 @@ class InteractiveAuthFlowSessionControllerUtilTest {
 
     private val concurrentModification = InteractiveFlowSessionManager.CONCURRENT_MODIFICATION_DETAILS_ID
 
+    private fun ongoing(sessionId: UUID) = mockk<OnGoingInteractiveFlowSession> {
+        every { id } returns sessionId
+        every { expired } returns false
+    }
+
+    /** Expired but still ongoing: the shape the cleaner collects, and the one the guard turns on. */
+    private fun expiredOngoing() = mockk<OnGoingInteractiveFlowSession> {
+        every { expired } returns true
+    }
+
     private val observed = observedRequestOf()
 
     @Test
     fun `fetchSessionAndObserveRequest - Records where the request that resolved the session came from`() = runTest {
         val sessionId = UUID.randomUUID()
-        val session = mockk<OnGoingInteractiveFlowSession> { every { id } returns sessionId }
+        val session = ongoing(sessionId)
         coEvery { sessionManager.verifyEncodedInternalState("encoded-state") } returns
             SuccessVerifyEncodedStateResult(session)
 
@@ -69,6 +79,36 @@ class InteractiveAuthFlowSessionControllerUtilTest {
 
         coVerify { userSecurityContextManager.observe(sessionId, observed) }
     }
+
+    /**
+     * Completing a flow folds its proven place into the person's record and consumes every row it held,
+     * and the state outlives the flow — a replay must not re-open one.
+     */
+    @Test
+    fun `fetchSessionAndObserveRequest - Records nothing against a session that has reached its end`() =
+        runTest {
+            val session = mockk<CompletedInteractiveFlowSession>()
+            coEvery { sessionManager.verifyEncodedInternalState("encoded-state") } returns
+                SuccessVerifyEncodedStateResult(session)
+
+            assertSame(session, util.fetchSessionAndObserveRequest("encoded-state", observed))
+
+            coVerify(exactly = 0) { userSecurityContextManager.observe(any(), any()) }
+        }
+
+    /** The cleaner deletes an expired session and its places in one transaction; a row landing between
+     * the two fails the delete's foreign key and rolls the whole collection back. */
+    @Test
+    fun `fetchSessionAndObserveRequest - Records nothing against a session the cleaner is entitled to`() =
+        runTest {
+            val session = expiredOngoing()
+            coEvery { sessionManager.verifyEncodedInternalState("encoded-state") } returns
+                SuccessVerifyEncodedStateResult(session)
+
+            util.fetchSessionAndObserveRequest("encoded-state", observed)
+
+            coVerify(exactly = 0) { userSecurityContextManager.observe(any(), any()) }
+        }
 
     @Test
     fun `fetchSessionAndObserveRequest - Records nothing where the state named no session`() = runTest {
