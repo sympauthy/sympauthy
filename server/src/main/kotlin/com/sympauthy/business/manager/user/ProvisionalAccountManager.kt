@@ -6,7 +6,6 @@ import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.PasswordRepository
@@ -81,8 +80,8 @@ open class ProvisionalAccountManager(
         val links = providerUserInfoRepository.findByUserId(userId)
             .map { ProvisionalLink(providerId = it.id.providerId, subject = it.subject) }
 
-        lockManager.withLock(*keysOver(identifierValues, links)) {
-            checkIdentifierClaimsStillFree(claimIds, identifierValues)
+        lockManager.withLock(*keysOver(identifierValues.values.toList(), links)) {
+            checkIdentifierClaimsStillFree(userId, claimIds, identifierValues)
             checkProviderSubjectsStillFree(links)
 
             // The satellites before the account itself, so no window exposes an account whose rows are still
@@ -96,11 +95,15 @@ open class ProvisionalAccountManager(
         }
     }
 
-    /** The identifier claim values [userId] holds, as `collected_claims` spells them. */
-    private suspend fun identifierValuesOf(userId: UUID, claimIds: List<String>): List<String> {
-        if (claimIds.isEmpty()) return emptyList()
+    /**
+     * The identifier claim values [userId] holds, by the claim holding them, as `collected_claims` spells
+     * them. Keyed by claim because the check below is asked in those pairs; the keys it takes are not.
+     */
+    private suspend fun identifierValuesOf(userId: UUID, claimIds: List<String>): Map<String, String> {
+        if (claimIds.isEmpty()) return emptyMap()
         return collectedClaimRepository.findByUserIdAndClaimInList(userId, claimIds)
-            .mapNotNull(CollectedClaimEntity::value)
+            .mapNotNull { claim -> claim.value?.let { claim.claim to it } }
+            .toMap()
     }
 
     /**
@@ -154,20 +157,27 @@ open class ProvisionalAccountManager(
     }
 
     /**
-     * Throw `user.promote.identifier_taken` when a committed account already holds one of the [values] this
-     * promotion is about to make committed under one of the identifier claims [claimIds].
+     * Throw `user.promote.identifier_taken` when a committed account already holds one of the
+     * [identifierValues] this promotion is about to make committed under one of the identifier claims
+     * [claimIds] — [UserManager.findTakenIdentifierClaimIdOrNull] is the rule. It is asked here a second
+     * time in this account's life, against the same committed-only reader, because an account that
+     * committed while this one was being signed up was invisible the first time.
      *
-     * The same check the sign-up ran, against the same committed-only reader: values are matched across every
-     * identifier claim rather than claim by claim, because an end-user may sign in with any of them and a
-     * value must therefore be unique across all of them.
+     * [userId] is the account being promoted, and exempts nothing: a provisional account owns no committed
+     * row, so the reader cannot answer with one of its own. It is named because the rule is written for the
+     * caller that holds an account, and this one does.
      *
      * It answers what is committed *now*, which is only worth asking under the lock its caller holds over
-     * those values: the account it has to exclude commits between the sign-up's check and this one.
+     * those values: the account it has to exclude commits between the sign-up's check and this one. Which
+     * claim lost is dropped rather than named: every purpose has resolved by here, so there is no step to
+     * send the end-user back to and nothing for the claim to point at.
      */
-    internal suspend fun checkIdentifierClaimsStillFree(claimIds: List<String>, values: List<String>) {
-        if (claimIds.isEmpty() || values.isEmpty()) return
-
-        if (userManager.isIdentifierValueTaken(claimIds, values)) {
+    internal suspend fun checkIdentifierClaimsStillFree(
+        userId: UUID,
+        claimIds: List<String>,
+        identifierValues: Map<String, String>
+    ) {
+        if (userManager.findTakenIdentifierClaimIdOrNull(userId, claimIds, identifierValues) != null) {
             throw businessExceptionOf(
                 detailsId = "user.promote.identifier_taken",
                 descriptionId = "description.user.promote.identifier_taken"

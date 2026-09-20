@@ -27,7 +27,7 @@ import org.junit.jupiter.params.provider.EnumSource
 @Tag("security")
 class IntrospectionActiveFalseForOtherClientsTokenIT : AbstractSympauthyIT() {
 
-    @ParameterizedTest(name = "a client cannot introspect another client's token on {0}")
+    @ParameterizedTest(name = "a client cannot introspect a token issued to another on {0}")
     @EnumSource(Database::class)
     fun introspectionOfForeignTokenIsInactive(database: Database) {
         val otherClient = mapOf(

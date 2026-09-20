@@ -178,8 +178,13 @@ open class CollectedClaimManager(
     /**
      * The identifier claim values [updates] would write, by the claim writing them, as `collected_claims`
      * spells them. An update clearing a claim is not one: it takes no value from anybody.
+     *
+     * Public because it is the one spelling of that map, and a caller about to ask
+     * [UserManager.findTakenIdentifierClaimIdOrNull] over a set of updates needs it in the spelling the
+     * rows compare on. Writing it out again at the call site is a second definition of which updates count
+     * and how their values are stored, and the two would have to be changed together.
      */
-    internal fun getIdentifierValuesIn(updates: List<CollectedClaimUpdate>): Map<String, String> {
+    fun getIdentifierValuesIn(updates: List<CollectedClaimUpdate>): Map<String, String> {
         val identifierClaims = claimManager.listIdentifierClaims().toSet()
         if (identifierClaims.isEmpty()) {
             return emptyMap()
@@ -195,7 +200,7 @@ open class CollectedClaimManager(
     /**
      * Throw `user.claims.identifier_taken`, naming the claim that lost, when a committed row already holds
      * one of the [identifierValues] — [UserManager.findTakenIdentifierClaimIdOrNull] is the rule, including
-     * why a row [user] holds itself is a conflict unless it is the one for that same claim.
+     * why a row [user] already holds is never one of them, under whichever identifier claim it sits.
      *
      * It answers what is committed *now*, which is only worth asking under the lock its caller holds over
      * those values.

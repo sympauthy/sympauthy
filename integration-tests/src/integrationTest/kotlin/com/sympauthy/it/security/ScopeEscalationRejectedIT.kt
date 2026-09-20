@@ -25,7 +25,7 @@ import org.junit.jupiter.params.provider.EnumSource
 @Tag("security")
 class ScopeEscalationRejectedIT : AbstractSympauthyIT() {
 
-    @ParameterizedTest(name = "authorize refuses a scope outside the client's allowed set on {0}")
+    @ParameterizedTest(name = "authorize refuses a scope the client is not allowed on {0}")
     @EnumSource(Database::class)
     fun authorizeRejectsScopeOutsideAllowedSet(database: Database) {
         withContainer(database) { sympauthy, registry ->

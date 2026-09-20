@@ -31,7 +31,6 @@ import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.util.*
-import kotlin.jvm.optionals.getOrNull
 
 /**
  * Manager in charge of the authentication and registration of an end-user going through an interactive auth flow
@@ -263,15 +262,18 @@ open class InteractiveAuthFlowSessionPasswordManager(
      * Throws a recoverable business exception with detailsId ```flow.password.sign_up.existing```
      * if any of the [claims] conflict with another user login.
      *
-     * As a user can use any of the provided [claims] to login, we must ensure that the values are unique
-     * to a user and across the claims.
+     * [UserManager.findTakenIdentifierClaimIdOrNull] is the rule, including why a value has to be free
+     * across every identifier claim rather than within the one offering it. The account being signed up
+     * does not exist yet, so nothing is exempt and the caller is named as none.
+     *
+     * The values come from [CollectedClaimManager.getIdentifierValuesIn], which is the one place that says
+     * which updates carry an identifier value and how `collected_claims` spells it — the spelling the rows
+     * compare on and the key locks under.
      */
     internal suspend fun checkForConflictingUsers(claims: List<CollectedClaimUpdate>) {
         val claimIds = claims.map { it.claim.id }
-        val values = claims
-            .mapNotNull { it.value?.getOrNull() }
-            .mapNotNull(claimValueMapper::toEntity)
-        if (userManager.isIdentifierValueTaken(claimIds, values)) {
+        val valuesByClaimId = collectedClaimManager.getIdentifierValuesIn(claims)
+        if (userManager.findTakenIdentifierClaimIdOrNull(null, claimIds, valuesByClaimId) != null) {
             throw recoverableBusinessExceptionOf(
                 detailsId = "flow.password.sign_up.existing",
                 descriptionId = "description.flow.password.sign_up.existing"

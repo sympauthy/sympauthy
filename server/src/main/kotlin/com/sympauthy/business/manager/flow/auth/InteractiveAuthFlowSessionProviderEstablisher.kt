@@ -119,8 +119,13 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
     }
 
     /**
-     * Create a new [User] or associate it to an existing user that has matching values for all configured
-     * identifier claims.
+     * Associate the provider to the account the identifier claims it asserts resolve to, or create one
+     * where they resolve to none.
+     *
+     * [UserManager.findByIdentifierClaims] is the right read for resolving: matching every asserted value
+     * is what makes the answer one account rather than a choice between two, and merging into the wrong
+     * one attaches a stranger's provider to somebody's account. It is not the read that says whether the
+     * values are free, which is why creating goes through [createUserWithIdentifierClaims] below.
      *
      * The identifier claim values are collected and copied as first-party data. We want this information
      * to be stable and not be affected by changes from the third party in the future.
@@ -136,9 +141,7 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
         val identifierMap = identifierClaims.map { (claimId, pair) -> claimId to pair.second }.toMap()
         val existingUser = userManager.findByIdentifierClaims(identifierMap)
 
-        val user = existingUser ?: userManager.createUser(sessionId).also { newUser ->
-            saveIdentifierClaims(newUser, identifierClaims)
-        }
+        val user = existingUser ?: createUserWithIdentifierClaims(sessionId, identifierClaims)
 
         providerClaimsManager.saveUserInfo(
             provider = provider,
@@ -153,9 +156,13 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
     }
 
     /**
-     * Create a new [User] with the provider user info.
-     * Without user merging, if a user already exists with the same identifier claims, throw an error
-     * as the user must sign in with their existing account.
+     * Create a new [User] with the provider user info. An account this server already holds is never
+     * reached from here, so a provider asserting an identifier one of them owns is refused rather than
+     * merged: the end-user has an account and signs in with it.
+     *
+     * There is no resolving read above this. Whether an account matches every asserted value is a
+     * question only merging asks; the one this branch asks is whether the values are free, which
+     * [createUserWithIdentifierClaims] answers and which refuses strictly more.
      */
     @Transactional
     internal open suspend fun createUserWithProviderUserInfo(
@@ -164,14 +171,7 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
         provider: EnabledProvider,
         providerUserInfo: RawProviderClaims
     ): CreateOrAssociateResult {
-        val identifierMap = identifierClaims.map { (claimId, pair) -> claimId to pair.second }.toMap()
-        val existingUser = userManager.findByIdentifierClaims(identifierMap)
-        if (existingUser != null) {
-            throw businessExceptionOf("user.create_with_provider.existing_user")
-        }
-
-        val user = userManager.createUser(sessionId)
-        saveIdentifierClaims(user, identifierClaims)
+        val user = createUserWithIdentifierClaims(sessionId, identifierClaims)
         providerClaimsManager.saveUserInfo(
             provider = provider,
             userId = user.id,
@@ -182,6 +182,48 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
             created = true,
             user = user
         )
+    }
+
+    /**
+     * Create the provisional account the provider's [identifierClaims] are written to, having checked that
+     * a committed account does not already hold one of those values.
+     *
+     * Throws `user.create_with_provider.existing_user`, naming the claim that lost, when one does.
+     * [UserManager.findTakenIdentifierClaimIdOrNull] is the rule: a value is free across every configured
+     * identifier claim or not at all, so asking instead for an account matching *every* value the provider
+     * asserts lets one holding a single value through — and the account created over it dies at its own
+     * promotion, unrecoverably, at the end of a flow the end-user can no longer act on. Refusing here says
+     * the true thing at the moment it is still worth hearing.
+     *
+     * The account named is none: it does not exist yet, and the values it is about to claim are nobody's.
+     *
+     * **It takes no lock, deliberately.** What it creates is provisional, and the uniqueness of a
+     * provisional account's identifier is settled when it is promoted — under the key that promotion takes
+     * over these same values. Locking here would serialise sign-ups against each other, which is the thing
+     * the provisional row exists to avoid, and would put a second lock in a transaction already holding one
+     * over the provider subject. See `docs/provisional-user.md`.
+     */
+    private suspend fun createUserWithIdentifierClaims(
+        sessionId: UUID,
+        identifierClaims: Map<String, Pair<Claim, String>>
+    ): User {
+        val updates = identifierClaims.values.map { (claim, value) ->
+            CollectedClaimUpdate(claim = claim, value = Optional.of(value))
+        }
+        val takenClaimId = userManager.findTakenIdentifierClaimIdOrNull(
+            userId = null,
+            claimIds = uncheckedAuthConfig.orThrow().identifierClaims,
+            valuesByClaimId = collectedClaimManager.getIdentifierValuesIn(updates)
+        )
+        if (takenClaimId != null) {
+            throw businessExceptionOf(
+                "user.create_with_provider.existing_user",
+                "claim" to takenClaimId
+            )
+        }
+        val user = userManager.createUser(sessionId)
+        collectedClaimManager.update(user, updates)
+        return user
     }
 
     /**
@@ -209,18 +251,4 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
         }
     }
 
-    private suspend fun saveIdentifierClaims(
-        user: User,
-        identifierClaims: Map<String, Pair<Claim, String>>
-    ) {
-        collectedClaimManager.update(
-            user = user,
-            updates = identifierClaims.map { (_, claimAndValue) ->
-                CollectedClaimUpdate(
-                    claim = claimAndValue.first,
-                    value = Optional.of(claimAndValue.second)
-                )
-            }
-        )
-    }
 }

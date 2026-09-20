@@ -15,8 +15,10 @@ import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
+import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.UserRepository
@@ -239,6 +241,56 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
 
         coVerify(exactly = 0) { userSecurityContextManager.markProven(any(), any()) }
     }
+
+    @Test
+    fun `checkForConflictingUsers - Refuses recoverably when a committed account holds one value`() = runTest {
+        val updates = listOf(claimUpdate("email", "a@example.com"), claimUpdate("phone_number", "+33612345678"))
+        val offered = mapOf("email" to "\"a@example.com\"", "phone_number" to "\"+33612345678\"")
+        every { collectedClaimManager.getIdentifierValuesIn(updates) } returns offered
+        coEvery {
+            userManager.findTakenIdentifierClaimIdOrNull(null, listOf("email", "phone_number"), offered)
+        } returns "email"
+
+        val exception = assertThrows<BusinessException> { manager.checkForConflictingUsers(updates) }
+
+        assertEquals("flow.password.sign_up.existing", exception.detailsId)
+        assertTrue(exception.recoverable)
+    }
+
+    @Test
+    fun `checkForConflictingUsers - Names no account, since the one being signed up does not exist yet`() =
+        runTest {
+            val updates = listOf(claimUpdate("email", "a@example.com"))
+            val offered = mapOf("email" to "\"a@example.com\"")
+            every { collectedClaimManager.getIdentifierValuesIn(updates) } returns offered
+            coEvery { userManager.findTakenIdentifierClaimIdOrNull(null, any(), any()) } returns null
+
+            manager.checkForConflictingUsers(updates)
+
+            coVerify { userManager.findTakenIdentifierClaimIdOrNull(null, listOf("email"), offered) }
+        }
+
+    @Test
+    fun `checkForConflictingUsers - Searches a claim the offered values are silent about`() = runTest {
+        val updates = listOf(claimUpdate("email", "a@example.com"), CollectedClaimUpdate(claimOf("name"), null))
+        // An update clearing a claim carries no value — which claims carry one is
+        // CollectedClaimManagerTest's — and the claim is searched all the same, because a value has to be
+        // free across every one of them.
+        val offered = mapOf("email" to "\"a@example.com\"")
+        every { collectedClaimManager.getIdentifierValuesIn(updates) } returns offered
+        coEvery { userManager.findTakenIdentifierClaimIdOrNull(null, any(), any()) } returns null
+
+        manager.checkForConflictingUsers(updates)
+
+        coVerify { userManager.findTakenIdentifierClaimIdOrNull(null, listOf("email", "name"), offered) }
+    }
+
+    private fun claimUpdate(claimId: String, value: String) = CollectedClaimUpdate(
+        claim = claimOf(claimId),
+        value = Optional.of(value)
+    )
+
+    private fun claimOf(claimId: String) = mockk<Claim> { every { id } returns claimId }
 
     @Test
     fun `signInWithPassword - Records where a normal sign-in established identity`() = runTest {

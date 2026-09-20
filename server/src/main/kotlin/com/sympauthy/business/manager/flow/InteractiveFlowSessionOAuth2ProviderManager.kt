@@ -292,7 +292,8 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
      *
      * Conflicts hard-fail (unrecoverable, so the flow fails and nothing is linked):
      * - the provider subject is already linked to **another** account (an identity cannot belong to two users);
-     * - an identifier claim the provider asserts is already owned by **another** account.
+     * - an identifier value the provider asserts is already owned by **another** account, under any of the
+     *   configured identifier claims.
      *
      * A subject already linked to **this** user is an idempotent success (the stored claims are refreshed).
      *
@@ -354,11 +355,17 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
                 )
             }
 
-            val identifierOwnerId = asserted?.let { userManager.findByIdentifierClaims(it.values)?.id }
-            if (identifierOwnerId != null && identifierOwnerId != userId) {
+            val takenClaimId = asserted?.let {
+                userManager.findTakenIdentifierClaimIdOrNull(userId, it.claimIds, it.valuesByClaimId)
+            }
+            if (takenClaimId != null) {
+                // The claim the provider asserted it under, never the one the other account holds it under:
+                // the first is what this callback already sent, and the second would say something about an
+                // account the person linking is not entitled to hear about.
                 throw businessExceptionOf(
                     "flow.link_provider.identifier_conflict",
-                    "providerId" to provider.id
+                    "providerId" to provider.id,
+                    "claim" to takenClaimId
                 )
             }
 
@@ -376,39 +383,50 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
     }
 
     /**
-     * The identifier claim values [rawUserInfo] asserts, or null when the conflict they would be checked
-     * for cannot be evaluated — no identifier claim is configured, or the provider omits one — in which
-     * case the subject check remains the primary defense.
+     * The identifier claim values [rawUserInfo] asserts, or null when there is no conflict to evaluate at
+     * all — no identifier claim is configured, or the provider asserts none of them — in which case the
+     * subject check remains the primary defense.
+     *
+     * **Whatever subset the provider does assert is the subset checked**, rather than all of them or
+     * nothing. Each value stands on its own under the rule
+     * ([UserManager.findTakenIdentifierClaimIdOrNull]): a committed account holding one of them already
+     * owns the identity this provider is asserting, whichever of the others it is silent about. Demanding
+     * every configured claim would leave the check dead in the ordinary deployment — `[email,
+     * phone_number]` against a provider that carries an address and no number.
      *
      * The values the check compares and the keys locking them come out of this one read, and null answers
      * for both: a key over a check that does not run excludes a promotion for nothing, and a check with no
      * key over it is the one this answer exists to keep out. Only the identifier **values** are needed (not
      * the resolved claim objects), so this is a plain lookup rather than the full sign-up claim resolution.
+     * A value the mapper cannot spell as `collected_claims` holds it drops out with the claim asserting it:
+     * neither half of the pair can be formed for it.
      */
     private fun getAssertedIdentifiersOrNull(rawUserInfo: RawProviderClaims): AssertedIdentifiers? {
         val identifierClaims = uncheckedAuthConfig.orThrow().identifierClaims
-        if (identifierClaims.isEmpty()) return null
-        val values = identifierClaims.associateWith { claimId ->
-            rawUserInfo.getClaimValueOrNull(claimId) ?: return null
-        }
-        return AssertedIdentifiers(
-            values = values,
-            lockKeys = values.values.map { value ->
-                LockKey.IdentifierValue(claimValueMapper.toEntity(value) ?: return null)
-            }
-        )
+        val valuesByClaimId = identifierClaims.mapNotNull { claimId ->
+            rawUserInfo.getClaimValueOrNull(claimId)
+                ?.let(claimValueMapper::toEntity)
+                ?.let { claimId to it }
+        }.toMap()
+        if (valuesByClaimId.isEmpty()) return null
+        return AssertedIdentifiers(claimIds = identifierClaims, valuesByClaimId = valuesByClaimId)
     }
 
     /**
-     * The identifier claim values a provider asserts, in the two spellings the link needs them in:
-     * [values] is the business value per claim, which [UserManager.findByIdentifierClaims] compares against
-     * committed accounts, and [lockKeys] names those same values as `collected_claims` holds them — the
-     * spelling the promotion racing this one locks under. See [LockKey.IdentifierValue].
+     * The identifier claim values a provider asserts, as `collected_claims` spells them — the one spelling
+     * the link needs them in: [UserManager.findTakenIdentifierClaimIdOrNull] compares committed rows on it,
+     * and [LockKey.IdentifierValue] names the same value the promotion racing this one locks under.
+     *
+     * [claimIds] is every identifier claim this deployment configured, not only the ones asserted: the
+     * conflict is any of these values under any of them, and an account holding one under a claim the
+     * provider is silent about owns it just the same.
      */
     private class AssertedIdentifiers(
-        val values: Map<String, String>,
-        val lockKeys: List<LockKey>
-    )
+        val claimIds: List<String>,
+        val valuesByClaimId: Map<String, String>
+    ) {
+        val lockKeys: List<LockKey> = valuesByClaimId.values.map(LockKey::IdentifierValue)
+    }
 
     suspend fun fetchTokens(
         provider: Provider,

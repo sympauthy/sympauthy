@@ -41,9 +41,10 @@ gets to keep it.
 ### When uniqueness is settled
 
 **The identifier uniqueness of an account being signed up is settled when it is promoted, not when
-it is written.** Nothing in the schema enforces it — an end-user may sign in with any configured
-identifier claim, so a value has to be unique across all of them rather than within one column —
-and the check at sign-up sees committed rows only. Two sign-ups may therefore hold one email address
+it is written.** Nothing in the schema enforces it — what that uniqueness is, and why it spans every
+configured identifier claim rather than each one in turn, is
+[its own document](identifier-claims.md#one-value-one-account) — and the check at sign-up sees
+committed rows only. Two sign-ups may therefore hold one email address
 at the same time, and neither blocks the other, which is what stops an abandoned flow squatting an
 address until the cleaner runs. The check runs again inside the promotion, and the first flow to
 complete wins; the second fails non-recoverably, because at that point every purpose has resolved

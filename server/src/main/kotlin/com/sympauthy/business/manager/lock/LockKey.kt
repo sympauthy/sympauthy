@@ -46,9 +46,10 @@ sealed class LockKey(
      * account holding one. A promotion's rows are invisible to a committed reader and a value nobody holds
      * yet has no row at all, so nothing but a key all of them name serialises them.
      *
-     * `CollectedClaimManager.applyUpdates` is reached by no caller today — every surface that writes a
-     * collected claim leaves identifier claims out — and takes the key anyway, so that the writer which
-     * will reach it arrives into a manager already agreeing with the rest.
+     * `CollectedClaimManager.applyUpdates` takes it only for an account that is already committed. A
+     * sign-up writing the identifier claims of the account it is creating reaches the same method and
+     * takes none: that account's identifier is not one yet, and its promotion is where the collision is
+     * settled.
      *
      * Nothing takes it where the collision is settled elsewhere. A write to a provisional account takes no
      * key — its identifier is not one yet, two sign-ups may hold a value at the same time, and the
