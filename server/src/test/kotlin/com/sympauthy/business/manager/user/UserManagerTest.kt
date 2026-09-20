@@ -198,48 +198,52 @@ class UserManagerTest {
     }
 
     @Test
-    fun `findTakenIdentifierClaimIdOrNull - Asks nothing when no claim or no value is offered`() = runTest {
+    fun `findTakenIdentifierOrNull - Asks nothing when no claim or no value is offered`() = runTest {
         val userId = UUID.randomUUID()
 
-        assertNull(manager.findTakenIdentifierClaimIdOrNull(userId, emptyList(), mapOf(emailClaim to storedAddress)))
-        assertNull(manager.findTakenIdentifierClaimIdOrNull(userId, listOf(emailClaim), emptyMap()))
+        assertNull(manager.findTakenIdentifierOrNull(userId, emptyList(), mapOf(emailClaim to storedAddress)))
+        assertNull(manager.findTakenIdentifierOrNull(userId, listOf(emailClaim), emptyMap()))
     }
 
     @Test
-    fun `findTakenIdentifierClaimIdOrNull - Answers the offered claim, not the conflicting row's`() = runTest {
+    fun `findTakenIdentifierOrNull - Answers the offered claim, not the conflicting row's`() = runTest {
         val userId = UUID.randomUUID()
-        committedRows(claimRow(UUID.randomUUID(), phoneClaim, storedAddress))
+        val ownerId = UUID.randomUUID()
+        committedRows(claimRow(ownerId, phoneClaim, storedAddress))
 
-        val taken = manager.findTakenIdentifierClaimIdOrNull(
+        val taken = manager.findTakenIdentifierOrNull(
             userId, listOf(emailClaim, phoneClaim), mapOf(emailClaim to storedAddress)
         )
 
-        assertEquals(emailClaim, taken)
+        // The claim is the caller's own, which it already knows; the account is the other one, which is
+        // the half only this read can answer.
+        assertEquals(TakenIdentifier(claimId = emailClaim, userId = ownerId), taken)
     }
 
     @Test
-    fun `findTakenIdentifierClaimIdOrNull - Names the one taken value though the others are free`() = runTest {
+    fun `findTakenIdentifierOrNull - Names the one taken value though the others are free`() = runTest {
         val userId = UUID.randomUUID()
-        committedRows(claimRow(UUID.randomUUID(), emailClaim, storedAddress))
+        val ownerId = UUID.randomUUID()
+        committedRows(claimRow(ownerId, emailClaim, storedAddress))
 
         // The rule is any of the offered values under any identifier claim, and not an account holding all
         // of them: the account owning one owns the identity whether or not it owns the rest.
-        val taken = manager.findTakenIdentifierClaimIdOrNull(
+        val taken = manager.findTakenIdentifierOrNull(
             userId,
             listOf(emailClaim, phoneClaim),
             mapOf(emailClaim to storedAddress, phoneClaim to storedNumber)
         )
 
-        assertEquals(emailClaim, taken)
+        assertEquals(TakenIdentifier(claimId = emailClaim, userId = ownerId), taken)
     }
 
     @Test
-    fun `findTakenIdentifierClaimIdOrNull - Passes over a row the account holds under that same claim`() =
+    fun `findTakenIdentifierOrNull - Passes over a row the account holds under that same claim`() =
         runTest {
             val userId = UUID.randomUUID()
             committedRows(claimRow(userId, emailClaim, storedAddress))
 
-            val taken = manager.findTakenIdentifierClaimIdOrNull(
+            val taken = manager.findTakenIdentifierOrNull(
                 userId, listOf(emailClaim, phoneClaim), mapOf(emailClaim to storedAddress)
             )
 
@@ -247,14 +251,14 @@ class UserManagerTest {
         }
 
     @Test
-    fun `findTakenIdentifierClaimIdOrNull - Passes over a row the account holds under another claim`() =
+    fun `findTakenIdentifierOrNull - Passes over a row the account holds under another claim`() =
         runTest {
             val userId = UUID.randomUUID()
             committedRows(claimRow(userId, phoneClaim, storedAddress))
 
             // Its own under a second claim, and not a conflict: both rows name the one account, so a login
             // over that value resolves to it either way and there is no pair to exclude.
-            val taken = manager.findTakenIdentifierClaimIdOrNull(
+            val taken = manager.findTakenIdentifierOrNull(
                 userId, listOf(emailClaim, phoneClaim), mapOf(emailClaim to storedAddress)
             )
 
@@ -262,32 +266,34 @@ class UserManagerTest {
         }
 
     @Test
-    fun `findTakenIdentifierClaimIdOrNull - Refuses the crossed pair that would sign one owner in as another`() =
+    fun `findTakenIdentifierOrNull - Refuses the crossed pair that would sign one owner in as another`() =
         runTest {
             val userId = UUID.randomUUID()
+            val ownerId = UUID.randomUUID()
             // Another account already holds, under its username, the address this one offers as its email.
             // Allowing it leaves each value matching a row of each account, and whoever owns one of them is
             // resolved to the other account.
-            committedRows(claimRow(UUID.randomUUID(), phoneClaim, storedAddress))
+            committedRows(claimRow(ownerId, phoneClaim, storedAddress))
 
-            val taken = manager.findTakenIdentifierClaimIdOrNull(
+            val taken = manager.findTakenIdentifierOrNull(
                 userId,
                 listOf(emailClaim, phoneClaim),
                 mapOf(emailClaim to storedAddress, phoneClaim to storedNumber)
             )
 
-            assertEquals(emailClaim, taken)
+            assertEquals(TakenIdentifier(claimId = emailClaim, userId = ownerId), taken)
         }
 
     @Test
-    fun `findTakenIdentifierClaimIdOrNull - Exempts nothing for a caller holding no account yet`() = runTest {
-        committedRows(claimRow(UUID.randomUUID(), emailClaim, storedAddress))
+    fun `findTakenIdentifierOrNull - Exempts nothing for a caller holding no account yet`() = runTest {
+        val ownerId = UUID.randomUUID()
+        committedRows(claimRow(ownerId, emailClaim, storedAddress))
 
-        val taken = manager.findTakenIdentifierClaimIdOrNull(
+        val taken = manager.findTakenIdentifierOrNull(
             null, listOf(emailClaim), mapOf(emailClaim to storedAddress)
         )
 
-        assertEquals(emailClaim, taken)
+        assertEquals(TakenIdentifier(claimId = emailClaim, userId = ownerId), taken)
     }
 
     private fun committedRows(vararg rows: CollectedClaimEntity) {

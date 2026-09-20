@@ -355,17 +355,19 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
                 )
             }
 
-            val takenClaimId = asserted?.let {
-                userManager.findTakenIdentifierClaimIdOrNull(userId, it.claimIds, it.valuesByClaimId)
+            val taken = asserted?.let {
+                userManager.findTakenIdentifierOrNull(userId, it.claimIds, it.valuesByClaimId)
             }
-            if (takenClaimId != null) {
+            if (taken != null) {
                 // The claim the provider asserted it under, never the one the other account holds it under:
                 // the first is what this callback already sent, and the second would say something about an
-                // account the person linking is not entitled to hear about.
+                // account the person linking is not entitled to hear about. The owner travels beside it for
+                // the operator's half of the message, which no deployment prints unless it asks to.
                 throw businessExceptionOf(
                     "flow.link_provider.identifier_conflict",
                     "providerId" to provider.id,
-                    "claim" to takenClaimId
+                    "claim" to taken.claimId,
+                    "userId" to "${taken.userId}"
                 )
             }
 
@@ -389,7 +391,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
      *
      * **Whatever subset the provider does assert is the subset checked**, rather than all of them or
      * nothing. Each value stands on its own under the rule
-     * ([UserManager.findTakenIdentifierClaimIdOrNull]): a committed account holding one of them already
+     * ([UserManager.findTakenIdentifierOrNull]): a committed account holding one of them already
      * owns the identity this provider is asserting, whichever of the others it is silent about. Demanding
      * every configured claim would leave the check dead in the ordinary deployment — `[email,
      * phone_number]` against a provider that carries an address and no number.
@@ -414,7 +416,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
 
     /**
      * The identifier claim values a provider asserts, as `collected_claims` spells them — the one spelling
-     * the link needs them in: [UserManager.findTakenIdentifierClaimIdOrNull] compares committed rows on it,
+     * the link needs them in: [UserManager.findTakenIdentifierOrNull] compares committed rows on it,
      * and [LockKey.IdentifierValue] names the same value the promotion racing this one locks under.
      *
      * [claimIds] is every identifier claim this deployment configured, not only the ones asserted: the

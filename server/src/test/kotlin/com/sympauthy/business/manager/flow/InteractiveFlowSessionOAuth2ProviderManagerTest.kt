@@ -9,6 +9,7 @@ import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderClaimsResolver
 import com.sympauthy.business.manager.provider.ProviderManager
+import com.sympauthy.business.manager.user.TakenIdentifier
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
@@ -106,6 +107,9 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
 
     /** The same address as `collected_claims` spells it, which is what a key over it names. */
     private val storedEmail = "\"user@example.com\""
+    /** The account a refusal names as holding the value, which reaches an operator and never the person refused. */
+    private val ownerId = UUID.randomUUID()
+
 
     private fun createProvider(): EnabledProvider {
         return EnabledProvider(
@@ -352,12 +356,12 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
             every { claimValueMapper.toEntity(email) } returns storedEmail
             coEvery {
-                userManager.findTakenIdentifierClaimIdOrNull(
+                userManager.findTakenIdentifierOrNull(
                     userId,
                     listOf(OpenIdConnectClaimId.EMAIL),
                     mapOf(OpenIdConnectClaimId.EMAIL to storedEmail)
                 )
-            } returns OpenIdConnectClaimId.EMAIL
+            } returns TakenIdentifier(claimId = OpenIdConnectClaimId.EMAIL, userId = ownerId)
 
             val exception = assertThrows<BusinessException> {
                 manager.signInOrSignUpUsingProvider(
@@ -368,6 +372,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
 
             assertEquals("flow.link_provider.identifier_conflict", exception.detailsId)
             assertEquals(OpenIdConnectClaimId.EMAIL, exception.values["claim"])
+            assertEquals(ownerId.toString(), exception.values["userId"])
             assertFalse(exception.recoverable)
             coVerify { objectLockRepository.lock(LockKey.IdentifierValue(storedEmail).stripe) }
             coVerify(exactly = 0) { providerClaimsManager.saveUserInfo(any(), any(), any(), any()) }
@@ -384,7 +389,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
             every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
             every { claimValueMapper.toEntity(email) } returns storedEmail
-            coEvery { userManager.findTakenIdentifierClaimIdOrNull(userId, any(), any()) } returns null
+            coEvery { userManager.findTakenIdentifierOrNull(userId, any(), any()) } returns null
             coEvery { providerClaimsManager.saveUserInfo(provider, userId, null, rawUserInfo) } returns mockk()
             coEvery { engine.completeIfNecessary(session) } returns advanced
 
@@ -398,7 +403,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             // linking a provider to the account they opened with that same address. Which of the rows found
             // count as its own is UserManagerTest's.
             coVerify {
-                userManager.findTakenIdentifierClaimIdOrNull(
+                userManager.findTakenIdentifierOrNull(
                     userId,
                     listOf(OpenIdConnectClaimId.EMAIL),
                     mapOf(OpenIdConnectClaimId.EMAIL to storedEmail)
@@ -420,8 +425,8 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             )
             every { claimValueMapper.toEntity(email) } returns storedEmail
             coEvery {
-                userManager.findTakenIdentifierClaimIdOrNull(userId, any(), any())
-            } returns OpenIdConnectClaimId.EMAIL
+                userManager.findTakenIdentifierOrNull(userId, any(), any())
+            } returns TakenIdentifier(claimId = OpenIdConnectClaimId.EMAIL, userId = ownerId)
 
             val exception = assertThrows<BusinessException> {
                 manager.signInOrSignUpUsingProvider(
@@ -436,7 +441,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             // every configured claim is still searched: an account holding that address under either of
             // them owns it.
             coVerify {
-                userManager.findTakenIdentifierClaimIdOrNull(
+                userManager.findTakenIdentifierOrNull(
                     userId,
                     listOf(OpenIdConnectClaimId.EMAIL, OpenIdConnectClaimId.PHONE_NUMBER),
                     mapOf(OpenIdConnectClaimId.EMAIL to storedEmail)
@@ -506,7 +511,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
             every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
             every { claimValueMapper.toEntity(email) } returns storedEmail
-            coEvery { userManager.findTakenIdentifierClaimIdOrNull(userId, any(), any()) } returns null
+            coEvery { userManager.findTakenIdentifierOrNull(userId, any(), any()) } returns null
             coEvery { providerClaimsManager.saveUserInfo(provider, userId, null, rawUserInfo) } returns mockk()
             coEvery { engine.completeIfNecessary(session) } returns advanced
 

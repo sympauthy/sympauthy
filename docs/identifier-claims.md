@@ -73,17 +73,19 @@ the set.** `findTakenIdentifierClaimIdOrNull` is that read, and it is the rule o
 An account holding one of the offered values and none of the others owns the identity just the same,
 which is precisely what the resolving read answers nothing about.
 
-**It names the claim that lost and raises nothing.** What to say about a value being taken belongs
-where it was being claimed: the same loss is recoverable at one moment in a flow and not at the
-next, and only the caller knows which moment it is standing in.
+**It answers what was taken and who holds it, and raises nothing.** What to say about a value being
+taken belongs where it was being claimed: the same loss is recoverable at one moment in a flow and
+not at the next, and only the caller knows which moment it is standing in. Which account holds the
+value reaches an operator and never the person refused — [the exception
+standard](exception-code-standard.md#a-code-names-two-messages) is why.
 
 **A caller holding an account of its own names it, and every row that account already holds is
 exempt.** A value it holds resolves to it under whichever claim the row sits, so there is no pair to
 exclude. A caller whose account does not exist yet names none, and nothing is exempt.
 
 **Every writer that makes a value an account's asks the second question, at the moment it claims
-it**, and answers for the refusal itself. They are not listed here or anywhere else: a census of them
-stops being true the next time one is added, which is [the comment
+it**, and answers for the refusal itself. They are not listed here or anywhere else: a census of
+them stops being true the next time one is added, which is [the comment
 standard's](comment-standard.md) rule and holds of a document as much as of a KDoc.
 
 ## What a provider asserts

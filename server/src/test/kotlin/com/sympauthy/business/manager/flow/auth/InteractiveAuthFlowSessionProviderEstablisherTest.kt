@@ -8,6 +8,7 @@ import com.sympauthy.business.manager.lock.HeldStripes
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
+import com.sympauthy.business.manager.user.TakenIdentifier
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.business.model.provider.ProviderUserInfo
@@ -81,6 +82,9 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
     }
 
     private val sessionId = UUID.randomUUID()
+    /** The account a refusal names as holding the value, which reaches an operator and never the person refused. */
+    private val ownerId = UUID.randomUUID()
+
 
     private fun createUser(sessionId: UUID? = null): User {
         return User(
@@ -95,8 +99,8 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
     private fun identifierValues(valuesByClaimId: Map<String, String>, takenClaimId: String? = null) {
         every { collectedClaimManager.getIdentifierValuesIn(any()) } returns valuesByClaimId
         coEvery {
-            userManager.findTakenIdentifierClaimIdOrNull(null, any(), valuesByClaimId)
-        } returns takenClaimId
+            userManager.findTakenIdentifierOrNull(null, any(), valuesByClaimId)
+        } returns takenClaimId?.let { TakenIdentifier(claimId = it, userId = ownerId) }
     }
 
     @Test
@@ -333,6 +337,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
 
         assertEquals("user.create_with_provider.existing_user", exception.detailsId)
         assertEquals("email", exception.values["claim"])
+        assertEquals(ownerId.toString(), exception.values["userId"])
         coVerify(exactly = 0) { userManager.createUser(any()) }
     }
 
@@ -368,12 +373,12 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
             )
             every { collectedClaimManager.getIdentifierValuesIn(any()) } returns asserted
             coEvery {
-                userManager.findTakenIdentifierClaimIdOrNull(
+                userManager.findTakenIdentifierOrNull(
                     null,
                     listOf(OpenIdConnectClaimId.EMAIL, OpenIdConnectClaimId.PHONE_NUMBER),
                     asserted
                 )
-            } returns OpenIdConnectClaimId.EMAIL
+            } returns TakenIdentifier(claimId = OpenIdConnectClaimId.EMAIL, userId = ownerId)
 
             val exception = assertThrows<BusinessException> {
                 establisher.createOrAssociateUserWithProviderUserInfo(sessionId, provider, providerUserInfo)
@@ -382,6 +387,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
             // The account created over that address would have died at its own promotion instead.
             assertEquals("user.create_with_provider.existing_user", exception.detailsId)
             assertEquals(OpenIdConnectClaimId.EMAIL, exception.values["claim"])
+            assertEquals(ownerId.toString(), exception.values["userId"])
             coVerify(exactly = 0) { userManager.createUser(any()) }
         }
 

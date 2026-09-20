@@ -189,7 +189,7 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
      * a committed account does not already hold one of those values.
      *
      * Throws `user.create_with_provider.existing_user`, naming the claim that lost, when one does.
-     * [UserManager.findTakenIdentifierClaimIdOrNull] is the rule: a value is free across every configured
+     * [UserManager.findTakenIdentifierOrNull] is the rule: a value is free across every configured
      * identifier claim or not at all, so asking instead for an account matching *every* value the provider
      * asserts lets one holding a single value through — and the account created over it dies at its own
      * promotion, unrecoverably, at the end of a flow the end-user can no longer act on. Refusing here says
@@ -210,15 +210,16 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
         val updates = identifierClaims.values.map { (claim, value) ->
             CollectedClaimUpdate(claim = claim, value = Optional.of(value))
         }
-        val takenClaimId = userManager.findTakenIdentifierClaimIdOrNull(
+        val taken = userManager.findTakenIdentifierOrNull(
             userId = null,
             claimIds = uncheckedAuthConfig.orThrow().identifierClaims,
             valuesByClaimId = collectedClaimManager.getIdentifierValuesIn(updates)
         )
-        if (takenClaimId != null) {
+        if (taken != null) {
             throw businessExceptionOf(
                 "user.create_with_provider.existing_user",
-                "claim" to takenClaimId
+                "claim" to taken.claimId,
+                "userId" to "${taken.userId}"
             )
         }
         val user = userManager.createUser(sessionId)

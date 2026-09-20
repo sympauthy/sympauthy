@@ -359,10 +359,10 @@ class CollectedClaimManagerTest {
         every { claimManager.listIdentifierClaims() } returns listOf(emailClaim)
         every { collectedClaimUpdateMapper.toValue(update.value) } returns STORED_EMAIL
         coEvery {
-            userManager.findTakenIdentifierClaimIdOrNull(
+            userManager.findTakenIdentifierOrNull(
                 user.id, listOf(EMAIL_CLAIM), mapOf(EMAIL_CLAIM to STORED_EMAIL)
             )
-        } returns EMAIL_CLAIM
+        } returns TakenIdentifier(claimId = EMAIL_CLAIM, userId = ownerId)
 
         // The repository is left unstubbed: reaching the assertion is proof nothing was written.
         val exception = assertThrows<BusinessException> {
@@ -371,6 +371,7 @@ class CollectedClaimManagerTest {
 
         assertEquals("user.claims.identifier_taken", exception.detailsId)
         assertEquals(EMAIL_CLAIM, exception.values["claim"])
+        assertEquals(ownerId.toString(), exception.values["userId"])
         coVerify { objectLockRepository.lock(LockKey.IdentifierValue(STORED_EMAIL).stripe) }
     }
 
@@ -384,7 +385,7 @@ class CollectedClaimManagerTest {
         every { claimManager.listIdentifierClaims() } returns listOf(emailClaim)
         every { collectedClaimUpdateMapper.toValue(update.value) } returns STORED_EMAIL
         coEvery {
-            userManager.findTakenIdentifierClaimIdOrNull(
+            userManager.findTakenIdentifierOrNull(
                 user.id, listOf(EMAIL_CLAIM), mapOf(EMAIL_CLAIM to STORED_EMAIL)
             )
         } returns null
@@ -398,7 +399,8 @@ class CollectedClaimManagerTest {
     }
 
     @Test
-    fun `applyUpdates - Refuse a value the account itself holds under another identifier claim`() = runTest {
+    fun `applyUpdates - Offer the value under the claim being written, and search every identifier claim`() =
+        runTest {
         val user = committedUser()
         val phoneClaim = mockk<Claim> {
             every { id } returns PHONE_CLAIM
@@ -408,17 +410,20 @@ class CollectedClaimManagerTest {
         every { claimManager.listIdentifierClaims() } returns listOf(mockEmailClaim(), phoneClaim)
         every { collectedClaimUpdateMapper.toValue(update.value) } returns STORED_EMAIL
         coEvery {
-            userManager.findTakenIdentifierClaimIdOrNull(
+            userManager.findTakenIdentifierOrNull(
                 user.id, listOf(EMAIL_CLAIM, PHONE_CLAIM), mapOf(PHONE_CLAIM to STORED_EMAIL)
             )
-        } returns PHONE_CLAIM
+        } returns TakenIdentifier(claimId = PHONE_CLAIM, userId = ownerId)
 
+        // What the rule answers is passed through as it stands; which rows it counts as a conflict, and
+        // which of the account's own it never does, is UserManagerTest's.
         val exception = assertThrows<BusinessException> {
             manager.applyUpdates(user, listOf(update))
         }
 
         assertEquals("user.claims.identifier_taken", exception.detailsId)
         assertEquals(PHONE_CLAIM, exception.values["claim"])
+        assertEquals(ownerId.toString(), exception.values["userId"])
     }
 
     @Test
@@ -518,6 +523,9 @@ class CollectedClaimManagerTest {
         // them against, and the read below them never runs.
         assertTrue(manager.getIdentifierValuesIn(listOf(mockk())).isEmpty())
     }
+
+    /** The account a refusal names as holding the value, which reaches an operator and never the person refused. */
+    private val ownerId = UUID.randomUUID()
 
     private fun committedUser(): User = mockk {
         every { id } returns UUID.randomUUID()
