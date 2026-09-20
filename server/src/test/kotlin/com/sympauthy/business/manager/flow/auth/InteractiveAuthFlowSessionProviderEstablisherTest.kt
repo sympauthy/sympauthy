@@ -91,6 +91,14 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
         )
     }
 
+    /** The shared rule answering that nothing committed holds what the provider asserts. */
+    private fun identifierValues(valuesByClaimId: Map<String, String>, takenClaimId: String? = null) {
+        every { collectedClaimManager.getIdentifierValuesIn(any()) } returns valuesByClaimId
+        coEvery {
+            userManager.findTakenIdentifierClaimIdOrNull(null, any(), valuesByClaimId)
+        } returns takenClaimId
+    }
+
     @Test
     @Suppress("MaxLineLength")
     fun `createOrAssociateUserWithProviderUserInfo - Merge when merging enabled and user exists with matching identifier claims`() =
@@ -133,6 +141,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
             every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
             every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
             coEvery { userManager.findByIdentifierClaims(mapOf("email" to "new@example.com")) } returns null
+            identifierValues(mapOf("email" to "\"new@example.com\""))
             coEvery { userManager.createUser(sessionId) } returns newUser
             coJustRun { collectedClaimManager.update(newUser, any()) }
             coJustRun { providerClaimsManager.saveUserInfo(provider, newUser.id, sessionId, providerUserInfo) }
@@ -210,6 +219,9 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
                     )
                 )
             } returns null
+            identifierValues(
+                mapOf("email" to "\"new@example.com\"", "phone_number" to "\"+33612345678\"")
+            )
             coEvery { userManager.createUser(sessionId) } returns newUser
             coJustRun { collectedClaimManager.update(newUser, any()) }
             coJustRun { providerClaimsManager.saveUserInfo(provider, newUser.id, sessionId, providerUserInfo) }
@@ -280,7 +292,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
             coEvery { providerClaimsManager.findByProviderAndSubject(provider, "sub-123") } returns null
             every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
             every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
-            coEvery { userManager.findByIdentifierClaims(mapOf("email" to "new@example.com")) } returns null
+            identifierValues(mapOf("email" to "\"new@example.com\""))
             coEvery { userManager.createUser(sessionId) } returns newUser
             coJustRun { collectedClaimManager.update(newUser, any()) }
             coJustRun { providerClaimsManager.saveUserInfo(provider, newUser.id, sessionId, providerUserInfo) }
@@ -313,15 +325,65 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
         coEvery { providerClaimsManager.findByProviderAndSubject(provider, "sub-123") } returns null
         every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
         every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
-        coEvery { userManager.findByIdentifierClaims(mapOf("email" to "existing@example.com")) } returns existingUser
+        identifierValues(mapOf("email" to "\"existing@example.com\""), takenClaimId = "email")
 
         val exception = assertThrows<BusinessException> {
             establisher.createOrAssociateUserWithProviderUserInfo(sessionId, provider, providerUserInfo)
         }
 
         assertEquals("user.create_with_provider.existing_user", exception.detailsId)
+        assertEquals("email", exception.values["claim"])
         coVerify(exactly = 0) { userManager.createUser(any()) }
     }
+
+    @Test
+    fun `createOrAssociateUserWithProviderUserInfo - Refuse when one asserted value is owned and the rest are free`() =
+        runTest {
+            val provider = createProvider()
+            val providerUserInfo = RawProviderClaims(
+                subject = "sub-123",
+                email = "taken@example.com",
+                phoneNumber = "+33612345678"
+            )
+            val emailClaim = mockk<Claim>()
+            val phoneClaim = mockk<Claim>()
+
+            every { uncheckedAuthConfig.userMergingEnabled } returns true
+            coEvery { providerClaimsManager.findByProviderAndSubject(provider, "sub-123") } returns null
+            every { uncheckedAuthConfig.identifierClaims } returns listOf(
+                OpenIdConnectClaimId.EMAIL,
+                OpenIdConnectClaimId.PHONE_NUMBER
+            )
+            every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
+            every { claimManager.findByIdOrNull(OpenIdConnectClaimId.PHONE_NUMBER) } returns phoneClaim
+            // No account matches both, which is what the resolving read answers and why merging finds none.
+            coEvery {
+                userManager.findByIdentifierClaims(
+                    mapOf("email" to "taken@example.com", "phone_number" to "+33612345678")
+                )
+            } returns null
+            val asserted = mapOf(
+                "email" to "\"taken@example.com\"",
+                "phone_number" to "\"+33612345678\""
+            )
+            every { collectedClaimManager.getIdentifierValuesIn(any()) } returns asserted
+            coEvery {
+                userManager.findTakenIdentifierClaimIdOrNull(
+                    null,
+                    listOf(OpenIdConnectClaimId.EMAIL, OpenIdConnectClaimId.PHONE_NUMBER),
+                    asserted
+                )
+            } returns OpenIdConnectClaimId.EMAIL
+
+            val exception = assertThrows<BusinessException> {
+                establisher.createOrAssociateUserWithProviderUserInfo(sessionId, provider, providerUserInfo)
+            }
+
+            // The account created over that address would have died at its own promotion instead.
+            assertEquals("user.create_with_provider.existing_user", exception.detailsId)
+            assertEquals(OpenIdConnectClaimId.EMAIL, exception.values["claim"])
+            coVerify(exactly = 0) { userManager.createUser(any()) }
+        }
 
     @Test
     fun `createOrAssociateUserWithProviderUserInfo - Throw when the subject was linked while the callback ran`() =
