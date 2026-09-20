@@ -52,8 +52,8 @@ ends.** The manager joins the caller's transaction, so the caller decides how mu
 lock covers.
 
 ```kotlin
-lockManager.withLock(*keysOver(identifierValues, links)) {
-    checkIdentifierClaimsStillFree(claimIds, identifierValues)
+lockManager.withLock(*keysOver(identifierValues.values.toList(), links)) {
+    checkIdentifierClaimsStillFree(userId, claimIds, identifierValues)
     collectedClaimRepository.clearSessionId(userId, sessionId)
 }
 ```

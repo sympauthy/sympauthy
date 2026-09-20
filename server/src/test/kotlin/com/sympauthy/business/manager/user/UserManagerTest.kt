@@ -206,7 +206,7 @@ class UserManagerTest {
     }
 
     @Test
-    fun `findTakenIdentifierClaimIdOrNull - Names a claim another account holds the value under`() = runTest {
+    fun `findTakenIdentifierClaimIdOrNull - Answers the offered claim, not the conflicting row's`() = runTest {
         val userId = UUID.randomUUID()
         committedRows(claimRow(UUID.randomUUID(), phoneClaim, storedAddress))
 

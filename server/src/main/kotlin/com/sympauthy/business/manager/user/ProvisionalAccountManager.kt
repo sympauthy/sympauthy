@@ -159,8 +159,9 @@ open class ProvisionalAccountManager(
     /**
      * Throw `user.promote.identifier_taken` when a committed account already holds one of the
      * [identifierValues] this promotion is about to make committed under one of the identifier claims
-     * [claimIds] — [UserManager.findTakenIdentifierClaimIdOrNull] is the rule, and the same one the sign-up
-     * ran against the same committed-only reader.
+     * [claimIds] — [UserManager.findTakenIdentifierClaimIdOrNull] is the rule. It is asked here a second
+     * time in this account's life, against the same committed-only reader, because an account that
+     * committed while this one was being signed up was invisible the first time.
      *
      * [userId] is the account being promoted, and exempts nothing: a provisional account owns no committed
      * row, so the reader cannot answer with one of its own. It is named because the rule is written for the

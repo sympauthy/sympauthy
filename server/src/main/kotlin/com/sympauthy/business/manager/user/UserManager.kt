@@ -143,13 +143,13 @@ open class UserManager(
      * Return the id of the first identifier claim in [valuesByClaimId] whose value a committed row already
      * holds under one of the identifier claims [claimIds]. Otherwise, return null.
      *
-     * **This is the uniqueness of an identifier, and it is the only place it is expressed.** No database
-     * constraint says it: an end-user signs in with any of the configured identifier claims, so a value
-     * belongs to one account across all of them rather than within one column. That is why the offered
-     * values are matched against every identifier claim in one query rather than claim by claim, and why a
-     * caller asking the question claim by claim — or asking for a row matching *all* of the values it
-     * offers — would be asking a different one: the account holding one of those values and not the others
-     * would answer nothing, and it owns the identity just the same.
+     * **This is the uniqueness of an identifier.** No database constraint says it: an end-user signs in
+     * with any of the configured identifier claims, so a value belongs to one account across all of them
+     * rather than within one column. That is why the offered values are matched against every identifier
+     * claim in one query rather than claim by claim, and why a caller asking the question claim by claim —
+     * or asking for a row matching *all* of the values it offers — would be asking a different one: the
+     * account holding one of those values and not the others would answer nothing, and it owns the
+     * identity just the same.
      *
      * **[userId] is the account the values are being made to belong to, and its own rows are exempt under
      * the same claim.** Rewriting a value it already holds takes nothing from anybody. Every other row is a

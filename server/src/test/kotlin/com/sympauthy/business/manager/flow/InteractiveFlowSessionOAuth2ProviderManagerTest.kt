@@ -541,10 +541,11 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             )
 
             assertSame(advanced, result)
-            // userManager is left unstubbed: the conflict cannot be evaluated when a claim is missing, so
-            // reaching the write is proof it was never asked — and a key over a check that did not run
-            // would make a promotion wait for nothing. One row, and it is the subject's: naming a stripe
-            // that must not be taken would say nothing about a key built from some other spelling.
+            // userManager is left unstubbed: a provider asserting none of the configured identifier claims
+            // offers nothing to compare, so reaching the write is proof it was never asked — and a key over
+            // a check that did not run would make a promotion wait for nothing. One row, and it is the
+            // subject's: naming a stripe that must not be taken would say nothing about a key built from
+            // some other spelling.
             coVerify(exactly = 1) { objectLockRepository.lock(any()) }
             coVerify { objectLockRepository.lock(LockKey.ProviderSubject(provider.id, "sub-123").stripe) }
         }
