@@ -7,7 +7,6 @@ import com.sympauthy.testcontainers.flow.Credentials
 import com.sympauthy.testcontainers.flow.FlowException
 import com.sympauthy.testcontainers.flow.InteractiveFlowRegistry
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
@@ -62,23 +61,27 @@ class MultipleIdentifierClaimsFeatureIT : AbstractSympauthyIT() {
     @ParameterizedTest(name = "a second account cannot take an identifier another holds on {0}")
     @EnumSource(Database::class)
     fun refusesAnIdentifierAnotherAccountHoldsUnderAnotherClaim(database: Database) {
-        withContainer(database, extraConfig = twoIdentifierClaims(), scopes = SCOPES) { _, registry ->
-            registry.newFlow()
+        withContainer(database, extraConfig = twoIdentifierClaims(), scopes = SCOPES) { sympauthy, registry ->
+            val first = registry.newFlow()
                 .withSignUpHandler { mapOf("email" to EMAIL, "preferred_username" to USERNAME, "password" to PASSWORD) }
                 .run()
+            val account = subjectOf(sympauthy, first.exchange().idToken())
 
             // Offered as a username, the address the first account signs in with. Nothing about this
             // account collides claim by claim — its own email is free — which is why the check has to
-            // range over the whole set.
+            // range over the whole set. Its password differs from the first's, so an account that did
+            // come out of it could not be mistaken for the one that already exists.
             val crossing = registry.newFlow()
                 .withSignUpHandler {
-                    mapOf("email" to OTHER_EMAIL, "preferred_username" to EMAIL, "password" to PASSWORD)
+                    mapOf("email" to OTHER_EMAIL, "preferred_username" to EMAIL, "password" to OTHER_PASSWORD)
                 }
 
             assertThrows<FlowException>("the sign-up must not complete") { crossing.run() }
 
-            // The address still signs the first account in, and its password is still the first's.
-            assertNotNull(signIn(registry, EMAIL), "the address is untouched")
+            assertEquals(
+                account, subjectOf(sympauthy, signIn(registry, EMAIL, PASSWORD)),
+                "the address still reaches the account that owns it, under its own password",
+            )
         }
     }
 
@@ -97,9 +100,9 @@ class MultipleIdentifierClaimsFeatureIT : AbstractSympauthyIT() {
     )
 
     /** The id token of a complete sign-in with [login], as the server signed it. */
-    private fun signIn(registry: InteractiveFlowRegistry, login: String): String =
+    private fun signIn(registry: InteractiveFlowRegistry, login: String, password: String = PASSWORD): String =
         registry.newFlow()
-            .withSignInHandler { Credentials.of(login, PASSWORD) }
+            .withSignInHandler { Credentials.of(login, password) }
             .run()
             .exchange()
             .idToken()
@@ -113,6 +116,7 @@ class MultipleIdentifierClaimsFeatureIT : AbstractSympauthyIT() {
         const val EMAIL = "ada@example.com"
         const val USERNAME = "ada.lovelace"
         const val OTHER_EMAIL = "grace@example.com"
+        const val OTHER_PASSWORD = "0therP@ssw0rd!"
         const val PASSWORD = "Str0ngP@ssw0rd!"
 
         val SCOPES = listOf("openid", "profile")

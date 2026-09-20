@@ -77,13 +77,14 @@ which is precisely what the resolving read answers nothing about.
 where it was being claimed: the same loss is recoverable at one moment in a flow and not at the
 next, and only the caller knows which moment it is standing in.
 
-**A caller holding an account of its own names it, and its rows under that same claim are exempt.**
-Rewriting a value it already holds takes nothing from anybody. A caller whose account does not exist
-yet names none, and nothing is exempt.
+**A caller holding an account of its own names it, and every row that account already holds is
+exempt.** A value it holds resolves to it under whichever claim the row sits, so there is no pair to
+exclude. A caller whose account does not exist yet names none, and nothing is exempt.
 
 **Every writer that makes a value an account's asks the second question, at the moment it claims
-it.** Which writers those are is the rule's own KDoc to say; a list here would be a second copy of
-it, and the copy that goes stale.
+it**, and answers for the refusal itself. They are not listed here or anywhere else: a census of them
+stops being true the next time one is added, which is [the comment
+standard's](comment-standard.md) rule and holds of a document as much as of a KDoc.
 
 ## What a provider asserts
 

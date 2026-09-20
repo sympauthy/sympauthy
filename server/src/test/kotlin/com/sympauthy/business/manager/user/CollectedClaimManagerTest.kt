@@ -482,6 +482,43 @@ class CollectedClaimManagerTest {
         coVerify(exactly = 0) { objectLockRepository.lock(any()) }
     }
 
+    @Test
+    fun `getIdentifierValuesIn - Keeps an identifier claim's value, as collected_claims spells it`() {
+        val emailClaim = mockEmailClaim()
+        val update = mockUpdateOfClaim(emailClaim, Optional.of(EMAIL))
+        every { claimManager.listIdentifierClaims() } returns listOf(emailClaim)
+        every { collectedClaimUpdateMapper.toValue(Optional.of(EMAIL)) } returns STORED_EMAIL
+
+        assertEquals(mapOf(EMAIL_CLAIM to STORED_EMAIL), manager.getIdentifierValuesIn(listOf(update)))
+    }
+
+    @Test
+    fun `getIdentifierValuesIn - Drops a claim that is not an identifier one`() {
+        every { claimManager.listIdentifierClaims() } returns listOf(mockk())
+
+        // Nothing about the update is stubbed: one whose claim is not in the set is dropped before either
+        // its claim id or its value is read, which is the whole of what this holds.
+        assertTrue(manager.getIdentifierValuesIn(listOf(mockk(relaxed = true))).isEmpty())
+    }
+
+    @Test
+    fun `getIdentifierValuesIn - Drops an update clearing a claim, which takes no value from anybody`() {
+        val emailClaim = mockk<Claim>()
+        every { claimManager.listIdentifierClaims() } returns listOf(emailClaim)
+        every { collectedClaimUpdateMapper.toValue(null) } returns null
+
+        assertTrue(manager.getIdentifierValuesIn(listOf(mockUpdateOfClaim(emailClaim, null))).isEmpty())
+    }
+
+    @Test
+    fun `getIdentifierValuesIn - Answers nothing when the deployment names no identifier claim`() {
+        every { claimManager.listIdentifierClaims() } returns emptyList()
+
+        // The updates are never looked at: with no identifier claim configured there is nothing to match
+        // them against, and the read below them never runs.
+        assertTrue(manager.getIdentifierValuesIn(listOf(mockk())).isEmpty())
+    }
+
     private fun committedUser(): User = mockk {
         every { id } returns UUID.randomUUID()
         every { sessionId } returns null
