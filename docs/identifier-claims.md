@@ -31,19 +31,26 @@ could not see an identifier claim would lose its sign-in rather than be told it 
 
 ## One value, one account
 
-**A value belongs to one account across the whole set, and not within one claim.** Two accounts
-holding one value under different claims make a login ambiguous — the read resolving it answers one
-row or fails — so the rule spans the set rather than each claim in it.
+**A value resolves to one account, and that is the whole of the rule.** A login is a single value
+matched against every claim in the set, so two accounts holding one value — under the same claim or
+under different ones — make it resolve to either of them.
+
+**The crossed pair is what that costs, and it is a sign-in against the wrong account.** Let one
+account hold `email = a` and `preferred_username = b`, and another hold `email = b` and
+`preferred_username = a`. Typing `a` matches two rows belonging to two accounts; the read returns
+one of them, and the person who owns `a` is resolved to the other account and has their password
+checked against it. Neither account is malformed on its own, which is why the rule has to range over
+the whole set rather than over each claim in it.
 
 **Nothing in the schema says it.** `collected_claims` holds a row per claim, so the rule ranges over
 rows of one column and over several columns at once, and a unique index expresses neither.
 `UserManager.findTakenIdentifierClaimIdOrNull` is the whole of it, and its KDoc is the authority on
 what it compares.
 
-**An account holding one value under two of its own identifier claims is the same breakage.** It
-matches itself twice, and the read resolving an identifier fails rather than choosing. Its own row
-is refused for the reason a stranger's is, which is why the exemption a caller gets over its own
-account is per claim and not per account.
+**One account holding one value under two of its own identifier claims is not that.** Both rows
+carry the same user, so a login resolves to that account whichever of them the read picks. The rule
+refuses it anyway — a caller's own row is exempt only under the same claim — which is stricter than
+the invariant needs and is [left open below](#what-this-document-does-not-settle).
 
 **The rule sees committed rows only.** Two sign-ups may therefore hold one value at a time, and
 which of them keeps it is settled when the first one
@@ -90,6 +97,11 @@ the account being created, so a partial assertion would leave a partial account 
 different thing from a partial check.
 
 ## What this document does not settle
+
+**Whether an account may hold one value under two of its own identifier claims.** The invariant
+above does not forbid it: both rows name the same account, so a login resolves the same either way.
+The rule refuses it regardless, and an account in that state can then neither rewrite its own identifier
+nor have a provider linked to it. Whether the strictness earns what it costs is undecided.
 
 **Whether an account may hold only some of the set.** Nothing decides it, and the two provider paths
 above disagree by accident of what each of them writes rather than by a rule. Settling it is a

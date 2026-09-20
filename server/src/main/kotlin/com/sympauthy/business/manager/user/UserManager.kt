@@ -151,11 +151,18 @@ open class UserManager(
      * account holding one of those values and not the others would answer nothing, and it owns the
      * identity just the same.
      *
+     * **What it protects is that a value resolves to one account.** Two accounts holding one value make a
+     * login resolve to either — including when neither is malformed on its own, which is the pair one
+     * account holding `email = a` and `preferred_username = b` makes with another holding `email = b` and
+     * `preferred_username = a`: typing `a` matches a row of each, and the owner of `a` is signed in
+     * against the other account. Ranging over the whole set rather than over each claim is what excludes
+     * that pair.
+     *
      * **[userId] is the account the values are being made to belong to, and its own rows are exempt under
-     * the same claim.** Rewriting a value it already holds takes nothing from anybody. Every other row is a
-     * conflict, including one of its own under a different identifier claim — an account holding one value
-     * under two of them matches itself twice, and the read resolving an identifier answers one row or
-     * fails. A caller with no account yet passes null and nothing is exempt.
+     * the same claim.** Rewriting a value it already holds takes nothing from anybody. Its own row under a
+     * *different* identifier claim is refused too, which is stricter than the invariant above needs — both
+     * rows would name the one account — and `docs/identifier-claims.md` is where that is left open. A
+     * caller with no account yet passes null and nothing is exempt.
      *
      * **It answers what is committed *now***, which is only worth asking under a lock over those values:
      * the account it has to exclude may commit between the read and whatever the caller does about it. It
