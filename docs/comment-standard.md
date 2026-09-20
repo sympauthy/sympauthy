@@ -37,6 +37,16 @@ these:
 **A function's KDoc documents the function.** State what it does, what it requires of its arguments,
 what it returns and what it throws, naming the error code a caller has to handle.
 
+**It does not document its call sites.** Who calls this, how many of them there are and what each
+wants it for are facts about the rest of the tree, and the sentence holding them stops being true
+the moment somebody adds the next caller — silently, because nothing compiles a census. The
+declaration that reads as having exactly one caller is the one most likely to be given a second.
+
+**What a caller has to know is written as a condition on its arguments instead.** "A caller holding
+no account yet passes null" is a rule the next caller reads and obeys; "the three callers are the
+sign-in, the merge and the sign-up" is a list that was accurate once. Why a particular caller needs
+the function is its own to say, at the call site, where a reader is already standing.
+
 **The rationale goes where it stays true:**
 
 | Rationale | Goes to |

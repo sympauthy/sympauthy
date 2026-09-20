@@ -4,9 +4,12 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
+import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
+import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.UserRepository
+import io.micronaut.data.repository.jpa.criteria.PredicateSpecification
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -15,6 +18,7 @@ import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import io.mockk.slot
+import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -25,6 +29,13 @@ import java.util.*
 
 @ExtendWith(MockKExtension::class)
 class UserManagerTest {
+
+    private val emailClaim = OpenIdConnectClaimId.EMAIL
+    private val phoneClaim = OpenIdConnectClaimId.PHONE_NUMBER
+
+    /** The two values as `collected_claims` spells them, which is the spelling every caller offers. */
+    private val storedAddress = "\"user@example.com\""
+    private val storedNumber = "\"+33612345678\""
 
     @MockK
     lateinit var collectedClaimRepository: CollectedClaimRepository
@@ -185,6 +196,97 @@ class UserManagerTest {
         val exception = assertThrows<BusinessException> { manager.checkPromoted(provisionalUser(userId)) }
         assertEquals("user.not_promoted", exception.detailsId)
     }
+
+    @Test
+    fun `findTakenIdentifierClaimIdOrNull - Asks nothing when no claim or no value is offered`() = runTest {
+        val userId = UUID.randomUUID()
+
+        assertNull(manager.findTakenIdentifierClaimIdOrNull(userId, emptyList(), mapOf(emailClaim to storedAddress)))
+        assertNull(manager.findTakenIdentifierClaimIdOrNull(userId, listOf(emailClaim), emptyMap()))
+    }
+
+    @Test
+    fun `findTakenIdentifierClaimIdOrNull - Names a claim another account holds the value under`() = runTest {
+        val userId = UUID.randomUUID()
+        committedRows(claimRow(UUID.randomUUID(), phoneClaim, storedAddress))
+
+        val taken = manager.findTakenIdentifierClaimIdOrNull(
+            userId, listOf(emailClaim, phoneClaim), mapOf(emailClaim to storedAddress)
+        )
+
+        assertEquals(emailClaim, taken)
+    }
+
+    @Test
+    fun `findTakenIdentifierClaimIdOrNull - Names the one taken value though the others are free`() = runTest {
+        val userId = UUID.randomUUID()
+        committedRows(claimRow(UUID.randomUUID(), emailClaim, storedAddress))
+
+        // The rule is any of the offered values under any identifier claim, and not an account holding all
+        // of them: the account owning one owns the identity whether or not it owns the rest.
+        val taken = manager.findTakenIdentifierClaimIdOrNull(
+            userId,
+            listOf(emailClaim, phoneClaim),
+            mapOf(emailClaim to storedAddress, phoneClaim to storedNumber)
+        )
+
+        assertEquals(emailClaim, taken)
+    }
+
+    @Test
+    fun `findTakenIdentifierClaimIdOrNull - Passes over a row the account holds under that same claim`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            committedRows(claimRow(userId, emailClaim, storedAddress))
+
+            val taken = manager.findTakenIdentifierClaimIdOrNull(
+                userId, listOf(emailClaim, phoneClaim), mapOf(emailClaim to storedAddress)
+            )
+
+            assertNull(taken)
+        }
+
+    @Test
+    fun `findTakenIdentifierClaimIdOrNull - Names a row the account holds under another claim`() = runTest {
+        val userId = UUID.randomUUID()
+        committedRows(claimRow(userId, phoneClaim, storedAddress))
+
+        // Its own, and still a conflict: holding one value under two identifier claims makes the read that
+        // resolves an identifier match the account twice.
+        val taken = manager.findTakenIdentifierClaimIdOrNull(
+            userId, listOf(emailClaim, phoneClaim), mapOf(emailClaim to storedAddress)
+        )
+
+        assertEquals(emailClaim, taken)
+    }
+
+    @Test
+    fun `findTakenIdentifierClaimIdOrNull - Exempts nothing for a caller holding no account yet`() = runTest {
+        committedRows(claimRow(UUID.randomUUID(), emailClaim, storedAddress))
+
+        val taken = manager.findTakenIdentifierClaimIdOrNull(
+            null, listOf(emailClaim), mapOf(emailClaim to storedAddress)
+        )
+
+        assertEquals(emailClaim, taken)
+    }
+
+    private fun committedRows(vararg rows: CollectedClaimEntity) {
+        every {
+            collectedClaimRepository.findAll(any<PredicateSpecification<CollectedClaimEntity>>())
+        } returns rows.asList().asFlow()
+    }
+
+    /** The values are the ones `collected_claims` holds, quotes included, which is what the rows compare on. */
+    private fun claimRow(userId: UUID, claim: String, value: String) = CollectedClaimEntity(
+        userId = userId,
+        claim = claim,
+        value = value,
+        verified = null,
+        collectionDate = LocalDateTime.now(),
+        verificationDate = null,
+        sessionId = null
+    )
 
     private fun committedUser(id: UUID) = User(
         id = id,

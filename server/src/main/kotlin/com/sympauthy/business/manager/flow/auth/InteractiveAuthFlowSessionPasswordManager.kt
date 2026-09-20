@@ -263,15 +263,18 @@ open class InteractiveAuthFlowSessionPasswordManager(
      * Throws a recoverable business exception with detailsId ```flow.password.sign_up.existing```
      * if any of the [claims] conflict with another user login.
      *
-     * As a user can use any of the provided [claims] to login, we must ensure that the values are unique
-     * to a user and across the claims.
+     * [UserManager.findTakenIdentifierClaimIdOrNull] is the rule, including why a value has to be free
+     * across every identifier claim rather than within the one offering it. The account being signed up
+     * does not exist yet, so nothing is exempt and the caller is named as none.
      */
     internal suspend fun checkForConflictingUsers(claims: List<CollectedClaimUpdate>) {
         val claimIds = claims.map { it.claim.id }
-        val values = claims
-            .mapNotNull { it.value?.getOrNull() }
-            .mapNotNull(claimValueMapper::toEntity)
-        if (userManager.isIdentifierValueTaken(claimIds, values)) {
+        val valuesByClaimId = claims.mapNotNull { update ->
+            update.value?.getOrNull()
+                ?.let(claimValueMapper::toEntity)
+                ?.let { update.claim.id to it }
+        }.toMap()
+        if (userManager.findTakenIdentifierClaimIdOrNull(null, claimIds, valuesByClaimId) != null) {
             throw recoverableBusinessExceptionOf(
                 detailsId = "flow.password.sign_up.existing",
                 descriptionId = "description.flow.password.sign_up.existing"

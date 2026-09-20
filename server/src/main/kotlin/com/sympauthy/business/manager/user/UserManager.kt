@@ -76,10 +76,13 @@ open class UserManager(
      * Find a committed end-user whose collected claims match ALL entries in [claimValues].
      * Returns the first matching user, or null if none found.
      *
-     * This is how an identifier is resolved to an account — at sign-in, when merging a provider identity, and
-     * when refusing a duplicate sign-up — so an account a session is still signing up never matches. Two
-     * sign-ups may therefore hold the same identifier at once; the collision is settled when the first of them
-     * promotes. See [com.sympauthy.data.model.SessionScoped].
+     * This resolves an identifier to the one account holding it, which is a different question from whether
+     * a value is free: matching every entry is the point, and a caller enforcing uniqueness wants
+     * [findTakenIdentifierClaimIdOrNull] instead.
+     *
+     * An account a session is still signing up never matches. Two sign-ups may therefore hold the same
+     * identifier at once; the collision is settled when the first of them promotes. See
+     * [com.sympauthy.data.model.SessionScoped].
      */
     suspend fun findByIdentifierClaims(claimValues: Map<String, String>): User? {
         val entityClaimValues = claimValues.mapValues { entry -> claimValueMapper.toEntity(entry.value) }
@@ -137,38 +140,36 @@ open class UserManager(
     }
 
     /**
-     * Return true when a committed account already holds any of the [values] under any of the identifier
-     * claims [claimIds].
-     *
-     * The uniqueness of an identifier is not a database constraint — an end-user may sign in with any of the
-     * configured identifier claims, so a value has to be unique across all of them rather than within one
-     * column, which is why the values are matched against every claim rather than claim by claim.
-     *
-     * Asked twice of one sign-up, against the same committed-only rows both times: once when the account is
-     * created, and again when it is promoted, because an account created in the meantime would not have been
-     * visible the first time. See [com.sympauthy.data.model.SessionScoped].
-     */
-    suspend fun isIdentifierValueTaken(claimIds: List<String>, values: List<String>): Boolean {
-        return collectedClaimRepository.findAnyClaimMatching(claimIds, values).isNotEmpty()
-    }
-
-    /**
      * Return the id of the first identifier claim in [valuesByClaimId] whose value a committed row already
-     * holds under one of the identifier claims [claimIds], for a caller about to write them against the
-     * account [userId]. Otherwise, return null.
+     * holds under one of the identifier claims [claimIds]. Otherwise, return null.
      *
-     * The question [isIdentifierValueTaken] asks, for the caller that holds an account rather than one being
-     * created: a row that account itself holds **under the same claim** is not a conflict, because rewriting
-     * a value it already holds takes nothing from anybody. Every other row is, including one of its own
-     * under a different identifier claim — an account holding one value under two of them matches itself
-     * twice, and the read resolving an identifier answers one row or fails.
+     * **This is the uniqueness of an identifier, and it is the only place it is expressed.** No database
+     * constraint says it: an end-user signs in with any of the configured identifier claims, so a value
+     * belongs to one account across all of them rather than within one column. That is why the offered
+     * values are matched against every identifier claim in one query rather than claim by claim, and why a
+     * caller asking the question claim by claim — or asking for a row matching *all* of the values it
+     * offers — would be asking a different one: the account holding one of those values and not the others
+     * would answer nothing, and it owns the identity just the same.
      *
-     * One query over every value, because an end-user signs in with any of the configured identifier claims
-     * and a value therefore has to be free across all of them rather than within one column. The values are
-     * the ones `collected_claims` holds, which is what the rows compare on.
+     * **[userId] is the account the values are being made to belong to, and its own rows are exempt under
+     * the same claim.** Rewriting a value it already holds takes nothing from anybody. Every other row is a
+     * conflict, including one of its own under a different identifier claim — an account holding one value
+     * under two of them matches itself twice, and the read resolving an identifier answers one row or
+     * fails. A caller with no account yet passes null and nothing is exempt.
+     *
+     * **It answers what is committed *now***, which is only worth asking under a lock over those values:
+     * the account it has to exclude may commit between the read and whatever the caller does about it. It
+     * names the claim that lost and raises nothing, because what to say about a value being taken belongs
+     * where it was being claimed, and the same loss is recoverable at one moment and not at the next.
+     *
+     * An account a session is still signing up is invisible here, which is what lets two sign-ups hold one
+     * value at a time — neither blocks the other, and the question is asked again when the first of them
+     * promotes. See [com.sympauthy.data.model.SessionScoped] and `docs/provisional-user.md`.
+     *
+     * The values are the ones `collected_claims` holds, which is what the rows compare on.
      */
     suspend fun findTakenIdentifierClaimIdOrNull(
-        userId: UUID,
+        userId: UUID?,
         claimIds: List<String>,
         valuesByClaimId: Map<String, String>
     ): String? {

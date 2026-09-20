@@ -122,8 +122,10 @@ class ProvisionalAccountManagerTest {
             collectedClaimRepository.findByUserIdAndClaimInList(userId, listOf("email"))
         } returns listOf(claimEntity("email", "\"taken@example.com\""))
         coEvery {
-            userManager.isIdentifierValueTaken(listOf("email"), listOf("\"taken@example.com\""))
-        } returns true
+            userManager.findTakenIdentifierClaimIdOrNull(
+                userId, listOf("email"), mapOf("email" to "\"taken@example.com\"")
+            )
+        } returns "email"
         coEvery { providerUserInfoRepository.findByUserId(userId) } returns emptyList()
 
         val exception = assertThrows<BusinessException> { manager.promote(sessionId, userId) }
@@ -133,7 +135,9 @@ class ProvisionalAccountManagerTest {
         // Stripe 10 is the value as collected_claims spells it, quotes included, which LockKeyTest holds.
         coVerifyOrder {
             objectLockRepository.lock(10)
-            userManager.isIdentifierValueTaken(listOf("email"), listOf("\"taken@example.com\""))
+            userManager.findTakenIdentifierClaimIdOrNull(
+                userId, listOf("email"), mapOf("email" to "\"taken@example.com\"")
+            )
         }
     }
 
@@ -224,6 +228,7 @@ class ProvisionalAccountManagerTest {
 
     private fun noIdentifierClaim() {
         every { claimManager.listIdentifierClaims() } returns emptyList()
+        coEvery { userManager.findTakenIdentifierClaimIdOrNull(userId, emptyList(), emptyMap()) } returns null
     }
 
     @Test
@@ -234,8 +239,10 @@ class ProvisionalAccountManagerTest {
             collectedClaimRepository.findByUserIdAndClaimInList(userId, listOf("email"))
         } returns listOf(claimEntity("email", "\"free@example.com\""))
         coEvery {
-            userManager.isIdentifierValueTaken(listOf("email"), listOf("\"free@example.com\""))
-        } returns false
+            userManager.findTakenIdentifierClaimIdOrNull(
+                userId, listOf("email"), mapOf("email" to "\"free@example.com\"")
+            )
+        } returns null
         coEvery { providerUserInfoRepository.findByUserId(userId) } returns emptyList()
         coEvery { passwordRepository.clearSessionId(userId, sessionId) } returns 1
         coEvery { collectedClaimRepository.clearSessionId(userId, sessionId) } returns 1
@@ -249,7 +256,7 @@ class ProvisionalAccountManagerTest {
         // Stripe 20 is "free@example.com" as collected_claims spells it, which LockKeyTest holds.
         coVerifyOrder {
             objectLockRepository.lock(20)
-            userManager.isIdentifierValueTaken(any(), any())
+            userManager.findTakenIdentifierClaimIdOrNull(any(), any(), any())
             userRepository.clearSessionId(userId, sessionId)
         }
     }
