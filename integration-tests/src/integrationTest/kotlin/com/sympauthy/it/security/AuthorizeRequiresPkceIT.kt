@@ -33,7 +33,6 @@ class AuthorizeRequiresPkceIT : AbstractSympauthyIT() {
                 authorizeUrl(
                     sympauthy,
                     registry,
-                    // Drop both PKCE parameters entirely — a compliant server must refuse to issue a code.
                     mapOf("code_challenge" to null, "code_challenge_method" to null),
                 ),
                 followRedirects = false,

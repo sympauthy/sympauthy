@@ -231,8 +231,8 @@ class InteractiveAuthFlowSessionControllerUtil(
      * - if unrecoverable, the [InteractiveFlowSession] will be marked as failed and the end-user will be redirected to
      *   the error page.
      *
-     * This method is intended to be used by POST operation handling information provided by the end-user to complete
-     * a step of the authorization flow. (ex. providing its login and password to sign in).
+     * [update] applies what the end-user submitted to complete the current step of the authorization flow
+     * (ex. the login and password they signed in with), and answers the session that resulted.
      */
     suspend fun <FlowResource> fetchOnGoingSessionThenUpdateAndRedirect(
         state: String?,
@@ -284,8 +284,8 @@ class InteractiveAuthFlowSessionControllerUtil(
      * - if unrecoverable, the [InteractiveFlowSession] will be marked as failed and the end-user will be redirected to
      *   the error page.
      *
-     * This method is intended to be used by POST operation handling information provided by the end-user to complete
-     * a step of the authorization flow. (ex. providing its login and password to sign in).
+     * [update] applies what the end-user submitted to complete the current step of the authorization flow
+     * (ex. the login and password they signed in with), and answers the session that resulted.
      */
     suspend fun <FlowResource> fetchOnGoingSessionWithUserThenUpdateAndRedirect(
         state: String?,
@@ -384,9 +384,8 @@ class InteractiveAuthFlowSessionControllerUtil(
      * If the state is valid and corresponds to a session, the associated [InteractiveFlowSession] is
      * returned. Otherwise, an exception is thrown to indicate an error during the validation process.
      *
-     * The recording happens here rather than at each of the five entry points above, because this is the
-     * one thing all of them do — and after the state has verified, so a request naming no session writes
-     * nothing.
+     * The recording happens here rather than at each entry point above, because it is the one thing every
+     * one of them does — and after the state has verified, so a request naming no session writes nothing.
      */
     internal suspend fun fetchSessionAndObserveRequest(
         state: String?,

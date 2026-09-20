@@ -5,9 +5,6 @@ import io.micronaut.context.condition.ConditionContext
 import io.r2dbc.h2.H2ConnectionFactory
 import io.r2dbc.spi.ConnectionFactory
 
-/**
- * Condition checking if the default datasource is an H2 database.
- */
 class DefaultDataSourceIsH2 : Condition {
 
     override fun matches(context: ConditionContext<*>): Boolean {

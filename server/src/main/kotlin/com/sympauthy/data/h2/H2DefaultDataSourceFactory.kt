@@ -17,9 +17,8 @@ import org.h2.jdbcx.JdbcDataSource
 import javax.sql.DataSource
 
 /**
- * Create a JDBC [DataSource] using the same connection information of the R2DBC [ConnectionFactory].
- * Unfortunately a JDBC connection is required to migrate our database using Flyway.
- * Otherwise, the whole application relies exclusively on the R2DBC connection.
+ * Create a JDBC [DataSource] using the same connection information of the R2DBC [ConnectionFactory],
+ * for the reason [com.sympauthy.data.postgresql.PostgreSQLDefaultDataSourceFactory] gives.
  *
  * Exemple of r2dbc to jdbc connection string conversions:
  * - r2dbc:h2:mem://localhost/sympauthy -> jdbc:h2:mem:sympauthy

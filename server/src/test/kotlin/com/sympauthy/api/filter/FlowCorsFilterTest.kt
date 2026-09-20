@@ -11,11 +11,11 @@ import org.junit.jupiter.api.Test
 
 class FlowCorsFilterTest : AbstractFlowIntegrationTest() {
 
-    // Origin matching urls.root from application-test.yml — allowed by the default flow
+    /** Origin matching `urls.root` from `application-test.yml` — allowed by the default flow. */
     private val allowedOrigin = "http://localhost:18080"
     private val unknownOrigin = "http://evil.example.com"
 
-    // Both the GET (configuration) and POST (sign-in) endpoints live on SignInController.
+    /** Both the GET (configuration) and POST (sign-in) endpoints live on SignInController. */
     private val path = "/api/v1/flow/sign-in"
 
     /** Mandatory headers, then cors.allowed-headers as declared in application-default.yml. */

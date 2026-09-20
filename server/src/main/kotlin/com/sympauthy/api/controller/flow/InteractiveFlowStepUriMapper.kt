@@ -178,7 +178,8 @@ class InteractiveFlowStepUriMapper(
 
     /**
      * Append the signed internal state identifying the [session] to [uri] as the `state` query parameter.
-     * Public because callers building non-step redirects (e.g. a third-party provider authorize URL) reuse it.
+     * Public because it appends the state to any URI, not only to a step's own — a third-party provider's
+     * authorize URL among them.
      */
     suspend fun appendState(session: InteractiveFlowSession, uri: URI): URI {
         val state = sessionManager.encodeState(session)

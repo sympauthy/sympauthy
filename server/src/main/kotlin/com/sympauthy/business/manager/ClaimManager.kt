@@ -11,12 +11,9 @@ import jakarta.inject.Singleton
 /**
  * Provides unrestricted access to all claim definitions configured on this authorization server.
  *
- * This manager does not apply any scope-based filtering. Use it for admin endpoints, OpenID discovery,
- * configuration, entity-to-model mapping, and any context where consent-based filtering is not applicable.
- *
- * When listing claims to present to the end-user during the authorization flow,
- * use [com.sympauthy.business.manager.user.ConsentAwareClaimManager] instead,
- * which filters claims based on the end-user's consented scopes.
+ * No scope-based filtering is applied here. When listing claims to present to the end-user during the
+ * authorization flow, use [com.sympauthy.business.manager.user.ConsentAwareClaimManager] instead, which
+ * filters claims on the end-user's consented scopes.
  */
 @Singleton
 class ClaimManager(
@@ -32,8 +29,7 @@ class ClaimManager(
     /**
      * Return the [Claim] identified by [id] or null.
      *
-     * Note: This operation is optimized to be called inside loops as it is meant to be consumed by the entity to
-     * business mapper.
+     * Backed by a map built once, so looking up many ids in a row costs no more than the lookups.
      */
     fun findByIdOrNull(id: String): Claim? {
         return cachedClaimsMap[id]

@@ -30,7 +30,6 @@ class ScopeEscalationRejectedIT : AbstractSympauthyIT() {
     fun authorizeRejectsScopeOutsideAllowedSet(database: Database) {
         withContainer(database) { sympauthy, registry ->
             val response = httpGet(
-                // `profile` is a valid server scope but is NOT in this client's allowed-scopes (openid only).
                 authorizeUrl(sympauthy, registry, mapOf("scope" to "openid profile")),
                 followRedirects = false,
             )

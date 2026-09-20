@@ -70,8 +70,6 @@ class ProvisionalSignUpFeatureIT : AbstractSympauthyIT() {
         val paused = registry.newFlow()
             .withSignUpHandler { mapOf("email" to EMAIL, "password" to FIRST_PASSWORD) }
             .withClaimsHandler { requested ->
-                // The first account is written and provisional. A second sign-up for the same address is let
-                // through — the duplicate check cannot see it — and finishes first.
                 racingSignUp = racing.newFlow()
                     .withSignUpHandler { mapOf("email" to EMAIL, "password" to RACING_PASSWORD) }
                     .withClaimsHandler { nested -> nested.associate { it.id() to NAME } }
@@ -91,7 +89,6 @@ class ProvisionalSignUpFeatureIT : AbstractSympauthyIT() {
             "the first flow walked its steps and never reached completion",
         )
 
-        // Exactly one account holds the address, and it is the one that finished: its password signs in.
         val signedIn = racing.newFlow()
             .withSignInHandler { Credentials.of(EMAIL, RACING_PASSWORD) }
             .run()

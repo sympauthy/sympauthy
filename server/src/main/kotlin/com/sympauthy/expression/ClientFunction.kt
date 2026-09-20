@@ -9,7 +9,6 @@ import com.sympauthy.business.model.client.Client
 
 /**
  * Custom function returning the value of a client property as a string.
- * Used in client scope granting rule expressions.
  */
 @FunctionParameter(name = "property")
 class ClientFunction(

@@ -1,5 +1,7 @@
-# This configuration contains a default configuration allowing to start SympAuhty with minimal
+# This configuration contains a default configuration allowing to start SympAuthy with minimal
 # additional configurations.
+#
+# Activate this environment by adding "default" to MICRONAUT_ENVIRONMENTS (e.g. "default,admin").
 
 advanced:
   hash:

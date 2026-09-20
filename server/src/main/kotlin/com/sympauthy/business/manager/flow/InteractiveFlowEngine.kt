@@ -74,9 +74,9 @@ open class InteractiveFlowEngine(
      * step — or null when every purpose has resolved.
      *
      * Read-only counterpart of the [advanceOnGoing] walk: it never mutates the session, so a caller can branch
-     * on which purpose is active without advancing the flow. Used by the sign-in paths to switch between
-     * establishing identity (e.g. [InteractiveFlowPurpose.OAUTH2_AUTHORIZE]) and confirming the already-fixed
-     * user ([InteractiveFlowPurpose.REAUTHENTICATION]).
+     * on which purpose is active — between establishing identity
+     * (e.g. [InteractiveFlowPurpose.OAUTH2_AUTHORIZE]) and confirming the already-fixed user
+     * ([InteractiveFlowPurpose.REAUTHENTICATION]) — without advancing the flow.
      */
     suspend fun currentPurposeOrNull(session: OnGoingInteractiveFlowSession): InteractiveFlowPurpose? {
         return session.purposes.firstOrNull { purpose ->

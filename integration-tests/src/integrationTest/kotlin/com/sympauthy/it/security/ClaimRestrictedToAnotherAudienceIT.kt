@@ -76,7 +76,6 @@ class ClaimRestrictedToAnotherAudienceIT : AbstractSympauthyIT() {
             "the audience the claim is restricted to is told it, or the rest of this proves nothing",
         )
 
-        // Same person, other audience: one user pool, so signing in is all it takes.
         val storefrontTokens = storefront.newFlow()
             .withSignInHandler { Credentials.of(EMAIL, PASSWORD) }
             .run()

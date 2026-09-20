@@ -41,7 +41,6 @@ class ClientsConfigFactoryTest {
     private val parser = ConfigParser()
 
     private fun setUpFieldValidator() {
-        // By default, validateWebhook passes through null.
         coEvery { fieldValidator.validateWebhook(any()) } returns null
     }
 

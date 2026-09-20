@@ -107,7 +107,6 @@ class InteractiveFlowSessionRepositoryTest {
     ) = withFixture(database) {
         val sessions = repository<InteractiveFlowSessionRepository>()
         val session = newSession()
-        // Advance the row to version 1 so the original snapshot (version 0) is now stale.
         sessions.updatePurposes(session.id!!, arrayOf("MFA_CHALLENGE"), expectedVersion = 0)
 
         val updated = sessions.updatePurposes(
@@ -170,11 +169,9 @@ class InteractiveFlowSessionRepositoryTest {
             val sessions = repository<InteractiveFlowSessionRepository>()
             val id = newSession().id!!
 
-            // Ongoing: the guard bumps the version regardless of its current value.
             assertEquals(1, sessions.failIfOngoing(id))
             assertEquals(1L, sessions.findById(id)!!.version)
 
-            // Drive it to a terminal (completed) state; the guard must then refuse.
             sessions.updateCompleteDate(id, BASE_DATE.plusMinutes(2), expectedVersion = 1)
             assertEquals(0, sessions.failIfOngoing(id))
         }

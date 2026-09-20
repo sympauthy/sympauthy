@@ -1,8 +1,3 @@
-# This application.yml provides configuration only for the Micronaut server.
-# It does not provide any default value for the SympAuthy configuration.
-# This is done to easily disable the default configuration of SympAuthy.
-# Enable default profile using Micronaut environments: https://docs.micronaut.io/latest/guide/#environments
-
 micronaut:
   application:
     name: sympauthy
@@ -68,9 +63,6 @@ endpoints:
     jdbc:
       enabled: false
 
-# Classpaths for all supported databases must be listed under location and all terminate by the name of the driver: postgresql, h2
-# They should also be listed in the build.gradle.kts, in the graalvmNative configuration.
-# See https://micronaut-projects.github.io/micronaut-flyway/latest/guide/#graalvm
 flyway:
   enabled: true
   datasources:

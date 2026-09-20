@@ -30,9 +30,7 @@ import java.util.*
  * - `1` — the row still held `expectedVersion`: the update was applied and the version incremented.
  * - `0` — the row no longer holds `expectedVersion`: another request advanced (or terminated) the
  *   session since it was read, so the caller's in-memory snapshot is stale and the update was a
- *   no-op. The caller must treat this as a concurrent-modification conflict. See
- *   [com.sympauthy.business.manager.flow.InteractiveFlowSessionManager], which fails the session
- *   (routing the end-user to the error page) on a lost swap.
+ *   no-op. The caller must treat this as a concurrent-modification conflict.
  *
  * Each statement is atomic on its own: the row lock a matching `UPDATE` takes serialises concurrent
  * writers, so exactly one can observe a given `expectedVersion`. No surrounding transaction is
@@ -42,8 +40,7 @@ import java.util.*
  * correctly only through Micronaut's property-mapped serialization, not through a raw-query
  * parameter, so it cannot be expressed as a single versioned statement. It is instead a scalar
  * [failIfOngoing] guard (which bumps the version only while the session is still ongoing) paired with
- * the derived [updateError] inside one transaction
- * (see [com.sympauthy.business.manager.flow.InteractiveFlowSessionManager.markAsFailedIfNotRecoverable]).
+ * the derived [updateError] inside one transaction.
  *
  * `version` is deliberately a plain column rather than a Micronaut Data `@Version` property:
  * `@Version` optimistic locking only engages on full-entity `update(entity)` / `delete(entity)`,
@@ -151,9 +148,8 @@ interface InteractiveFlowSessionRepository : CoroutineCrudRepository<Interactive
 
     /**
      * Write the terminal error, failing the session. Unguarded on its own: it must be paired with a
-     * preceding [failIfOngoing] in the same transaction (see
-     * [com.sympauthy.business.manager.flow.InteractiveFlowSessionManager.markAsFailedIfNotRecoverable]).
-     * Kept as a derived method so `error_values` is serialized to JSON by Micronaut's property mapping,
+     * preceding [failIfOngoing] in the same transaction. Kept as a derived method so `error_values` is
+     * serialized to JSON by Micronaut's property mapping,
      * which a raw-query parameter does not do.
      */
     suspend fun updateError(

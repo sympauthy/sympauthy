@@ -12,11 +12,12 @@ class InteractiveFlowSessionOAuth2Entity(
     @get:Id
     val sessionId: UUID,
 
-    // Authorize endpoint fields
-    // clientId / redirectUri are nullable: the record is also created for a failed authorize request
-    // (to preserve state for replay detection) where the client or redirect URI could not be resolved.
-    // They are always present on the ongoing / completed path, which is the only path that reads them;
-    // the mapper enforces that when producing the non-null model.
+    /**
+     * Nullable because the record is also created for a failed authorize request — to preserve the state
+     * for replay detection — where the client or the redirect URI could not be resolved. Both are present
+     * once the request reaches the ongoing / completed path, and the mapper enforces that when it produces
+     * the non-null model. [redirectUri] follows the same rule.
+     */
     val clientId: String? = null,
     val redirectUri: String? = null,
     val requestedScopes: Array<String> = emptyArray(),
@@ -25,15 +26,12 @@ class InteractiveFlowSessionOAuth2Entity(
     val codeChallenge: String? = null,
     val codeChallengeMethod: String? = null,
 
-    // Invitation
     val invitationId: UUID? = null,
 
-    // Consent
     val consentedScopes: Array<String>? = null,
     val consentedAt: LocalDateTime? = null,
     val consentedBy: String? = null,
 
-    // Granting / Authorization
     val grantedScopes: Array<String>? = null,
     val grantedAt: LocalDateTime? = null,
     val grantedBy: String? = null,

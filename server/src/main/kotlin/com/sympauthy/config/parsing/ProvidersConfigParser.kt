@@ -16,20 +16,18 @@ data class ParsedProviderConfig(
     val name: String?,
     val hasOidc: Boolean,
     val hasOAuth2: Boolean,
-    // OAuth2 fields
     val oauth2ClientId: String?,
     val oauth2ClientSecret: String?,
     val oauth2Scopes: List<String>?,
     val oauth2AuthorizationUri: URI?,
     val oauth2TokenUri: URI?,
-    // OIDC fields
     val oidcClientId: String?,
     val oidcClientSecret: String?,
     val oidcScopes: List<String>,
     val oidcIssuer: URI?,
-    // User info fields (for OAuth2 only)
     val userInfoUri: URI?,
     val userInfoPaths: Map<ProviderUserInfoPathKey, JsonPath>?,
+    /** Whether the provider carries a user info endpoint of its own, which only an OAuth2 one does. */
     val hasUserInfo: Boolean
 )
 

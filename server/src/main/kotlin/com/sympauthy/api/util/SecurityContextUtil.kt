@@ -26,8 +26,8 @@ import jakarta.inject.Singleton
  * It is a bean rather than a function because which headers may be believed is a deployment's to
  * decide, and it is in the `api` layer because a request is what it reads.
  *
- * **It answers for every request and throws for none.** `ObservedRequestFilter` calls it on the whole
- * chain, so a failure here would be a failure of every endpoint including the one reporting why —
+ * **It answers for every request and throws for none.** It is read on the whole filter chain, so a
+ * failure here would be a failure of every endpoint including the one reporting why —
  * [enabledSecurityContextOrNull] is where that is held.
  */
 @Singleton

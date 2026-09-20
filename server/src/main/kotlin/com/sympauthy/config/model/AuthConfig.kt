@@ -11,8 +11,8 @@ data class EnabledAuthConfig(
     val token: TokenConfig,
     val authorizationCode: AuthorizationCodeConfig,
     /**
-     * List of claim IDs that uniquely identify a user.
-     * Used as login claims for password sign-in and as merging keys for provider-based authentication.
+     * The claim IDs that identify an account, any one of which does so on its own: a value one of them
+     * holds belongs to a single account across all of them rather than within one claim.
      */
     val identifierClaims: List<String>,
     val userMergingEnabled: Boolean,

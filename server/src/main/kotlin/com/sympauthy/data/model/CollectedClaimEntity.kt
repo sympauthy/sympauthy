@@ -18,8 +18,11 @@ class CollectedClaimEntity(
     var verificationDate: LocalDateTime?,
     override var sessionId: UUID?
 ) : SessionScoped {
-    // This id has no real use, we should use a composed primary key here instead.
-    // But since we cannot query on embedded key using Criteria API, we must keep everything flat...
+    /**
+     * No use beyond being the single-column id Micronaut Data requires: a composed key over the user, the
+     * claim and the session would fit the table better, but the Criteria API cannot query an embedded one,
+     * so everything stays flat.
+     */
     @Id
     @GeneratedValue
     var id: UUID? = null

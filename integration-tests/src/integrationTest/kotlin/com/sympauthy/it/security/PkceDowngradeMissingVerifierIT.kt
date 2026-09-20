@@ -42,7 +42,7 @@ class PkceDowngradeMissingVerifierIT : AbstractSympauthyIT() {
                     "code" to code,
                     "redirect_uri" to registry.redirectUri(),
                     "client_id" to registry.clientId(),
-                    // No code_verifier at all — the client sent a challenge, so one is mandatory.
+                    // No code_verifier at all.
                 ),
             )
 

@@ -10,23 +10,28 @@ class AuthorizationFlowConfigurationProperties(
 ) {
     var type: String? = null
 
-    // Properties for web flows
     var root: String? = null
     var signIn: String? = null
     var collectClaims: String? = null
     var validateClaims: String? = null
     var error: String? = null
 
-    // Properties for sign-up (optional; only required when sign-up or invitation is enabled)
+    /** Where sign-up is served. Required only where sign-up or invitation is enabled. */
     var signUp: String? = null
 
-    // Property for the confirm page (optional; only required when a confirm-gated flow is configured)
+    /** Where the confirm page is served. Required only where a confirm-gated flow is configured. */
     var confirm: String? = null
 
-    // Properties for MFA steps (optional; only required when MFA is enabled)
+    /** Where a second factor is picked to enrol. Required only where MFA is enabled. */
     var mfaSelectionForEnrollment: String? = null
+
+    /** Where a second factor is picked to answer a challenge. Required only where MFA is enabled. */
     var mfaSelectionForChallenge: String? = null
+
+    /** Where a TOTP enrolment is completed. Required only where MFA is enabled. */
     var mfaTotpEnroll: String? = null
+
+    /** Where a TOTP challenge is answered. Required only where MFA is enabled. */
     var mfaTotpChallenge: String? = null
 
     companion object {

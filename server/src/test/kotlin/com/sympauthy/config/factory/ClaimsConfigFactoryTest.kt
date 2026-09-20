@@ -116,7 +116,6 @@ class ClaimsConfigFactoryTest {
         assertInstanceOf(EnabledClaimsConfig::class.java, result)
         val claims = (result as EnabledClaimsConfig).claims
         val customClaim = claims.first { it.id == "department" }
-        // Default template has enabled=null so default is true for custom claims
         assertTrue(customClaim.enabled)
     }
 
@@ -131,7 +130,6 @@ class ClaimsConfigFactoryTest {
         assertInstanceOf(EnabledClaimsConfig::class.java, result)
         val claims = (result as EnabledClaimsConfig).claims
         val emailClaim = claims.first { it.id == "email" }
-        // openid template has enabled=false
         assertFalse(emailClaim.enabled)
     }
 
@@ -167,14 +165,13 @@ class ClaimsConfigFactoryTest {
 
         assertInstanceOf(EnabledClaimsConfig::class.java, result)
         val emailClaim = (result as EnabledClaimsConfig).claims.first { it.id == "email" }
-        // Claim overrides template's enabled=false with true
         assertTrue(emailClaim.enabled)
     }
 
     @Test
     fun `provideClaims - type is required`() {
         val properties = listOf(
-            claimProperties(id = "department") // no type
+            claimProperties(id = "department")
         )
 
         val result = factory.provideClaims(properties)

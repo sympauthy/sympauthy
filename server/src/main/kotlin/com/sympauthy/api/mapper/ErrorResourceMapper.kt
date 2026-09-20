@@ -24,7 +24,6 @@ class ErrorResourceMapper(
             errorCode = localizedError.errorCode,
             description = localizedError.description,
             details = localizedError.details,
-            // A failure refusing no property in particular carries no key, rather than an empty list.
             properties = localizedError.properties.takeIf { it.isNotEmpty() }?.map(::toResource)
         )
     }

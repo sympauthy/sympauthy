@@ -69,7 +69,6 @@ class ConfirmControllerTest {
 
             assertEquals("ENROLL_MFA", result.action)
             assertEquals("client-x", result.initiatingClientId)
-            // No REAUTHENTICATION purpose in the chain -> the UI is told no re-auth follows.
             assertFalse(result.requiresReauthentication)
             assertNull(result.redirectUrl)
         }
@@ -103,7 +102,6 @@ class ConfirmControllerTest {
 
         assertEquals("LINK_PROVIDER", result.action)
         assertNull(result.initiatingClientId)
-        // An unresolved REAUTHENTICATION purpose is ahead -> warn the UI up front.
         assertTrue(result.requiresReauthentication)
     }
 

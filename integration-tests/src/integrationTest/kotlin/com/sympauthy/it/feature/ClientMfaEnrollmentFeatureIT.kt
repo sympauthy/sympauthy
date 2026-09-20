@@ -50,12 +50,9 @@ class ClientMfaEnrollmentFeatureIT : AbstractSympauthyIT() {
             client = Client.confidentialClient(clientId, CLIENT_SECRET),
             build = { fixture, registry -> mfaEnrollmentContainer(fixture, registry) },
         ) { sympauthy, registry ->
-            // The calling client authenticates with a client-credentials token holding users:mfa:write.
             val callerToken = clientCredentialsToken(sympauthy, registry, "users:mfa:write")
-            // An end-user of that client, and the access token identifying them to the enrollment endpoint.
             val userToken = signUpAccessToken(registry, "ada@example.com")
 
-            // Start the standalone enrollment on behalf of that user, authenticated as the calling client.
             val returnUri = mfaEnrollmentReturnUri(registry)
             val cancelUri = mfaEnrollmentCancelUri(registry)
             val enrollment = withApiClient(sympauthy, token = callerToken) { ctx ->
@@ -64,7 +61,6 @@ class ClientMfaEnrollmentFeatureIT : AbstractSympauthyIT() {
                 ).block()
             } ?: fail("enrollment init should return a state and redirect_url")
 
-            // Drive the returned link through confirm → TOTP enrollment.
             val flow = registry.newFlow()
                 .withConfirmHandler { resource ->
                     assertEquals("ENROLL_MFA", resource.action(), "confirm should describe the action")

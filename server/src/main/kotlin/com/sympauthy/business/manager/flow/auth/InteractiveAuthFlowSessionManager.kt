@@ -261,10 +261,10 @@ class InteractiveAuthFlowSessionManager(
      * Takes the already-fetched [oauth2] record (rather than the session) so a caller that also needs it —
      * e.g. for the invitation id — fetches it once.
      *
-     * [recoverable] is the flag that exception carries, and it decides where the rejection goes. Password
-     * sign-up passes `true`, because the person is in front of the page and can supply something else, so
-     * the failure is rethrown to them; provider sign-up passes `false`, because that leg of the flow is
-     * non-interactive and there is nothing for anyone to retry, so the session is failed instead.
+     * [recoverable] is the flag that exception carries, and it decides where the rejection goes. Pass `true`
+     * where the person is in front of the page and can supply something else, so the failure is rethrown to
+     * them; pass `false` on a leg of the flow that is non-interactive, where there is nothing for anyone to
+     * retry and the session is failed instead.
      *
      * The exception is built with the constructor rather than a factory because the flag is a parameter
      * here, and no factory takes it as one.

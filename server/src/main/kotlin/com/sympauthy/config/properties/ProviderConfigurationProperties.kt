@@ -42,7 +42,10 @@ class ProviderConfigurationProperties(
      */
     var oidc: OpenIdConnectConfig? = null
 
-    // Must be nested: https://github.com/micronaut-projects/micronaut-core/issues/2373
+    /**
+     * Nested rather than declared at the top level: Micronaut binds a `@ConfigurationProperties` interface
+     * to the prefix of the class it is nested in, so a top-level one would bind to nothing here.
+     */
     @ConfigurationProperties("ui")
     interface ClientUIConfig {
         /**
@@ -58,7 +61,10 @@ class ProviderConfigurationProperties(
         val buttonText: String?
     }
 
-    // Only one level of nester properties are supported by Micronaut.
+    /**
+     * Micronaut resolves one level of nested `@ConfigurationProperties` interfaces and no more, so this one
+     * and the interfaces beside it stay flat rather than nesting further.
+     */
     @ConfigurationProperties("oauth2")
     interface OAuth2Config {
         val clientId: String?

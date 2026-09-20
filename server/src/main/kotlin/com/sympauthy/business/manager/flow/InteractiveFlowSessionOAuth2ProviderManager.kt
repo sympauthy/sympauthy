@@ -41,12 +41,10 @@ import java.util.UUID
  * the code for tokens and resolves the end-user claims, then routes the outcome by the session's current
  * purpose.
  *
- * It is purpose-agnostic and shared by every consumer that authorizes with a provider — sign-in / sign-up
- * ([InteractiveFlowPurpose.OAUTH2_AUTHORIZE]), ownership proof
- * ([InteractiveFlowPurpose.REAUTHENTICATION]) and provider linking
- * ([InteractiveFlowPurpose.LINK_PROVIDER]). The OAuth2-authorize-specific "establish a new user" outcome is
- * delegated to the [ProviderUserEstablisher] seam so this manager stays free of consumer-specific identity
- * logic.
+ * It is purpose-agnostic: nothing here reads which purpose is driving the session, so a purpose needing a
+ * provider round-trip uses it unmodified. The "establish a new user" outcome, which is
+ * [InteractiveFlowPurpose.OAUTH2_AUTHORIZE]'s alone, is delegated to the [ProviderUserEstablisher] seam so
+ * this manager stays free of identity logic belonging to one purpose.
  */
 @Singleton
 open class InteractiveFlowSessionOAuth2ProviderManager(

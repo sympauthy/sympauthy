@@ -40,7 +40,6 @@ class TokenRedirectUriMismatchIT : AbstractSympauthyIT() {
                 mapOf(
                     "grant_type" to "authorization_code",
                     "code" to code,
-                    // A different redirect_uri than the one bound to the code at authorization time.
                     "redirect_uri" to "https://attacker.example/callback",
                     "client_id" to registry.clientId(),
                     "code_verifier" to generatePkce().verifier,

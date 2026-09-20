@@ -46,9 +46,9 @@ interface InteractiveFlowPurposeHandler {
      * Run this purpose's own terminal effect on the ongoing [session] — its concern-specific completion work
      * (e.g. the OAuth2 purpose granting scopes and recording consent).
      *
-     * Called by [InteractiveFlowEngine] once every purpose has resolved, for each purpose in order, before the
-     * engine marks the purpose complete. [TerminalEffectResult.Fail] tells the engine to fail the session
-     * instead. The default is a no-op ([TerminalEffectResult.Proceed]) for purposes with no terminal effect.
+     * Run once every purpose has resolved, for each purpose in order, before that purpose is marked complete.
+     * [TerminalEffectResult.Fail] fails the session instead of proceeding. The default is a no-op
+     * ([TerminalEffectResult.Proceed]), for a purpose with no terminal effect.
      */
     suspend fun applyTerminalEffect(session: OnGoingInteractiveFlowSession): TerminalEffectResult =
         TerminalEffectResult.Proceed

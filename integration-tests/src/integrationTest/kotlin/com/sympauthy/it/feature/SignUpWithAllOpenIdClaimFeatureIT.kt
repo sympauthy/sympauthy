@@ -51,8 +51,6 @@ class SignUpWithAllOpenIdClaimFeatureIT : AbstractSympauthyIT() {
                 )
             },
         ) { sympauthy, registry ->
-            // Redeem the first-admin bootstrap invitation: sign up (identifier + password), then a single
-            // collect-claims step gathers every other required OpenID claim.
             val invitationToken = sympauthy.getBootstrapInvitationToken("first-admin")
             val flow = registry.newFlow()
                 .withInvitationToken(invitationToken)
@@ -78,11 +76,6 @@ class SignUpWithAllOpenIdClaimFeatureIT : AbstractSympauthyIT() {
             val idToken = requireNotNull(tokens.idToken()) { "the openid scope should yield an id_token" }
             val userId = verifyIdTokenSignature(sympauthy, idToken).subject
 
-            // Read every collected claim back through the admin API using the token the flow just issued.
-            // This call goes through the typed client generated from the server's OpenAPI contract: the
-            // endpoint path (`/api/v1/admin/users/{userId}/claims`) and the request/response models are the
-            // ones the server declares, not hand-copied here — a non-2xx response throws instead of needing
-            // an explicit status assertion.
             val claimList = withApiClient(sympauthy, token = tokens.accessToken()) { ctx ->
                 ctx.getBean(AdminApi::class.java)
                     .listUserClaims(UUID.fromString(userId), size = 100)

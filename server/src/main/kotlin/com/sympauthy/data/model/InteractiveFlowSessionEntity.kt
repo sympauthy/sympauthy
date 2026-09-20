@@ -12,44 +12,41 @@ import java.util.*
 @Serdeable
 @MappedEntity("interactive_flow_sessions")
 class InteractiveFlowSessionEntity(
-    // Optimistic-concurrency counter. Incremented by every guarded lifecycle update in
-    // InteractiveFlowSessionRepository (WHERE version = :expectedVersion ... SET version = version + 1).
-    // Deliberately a plain column, not @Version: Micronaut's optimistic locking only engages on
-    // full-entity update/delete, whereas the session is mutated through query-based partial updates.
+    /**
+     * Optimistic-concurrency counter, incremented by every guarded lifecycle update.
+     * [com.sympauthy.data.repository.InteractiveFlowSessionRepository] carries why it is a plain column
+     * rather than a Micronaut Data `@Version` property.
+     */
     val version: Long = 0,
 
-    // Session metadata
     val purposes: Array<String>,
     val initiatingPurpose: String,
     val sessionDate: LocalDateTime,
     val flowId: String? = null,
-    // A second copy of interactive_flow_session_oauth2.client_id / interactive_flow_session_confirm.client_id,
-    // written in the same transaction as the record it duplicates and never written again. No foreign key:
-    // a client is configuration rather than a table, so a live session may name one the configuration no
-    // longer declares.
+    /**
+     * A second copy of `interactive_flow_session_oauth2.client_id` /
+     * `interactive_flow_session_confirm.client_id`, written in the same transaction as the record it
+     * duplicates and never written again. No foreign key: a client is configuration rather than a table,
+     * so a live session may name one the configuration no longer declares.
+     */
     val initiatingClientId: String? = null,
     val expirationDate: LocalDateTime,
 
-    // User identification
     val userId: UUID? = null,
     val signedUp: Boolean = false,
 
-    // MFA
     val mfaPassedDate: LocalDateTime? = null,
 
-    // Terminal redirect: where and how the end-user is handed back to the flow's initiator.
+    /** Terminal redirect: where and how the end-user is handed back to the flow's initiator. */
     val successRedirectUri: String? = null,
     val redirectType: String? = null,
     val cancelRedirectUri: String? = null,
 
-    // Completion
     val completedPurposes: Array<String> = emptyArray(),
     val completeDate: LocalDateTime? = null,
 
-    // Cancellation
     val cancelDate: LocalDateTime? = null,
 
-    // Error
     val errorDate: LocalDateTime? = null,
     val errorDetailsId: String? = null,
     val errorDescriptionId: String? = null,

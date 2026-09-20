@@ -22,10 +22,12 @@ import java.util.*
 /** The instant every fixture dates its rows from, so no assertion turns on the clock. */
 val BASE_DATE: LocalDateTime = LocalDateTime.of(2026, 1, 1, 12, 0, 0)
 
-/** Runs [block] against [database], deleting the rows it created once it ends. */
-// The throw inside the finally is the point rather than an oversight: it only fires where the test
-// itself passed, so there is no earlier failure for it to discard, and a cleanup that failed
-// silently would leave the next run reading another run's rows.
+/**
+ * Runs [block] against [database], deleting the rows it created once it ends.
+ *
+ * Throwing from the `finally` is deliberate, and what the `@Suppress` is for: a cleanup that failed
+ * silently would leave the next run reading another run's rows.
+ */
 @Suppress("ThrowingExceptionFromFinally")
 fun withFixture(database: Database, block: suspend RepositoryFixture.() -> Unit) {
     val fixture = RepositoryFixture(database)

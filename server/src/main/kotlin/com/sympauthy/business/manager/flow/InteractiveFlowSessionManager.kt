@@ -185,8 +185,8 @@ open class InteractiveFlowSessionManager(
      * persist it, and return the updated session. Falls back to appending at the end when [afterPurpose] is
      * not present (which never happens for the engine's use — the resolving purpose is always in the list).
      *
-     * Used by the engine when a purpose resolves and declares a follow-up purpose that must run before the
-     * session completes (e.g. the re-authentication gate inserting an MFA challenge). Inserting **after** the
+     * The case for it is a purpose resolving and declaring a follow-up that must run before the session
+     * completes (e.g. the re-authentication gate inserting an MFA challenge). Inserting **after** the
      * resolving purpose — rather than at the end — keeps the follow-up ahead of any later purpose the session
      * already carries, so e.g. a provider link never commits before its MFA challenge.
      */
@@ -323,7 +323,7 @@ open class InteractiveFlowSessionManager(
      * Transition the ongoing [session] to completed: persist the completion date and return the resulting
      * [CompletedInteractiveFlowSession].
      *
-     * Called by the engine once every purpose the session carries has resolved (and been marked complete via
+     * Call once every purpose the session carries has resolved (and been marked complete via
      * [markPurposeAsCompleted]) and its terminal effect applied. The concern-specific completion invariants
      * (e.g. consent / grant for an OAuth2 session) are enforced by the matching purpose's terminal effect,
      * run before this transition.

@@ -10,7 +10,7 @@ import io.micronaut.serde.annotation.Serdeable
  *
  * The rows are the whole table and the migration creates every one of them, so nothing here is ever
  * saved, updated or deleted. [com.sympauthy.business.manager.lock.LockKey] is what maps an object to
- * one of them, and [com.sympauthy.data.repository.ObjectLockRepository] is the only reader.
+ * one of them.
  */
 @Serdeable
 @MappedEntity("object_locks")

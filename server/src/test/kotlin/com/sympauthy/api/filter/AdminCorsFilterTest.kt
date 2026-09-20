@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test
 
 class AdminCorsFilterTest : AbstractFlowIntegrationTest() {
 
-    // Must match urls.root from application-test.yml
+    /** Must match `urls.root` from `application-test.yml`. */
     private val allowedOrigin = "http://localhost:18080"
     private val unknownOrigin = "http://evil.example.com"
     private val adminPath = "/api/v1/admin/clients"

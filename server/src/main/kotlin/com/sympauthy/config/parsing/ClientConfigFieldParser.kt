@@ -21,10 +21,8 @@ data class ParsedAuthorizationWebhook(
 )
 
 /**
- * Shared parsing methods for client configuration fields.
- *
- * Used by both [ClientsConfigParser] and [ClientTemplatesConfigParser]
- * for type conversion and template resolution.
+ * Parsing methods for the fields a client and the template it takes its defaults from both declare:
+ * type conversion and template resolution for each of them.
  */
 @Singleton
 class ClientConfigFieldParser(

@@ -91,9 +91,9 @@ const val SEARCH_PARAMETER_DESCRIPTION = "Partial, case-insensitive match across
  * which is also why a parameter naming none of them is refused rather than ignored, so a caller who
  * mistyped is told.
  *
- * A parameter the collection reads for something else is named in [reservedParameters];
- * `/admin/users`'s `claims` selects what is published rather than what is kept, and it is the case
- * this exists for.
+ * A parameter the collection reads for something else — `/admin/users`'s `claims`, which selects what
+ * is published rather than what is kept, is one — is named in [reservedParameters] instead of being
+ * read as a criterion.
  *
  * What is refused, and under which code, is docs/collection-standard.md.
  */

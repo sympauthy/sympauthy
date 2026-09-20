@@ -48,7 +48,6 @@ class AuthorizationCodeBoundToClientIT : AbstractSympauthyIT() {
                 .run()
             val code = checkNotNull(result.code()) { "expected an authorization code from sign-up" }
 
-            // Redeem the code as a *different* registered client than the one it was issued to.
             val response = httpPostForm(
                 discovery(sympauthy).tokenEndpoint,
                 mapOf(

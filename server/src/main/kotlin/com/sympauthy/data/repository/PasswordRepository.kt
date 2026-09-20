@@ -18,8 +18,7 @@ interface PasswordRepository : CoroutineCrudRepository<PasswordEntity, UUID> {
 
     /**
      * Collect the passwords the accounts [userId] still hold provisionally, and answer how many there
-     * were. Why the session id is re-asserted here is in
-     * [com.sympauthy.business.manager.user.ProvisionalAccountManager.deleteAbandoned].
+     * were. Provisionality is re-asserted here rather than trusted from the read that selected them.
      */
     suspend fun deleteByUserIdInAndSessionIdIsNotNull(userId: List<UUID>): Int
 }

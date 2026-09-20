@@ -21,6 +21,12 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.toList
 import java.util.*
 
+/**
+ * Reads and writes the claims an account has had collected, restricted by neither consent nor scope.
+ *
+ * [ConsentAwareCollectedClaimManager] is what applies both, and what a read answering an end-user or a
+ * client goes through instead; this one is for a question consent does not decide.
+ */
 @Singleton
 open class CollectedClaimManager(
     @Inject private val claimManager: ClaimManager,
@@ -33,10 +39,6 @@ open class CollectedClaimManager(
 
     /**
      * Return the list of [CollectedClaim] collected from the user identified by [userId].
-     *
-     * Note: This method is not restricted by consent or scopes and returns all claims for the user.
-     * It is intended for use by the authorization server internals and admin endpoints.
-     * For consent-restricted access, use [ConsentedClaimManager] instead.
      */
     suspend fun findByUserId(userId: UUID): List<CollectedClaim> {
         return collectedClaimRepository.findByUserId(userId)
@@ -47,9 +49,6 @@ open class CollectedClaimManager(
 
     /**
      * Return the list of [CollectedClaim] for the given [claims] collected from the user identified by [userId].
-     *
-     * Note: This method is not restricted by consent or scopes.
-     * It is intended for use by the authorization server internals and admin endpoints.
      */
     suspend fun findByUserIdAndClaims(userId: UUID, claims: List<Claim>): List<CollectedClaim> {
         val claimIds = claims.map { it.id }
@@ -61,9 +60,9 @@ open class CollectedClaimManager(
      * Return the list of [CollectedClaim] the audience identified by [audienceId] has, collected from the user
      * identified by [userId] — those restricted to that audience and those restricted to none.
      *
-     * Note: This method is not restricted by consent or scopes, only by audience. It is what a caller acting
+     * Note: this one is restricted by audience, which the reads above are not. It is what a caller acting
      * for one audience reads where consent does not apply to the question it is asking, a rule deciding a
-     * grant being the case; [ConsentAwareCollectedClaimManager] is what applies both.
+     * grant being the case.
      */
     suspend fun findByUserIdAndAudience(userId: UUID, audienceId: String): List<CollectedClaim> {
         return findByUserIdAndClaims(
@@ -74,9 +73,6 @@ open class CollectedClaimManager(
 
     /**
      * Return the list of [CollectedClaim] for the identifier claims collected from the user identified by [userId].
-     *
-     * Note: This method is not restricted by consent or scopes.
-     * It is intended for use by the authorization server internals and admin endpoints.
      */
     suspend fun findIdentifierByUserId(userId: UUID): List<CollectedClaim> {
         return findByUserIdAndClaims(userId, claimManager.listIdentifierClaims())
@@ -84,9 +80,6 @@ open class CollectedClaimManager(
 
     /**
      * Return the identifier claims collected from the users identified by [userIds], for all of them at once.
-     *
-     * Note: This method is not restricted by consent or scopes.
-     * It is intended for use by the authorization server internals and admin endpoints.
      */
     suspend fun listIdentifierByUserIds(userIds: List<UUID>): List<CollectedClaim> {
         if (userIds.isEmpty()) {
@@ -121,7 +114,7 @@ open class CollectedClaimManager(
      *
      * Throws the `user.claims.identifier_taken` of [applyUpdates] under the same conditions.
      *
-     * For consent-restricted updates, use [ConsentedClaimManager.update] instead.
+     * For consent-restricted updates, use [ConsentAwareCollectedClaimManager.update] instead.
      */
     @Transactional
     open suspend fun update(
@@ -137,10 +130,10 @@ open class CollectedClaimManager(
      *
      * Throws a non-recoverable [BusinessException] `user.claims.identifier_taken` when one of the
      * [applicableUpdates] would give a **committed** [user] an identifier value another committed account
-     * already holds. This is the manager every writer of a collected claim goes through, and it is the only
-     * place that uniqueness is enforced on a write: an account signing in with any of the configured
-     * identifier claims means a value has to be unique across all of them rather than within one column, so
-     * no constraint expresses it and nothing below this refuses it. Two accounts left holding one value make
+     * already holds. **Uniqueness on an identifier value is enforced here and nowhere below**: an account
+     * signing in with any of the configured identifier claims means a value has to be unique across all of
+     * them rather than within one column, so no constraint expresses it and a write that goes around this
+     * method is a write nothing refuses. Two accounts left holding one value make
      * [com.sympauthy.data.repository.findAnyClaimMatching] match twice, and every later sign-in with that
      * value fails for both of them.
      *
@@ -179,10 +172,9 @@ open class CollectedClaimManager(
      * The identifier claim values [updates] would write, by the claim writing them, as `collected_claims`
      * spells them. An update clearing a claim is not one: it takes no value from anybody.
      *
-     * Public because it is the one spelling of that map, and a caller about to ask
-     * [UserManager.findTakenIdentifierOrNull] over a set of updates needs it in the spelling the
-     * rows compare on. Writing it out again at the call site is a second definition of which updates count
-     * and how their values are stored, and the two would have to be changed together.
+     * Public because it is the one spelling of that map: asking whether these values are taken means asking
+     * in the spelling the rows compare on, and writing it out again elsewhere is a second definition of
+     * which updates count and how their values are stored, with the two to be changed together.
      */
     fun getIdentifierValuesIn(updates: List<CollectedClaimUpdate>): Map<String, String> {
         val identifierClaims = claimManager.listIdentifierClaims().toSet()

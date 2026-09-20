@@ -55,8 +55,8 @@ interface InteractiveFlowSessionSecurityContextRepository :
      * how many rows that moved.
      *
      * **It only ever stamps a place the same request already recorded**, which is what keeps one request
-     * to one row: the helper every flow handler goes through observes the place, and this marks it. A
-     * place that is no longer there answers zero rather than opening one — the sighting is lost, which is
+     * to one row: [observe] must already have written it. A place that is no longer there answers zero
+     * rather than opening one — the sighting is lost, which is
      * what the caller logs, and nothing is written that the fold would then read as a proof.
      */
     @Query(

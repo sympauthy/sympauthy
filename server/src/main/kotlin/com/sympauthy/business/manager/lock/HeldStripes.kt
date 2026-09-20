@@ -30,7 +30,10 @@ import java.util.WeakHashMap
 @Singleton
 class HeldStripes {
 
-    /** Read by `HeldStripesTest`, which is the only thing that can see a record outliving its transaction. */
+    /**
+     * The stripes each connection holds, keyed by the connection so that a record outlives the coroutine
+     * that took it for exactly as long as its transaction does.
+     */
     internal val byConnection: MutableMap<ConnectionStatus<*>, List<Int>> =
         Collections.synchronizedMap(WeakHashMap())
 

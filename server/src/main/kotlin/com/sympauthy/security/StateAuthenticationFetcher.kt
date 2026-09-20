@@ -11,9 +11,8 @@ import org.reactivestreams.Publisher
 /**
  * Handles the authentication logic for flow APIs.
  *
- * The authentication fetcher retrieves the state parameter from the request query parameters
- * and put it in the [Authentication] for uses by the
- * [com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager].
+ * The authentication fetcher retrieves the state parameter from the request and carries it on the
+ * [Authentication] it returns, where [stateOrNull] reads it.
  */
 @Singleton
 class StateAuthenticationFetcher : AuthenticationFetcher<HttpRequest<*>> {

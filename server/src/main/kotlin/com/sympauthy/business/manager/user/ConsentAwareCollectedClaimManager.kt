@@ -39,8 +39,7 @@ open class ConsentAwareCollectedClaimManager(
      * [consentedScopes] are not: consent is recorded per audience, so scopes a person consented to are always
      * some audience's and the caller holding them knows which.
      *
-     * Use this method when the caller is the end-user themselves and there is no client authentication
-     * (e.g. the OpenID UserInfo endpoint, which is only protected by a bearer token).
+     * Use this method when the caller is the end-user themselves and there is no client authentication.
      */
     suspend fun findByUserIdAndReadableByUser(
         userId: UUID,

@@ -10,10 +10,8 @@ import com.sympauthy.config.parsing.ParsedAuthorizationWebhook
 import jakarta.inject.Singleton
 
 /**
- * Shared validation methods for client configuration fields.
- *
- * Used by both [ClientsConfigValidator] and [ClientTemplatesConfigValidator]
- * for cross-domain references and business rule validation.
+ * Validation methods for the fields a client and the template it takes its defaults from both declare:
+ * the cross-domain references and the business rules over each of them.
  */
 @Singleton
 class ClientConfigFieldValidator {

@@ -33,7 +33,7 @@ class TotpManagerTest {
     lateinit var manager: TotpManager
 
     companion object {
-        // RFC 4226 Appendix D test secret: "12345678901234567890" as ASCII bytes
+        /** RFC 4226 Appendix D test secret: "12345678901234567890" as ASCII bytes. */
         val RFC_SECRET = "12345678901234567890".toByteArray(Charsets.US_ASCII)
     }
 
@@ -88,7 +88,6 @@ class TotpManagerTest {
 
     @Test
     fun `encodeSecretToBase32 - Encodes RFC 4226 test secret correctly`() {
-        // The Base32 encoding of "12345678901234567890" is a well-known RFC test value
         assertEquals("GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ", manager.encodeSecretToBase32(RFC_SECRET))
     }
 

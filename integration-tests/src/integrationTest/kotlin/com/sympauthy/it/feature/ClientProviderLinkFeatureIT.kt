@@ -45,9 +45,7 @@ class ClientProviderLinkFeatureIT : AbstractSympauthyIT() {
             client = Client.confidentialClient(clientId, CLIENT_SECRET),
             build = { fixture, registry -> providerLinkContainer(fixture, registry) },
         ) { sympauthy, registry ->
-            // The calling client authenticates with a client-credentials token holding users:providers:write.
             val callerToken = clientCredentialsToken(sympauthy, registry, "users:providers:write")
-            // An end-user of that client, and the access token identifying them to the link endpoint.
             val userToken = signUpAccessToken(registry, "ada@example.com")
 
             val link = withApiClient(sympauthy, token = callerToken) { ctx ->

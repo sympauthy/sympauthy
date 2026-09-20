@@ -90,9 +90,9 @@ Result containing either:
      * Render the failure named by [detailsId] and [descriptionId] against the locale [request] asks
      * for, interpolating [values] into both messages.
      *
-     * Stated once rather than at each of the two branches that reach it: a failure carries the values
-     * its messages name, and a branch rebuilding the exception on its own is a branch that can be
-     * written without them.
+     * Stated once rather than at every branch that reaches it: a failure carries the values its messages
+     * name, and a branch rebuilding the exception on its own is a branch that can be written without
+     * them.
      */
     private fun toErrorResource(
         request: HttpRequest<*>,

@@ -8,12 +8,11 @@ import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
 /**
- * Single source of truth for the headers [FlowCorsFilter], [AdminCorsFilter] and [WildcardCorsFilter] add
- * to an `OPTIONS` preflight response.
+ * Single source of truth for the headers a CORS filter adds to an `OPTIONS` preflight response.
  *
- * The three filters differ in how they resolve the allowed origin and in the HTTP methods they advertise,
- * but they share one `Access-Control-Allow-Headers` value and one `Access-Control-Max-Age`. Centralising
- * them here means `cors.allowed-headers` is read in exactly one place.
+ * A filter resolves the allowed origin its own way and advertises the HTTP methods of the surface it
+ * guards, but every one of them answers with the same `Access-Control-Allow-Headers` value and the same
+ * `Access-Control-Max-Age`. Holding them here means `cors.allowed-headers` is read in exactly one place.
  *
  * If the `cors` configuration section is invalid, only [MANDATORY_ALLOWED_HEADERS] is advertised, so CORS
  * keeps working for the endpoints the application itself depends on.
@@ -56,8 +55,9 @@ class CorsPreflightHeaders(
          * `cors.allowed-headers` contains, and are deliberately not configurable:
          * - `Content-Type` — every JSON and form-encoded request body.
          * - `Authorization` — bearer and state tokens.
-         * - `DPoP` — sender-constrained tokens, see
-         *   [RFC 9449](https://datatracker.ietf.org/doc/html/rfc9449#section-5).
+         * - `DPoP` — carries the proof binding a token to the client's key, so refusing it on a preflight
+         *   refuses every sender-constrained request this server accepts
+         *   ([RFC 9449](https://datatracker.ietf.org/doc/html/rfc9449#section-5)).
          */
         val MANDATORY_ALLOWED_HEADERS = listOf("Content-Type", "Authorization", "DPoP")
 

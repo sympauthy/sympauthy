@@ -8,8 +8,8 @@ package com.sympauthy.config.properties
  * prefix of the class it is nested in, so a single annotated interface nested in one owner and reused
  * by the other binds both to the first owner's prefix — which is how
  * `templates.clients.*.webhooks.authorization` came to be a key nothing read. Each owner nests its own
- * annotated twin extending this one, and [com.sympauthy.config.parsing.ClientConfigFieldParser] takes
- * this one, so the parsing stays written once.
+ * annotated twin extending this one, so a client and a template declare the same fields without either
+ * of them repeating the other.
  */
 interface ClientAuthorizationWebhookProperties {
     val url: String?
