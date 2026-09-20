@@ -359,9 +359,13 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
                 userManager.findTakenIdentifierClaimIdOrNull(userId, it.claimIds, it.valuesByClaimId)
             }
             if (takenClaimId != null) {
+                // The claim the provider asserted it under, never the one the other account holds it under:
+                // the first is what this callback already sent, and the second would say something about an
+                // account the person linking is not entitled to hear about.
                 throw businessExceptionOf(
                     "flow.link_provider.identifier_conflict",
-                    "providerId" to provider.id
+                    "providerId" to provider.id,
+                    "claim" to takenClaimId
                 )
             }
 

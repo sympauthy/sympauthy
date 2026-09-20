@@ -367,6 +367,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             }
 
             assertEquals("flow.link_provider.identifier_conflict", exception.detailsId)
+            assertEquals(OpenIdConnectClaimId.EMAIL, exception.values["claim"])
             assertFalse(exception.recoverable)
             coVerify { objectLockRepository.lock(LockKey.IdentifierValue(storedEmail).stripe) }
             coVerify(exactly = 0) { providerClaimsManager.saveUserInfo(any(), any(), any(), any()) }
@@ -430,6 +431,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             }
 
             assertEquals("flow.link_provider.identifier_conflict", exception.detailsId)
+            assertEquals(OpenIdConnectClaimId.EMAIL, exception.values["claim"])
             // The number the provider is silent about is no reason to skip the address it did assert, and
             // every configured claim is still searched: an account holding that address under either of
             // them owns it.
