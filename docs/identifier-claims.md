@@ -100,8 +100,9 @@ different thing from a partial check.
 
 **Whether an account may hold one value under two of its own identifier claims.** The invariant
 above does not forbid it: both rows name the same account, so a login resolves the same either way.
-The rule refuses it regardless, and an account in that state can then neither rewrite its own identifier
-nor have a provider linked to it. Whether the strictness earns what it costs is undecided.
+The rule refuses it regardless, and an account in that state can then neither rewrite its own
+identifier nor have a provider linked to it. Whether the strictness earns what it costs is
+undecided.
 
 **Whether an account may hold only some of the set.** Nothing decides it, and the two provider paths
 above disagree by accident of what each of them writes rather than by a rule. Settling it is a
