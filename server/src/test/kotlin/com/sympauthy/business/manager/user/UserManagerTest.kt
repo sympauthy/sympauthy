@@ -247,18 +247,37 @@ class UserManagerTest {
         }
 
     @Test
-    fun `findTakenIdentifierClaimIdOrNull - Names a row the account holds under another claim`() = runTest {
-        val userId = UUID.randomUUID()
-        committedRows(claimRow(userId, phoneClaim, storedAddress))
+    fun `findTakenIdentifierClaimIdOrNull - Passes over a row the account holds under another claim`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            committedRows(claimRow(userId, phoneClaim, storedAddress))
 
-        // Its own, and still a conflict: holding one value under two identifier claims makes the read that
-        // resolves an identifier match the account twice.
-        val taken = manager.findTakenIdentifierClaimIdOrNull(
-            userId, listOf(emailClaim, phoneClaim), mapOf(emailClaim to storedAddress)
-        )
+            // Its own under a second claim, and not a conflict: both rows name the one account, so a login
+            // over that value resolves to it either way and there is no pair to exclude.
+            val taken = manager.findTakenIdentifierClaimIdOrNull(
+                userId, listOf(emailClaim, phoneClaim), mapOf(emailClaim to storedAddress)
+            )
 
-        assertEquals(emailClaim, taken)
-    }
+            assertNull(taken)
+        }
+
+    @Test
+    fun `findTakenIdentifierClaimIdOrNull - Refuses the crossed pair that would sign one owner in as another`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            // Another account already holds, under its username, the address this one offers as its email.
+            // Allowing it leaves each value matching a row of each account, and whoever owns one of them is
+            // resolved to the other account.
+            committedRows(claimRow(UUID.randomUUID(), phoneClaim, storedAddress))
+
+            val taken = manager.findTakenIdentifierClaimIdOrNull(
+                userId,
+                listOf(emailClaim, phoneClaim),
+                mapOf(emailClaim to storedAddress, phoneClaim to storedNumber)
+            )
+
+            assertEquals(emailClaim, taken)
+        }
 
     @Test
     fun `findTakenIdentifierClaimIdOrNull - Exempts nothing for a caller holding no account yet`() = runTest {

@@ -47,10 +47,11 @@ rows of one column and over several columns at once, and a unique index expresse
 `UserManager.findTakenIdentifierClaimIdOrNull` is the whole of it, and its KDoc is the authority on
 what it compares.
 
-**One account holding one value under two of its own identifier claims is not that.** Both rows
-carry the same user, so a login resolves to that account whichever of them the read picks. The rule
-refuses it anyway — a caller's own row is exempt only under the same claim — which is stricter than
-the invariant needs and is [left open below](#what-this-document-does-not-settle).
+**One account holding one value under two of its own identifier claims is not that, and is
+allowed.** Both rows carry the same user, so a login over that value resolves to that account
+whichever of them the read picks. The rule is the invariant and nothing more: every row the account
+already holds is its own, under whichever claim it sits, and only another account's row is a
+conflict.
 
 **The rule sees committed rows only.** Two sign-ups may therefore hold one value at a time, and
 which of them keeps it is settled when the first one
@@ -97,12 +98,6 @@ the account being created, so a partial assertion would leave a partial account 
 different thing from a partial check.
 
 ## What this document does not settle
-
-**Whether an account may hold one value under two of its own identifier claims.** The invariant
-above does not forbid it: both rows name the same account, so a login resolves the same either way.
-The rule refuses it regardless, and an account in that state can then neither rewrite its own
-identifier nor have a provider linked to it. Whether the strictness earns what it costs is
-undecided.
 
 **Whether an account may hold only some of the set.** Nothing decides it, and the two provider paths
 above disagree by accident of what each of them writes rather than by a rule. Settling it is a
