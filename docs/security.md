@@ -134,8 +134,10 @@ person is disclosed by either.
 
 **An identifier claim belongs to every audience, and restricting one is refused at startup.**
 `auth.identifier-claims` is declared once for the deployment, so every audience signs people in with
-the same claim. A restriction on it would be filtered out of the reads that resolve an account, and
-a deployment would lose its sign-in rather than be told; the validator names it instead.
+the same set of claims — what that set means, and how a person signs in with any one of them, is
+[its own document](identifier-claims.md). A restriction on one would be filtered out of the reads
+that resolve an account, and a deployment would lose its sign-in rather than be told; the validator
+names it instead.
 
 ### Reading a person's claims
 
