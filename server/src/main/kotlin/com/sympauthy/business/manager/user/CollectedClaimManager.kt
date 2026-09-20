@@ -180,7 +180,7 @@ open class CollectedClaimManager(
      * spells them. An update clearing a claim is not one: it takes no value from anybody.
      *
      * Public because it is the one spelling of that map, and a caller about to ask
-     * [UserManager.findTakenIdentifierClaimIdOrNull] over a set of updates needs it in the spelling the
+     * [UserManager.findTakenIdentifierOrNull] over a set of updates needs it in the spelling the
      * rows compare on. Writing it out again at the call site is a second definition of which updates count
      * and how their values are stored, and the two would have to be changed together.
      */
@@ -199,7 +199,7 @@ open class CollectedClaimManager(
 
     /**
      * Throw `user.claims.identifier_taken`, naming the claim that lost, when a committed row already holds
-     * one of the [identifierValues] — [UserManager.findTakenIdentifierClaimIdOrNull] is the rule, including
+     * one of the [identifierValues] — [UserManager.findTakenIdentifierOrNull] is the rule, including
      * why a row [user] already holds is never one of them, under whichever identifier claim it sits.
      *
      * It answers what is committed *now*, which is only worth asking under the lock its caller holds over
@@ -207,12 +207,12 @@ open class CollectedClaimManager(
      */
     internal suspend fun checkIdentifierValuesFree(user: User, identifierValues: Map<String, String>) {
         val claimIds = claimManager.listIdentifierClaims().map(Claim::id)
-        val takenClaimId = userManager.findTakenIdentifierClaimIdOrNull(user.id, claimIds, identifierValues)
-            ?: return
+        val taken = userManager.findTakenIdentifierOrNull(user.id, claimIds, identifierValues) ?: return
         throw businessExceptionOf(
             detailsId = "user.claims.identifier_taken",
             descriptionId = "description.user.claims.identifier_taken",
-            "claim" to takenClaimId
+            "claim" to taken.claimId,
+            "userId" to "${taken.userId}"
         )
     }
 

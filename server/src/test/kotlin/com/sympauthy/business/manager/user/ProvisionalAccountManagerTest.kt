@@ -67,6 +67,9 @@ class ProvisionalAccountManagerTest {
 
     private val sessionId = UUID.randomUUID()
     private val userId = UUID.randomUUID()
+    /** The account a refusal names as holding the value, which reaches an operator and never the person refused. */
+    private val ownerId = UUID.randomUUID()
+
 
     @BeforeEach
     fun setUp() {
@@ -122,20 +125,22 @@ class ProvisionalAccountManagerTest {
             collectedClaimRepository.findByUserIdAndClaimInList(userId, listOf("email"))
         } returns listOf(claimEntity("email", "\"taken@example.com\""))
         coEvery {
-            userManager.findTakenIdentifierClaimIdOrNull(
+            userManager.findTakenIdentifierOrNull(
                 userId, listOf("email"), mapOf("email" to "\"taken@example.com\"")
             )
-        } returns "email"
+        } returns TakenIdentifier(claimId = "email", userId = ownerId)
         coEvery { providerUserInfoRepository.findByUserId(userId) } returns emptyList()
 
         val exception = assertThrows<BusinessException> { manager.promote(sessionId, userId) }
 
         assertEquals("user.promote.identifier_taken", exception.detailsId)
+        assertEquals("email", exception.values["claim"])
+        assertEquals(ownerId.toString(), exception.values["userId"])
         coVerify(exactly = 0) { userRepository.clearSessionId(any(), any()) }
         // Stripe 10 is the value as collected_claims spells it, quotes included, which LockKeyTest holds.
         coVerifyOrder {
             objectLockRepository.lock(10)
-            userManager.findTakenIdentifierClaimIdOrNull(
+            userManager.findTakenIdentifierOrNull(
                 userId, listOf("email"), mapOf("email" to "\"taken@example.com\"")
             )
         }
@@ -228,7 +233,7 @@ class ProvisionalAccountManagerTest {
 
     private fun noIdentifierClaim() {
         every { claimManager.listIdentifierClaims() } returns emptyList()
-        coEvery { userManager.findTakenIdentifierClaimIdOrNull(userId, emptyList(), emptyMap()) } returns null
+        coEvery { userManager.findTakenIdentifierOrNull(userId, emptyList(), emptyMap()) } returns null
     }
 
     @Test
@@ -239,7 +244,7 @@ class ProvisionalAccountManagerTest {
             collectedClaimRepository.findByUserIdAndClaimInList(userId, listOf("email"))
         } returns listOf(claimEntity("email", "\"free@example.com\""))
         coEvery {
-            userManager.findTakenIdentifierClaimIdOrNull(
+            userManager.findTakenIdentifierOrNull(
                 userId, listOf("email"), mapOf("email" to "\"free@example.com\"")
             )
         } returns null
@@ -256,7 +261,7 @@ class ProvisionalAccountManagerTest {
         // Stripe 20 is "free@example.com" as collected_claims spells it, which LockKeyTest holds.
         coVerifyOrder {
             objectLockRepository.lock(20)
-            userManager.findTakenIdentifierClaimIdOrNull(any(), any(), any())
+            userManager.findTakenIdentifierOrNull(any(), any(), any())
             userRepository.clearSessionId(userId, sessionId)
         }
     }

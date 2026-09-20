@@ -9,6 +9,7 @@ import com.sympauthy.business.manager.flow.reauth.InteractiveFlowSessionReauthen
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.password.PasswordManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
+import com.sympauthy.business.manager.user.TakenIdentifier
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.UserMapper
@@ -100,6 +101,9 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
     private val login = "user@example.com"
     private val password = "s3cret"
     private val sessionId = UUID.randomUUID()
+    /** The account a refusal names as holding the value, which reaches an operator and never the person refused. */
+    private val ownerId = UUID.randomUUID()
+
     private val userId = UUID.randomUUID()
     private val user = User(
         id = userId,
@@ -248,13 +252,15 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
         val offered = mapOf("email" to "\"a@example.com\"", "phone_number" to "\"+33612345678\"")
         every { collectedClaimManager.getIdentifierValuesIn(updates) } returns offered
         coEvery {
-            userManager.findTakenIdentifierClaimIdOrNull(null, listOf("email", "phone_number"), offered)
-        } returns "email"
+            userManager.findTakenIdentifierOrNull(null, listOf("email", "phone_number"), offered)
+        } returns TakenIdentifier(claimId = "email", userId = ownerId)
 
         val exception = assertThrows<BusinessException> { manager.checkForConflictingUsers(updates) }
 
         assertEquals("flow.password.sign_up.existing", exception.detailsId)
         assertTrue(exception.recoverable)
+        assertEquals("email", exception.values["claim"])
+        assertEquals(ownerId.toString(), exception.values["userId"])
     }
 
     @Test
@@ -263,11 +269,11 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
             val updates = listOf(claimUpdate("email", "a@example.com"))
             val offered = mapOf("email" to "\"a@example.com\"")
             every { collectedClaimManager.getIdentifierValuesIn(updates) } returns offered
-            coEvery { userManager.findTakenIdentifierClaimIdOrNull(null, any(), any()) } returns null
+            coEvery { userManager.findTakenIdentifierOrNull(null, any(), any()) } returns null
 
             manager.checkForConflictingUsers(updates)
 
-            coVerify { userManager.findTakenIdentifierClaimIdOrNull(null, listOf("email"), offered) }
+            coVerify { userManager.findTakenIdentifierOrNull(null, listOf("email"), offered) }
         }
 
     @Test
@@ -278,11 +284,11 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
         // free across every one of them.
         val offered = mapOf("email" to "\"a@example.com\"")
         every { collectedClaimManager.getIdentifierValuesIn(updates) } returns offered
-        coEvery { userManager.findTakenIdentifierClaimIdOrNull(null, any(), any()) } returns null
+        coEvery { userManager.findTakenIdentifierOrNull(null, any(), any()) } returns null
 
         manager.checkForConflictingUsers(updates)
 
-        coVerify { userManager.findTakenIdentifierClaimIdOrNull(null, listOf("email", "name"), offered) }
+        coVerify { userManager.findTakenIdentifierOrNull(null, listOf("email", "name"), offered) }
     }
 
     private fun claimUpdate(claimId: String, value: String) = CollectedClaimUpdate(

@@ -123,6 +123,13 @@ code out of the set.
 The first may name a scope, a claim, a provider or an algorithm; the second says what the reader
 does next, in their own words.
 
+**Anything about another end-user's account is named in the technical message and never in the
+description.** The description is rendered for whoever tripped the failure, so a refusal that tells
+them which account holds a value hands them an oracle over it — and the values both halves render
+from are one map, so the restriction is on the message rather than on what the throw site supplies.
+The technical message is an operator's, printed only where a deployment turned
+`features.print-details-in-error` on.
+
 **A code reads `<domain>.<thing>.<condition>`**, most general first. A code with no domain is one
 the framework refused rather than a rule of ours.
 

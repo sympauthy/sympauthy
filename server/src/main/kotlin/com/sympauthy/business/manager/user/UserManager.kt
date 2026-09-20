@@ -78,7 +78,7 @@ open class UserManager(
      *
      * This resolves an identifier to the one account holding it, which is a different question from whether
      * a value is free: matching every entry is the point, and a caller enforcing uniqueness wants
-     * [findTakenIdentifierClaimIdOrNull] instead.
+     * [findTakenIdentifierOrNull] instead.
      *
      * An account a session is still signing up never matches. Two sign-ups may therefore hold the same
      * identifier at once; the collision is settled when the first of them promotes. See
@@ -140,8 +140,8 @@ open class UserManager(
     }
 
     /**
-     * Return the id of the first identifier claim in [valuesByClaimId] whose value a committed row already
-     * holds under one of the identifier claims [claimIds]. Otherwise, return null.
+     * Return the first identifier claim in [valuesByClaimId] whose value a committed row already holds
+     * under one of the identifier claims [claimIds], and the account holding it. Otherwise, return null.
      *
      * **This is the uniqueness of an identifier.** No database constraint says it: an end-user signs in
      * with any of the configured identifier claims, so a value belongs to one account across all of them
@@ -167,8 +167,9 @@ open class UserManager(
      *
      * **It answers what is committed *now***, which is only worth asking under a lock over those values:
      * the account it has to exclude may commit between the read and whatever the caller does about it. It
-     * names the claim that lost and raises nothing, because what to say about a value being taken belongs
-     * where it was being claimed, and the same loss is recoverable at one moment and not at the next.
+     * answers what was taken and who has it, and raises nothing: what to say about a value being taken
+     * belongs where it was being claimed, and the same loss is recoverable at one moment and not at the
+     * next.
      *
      * An account a session is still signing up is invisible here, which is what lets two sign-ups hold one
      * value at a time — neither blocks the other, and the question is asked again when the first of them
@@ -176,18 +177,19 @@ open class UserManager(
      *
      * The values are the ones `collected_claims` holds, which is what the rows compare on.
      */
-    suspend fun findTakenIdentifierClaimIdOrNull(
+    suspend fun findTakenIdentifierOrNull(
         userId: UUID?,
         claimIds: List<String>,
         valuesByClaimId: Map<String, String>
-    ): String? {
+    ): TakenIdentifier? {
         if (claimIds.isEmpty() || valuesByClaimId.isEmpty()) {
             return null
         }
         val committed = collectedClaimRepository.findAnyClaimMatching(claimIds, valuesByClaimId.values.toList())
-        return valuesByClaimId.entries.firstOrNull { (_, value) ->
-            committed.any { it.value == value && it.userId != userId }
-        }?.key
+        return valuesByClaimId.firstNotNullOfOrNull { (claimId, value) ->
+            committed.firstOrNull { it.value == value && it.userId != userId }
+                ?.let { TakenIdentifier(claimId = claimId, userId = it.userId) }
+        }
     }
 
     /**
@@ -209,6 +211,27 @@ open class UserManager(
         return userMapper.toUser(savedEntity)
     }
 }
+
+/**
+ * An identifier value a caller offered that a committed account already holds: what was taken, and who
+ * has it.
+ *
+ * Both halves are named in the technical message of the refusal the caller raises — the one an operator
+ * reads, which a deployment prints only by turning `features.print-details-in-error` on. Neither belongs
+ * in the `description.` beside it: that one is shown to whoever tripped the refusal, and telling them
+ * which account owns a value turns every check into an oracle over it. See
+ * `docs/exception-code-standard.md`.
+ */
+data class TakenIdentifier(
+    /**
+     * The claim the caller offered the value under, which is never necessarily the one [userId] holds it
+     * under — the rule ranges over every identifier claim, and only the offered half is something the
+     * caller already knows.
+     */
+    val claimId: String,
+    /** The committed account holding that value. */
+    val userId: UUID
+)
 
 data class CreateOrAssociateResult(
     val created: Boolean,
