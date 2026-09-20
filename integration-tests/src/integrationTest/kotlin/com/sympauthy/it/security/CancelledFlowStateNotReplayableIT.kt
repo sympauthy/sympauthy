@@ -29,7 +29,7 @@ import org.junit.jupiter.params.provider.EnumSource
 @Tag("security")
 class CancelledFlowStateNotReplayableIT : AbstractSympauthyIT() {
 
-    @ParameterizedTest(name = "a cancelled flow's state cannot be replayed on {0}")
+    @ParameterizedTest(name = "the state of a cancelled flow cannot be replayed on {0}")
     @EnumSource(Database::class)
     fun cancelledStateCannotBeReplayed(database: Database) {
         withContainer(database) { sympauthy, registry ->

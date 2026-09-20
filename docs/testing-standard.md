@@ -116,6 +116,11 @@ this table gives to a rule holding two files to each other.
 
 **Every scenario runs against every database**, as a parameterized test over them.
 
+**A parameterized display name is written without an apostrophe.** Say *another client* rather than
+*the other client's*: the name is a `MessageFormat` pattern, so a `'` opens a quoted literal and
+swallows the `{0}` naming the database. Every case then prints the same name, and a failing run does
+not say which dialect it failed on.
+
 **One class per feature or per risk, with the happy path and the rejections together.** Add a new
 class for a genuinely distinct feature or risk, and a new method for one more rejection of an
 endpoint already covered.
