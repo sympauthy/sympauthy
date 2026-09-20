@@ -146,7 +146,9 @@ class InteractiveFlowSessionPlacesFeatureIT : AbstractSympauthyIT() {
      */
     private fun ongoingSessionId(sympauthy: SympauthyContainer, token: String): UUID {
         val listed = withApiClient(sympauthy, token = token) { ctx ->
-            ctx.getBean(AdminApi::class.java).listInteractiveFlowSessions(status = "ongoing").block()
+            ctx.getBean(AdminApi::class.java)
+                .listInteractiveFlowSessions(filter = mutableMapOf("status" to "ongoing"))
+                .block()
         } ?: fail("the listing should answer")
         return listed.sessions.singleOrNull()?.id
             ?: fail("exactly one session should be ongoing, were: ${listed.sessions.map { it.id }}")
