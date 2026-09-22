@@ -153,6 +153,15 @@ not localized either — it is written at the site that knows the value, in the 
 KDoc beside it, and a bundle would put a translation layer between an operator and the thing they
 are debugging.
 
+**What a failed session failed with is rendered, and that is not the same rule.** Its two messages
+have been bundle keys since they were thrown, rendered on every other surface that carries them; a
+label has no key at all, and localizing one would mean inventing one. So the session's page
+publishes both the keys and the sentences they name, read against the locale the operator's own
+request asks for, and a key this deployment holds no message under yields no sentence rather than a
+dotted identifier — the key beside it still says what happened. The technical one is published
+there whatever `features.print-details-in-error` says, for the reason [the API
+standard](api-standard.md#errors) gives.
+
 ## A purpose carries its own label
 
 **A purpose's label is declared on the enum rather than on the handler.** What a purpose *is* needs

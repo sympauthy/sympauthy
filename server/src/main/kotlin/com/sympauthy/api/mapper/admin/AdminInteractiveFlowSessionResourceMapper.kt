@@ -14,9 +14,13 @@ import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowPurposeProgress
 import com.sympauthy.business.model.flow.InteractiveFlowSessionSecurityContext
 import com.sympauthy.business.model.flow.PurposeDebugInformation
+import com.sympauthy.server.ErrorMessages
+import com.sympauthy.util.renderOrNull
 import com.sympauthy.util.wireName
+import io.micronaut.context.MessageSource
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import java.util.Locale
 
 /**
  * Publishes the interactive flow sessions an operator reads.
@@ -26,7 +30,8 @@ import jakarta.inject.Singleton
  */
 @Singleton
 class AdminInteractiveFlowSessionResourceMapper(
-    @Inject private val userMapper: AdminUserResourceMapper
+    @Inject private val userMapper: AdminUserResourceMapper,
+    @Inject @param:ErrorMessages private val errorMessageSource: MessageSource
 ) {
 
     /**
@@ -51,9 +56,21 @@ class AdminInteractiveFlowSessionResourceMapper(
     )
 
     /**
-     * Publish [detail] as the session's own page.
+     * Publish [detail] as the session's own page, reading what it failed with in [locale].
+     *
+     * **Both messages are published beside the keys that name them**, rather than instead of them: a key
+     * may not be renamed without breaking a caller, a sentence may be reworded in any release, so a console
+     * grouping sessions by how they failed reads the key and the person reading the page reads the sentence.
+     *
+     * **The technical message is published whatever `features.print-details-in-error` says.** That flag
+     * keeps the server's internals away from a caller nobody vouched for; this surface is gated by
+     * `admin:interactive-flow-sessions:read`, and the operator holding it is the reader that message is
+     * written for, which is the one exemption the API standard names beside the flag's own rule.
      */
-    fun toResource(detail: InteractiveFlowSessionDetail) = AdminInteractiveFlowSessionDetailResource(
+    fun toResource(
+        detail: InteractiveFlowSessionDetail,
+        locale: Locale
+    ) = AdminInteractiveFlowSessionDetailResource(
         id = detail.id,
         status = detail.status.wireName,
         initiatingPurpose = toPurposeResource(detail.initiatingPurpose),
@@ -64,10 +81,24 @@ class AdminInteractiveFlowSessionResourceMapper(
         sessionDate = detail.sessionDate,
         expirationDate = detail.expirationDate,
         errorDetailsId = detail.errorDetailsId,
+        errorDetails = render(detail.errorDetailsId, detail.errorValues, locale),
         errorDescriptionId = detail.errorDescriptionId,
+        errorDescription = render(detail.errorDescriptionId, detail.errorValues, locale),
         errorValues = detail.errorValues,
         purposes = detail.purposes.map(::toPurposeProgressResource)
     )
+
+    /**
+     * The message [messageId] names, read in [locale] with [values] interpolated into it, or null where the
+     * failure named no such message and where this deployment holds none under it.
+     *
+     * **A key with no message yields no field rather than the key itself.** Unlike every other rendering
+     * site, the key here comes out of a row rather than off a throw site: a session persisted before a code
+     * was renamed holds the old one, and a rolling upgrade has both versions writing rows for as long as it
+     * lasts. The identifier beside the absence still says what the session failed with.
+     */
+    private fun render(messageId: String?, values: Map<String, String>?, locale: Locale): String? = messageId
+        ?.let { errorMessageSource.renderOrNull(it, locale, values.orEmpty()) }
 
     /**
      * Publish [purpose] as the value a caller branches on and the label a person reads it under.

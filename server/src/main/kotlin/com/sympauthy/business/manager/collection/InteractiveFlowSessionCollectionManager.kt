@@ -483,8 +483,9 @@ class InteractiveFlowSessionCollectionManager(
      * One session, every purpose it carries and where each one stands.
      *
      * The three error fields are the keys the session failed with and the values they interpolate, carried
-     * unrendered: they are what a reader can grep for, whereas a sentence in the wrong locale says less. They
-     * are absent for every status but [InteractiveFlowSessionStatus.FAILED].
+     * unrendered because rendering happens at the edge, once: the layer holding the operator's request reads
+     * both messages against the locale it asks for and publishes them beside these keys. They are absent for
+     * every status but [InteractiveFlowSessionStatus.FAILED].
      */
     data class InteractiveFlowSessionDetail(
         val id: UUID,

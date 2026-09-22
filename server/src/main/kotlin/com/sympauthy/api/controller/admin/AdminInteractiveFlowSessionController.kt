@@ -134,8 +134,10 @@ class AdminInteractiveFlowSessionController(
     @Operation(
         description = "Retrieve one interactive flow session: every purpose it carries, where each one stands, " +
                 "and what the handler that owns each purpose has to say about it. " +
-                "A failed session publishes the message identifiers it failed with, unrendered, rather than a " +
-                "sentence in a locale that may not be the reader's. " +
+                "A failed session publishes the message identifiers it failed with and those messages read " +
+                "in the language the request asked for: the identifiers are what a caller branches on or " +
+                "searches for, the sentences are what a person reads, and a sentence this deployment holds " +
+                "no message for is absent while the identifier naming it stays. " +
                 "The debug entries are labels written for a person: a label may be reworded in any release, " +
                 "so nothing may branch on one.",
         tags = ["admin"],
@@ -156,9 +158,13 @@ class AdminInteractiveFlowSessionController(
     )
     @Get("/{sessionId}")
     suspend fun getInteractiveFlowSession(
+        request: HttpRequest<*>,
         @PathVariable @Parameter(description = "Unique identifier of the interactive flow session.") sessionId: UUID
     ): AdminInteractiveFlowSessionDetailResource {
-        return sessionMapper.toResource(sessionCollectionManager.findSessionOrNull(sessionId).orNotFound())
+        return sessionMapper.toResource(
+            sessionCollectionManager.findSessionOrNull(sessionId).orNotFound(),
+            request.locale.orDefault()
+        )
     }
 
     @Operation(
