@@ -254,9 +254,14 @@ caller told its invitation was created, holding a token that will not do what th
 ### What form does a claim's value take once it leaves this server?
 
 **Decision:** The type the deployment declared. `ClaimDataType.typeClass` is the type a validated value
-is held in, the type a stored one is read back as, and the JSON type a published one takes, and every
-publisher switches on `Claim.dataType` exhaustively rather than on the type the value is carrying. A
+is held in, the type a stored one is read back as, and the JSON type a published one takes, and the id
+token switches on `Claim.dataType` exhaustively rather than on the type the value is carrying. A
 `boolean` claim is therefore the JSON `true`, not the string `"true"` it used to be.
+
+A claim's `<claim>_verified` companion goes with that: it is claimed only beside a value, where it used
+to be claimed whether or not one was published. `foo_verified: true` with no `foo` is this server
+asserting it verified something it did not send, and a client reading the companion alone was reading
+an assertion about nothing.
 
 **Options considered:**
 
@@ -292,6 +297,14 @@ The address is the one place the declared type does not decide, and it is not an
 much as the specification answering first: every member of the `address` object is a string under OpenID
 Connect Core §5.1.1, so a component is rendered rather than published as its own type — and rendered
 rather than dropped, which is what a `postal_code` configured as a number used to be.
+
+**`/userinfo` is not held to this yet, and that is a limitation rather than a decision.**
+`UserInfoResource` is a fixed data class whose scalar fields are `String?`, so `UserInfoResourceMapper`
+reads each one with `value as? String` and a standard claim a deployment retyped — `gender` as a
+`number`, say — is published in the id token and silently absent there. What the rule would need is a
+resource able to carry a claim's own type, which is the same question as `/userinfo` publishing custom
+claims at all. The address and the two `_verified` companions are held to it, because those it could
+express.
 
 ### Does a granting rule see claims of every audience?
 

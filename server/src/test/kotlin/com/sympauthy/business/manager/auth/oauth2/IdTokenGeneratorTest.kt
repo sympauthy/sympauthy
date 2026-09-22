@@ -83,6 +83,10 @@ class IdTokenGeneratorTest {
 
     private val readAudienceId = slot<String>()
 
+    private val valueValidator = ClaimValueValidator()
+
+    private val valueMapper = ClaimValueMapper(ObjectMapper.getDefault())
+
     @Test
     fun `generateIdToken - Claim the hash of the access token it was issued beside`() = runTest {
         val userId = UUID.randomUUID()
@@ -287,8 +291,7 @@ class IdTokenGeneratorTest {
      * assumption that let a whole claim type go missing from every id token.
      */
     private fun storedValueOf(claim: Claim, submitted: String): Any? {
-        val validated = ClaimValueValidator().validateAndCleanValueForClaim(claim, submitted).get()
-        val valueMapper = ClaimValueMapper(ObjectMapper.getDefault())
+        val validated = valueValidator.validateAndCleanValueForClaim(claim, submitted).get()
         return valueMapper.toBusiness(checkNotNull(valueMapper.toEntity(validated)), claim.dataType)
     }
 

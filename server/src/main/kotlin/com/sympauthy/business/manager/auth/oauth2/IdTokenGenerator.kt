@@ -234,8 +234,10 @@ class IdTokenGenerator(
  * mapper, and reading the wire form off it is how `number` came to be absent from every id token ever
  * issued — with nothing to notice it but an error line per claim per token.
  *
- * The narrowing that remains is a check rather than a decision: a value disagreeing with its own claim's
- * type is a value this server wrote under a type the claim no longer has, and the caller logs it.
+ * The narrowing that remains is a belt-and-braces check rather than a decision.
+ * [CollectedClaimMapper][com.sympauthy.business.mapper.CollectedClaimMapper] already drops a row that
+ * does not read back as its claim's type, so nothing should reach here disagreeing with it, and the
+ * caller logs it rather than publishing whatever it turned out to be.
  */
 private fun encodeOrNull(dataType: ClaimDataType, value: Any): Any? = when (dataType) {
     BOOLEAN -> value as? Boolean

@@ -33,6 +33,18 @@ class ClaimValueMapperTest {
     }
 
     @Test
+    fun `toBusiness - Return null where a boolean claim holds something that is not one`() {
+        // The object mapper reads every one of these as a truth value if it is asked to convert rather
+        // than to read, and a claim retyped to boolean would then publish a false nothing ever stored.
+        assertNull(mapper.toBusiness("\"maybe\"", BOOLEAN))
+        assertNull(mapper.toBusiness("\"TRUE\"", BOOLEAN))
+        assertNull(mapper.toBusiness("\"\"", BOOLEAN))
+        assertNull(mapper.toBusiness("0", BOOLEAN))
+        assertNull(mapper.toBusiness("42", BOOLEAN))
+        assertNull(mapper.toBusiness("[1]", BOOLEAN))
+    }
+
+    @Test
     fun `toBusiness - Read a number claim as a Long`() {
         assertEquals(42L, mapper.toBusiness("42", NUMBER))
     }

@@ -16,6 +16,13 @@ class UserInfoResourceMapper(
 ) {
 
 
+    /**
+     * The `/userinfo` answer for [userId], built from the [claims] a caller may read.
+     *
+     * A `<claim>_verified` companion is answered beside the claim it answers for and is false where that
+     * value is unverified, which is what the id token claims for the same account — a client reading one
+     * endpoint and then the other is owed the same shape from both.
+     */
     suspend fun toResource(userId: UUID, claims: List<CollectedClaim>): UserInfoResource {
         val claimById = claims.associateBy { it.claim.id }
         val addressClaims = claims.filter { it.claim.group == ClaimGroup.ADDRESS }
@@ -32,13 +39,13 @@ class UserInfoResourceMapper(
             picture = claimById.stringOrNull(OpenIdConnectClaimId.PICTURE),
             website = claimById.stringOrNull(OpenIdConnectClaimId.WEBSITE),
             email = claimById.stringOrNull(OpenIdConnectClaimId.EMAIL),
-            emailVerified = claimById[OpenIdConnectClaimId.EMAIL]?.verified,
+            emailVerified = claimById[OpenIdConnectClaimId.EMAIL]?.let { it.verified ?: false },
             gender = claimById.stringOrNull(OpenIdConnectClaimId.GENDER),
             birthDate = claimById.stringOrNull(OpenIdConnectClaimId.BIRTH_DATE)?.let(LocalDate::parse),
             zoneInfo = claimById.stringOrNull(OpenIdConnectClaimId.ZONE_INFO),
             locale = claimById.stringOrNull(OpenIdConnectClaimId.LOCALE),
             phoneNumber = claimById.stringOrNull(OpenIdConnectClaimId.PHONE_NUMBER),
-            phoneNumberVerified = claimById[OpenIdConnectClaimId.PHONE_NUMBER]?.verified,
+            phoneNumberVerified = claimById[OpenIdConnectClaimId.PHONE_NUMBER]?.let { it.verified ?: false },
             address = toAddressResource(addressClaims),
             updatedAt = generatedClaimsManager.computeUpdatedAt(userId)
         )
@@ -46,11 +53,9 @@ class UserInfoResourceMapper(
 
     /**
      * The `address` object OpenID Connect Core §5.1.1 defines, assembled from the [addressClaims] of the
-     * group, or null where none of them carries a value.
-     *
-     * Every member of that object is a string there, whatever type the claim behind it was configured as,
-     * so a component is rendered rather than left out — a `postal_code` configured as a number belongs in
-     * the object and in the `formatted` line as much as one configured as a string.
+     * group, or null where none of them carries a value. Every member of it is a string there whatever
+     * type the claim behind it was configured as, so a component is rendered rather than left out:
+     * `docs/design-faq.md`.
      */
     private fun toAddressResource(addressClaims: List<CollectedClaim>): AddressResource? {
         if (addressClaims.isEmpty()) return null
