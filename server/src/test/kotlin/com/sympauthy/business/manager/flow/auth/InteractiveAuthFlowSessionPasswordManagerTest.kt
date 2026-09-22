@@ -8,6 +8,7 @@ import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.flow.reauth.InteractiveFlowSessionReauthenticationManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.password.PasswordManager
+import com.sympauthy.business.manager.user.ClaimValueValidator
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.TakenIdentifier
 import com.sympauthy.business.manager.user.UserManager
@@ -21,8 +22,10 @@ import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.config.model.AuthConfig
+import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.UserRepository
+import io.micronaut.data.repository.jpa.criteria.PredicateSpecification
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -33,8 +36,10 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -54,6 +59,9 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
 
     @MockK
     lateinit var claimManager: ClaimManager
+
+    @MockK
+    lateinit var claimValueValidator: ClaimValueValidator
 
     @MockK
     lateinit var collectedClaimManager: CollectedClaimManager
@@ -114,12 +122,64 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
 
     /**
      * Stub the shared prelude of a successful credential check: sign-in enabled, the login resolves to [user]
-     * and the password matches. findByLogin/signInEnabled are final, stubbed on the spy via mockk inline.
+     * and the password matches. The two reads are final, stubbed on the spy via mockk inline.
      */
     private fun stubSuccessfulCredential() {
         every { manager.signInEnabled } returns true
-        coEvery { manager.findByLogin(login) } returns user
+        coEvery { manager.findByAnyIdentifierClaimValue(login) } returns user
         coEvery { passwordManager.arePasswordMatching(user, password) } returns true
+    }
+
+    /** An identifier claim, named so that the login can be cleaned differently under each of them. */
+    private fun identifierClaim(id: String): Claim = mockk { every { this@mockk.id } returns id }
+
+    @Test
+    fun `findByAnyIdentifierClaimValue - Offers every identifier claim the value as that claim spells it`() = runTest {
+        val typed = " Alice@Example.COM "
+        val emailClaim = identifierClaim("email")
+        val usernameClaim = identifierClaim("preferred_username")
+        every { claimManager.listIdentifierClaims() } returns listOf(emailClaim, usernameClaim)
+        every { claimValueValidator.cleanValueForClaimOrNull(emailClaim, typed) } returns "alice@example.com"
+        every { claimValueValidator.cleanValueForClaimOrNull(usernameClaim, typed) } returns "Alice@Example.COM"
+        every { claimValueMapper.toEntity("alice@example.com") } returns "\"alice@example.com\""
+        every { claimValueMapper.toEntity("Alice@Example.COM") } returns "\"Alice@Example.COM\""
+        coEvery { collectedClaimRepository.findOne(any<PredicateSpecification<CollectedClaimEntity>>()) } returns
+            mockk { every { this@mockk.userId } returns this@InteractiveAuthFlowSessionPasswordManagerTest.userId }
+        coEvery { userManager.findByIdOrNull(userId) } returns user
+
+        assertSame(user, manager.findByAnyIdentifierClaimValue(typed))
+
+        // The address is folded and trimmed for the claim storing addresses, and left alone for the one
+        // storing usernames: one spelling for the whole set would reach a capitalised username that is not it.
+        verify { claimValueMapper.toEntity("alice@example.com") }
+        verify { claimValueMapper.toEntity("Alice@Example.COM") }
+    }
+
+    @Test
+    fun `findByAnyIdentifierClaimValue - Offers nothing for a claim that could hold no such value`() = runTest {
+        // The claim is never even named: there is no pair to form for it.
+        val emailClaim = mockk<Claim>()
+        every { claimManager.listIdentifierClaims() } returns listOf(emailClaim)
+        every { claimValueValidator.cleanValueForClaimOrNull(emailClaim, "alice") } returns null
+
+        assertNull(manager.findByAnyIdentifierClaimValue("alice"))
+
+        coVerify(exactly = 0) { collectedClaimRepository.findOne(any<PredicateSpecification<CollectedClaimEntity>>()) }
+    }
+
+    @Test
+    fun `findByAnyIdentifierClaimValue - Answers none where no committed claim holds the value`() = runTest {
+        val emailClaim = identifierClaim("email")
+        every { claimManager.listIdentifierClaims() } returns listOf(emailClaim)
+        every { claimValueValidator.cleanValueForClaimOrNull(emailClaim, login) } returns login
+        every { claimValueMapper.toEntity(login) } returns "\"$login\""
+        coEvery {
+            collectedClaimRepository.findOne(any<PredicateSpecification<CollectedClaimEntity>>())
+        } returns null
+
+        assertNull(manager.findByAnyIdentifierClaimValue(login))
+
+        coVerify(exactly = 0) { userManager.findByIdOrNull(any()) }
     }
 
     @Test
@@ -221,7 +281,7 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
     fun `signInWithPassword - Records nothing where the password did not verify`() = runTest {
         val session = mockk<OnGoingInteractiveFlowSession>()
         every { manager.signInEnabled } returns true
-        coEvery { manager.findByLogin(login) } returns user
+        coEvery { manager.findByAnyIdentifierClaimValue(login) } returns user
         coEvery { passwordManager.arePasswordMatching(user, password) } returns false
 
         assertThrows<BusinessException> {

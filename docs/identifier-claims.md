@@ -10,10 +10,10 @@ failure that shows: it answers, and the answer is wrong only for the accounts ho
 values and not the rest.
 
 This document says which shape each question has: how one typed login reaches one account, what
-makes a value unique across the set rather than within a claim, and why the read that resolves an
-identity is not the read that says whether one is free. When the uniqueness of an account being
-signed up is settled is [the provisional user](provisional-user.md); who may read and write one of
-these claims is [security](security.md).
+makes a value unique across the set rather than within a claim, which spelling of a value all of
+that compares on, and why the read that resolves an identity is not the read that says whether one
+is free. When the uniqueness of an account being signed up is settled is [the provisional
+user](provisional-user.md); who may read and write one of these claims is [security](security.md).
 
 ## Signing in with any of them
 
@@ -44,8 +44,8 @@ the whole set rather than over each claim in it.
 
 **Nothing in the schema says it.** `collected_claims` holds a row per claim, so the rule ranges over
 rows of one column and over several columns at once, and a unique index expresses neither.
-`UserManager.findTakenIdentifierClaimIdOrNull` is the whole of it, and its KDoc is the authority on
-what it compares.
+`UserManager.findTakenIdentifierOrNull` is the whole of it, and its KDoc is the authority on what
+it compares.
 
 **One account holding one value under two of its own identifier claims is not that, and is
 allowed.** Both rows carry the same user, so a login over that value resolves to that account
@@ -56,6 +56,33 @@ conflict.
 **The rule sees committed rows only.** Two sign-ups may therefore hold one value at a time, and
 which of them keeps it is settled when the first one
 [promotes](provisional-user.md#when-uniqueness-is-settled).
+
+## One spelling, and the claim's type decides it
+
+**A value is compared exactly as `collected_claims` stores it, so two spellings are one identity
+only where one of them is what got stored.** Nothing folds anything at comparison time: the rule
+above is an equality, the read resolving a login is an equality, and `LockKey.IdentifierValue`
+hashes the stored string.
+
+**Which spelling that is belongs to the claim's data type, and `ClaimValueValidator` is where each
+type says so.** An `email` is trimmed and lowercased, a `phone_number` is E.164 and a `date` is
+`yyyy-MM-dd` before anything asks, and a `string` is kept as it was typed — whether two
+capitalisations of a username are one person is a deployment's policy rather than this server's.
+
+**An address is folded whole, local part included.** RFC 5321 leaves that half to the receiving
+host, but no mail provider a deployment will meet delivers `Alice@x.com` and `alice@x.com` to two
+mailboxes, and a server honouring the distinction would refuse to recognise somebody who
+capitalised their own name at sign-in.
+
+**Every writer of an identifier value goes through that validator**, including the ones taking a
+value from a provider rather than from the person it belongs to. A row written around it holds a
+spelling nothing else here will ever match.
+
+**A read cleans the value it offers, once per claim, the way that claim cleans what it stores.** One
+login becomes a `(claim, value)` pair per identifier claim rather than one string matched against
+the set, because folding a single spelling for all of them would reach a genuinely capitalised
+username by a login that is not it. A claim that could hold no such value at all is offered none,
+and matches nothing: no row of it holds a value that claim would have refused.
 
 ## Resolving an identity is not asking whether one is free
 
@@ -69,8 +96,8 @@ choice between several. It is what a provider sign-up merges on, where a wrong a
 stranger's third-party identity to somebody's account.
 
 **Enforcing uniqueness asks whether *any* account holds *any* of those values under *any* claim in
-the set.** `findTakenIdentifierClaimIdOrNull` is that read, and it is the rule of the section above.
-An account holding one of the offered values and none of the others owns the identity just the same,
+the set.** `findTakenIdentifierOrNull` is that read, and it is the rule of the section above. An
+account holding one of the offered values and none of the others owns the identity just the same,
 which is precisely what the resolving read answers nothing about.
 
 **It answers what was taken and who holds it, and raises nothing.** What to say about a value being
@@ -106,10 +133,9 @@ different thing from a partial check.
 above disagree by accident of what each of them writes rather than by a rule. Settling it is a
 question about which claims a deployment requires and what the flow collects when one is missing.
 
-**How two spellings of one value compare.** A value is compared exactly as `collected_claims` stores
-it, so a difference of case or of surrounding whitespace makes two identities out of one address.
-The lock serialising these checks hashes the stored spelling too, so two spellings are not even
-ordered against each other.
+**Two spellings that differ in Unicode rather than in case.** An address whose domain is non-ASCII,
+or whose local part differs only by normal form, is folded by nothing above. Settling it is a
+punycode and normal-form decision of its own.
 
 **Changing the identifier an account signs in with.** An account takes its identifier claims at
 sign-up and keeps them; why no surface writes one afterwards is

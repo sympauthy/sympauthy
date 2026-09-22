@@ -59,23 +59,33 @@ interface CollectedClaimRepository : CoroutineCrudRepository<CollectedClaimEntit
 }
 
 /**
- * Find any committed claim (whose id is included in the [claimIds]) that matches the [value].
+ * Find any committed claim holding the value [claimValues] gives for the claim it is named under, or null
+ * where none does and where [claimValues] is empty.
+ *
+ * Each claim carries its own value because a value is spelled the way its claim's data type spells it: one
+ * address reaches an `email` claim lowercased and a `string` claim as it was typed, so a single string
+ * offered to the whole set would be looked up under claims that store it differently. A caller offers each
+ * claim the value that claim would have stored, never the one as it was typed.
  *
  * A claim a session is still signing up is excluded: this is how an identifier is resolved to an account,
  * so answering with a provisional row would hand a caller an account that does not exist yet. See
  * [com.sympauthy.data.model.SessionScoped].
  */
 suspend fun CollectedClaimRepository.findAnyClaimMatching(
-    claimIds: List<String>,
-    value: String
+    claimValues: Map<String, String>
 ): CollectedClaimEntity? {
+    if (claimValues.isEmpty()) {
+        return null
+    }
     return findOne(where {
         and {
             root[CollectedClaimEntity::sessionId].equalsNull()
-            root[CollectedClaimEntity::value] eq value
             or {
-                claimIds.forEach {
-                    root[CollectedClaimEntity::claim] eq it
+                claimValues.forEach { (claimId, value) ->
+                    and {
+                        root[CollectedClaimEntity::claim] eq claimId
+                        root[CollectedClaimEntity::value] eq value
+                    }
                 }
             }
         }

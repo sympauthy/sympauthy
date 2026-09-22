@@ -185,15 +185,38 @@ class CollectedClaimRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `findAnyClaimMatching - Finds one claim of the named ids holding the value`(database: Database) =
+    fun `findAnyClaimMatching - Finds the claim of a pair holding that pair's value`(database: Database) =
         withFixture(database) {
             val users = seedUsers()
             val claims = repository<CollectedClaimRepository>()
 
-            val found = claims.findAnyClaimMatching(listOf("email", "phone_number"), encoded(bobEmail)!!)
+            val found = claims.findAnyClaimMatching(
+                mapOf("email" to encoded(bobEmail)!!, "phone_number" to encoded(bobEmail)!!)
+            )
 
             assertEquals(users.bobId, found?.userId)
-            assertNull(claims.findAnyClaimMatching(listOf("name"), encoded(bobEmail)!!))
+            assertNull(claims.findAnyClaimMatching(mapOf("name" to encoded(bobEmail)!!)))
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findAnyClaimMatching - Matches a value only under the claim it was offered for`(database: Database) =
+        withFixture(database) {
+            // Each claim carries its own spelling, so a value reaching one of them says nothing about the rest.
+            val users = seedUsers()
+            val claims = repository<CollectedClaimRepository>()
+
+            assertNull(claims.findAnyClaimMatching(mapOf("email" to encoded(bobName)!!)))
+            assertEquals(users.bobId, claims.findAnyClaimMatching(mapOf("name" to encoded(bobName)!!))?.userId)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findAnyClaimMatching - Returns nothing when no pair is offered`(database: Database) =
+        withFixture(database) {
+            seedUsers()
+
+            assertNull(repository<CollectedClaimRepository>().findAnyClaimMatching(emptyMap()))
         }
 
     @ParameterizedTest
@@ -304,13 +327,13 @@ class CollectedClaimRepositoryTest {
             saveClaim(userId, "email", email, sessionId = session.id)
             val value = encoded(email)!!
 
-            assertNull(claims.findAnyClaimMatching(listOf("email"), value))
+            assertNull(claims.findAnyClaimMatching(mapOf("email" to value)))
             assertTrue(claims.findAnyClaimMatching(listOf("email"), listOf(value)).isEmpty())
             assertTrue(claims.findUserIdsMatchingAllClaims(mapOf("email" to value)).isEmpty())
 
             assertEquals(1, claims.clearSessionId(userId, session.id!!))
 
-            assertEquals(userId, claims.findAnyClaimMatching(listOf("email"), value)?.userId)
+            assertEquals(userId, claims.findAnyClaimMatching(mapOf("email" to value))?.userId)
             assertEquals(listOf(userId), claims.findAnyClaimMatching(listOf("email"), listOf(value)).map { it.userId })
             assertEquals(listOf(userId), claims.findUserIdsMatchingAllClaims(mapOf("email" to value)))
         }

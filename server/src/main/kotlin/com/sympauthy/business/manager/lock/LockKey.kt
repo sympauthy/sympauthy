@@ -52,8 +52,10 @@ sealed class LockKey(
      * promotion racing it.
      *
      * The value is the one `collected_claims` holds — what [com.sympauthy.business.mapper.ClaimValueMapper]
-     * wrote, quotes and all — because that is the spelling the check compares on. A caller holding the
-     * business value maps it before naming it here.
+     * wrote, quotes and all, over a value [com.sympauthy.business.manager.user.ClaimValueValidator] had
+     * already cleaned — because that is the spelling the check compares on. Two spellings of one address
+     * are one value by then, so the writers claiming it take one stripe and are ordered against each other
+     * rather than passing. A caller holding the business value maps it before naming it here.
      */
     class IdentifierValue(value: String) : LockKey("identifier_value", value)
 

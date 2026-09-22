@@ -83,8 +83,12 @@ open class UserManager(
      * An account a session is still signing up never matches. Two sign-ups may therefore hold the same
      * identifier at once; the collision is settled when the first of them promotes. See
      * [com.sympauthy.data.model.SessionScoped].
+     *
+     * The values are business ones, cleaned the way the claim holding them cleans what it stores, and are
+     * spelled as `collected_claims` holds them here. A caller offering a value as it was typed asks for a
+     * spelling no row was written in.
      */
-    suspend fun findByIdentifierClaims(claimValues: Map<String, String>): User? {
+    suspend fun findByIdentifierClaims(claimValues: Map<String, Any>): User? {
         val entityClaimValues = claimValues.mapValues { entry -> claimValueMapper.toEntity(entry.value) }
         val userIds = collectedClaimRepository.findUserIdsMatchingAllClaims(entityClaimValues)
         return userRepository.findByIdInListAndSessionIdIsNull(userIds).firstOrNull()

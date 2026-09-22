@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.flow.link.InteractiveFlowSessionLinkProviderManager
 import com.sympauthy.business.manager.flow.reauth.InteractiveFlowSessionReauthenticationManager
 import com.sympauthy.business.manager.lock.HeldStripes
@@ -9,9 +10,11 @@ import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderClaimsResolver
 import com.sympauthy.business.manager.provider.ProviderManager
+import com.sympauthy.business.manager.user.ClaimValueValidator
 import com.sympauthy.business.manager.user.TakenIdentifier
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.ClaimValueMapper
+import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
@@ -80,6 +83,12 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
 
     @MockK
     lateinit var userManager: UserManager
+
+    @MockK
+    lateinit var claimManager: ClaimManager
+
+    @MockK
+    lateinit var claimValueValidator: ClaimValueValidator
 
     @MockK
     lateinit var claimValueMapper: ClaimValueMapper
@@ -180,6 +189,16 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
         coEvery { providerClaimsManager.findByProviderAndSubject(provider, subject) } returnsMany
             listOf(existingUserInfo, committedSince)
         return rawUserInfo
+    }
+
+    /**
+     * The identifier claims this deployment configures, each cleaning an asserted value to itself, so that
+     * a test turns on what the link does with a cleaned value rather than on how a claim's type cleans one.
+     */
+    private fun assertedIdentifierClaims(vararg claimIds: String) {
+        every { uncheckedAuthConfig.identifierClaims } returns claimIds.toList()
+        claimIds.forEach { every { claimManager.findByIdOrNull(it) } returns mockk() }
+        every { claimValueValidator.cleanValueForClaimOrNull(any(), any()) } answers { secondArg() }
     }
 
     @Test
@@ -353,7 +372,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
             stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo = null)
             coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
-            every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
+            assertedIdentifierClaims(OpenIdConnectClaimId.EMAIL)
             every { claimValueMapper.toEntity(email) } returns storedEmail
             coEvery {
                 userManager.findTakenIdentifierOrNull(
@@ -379,6 +398,43 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
         }
 
     @Test
+    fun `signInOrSignUpUsingProvider - Link compares the spelling the claim cleans the asserted value to`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val provider = createProvider()
+            val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
+            stubProviderCallbackChain(
+                session, provider, "sub-123", existingUserInfo = null, assertedEmail = "User@Example.COM"
+            )
+            val emailClaim = mockk<Claim>()
+            coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
+            every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
+            every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
+            every { claimValueValidator.cleanValueForClaimOrNull(emailClaim, "User@Example.COM") } returns email
+            every { claimValueMapper.toEntity(email) } returns storedEmail
+            coEvery {
+                userManager.findTakenIdentifierOrNull(
+                    userId,
+                    listOf(OpenIdConnectClaimId.EMAIL),
+                    mapOf(OpenIdConnectClaimId.EMAIL to storedEmail)
+                )
+            } returns TakenIdentifier(claimId = OpenIdConnectClaimId.EMAIL, userId = ownerId)
+
+            val exception = assertThrows<BusinessException> {
+                manager.signInOrSignUpUsingProvider(
+                    session, provider.id, redirectUri, authorizeCode = "code",
+                    observedRequest = observedRequestOf()
+                )
+            }
+
+            // An account holding the address in the spelling this server stores owns it whatever case the
+            // provider asserts it in, and the promotion racing this link waits on the same stripe.
+            assertEquals("flow.link_provider.identifier_conflict", exception.detailsId)
+            coVerify { objectLockRepository.lock(LockKey.IdentifierValue(storedEmail).stripe) }
+            coVerify(exactly = 0) { providerClaimsManager.saveUserInfo(any(), any(), any(), any()) }
+        }
+
+    @Test
     fun `signInOrSignUpUsingProvider - Link asks the conflict against the session's own account`() =
         runTest {
             val userId = UUID.randomUUID()
@@ -387,7 +443,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             val rawUserInfo = stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo = null)
             val advanced = mockk<InteractiveFlowSession>()
             coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
-            every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
+            assertedIdentifierClaims(OpenIdConnectClaimId.EMAIL)
             every { claimValueMapper.toEntity(email) } returns storedEmail
             coEvery { userManager.findTakenIdentifierOrNull(userId, any(), any()) } returns null
             coEvery { providerClaimsManager.saveUserInfo(provider, userId, null, rawUserInfo) } returns mockk()
@@ -420,9 +476,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
             stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo = null)
             coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
-            every { uncheckedAuthConfig.identifierClaims } returns listOf(
-                OpenIdConnectClaimId.EMAIL, OpenIdConnectClaimId.PHONE_NUMBER
-            )
+            assertedIdentifierClaims(OpenIdConnectClaimId.EMAIL, OpenIdConnectClaimId.PHONE_NUMBER)
             every { claimValueMapper.toEntity(email) } returns storedEmail
             coEvery {
                 userManager.findTakenIdentifierOrNull(userId, any(), any())
@@ -509,7 +563,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             val rawUserInfo = stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo = null)
             val advanced = mockk<InteractiveFlowSession>()
             coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
-            every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
+            assertedIdentifierClaims(OpenIdConnectClaimId.EMAIL)
             every { claimValueMapper.toEntity(email) } returns storedEmail
             coEvery { userManager.findTakenIdentifierOrNull(userId, any(), any()) } returns null
             coEvery { providerClaimsManager.saveUserInfo(provider, userId, null, rawUserInfo) } returns mockk()
@@ -539,6 +593,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             val advanced = mockk<InteractiveFlowSession>()
             coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
             every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
+            every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns mockk()
             coEvery { providerClaimsManager.saveUserInfo(provider, userId, null, rawUserInfo) } returns mockk()
             coEvery { engine.completeIfNecessary(session) } returns advanced
 

@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.user
 
+import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimDataType
@@ -13,12 +14,18 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.util.*
+import kotlin.jvm.optionals.getOrNull
 
 /**
  * Component in charge of validating and cleaning claim value received from end-users.
  *
  * A value submitted as a string is trimmed by [validateAndCleanStringForClaim] before its type is looked at,
  * so every check below it is given a value carrying no surrounding whitespace and none of them trims again.
+ *
+ * Beyond the trim, cleaning belongs to the claim's data type and runs beside that type's own validation: a
+ * type with one canonical spelling answers with it rather than with what was submitted — an email
+ * lowercased, a boolean folded, a number read as a [Long]. What this returns is what gets stored, and a
+ * caller comparing against a stored value asks [cleanValueForClaimOrNull] for the same spelling.
  */
 @Singleton
 class ClaimValueValidator {
@@ -64,6 +71,23 @@ class ClaimValueValidator {
             )
         }
         return cleanedValue
+    }
+
+    /**
+     * The [value] as [claim] holds it, or null where [claim] could hold no such value at all — it does not
+     * satisfy the claim's own type, it falls outside [Claim.allowedValues], or it carries nothing but
+     * whitespace and so is no value.
+     *
+     * This is [validateAndCleanValueForClaim] for a caller comparing rather than writing. A stored value
+     * was cleaned on the way in, so a caller looking one up has to clean what it offers the same way or it
+     * asks for a spelling no row was ever written in. What that caller cannot do is fail: a value the claim
+     * would refuse matches no row of it either, since every row of it holds a value this validator accepted,
+     * so being unable to clean it is an answer of none rather than a refusal to raise.
+     */
+    fun cleanValueForClaimOrNull(claim: Claim, value: Any?): Any? = try {
+        validateAndCleanValueForClaim(claim, value).getOrNull()
+    } catch (_: BusinessException) {
+        null
     }
 
     /**
@@ -147,7 +171,7 @@ class ClaimValueValidator {
     }
 
     /**
-     * Validate the [value] is an email.
+     * Validate the [value] is an email, and return it lowercased.
      *
      * According to the [OpenID](https://openid.net/specs/openid-connect-core-1_0.html#Claims), the email claim MUST
      * conform to the
@@ -156,6 +180,12 @@ class ClaimValueValidator {
      * However, for simplicity, we will only validate the value:
      * - contains a single '@' characters.
      * - it separates 2 non-empty parts.
+     *
+     * The whole address is folded, and not only the domain RFC 5321 makes case-insensitive. The local part
+     * is the receiving host's business and two spellings of it may in principle be two mailboxes, but none
+     * of the providers a deployment will meet treats them as two — and a server that honoured the
+     * distinction would refuse to recognise a person who capitalised their own name at sign-in. An address
+     * is compared exactly as it is stored, so what is not folded here is two identities that never meet.
      */
     internal fun validateEmailForClaim(value: String): Optional<Any> {
         val parts = value.split("@")
@@ -165,7 +195,7 @@ class ClaimValueValidator {
                 "description.user.claim_value_validator.invalid_email"
             )
         }
-        return Optional.of(value)
+        return Optional.of(value.lowercase())
     }
 
     /**

@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
+import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.flow.link.InteractiveFlowSessionLinkProviderManager
 import com.sympauthy.business.manager.flow.reauth.InteractiveFlowSessionReauthenticationManager
 import com.sympauthy.business.manager.lock.LockKey
@@ -11,6 +12,7 @@ import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderClaimsResolver
 import com.sympauthy.business.manager.provider.ProviderManager
+import com.sympauthy.business.manager.user.ClaimValueValidator
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
@@ -60,6 +62,8 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
     @Inject private val establisher: ProviderUserEstablisher,
     @Inject private val linkProviderManager: InteractiveFlowSessionLinkProviderManager,
     @Inject private val userManager: UserManager,
+    @Inject private val claimManager: ClaimManager,
+    @Inject private val claimValueValidator: ClaimValueValidator,
     @Inject private val claimValueMapper: ClaimValueMapper,
     @Inject private val lockManager: LockManager,
     @Inject private val uncheckedAuthConfig: AuthConfig
@@ -396,15 +400,19 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
      *
      * The values the check compares and the keys locking them come out of this one read, and null answers
      * for both: a key over a check that does not run excludes a promotion for nothing, and a check with no
-     * key over it is the one this answer exists to keep out. Only the identifier **values** are needed (not
-     * the resolved claim objects), so this is a plain lookup rather than the full sign-up claim resolution.
-     * A value the mapper cannot spell as `collected_claims` holds it drops out with the claim asserting it:
-     * neither half of the pair can be formed for it.
+     * key over it is the one this answer exists to keep out. An asserted value is cleaned by the claim
+     * asserting it before it is spelled, because the check compares on the spelling a collected value was
+     * stored in and an address a provider capitalises is otherwise a conflict nothing sees. A value drops
+     * out with the claim asserting it where that claim is not one this deployment declares, where it could
+     * hold no such value, or where the mapper cannot spell it as `collected_claims` holds it: neither half
+     * of the pair can be formed for it, and no row it would have matched exists.
      */
     private fun getAssertedIdentifiersOrNull(rawUserInfo: RawProviderClaims): AssertedIdentifiers? {
         val identifierClaims = uncheckedAuthConfig.orThrow().identifierClaims
         val valuesByClaimId = identifierClaims.mapNotNull { claimId ->
+            val claim = claimManager.findByIdOrNull(claimId) ?: return@mapNotNull null
             rawUserInfo.getClaimValueOrNull(claimId)
+                ?.let { claimValueValidator.cleanValueForClaimOrNull(claim, it) }
                 ?.let(claimValueMapper::toEntity)
                 ?.let { claimId to it }
         }.toMap()

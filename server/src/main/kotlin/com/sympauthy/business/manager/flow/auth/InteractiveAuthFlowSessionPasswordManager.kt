@@ -12,6 +12,7 @@ import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.password.PasswordManager
+import com.sympauthy.business.manager.user.ClaimValueValidator
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.ClaimValueMapper
@@ -45,6 +46,7 @@ open class InteractiveAuthFlowSessionPasswordManager(
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
     @Inject private val userSecurityContextManager: UserSecurityContextManager,
     @Inject private val claimManager: ClaimManager,
+    @Inject private val claimValueValidator: ClaimValueValidator,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val collectedClaimRepository: CollectedClaimRepository,
     @Inject private val invitationManager: InvitationManager,
@@ -74,15 +76,24 @@ open class InteractiveAuthFlowSessionPasswordManager(
         }
 
     /**
-     * Find the end-user with a claim matching the [login].
-     * The claims used to match the login are configured in [EnabledAuthConfig.identifierClaims].
+     * Find the committed end-user holding [identifierClaimValue] under any one of the claims
+     * [EnabledAuthConfig.identifierClaims] configures. Otherwise, return null.
+     *
+     * The value is cleaned once per identifier claim, the way that claim's data type cleans a value it
+     * stores, and each claim is offered its own spelling: an address reaches an `email` claim lowercased
+     * and trimmed, where a username reaches a `string` one as it was typed. Folding one spelling for the
+     * whole set would sign in the owner of a genuinely capitalised username by a value that is not theirs.
+     *
+     * A claim that could hold no such value at all is not offered one, and matches nothing — no row of it
+     * holds a value that claim would have refused.
      */
-    internal suspend fun findByLogin(login: String): User? {
-        val identifierClaims = uncheckedAuthConfig.orThrow().identifierClaims
-        val userInfo = collectedClaimRepository.findAnyClaimMatching(
-            claimIds = identifierClaims,
-            value = claimValueMapper.toEntity(login) ?: return null,
-        )
+    internal suspend fun findByAnyIdentifierClaimValue(identifierClaimValue: String): User? {
+        val claimValues = claimManager.listIdentifierClaims().mapNotNull { claim ->
+            claimValueValidator.cleanValueForClaimOrNull(claim, identifierClaimValue)
+                ?.let(claimValueMapper::toEntity)
+                ?.let { claim.id to it }
+        }.toMap()
+        val userInfo = collectedClaimRepository.findAnyClaimMatching(claimValues)
         return userInfo?.userId?.let { userManager.findByIdOrNull(it) }
     }
 
@@ -112,7 +123,7 @@ open class InteractiveAuthFlowSessionPasswordManager(
             )
         }
 
-        val user = findByLogin(login)
+        val user = findByAnyIdentifierClaimValue(login)
         // The user does not exist or has been created using a third-party provider.
         if (user == null || user.status != UserStatus.ENABLED) {
             throw recoverableBusinessExceptionOf(
