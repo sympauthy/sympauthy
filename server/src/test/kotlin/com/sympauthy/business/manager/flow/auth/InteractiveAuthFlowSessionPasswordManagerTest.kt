@@ -15,6 +15,7 @@ import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
@@ -38,6 +39,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import java.time.LocalDateTime
@@ -290,6 +292,83 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
 
         coVerify { userManager.findTakenIdentifierOrNull(null, listOf("email", "name"), offered) }
     }
+
+    @Test
+    fun `checkForMissingClaims - Refuses recoverably a claim no update was submitted for`() {
+        val email = claimOf("email")
+
+        val exception = assertThrows<BusinessException> { manager.checkForMissingClaims(mapOf(email to null)) }
+
+        assertEquals("flow.password.sign_up.missing_claim", exception.detailsId)
+        assertTrue(exception.recoverable)
+        assertEquals("email", exception.values["claim"])
+    }
+
+    @Test
+    fun `checkForMissingClaims - Refuses recoverably a claim whose update carries no value`() {
+        val email = claimOf("email")
+        val cleared = CollectedClaimUpdate(claim = email, value = Optional.empty())
+
+        val exception = assertThrows<BusinessException> { manager.checkForMissingClaims(mapOf(email to cleared)) }
+
+        assertEquals("flow.password.sign_up.missing_claim", exception.detailsId)
+        assertTrue(exception.recoverable)
+        assertEquals("email", exception.values["claim"])
+    }
+
+    @Test
+    fun `checkForMissingClaims - Names the claim missing a value rather than one carrying it`() {
+        val email = mockk<Claim>()
+        val username = claimOf("preferred_username")
+
+        val exception = assertThrows<BusinessException> {
+            manager.checkForMissingClaims(
+                mapOf(
+                    email to CollectedClaimUpdate(email, Optional.of("a@example.com")),
+                    username to CollectedClaimUpdate(username, Optional.empty())
+                )
+            )
+        }
+
+        assertEquals("preferred_username", exception.values["claim"])
+    }
+
+    @Test
+    fun `checkForMissingClaims - Accepts every claim carrying a value`() {
+        val email = mockk<Claim>()
+        val username = mockk<Claim>()
+
+        assertDoesNotThrow {
+            manager.checkForMissingClaims(
+                mapOf(
+                    email to CollectedClaimUpdate(email, Optional.of("a@example.com")),
+                    username to CollectedClaimUpdate(username, Optional.of("ada.lovelace"))
+                )
+            )
+        }
+    }
+
+    @Test
+    fun `createAccountWithClaimsAndPassword - Refuses a claim with no value before creating the account`() =
+        runTest {
+            val session = mockk<OnGoingInteractiveFlowSession>()
+            val email = claimOf("email")
+            val oauth2 = mockk<InteractiveFlowSessionOAuth2>()
+            coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
+            coEvery { interactiveAuthFlowSessionManager.checkSignUpAllowed(oauth2, true) } returns Unit
+            every { claimManager.listIdentifierClaims() } returns listOf(email)
+
+            val exception = assertThrows<BusinessException> {
+                manager.createAccountWithClaimsAndPassword(
+                    session = session,
+                    unfilteredUpdates = listOf(CollectedClaimUpdate(email, Optional.empty())),
+                    password = password
+                )
+            }
+
+            assertEquals("flow.password.sign_up.missing_claim", exception.detailsId)
+            coVerify(exactly = 0) { userManager.createUser(any()) }
+        }
 
     private fun claimUpdate(claimId: String, value: String) = CollectedClaimUpdate(
         claim = claimOf(claimId),

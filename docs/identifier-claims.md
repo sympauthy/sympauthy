@@ -10,10 +10,10 @@ failure that shows: it answers, and the answer is wrong only for the accounts ho
 values and not the rest.
 
 This document says which shape each question has: how one typed login reaches one account, what
-makes a value unique across the set rather than within a claim, and why the read that resolves an
-identity is not the read that says whether one is free. When the uniqueness of an account being
-signed up is settled is [the provisional user](provisional-user.md); who may read and write one of
-these claims is [security](security.md).
+makes a value unique across the set rather than within a claim, what a sign-up has to collect before
+an account exists, and why the read that resolves an identity is not the read that says whether one
+is free. When the uniqueness of an account being signed up is settled is [the provisional
+user](provisional-user.md); who may read and write one of these claims is [security](security.md).
 
 ## Signing in with any of them
 
@@ -44,8 +44,8 @@ the whole set rather than over each claim in it.
 
 **Nothing in the schema says it.** `collected_claims` holds a row per claim, so the rule ranges over
 rows of one column and over several columns at once, and a unique index expresses neither.
-`UserManager.findTakenIdentifierClaimIdOrNull` is the whole of it, and its KDoc is the authority on
-what it compares.
+`UserManager.findTakenIdentifierOrNull` is the whole of it, and its KDoc is the authority on what it
+compares.
 
 **One account holding one value under two of its own identifier claims is not that, and is
 allowed.** Both rows carry the same user, so a login over that value resolves to that account
@@ -69,8 +69,8 @@ choice between several. It is what a provider sign-up merges on, where a wrong a
 stranger's third-party identity to somebody's account.
 
 **Enforcing uniqueness asks whether *any* account holds *any* of those values under *any* claim in
-the set.** `findTakenIdentifierClaimIdOrNull` is that read, and it is the rule of the section above.
-An account holding one of the offered values and none of the others owns the identity just the same,
+the set.** `findTakenIdentifierOrNull` is that read, and it is the rule of the section above. An
+account holding one of the offered values and none of the others owns the identity just the same,
 which is precisely what the resolving read answers nothing about.
 
 **It answers what was taken and who holds it, and raises nothing.** What to say about a value being
@@ -88,6 +88,23 @@ it**, and answers for the refusal itself. They are not listed here or anywhere e
 them stops being true the next time one is added, which is [the comment
 standard's](comment-standard.md) rule and holds of a document as much as of a KDoc.
 
+## Collecting them at sign-up
+
+**A sign-up collects every claim in the set, each of them carrying a value.** One arriving without
+is refused on the step that collects it — recoverably, naming the claim — and no account is written:
+the person fills the field in and posts again.
+
+**A claim submitted blank is one being cleared, and an identifier claim cleared is a missing one.**
+Emptying a field is what a blank submission means everywhere else, and an account created holding no
+value for a claim it is identified by holds a row no login matches. Nobody reaches it again, and
+nothing collects it either: it is committed, so it is not the abandoned account [the
+cleaner](provisional-user.md#collecting-one-that-never-will) sweeps.
+
+**The step collecting the value is where those two readings part, so the refusal is there.** What
+validates a value is handed one claim and one value and is told nothing of which claims the
+deployment identifies by; what promotes the account answers after it is written, at the end of a
+flow where the person has no step left to correct.
+
 ## What a provider asserts
 
 **A provider link checks whatever subset of the set the provider asserts.** Linking writes no
@@ -102,9 +119,10 @@ different thing from a partial check.
 
 ## What this document does not settle
 
-**Whether an account may hold only some of the set.** Nothing decides it, and the two provider paths
-above disagree by accident of what each of them writes rather than by a rule. Settling it is a
-question about which claims a deployment requires and what the flow collects when one is missing.
+**Whether an account may hold only some of the set.** A sign-up collects every one of them, and the
+two provider paths disagree by accident of what each of them writes rather than by a rule. Settling
+it is a question about which claims a deployment requires, and about the accounts a deployment that
+adds one to the set already holds.
 
 **How two spellings of one value compare.** A value is compared exactly as `collected_claims` stores
 it, so a difference of case or of surrounding whitespace makes two identities out of one address.

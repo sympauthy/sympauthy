@@ -49,6 +49,11 @@ class CollectedClaimUpdateMapperTest {
             recoverableBusinessExceptionOf(detailsId, "description.$detailsId", "claim" to id)
     }
 
+    /** A claim this deployment declares under [id], whose blank [value] the validator clears. */
+    private fun clear(id: String, value: Any?): Claim = declare(id).also {
+        every { claimValueValidator.validateAndCleanValueForClaim(it, value) } returns Optional.empty()
+    }
+
     private fun declare(id: String): Claim = mockk<Claim>().also {
         every { claimManager.findByIdOrNull(id) } returns it
     }
@@ -63,6 +68,16 @@ class CollectedClaimUpdateMapperTest {
         assertEquals(listOf(email, name), updates.map { it.claim })
         // The cleaned value, not the one submitted: the validator owns what is stored.
         assertEquals(listOf("someone@example.com", "Ada"), updates.map { it.value?.get() })
+    }
+
+    @Test
+    fun `toUpdates - Keep a claim being cleared as an update carrying no value`() {
+        val email = clear("email", "")
+
+        val updates = mapper.toUpdates(linkedMapOf("email" to ""))
+
+        assertEquals(listOf(email), updates.map { it.claim })
+        assertTrue(updates.single().value?.isEmpty == true, "the claim is cleared, not left out")
     }
 
     @Test
