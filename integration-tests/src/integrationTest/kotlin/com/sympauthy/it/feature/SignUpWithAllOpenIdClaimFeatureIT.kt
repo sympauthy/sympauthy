@@ -90,7 +90,7 @@ class SignUpWithAllOpenIdClaimFeatureIT : AbstractSympauthyIT() {
             }
             assertEquals(userId, values["sub"], "the generated 'sub' claim should equal the user id")
             assertEquals(
-                "true", values["is_sympauthy_admin"],
+                true, values["is_sympauthy_admin"],
                 "the invitation should have marked the user as an admin",
             )
         }

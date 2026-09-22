@@ -8,6 +8,8 @@ import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.user.CollectedClaim
+import com.sympauthy.business.model.user.claim.ClaimDataType
+import com.sympauthy.business.model.user.claim.ClaimDataType.*
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.AuthConfig
@@ -168,39 +170,75 @@ class IdTokenGenerator(
         return tokenMapper.toEncodedAuthenticationToken(entity, encodedToken)
     }
 
+    /**
+     * Claim [claim] on this token, and its `<claim>_verified` companion beside it where the claim declares
+     * one. A claim holding no value is not claimed at all, and neither is one whose value this server has
+     * no wire form for.
+     *
+     * The companion is claimed only beside a value, because `foo_verified: true` with no `foo` is this
+     * server asserting it verified something it did not send.
+     */
     private fun JWTClaimsSet.Builder.withClaim(claim: CollectedClaim) {
-        when (claim.value) {
-            is String -> claim(claim.claim.id, claim.value)
-            else -> {
-                logger.error("Unable to encode claim '${claim.claim.id}' into id token.")
-            }
+        val value = claim.value ?: return
+        val encoded = encodeOrNull(claim.claim.dataType, value)
+        if (encoded == null) {
+            logger.error("Unable to encode claim '${claim.claim.id}' into id token.")
+            return
         }
-        if (claim.claim.verifiedId != null) {
-            claim(claim.claim.verifiedId, claim.verified ?: false)
-        }
+        claim(claim.claim.id, encoded)
+        claim.claim.verifiedId?.let { claim(it, claim.verified ?: false) }
     }
 
+    /**
+     * Claim the `address` object OpenID Connect Core §5.1.1 defines, assembled from the [addressClaims] of
+     * the group, or nothing where none of them carries a value this server can encode.
+     *
+     * Every member of that object is a string there, whatever type the claim behind it was configured as,
+     * so a component is rendered rather than left out — a `postal_code` configured as a number belongs in
+     * the object and in the `formatted` line as much as one configured as a string.
+     */
     private fun JWTClaimsSet.Builder.withAddressClaim(addressClaims: List<CollectedClaim>) {
         if (addressClaims.isEmpty()) return
-        val addressMap = mutableMapOf<String, Any>()
+        val addressMap = mutableMapOf<String, String>()
         addressClaims.forEach { claim ->
-            val value = claim.value
-            if (value is String) {
-                addressMap[claim.claim.id] = value
+            val value = claim.value ?: return@forEach
+            val encoded = encodeOrNull(claim.claim.dataType, value)
+            if (encoded == null) {
+                logger.error("Unable to encode claim '${claim.claim.id}' into the address of an id token.")
+                return@forEach
             }
+            addressMap[claim.claim.id] = encoded.toString()
         }
         if (addressMap.isNotEmpty()) {
             val formatted = listOfNotNull(
-                addressMap["street_address"] as? String,
+                addressMap["street_address"],
                 listOfNotNull(
-                    addressMap["locality"] as? String,
-                    addressMap["region"] as? String,
-                    addressMap["postal_code"] as? String
+                    addressMap["locality"],
+                    addressMap["region"],
+                    addressMap["postal_code"]
                 ).joinToString(", ").ifBlank { null },
-                addressMap["country"] as? String
+                addressMap["country"]
             ).joinToString("\n").ifBlank { null }
             formatted?.let { addressMap["formatted"] = it }
             claim("address", addressMap)
         }
     }
+}
+
+/**
+ * [value] as the JSON type a claim of [dataType] is published as, or null where this server publishes no
+ * value of that type in an id token, or where the value is not one of that type after all.
+ *
+ * What decides the wire form is the type a deployment declared, exhaustively, and never the type the value
+ * happens to be carrying. The second is an artifact of how the value round-tripped through the object
+ * mapper, and reading the wire form off it is how `number` came to be absent from every id token ever
+ * issued — with nothing to notice it but an error line per claim per token.
+ *
+ * The narrowing that remains is a check rather than a decision: a value disagreeing with its own claim's
+ * type is a value this server wrote under a type the claim no longer has, and the caller logs it.
+ */
+private fun encodeOrNull(dataType: ClaimDataType, value: Any): Any? = when (dataType) {
+    BOOLEAN -> value as? Boolean
+    NUMBER -> (value as? Number)?.toLong()
+    DATE, EMAIL, PHONE_NUMBER, STRING, TIMEZONE -> value as? String
 }

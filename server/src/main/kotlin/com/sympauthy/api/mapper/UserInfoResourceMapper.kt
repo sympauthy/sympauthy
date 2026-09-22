@@ -32,7 +32,7 @@ class UserInfoResourceMapper(
             picture = claimById.stringOrNull(OpenIdConnectClaimId.PICTURE),
             website = claimById.stringOrNull(OpenIdConnectClaimId.WEBSITE),
             email = claimById.stringOrNull(OpenIdConnectClaimId.EMAIL),
-            emailVerified = claimById[OpenIdConnectClaimId.EMAIL]?.verified?.toString(),
+            emailVerified = claimById[OpenIdConnectClaimId.EMAIL]?.verified,
             gender = claimById.stringOrNull(OpenIdConnectClaimId.GENDER),
             birthDate = claimById.stringOrNull(OpenIdConnectClaimId.BIRTH_DATE)?.let(LocalDate::parse),
             zoneInfo = claimById.stringOrNull(OpenIdConnectClaimId.ZONE_INFO),
@@ -44,9 +44,17 @@ class UserInfoResourceMapper(
         )
     }
 
+    /**
+     * The `address` object OpenID Connect Core §5.1.1 defines, assembled from the [addressClaims] of the
+     * group, or null where none of them carries a value.
+     *
+     * Every member of that object is a string there, whatever type the claim behind it was configured as,
+     * so a component is rendered rather than left out — a `postal_code` configured as a number belongs in
+     * the object and in the `formatted` line as much as one configured as a string.
+     */
     private fun toAddressResource(addressClaims: List<CollectedClaim>): AddressResource? {
         if (addressClaims.isEmpty()) return null
-        val addressById = addressClaims.associate { it.claim.id to (it.value as? String) }
+        val addressById = addressClaims.associate { it.claim.id to it.value?.toString() }
         if (addressById.values.all { it == null }) return null
 
         val streetAddress = addressById[OpenIdConnectClaimId.STREET_ADDRESS]

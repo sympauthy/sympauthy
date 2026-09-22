@@ -85,7 +85,7 @@ data class UserInfoResource(
         description = "True if the end-user's e-mail address has been verified, otherwise false."
     )
     @get:JsonProperty(EMAIL_VERIFIED)
-    val emailVerified: String?,
+    val emailVerified: Boolean?,
     @get:Schema(
         description = "End-user's gender."
     )

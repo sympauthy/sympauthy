@@ -174,8 +174,9 @@ class ClaimsConfigParser(
             val itemKey = "$key[$index]"
             ctx.parse {
                 when (type) {
+                    BOOLEAN -> parser.getBoolean(value, itemKey) { it }
                     NUMBER -> parser.getLong(value, itemKey) { it }
-                    BOOLEAN, DATE, EMAIL, PHONE_NUMBER, STRING, TIMEZONE ->
+                    DATE, EMAIL, PHONE_NUMBER, STRING, TIMEZONE ->
                         parser.getString(value, itemKey) { it }
                 }
             }

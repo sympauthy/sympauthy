@@ -251,6 +251,48 @@ sign-up applying it could not read back, and an operator would have had no way t
 A warning would have kept the capability, and with it the silent success this entry is about — a
 caller told its invitation was created, holding a token that will not do what the request said.
 
+### What form does a claim's value take once it leaves this server?
+
+**Decision:** The type the deployment declared. `ClaimDataType.typeClass` is the type a validated value
+is held in, the type a stored one is read back as, and the JSON type a published one takes, and every
+publisher switches on `Claim.dataType` exhaustively rather than on the type the value is carrying. A
+`boolean` claim is therefore the JSON `true`, not the string `"true"` it used to be.
+
+**Options considered:**
+
+- **The runtime type of the value** — publish a `String` as a string, and log whatever else arrives.
+- **The declared type, with `boolean` left as a string** — the `number` half fixed, the wire form of a
+  `boolean` claim left as every deployment already reads it.
+- **The declared type, exhaustively** — one `when` per publisher over `ClaimDataType`, with no `else`.
+
+**Rationale:**
+
+The runtime type is an artifact of how a value round-tripped through `ObjectMapper`, so reading the wire
+form off it makes an id token's contents a consequence of a mapper's behaviour rather than of a decision.
+That is how `number` — then the only type whose value was not a `String` — came to be absent from every
+id token ever issued, whatever its ACL and whatever the person consented to, with nothing to notice it
+but an error line per claim per token. An `else` arm is what swallowed it, and an exhaustive `when` is
+what makes the next type answer for itself instead of inheriting that silence.
+
+Leaving `boolean` as a string was the cheaper half, and it was already ruled out here:
+[the API standard](api-standard.md#json) says a boolean is a boolean. A claim published as `"false"` is
+truthy in every language that tests it without comparing, which is the failure a client writes once and
+never sees. And it was not even one form consistently — `/userinfo` answered `"email_verified": "true"`
+where the id token answered `true` for the same account, against OpenID Connect Core, which makes the
+same value two shapes depending on which endpoint a client asked.
+
+What it costs is a wire change for a deployment holding a `boolean` claim, and it is taken now because
+pre-1.0 is the cheapest this gets: the value is `true` on the id token, the client API and the admin API
+alike, and a client comparing against `"true"` stops matching. Nothing migrates the rows, because which
+claim a row belongs to is configuration rather than a column and no migration could find them — the
+mapper reads a stored `"true"` back as a `Boolean` instead, which is what carries the existing ones
+across.
+
+The address is the one place the declared type does not decide, and it is not an exception to the rule so
+much as the specification answering first: every member of the `address` object is a string under OpenID
+Connect Core §5.1.1, so a component is rendered rather than published as its own type — and rendered
+rather than dropped, which is what a `postal_code` configured as a number used to be.
+
 ### Does a granting rule see claims of every audience?
 
 **Decision:** No. Each caller reads the claims of the audience its decision lands in, through
