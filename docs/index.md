@@ -29,8 +29,8 @@ What the server is, how each of its parts works, and why it is built the way it 
   the rows it owns, what makes them count, and what collects them when nothing ever does.
 - **[The identifier claims](identifier-claims.md)** — what a deployment identifies a person by: how
   one login reaches one account across several of them, what makes a value unique across the set
-  rather than within a claim, and why resolving an identity is not the read that says whether one is
-  free.
+  rather than within a claim, what a sign-up has to collect, and why resolving an identity is not
+  the read that says whether one is free.
 - **[Security](security.md)** — how a credential becomes an authentication, what a scope is allowed
   to mean and which audience a claim may be published to, and what each surface's gate does and does
   not protect.
