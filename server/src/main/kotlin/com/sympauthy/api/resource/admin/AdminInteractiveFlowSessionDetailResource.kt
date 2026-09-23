@@ -64,15 +64,21 @@ data class AdminInteractiveFlowSessionDetailResource(
     )
     @get:JsonProperty("error_details")
     val errorDetails: String?,
-    @get:Schema(description = "Identifier of the message the end-user was shown. Absent unless the session failed.")
+    @get:Schema(
+        description = "Identifier of the message the failure names for the end-user. It is the key itself, " +
+                "so it can be searched for and branched on. Absent unless the session failed, and absent " +
+                "where the failure names no message of its own — error_description then carries the generic " +
+                "sentence the end-user was shown instead."
+    )
     @get:JsonProperty("error_description_id")
     val errorDescriptionId: String?,
     @get:Schema(
         description = "The message the end-user was shown, read in the language the request asked for rather " +
-                "than theirs, with the error values interpolated into it. It may be reworded in any release, " +
-                "so branch on error_description_id instead. Absent unless the session failed, absent where " +
-                "the failure named no message for the end-user, and absent where this deployment holds no " +
-                "message under that identifier."
+                "than theirs, with the error values interpolated into it. It is rendered the way the flow's " +
+                "error page renders it, so a failure naming no message of its own carries the generic " +
+                "sentence that was on the screen rather than nothing. It may be reworded in any release, so " +
+                "branch on error_description_id instead. Absent unless the session failed, and absent where " +
+                "this deployment holds no message under the identifier that answered."
     )
     @get:JsonProperty("error_description")
     val errorDescription: String?,

@@ -7,6 +7,7 @@ import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionPurposeProgre
 import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionSecurityContextResource
 import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionSummaryResource
 import com.sympauthy.api.resource.admin.AdminUserResource
+import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager.InteractiveFlowSessionDetail
 import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager.InteractiveFlowSessionSummary
 import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager.InteractiveFlowSessionUser
@@ -14,6 +15,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowPurposeProgress
 import com.sympauthy.business.model.flow.InteractiveFlowSessionSecurityContext
 import com.sympauthy.business.model.flow.PurposeDebugInformation
+import com.sympauthy.exception.mapper.LocalizedErrorMapper
 import com.sympauthy.server.ErrorMessages
 import com.sympauthy.util.renderOrNull
 import com.sympauthy.util.wireName
@@ -31,7 +33,8 @@ import java.util.Locale
 @Singleton
 class AdminInteractiveFlowSessionResourceMapper(
     @Inject private val userMapper: AdminUserResourceMapper,
-    @Inject @param:ErrorMessages private val errorMessageSource: MessageSource
+    @Inject @param:ErrorMessages private val errorMessageSource: MessageSource,
+    @Inject private val localizedErrorMapper: LocalizedErrorMapper
 ) {
 
     /**
@@ -62,43 +65,65 @@ class AdminInteractiveFlowSessionResourceMapper(
      * may not be renamed without breaking a caller, a sentence may be reworded in any release, so a console
      * grouping sessions by how they failed reads the key and the person reading the page reads the sentence.
      *
-     * **The technical message is published whatever `features.print-details-in-error` says.** That flag
-     * keeps the server's internals away from a caller nobody vouched for; this surface is gated by
-     * `admin:interactive-flow-sessions:read`, and the operator holding it is the reader that message is
-     * written for, which is the one exemption the API standard names beside the flag's own rule.
+     * **The end-user's message is built the way the flow's error page builds it** — the same
+     * [LocalizedErrorMapper], over the same terminal failure — so a failure naming none of its own carries
+     * the generic sentence that was on the screen rather than nothing, and the two cannot tell an operator
+     * and the person different stories about one session.
+     *
+     * **The technical message does not come from there**, because that mapper puts it behind
+     * `features.print-details-in-error` and it is published here whatever the flag says: that is the one
+     * exemption the API standard names beside the flag's own rule.
+     *
+     * **A key this deployment holds no message under yields no sentence rather than the key itself.** The
+     * keys come out of a row rather than off a throw site: a session persisted before a code was renamed
+     * holds the old one, and a rolling upgrade has both versions writing rows for as long as it lasts. The
+     * identifier beside the absence still says what the session failed with.
      */
     fun toResource(
         detail: InteractiveFlowSessionDetail,
         locale: Locale
-    ) = AdminInteractiveFlowSessionDetailResource(
-        id = detail.id,
-        status = detail.status.wireName,
-        initiatingPurpose = toPurposeResource(detail.initiatingPurpose),
-        clientId = detail.initiatingClientId,
-        flowId = detail.flowId,
-        user = detail.user?.let(::toUserResource),
-        signedUp = detail.signedUp,
-        sessionDate = detail.sessionDate,
-        expirationDate = detail.expirationDate,
-        errorDetailsId = detail.errorDetailsId,
-        errorDetails = render(detail.errorDetailsId, detail.errorValues, locale),
-        errorDescriptionId = detail.errorDescriptionId,
-        errorDescription = render(detail.errorDescriptionId, detail.errorValues, locale),
-        errorValues = detail.errorValues,
-        purposes = detail.purposes.map(::toPurposeProgressResource)
-    )
+    ): AdminInteractiveFlowSessionDetailResource {
+        val failure = detail.errorDetailsId?.let { toLocalizedFailure(it, detail, locale) }
+        return AdminInteractiveFlowSessionDetailResource(
+            id = detail.id,
+            status = detail.status.wireName,
+            initiatingPurpose = toPurposeResource(detail.initiatingPurpose),
+            clientId = detail.initiatingClientId,
+            flowId = detail.flowId,
+            user = detail.user?.let(::toUserResource),
+            signedUp = detail.signedUp,
+            sessionDate = detail.sessionDate,
+            expirationDate = detail.expirationDate,
+            errorDetailsId = detail.errorDetailsId,
+            errorDetails = detail.errorDetailsId
+                ?.let { errorMessageSource.renderOrNull(it, locale, detail.errorValues.orEmpty()) },
+            errorDescriptionId = detail.errorDescriptionId,
+            errorDescription = failure?.description,
+            errorValues = detail.errorValues,
+            purposes = detail.purposes.map(::toPurposeProgressResource)
+        )
+    }
 
     /**
-     * The message [messageId] names, read in [locale] with [values] interpolated into it, or null where the
-     * failure named no such message and where this deployment holds none under it.
+     * What the failure [detailsId] names renders as for the person it stopped, in [locale].
      *
-     * **A key with no message yields no field rather than the key itself.** Unlike every other rendering
-     * site, the key here comes out of a row rather than off a throw site: a session persisted before a code
-     * was renamed holds the old one, and a rolling upgrade has both versions writing rows for as long as it
-     * lasts. The identifier beside the absence still says what the session failed with.
+     * The exception is rebuilt to reach the mapper the error page reaches, and is built as the terminal
+     * failure it was: a session that failed is over, so the generic sentence answering for a failure with
+     * none of its own is the one that page showed.
      */
-    private fun render(messageId: String?, values: Map<String, String>?, locale: Locale): String? = messageId
-        ?.let { errorMessageSource.renderOrNull(it, locale, values.orEmpty()) }
+    private fun toLocalizedFailure(
+        detailsId: String,
+        detail: InteractiveFlowSessionDetail,
+        locale: Locale
+    ) = localizedErrorMapper.toLocalizedError(
+        BusinessException(
+            recoverable = false,
+            detailsId = detailsId,
+            descriptionId = detail.errorDescriptionId,
+            values = detail.errorValues.orEmpty()
+        ),
+        locale
+    )
 
     /**
      * Publish [purpose] as the value a caller branches on and the label a person reads it under.

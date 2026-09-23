@@ -24,6 +24,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowSessionSecurityContext
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.util.DEFAULT_LOCALE
+import io.micronaut.http.HttpHeaders.ACCEPT_LANGUAGE
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpStatus
 import io.mockk.coEvery
@@ -80,6 +81,12 @@ class AdminInteractiveFlowSessionControllerTest {
     )
 
     private val capabilities = CollectionCapabilities(listOf(clientField, purposeField), emptyList())
+
+    /**
+     * A `GET` asking for [locale], which is the header the controller reads a locale off.
+     */
+    private fun localeRequest(locale: Locale): HttpRequest<Any> =
+        HttpRequest.GET<Any>("/").header(ACCEPT_LANGUAGE, locale.toLanguageTag())
 
     @Test
     fun `listInteractiveFlowSessions - Map every session the page holds, and publish the page it came in`() =
@@ -193,10 +200,6 @@ class AdminInteractiveFlowSessionControllerTest {
         }
 
         assertEquals(HttpStatus.NOT_FOUND, exception.status)
-    }
-
-    private fun localeRequest(locale: Locale) = mockk<HttpRequest<*>> {
-        every { this@mockk.locale } returns Optional.of(locale)
     }
 
     @Test

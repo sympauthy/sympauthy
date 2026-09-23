@@ -1,13 +1,17 @@
 package com.sympauthy.api.mapper.admin
 
+import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager.InteractiveFlowSessionDetail
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSessionStatus
+import com.sympauthy.config.model.EnabledFeaturesConfig
+import com.sympauthy.exception.mapper.LocalizedErrorMapper
 import com.sympauthy.util.DEFAULT_LOCALE
 import io.micronaut.context.StaticMessageSource
 import java.time.LocalDateTime
 import java.util.*
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
@@ -25,11 +29,26 @@ class AdminInteractiveFlowSessionResourceMapperTest {
     private val messageSource = StaticMessageSource()
         .addMessage(DEFAULT_LOCALE, detailsId, "The session passed its expiration date {expirationDate}.")
         .addMessage(DEFAULT_LOCALE, descriptionId, "That took too long. Please start again.")
+        .addMessage(DEFAULT_LOCALE, "description.internal_server_error", "An unexpected error occurred.")
         .addMessage(Locale.FRANCE, detailsId, "La session a expiré le {expirationDate}.")
+
+    /**
+     * The flag is off, which is the shipped default and the case the technical message has to survive.
+     */
+    private val localizedErrorMapper = LocalizedErrorMapper(
+        messageSource = messageSource,
+        featuresConfig = EnabledFeaturesConfig(
+            allowAccessToClientWithoutScope = false,
+            emailValidation = false,
+            grantUnhandledScopes = false,
+            printDetailsInError = false
+        )
+    )
 
     private val mapper = AdminInteractiveFlowSessionResourceMapper(
         userMapper = AdminUserResourceMapper(),
-        errorMessageSource = messageSource
+        errorMessageSource = messageSource,
+        localizedErrorMapper = localizedErrorMapper
     )
 
     private fun detail(
@@ -89,6 +108,34 @@ class AdminInteractiveFlowSessionResourceMapperTest {
     }
 
     @Test
+    fun `toResource - Read the generic sentence where the failure names no message of its own`() {
+        val resource = mapper.toResource(failedDetail(errorDescriptionId = null), DEFAULT_LOCALE)
+
+        assertNull(resource.errorDescriptionId)
+        assertEquals("An unexpected error occurred.", resource.errorDescription)
+        assertEquals("The session passed its expiration date 2026-08-31T10:00.", resource.errorDetails)
+    }
+
+    @Test
+    fun `toResource - Publish the technical message the flag would have hidden`() {
+        val failure = failedDetail()
+        // The same failure through the mapper the error page goes through, which is where the flag is
+        // read: it answers no technical message at all, and this page answers one anyway.
+        val onTheErrorPage = localizedErrorMapper.toLocalizedError(
+            BusinessException(
+                recoverable = false,
+                detailsId = detailsId,
+                descriptionId = descriptionId,
+                values = failure.errorValues.orEmpty()
+            ),
+            DEFAULT_LOCALE
+        )
+
+        assertNull(onTheErrorPage.details)
+        assertNotNull(mapper.toResource(failure, DEFAULT_LOCALE).errorDetails)
+    }
+
+    @Test
     fun `toResource - Leave both sentences out where this deployment holds no message under the keys`() {
         val resource = mapper.toResource(
             failedDetail(errorDetailsId = "auth.renamed_away", errorDescriptionId = "description.renamed_away"),
@@ -99,15 +146,6 @@ class AdminInteractiveFlowSessionResourceMapperTest {
         assertEquals("description.renamed_away", resource.errorDescriptionId)
         assertNull(resource.errorDetails)
         assertNull(resource.errorDescription)
-    }
-
-    @Test
-    fun `toResource - Leave the end-user's message out where the failure names none`() {
-        val resource = mapper.toResource(failedDetail(errorDescriptionId = null), DEFAULT_LOCALE)
-
-        assertNull(resource.errorDescriptionId)
-        assertNull(resource.errorDescription)
-        assertEquals("The session passed its expiration date 2026-08-31T10:00.", resource.errorDetails)
     }
 
     @Test

@@ -157,10 +157,16 @@ are debugging.
 have been bundle keys since they were thrown, rendered on every other surface that carries them; a
 label has no key at all, and localizing one would mean inventing one. So the session's page
 publishes both the keys and the sentences they name, read against the locale the operator's own
-request asks for, and a key this deployment holds no message under yields no sentence rather than a
-dotted identifier — the key beside it still says what happened. The technical one is published
-there whatever `features.print-details-in-error` says, for the reason [the API
-standard](api-standard.md#errors) gives.
+request asks for — and a key this deployment holds no message under yields no sentence rather than
+a dotted identifier, the key beside it still saying what happened.
+
+**The end-user's half is rendered the way the error page rendered it**, through the same mapper and
+as the same terminal failure, so a failure naming no message of its own carries the generic sentence
+that was on the screen rather than nothing. An operator asking what a person was told is asking
+about that page, and two renderings of one failure are two sentences to reconcile the first time
+they disagree. The technical half does not go through it: that mapper puts the technical message
+behind `features.print-details-in-error`, and here it is published whatever the flag says, for the
+reason [the API standard](api-standard.md#errors) gives.
 
 ## A purpose carries its own label
 

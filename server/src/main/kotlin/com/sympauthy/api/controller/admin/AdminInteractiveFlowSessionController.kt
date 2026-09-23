@@ -136,8 +136,9 @@ class AdminInteractiveFlowSessionController(
                 "and what the handler that owns each purpose has to say about it. " +
                 "A failed session publishes the message identifiers it failed with and those messages read " +
                 "in the language the request asked for: the identifiers are what a caller branches on or " +
-                "searches for, the sentences are what a person reads, and a sentence this deployment holds " +
-                "no message for is absent while the identifier naming it stays. " +
+                "searches for, the sentences are what a person reads. " +
+                "The end-user's message is the one the flow's error page showed them, so a failure naming " +
+                "none of its own carries the generic sentence rather than nothing. " +
                 "The debug entries are labels written for a person: a label may be reworded in any release, " +
                 "so nothing may branch on one.",
         tags = ["admin"],
