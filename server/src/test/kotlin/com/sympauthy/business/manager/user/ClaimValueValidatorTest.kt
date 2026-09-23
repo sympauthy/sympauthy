@@ -10,10 +10,8 @@ import com.sympauthy.business.model.user.claim.ClaimDataType.NUMBER
 import com.sympauthy.business.model.user.claim.ClaimDataType.PHONE_NUMBER
 import com.sympauthy.business.model.user.claim.ClaimDataType.STRING
 import com.sympauthy.business.model.user.claim.ClaimDataType.TIMEZONE
-import com.sympauthy.config.model.EnabledAuthConfig
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
-import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -25,9 +23,6 @@ import org.junit.jupiter.api.extension.ExtendWith
 @ExtendWith(MockKExtension::class)
 class ClaimValueValidatorTest {
 
-    @MockK
-    lateinit var uncheckedAuthConfig: EnabledAuthConfig
-
     @InjectMockKs
     lateinit var validator: ClaimValueValidator
 
@@ -36,11 +31,7 @@ class ClaimValueValidatorTest {
         every { dataType } returns type
     }
 
-    /** A named `string` claim the deployment does not sign anybody in with, so nothing folds its value. */
-    private fun mockStringClaim(): Claim = mockClaimOfType(STRING).also {
-        every { it.id } returns "test_claim"
-        every { uncheckedAuthConfig.identifierClaims } returns emptyList()
-    }
+    private fun mockStringClaim(): Claim = mockClaimOfType(STRING)
 
     /** The one type whose value is not exchanged as a string. */
     private fun mockNumberClaim(): Claim = mockClaimOfType(NUMBER)
@@ -211,26 +202,17 @@ class ClaimValueValidatorTest {
     }
 
     @Test
-    fun `validateAndCleanStringForClaim - Folds the case of an EMAIL claim as well as the padding`() {
+    fun `validateAndCleanStringForClaim - Takes the padding off an EMAIL claim and nothing else`() {
         val claim = mockClaimOfType(EMAIL)
-        assertEquals("user@example.com", validator.validateAndCleanStringForClaim(claim, " User@Example.COM ").get())
+        assertEquals("User@Example.COM", validator.validateAndCleanStringForClaim(claim, " User@Example.COM ").get())
     }
 
     @Test
-    fun `validateAndCleanStringForClaim - Keeps the case of a string claim nobody signs in with`() {
+    fun `validateAndCleanStringForClaim - Keeps the case of a STRING claim`() {
+        // How somebody capitalises their own name is theirs to decide; what comparisons are made in is a
+        // second spelling `collected_claims` holds beside this one.
         val claim = mockStringClaim()
         assertEquals("Alice", validator.validateAndCleanStringForClaim(claim, "Alice").get())
-    }
-
-    @Test
-    fun `validateAndCleanStringForClaim - Folds a string claim the deployment signs people in with`() {
-        // Being named in auth.identifier-claims is what folds it, not the type: the same claim outside the
-        // set keeps its case, and a set whose claims folded differently is the crossed pair.
-        val claim = mockClaimOfType(STRING)
-        every { claim.id } returns "preferred_username"
-        every { uncheckedAuthConfig.identifierClaims } returns listOf("email", "preferred_username")
-
-        assertEquals("alice", validator.validateAndCleanStringForClaim(claim, " Alice ").get())
     }
 
     @Test
@@ -293,8 +275,10 @@ class ClaimValueValidatorTest {
     }
 
     @Test
-    fun `validateEmailForClaim - Lowercases the whole address, local part included`() {
-        assertEquals("user@example.com", validator.validateEmailForClaim("User@Example.COM").get())
+    fun `validateEmailForClaim - Returns the address as it was written`() {
+        // Two spellings of one address are one identity, but that is settled by the spelling they are
+        // compared in rather than by rewriting what somebody typed.
+        assertEquals("User@Example.COM", validator.validateEmailForClaim("User@Example.COM").get())
     }
 
     @Test
@@ -429,7 +413,7 @@ class ClaimValueValidatorTest {
     fun `cleanValueForClaimOrNull - Answers the value the claim would store`() {
         val claim = mockClaimOfType(EMAIL)
         every { claim.allowedValues } returns null
-        assertEquals("user@example.com", validator.cleanValueForClaimOrNull(claim, " User@Example.COM "))
+        assertEquals("User@Example.COM", validator.cleanValueForClaimOrNull(claim, " User@Example.COM "))
     }
 
     @Test

@@ -216,7 +216,7 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
         val taken = userManager.findTakenIdentifierOrNull(
             userId = null,
             claimIds = uncheckedAuthConfig.orThrow().identifierClaims,
-            valuesByClaimId = collectedClaimManager.getIdentifierValuesIn(updates)
+            valuesByClaimId = collectedClaimManager.getIdentifierComparisonValuesIn(updates)
         )
         if (taken != null) {
             throw businessExceptionOf(

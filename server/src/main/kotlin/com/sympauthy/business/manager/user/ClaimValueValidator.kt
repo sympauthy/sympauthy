@@ -5,10 +5,7 @@ import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimDataType.*
-import com.sympauthy.config.model.AuthConfig
-import com.sympauthy.config.model.orThrow
 import com.sympauthy.util.wireName
-import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.math.BigDecimal
 import java.time.DateTimeException
@@ -26,19 +23,14 @@ import kotlin.jvm.optionals.getOrNull
  * so every check below it is given a value carrying no surrounding whitespace and none of them trims again.
  *
  * Beyond the trim, cleaning belongs to the claim's data type and runs beside that type's own validation: a
- * type with one canonical spelling answers with it rather than with what was submitted — an email
- * lowercased, a boolean folded, a number read as a [Long]. What this returns is what gets stored, and a
- * caller comparing against a stored value asks [cleanValueForClaimOrNull] for the same spelling.
- *
- * A claim named in `auth.identifier-claims` is folded on top of that, because a value somebody signs in
- * with has to reach its account however they capitalised it — and because a set whose claims folded
- * differently would let one typed value reach a row of one account under one claim and a row of another
- * under the next. See `docs/identifier-claims.md`.
+ * type with one canonical form answers with it rather than with what was submitted — a boolean folded, a
+ * number read as a [Long]. What this returns is what gets stored and what every reader is answered with,
+ * so **nothing here folds the case of a value a person chose**: how somebody capitalises their own name
+ * or their own address is theirs to decide, and the spelling comparisons are made in is a second one
+ * `collected_claims` holds beside it. See `docs/identifier-claims.md`.
  */
 @Singleton
-class ClaimValueValidator(
-    @Inject private val uncheckedAuthConfig: AuthConfig
-) {
+class ClaimValueValidator {
 
     companion object {
         private val E164_PATTERN = Regex("^\\+[0-9]{1,15}$")
@@ -93,6 +85,9 @@ class ClaimValueValidator(
      * asks for a spelling no row was ever written in. What that caller cannot do is fail: a value the claim
      * would refuse matches no row of it either, since every row of it holds a value this validator accepted,
      * so being unable to clean it is an answer of none rather than a refusal to raise.
+     *
+     * It answers a business value; the text a comparison is actually made on is
+     * [CollectedClaimManager.getComparisonValueOf], which takes this one the rest of the way.
      */
     fun cleanValueForClaimOrNull(claim: Claim, value: Any?): Any? = try {
         validateAndCleanValueForClaim(claim, value).getOrNull()
@@ -110,10 +105,6 @@ class ClaimValueValidator(
      * settles that a `string` claim cannot hold a deliberately padded value, which nothing asks for and which
      * would want a type saying so rather than this one keeping the padding by omission.
      *
-     * A `string` value is the one this folds by [foldIfIdentifier] rather than by its type. Of the types an
-     * identifier claim may be ([ClaimDataType.canIdentify]) the rest already answer one spelling — an email
-     * lowercased, a phone number in E.164, a number as a [Long] — so `string` is where being an identifier
-     * is what decides it.
      */
     internal fun validateAndCleanStringForClaim(claim: Claim, value: String): Optional<Any> {
         val trimmedValue = value.trim()
@@ -126,22 +117,9 @@ class ClaimValueValidator(
             EMAIL -> validateEmailForClaim(trimmedValue)
             NUMBER -> validateAndCleanNumberForClaim(trimmedValue)
             PHONE_NUMBER -> validatePhoneNumberForClaim(trimmedValue)
-            STRING -> Optional.of(foldIfIdentifier(claim, trimmedValue))
+            STRING -> Optional.of(trimmedValue)
             TIMEZONE -> validateTimeZoneForClaim(trimmedValue)
         }
-    }
-
-    /**
-     * The [value] lowercased where [claim] is one of `auth.identifier-claims`, and unchanged otherwise.
-     *
-     * Being signed in with is what makes a value folded, rather than being of any particular type: a
-     * `preferred_username` outside the identifier set keeps whatever case it was given, and the same claim
-     * inside it does not. Two claims of the set folding differently is the case this exists to prevent —
-     * one typed value would reach a row of one account under the claim that folds and a row of another
-     * under the claim that does not, which is the crossed pair `docs/identifier-claims.md` refuses.
-     */
-    private fun foldIfIdentifier(claim: Claim, value: String): String {
-        return if (claim.id in uncheckedAuthConfig.orThrow().identifierClaims) value.lowercase() else value
     }
 
     /**
@@ -199,7 +177,7 @@ class ClaimValueValidator(
     }
 
     /**
-     * Validate the [value] is an email, and return it lowercased.
+     * Validate the [value] is an email.
      *
      * According to the [OpenID](https://openid.net/specs/openid-connect-core-1_0.html#Claims), the email claim MUST
      * conform to the
@@ -209,11 +187,9 @@ class ClaimValueValidator(
      * - contains a single '@' characters.
      * - it separates 2 non-empty parts.
      *
-     * The whole address is folded, and not only the domain RFC 5321 makes case-insensitive. The local part
-     * is the receiving host's business and two spellings of it may in principle be two mailboxes, but none
-     * of the providers a deployment will meet treats them as two — and a server that honoured the
-     * distinction would refuse to recognise a person who capitalised their own name at sign-in. An address
-     * is compared exactly as it is stored, so what is not folded here is two identities that never meet.
+     * The address is returned as it was written. Two spellings of one address are one identity, but that is
+     * settled by the spelling they are compared in rather than by rewriting what somebody typed —
+     * `CollectedClaimEntity.comparisonValue` is where it is settled.
      */
     internal fun validateEmailForClaim(value: String): Optional<Any> {
         val parts = value.split("@")
@@ -223,7 +199,7 @@ class ClaimValueValidator(
                 "description.user.claim_value_validator.invalid_email"
             )
         }
-        return Optional.of(value.lowercase())
+        return Optional.of(value)
     }
 
     /**

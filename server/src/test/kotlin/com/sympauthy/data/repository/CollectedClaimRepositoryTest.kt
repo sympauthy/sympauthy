@@ -191,11 +191,11 @@ class CollectedClaimRepositoryTest {
             val claims = repository<CollectedClaimRepository>()
 
             val found = claims.findAnyClaimMatching(
-                mapOf("email" to encoded(bobEmail)!!, "phone_number" to encoded(bobEmail)!!)
+                mapOf("email" to compared(bobEmail), "phone_number" to compared(bobEmail))
             )
 
             assertEquals(users.bobId, found?.userId)
-            assertNull(claims.findAnyClaimMatching(mapOf("name" to encoded(bobEmail)!!)))
+            assertNull(claims.findAnyClaimMatching(mapOf("name" to compared(bobEmail))))
         }
 
     @ParameterizedTest
@@ -206,8 +206,8 @@ class CollectedClaimRepositoryTest {
             val users = seedUsers()
             val claims = repository<CollectedClaimRepository>()
 
-            assertNull(claims.findAnyClaimMatching(mapOf("email" to encoded(bobName)!!)))
-            assertEquals(users.bobId, claims.findAnyClaimMatching(mapOf("name" to encoded(bobName)!!))?.userId)
+            assertNull(claims.findAnyClaimMatching(mapOf("email" to compared(bobName))))
+            assertEquals(users.bobId, claims.findAnyClaimMatching(mapOf("name" to compared(bobName)))?.userId)
         }
 
     @ParameterizedTest
@@ -228,7 +228,7 @@ class CollectedClaimRepositoryTest {
 
             val found = claims.findAnyClaimMatching(
                 listOf("email", "name"),
-                listOfNotNull(encoded(aliceEmail), encoded(bobName))
+                listOf(compared(aliceEmail), compared(bobName))
             )
 
             assertEquals(setOf(users.aliceId, users.bobId, users.charlieId), found.map { it.userId }.toSet())
@@ -241,7 +241,7 @@ class CollectedClaimRepositoryTest {
             seedUsers()
             val claims = repository<CollectedClaimRepository>()
 
-            assertTrue(claims.findAnyClaimMatching(emptyList(), listOfNotNull(encoded(aliceEmail))).isEmpty())
+            assertTrue(claims.findAnyClaimMatching(emptyList(), listOf(compared(aliceEmail))).isEmpty())
             assertTrue(claims.findAnyClaimMatching(listOf("email"), emptyList()).isEmpty())
         }
 
@@ -259,7 +259,7 @@ class CollectedClaimRepositoryTest {
             val users = seedUsers()
 
             val found = repository<CollectedClaimRepository>()
-                .findUserIdsMatchingAllClaims(mapOf("email" to encoded(aliceEmail)))
+                .findUserIdsMatchingAllClaims(mapOf("email" to compared(aliceEmail)))
 
             assertEquals(setOf(users.aliceId, users.charlieId), found.toSet())
         }
@@ -271,7 +271,7 @@ class CollectedClaimRepositoryTest {
             val users = seedUsers()
 
             val found = repository<CollectedClaimRepository>().findUserIdsMatchingAllClaims(
-                mapOf("email" to encoded(aliceEmail), "name" to encoded(aliceName))
+                mapOf("email" to compared(aliceEmail), "name" to compared(aliceName))
             )
 
             assertEquals(listOf(users.aliceId), found)
@@ -285,13 +285,13 @@ class CollectedClaimRepositoryTest {
             val claims = repository<CollectedClaimRepository>()
 
             val mismatched = claims.findUserIdsMatchingAllClaims(
-                mapOf("email" to encoded(aliceEmail), "name" to encoded(bobName))
+                mapOf("email" to compared(aliceEmail), "name" to compared(bobName))
             )
             val unknownValue = claims.findUserIdsMatchingAllClaims(
-                mapOf("email" to encoded("nobody@$qualifier.test"))
+                mapOf("email" to compared("nobody@$qualifier.test"))
             )
             val unknownClaim = claims.findUserIdsMatchingAllClaims(
-                mapOf("phone_number" to encoded("phone-$qualifier"))
+                mapOf("phone_number" to compared("phone-$qualifier"))
             )
 
             assertTrue(mismatched.isEmpty())
@@ -325,7 +325,7 @@ class CollectedClaimRepositoryTest {
             val userId = newUser(sessionId = session.id)
             val email = "provisional@$qualifier.test"
             saveClaim(userId, "email", email, sessionId = session.id)
-            val value = encoded(email)!!
+            val value = compared(email)
 
             assertNull(claims.findAnyClaimMatching(mapOf("email" to value)))
             assertTrue(claims.findAnyClaimMatching(listOf("email"), listOf(value)).isEmpty())
@@ -372,6 +372,7 @@ class CollectedClaimRepositoryTest {
                 userId = userId,
                 claim = claim,
                 value = value?.let { encoded(it) },
+                comparisonValue = value?.lowercase(),
                 verified = verified,
                 collectionDate = collectedAt,
                 verificationDate = if (verified == true) collectedAt else null,
@@ -380,7 +381,10 @@ class CollectedClaimRepositoryTest {
         ).id!!.also { id -> deleteOnEnd { claims.deleteById(id) } }
     }
 
-    /** A claim is stored as the JSON its mapper writes, so a query by value has to be given the same. */
+    /** A claim is stored as the JSON its mapper writes, so a read of the row has to expect the same. */
     private fun RepositoryFixture.encoded(value: Any?): String? =
         repository<ClaimValueMapper>().toEntity(value)
+
+    /** The spelling the identifier queries compare on: the value as plain text, lowercased. */
+    private fun compared(value: String): String = value.lowercase()
 }

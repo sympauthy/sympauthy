@@ -307,6 +307,7 @@ class UserManagerTest {
         userId = userId,
         claim = claim,
         value = value,
+        comparisonValue = value,
         verified = null,
         collectionDate = LocalDateTime.now(),
         verificationDate = null,

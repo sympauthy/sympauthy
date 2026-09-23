@@ -196,7 +196,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
         every { claimManager.listIdentifierClaims() } returns claimIds.map { claimId ->
             mockk<Claim> { every { id } returns claimId }
         }
-        every { collectedClaimManager.getStoredValueOf(any(), email) } returns storedEmail
+        every { collectedClaimManager.getComparisonValueOf(any(), email) } returns storedEmail
     }
 
     @Test
@@ -407,7 +407,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
             every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
             every { claimManager.listIdentifierClaims() } returns listOf(emailClaim)
-            every { collectedClaimManager.getStoredValueOf(emailClaim, "User@Example.COM") } returns storedEmail
+            every { collectedClaimManager.getComparisonValueOf(emailClaim, "User@Example.COM") } returns storedEmail
             coEvery {
                 userManager.findTakenIdentifierOrNull(
                     userId,

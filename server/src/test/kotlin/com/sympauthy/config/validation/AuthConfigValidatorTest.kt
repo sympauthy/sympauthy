@@ -80,9 +80,7 @@ class AuthConfigValidatorTest {
     }
 
     @Test
-    fun `validate - Refuse an identifier claim whose value has more than one spelling`() {
-        // A time zone is the one type that can be neither folded nor compared: its parser is
-        // case-sensitive and the value is published back.
+    fun `validate - Refuse an identifier claim naming a property a whole population shares`() {
         val ctx = validate(listOf("zoneinfo"), claim("zoneinfo", ClaimDataType.TIMEZONE))
 
         assertEquals(

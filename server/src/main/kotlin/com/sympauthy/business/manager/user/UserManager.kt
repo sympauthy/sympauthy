@@ -5,6 +5,7 @@ import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
+import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.UserRepository
@@ -84,13 +85,13 @@ open class UserManager(
      * identifier at once; the collision is settled when the first of them promotes. See
      * [com.sympauthy.data.model.SessionScoped].
      *
-     * The values are business ones, cleaned the way the claim holding them cleans what it stores, and are
-     * spelled as `collected_claims` holds them here. A caller offering a value as it was typed asks for a
-     * spelling no row was written in.
+     * The values are business ones, and are compared in the spelling `collected_claims` holds beside each
+     * of them rather than in the one it was given, so an account is resolved by its address however the
+     * provider capitalised it.
      */
     suspend fun findByIdentifierClaims(claimValues: Map<String, Any>): User? {
-        val entityClaimValues = claimValues.mapValues { entry -> claimValueMapper.toEntity(entry.value) }
-        val userIds = collectedClaimRepository.findUserIdsMatchingAllClaims(entityClaimValues)
+        val comparisonValues = claimValues.mapValues { (_, value) -> claimValueMapper.toComparisonValue(value) }
+        val userIds = collectedClaimRepository.findUserIdsMatchingAllClaims(comparisonValues)
         return userRepository.findByIdInListAndSessionIdIsNull(userIds).firstOrNull()
             ?.let(userMapper::toUser)
     }
@@ -179,7 +180,10 @@ open class UserManager(
      * value at a time — neither blocks the other, and the question is asked again when the first of them
      * promotes. See [com.sympauthy.data.model.SessionScoped] and `docs/provisional-user.md`.
      *
-     * The values are the ones `collected_claims` holds, which is what the rows compare on.
+     * The values are the ones `collected_claims` compares on — [CollectedClaimEntity.comparisonValue],
+     * which [CollectedClaimManager.getComparisonValueOf] spells — and not the ones it stores. Two
+     * spellings of one value are one identity, so a caller offering the stored one would ask a question
+     * every difference of case answers wrongly.
      */
     suspend fun findTakenIdentifierOrNull(
         userId: UUID?,
@@ -190,8 +194,8 @@ open class UserManager(
             return null
         }
         val committed = collectedClaimRepository.findAnyClaimMatching(claimIds, valuesByClaimId.values.toList())
-        return valuesByClaimId.firstNotNullOfOrNull { (claimId, value) ->
-            committed.firstOrNull { it.value == value && it.userId != userId }
+        return valuesByClaimId.firstNotNullOfOrNull { (claimId, comparisonValue) ->
+            committed.firstOrNull { it.comparisonValue == comparisonValue && it.userId != userId }
                 ?.let { TakenIdentifier(claimId = claimId, userId = it.userId) }
         }
     }

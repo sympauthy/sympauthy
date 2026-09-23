@@ -12,7 +12,22 @@ import java.util.*
 class CollectedClaimEntity(
     var userId: UUID,
     var claim: String,
+    /**
+     * The value as the end-user gave it, which is what every reader is answered with. Nothing folds it:
+     * how somebody capitalises their own name is theirs to decide.
+     */
     var value: String?,
+    /**
+     * The same value in the one spelling every comparison on it is made in — cleaned by the claim's type
+     * and lowercased, and without the quoting [value] carries.
+     *
+     * An identifier is matched on this rather than on [value], so one address reaches its account however
+     * it was typed and two accounts cannot hold it in two spellings. Kept as a column rather than computed
+     * per query because a `LOWER(...)` comparison is spelled differently by each dialect and is invisible
+     * to [com.sympauthy.business.manager.lock.LockKey.IdentifierValue], which hashes a string and never
+     * sees a query. See `docs/identifier-claims.md`.
+     */
+    var comparisonValue: String?,
     var verified: Boolean?,
     var collectionDate: LocalDateTime,
     var verificationDate: LocalDateTime?,

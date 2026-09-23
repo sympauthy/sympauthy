@@ -14,19 +14,19 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
 /**
- * Feature scenario — **one address is one identity, however the person spelled it.**
+ * Feature scenario — **one address is one identity, however the person spelled it, and the spelling they
+ * chose is the one that comes back.**
  *
- * Every claim named in `auth.identifier-claims` stores its value folded and trimmed, so an account signed
- * up as `Ada@Example.COM` is reached by `ADA@EXAMPLE.COM` and by the same address padded with spaces, and
- * a second account cannot be opened on any other spelling of it. Every comparison this server makes on an
- * identifier is an exact one, so what makes two spellings meet is the single spelling that got stored —
- * and a set whose claims folded differently would let one typed value reach a row of one account under
- * the claim that folds and a row of another under the claim that does not.
+ * An account signed up as `Ada@Example.COM` publishes that address back, and is reached by
+ * `ADA@EXAMPLE.COM`, by the same address padded with spaces, and by no second account opened on any
+ * other spelling of it. Every comparison this server makes on an identifier runs against a second
+ * spelling the row carries beside the one it publishes, so nothing has to rewrite what somebody typed in
+ * order to recognise them. The same holds of every claim in the set, whatever its type.
  *
  * No unit test reaches this. What is stored is written by one flow and read back through the userinfo
- * endpoint with that flow's own access token; that the folded row is what a later login matches is
- * decided in a query, and that a second sign-up loses to it is a third complete flow — each against
- * both databases.
+ * endpoint with that flow's own access token; that a differently spelled login still matches is decided
+ * in a query against a column nothing publishes, and that a second sign-up loses to it is a third
+ * complete flow — each against both databases.
  *
  * Issue: [#488](https://github.com/sympauthy/sympauthy/issues/488), and
  * [`docs/identifier-claims.md`](https://github.com/sympauthy/sympauthy/blob/main/docs/identifier-claims.md).
@@ -49,7 +49,10 @@ class IdentifierSpellingFeatureIT : AbstractSympauthyIT() {
             }
             requireNotNull(stored) { "userinfo returned an empty body" }
 
-            assertEquals(STORED, stored.email, "the address is stored folded and trimmed, not as it was typed")
+            assertEquals(
+                TYPED.trim(), stored.email,
+                "the address comes back as it was written, trimmed and otherwise untouched",
+            )
             assertEquals(
                 account, subjectOf(sympauthy, signIn(registry, SHOUTED)),
                 "a third spelling of the address reaches the account that owns it",
@@ -84,24 +87,35 @@ class IdentifierSpellingFeatureIT : AbstractSympauthyIT() {
         }
     }
 
-    @ParameterizedTest(name = "a username identifier is folded like the address on {0}")
+    @ParameterizedTest(name = "a username identifier is matched like the address on {0}")
     @EnumSource(Database::class)
-    fun foldsEveryClaimOfTheIdentifierSet(database: Database) {
+    fun matchesEveryClaimOfTheIdentifierSetTheSameWay(database: Database) {
         withContainer(database, extraConfig = twoIdentifierClaims(), scopes = PROFILE_SCOPES) { sympauthy, registry ->
-            val signedUp = registry.newFlow()
+            val tokens = registry.newFlow()
                 .withSignUpHandler {
                     mapOf("email" to STORED, "preferred_username" to TYPED_USERNAME, "password" to PASSWORD)
                 }
                 .run()
-            val account = subjectOf(sympauthy, signedUp.exchange().idToken())
+                .exchange()
+            val account = subjectOf(sympauthy, tokens.idToken())
+
+            val stored = withApiClient(sympauthy, token = tokens.accessToken()) { ctx ->
+                ctx.getBean(OpenidApi::class.java).getUserInfo().block()
+            }
+            requireNotNull(stored) { "userinfo returned an empty body" }
 
             assertEquals(
+                TYPED_USERNAME, stored.preferredUsername,
+                "the username keeps the capitalisation its owner chose",
+            )
+            assertEquals(
                 account, subjectOf(sympauthy, signIn(registry, SHOUTED_USERNAME)),
-                "a username is folded like an address, because being an identifier is what folds it",
+                "a username is matched like an address, whatever its claim's type",
             )
 
             // The second account offers, as its username, the spelling of the first's that the first did
-            // not type. Folding the whole set is what leaves one row to reach rather than one of each.
+            // not type. Comparing the whole set the same way leaves one row to reach rather than one of
+            // each — the crossed pair, where the owner of a value is signed in against somebody else.
             val crossing = registry.newFlow()
                 .withSignUpHandler {
                     mapOf(

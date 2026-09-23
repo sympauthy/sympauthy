@@ -111,7 +111,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
 
     /** The shared rule answering that nothing committed holds what the provider asserts. */
     private fun identifierValues(valuesByClaimId: Map<String, String>, takenClaimId: String? = null) {
-        every { collectedClaimManager.getIdentifierValuesIn(any()) } returns valuesByClaimId
+        every { collectedClaimManager.getIdentifierComparisonValuesIn(any()) } returns valuesByClaimId
         coEvery {
             userManager.findTakenIdentifierOrNull(null, any(), valuesByClaimId)
         } returns takenClaimId?.let { TakenIdentifier(claimId = it, userId = ownerId) }
@@ -446,7 +446,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
                 "email" to "\"taken@example.com\"",
                 "phone_number" to "\"+33612345678\""
             )
-            every { collectedClaimManager.getIdentifierValuesIn(any()) } returns asserted
+            every { collectedClaimManager.getIdentifierComparisonValuesIn(any()) } returns asserted
             coEvery {
                 userManager.findTakenIdentifierOrNull(
                     null,

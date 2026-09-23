@@ -138,6 +138,7 @@ class RepositoryFixture(val database: Database) {
                 userId = userId,
                 claim = claim,
                 value = value,
+                comparisonValue = value.lowercase(),
                 verified = null,
                 collectionDate = BASE_DATE,
                 verificationDate = null,

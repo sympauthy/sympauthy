@@ -15,15 +15,11 @@ enum class ClaimDataType(
     /**
      * Whether a claim of this type may be named in `auth.identifier-claims`.
      *
-     * A type qualifies when a value of it is something one person is known by and types to sign in, and
-     * when it holds that value in a single spelling — an identifier is compared exactly as it is stored,
-     * so a type holding one value in several spellings makes several identities out of one. A [NUMBER] is
-     * one: an employee number identifies a person, and it is stored as the [Long] it parses to.
-     *
-     * Two kinds fail the first half. A [BOOLEAN] identifier would cap a deployment at two accounts and a
-     * [DATE] one at a single account per day, which is not an identity but a collision waiting for the
-     * second person. [TIMEZONE] fails the second: its parser is case-sensitive and the value is published
-     * back, so it can be neither folded nor compared. See `docs/identifier-claims.md`.
+     * A type qualifies when a value of it is something one person is known by and types to sign in. A
+     * [NUMBER] is one: an employee number identifies a person. The rest name a property somebody shares
+     * with everybody else who has it — a [BOOLEAN] identifier would cap a deployment at two accounts, a
+     * [DATE] one at a single account per day, and a [TIMEZONE] one at a single account per zone, which is
+     * not an identity but a collision waiting for the second person. See `docs/identifier-claims.md`.
      */
     val canIdentify: Boolean = false
 ) {

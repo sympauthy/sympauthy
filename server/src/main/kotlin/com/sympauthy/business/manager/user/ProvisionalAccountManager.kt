@@ -96,13 +96,14 @@ open class ProvisionalAccountManager(
     }
 
     /**
-     * The identifier claim values [userId] holds, by the claim holding them, as `collected_claims` spells
-     * them. Keyed by claim because the check below is asked in those pairs; the keys it takes are not.
+     * The identifier claim values [userId] holds, by the claim holding them, in the spelling
+     * `collected_claims` compares them in rather than the one it publishes. Keyed by claim because the
+     * check below is asked in those pairs; the keys it takes are not.
      */
     private suspend fun identifierValuesOf(userId: UUID, claimIds: List<String>): Map<String, String> {
         if (claimIds.isEmpty()) return emptyMap()
         return collectedClaimRepository.findByUserIdAndClaimInList(userId, claimIds)
-            .mapNotNull { claim -> claim.value?.let { claim.claim to it } }
+            .mapNotNull { claim -> claim.comparisonValue?.let { claim.claim to it } }
             .toMap()
     }
 

@@ -57,42 +57,42 @@ conflict.
 which of them keeps it is settled when the first one
 [promotes](provisional-user.md#when-uniqueness-is-settled).
 
-## One spelling, and being an identifier is what decides it
+## The value the row publishes, and the value it is compared in
 
-**A value is compared exactly as `collected_claims` stores it, so two spellings are one identity
-only where one of them is what got stored.** Nothing folds anything at comparison time: the rule
-above is an equality, the read resolving a login is an equality, and `LockKey.IdentifierValue`
-hashes the stored string.
+**A row holds both: `value` as the person wrote it, and `comparison_value` as everything compares on
+it.** The first is what every reader is answered with, and nothing rewrites it. The second is the
+cleaned value as plain text, lowercased, and it is what an identifier is matched, checked and locked
+on.
 
-**Every claim in the set stores its value folded, whatever its type.** `ClaimValueValidator` cleans
-by type first — an `email` lowercased, a `phone_number` in E.164, a `number` as a `Long` — and then
-folds a `string` value because the claim holding it is named in `auth.identifier-claims`. The same
-claim outside the set keeps whatever case it was given.
+**Case is not the person's identity to lose.** Somebody who capitalises their own name or their own
+address keeps that in what this server publishes back — `Ada.Lovelace` stays `Ada.Lovelace` — while
+signing in as `ada.lovelace` still reaches them. Folding the stored value would have settled the
+comparison by discarding what they typed.
 
-**Folding the whole set, rather than the claims whose type happens to fold, is what keeps the
-crossed pair out.** Let one claim fold and another not: an account holds
-`preferred_username = Bob@X.com` as typed, a second is allowed to take `email = bob@x.com` because
-no row equals it, and typing `Bob@X.com` then reaches a row of each. The rule above compares one
-value against every claim in the set, and it is true only while every claim in the set spells that
-value the same way.
+**Plain text and not the stored encoding, so one typed thing is one identity across types.**
+`collected_claims.value` holds the JSON a claim's type is exchanged as, which spells `42` under a
+`number` claim and `"42"` under a `string` one. Comparing those would make one typed `42` reach a
+row of one account under the first and a row of another under the second, which is the crossed pair
+of the section above.
 
-**An address is folded whole, local part included.** RFC 5321 leaves that half to the receiving
-host, but no mail provider a deployment will meet delivers `Alice@x.com` and `alice@x.com` to two
-mailboxes, and a server honouring the distinction would refuse to recognise somebody who
-capitalised their own name at sign-in.
+**It is a column rather than a `LOWER(...)` in the query.** A function comparison is spelled
+differently by each dialect and wants an index each of them expresses, and it is invisible to
+`LockKey.IdentifierValue`, which hashes a string and never sees a query — so the lock and the check
+would agree on nothing.
+
+**One declaration spells it, and every writer and every reader goes through that one.**
+`ClaimValueMapper.toComparisonValue` is it; the entity mapper fills the column with it, and
+`CollectedClaimManager.getComparisonValueOf` cleans a value under its claim and then asks it, for a
+caller holding a value rather than a row.
+
+**A read offers each claim its own spelling, and a claim that could hold no such value is offered
+none.** A `number` claim reads `0042` as `42` where a `string` one does not, so one typed value is
+cleaned per claim before it is folded — and a claim that would refuse the value matches nothing,
+since no row of it holds one either.
 
 **A type that cannot identify a person is refused at startup.** `ClaimDataType.canIdentify` is the
-criterion and its KDoc is the authority: a `boolean` identifier claim would cap a deployment at two
-accounts and a `date` one at a single account per day, and a `timezone` can be neither folded nor
-compared, because its parser is case-sensitive and the value is published back.
-
-**Every writer of an identifier value goes through that validator**, including the ones taking a
-value from a provider rather than from the person it belongs to. A row written around it holds a
-spelling nothing else here will ever match.
-
-**A read cleans the value it offers, once per claim, and matches `(claim, value)` pairs.** A claim
-that could hold no such value at all is offered none, and matches nothing: no row of it holds a
-value that claim would have refused.
+criterion and its KDoc is the authority: a `boolean`, a `date` or a `timezone` names a property a
+whole population shares, which is a collision waiting for the second person rather than an identity.
 
 ## Resolving an identity is not asking whether one is free
 

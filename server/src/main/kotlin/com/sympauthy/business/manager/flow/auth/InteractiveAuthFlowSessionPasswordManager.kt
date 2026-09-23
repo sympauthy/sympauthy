@@ -75,16 +75,13 @@ open class InteractiveAuthFlowSessionPasswordManager(
      * Find the committed end-user holding [identifierClaimValue] under any one of the claims
      * [EnabledAuthConfig.identifierClaims] configures. Otherwise, return null.
      *
-     * The value is cleaned once per identifier claim, the way that claim's data type cleans a value it
-     * stores, and each claim is offered its own spelling: an address reaches an `email` claim lowercased
-     * and trimmed, where a username reaches a `string` one as it was typed. Folding one spelling for the
-     * whole set would sign in the owner of a genuinely capitalised username by a value that is not theirs.
-     *
-     * A claim that could hold no such value at all is not offered one, and matches nothing — no row of it
-     * holds a value that claim would have refused.
+     * The rows are matched on the spelling they are compared in rather than the one they publish, so an
+     * account is reached however the person who owns it capitalised their own value. A claim that could
+     * hold no such value at all is not offered one, and matches nothing — no row of it holds a value that
+     * claim would have refused.
      */
     internal suspend fun findByAnyIdentifierClaimValue(identifierClaimValue: String): User? {
-        val claimValues = collectedClaimManager.getIdentifierValuesOf(identifierClaimValue)
+        val claimValues = collectedClaimManager.getIdentifierComparisonValuesOf(identifierClaimValue)
         val userInfo = collectedClaimRepository.findAnyClaimMatching(claimValues)
         return userInfo?.userId?.let { userManager.findByIdOrNull(it) }
     }
@@ -269,13 +266,13 @@ open class InteractiveAuthFlowSessionPasswordManager(
      * across every identifier claim rather than within the one offering it. The account being signed up
      * does not exist yet, so nothing is exempt and the caller is named as none.
      *
-     * The values come from [CollectedClaimManager.getIdentifierValuesIn], which is the one place that says
-     * which updates carry an identifier value and how `collected_claims` spells it — the spelling the rows
+     * The values come from [CollectedClaimManager.getIdentifierComparisonValuesIn], the one place that says
+     * which updates carry an identifier value and how `collected_claims` folds it — the spelling the rows
      * compare on and the key locks under.
      */
     internal suspend fun checkForConflictingUsers(claims: List<CollectedClaimUpdate>) {
         val claimIds = claims.map { it.claim.id }
-        val valuesByClaimId = collectedClaimManager.getIdentifierValuesIn(claims)
+        val valuesByClaimId = collectedClaimManager.getIdentifierComparisonValuesIn(claims)
         val taken = userManager.findTakenIdentifierOrNull(null, claimIds, valuesByClaimId) ?: return
         throw recoverableBusinessExceptionOf(
             detailsId = "flow.password.sign_up.existing",

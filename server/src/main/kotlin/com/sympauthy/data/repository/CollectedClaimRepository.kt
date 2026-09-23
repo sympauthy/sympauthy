@@ -59,13 +59,14 @@ interface CollectedClaimRepository : CoroutineCrudRepository<CollectedClaimEntit
 }
 
 /**
- * Find any committed claim holding the value [claimValues] gives for the claim it is named under, or null
- * where none does and where [claimValues] is empty.
+ * Find any committed claim whose [CollectedClaimEntity.comparisonValue] is the one [claimValues] gives for
+ * the claim it is named under, or null where none is and where [claimValues] is empty.
  *
- * Each claim carries its own value because a value is spelled the way its claim's data type spells it: one
- * address reaches an `email` claim lowercased and a `string` claim as it was typed, so a single string
- * offered to the whole set would be looked up under claims that store it differently. A caller offers each
- * claim the value that claim would have stored, never the one as it was typed.
+ * The comparison value rather than the stored one, so that a value reaches its row however the person who
+ * owns it capitalised it. Each claim carries its own because a claim cleans a value its own way before it
+ * is folded — a number claim reads `0042` as `42` where a string one does not — and because a claim that
+ * could hold no such value at all is left out rather than matched. A caller asks
+ * [com.sympauthy.business.manager.user.CollectedClaimManager.getIdentifierComparisonValuesOf] for that map.
  *
  * A claim a session is still signing up is excluded: this is how an identifier is resolved to an account,
  * so answering with a provisional row would hand a caller an account that does not exist yet. See
@@ -81,10 +82,10 @@ suspend fun CollectedClaimRepository.findAnyClaimMatching(
         and {
             root[CollectedClaimEntity::sessionId].equalsNull()
             or {
-                claimValues.forEach { (claimId, value) ->
+                claimValues.forEach { (claimId, comparisonValue) ->
                     and {
                         root[CollectedClaimEntity::claim] eq claimId
-                        root[CollectedClaimEntity::value] eq value
+                        root[CollectedClaimEntity::comparisonValue] eq comparisonValue
                     }
                 }
             }
@@ -93,8 +94,11 @@ suspend fun CollectedClaimRepository.findAnyClaimMatching(
 }
 
 /**
- * Find any committed claim (whose id is included in the [claimIds]) that matches one of the value in
- * [claimValues].
+ * Find any committed claim (whose id is included in the [claimIds]) whose
+ * [CollectedClaimEntity.comparisonValue] is one of [claimValues].
+ *
+ * The comparison value rather than the stored one: a value belongs to one account however it was
+ * capitalised, and this is the read that says whether it is free.
  *
  * A claim a session is still signing up is excluded, which is what lets two sign-ups hold the same
  * identifier at once: neither blocks the other, and the collision is settled when the first of them
@@ -118,7 +122,7 @@ suspend fun CollectedClaimRepository.findAnyClaimMatching(
             }
             or {
                 claimValues.forEach {
-                    root[CollectedClaimEntity::value] eq it
+                    root[CollectedClaimEntity::comparisonValue] eq it
                 }
             }
         }
@@ -128,7 +132,7 @@ suspend fun CollectedClaimRepository.findAnyClaimMatching(
 
 /**
  * Find all distinct user IDs that have committed collected claims matching ALL entries in [claimValues].
- * Each entry maps a claim ID to its expected value.
+ * Each entry maps a claim ID to the [CollectedClaimEntity.comparisonValue] expected under it.
  *
  * A user matches only if they have a matching value for every claim in the map. A claim a session is still
  * signing up is excluded, so an account this server has not finished creating never matches an identifier.
@@ -144,10 +148,10 @@ suspend fun CollectedClaimRepository.findUserIdsMatchingAllClaims(
         and {
             root[CollectedClaimEntity::sessionId].equalsNull()
             or {
-                claimValues.forEach { (claimId, value) ->
+                claimValues.forEach { (claimId, comparisonValue) ->
                     and {
                         root[CollectedClaimEntity::claim] eq claimId
-                        root[CollectedClaimEntity::value] eq value
+                        root[CollectedClaimEntity::comparisonValue] eq comparisonValue
                     }
                 }
             }
