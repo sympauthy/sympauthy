@@ -27,10 +27,10 @@ What the server is, how each of its parts works, and why it is built the way it 
   over it, and how a purpose or a step is added.
 - **[The provisional user](provisional-user.md)** — the account a sign-up has not finished creating:
   the rows it owns, what makes them count, and what collects them when nothing ever does.
-- **[The identifier claims](identifier-claims.md)** — what a deployment identifies a person by: how
-  one login reaches one account across several of them, what makes a value unique across the set
-  rather than within a claim, which spelling of a value all of that compares on, and why resolving
-  an identity is not the read that says whether one is free.
+- **[The identifier claims](identifier-claims.md)** — what a deployment identifies a person by:
+  what it may declare, what makes a value belong to one account across the set rather than within a
+  claim, when two values somebody typed are one value and how a row is found by one, and which of
+  three reads a caller wants.
 - **[Security](security.md)** — how a credential becomes an authentication, what a scope is allowed
   to mean and which audience a claim may be published to, and what each surface's gate does and does
   not protect.
