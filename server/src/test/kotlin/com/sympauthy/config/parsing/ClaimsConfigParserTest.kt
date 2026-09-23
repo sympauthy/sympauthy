@@ -1,7 +1,11 @@
 package com.sympauthy.config.parsing
 
+import com.sympauthy.business.model.user.claim.ClaimDataType.BOOLEAN
 import com.sympauthy.business.model.user.claim.ClaimDataType.NUMBER
 import com.sympauthy.business.model.user.claim.ClaimDataType.STRING
+import com.sympauthy.business.model.user.claim.ClaimPublication
+import com.sympauthy.business.model.user.claim.ClaimPublication.ID_TOKEN
+import com.sympauthy.business.model.user.claim.ClaimPublication.USERINFO
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.ClaimTemplate
@@ -18,21 +22,103 @@ class ClaimsConfigParserTest {
 
     private val parser = ClaimsConfigParser(configParser, ClaimAclParser(configParser))
 
-    private fun claimTemplate(id: String, allowedValues: List<Any>?) = ClaimTemplate(
+    private fun claimTemplate(
+        id: String,
+        allowedValues: List<Any>? = null,
+        publishedIn: Set<ClaimPublication>? = null
+    ) = ClaimTemplate(
         id = id,
         enabled = null,
         required = null,
         group = null,
         audienceId = null,
         allowedValues = allowedValues,
+        publishedIn = publishedIn,
         acl = ClaimTemplateAcl(null, null, null, null, null, null, null)
     )
 
-    private fun claimProperties(id: String, dataType: String, templateId: String? = null) =
-        ClaimConfigurationProperties(id).apply {
-            type = dataType
-            template = templateId
-        }
+    private fun claimProperties(
+        id: String,
+        dataType: String,
+        templateId: String? = null,
+        publishedIn: List<String>? = null
+    ) = ClaimConfigurationProperties(id).apply {
+        type = dataType
+        template = templateId
+        this.publishedIn = publishedIn
+    }
+
+    private fun parseOne(ctx: ConfigParsingContext, properties: ClaimConfigurationProperties, template: ClaimTemplate) =
+        parser.parse(ctx, listOf(properties), mapOf(template.id to template))
+            .first { it.id == properties.id }
+
+    @Test
+    fun `parse - Publish a claim in no channel where neither it nor its template names one`() {
+        val ctx = ConfigParsingContext()
+
+        val claim = parseOne(ctx, claimProperties("loyalty_tier", "string"), claimTemplate(DEFAULT))
+
+        assertEquals(emptySet<ClaimPublication>(), claim.publishedIn)
+        assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
+    }
+
+    @Test
+    fun `parse - Publish a claim in the channels its template names`() {
+        val ctx = ConfigParsingContext()
+        val template = claimTemplate(DEFAULT, publishedIn = setOf(USERINFO))
+
+        val claim = parseOne(ctx, claimProperties("loyalty_tier", "string"), template)
+
+        assertEquals(setOf(USERINFO), claim.publishedIn)
+        assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
+    }
+
+    @Test
+    fun `parse - Publish a claim in the channels it names over the ones its template offers`() {
+        val ctx = ConfigParsingContext()
+        val template = claimTemplate(DEFAULT, publishedIn = setOf(USERINFO))
+        val properties = claimProperties("loyalty_tier", "string", publishedIn = listOf("id-token"))
+
+        val claim = parseOne(ctx, properties, template)
+
+        assertEquals(setOf(ID_TOKEN), claim.publishedIn)
+        assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
+    }
+
+    @Test
+    fun `parse - Publish a claim in no channel where it names none over the ones its template offers`() {
+        val ctx = ConfigParsingContext()
+        val template = claimTemplate(DEFAULT, publishedIn = setOf(USERINFO))
+        val properties = claimProperties("loyalty_tier", "string", publishedIn = emptyList())
+
+        val claim = parseOne(ctx, properties, template)
+
+        assertEquals(emptySet<ClaimPublication>(), claim.publishedIn)
+        assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
+    }
+
+    @Test
+    fun `parse - Report every entry naming no channel against the index it was written at`() {
+        val ctx = ConfigParsingContext()
+        val properties = claimProperties("loyalty_tier", "string", publishedIn = listOf("id-token", "access-token"))
+
+        val claim = parseOne(ctx, properties, claimTemplate(DEFAULT))
+
+        assertEquals(setOf(ID_TOKEN), claim.publishedIn)
+        assertEquals(listOf("config.invalid_enum_value"), ctx.errors.map { it.messageId })
+        assertEquals(listOf("claims.loyalty_tier.published-in[1]"), ctx.errors.map { it.key })
+    }
+
+    @Test
+    fun `parse - Publish a generated claim in the channels it already reaches, whatever it was configured with`() {
+        val ctx = ConfigParsingContext()
+        val properties = claimProperties("sub", "string", publishedIn = listOf("userinfo"))
+
+        val claims = parser.parse(ctx, listOf(properties), mapOf(DEFAULT to claimTemplate(DEFAULT)))
+
+        assertEquals(setOf(ID_TOKEN, USERINFO), claims.first { it.id == "sub" }.publishedIn)
+        assertEquals(setOf(USERINFO), claims.first { it.id == "updated_at" }.publishedIn)
+    }
 
     @Test
     fun `parseAllowedValues - Return null when there are none`() {
@@ -64,6 +150,28 @@ class ClaimsConfigParserTest {
             listOf("claims.age.allowed-values[1]", "claims.age.allowed-values[2]"),
             ctx.errors.map { it.key }
         )
+    }
+
+    @Test
+    fun `parseAllowedValues - Read the values of a boolean claim as booleans`() {
+        // An unquoted entry is bound as a Boolean and a quoted one as a String; both are the same value.
+        val ctx = ConfigParsingContext()
+
+        val values = parser.parseAllowedValues(ctx, listOf(true, "false"), "claims.optin.allowed-values", BOOLEAN)
+
+        assertEquals(listOf(true, false), values)
+        assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
+    }
+
+    @Test
+    fun `parseAllowedValues - Report every entry of a boolean claim that names no truth value`() {
+        val ctx = ConfigParsingContext()
+
+        val values = parser.parseAllowedValues(ctx, listOf(true, "maybe"), "claims.optin.allowed-values", BOOLEAN)
+
+        assertEquals(listOf(true), values)
+        assertEquals(listOf("config.invalid_boolean"), ctx.errors.map { it.messageId })
+        assertEquals(listOf("claims.optin.allowed-values[1]"), ctx.errors.map { it.key })
     }
 
     @Test

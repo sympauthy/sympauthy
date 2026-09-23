@@ -23,6 +23,9 @@ import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSessionSecurityContext
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
+import com.sympauthy.util.DEFAULT_LOCALE
+import io.micronaut.http.HttpHeaders.ACCEPT_LANGUAGE
+import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpStatus
 import io.mockk.coEvery
 import io.mockk.every
@@ -78,6 +81,12 @@ class AdminInteractiveFlowSessionControllerTest {
     )
 
     private val capabilities = CollectionCapabilities(listOf(clientField, purposeField), emptyList())
+
+    /**
+     * A `GET` asking for [locale], which is the header the controller reads a locale off.
+     */
+    private fun localeRequest(locale: Locale): HttpRequest<Any> =
+        HttpRequest.GET<Any>("/").header(ACCEPT_LANGUAGE, locale.toLanguageTag())
 
     @Test
     fun `listInteractiveFlowSessions - Map every session the page holds, and publish the page it came in`() =
@@ -159,21 +168,35 @@ class AdminInteractiveFlowSessionControllerTest {
     }
 
     @Test
-    fun `getInteractiveFlowSession - Publish the session the identifier names`() = runTest {
-        val detail = mockk<InteractiveFlowSessionDetail>()
-        val resource = mockk<AdminInteractiveFlowSessionDetailResource>()
-        coEvery { sessionCollectionManager.findSessionOrNull(sessionId) } returns detail
-        every { sessionMapper.toResource(detail) } returns resource
+    fun `getInteractiveFlowSession - Publish the session the identifier names, read in the language asked for`() =
+        runTest {
+            val detail = mockk<InteractiveFlowSessionDetail>()
+            val resource = mockk<AdminInteractiveFlowSessionDetailResource>()
+            coEvery { sessionCollectionManager.findSessionOrNull(sessionId) } returns detail
+            // Only the locale the request asks for is answered, so reaching the assertion is what proves
+            // the messages are read in it rather than in the server's own.
+            every { sessionMapper.toResource(detail, Locale.FRANCE) } returns resource
 
-        assertSame(resource, controller.getInteractiveFlowSession(sessionId))
-    }
+            assertSame(resource, controller.getInteractiveFlowSession(localeRequest(Locale.FRANCE), sessionId))
+        }
+
+    @Test
+    fun `getInteractiveFlowSession - Read a session for a request naming no language in the default one`() =
+        runTest {
+            val detail = mockk<InteractiveFlowSessionDetail>()
+            val resource = mockk<AdminInteractiveFlowSessionDetailResource>()
+            coEvery { sessionCollectionManager.findSessionOrNull(sessionId) } returns detail
+            every { sessionMapper.toResource(detail, DEFAULT_LOCALE) } returns resource
+
+            assertSame(resource, controller.getInteractiveFlowSession(collectionRequest(), sessionId))
+        }
 
     @Test
     fun `getInteractiveFlowSession - Answer not found for a session already collected`() = runTest {
         coEvery { sessionCollectionManager.findSessionOrNull(sessionId) } returns null
 
         val exception = assertThrows<LocalizedHttpException> {
-            controller.getInteractiveFlowSession(sessionId)
+            controller.getInteractiveFlowSession(collectionRequest(), sessionId)
         }
 
         assertEquals(HttpStatus.NOT_FOUND, exception.status)

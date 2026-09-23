@@ -66,6 +66,10 @@ templates:
           - "users:claims:write"
     openid:
       enabled: "false"
+      # Both channels, which is where the claims OpenID Connect defines are expected. Nothing is
+      # published unless a file says so — a claim naming no channel travels through none — so the
+      # set the specification defines names them here rather than being defaulted into.
+      published-in: [ id-token, userinfo ]
       acl:
         readable-by-user-when-consented: "true"
         writable-by-user-when-consented: "true"

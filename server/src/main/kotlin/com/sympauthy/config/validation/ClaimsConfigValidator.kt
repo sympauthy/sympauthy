@@ -104,6 +104,7 @@ class ClaimsConfigValidator(
             userInputted = if (!parsed.generated) acl.consent.writableByUser else false,
             allowedValues = parsed.allowedValues,
             audienceId = audienceId,
+            publishedIn = parsed.publishedIn,
             acl = acl
         )
     }

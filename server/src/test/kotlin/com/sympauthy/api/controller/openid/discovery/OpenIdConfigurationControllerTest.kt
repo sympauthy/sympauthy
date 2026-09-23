@@ -7,6 +7,13 @@ import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.jwt.JwtAlgorithm
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.ResponseType
+import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.ClaimAcl
+import com.sympauthy.business.model.user.claim.ClaimDataType
+import com.sympauthy.business.model.user.claim.ClaimPublication
+import com.sympauthy.business.model.user.claim.ConsentAcl
+import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
+import com.sympauthy.business.model.user.claim.UnconditionalAcl
 import com.sympauthy.config.model.*
 import com.sympauthy.util.wireName
 import io.mockk.coEvery
@@ -125,6 +132,65 @@ class OpenIdConfigurationControllerTest {
     fun `getConfiguration - Advertises the one subject type this server issues`() = runTest {
         assertEquals(listOf("public"), configuration().subjectTypesSupported)
     }
+
+    @Test
+    fun `getConfiguration - Advertises a claim the deployment publishes in a channel`() = runTest {
+        val configuration = configurationWithClaims(
+            claim(OpenIdConnectClaimId.EMAIL, verifiedId = OpenIdConnectClaimId.EMAIL_VERIFIED)
+        )
+
+        assertEquals(
+            listOf(OpenIdConnectClaimId.EMAIL, OpenIdConnectClaimId.EMAIL_VERIFIED),
+            configuration.claimsSupported
+        )
+    }
+
+    @Test
+    fun `getConfiguration - Advertises no claim the deployment publishes in neither channel`() = runTest {
+        val configuration = configurationWithClaims(
+            claim(OpenIdConnectClaimId.NAME),
+            claim(OpenIdConnectClaimId.EMAIL, publishedIn = emptySet())
+        )
+
+        assertEquals(listOf(OpenIdConnectClaimId.NAME), configuration.claimsSupported)
+    }
+
+    private suspend fun configurationWithClaims(vararg claims: Claim): OpenIdConfigurationResource {
+        coEvery { scopeManager.listEnabledScopes() } returns emptyList()
+        every { claimManager.listEnabledOpenIdConnectClaims() } returns claims.toList()
+        every { uncheckedAdvancedConfig.publicJwtAlgorithm } returns JwtAlgorithm.ES256
+        return controller.getConfiguration()
+    }
+
+    private fun claim(
+        id: String,
+        verifiedId: String? = null,
+        publishedIn: Set<ClaimPublication> = ClaimPublication.entries.toSet()
+    ) = Claim(
+        id = id,
+        enabled = true,
+        verifiedId = verifiedId,
+        dataType = ClaimDataType.STRING,
+        group = null,
+        required = false,
+        generated = false,
+        userInputted = false,
+        allowedValues = null,
+        publishedIn = publishedIn,
+        acl = ClaimAcl(
+            consent = ConsentAcl(
+                scope = null,
+                readableByUser = true,
+                writableByUser = false,
+                readableByClient = true,
+                writableByClient = false
+            ),
+            unconditional = UnconditionalAcl(
+                readableWithClientScopes = emptyList(),
+                writableWithClientScopes = emptyList()
+            )
+        )
+    )
 
     /**
      * The document built from a deployment serving no scope and no claim, which is every value this

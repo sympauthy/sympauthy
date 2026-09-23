@@ -27,9 +27,9 @@ class OpenIdUserInfoController(
 ) {
 
     @Operation(
-        description = "Retrieves the consented OpenID claims about the logged-in subject. " +
-                "Only standard OpenID claims are returned; custom claims are excluded because this endpoint " +
-                "is not client-authenticated and custom claims are client-only.",
+        description = "Retrieves the claims about the logged-in subject that the end-user consented to " +
+                "share and that this deployment publishes here. A claim the deployment configured itself " +
+                "is returned under the identifier it was configured with, beside the standard properties.",
         tags = ["openid"],
         externalDocs = ExternalDocumentation(
             url = "https://openid.net/specs/openid-connect-core-1_0.html#UserInfo"

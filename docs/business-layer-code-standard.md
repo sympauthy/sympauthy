@@ -36,6 +36,15 @@ an error code naming the mapper and the property.
 than merely non-recoverable. The row was written by this server, and nothing the caller sent would
 have made it read back.
 
+**A row it cannot read is refused, never dropped.** Answering null hands the caller a record it
+treats as whole, and the absence then travels as far as whatever reads it next — a token, a
+response, a rule keyed on the missing field — with nothing logged where it was decided. Throw the
+code naming the mapper and the property.
+
+**Answering null is for a row nothing is asking for.** Where the configuration no longer declares
+what a row describes, absence is the right answer and an operator chose it. A mapper that can answer
+both says in its contract which case each answer is.
+
 **Mapping toward the domain validates; mapping back is a translation.** The input in that direction
 is already valid, and the table's constraints remain the backstop on write.
 

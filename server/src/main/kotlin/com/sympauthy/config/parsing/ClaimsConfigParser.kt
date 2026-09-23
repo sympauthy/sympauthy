@@ -3,6 +3,7 @@ package com.sympauthy.config.parsing
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimDataType.*
 import com.sympauthy.business.model.user.claim.ClaimGroup
+import com.sympauthy.business.model.user.claim.ClaimPublication
 import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
@@ -21,6 +22,25 @@ import jakarta.inject.Singleton
  */
 private fun String.normalizeClaimId() = replace('-', '_')
 
+/**
+ * Convert each of the [values] into the OpenID channel it names, recording an error against the entry's own
+ * index for every one that names none, so a file naming two unknown channels reports both. [key] is the
+ * property the entries were written under, whether that is a claim's or a template's.
+ *
+ * Returns null where [values] is null — nothing written, which falls through to whatever a template offers.
+ * An entry-less list is a claim naming no channel, which does not.
+ */
+internal fun parsePublishedIn(
+    ctx: ConfigParsingContext,
+    parser: ConfigParser,
+    values: List<String>?,
+    key: String
+): Set<ClaimPublication>? = values
+    ?.mapIndexedNotNull { index, value ->
+        ctx.parse { parser.convertToEnum<ClaimPublication>("$key[$index]", value) }
+    }
+    ?.toSet()
+
 data class ParsedClaim(
     val id: String,
     val enabled: Boolean,
@@ -31,6 +51,7 @@ data class ParsedClaim(
     val verifiedId: String?,
     val audienceId: String?,
     val allowedValues: List<Any>?,
+    val publishedIn: Set<ClaimPublication>,
     val acl: ParsedClaimAcl
 )
 
@@ -92,6 +113,11 @@ class ClaimsConfigParser(
             verifiedId = generatedClaim.verifiedId,
             audienceId = null,
             allowedValues = null,
+            // The channels the claim already reaches, which is a fact about this server rather than a
+            // decision a file takes: neither channel reads a generated claim out of the collected claims,
+            // so no `published-in` written here could move one. It is the truth rather than the withholding
+            // value because the discovery document reads it to say what a channel can supply.
+            publishedIn = generatedClaim.publishedIn,
             acl = acl
         )
     }
@@ -138,6 +164,13 @@ class ClaimsConfigParser(
             }
         } else null
 
+        // No channel, for a claim and for a template that names none: a value leaves this server where a
+        // deployment said so and nowhere else. The shipped `openid` template names both, so the claims the
+        // specification defines keep reaching both without every file having to say it again.
+        val publishedIn = parsePublishedIn(ctx, parser, properties.publishedIn, "$configKeyPrefix.published-in")
+            ?: template?.publishedIn
+            ?: emptySet()
+
         val acl = claimAclParser.parseAcl(ctx, properties.acl, template, configKeyPrefix, null)
 
         return ParsedClaim(
@@ -150,6 +183,7 @@ class ClaimsConfigParser(
             verifiedId = properties.verifiedId,
             audienceId = audienceId,
             allowedValues = allowedValues,
+            publishedIn = publishedIn,
             acl = acl
         )
     }
@@ -174,8 +208,9 @@ class ClaimsConfigParser(
             val itemKey = "$key[$index]"
             ctx.parse {
                 when (type) {
+                    BOOLEAN -> parser.getBoolean(value, itemKey) { it }
                     NUMBER -> parser.getLong(value, itemKey) { it }
-                    BOOLEAN, DATE, EMAIL, PHONE_NUMBER, STRING, TIMEZONE ->
+                    DATE, EMAIL, PHONE_NUMBER, STRING, TIMEZONE ->
                         parser.getString(value, itemKey) { it }
                 }
             }

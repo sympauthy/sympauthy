@@ -14,6 +14,7 @@ import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType
+import com.sympauthy.business.model.user.claim.ClaimPublication
 import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.UnconditionalAcl
 import com.sympauthy.data.model.CollectedClaimEntity
@@ -91,6 +92,7 @@ class UserCollectionManagerTest {
         generated = generated,
         userInputted = false,
         allowedValues = null,
+        publishedIn = ClaimPublication.entries.toSet(),
         acl = acl
     )
 

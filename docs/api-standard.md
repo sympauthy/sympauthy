@@ -110,6 +110,13 @@ any release.
 **`details` is behind a flag, and the flag is off by default.** It is the technical message and may
 name a row, a claim, a provider or a key; what the caller sees never depends on it.
 
+**One surface publishes that message whatever the flag says: the page of a failed interactive flow
+session.** The flag keeps the server's internals away from a caller nobody vouched for, and the
+reader there is not one — the surface is gated by `admin:interactive-flow-sessions:read`, and a
+message that may name a row, a claim, a provider or a key is written for exactly the person holding
+it. What earns the exemption is that audience, so a surface an end-user or an unvouched-for client
+can reach never gets one.
+
 **`properties` carries per-field validation**, one entry per violated property, each with the path
 to it and what is wrong. It is the only place a single response reports more than one failure, and
 it is absent rather than empty where the failure refuses no property in particular:

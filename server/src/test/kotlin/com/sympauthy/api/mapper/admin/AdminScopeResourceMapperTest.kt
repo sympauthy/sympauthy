@@ -8,6 +8,7 @@ import com.sympauthy.business.model.oauth2.ScopeType
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType
+import com.sympauthy.business.model.user.claim.ClaimPublication
 import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.UnconditionalAcl
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -30,6 +31,7 @@ class AdminScopeResourceMapperTest {
         generated = false,
         userInputted = false,
         allowedValues = null,
+        publishedIn = ClaimPublication.entries.toSet(),
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = "profile",

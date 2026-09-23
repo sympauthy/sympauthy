@@ -11,17 +11,32 @@ enum class GeneratedOpenIdConnectClaim(
     val verifiedId: String? = null,
     val dataType: ClaimDataType,
     val group: ClaimGroup? = null,
-    val scope: String
+    val scope: String,
+    /**
+     * The channels this claim already reaches, which no deployment decides.
+     *
+     * Neither channel reads a generated claim out of the collected claims — the id token claims the
+     * subject itself and the `/userinfo` mapper computes both — so nothing filters on this. It is
+     * recorded because what a deployment may be told a channel can supply is read off it.
+     */
+    val publishedIn: Set<ClaimPublication>
 ) {
     SUBJECT(
         id = OpenIdConnectClaimId.SUB,
         dataType = ClaimDataType.STRING,
-        scope = "profile"
+        scope = "profile",
+        publishedIn = setOf(ClaimPublication.ID_TOKEN, ClaimPublication.USERINFO)
     ),
+
+    /**
+     * Published in `/userinfo` alone: the id token carries the issue time of the token rather than the
+     * date this person's claims were last collected, and never claimed `updated_at`.
+     */
     UPDATED_AT(
         id = OpenIdConnectClaimId.UPDATED_AT,
         dataType = ClaimDataType.NUMBER,
-        scope = "profile"
+        scope = "profile",
+        publishedIn = setOf(ClaimPublication.USERINFO)
     );
 }
 

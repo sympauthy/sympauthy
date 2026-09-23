@@ -16,7 +16,9 @@ data class AdminInteractiveFlowSessionDetailResource(
     val id: UUID,
     @get:Schema(
         description = "What became of the session. 'expired' means it was still ongoing when its expiration " +
-                "passed — nobody finished it.",
+                "passed — nobody finished it. Both 'failed' and 'expired' ended in a failure and carry the " +
+                "five error fields below; an expired session's are the ones the expiry itself names, since " +
+                "no rule refused anything.",
         allowableValues = ["ongoing", "completed", "cancelled", "failed", "expired"]
     )
     @get:JsonProperty("status")
@@ -50,15 +52,42 @@ data class AdminInteractiveFlowSessionDetailResource(
     val expirationDate: LocalDateTime,
     @get:Schema(
         description = "Identifier of the message detailing, technically, what the session failed with. " +
-                "Published as the key it is rather than as a rendered sentence, so it can be searched for. " +
-                "Absent unless the session failed."
+                "It is the key itself, so it can be searched for and branched on; the sentence it names is " +
+                "beside it. Absent unless the session ended in a failure."
     )
     @get:JsonProperty("error_details_id")
     val errorDetailsId: String?,
-    @get:Schema(description = "Identifier of the message the end-user was shown. Absent unless the session failed.")
+    @get:Schema(
+        description = "The message error_details_id names, read in the language the request asked for, with " +
+                "the error values interpolated into it. It is written for whoever operates this server and " +
+                "may name a row, a claim, a provider or a key; it may be reworded in any release, so branch " +
+                "on error_details_id instead. Absent unless the session ended in a failure, and absent " +
+                "where this deployment holds no message under that identifier."
+    )
+    @get:JsonProperty("error_details")
+    val errorDetails: String?,
+    @get:Schema(
+        description = "Identifier of the message the end-user was shown. It is the failure's own where it " +
+                "names one and the generic message's identifier otherwise, so it names what the person was " +
+                "actually told rather than what the failure asked for. It is the key itself, so it can be " +
+                "searched for and branched on. Absent unless the session ended in a failure."
+    )
     @get:JsonProperty("error_description_id")
     val errorDescriptionId: String?,
-    @get:Schema(description = "Values interpolated into the two messages. Absent unless the session failed.")
+    @get:Schema(
+        description = "The message error_description_id names, read in the language the request asked for " +
+                "rather than the end-user's, with the error values interpolated into it. It is rendered the " +
+                "way the flow's error page rendered it, so it is the sentence that was on the screen. It " +
+                "may be reworded in any release, so branch on error_description_id instead. Absent unless " +
+                "the session ended in a failure, and absent where this deployment holds no message under " +
+                "that identifier."
+    )
+    @get:JsonProperty("error_description")
+    val errorDescription: String?,
+    @get:Schema(
+        description = "Values interpolated into the two messages, published raw as well so a reader can show " +
+                "one as a field of its own. Absent unless the session ended in a failure."
+    )
     @get:JsonProperty("error_values")
     val errorValues: Map<String, String>?,
     @get:Schema(description = "Every purpose the session carries, in the order it drives them.")

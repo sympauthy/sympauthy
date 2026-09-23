@@ -10,10 +10,10 @@ failure that shows: it answers, and the answer is wrong only for the accounts ho
 values and not the rest.
 
 This document says what a deployment may declare, what it means for a value to belong to one
-account, when two values somebody typed are one value and how a row is found by one, and which of
-three reads a caller wants. When the uniqueness of an account being signed up is settled is [the
-provisional user](provisional-user.md); who may read and write one of these claims is
-[security](security.md).
+account, when two values somebody typed are one value and how a row is found by one, which of three
+reads a caller wants, and what a sign-up has to collect before an account exists. When the
+uniqueness of an account being signed up is settled is [the provisional
+user](provisional-user.md); who may read and write one of these claims is [security](security.md).
 
 ## The set a deployment declares
 
@@ -136,6 +136,23 @@ and answers for the refusal itself. They are not listed here: a census stops bei
 time one is added, which is [the comment standard's](comment-standard.md) rule and holds of a
 document as much as of a KDoc.
 
+## Collecting them at sign-up
+
+**A sign-up collects every claim in the set, each of them carrying a value.** One arriving without
+is refused on the step that collects it — recoverably, naming the claim — and no account is written:
+the person fills the field in and posts again.
+
+**A claim submitted blank is one being cleared, and an identifier claim cleared is a missing one.**
+Emptying a field is what a blank submission means everywhere else, and an account created holding no
+value for a claim it is identified by holds a row no login matches. Nobody reaches it again, and
+nothing collects it either: it is committed, so it is not the abandoned account [the
+cleaner](provisional-user.md#collecting-one-that-never-will) sweeps.
+
+**The step collecting the value is where those two readings part, so the refusal is there.** What
+validates a value is handed one claim and one value and is told nothing of which claims the
+deployment identifies by; what promotes the account answers after it is written, at the end of a
+flow where the person has no step left to correct.
+
 ## What a provider asserts
 
 **A provider link checks whatever subset of the set the provider asserts.** Linking writes no
@@ -150,9 +167,10 @@ different thing from a partial check.
 
 ## What this document does not settle
 
-**Whether an account may hold only some of the set.** Nothing decides it, and the two provider paths
-above disagree by accident of what each of them writes rather than by a rule. Settling it is a
-question about which claims a deployment requires and what the flow collects when one is missing.
+**Whether an account may hold only some of the set.** A sign-up collects every one of them, and the
+two provider paths disagree by accident of what each of them writes rather than by a rule. Settling
+it is a question about which claims a deployment requires, and about the accounts a deployment that
+adds one to the set already holds.
 
 **Two values that differ in Unicode rather than in case.** An address whose domain is non-ASCII, or
 whose local part differs only by normal form, is two values here. Settling it is a punycode and

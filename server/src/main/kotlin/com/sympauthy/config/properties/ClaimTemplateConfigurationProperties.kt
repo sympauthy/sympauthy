@@ -20,6 +20,7 @@ class ClaimTemplateConfigurationProperties(
     var group: String? = null
     var allowedValues: List<Any>? = null
     var audience: String? = null
+    var publishedIn: List<String>? = null
     var acl: AclConfig? = null
 
     @ConfigurationProperties("acl")

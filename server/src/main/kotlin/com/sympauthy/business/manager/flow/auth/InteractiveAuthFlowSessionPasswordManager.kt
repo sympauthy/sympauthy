@@ -12,6 +12,7 @@ import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.password.PasswordManager
+import com.sympauthy.business.manager.user.ClaimValueValidator
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
@@ -239,10 +240,17 @@ open class InteractiveAuthFlowSessionPasswordManager(
 
     /**
      * Throws a recoverable business exception with detailsId ```flow.password.sign_up.missing_claim```
-     * if any of the claims in [signUpClaimUpdateMap] is missing a value.
+     * naming a claim of [signUpClaimUpdateMap] that arrives with no value — no update submitted for it,
+     * or an update carrying none.
+     *
+     * A claim submitted blank is one being cleared: [ClaimValueValidator] answers an empty value for it,
+     * which is how a person empties a field everywhere else. Cleared here, it writes the account a row
+     * holding `NULL` that no login ever matches, leaving an account nobody can sign in to. An identifier
+     * claim is not optional, whatever [Claim.required] says of it, and `docs/identifier-claims.md` is
+     * where that rule lives.
      */
     internal fun checkForMissingClaims(signUpClaimUpdateMap: Map<Claim, CollectedClaimUpdate?>) {
-        val missingClaim = signUpClaimUpdateMap.filterValues { it == null }
+        val missingClaim = signUpClaimUpdateMap.filterValues { it?.value?.isPresent != true }
             .keys
             .firstOrNull()
         if (missingClaim != null) {

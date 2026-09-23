@@ -7,6 +7,7 @@ import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionPurposeProgre
 import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionSecurityContextResource
 import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionSummaryResource
 import com.sympauthy.api.resource.admin.AdminUserResource
+import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager.InteractiveFlowSessionDetail
 import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager.InteractiveFlowSessionSummary
 import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager.InteractiveFlowSessionUser
@@ -14,9 +15,11 @@ import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowPurposeProgress
 import com.sympauthy.business.model.flow.InteractiveFlowSessionSecurityContext
 import com.sympauthy.business.model.flow.PurposeDebugInformation
+import com.sympauthy.exception.mapper.LocalizedErrorMapper
 import com.sympauthy.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import java.util.Locale
 
 /**
  * Publishes the interactive flow sessions an operator reads.
@@ -26,7 +29,8 @@ import jakarta.inject.Singleton
  */
 @Singleton
 class AdminInteractiveFlowSessionResourceMapper(
-    @Inject private val userMapper: AdminUserResourceMapper
+    @Inject private val userMapper: AdminUserResourceMapper,
+    @Inject private val localizedErrorMapper: LocalizedErrorMapper
 ) {
 
     /**
@@ -51,22 +55,72 @@ class AdminInteractiveFlowSessionResourceMapper(
     )
 
     /**
-     * Publish [detail] as the session's own page.
+     * Publish [detail] as the session's own page, reading what it failed with in [locale].
+     *
+     * **All four error fields come from the mapper the flow's error page goes through**, over the same
+     * terminal failure, so the page reads what the person was told rather than a second rendering of it:
+     * a failure naming no message of its own carries the generic sentence that was on the screen, and the
+     * code beside it is the one that sentence was read under. Two renderings of one failure are two
+     * sentences to reconcile the first time they disagree.
+     *
+     * **The technical message is asked for whatever `features.print-details-in-error` says**, which is
+     * what that mapper's override is for: the flag keeps the server's internals away from a caller nobody
+     * vouched for, and this surface is the one exemption the API standard names beside it.
+     *
+     * **Both messages are published beside the codes that name them**, rather than instead of them: a code
+     * may not be renamed without breaking a caller, a sentence may be reworded in any release, so a console
+     * grouping sessions by how they failed reads the code and the person reading the page reads the
+     * sentence.
+     *
+     * **A code this deployment holds no message under yields no sentence rather than the code itself.** The
+     * codes come out of a row rather than off a throw site: a session persisted before one was renamed
+     * holds the old one, and a rolling upgrade has both versions writing rows for as long as it lasts. The
+     * code beside the absence still says what the session failed with.
      */
-    fun toResource(detail: InteractiveFlowSessionDetail) = AdminInteractiveFlowSessionDetailResource(
-        id = detail.id,
-        status = detail.status.wireName,
-        initiatingPurpose = toPurposeResource(detail.initiatingPurpose),
-        clientId = detail.initiatingClientId,
-        flowId = detail.flowId,
-        user = detail.user?.let(::toUserResource),
-        signedUp = detail.signedUp,
-        sessionDate = detail.sessionDate,
-        expirationDate = detail.expirationDate,
-        errorDetailsId = detail.errorDetailsId,
-        errorDescriptionId = detail.errorDescriptionId,
-        errorValues = detail.errorValues,
-        purposes = detail.purposes.map(::toPurposeProgressResource)
+    fun toResource(
+        detail: InteractiveFlowSessionDetail,
+        locale: Locale
+    ): AdminInteractiveFlowSessionDetailResource {
+        val failure = detail.errorDetailsId?.let { toLocalizedFailure(it, detail, locale) }
+        return AdminInteractiveFlowSessionDetailResource(
+            id = detail.id,
+            status = detail.status.wireName,
+            initiatingPurpose = toPurposeResource(detail.initiatingPurpose),
+            clientId = detail.initiatingClientId,
+            flowId = detail.flowId,
+            user = detail.user?.let(::toUserResource),
+            signedUp = detail.signedUp,
+            sessionDate = detail.sessionDate,
+            expirationDate = detail.expirationDate,
+            errorDetailsId = failure?.errorCode,
+            errorDetails = failure?.details,
+            errorDescriptionId = failure?.descriptionId,
+            errorDescription = failure?.description,
+            errorValues = detail.errorValues,
+            purposes = detail.purposes.map(::toPurposeProgressResource)
+        )
+    }
+
+    /**
+     * What the failure [detailsId] stopped the session with, rendered in [locale] for both its readers.
+     *
+     * The exception is rebuilt to reach the mapper the error page reaches, and as the terminal failure it
+     * was: a session that failed is over, so the generic sentence answering for a failure naming none of
+     * its own is the one that page showed.
+     */
+    private fun toLocalizedFailure(
+        detailsId: String,
+        detail: InteractiveFlowSessionDetail,
+        locale: Locale
+    ) = localizedErrorMapper.toLocalizedError(
+        BusinessException(
+            recoverable = false,
+            detailsId = detailsId,
+            descriptionId = detail.errorDescriptionId,
+            values = detail.errorValues.orEmpty()
+        ),
+        locale,
+        alwaysPrintDetails = true
     )
 
     /**

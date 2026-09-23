@@ -70,6 +70,7 @@ class ConsentAwareCollectedClaimManagerTest {
         userInputted = true,
         allowedValues = null,
         audienceId = audienceId,
+        publishedIn = ClaimPublication.entries.toSet(),
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = scope,
@@ -93,6 +94,7 @@ class ConsentAwareCollectedClaimManagerTest {
         generated = false,
         userInputted = false,
         allowedValues = null,
+        publishedIn = ClaimPublication.entries.toSet(),
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = null,

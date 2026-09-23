@@ -47,6 +47,7 @@ class ClaimCollectionManagerTest {
         generated = false,
         userInputted = false,
         allowedValues = null,
+        publishedIn = ClaimPublication.entries.toSet(),
         acl = acl
     )
 

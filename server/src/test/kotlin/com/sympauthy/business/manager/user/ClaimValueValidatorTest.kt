@@ -33,8 +33,11 @@ class ClaimValueValidatorTest {
 
     private fun mockStringClaim(): Claim = mockClaimOfType(STRING)
 
-    /** The one type whose value is not exchanged as a string. */
+    /** A number claim — one of the two types whose value is not exchanged as a string. */
     private fun mockNumberClaim(): Claim = mockClaimOfType(NUMBER)
+
+    /** A boolean claim — the other. */
+    private fun mockBooleanClaim(): Claim = mockClaimOfType(BOOLEAN)
 
     @Test
     fun `validateAndCleanValueForClaim - Returns empty Optional for null value`() {
@@ -110,6 +113,31 @@ class ClaimValueValidatorTest {
     }
 
     @Test
+    fun `validateAndCleanValueForClaim - Reads a boolean submitted as a string as a Boolean`() {
+        val claim = mockBooleanClaim()
+        every { claim.allowedValues } returns null
+        val result = validator.validateAndCleanValueForClaim(claim, "TRUE")
+        assertEquals(true, result.get())
+    }
+
+    @Test
+    fun `validateAndCleanValueForClaim - Reads a boolean submitted as a boolean as a Boolean`() {
+        val claim = mockBooleanClaim()
+        every { claim.allowedValues } returns null
+        val result = validator.validateAndCleanValueForClaim(claim, false)
+        assertEquals(false, result.get())
+    }
+
+    @Test
+    fun `validateAndCleanValueForClaim - Matches an allowed boolean however it was submitted`() {
+        // The configuration holds booleans, so the text a form posts matches only once it is cleaned.
+        val claim = mockBooleanClaim()
+        every { claim.allowedValues } returns listOf(true)
+        assertEquals(true, validator.validateAndCleanValueForClaim(claim, "true").get())
+        assertEquals(true, validator.validateAndCleanValueForClaim(claim, true).get())
+    }
+
+    @Test
     fun `validateAndCleanValueForClaim - Matches an allowed number however it was submitted`() {
         // The configuration holds longs, so neither representation matches until the value is cleaned.
         val claim = mockNumberClaim()
@@ -182,7 +210,7 @@ class ClaimValueValidatorTest {
         val claim = mockClaimOfType(BOOLEAN)
         val result = validator.validateAndCleanStringForClaim(claim, "  TRUE  ")
         assertTrue(result.isPresent)
-        assertEquals("true", result.get())
+        assertEquals(true, result.get())
     }
 
     @Test
@@ -264,6 +292,19 @@ class ClaimValueValidatorTest {
     fun `validateAndCleanNumberForClaim - Throws on a value that is not a number`() {
         assertThrowsLocalizedException("user.claim_value_validator.invalid_number") {
             validator.validateAndCleanNumberForClaim(true)
+        }
+    }
+
+    @Test
+    fun `validateAndCleanBooleanForClaim - Reads either truth value out of the word it spells`() {
+        assertEquals(true, validator.validateAndCleanBooleanForClaim("True").get())
+        assertEquals(false, validator.validateAndCleanBooleanForClaim("FALSE").get())
+    }
+
+    @Test
+    fun `validateAndCleanBooleanForClaim - Throws on a value that names neither truth value`() {
+        assertThrowsLocalizedException("user.claim_value_validator.invalid_boolean") {
+            validator.validateAndCleanBooleanForClaim("yes")
         }
     }
 

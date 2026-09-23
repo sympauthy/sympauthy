@@ -1,6 +1,8 @@
 package com.sympauthy.api.resource.openid
 
+import com.fasterxml.jackson.annotation.JsonAnyGetter
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId.BIRTH_DATE
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId.EMAIL
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId.EMAIL_VERIFIED
@@ -24,6 +26,12 @@ import io.micronaut.serde.annotation.Serdeable
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDate
 
+@Schema(
+    description = "Claims about the logged-in subject. Beside the OpenID Connect properties declared here, " +
+            "the response carries the claims a deployment configured itself, each under the identifier it " +
+            "was configured with.",
+    additionalProperties = Schema.AdditionalPropertiesValue.TRUE
+)
 @Serdeable
 data class UserInfoResource(
     @get:Schema(
@@ -85,7 +93,7 @@ data class UserInfoResource(
         description = "True if the end-user's e-mail address has been verified, otherwise false."
     )
     @get:JsonProperty(EMAIL_VERIFIED)
-    val emailVerified: String?,
+    val emailVerified: Boolean?,
     @get:Schema(
         description = "End-user's gender."
     )
@@ -119,12 +127,35 @@ data class UserInfoResource(
     @get:Schema(
         description = "End-user's preferred postal address."
     )
-    @get:JsonProperty("address")
+    @get:JsonProperty(ADDRESS)
     val address: AddressResource?,
     @get:Schema(
         description =
             "Time the end-user's information was last updated. It is the number of seconds from epoch in UTC timezone."
     )
     @get:JsonProperty(UPDATED_AT)
-    val updatedAt: Long?
-)
+    val updatedAt: Long?,
+    /**
+     * The claims this resource declares no property of its own for, each under the identifier it was
+     * configured with, serialized beside the properties above rather than under a property of their own.
+     *
+     * Hidden from the schema because it is not a property a client ever reads: what it holds is declared on
+     * the class as additional properties, which is what the response actually carries.
+     */
+    @get:Schema(hidden = true)
+    @get:JsonAnyGetter
+    val additionalClaims: Map<String, Any>
+) {
+    companion object {
+        /**
+         * The composite property the address group is published as, which no claim of its own carries.
+         */
+        const val ADDRESS = "address"
+
+        /**
+         * The JSON properties this resource declares, and therefore the names [additionalClaims] may not
+         * be written under: a value published twice under one name is a response whose reader picks.
+         */
+        val DECLARED_PROPERTIES: Set<String> = OpenIdConnectClaimId.ALL + ADDRESS
+    }
+}

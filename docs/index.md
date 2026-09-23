@@ -29,11 +29,11 @@ What the server is, how each of its parts works, and why it is built the way it 
   the rows it owns, what makes them count, and what collects them when nothing ever does.
 - **[The identifier claims](identifier-claims.md)** — what a deployment identifies a person by:
   what it may declare, what makes a value belong to one account across the set rather than within a
-  claim, when two values somebody typed are one value and how a row is found by one, and which of
-  three reads a caller wants.
+  claim, when two values somebody typed are one value and how a row is found by one, what a sign-up
+  has to collect, and which of three reads a caller wants.
 - **[Security](security.md)** — how a credential becomes an authentication, what a scope is allowed
-  to mean and which audience a claim may be published to, and what each surface's gate does and does
-  not protect.
+  to mean, which audience a claim may be published to and which channel carries it, and what each
+  surface's gate does and does not protect.
 - **[The security context](security-context.md)** — the address, the user agent and the location a
   request is believed to carry: which proxy a deployment names, what naming one promises and what it
   does not, and how long a place somebody signs in from is kept.
