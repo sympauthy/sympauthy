@@ -21,9 +21,20 @@ class LocalizedErrorMapper(
     @Inject private val featuresConfig: FeaturesConfig
 ) {
 
+    /**
+     * The failure [exception] rendered against [locale]: its code, the message the end-user is shown
+     * and the code that message was read under, and the technical message where it may be printed.
+     *
+     * **[alwaysPrintDetails] is passed by a caller whose reader is the audience the technical message
+     * is written for.** `features.print-details-in-error` keeps the server's internals away from a
+     * caller nobody vouched for, and the API standard names the surfaces that are not one. It only
+     * ever turns the message on: a deployment that asked for it is not answered with less because a
+     * caller said so.
+     */
     fun toLocalizedError(
         exception: LocalizedException,
-        locale: Locale
+        locale: Locale,
+        alwaysPrintDetails: Boolean = false
     ): LocalizedError {
         val exceptionStatus = when (exception) {
             is LocalizedHttpException -> exception.status
@@ -40,7 +51,7 @@ class LocalizedErrorMapper(
             exception.recoverable -> "description.bad_request"
             else -> "description.internal_server_error"
         }
-        val printDetails = featuresConfig.orNull()?.printDetailsInError == true
+        val printDetails = alwaysPrintDetails || featuresConfig.orNull()?.printDetailsInError == true
 
         val localizedDescription = messageSource.renderOrNull(descriptionId, locale, exception.values)
         val localizedDetails = if (printDetails) {
@@ -50,6 +61,7 @@ class LocalizedErrorMapper(
         return LocalizedError(
             httpStatus = status,
             errorCode = exception.detailsId,
+            descriptionId = descriptionId,
             description = localizedDescription,
             details = localizedDetails,
             properties = (exception as? LocalizedHttpException)?.propertyErrors.orEmpty()

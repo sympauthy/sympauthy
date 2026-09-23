@@ -1,6 +1,7 @@
 package com.sympauthy.exception.mapper
 
 import com.sympauthy.api.exception.LocalizedHttpException
+import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.config.model.EnabledFeaturesConfig
@@ -126,6 +127,39 @@ class LocalizedErrorMapperTest {
         assertEquals(
             "Invalid type, expected value to be of type email.",
             mapperOf(printDetailsInError = true).toLocalizedError(exception, Locale.US).properties.single().details
+        )
+    }
+
+    @Test
+    fun `toLocalizedError - Name the code the end-user's message was read under`() {
+        val error = mapper.toLocalizedError(invalidType("email"), Locale.US)
+
+        assertEquals("description.user.claim_value_validator.invalid_type", error.descriptionId)
+    }
+
+    @Test
+    fun `toLocalizedError - Name the generic code where the failure names none of its own`() {
+        assertEquals(
+            "description.internal_server_error",
+            mapper.toLocalizedError(businessExceptionOf("user.not_found", "id" to "42"), Locale.US).descriptionId
+        )
+        assertEquals(
+            "description.bad_request",
+            mapper.toLocalizedError(
+                BusinessException(recoverable = true, detailsId = "user.claim_value_validator.invalid_date"),
+                Locale.US
+            ).descriptionId
+        )
+    }
+
+    @Test
+    fun `toLocalizedError - Report the technical message where the caller overrides the flag`() {
+        val exception = businessExceptionOf("user.not_found", "id" to "42")
+
+        assertNull(mapper.toLocalizedError(exception, Locale.US).details)
+        assertEquals(
+            "No user with id 42.",
+            mapper.toLocalizedError(exception, Locale.US, alwaysPrintDetails = true).details
         )
     }
 

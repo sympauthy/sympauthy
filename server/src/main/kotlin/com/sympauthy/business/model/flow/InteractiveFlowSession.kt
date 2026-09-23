@@ -1,5 +1,6 @@
 package com.sympauthy.business.model.flow
 
+import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.model.Expirable
 import java.net.URI
 import java.time.LocalDateTime
@@ -295,6 +296,24 @@ class FailedInteractiveFlowSession(
     initiatingClientId = initiatingClientId,
     flowId = flowId,
     expirationDate = expirationDate
+)
+
+/**
+ * The failure a session that ran out of time ended with, named once for every reader of it.
+ *
+ * **Nothing throws this.** An expiry is not a rule refusing anything — no request failed, the person
+ * simply stopped — so no column records it and there is nothing on the row to read back. It is
+ * synthesised where an expired session has to say what became of it: to route the person to the error
+ * page, and to answer an operator opening that session afterwards. Both read it from here, so the two
+ * cannot end up saying different things about one session.
+ *
+ * [expirationDate] is interpolated into the technical message and is the moment the session stopped
+ * being usable, which is also the moment it ended.
+ */
+fun interactiveFlowSessionExpiredExceptionOf(expirationDate: LocalDateTime) = businessExceptionOf(
+    "auth.interactive_flow_session.validate.expired",
+    "description.oauth2.expired",
+    "expirationDate" to expirationDate.toString()
 )
 
 /**

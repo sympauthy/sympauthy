@@ -15,11 +15,19 @@ data class LocalizedError(
      */
     val errorCode: String,
     /**
+     * The code the end-user's message was read under.
+     *
+     * It is the failure's own where it names one and the generic code otherwise, so it names what
+     * was actually said rather than what the throw site asked for — which is why it is carried
+     * rather than re-derived by a reader holding the exception.
+     */
+    val descriptionId: String,
+    /**
      * A message explaining the error to the end-user.
      * It may contain information on how to recover from the issue.
      * It is localized to the end-user's preferred language.
      *
-     * Absent when no bundle holds a message under the description code, which is a code shipped
+     * Absent when no bundle holds a message under [descriptionId], which is a code shipped
      * without its message rather than a state the caller can do anything about.
      */
     val description: String?,

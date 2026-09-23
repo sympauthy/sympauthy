@@ -104,15 +104,16 @@ abstract class InteractiveFlowSessionMapper {
     }
 
     fun toExpiredInteractiveFlowSession(entity: InteractiveFlowSessionEntity): FailedInteractiveFlowSession {
+        val expired = interactiveFlowSessionExpiredExceptionOf(entity.expirationDate)
         return FailedInteractiveFlowSession(
             id = entity.id ?: throw invalidBusinessException("id"),
             purposes = purposes(entity.purposes, "purposes"),
             initiatingPurpose = purpose(entity.initiatingPurpose, "initiatingPurpose"),
             initiatingClientId = entity.initiatingClientId,
             flowId = entity.flowId,
-            errorDetailsId = "auth.interactive_flow_session.validate.expired",
-            errorDescriptionId = "description.oauth2.expired",
-            errorValues = mapOf("expirationDate" to entity.expirationDate.toString()),
+            errorDetailsId = expired.detailsId,
+            errorDescriptionId = expired.descriptionId,
+            errorValues = expired.values,
             expirationDate = entity.expirationDate,
             errorDate = entity.expirationDate,
         )

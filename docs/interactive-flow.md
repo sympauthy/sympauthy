@@ -153,6 +153,27 @@ not localized either — it is written at the site that knows the value, in the 
 KDoc beside it, and a bundle would put a translation layer between an operator and the thing they
 are debugging.
 
+**What a failed session failed with is rendered, and that is not the same rule.** Its two messages
+have been bundle keys since they were thrown, rendered on every other surface that carries them; a
+label has no key at all, and localizing one would mean inventing one. So the session's page
+publishes both the keys and the sentences they name, read against the locale the operator's own
+request asks for — and a key this deployment holds no message under yields no sentence rather than
+a dotted identifier, the key beside it still saying what happened.
+
+**A session that ran out of time ended with a failure too, and it is the same one.** Nothing refused
+anything and no column records it, so the failure is named once — beside the session model, where
+both the projection that routes the person and the page that answers an operator read it — rather
+than synthesised twice with two chances to drift. An expired session therefore publishes the five
+error fields a failed one does.
+
+**Both halves are rendered the way the error page rendered them**, through the same mapper and as
+the same terminal failure. An operator asking what a person was told is asking about that page, and
+two renderings of one failure are two sentences to reconcile the first time they disagree — so a
+failure naming no message of its own carries the generic sentence that was on the screen, and the
+code published beside it is the one that sentence was read under rather than the absence the row
+holds. The technical half is asked for whatever `features.print-details-in-error` says, which is
+what that mapper's override is for, and the reason is [the API standard](api-standard.md#errors)'s.
+
 ## A purpose carries its own label
 
 **A purpose's label is declared on the enum rather than on the handler.** What a purpose *is* needs

@@ -127,8 +127,10 @@ does next, in their own words.
 description.** The description is rendered for whoever tripped the failure, so a refusal that tells
 them which account holds a value hands them an oracle over it — and the values both halves render
 from are one map, so the restriction is on the message rather than on what the throw site supplies.
-The technical message is an operator's, printed only where a deployment turned
-`features.print-details-in-error` on.
+The technical message is an operator's: a caller reads one only where a deployment turned
+`features.print-details-in-error` on, and [the surface the API standard
+exempts](api-standard.md#errors) from that flag is read by whoever holds the scope gating it — who
+can already read the account the message names.
 
 **A code reads `<domain>.<thing>.<condition>`**, most general first. A code with no domain is one
 the framework refused rather than a rule of ours.
