@@ -151,8 +151,9 @@ class ClientsConfigValidator(
      * The default scopes are what a request naming no scope at all is granted, and nothing on that
      * path puts them through the allowed set, so two lines disagreeing hand the client a scope the
      * same file says it may not have. Which of the two the operator meant cannot be read off either
-     * of them, so the contradiction is refused here rather than resolved — `docs/design-faq.md`
-     * carries why.
+     * of them, so the contradiction is refused here rather than resolved: narrowing the defaults to the
+     * allowed set and widening the allowed set to cover the defaults are both a guess, and each hands the
+     * operator a client the file they wrote does not describe.
      *
      * The error is against the client, which is what the contradiction belongs to: a template one
      * client narrows below is still right for every other client on it. The message names the key

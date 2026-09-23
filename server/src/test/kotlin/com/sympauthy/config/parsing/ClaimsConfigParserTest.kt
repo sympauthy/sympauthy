@@ -1,5 +1,6 @@
 package com.sympauthy.config.parsing
 
+import com.sympauthy.business.model.user.claim.ClaimDataType.BOOLEAN
 import com.sympauthy.business.model.user.claim.ClaimDataType.NUMBER
 import com.sympauthy.business.model.user.claim.ClaimDataType.STRING
 import com.sympauthy.config.ConfigParser
@@ -64,6 +65,28 @@ class ClaimsConfigParserTest {
             listOf("claims.age.allowed-values[1]", "claims.age.allowed-values[2]"),
             ctx.errors.map { it.key }
         )
+    }
+
+    @Test
+    fun `parseAllowedValues - Read the values of a boolean claim as booleans`() {
+        // An unquoted entry is bound as a Boolean and a quoted one as a String; both are the same value.
+        val ctx = ConfigParsingContext()
+
+        val values = parser.parseAllowedValues(ctx, listOf(true, "false"), "claims.optin.allowed-values", BOOLEAN)
+
+        assertEquals(listOf(true, false), values)
+        assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
+    }
+
+    @Test
+    fun `parseAllowedValues - Report every entry of a boolean claim that names no truth value`() {
+        val ctx = ConfigParsingContext()
+
+        val values = parser.parseAllowedValues(ctx, listOf(true, "maybe"), "claims.optin.allowed-values", BOOLEAN)
+
+        assertEquals(listOf(true), values)
+        assertEquals(listOf("config.invalid_boolean"), ctx.errors.map { it.messageId })
+        assertEquals(listOf("claims.optin.allowed-values[1]"), ctx.errors.map { it.key })
     }
 
     @Test

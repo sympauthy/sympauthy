@@ -32,22 +32,23 @@ class ClaimValueValidator {
      * [ClaimDataType.typeClass] names, or an empty optional where the value is blank and the claim is
      * therefore being cleared.
      *
-     * Every claim but a number one is submitted as a string, and one submitted as anything else throws
-     * `user.claim_value_validator.invalid_type`. A number one may arrive as a string or as the number a JSON
-     * body carries, and either way it is read as a number rather than type-checked, so a value that is not
-     * one throws `user.claim_value_validator.invalid_number` whichever it arrived as. A value that does not
-     * satisfy its own type throws the code that type is checked with, and one outside [Claim.allowedValues]
-     * throws `user.claim_value_validator.invalid_value`.
+     * A boolean and a number claim are the two whose value is not a string, and either may arrive as one
+     * anyway — a form posts every field as text — so both are read out of whatever they arrived as rather
+     * than type-checked, and a value that is not one throws the code its own type is checked with. Every
+     * other claim is submitted as a string, and one submitted as anything else throws
+     * `user.claim_value_validator.invalid_type`. A value outside [Claim.allowedValues] throws
+     * `user.claim_value_validator.invalid_value`.
      *
      * The allowed values are compared against the cleaned value rather than the submitted one, because the
-     * two representations a number arrives in are one value and only the cleaned one is comparable to what
-     * the configuration holds. Where cleaning changes a value at all — a string trimmed, a boolean
-     * lowercased — that comparison also stops it being refused over what was about to be removed.
+     * representations one of those two arrives in are one value and only the cleaned one is comparable to
+     * what the configuration holds. Where cleaning changes a value at all — a string trimmed, a boolean
+     * read out of its text — that comparison also stops it being refused over what was about to be removed.
      */
     fun validateAndCleanValueForClaim(claim: Claim, value: Any?): Optional<Any> {
         val cleanedValue = when {
             value == null -> Optional.empty()
             value is String -> validateAndCleanStringForClaim(claim, value)
+            claim.dataType == BOOLEAN -> validateAndCleanBooleanForClaim(value)
             claim.dataType == NUMBER -> validateAndCleanNumberForClaim(value)
             else -> throw recoverableBusinessExceptionOf(
                 "user.claim_value_validator.invalid_type",
@@ -82,7 +83,7 @@ class ClaimValueValidator {
             return Optional.empty()
         }
         return when (claim.dataType) {
-            BOOLEAN -> validateBooleanForClaim(trimmedValue)
+            BOOLEAN -> validateAndCleanBooleanForClaim(trimmedValue)
             DATE -> validateDateForClaim(trimmedValue)
             EMAIL -> validateEmailForClaim(trimmedValue)
             NUMBER -> validateAndCleanNumberForClaim(trimmedValue)
@@ -115,15 +116,24 @@ class ClaimValueValidator {
         return Optional.of(number)
     }
 
-    internal fun validateBooleanForClaim(value: String): Optional<Any> {
-        val normalized = value.lowercase()
-        if (normalized != "true" && normalized != "false") {
-            throw recoverableBusinessExceptionOf(
+    /**
+     * Validate the [value] is a boolean and return it as a [Boolean].
+     *
+     * A boolean claim is a [Boolean] everywhere else in this server — it is what its configured allowed
+     * values are parsed into and the JSON boolean it is published as — so a value that names neither
+     * truth value throws `user.claim_value_validator.invalid_boolean`.
+     *
+     * What decides that is the word the value spells and not how it happened to be boxed on the way in. A
+     * JSON body carrying `true` and a form field carrying `TRUE` mean the same thing, and a claim a person
+     * ticks is submitted as text whatever the claim's type says.
+     */
+    internal fun validateAndCleanBooleanForClaim(value: Any): Optional<Any> {
+        val boolean = value.toString().lowercase().toBooleanStrictOrNull()
+            ?: throw recoverableBusinessExceptionOf(
                 "user.claim_value_validator.invalid_boolean",
                 "description.user.claim_value_validator.invalid_boolean"
             )
-        }
-        return Optional.of(normalized)
+        return Optional.of(boolean)
     }
 
     /**
