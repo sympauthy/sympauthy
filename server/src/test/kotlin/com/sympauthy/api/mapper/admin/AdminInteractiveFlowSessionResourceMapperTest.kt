@@ -47,7 +47,6 @@ class AdminInteractiveFlowSessionResourceMapperTest {
 
     private val mapper = AdminInteractiveFlowSessionResourceMapper(
         userMapper = AdminUserResourceMapper(),
-        errorMessageSource = messageSource,
         localizedErrorMapper = localizedErrorMapper
     )
 
@@ -108,10 +107,10 @@ class AdminInteractiveFlowSessionResourceMapperTest {
     }
 
     @Test
-    fun `toResource - Read the generic sentence where the failure names no message of its own`() {
+    fun `toResource - Name and read the generic message where the failure names none of its own`() {
         val resource = mapper.toResource(failedDetail(errorDescriptionId = null), DEFAULT_LOCALE)
 
-        assertNull(resource.errorDescriptionId)
+        assertEquals("description.internal_server_error", resource.errorDescriptionId)
         assertEquals("An unexpected error occurred.", resource.errorDescription)
         assertEquals("The session passed its expiration date 2026-08-31T10:00.", resource.errorDetails)
     }
@@ -119,8 +118,8 @@ class AdminInteractiveFlowSessionResourceMapperTest {
     @Test
     fun `toResource - Publish the technical message the flag would have hidden`() {
         val failure = failedDetail()
-        // The same failure through the mapper the error page goes through, which is where the flag is
-        // read: it answers no technical message at all, and this page answers one anyway.
+        // The same failure asked for the way every other surface asks, which is where the flag decides:
+        // it answers no technical message at all, and this page overrides it and answers one.
         val onTheErrorPage = localizedErrorMapper.toLocalizedError(
             BusinessException(
                 recoverable = false,

@@ -160,13 +160,13 @@ publishes both the keys and the sentences they name, read against the locale the
 request asks for — and a key this deployment holds no message under yields no sentence rather than
 a dotted identifier, the key beside it still saying what happened.
 
-**The end-user's half is rendered the way the error page rendered it**, through the same mapper and
-as the same terminal failure, so a failure naming no message of its own carries the generic sentence
-that was on the screen rather than nothing. An operator asking what a person was told is asking
-about that page, and two renderings of one failure are two sentences to reconcile the first time
-they disagree. The technical half does not go through it: that mapper puts the technical message
-behind `features.print-details-in-error`, and here it is published whatever the flag says, for the
-reason [the API standard](api-standard.md#errors) gives.
+**Both halves are rendered the way the error page rendered them**, through the same mapper and as
+the same terminal failure. An operator asking what a person was told is asking about that page, and
+two renderings of one failure are two sentences to reconcile the first time they disagree — so a
+failure naming no message of its own carries the generic sentence that was on the screen, and the
+code published beside it is the one that sentence was read under rather than the absence the row
+holds. The technical half is asked for whatever `features.print-details-in-error` says, which is
+what that mapper's override is for, and the reason is [the API standard](api-standard.md#errors)'s.
 
 ## A purpose carries its own label
 

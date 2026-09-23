@@ -30,6 +30,7 @@ class ErrorResourceMapperTest {
     private fun localizedError(vararg properties: LocalizedPropertyError) = LocalizedError(
         httpStatus = BAD_REQUEST,
         errorCode = "flow.claims.invalid",
+        descriptionId = "description.flow.claims.invalid",
         description = "One or more of the values you submitted were refused.",
         details = null,
         properties = properties.toList()

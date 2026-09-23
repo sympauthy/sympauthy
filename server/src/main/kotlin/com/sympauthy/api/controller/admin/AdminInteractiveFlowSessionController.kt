@@ -138,7 +138,8 @@ class AdminInteractiveFlowSessionController(
                 "in the language the request asked for: the identifiers are what a caller branches on or " +
                 "searches for, the sentences are what a person reads. " +
                 "The end-user's message is the one the flow's error page showed them, so a failure naming " +
-                "none of its own carries the generic sentence rather than nothing. " +
+                "none of its own carries the generic sentence and the identifier naming it, rather than " +
+                "nothing. " +
                 "The debug entries are labels written for a person: a label may be reworded in any release, " +
                 "so nothing may branch on one.",
         tags = ["admin"],
