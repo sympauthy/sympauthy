@@ -87,7 +87,7 @@ class ClaimValueValidator {
      * so being unable to clean it is an answer of none rather than a refusal to raise.
      *
      * It answers a business value; the text a comparison is actually made on is
-     * [CollectedClaimManager.getComparisonValueOf], which takes this one the rest of the way.
+     * [CollectedClaimManager.getFoldedValueOf], which takes this one the rest of the way.
      */
     fun cleanValueForClaimOrNull(claim: Claim, value: Any?): Any? = try {
         validateAndCleanValueForClaim(claim, value).getOrNull()
@@ -104,7 +104,6 @@ class ClaimValueValidator {
      * stored padded, and a phone number or a time zone refused for a reason that names the wrong thing. It
      * settles that a `string` claim cannot hold a deliberately padded value, which nothing asks for and which
      * would want a type saying so rather than this one keeping the padding by omission.
-     *
      */
     internal fun validateAndCleanStringForClaim(claim: Claim, value: String): Optional<Any> {
         val trimmedValue = value.trim()
@@ -189,7 +188,7 @@ class ClaimValueValidator {
      *
      * The address is returned as it was written. Two spellings of one address are one identity, but that is
      * settled by the spelling they are compared in rather than by rewriting what somebody typed —
-     * `CollectedClaimEntity.comparisonValue` is where it is settled.
+     * `CollectedClaimEntity.foldedEqualityHash` is where it is settled.
      */
     internal fun validateEmailForClaim(value: String): Optional<Any> {
         val parts = value.split("@")

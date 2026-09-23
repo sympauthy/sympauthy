@@ -161,7 +161,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
             every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
             cleansAsSubmitted()
             coEvery { userManager.findByIdentifierClaims(mapOf("email" to "new@example.com")) } returns null
-            identifierValues(mapOf("email" to "\"new@example.com\""))
+            identifierValues(mapOf("email" to "new@example.com"))
             coEvery { userManager.createUser(sessionId) } returns newUser
             coJustRun { collectedClaimManager.update(newUser, any()) }
             coJustRun { providerClaimsManager.saveUserInfo(provider, newUser.id, sessionId, providerUserInfo) }
@@ -242,7 +242,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
                 )
             } returns null
             identifierValues(
-                mapOf("email" to "\"new@example.com\"", "phone_number" to "\"+33612345678\"")
+                mapOf("email" to "new@example.com", "phone_number" to "+33612345678")
             )
             coEvery { userManager.createUser(sessionId) } returns newUser
             coJustRun { collectedClaimManager.update(newUser, any()) }
@@ -316,7 +316,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
                 claimValueValidator.validateAndCleanValueForClaim(emailClaim, " New@Example.COM ")
             } returns Optional.of("new@example.com")
             coEvery { userManager.findByIdentifierClaims(mapOf("email" to "new@example.com")) } returns null
-            identifierValues(mapOf("email" to "\"new@example.com\""))
+            identifierValues(mapOf("email" to "new@example.com"))
             coEvery { userManager.createUser(sessionId) } returns newUser
             coJustRun { collectedClaimManager.update(newUser, any()) }
             coJustRun { providerClaimsManager.saveUserInfo(provider, newUser.id, sessionId, providerUserInfo) }
@@ -369,7 +369,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
             every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
             every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
             cleansAsSubmitted()
-            identifierValues(mapOf("email" to "\"new@example.com\""))
+            identifierValues(mapOf("email" to "new@example.com"))
             coEvery { userManager.createUser(sessionId) } returns newUser
             coJustRun { collectedClaimManager.update(newUser, any()) }
             coJustRun { providerClaimsManager.saveUserInfo(provider, newUser.id, sessionId, providerUserInfo) }
@@ -403,7 +403,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
         every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
         every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
         cleansAsSubmitted()
-        identifierValues(mapOf("email" to "\"existing@example.com\""), takenClaimId = "email")
+        identifierValues(mapOf("email" to "existing@example.com"), takenClaimId = "email")
 
         val exception = assertThrows<BusinessException> {
             establisher.createOrAssociateUserWithProviderUserInfo(sessionId, provider, providerUserInfo)
@@ -443,8 +443,8 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
                 )
             } returns null
             val asserted = mapOf(
-                "email" to "\"taken@example.com\"",
-                "phone_number" to "\"+33612345678\""
+                "email" to "taken@example.com",
+                "phone_number" to "+33612345678"
             )
             every { collectedClaimManager.getIdentifierFoldedValuesIn(any()) } returns asserted
             coEvery {

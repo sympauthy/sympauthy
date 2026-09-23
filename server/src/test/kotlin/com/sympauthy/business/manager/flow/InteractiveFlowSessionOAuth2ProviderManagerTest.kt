@@ -110,8 +110,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
 
     private val email = "user@example.com"
 
-    /** The same address as `collected_claims` spells it, which is what a key over it names. */
-    private val storedEmail = "\"user@example.com\""
+    private val foldedEmail = "user@example.com"
     /** The account a refusal names as holding the value, which reaches an operator and never the person refused. */
     private val ownerId = UUID.randomUUID()
 
@@ -188,7 +187,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
     }
 
     /**
-     * The identifier claims this deployment configures, each spelling an asserted value as [storedEmail],
+     * The identifier claims this deployment configures, each spelling an asserted value as [foldedEmail],
      * so that a test turns on what the link does with a stored spelling rather than on how one is reached.
      */
     private fun assertedIdentifierClaims(vararg claimIds: String) {
@@ -196,7 +195,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
         every { claimManager.listIdentifierClaims() } returns claimIds.map { claimId ->
             mockk<Claim> { every { id } returns claimId }
         }
-        every { collectedClaimManager.getFoldedValueOf(any(), email) } returns storedEmail
+        every { collectedClaimManager.getFoldedValueOf(any(), email) } returns foldedEmail
     }
 
     @Test
@@ -375,7 +374,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
                 userManager.findTakenIdentifierOrNull(
                     userId,
                     listOf(OpenIdConnectClaimId.EMAIL),
-                    mapOf(OpenIdConnectClaimId.EMAIL to storedEmail)
+                    mapOf(OpenIdConnectClaimId.EMAIL to foldedEmail)
                 )
             } returns TakenIdentifier(claimId = OpenIdConnectClaimId.EMAIL, userId = ownerId)
 
@@ -390,7 +389,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             assertEquals(OpenIdConnectClaimId.EMAIL, exception.values["claim"])
             assertEquals(ownerId.toString(), exception.values["userId"])
             assertFalse(exception.recoverable)
-            coVerify { objectLockRepository.lock(LockKey.IdentifierValue(storedEmail).stripe) }
+            coVerify { objectLockRepository.lock(LockKey.IdentifierValue(foldedEmail).stripe) }
             coVerify(exactly = 0) { providerClaimsManager.saveUserInfo(any(), any(), any(), any()) }
         }
 
@@ -407,12 +406,12 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
             every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
             every { claimManager.listIdentifierClaims() } returns listOf(emailClaim)
-            every { collectedClaimManager.getFoldedValueOf(emailClaim, "User@Example.COM") } returns storedEmail
+            every { collectedClaimManager.getFoldedValueOf(emailClaim, "User@Example.COM") } returns foldedEmail
             coEvery {
                 userManager.findTakenIdentifierOrNull(
                     userId,
                     listOf(OpenIdConnectClaimId.EMAIL),
-                    mapOf(OpenIdConnectClaimId.EMAIL to storedEmail)
+                    mapOf(OpenIdConnectClaimId.EMAIL to foldedEmail)
                 )
             } returns TakenIdentifier(claimId = OpenIdConnectClaimId.EMAIL, userId = ownerId)
 
@@ -426,7 +425,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             // An account holding the address in the spelling this server stores owns it whatever case the
             // provider asserts it in, and the promotion racing this link waits on the same stripe.
             assertEquals("flow.link_provider.identifier_conflict", exception.detailsId)
-            coVerify { objectLockRepository.lock(LockKey.IdentifierValue(storedEmail).stripe) }
+            coVerify { objectLockRepository.lock(LockKey.IdentifierValue(foldedEmail).stripe) }
             coVerify(exactly = 0) { providerClaimsManager.saveUserInfo(any(), any(), any(), any()) }
         }
 
@@ -457,7 +456,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
                 userManager.findTakenIdentifierOrNull(
                     userId,
                     listOf(OpenIdConnectClaimId.EMAIL),
-                    mapOf(OpenIdConnectClaimId.EMAIL to storedEmail)
+                    mapOf(OpenIdConnectClaimId.EMAIL to foldedEmail)
                 )
             }
             coVerify { providerClaimsManager.saveUserInfo(provider, userId, null, rawUserInfo) }
@@ -492,7 +491,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
                 userManager.findTakenIdentifierOrNull(
                     userId,
                     listOf(OpenIdConnectClaimId.EMAIL, OpenIdConnectClaimId.PHONE_NUMBER),
-                    mapOf(OpenIdConnectClaimId.EMAIL to storedEmail)
+                    mapOf(OpenIdConnectClaimId.EMAIL to foldedEmail)
                 )
             }
             coVerify(exactly = 0) { providerClaimsManager.saveUserInfo(any(), any(), any(), any()) }
@@ -571,7 +570,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             // The address as well as the subject: the promotion this has to be excluded from commits an
             // account holding that address, and the key it takes names the address.
             coVerify { objectLockRepository.lock(LockKey.ProviderSubject(provider.id, "sub-123").stripe) }
-            coVerify { objectLockRepository.lock(LockKey.IdentifierValue(storedEmail).stripe) }
+            coVerify { objectLockRepository.lock(LockKey.IdentifierValue(foldedEmail).stripe) }
         }
 
     @Test

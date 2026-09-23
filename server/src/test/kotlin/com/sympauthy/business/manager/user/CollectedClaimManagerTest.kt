@@ -615,12 +615,8 @@ class CollectedClaimManagerTest {
     private companion object {
         const val EMAIL_CLAIM = "email"
         const val PHONE_CLAIM = "phone_number"
-        const val EMAIL = "someone@example.com"
-
-        /** The value as `collected_claims` spells it, which is what both the key and the check compare on. */
-        const val STORED_EMAIL = "\"someone@example.com\""
-
-        /** The same address in the spelling `collected_claims` compares on: plain text, lowercased. */
+        /** The address as somebody wrote it, and the spelling every comparison on it is made in. */
+        const val EMAIL = "Someone@Example.com"
         const val FOLDED_EMAIL = "someone@example.com"
     }
 }

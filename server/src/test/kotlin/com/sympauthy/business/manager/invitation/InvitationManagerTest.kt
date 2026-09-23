@@ -74,11 +74,20 @@ class InvitationManagerTest {
     }
 
     /**
-     * A claim as [InvitationManager.applyInvitationClaims] asks after it. That one is applying values already
-     * validated, so the audience is the only question left.
+     * A claim as [InvitationManager.applyInvitationClaims] asks after it, reading the text the invitation
+     * stored back under it — which is how a value recovers the type it was cleaned to when the invitation
+     * was written.
      */
     private fun createStoredClaim(audienceId: String? = null): Claim = mockk {
         every { belongsToAudience(any()) } answers { audienceId == null || audienceId == firstArg() }
+    }
+
+    /**
+     * The claim reading the text an invitation stored back as the value it was cleaned to, which is how a
+     * value recovers the type it lost to the invitation's own column.
+     */
+    private fun cleansStoredTextOf(claim: Claim) {
+        every { claimValueValidator.cleanValueForClaimOrNull(claim, any()) } answers { secondArg() }
     }
 
     /** An account the flow is still signing up, which an invitation may give an identifier claim. */
@@ -360,6 +369,7 @@ class InvitationManagerTest {
             claims = mapOf("custom_role" to "admin")
         )
         val claim = createStoredClaim()
+        cleansStoredTextOf(claim)
         val user = provisionalUser()
         val entity = mockk<InvitationEntity>()
 
@@ -397,6 +407,7 @@ class InvitationManagerTest {
             claims = mapOf("custom_region" to "eu-west", "custom_tier" to "gold")
         )
         val ownClaim = createStoredClaim(audienceId = AUDIENCE)
+        cleansStoredTextOf(ownClaim)
         val otherAudienceClaim = createStoredClaim(audienceId = OTHER_AUDIENCE)
         val user = provisionalUser()
         val entity = mockk<InvitationEntity>()
@@ -413,6 +424,27 @@ class InvitationManagerTest {
     }
 
     @Test
+    fun `applyInvitationClaims - Leaves alone a value the claim no longer accepts`() = runTest {
+        // The configuration moved under the invitation. Writing the text as it stands would give the
+        // account a value no read of that claim could match.
+        val invitationId = UUID.randomUUID()
+        val invitation = createInvitation(id = invitationId, claims = mapOf("custom_role" to "admin"))
+        val claim = createStoredClaim()
+        every { claim.id } returns "custom_role"
+        every { claimValueValidator.cleanValueForClaimOrNull(claim, "admin") } returns null
+        val user = provisionalUser()
+        val entity = mockk<InvitationEntity>()
+
+        coEvery { invitationRepository.findById(invitationId) } returns entity
+        every { invitationMapper.toInvitation(entity) } returns invitation
+        every { claimManager.findByIdOrNull("custom_role") } returns claim
+
+        manager.applyInvitationClaims(invitationId, user)
+
+        coVerify(exactly = 0) { collectedClaimManager.update(any(), any()) }
+    }
+
+    @Test
     fun `applyInvitationClaims - Leave an identifier claim alone on an account the flow resolved`() = runTest {
         val invitationId = UUID.randomUUID()
         val invitation = createInvitation(
@@ -421,6 +453,7 @@ class InvitationManagerTest {
         )
         val emailClaim = identifierClaim()
         val roleClaim = createStoredClaim()
+        cleansStoredTextOf(roleClaim)
         val user = resolvedUser()
         val entity = mockk<InvitationEntity>()
 
@@ -467,6 +500,7 @@ class InvitationManagerTest {
             claims = mapOf("known" to "value", "unknown" to "value")
         )
         val knownClaim = createStoredClaim()
+        cleansStoredTextOf(knownClaim)
         val user = provisionalUser()
         val entity = mockk<InvitationEntity>()
 

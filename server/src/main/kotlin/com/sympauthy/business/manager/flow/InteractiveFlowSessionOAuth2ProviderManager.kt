@@ -404,7 +404,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
      * capitalises is otherwise a conflict nothing sees. A value that claim could hold no such value of
      * drops out with it: neither half of the pair can be formed, and no row it would have matched exists.
      */
-    private suspend fun getAssertedIdentifiersOrNull(rawUserInfo: RawProviderClaims): AssertedIdentifiers? {
+    private fun getAssertedIdentifiersOrNull(rawUserInfo: RawProviderClaims): AssertedIdentifiers? {
         val valuesByClaimId = claimManager.listIdentifierClaims().mapNotNull { claim ->
             rawUserInfo.getClaimValueOrNull(claim)
                 ?.let { collectedClaimManager.getFoldedValueOf(claim, it) }

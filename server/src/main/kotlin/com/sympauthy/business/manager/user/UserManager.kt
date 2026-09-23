@@ -6,7 +6,6 @@ import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
-import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.UserRepository
@@ -100,8 +99,8 @@ open class UserManager(
             return null
         }
         val matched = findCommittedClaimsFolding(foldedByClaimId)
-            .groupBy(CollectedClaimEntity::userId)
-            .filterValues { rows -> foldedByClaimId.all { (claimId, _) -> rows.any { it.claim == claimId } } }
+            .groupBy(FoldedClaim::userId)
+            .filterValues { rows -> foldedByClaimId.all { (claimId, _) -> rows.any { it.claimId == claimId } } }
         return userRepository.findByIdInListAndSessionIdIsNull(matched.keys.toList()).firstOrNull()
             ?.let(userMapper::toUser)
     }
@@ -132,17 +131,25 @@ open class UserManager(
      */
     private suspend fun findCommittedClaimsFolding(
         foldedByClaim: Collection<Pair<String, String>>
-    ): List<CollectedClaimEntity> {
+    ): List<FoldedClaim> {
         val hashes = foldedByClaim.mapNotNull { (claimId, folded) ->
             claimValueMapper.toFoldedEqualityHash(folded)?.let { claimId to it }
-        }
+        }.distinct()
         val expected = foldedByClaim.groupBy({ it.first }, { it.second })
-        return collectedClaimRepository.findCommittedClaimsMatching(hashes).filter { row ->
-            val claim = claimManager.findByIdOrNull(row.claim) ?: return@filter false
+        return collectedClaimRepository.findCommittedClaimsMatching(hashes).mapNotNull { row ->
+            val claim = claimManager.findByIdOrNull(row.claim) ?: return@mapNotNull null
             val folded = claimValueMapper.toFoldedValueOfStored(row.value, claim.dataType)
-            folded != null && folded in expected[row.claim].orEmpty()
+                ?.takeIf { it in expected[row.claim].orEmpty() }
+                ?: return@mapNotNull null
+            FoldedClaim(userId = row.userId, claimId = row.claim, folded = folded)
         }
     }
+
+    /**
+     * A committed row that survived the re-check, carrying the folded value it was confirmed against so
+     * that no caller derives it a second time.
+     */
+    private class FoldedClaim(val userId: UUID, val claimId: String, val folded: String)
 
     /**
      * Check that [userId] names an account this server has finished creating.
@@ -240,16 +247,11 @@ open class UserManager(
         if (claimIds.isEmpty() || valuesByClaimId.isEmpty()) {
             return null
         }
-        val offered = claimIds.flatMap { claimId -> valuesByClaimId.values.map { claimId to it } }
+        val offered = claimIds.flatMap { claimId -> valuesByClaimId.values.map { claimId to it } }.distinct()
         val committed = findCommittedClaimsFolding(offered)
         return valuesByClaimId.firstNotNullOfOrNull { (claimId, folded) ->
-            committed.firstOrNull { row ->
-                row.userId != userId &&
-                    claimValueMapper.toFoldedValueOfStored(
-                        row.value,
-                        claimManager.findByIdOrNull(row.claim)?.dataType ?: return@firstOrNull false
-                    ) == folded
-            }?.let { TakenIdentifier(claimId = claimId, userId = it.userId) }
+            committed.firstOrNull { it.folded == folded && it.userId != userId }
+                ?.let { TakenIdentifier(claimId = claimId, userId = it.userId) }
         }
     }
 

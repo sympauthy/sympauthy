@@ -311,6 +311,63 @@ class UserManagerTest {
         assertEquals(TakenIdentifier(claimId = emailClaim, userId = ownerId), taken)
     }
 
+    @Test
+    fun `findByAnyIdentifierClaimValue - Answers the account a row of any of the claims holds it under`() =
+        runTest {
+            val ownerId = UUID.randomUUID()
+            val entity = mockk<UserEntity>()
+            val user = mockk<User>()
+            committedRows(claimRow(ownerId, phoneClaim, storedAddress))
+            coEvery { userRepository.findByIdAndSessionIdIsNull(ownerId) } returns entity
+            every { userMapper.toUser(entity) } returns user
+
+            // Offered under both, as a login is: a row of either answers, and it is the phone claim that
+            // happens to hold it.
+            val found = manager.findByAnyIdentifierClaimValue(
+                mapOf(emailClaim to storedAddress, phoneClaim to storedAddress)
+            )
+
+            assertSame(user, found)
+        }
+
+    @Test
+    fun `findByAnyIdentifierClaimValue - Drops a row whose folded value is not the one offered`() = runTest {
+        // What the hash selected is a candidate. This is the collision the re-check exists to refuse, and
+        // acting on it would sign somebody in against an account that is not theirs.
+        committedRows(claimRow(UUID.randomUUID(), emailClaim, "somebody.else@example.com"))
+
+        assertNull(manager.findByAnyIdentifierClaimValue(mapOf(emailClaim to storedAddress)))
+    }
+
+    @Test
+    fun `findByIdentifierClaims - Answers the account holding every one of the values`() = runTest {
+        val ownerId = UUID.randomUUID()
+        val entity = mockk<UserEntity>()
+        val user = mockk<User>()
+        committedRows(
+            claimRow(ownerId, emailClaim, storedAddress),
+            claimRow(ownerId, phoneClaim, storedNumber)
+        )
+        coEvery { userRepository.findByIdInListAndSessionIdIsNull(listOf(ownerId)) } returns listOf(entity)
+        every { userMapper.toUser(entity) } returns user
+
+        val found = manager.findByIdentifierClaims(mapOf(emailClaim to storedAddress, phoneClaim to storedNumber))
+
+        assertSame(user, found)
+    }
+
+    @Test
+    fun `findByIdentifierClaims - Answers none where an account holds only some of the values`() = runTest {
+        // Resolving is the read that has to answer one account rather than a choice between several, so an
+        // account matching the address and not the number is not the one being asked after.
+        committedRows(claimRow(UUID.randomUUID(), emailClaim, storedAddress))
+        coEvery { userRepository.findByIdInListAndSessionIdIsNull(emptyList()) } returns emptyList()
+
+        val found = manager.findByIdentifierClaims(mapOf(emailClaim to storedAddress, phoneClaim to storedNumber))
+
+        assertNull(found)
+    }
+
     private fun committedRows(vararg rows: CollectedClaimEntity) {
         every { claimManager.findByIdOrNull(any()) } returns mockk<Claim> {
             every { dataType } returns ClaimDataType.STRING

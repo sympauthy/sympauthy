@@ -5,6 +5,7 @@ import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.manager.lock.HeldStripes
+import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.model.ProviderUserInfoEntity
@@ -129,11 +130,11 @@ class ProvisionalAccountManagerTest {
         identifierClaims("email")
         coEvery {
             collectedClaimRepository.findByUserIdAndClaimInList(userId, listOf("email"))
-        } returns listOf(claimEntity("email", "\"taken@example.com\""))
-        stubFoldOf("email", "\"taken@example.com\"")
+        } returns listOf(claimEntity("email", "taken@example.com"))
+        stubFoldOf("email", "taken@example.com")
         coEvery {
             userManager.findTakenIdentifierOrNull(
-                userId, listOf("email"), mapOf("email" to "\"taken@example.com\"")
+                userId, listOf("email"), mapOf("email" to "taken@example.com")
             )
         } returns TakenIdentifier(claimId = "email", userId = ownerId)
         coEvery { providerUserInfoRepository.findByUserId(userId) } returns emptyList()
@@ -144,11 +145,12 @@ class ProvisionalAccountManagerTest {
         assertEquals("email", exception.values["claim"])
         assertEquals(ownerId.toString(), exception.values["userId"])
         coVerify(exactly = 0) { userRepository.clearSessionId(any(), any()) }
-        // Stripe 10 is the value as collected_claims spells it, quotes included, which LockKeyTest holds.
+        // The key names the folded value, which is what the check it protects compares on. Which row a
+        // key maps to is LockKeyTest's; that it is this key is this test's.
         coVerifyOrder {
-            objectLockRepository.lock(10)
+            objectLockRepository.lock(LockKey.IdentifierValue("taken@example.com").stripe)
             userManager.findTakenIdentifierOrNull(
-                userId, listOf("email"), mapOf("email" to "\"taken@example.com\"")
+                userId, listOf("email"), mapOf("email" to "taken@example.com")
             )
         }
     }
@@ -167,9 +169,8 @@ class ProvisionalAccountManagerTest {
         assertEquals("user.promote.provider_subject_taken", exception.detailsId)
         assertEquals("discord", exception.values["providerId"])
         coVerify(exactly = 0) { userRepository.clearSessionId(any(), any()) }
-        // Stripe 62 is the discord identity subject-1, which LockKeyTest holds.
         coVerifyOrder {
-            objectLockRepository.lock(62)
+            objectLockRepository.lock(LockKey.ProviderSubject("discord", "subject-1").stripe)
             providerUserInfoRepository.findByProviderIdAndSubjectAndSessionIdIsNull("discord", "subject-1")
         }
     }
@@ -249,11 +250,11 @@ class ProvisionalAccountManagerTest {
         identifierClaims("email")
         coEvery {
             collectedClaimRepository.findByUserIdAndClaimInList(userId, listOf("email"))
-        } returns listOf(claimEntity("email", "\"free@example.com\""))
-        stubFoldOf("email", "\"free@example.com\"")
+        } returns listOf(claimEntity("email", "free@example.com"))
+        stubFoldOf("email", "free@example.com")
         coEvery {
             userManager.findTakenIdentifierOrNull(
-                userId, listOf("email"), mapOf("email" to "\"free@example.com\"")
+                userId, listOf("email"), mapOf("email" to "free@example.com")
             )
         } returns null
         coEvery { providerUserInfoRepository.findByUserId(userId) } returns emptyList()
@@ -266,9 +267,8 @@ class ProvisionalAccountManagerTest {
         manager.promote(sessionId, userId)
 
         coVerify { userRepository.clearSessionId(userId, sessionId) }
-        // Stripe 20 is "free@example.com" as collected_claims spells it, which LockKeyTest holds.
         coVerifyOrder {
-            objectLockRepository.lock(20)
+            objectLockRepository.lock(LockKey.IdentifierValue("free@example.com").stripe)
             userManager.findTakenIdentifierOrNull(any(), any(), any())
             userRepository.clearSessionId(userId, sessionId)
         }
