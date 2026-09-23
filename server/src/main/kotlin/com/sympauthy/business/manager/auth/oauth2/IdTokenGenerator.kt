@@ -119,7 +119,7 @@ class IdTokenGenerator(
         }
         // An id token answers a request for `openid`, and a grant that never asked for OpenID Connect is
         // owed none. Every caller passes through here, so the authorization code and the refresh cannot
-        // answer the same grant differently: docs/design-faq.md.
+        // answer the same grant differently.
         if (!grantedScopes.contains(BuiltInGrantableScopeId.OPENID)) {
             return null
         }

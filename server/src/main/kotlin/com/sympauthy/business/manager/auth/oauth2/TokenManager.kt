@@ -213,8 +213,10 @@ open class TokenManager(
         val refreshedRefreshToken = if (shouldRefreshToken(refreshToken, accessToken)) {
             refreshTokenGenerator.generateRefreshToken(refreshToken, tokenAudience, dpopJkt = effectiveDpopJkt)
         } else null
-        // Why a refresh reissues the identity at all: docs/design-faq.md. Whether this grant is owed one
-        // is the generator's to answer, so that the authorization code cannot answer it differently.
+        // A refresh reissues the identity because OpenID Connect Core §12.2 lets it, and a client holding
+        // a refreshed access token with a stale id token has no way to learn the subject changed. Whether
+        // this grant is owed one is the generator's to answer, so that the authorization code cannot
+        // answer it differently.
         val idToken = idTokenGenerator.generateIdToken(refreshToken, client.audience.id, accessToken)
 
         GenerateTokenResult(

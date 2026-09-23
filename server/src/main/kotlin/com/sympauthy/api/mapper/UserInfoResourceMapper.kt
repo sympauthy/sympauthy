@@ -53,9 +53,10 @@ class UserInfoResourceMapper(
 
     /**
      * The `address` object OpenID Connect Core §5.1.1 defines, assembled from the [addressClaims] of the
-     * group, or null where none of them carries a value. Every member of it is a string there whatever
-     * type the claim behind it was configured as, so a component is rendered rather than left out:
-     * `docs/design-faq.md`.
+     * group, or null where none of them carries a value. Every member of that object is a string under
+     * §5.1.1 whatever type the claim behind it was configured as, so a component is rendered into one
+     * rather than left out — a `postal_code` configured as a number belongs in the object, and in the
+     * `formatted` line, as much as one configured as a string.
      */
     private fun toAddressResource(addressClaims: List<CollectedClaim>): AddressResource? {
         if (addressClaims.isEmpty()) return null

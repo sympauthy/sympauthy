@@ -5,9 +5,10 @@ import kotlin.reflect.KClass
 /**
  * Enumeration of supported data type for a user claim.
  *
- * The type a deployment declares here is what decides the form a value of that claim takes
- * everywhere it is published, rather than the type the value happens to be carrying when it gets
- * there: `docs/design-faq.md`.
+ * The type a deployment declares here decides the form a value of that claim takes everywhere it is
+ * published. The type the value happens to be carrying decides nothing: it is an artifact of how the
+ * value round-tripped through the object mapper, and a publisher reading the wire form off it
+ * publishes whatever that round trip produced.
  */
 enum class ClaimDataType(
     /**
