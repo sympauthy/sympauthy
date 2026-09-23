@@ -41,6 +41,7 @@ class ClaimsConfigFactoryTest {
         group = null,
         audienceId = null,
         allowedValues = null,
+        publishedIn = null,
         acl = defaultTemplateAcl
     )
 
@@ -51,6 +52,7 @@ class ClaimsConfigFactoryTest {
         group = null,
         audienceId = null,
         allowedValues = null,
+        publishedIn = null,
         acl = defaultTemplateAcl
     )
 
@@ -248,7 +250,7 @@ class ClaimsConfigFactoryTest {
         )
         val writableTemplate = ClaimTemplate(
             id = DEFAULT, enabled = null, required = null, group = null,
-            audienceId = null, allowedValues = null, acl = writableTemplateAcl
+            audienceId = null, allowedValues = null, publishedIn = null, acl = writableTemplateAcl
         )
         val claimAclParser = ClaimAclParser(parser)
         val claimAclValidator = ClaimAclValidator()

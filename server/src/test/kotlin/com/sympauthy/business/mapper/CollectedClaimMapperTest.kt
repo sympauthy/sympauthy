@@ -5,6 +5,7 @@ import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType
+import com.sympauthy.business.model.user.claim.ClaimPublication
 import com.sympauthy.business.model.user.claim.ClaimDataType.BOOLEAN
 import com.sympauthy.business.model.user.claim.ClaimDataType.NUMBER
 import com.sympauthy.business.model.user.claim.ConsentAcl
@@ -117,6 +118,7 @@ class CollectedClaimMapperTest {
         userInputted = true,
         allowedValues = null,
         audienceId = null,
+        publishedIn = ClaimPublication.entries.toSet(),
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = null,

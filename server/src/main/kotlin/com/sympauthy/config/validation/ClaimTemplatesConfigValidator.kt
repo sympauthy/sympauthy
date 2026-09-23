@@ -44,6 +44,7 @@ class ClaimTemplatesConfigValidator(
             group = parsed.group,
             audienceId = parsed.audienceId,
             allowedValues = parsed.allowedValues,
+            publishedIn = parsed.publishedIn,
             acl = acl
         )
     }

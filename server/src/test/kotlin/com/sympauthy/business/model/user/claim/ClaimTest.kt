@@ -7,6 +7,7 @@ class ClaimTest {
 
     private fun claim(
         id: String = "test_claim",
+        publishedIn: Set<ClaimPublication> = ClaimPublication.entries.toSet(),
         consentScope: String? = null,
         readableByUser: Boolean = false,
         writableByUser: Boolean = false,
@@ -24,6 +25,7 @@ class ClaimTest {
         generated = false,
         userInputted = writableByUser,
         allowedValues = null,
+        publishedIn = publishedIn,
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = consentScope,
@@ -49,6 +51,25 @@ class ClaimTest {
     fun `origin - CUSTOM for unknown claim id`() {
         val claim = claim(id = "custom_field")
         assertEquals(ClaimOrigin.CUSTOM, claim.origin)
+    }
+
+    @Test
+    fun `isPublishedIn - true for a channel the claim names`() {
+        val claim = claim(publishedIn = setOf(ClaimPublication.USERINFO))
+        assertTrue(claim.isPublishedIn(ClaimPublication.USERINFO))
+    }
+
+    @Test
+    fun `isPublishedIn - false for a channel the claim does not name`() {
+        val claim = claim(publishedIn = setOf(ClaimPublication.USERINFO))
+        assertFalse(claim.isPublishedIn(ClaimPublication.ID_TOKEN))
+    }
+
+    @Test
+    fun `isPublishedIn - false for every channel when the claim names none`() {
+        val claim = claim(publishedIn = emptySet())
+        assertFalse(claim.isPublishedIn(ClaimPublication.ID_TOKEN))
+        assertFalse(claim.isPublishedIn(ClaimPublication.USERINFO))
     }
 
     @Test

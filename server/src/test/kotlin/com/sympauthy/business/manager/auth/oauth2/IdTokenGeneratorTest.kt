@@ -24,6 +24,7 @@ import com.sympauthy.business.model.user.claim.ClaimDataType.PHONE_NUMBER
 import com.sympauthy.business.model.user.claim.ClaimDataType.STRING
 import com.sympauthy.business.model.user.claim.ClaimDataType.TIMEZONE
 import com.sympauthy.business.model.user.claim.ClaimGroup
+import com.sympauthy.business.model.user.claim.ClaimPublication
 import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.UnconditionalAcl
 import com.sympauthy.config.model.EnabledAdvancedConfig
@@ -96,6 +97,17 @@ class IdTokenGeneratorTest {
         val claimsSet = issue(userId, accessToken)
 
         assertEquals("77QmUPtjPfzWtF2AnpK9RQ", claimsSet.getStringClaim("at_hash"))
+    }
+
+    @Test
+    fun `generateIdToken - Claim only the values the deployment publishes in the id token`() = runTest {
+        val claimsSet = issue(
+            collected(claim("loyalty_tier", STRING, publishedIn = setOf(ClaimPublication.ID_TOKEN)), "gold"),
+            collected(claim("preferences", STRING, publishedIn = setOf(ClaimPublication.USERINFO)), "dark")
+        )
+
+        assertEquals("gold", claimsSet.getStringClaim("loyalty_tier"))
+        assertNull(claimsSet.getClaim("preferences"))
     }
 
     @Test
@@ -254,7 +266,8 @@ class IdTokenGeneratorTest {
         id: String,
         dataType: ClaimDataType,
         group: ClaimGroup? = null,
-        verifiedId: String? = null
+        verifiedId: String? = null,
+        publishedIn: Set<ClaimPublication> = ClaimPublication.entries.toSet()
     ) = Claim(
         id = id,
         enabled = true,
@@ -266,6 +279,7 @@ class IdTokenGeneratorTest {
         userInputted = true,
         allowedValues = null,
         audienceId = null,
+        publishedIn = publishedIn,
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = null,

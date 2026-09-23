@@ -46,6 +46,7 @@ class ClaimAclParserTest {
         group = null,
         audienceId = null,
         allowedValues = null,
+        publishedIn = null,
         acl = ClaimTemplateAcl(
             consentScope = consentScope,
             readableByUserWhenConsented = readableByUser,
