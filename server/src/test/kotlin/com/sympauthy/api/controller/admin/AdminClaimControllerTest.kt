@@ -89,6 +89,7 @@ class AdminClaimControllerTest {
         generated = false,
         userInputted = false,
         allowedValues = null,
+        publishedIn = ClaimPublication.entries.toSet(),
         acl = acl
     )
 
@@ -100,7 +101,8 @@ class AdminClaimControllerTest {
         required = false,
         identifier = false,
         allowedValues = null,
-        group = null
+        group = null,
+        publishedIn = listOf("id_token", "userinfo")
     )
 
     @Test

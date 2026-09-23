@@ -29,6 +29,7 @@ class AdminUserClaimResourceMapperTest {
         generated = generated,
         userInputted = false,
         allowedValues = null,
+        publishedIn = ClaimPublication.entries.toSet(),
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = null,

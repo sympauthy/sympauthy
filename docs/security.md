@@ -175,6 +175,67 @@ audience is a different question from what a person agreed to disclose.
 administrator answers for the deployment rather than for one of its applications, so the audience a
 claim is restricted to is something they are shown rather than something that hides it from them.
 
+### Where a claim is published
+
+**A claim names the OpenID channels its value travels through, and publication is not permission.**
+`claims.<id>.published-in` names them, `Claim.publishedIn` holds them and `Claim.isPublishedIn` is
+the whole of the test. The ACL answers whether a caller may know a value at all; this answers which
+channel carries one they may already know, so it only ever narrows. It is never a grant, and a claim
+the ACL refuses is answered in no channel whatever it names.
+
+**It reaches the two OpenID channels and nothing else.** The id token and `/userinfo` each filter
+what they were handed, while the client, admin and user APIs are gated by the ACL alone and answer
+whatever it permits — so a claim published in neither channel is still read through those. The
+access token is not a channel: it carries the client, the scopes and the binding, and no attribute
+of a person.
+
+**A claim published in neither channel is not advertised as one either.** `claims_supported` lists
+what a client could be told through OpenID Connect, and a claim no channel carries is a name no
+client can ever obtain a value for. That is the other direction from [being advertised and being
+served](#scopes): a deployment stays free to serve what it does not list, and this stops it listing
+what it cannot serve.
+
+**The two channels do not gate alike, and publication does not change that.** `/userinfo` asks
+`canBeReadByUser`, which is consent alone, because that endpoint is not client-authenticated; the id
+token asks `canBeReadByClient`, which consent *or* the client's own unconditional scopes satisfy. A
+claim can therefore be permitted in one and refused in the other before publication is asked at all.
+
+**A claim naming no channel is published in none.** A value leaves this server through the channels
+a deployment named and through no other, so a claim its file never mentions reaches neither. The
+shipped `openid` template names both, which is what keeps the claims the specification defines
+travelling where a client expects them without every deployment writing it again.
+
+**The silent answer is the withholding one, deliberately.** Publishing by default would put a
+deployment's own claim into every id token a client may read on the strength of a line nobody wrote,
+and nothing downstream would report it; withholding by default keeps back a value somebody meant to
+send, which the deployment sees the first time it looks and fixes in the file it already owns.
+
+**The administration API is where it looks.** `published_in` on the claim resource lists the
+channels a claim travels through, and lists none where it travels through neither, so an operator
+reads what their deployment publishes off the surface built for them rather than by decoding a
+token. Publication is the part of a claim with no other reader — what the ACL permits shows up in
+the consent a person is asked for, and where a value goes shows up nowhere else.
+
+**`/userinfo` carries a claim it declares no property for.** `UserInfoResource` lists the properties
+the specification names, and a deployment's own claim is serialized beside them out of the claims
+naming `userinfo`. Until it could, the id token was the only channel a custom claim ever reached —
+an accident of that class rather than a decision anybody took. What `/userinfo` may carry is still
+`canBeReadByUser`, consent alone, and the shipped `default` claim template leaves that false.
+
+**A generated claim's channels are recorded rather than configured.** `sub` and `updated_at` are
+computed rather than collected, so neither channel reads them out of the claims it filters — the id
+token claims the subject itself and the `/userinfo` mapper computes both. The enum still states
+where each one arrives, because what the discovery document says a channel can supply is read off
+it: `sub` reaches both and `updated_at` only `/userinfo`, which is what the id token has always
+carried.
+
+**Nothing refuses a configuration that makes a large id token.** What an audience publishes is what
+the token carries, and an id token is returned in a response body rather than a header — so the
+limits that bite are downstream ones, a browser cookie or an `id_token_hint` on a logout request,
+and they belong to proxies and browsers rather than to this server. A deployment whose clients hold
+the token in memory has no problem, this server cannot tell which one it is talking to, and refusing
+a configuration that works is worse than publishing what it asked for.
+
 ### Writing a claim
 
 **A client writes only its own audience's claims, and naming another's is refused rather than
@@ -253,6 +314,13 @@ built.
 
 **It does not encrypt tokens at rest beyond hashing what must be hashed.** What the storage layer
 does underneath is the deployment's.
+
+**It does not let a client choose where a claim is delivered.** OpenID Connect Core §5.5 defines the
+`claims` request parameter, which asks for a named claim in `id_token` or in `userinfo`
+specifically, and this server implements neither it nor the `claims_parameter_supported` that would
+advertise it — so the discovery document tells a client it may not ask.
+[Where a claim is published](#where-a-claim-is-published) is the deployment deciding instead, for
+clients that ask for nothing, which is every client today.
 
 **It does not change the identifier an account signs in with.** An account takes its identifier
 claims at sign-up and keeps them. No surface writes one afterwards — not the client claim endpoint,

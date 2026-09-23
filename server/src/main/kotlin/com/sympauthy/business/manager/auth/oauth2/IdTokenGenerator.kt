@@ -11,6 +11,7 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimDataType.*
 import com.sympauthy.business.model.user.claim.ClaimGroup
+import com.sympauthy.business.model.user.claim.ClaimPublication
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
@@ -39,7 +40,7 @@ class IdTokenGenerator(
     /**
      * Generate a new id token containing user info accessible according to the scopes granted in the
      * session's [oauth2] request record. Only claims the end-user has consented to share with the client
-     * are included.
+     * are included, and of those only the ones the deployment publishes in the id token.
      *
      * [audienceId] is the audience the client belongs to, and a claim restricted to another one is left out.
      * It is not the token's own `aud`, which OpenID Connect fixes at the client id.
@@ -67,7 +68,8 @@ class IdTokenGenerator(
 
     /**
      * Generate a new id token using the information stored in a [refreshToken].
-     * Only claims the end-user has consented to share with the client are included.
+     * Only claims the end-user has consented to share with the client are included, and of those only the
+     * ones the deployment publishes in the id token.
      *
      * [audienceId] is the audience the client belongs to, and a claim restricted to another one is left out.
      * It is not the token's own `aud`, which OpenID Connect fixes at the client id.
@@ -131,7 +133,7 @@ class IdTokenGenerator(
             userId = userId,
             audienceId = audienceId,
             consentedScopes = consentedScopes
-        )
+        ).filter { it.claim.isPublishedIn(ClaimPublication.ID_TOKEN) }
 
         val issueDate = LocalDateTime.now()
         val expirationDate = issueDate.plus(authConfig.token.idExpiration)

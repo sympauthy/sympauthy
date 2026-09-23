@@ -108,12 +108,13 @@ tasks.matching { it.name.startsWith("generateClientOpenApi") }.configureEach {
 //
 //  1. Remove @Introspected. The models (de)serialize through Jackson-databind (serializationFramework =
 //     JACKSON above), which needs no Micronaut BeanIntrospection — but the generator stamps @Introspected
-//     on every model regardless. One model, SignUpInputResource, extends HashMap because its schema
-//     declares additionalProperties: true (the server's @JsonAnySetter claims map), and Micronaut's Kotlin
-//     KSP introspection generator mis-generates the BeanIntrospection for that @Introspected Map subclass —
-//     a duplicate "$property$keys$metadata" method that fails to load (ClassFormatError) the moment the
-//     client's ApplicationContext starts. Dropping the unused annotation stops any introspection being
-//     generated for the models, sidestepping the bug while leaving Jackson (de)serialization intact.
+//     on every model regardless. Two models, SignUpInputResource and UserInfoResource, extend HashMap
+//     because their schema declares additionalProperties: true (the server's @JsonAnySetter claims map and
+//     its @JsonAnyGetter one), and Micronaut's Kotlin KSP introspection generator mis-generates the
+//     BeanIntrospection for such an @Introspected Map subclass — a duplicate "$property$keys$metadata"
+//     method that fails to load (ClassFormatError) the moment the client's ApplicationContext starts.
+//     Dropping the unused annotation stops any introspection being generated for the models, sidestepping
+//     the bug while leaving Jackson (de)serialization intact.
 //
 //  2. Retype ZonedDateTime -> LocalDateTime. The generator hardcodes the date-time format to ZonedDateTime
 //     (no configuration hook), but the server serializes its LocalDateTime timestamps without a zone or

@@ -9,6 +9,7 @@ import com.sympauthy.business.model.user.claim.ClaimDataType.EMAIL
 import com.sympauthy.business.model.user.claim.ClaimDataType.NUMBER
 import com.sympauthy.business.model.user.claim.ClaimDataType.STRING
 import com.sympauthy.business.model.user.claim.ClaimGroup
+import com.sympauthy.business.model.user.claim.ClaimPublication
 import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.business.model.user.claim.UnconditionalAcl
@@ -69,6 +70,84 @@ class UserInfoResourceMapperTest {
     }
 
     @Test
+    fun `toResource - Carry a claim the deployment publishes here under its own identifier`() = runTest {
+        stubGenerated()
+
+        val resource = mapper.toResource(userId, listOf(collected(published("loyalty_tier"), "gold")))
+
+        assertEquals(mapOf("loyalty_tier" to "gold"), resource.additionalClaims)
+    }
+
+    @Test
+    fun `toResource - Carry no claim the deployment publishes elsewhere`() = runTest {
+        stubGenerated()
+
+        val resource = mapper.toResource(userId, listOf(collected(publishedElsewhere("loyalty_tier"), "gold")))
+
+        assertEquals(emptyMap<String, Any>(), resource.additionalClaims)
+    }
+
+    @Test
+    fun `toResource - Leave out a standard claim the deployment publishes elsewhere`() = runTest {
+        stubGenerated()
+
+        val claim = claim(OpenIdConnectClaimId.EMAIL, EMAIL, publishedIn = setOf(ClaimPublication.ID_TOKEN))
+        val resource = mapper.toResource(userId, listOf(collected(claim, "ada@example.com")))
+
+        assertNull(resource.email)
+        assertEquals(emptyMap<String, Any>(), resource.additionalClaims)
+    }
+
+    @Test
+    fun `toResource - Carry a standard claim under its declared property rather than beside it`() = runTest {
+        stubGenerated()
+
+        val resource = mapper.toResource(userId, listOf(collected(emailClaim, "ada@example.com", true)))
+
+        assertEquals("ada@example.com", resource.email)
+        assertEquals(emptyMap<String, Any>(), resource.additionalClaims)
+    }
+
+    @Test
+    fun `toResource - Carry the verified companion of a published claim beside its value`() = runTest {
+        stubGenerated()
+
+        val claim = published("employee_id", verifiedId = "employee_id_verified")
+        val resource = mapper.toResource(userId, listOf(collected(claim, "42", true)))
+
+        assertEquals(mapOf("employee_id" to "42", "employee_id_verified" to true), resource.additionalClaims)
+    }
+
+    @Test
+    fun `toResource - Carry no property beside one this resource declares itself`() = runTest {
+        stubGenerated()
+
+        val resource = mapper.toResource(userId, listOf(collected(published("address"), "12 Mill Lane")))
+
+        assertEquals(emptyMap<String, Any>(), resource.additionalClaims)
+    }
+
+    @Test
+    fun `toResource - Carry no verified companion named after a declared property`() = runTest {
+        stubGenerated()
+
+        val claim = published("company_email", verifiedId = OpenIdConnectClaimId.EMAIL_VERIFIED)
+        val resource = mapper.toResource(userId, listOf(collected(claim, "ada@example.com", true)))
+
+        assertEquals(mapOf("company_email" to "ada@example.com"), resource.additionalClaims)
+    }
+
+    @Test
+    fun `toResource - Carry neither the value nor the companion of a claim whose value was deleted`() = runTest {
+        stubGenerated()
+
+        val claim = published("employee_id", verifiedId = "employee_id_verified")
+        val resource = mapper.toResource(userId, listOf(collected(claim, null, true)))
+
+        assertEquals(emptyMap<String, Any>(), resource.additionalClaims)
+    }
+
+    @Test
     fun `toResource - Render an address component of every type as a string`() = runTest {
         stubGenerated()
 
@@ -115,11 +194,20 @@ class UserInfoResourceMapperTest {
     private fun addressClaim(id: String, dataType: ClaimDataType) =
         claim(id, dataType, ClaimGroup.ADDRESS)
 
+    /** A claim of the deployment's own, published here. */
+    private fun published(id: String, verifiedId: String? = null) =
+        claim(id, STRING, verifiedId = verifiedId, publishedIn = setOf(ClaimPublication.USERINFO))
+
+    /** A claim of the deployment's own, published in the other channel alone. */
+    private fun publishedElsewhere(id: String) =
+        claim(id, STRING, publishedIn = setOf(ClaimPublication.ID_TOKEN))
+
     private fun claim(
         id: String,
         dataType: ClaimDataType,
         group: ClaimGroup? = null,
-        verifiedId: String? = null
+        verifiedId: String? = null,
+        publishedIn: Set<ClaimPublication> = ClaimPublication.entries.toSet()
     ) = Claim(
         id = id,
         enabled = true,
@@ -131,6 +219,7 @@ class UserInfoResourceMapperTest {
         userInputted = true,
         allowedValues = null,
         audienceId = null,
+        publishedIn = publishedIn,
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = null,

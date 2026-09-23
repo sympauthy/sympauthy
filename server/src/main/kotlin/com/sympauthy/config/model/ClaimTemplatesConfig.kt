@@ -1,6 +1,7 @@
 package com.sympauthy.config.model
 
 import com.sympauthy.business.model.user.claim.ClaimGroup
+import com.sympauthy.business.model.user.claim.ClaimPublication
 import com.sympauthy.config.exception.ConfigurationException
 
 sealed class ClaimTemplatesConfig(
@@ -38,6 +39,7 @@ data class ClaimTemplate(
     val group: ClaimGroup?,
     val audienceId: String?,
     val allowedValues: List<Any>?,
+    val publishedIn: Set<ClaimPublication>?,
     val acl: ClaimTemplateAcl
 )
 

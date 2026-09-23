@@ -32,8 +32,8 @@ What the server is, how each of its parts works, and why it is built the way it 
   rather than within a claim, what a sign-up has to collect, and why resolving an identity is not
   the read that says whether one is free.
 - **[Security](security.md)** — how a credential becomes an authentication, what a scope is allowed
-  to mean and which audience a claim may be published to, and what each surface's gate does and does
-  not protect.
+  to mean, which audience a claim may be published to and which channel carries it, and what each
+  surface's gate does and does not protect.
 - **[The security context](security-context.md)** — the address, the user agent and the location a
   request is believed to carry: which proxy a deployment names, what naming one promises and what it
   does not, and how long a place somebody signs in from is kept.

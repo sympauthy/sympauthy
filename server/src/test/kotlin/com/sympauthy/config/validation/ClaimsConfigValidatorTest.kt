@@ -3,6 +3,7 @@ package com.sympauthy.config.validation
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.user.claim.ClaimDataType
+import com.sympauthy.business.model.user.claim.ClaimPublication
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.parsing.ParsedClaim
 import com.sympauthy.config.parsing.ParsedClaimAcl
@@ -29,6 +30,7 @@ class ClaimsConfigValidatorTest {
         verifiedId = null,
         audienceId = audienceId,
         allowedValues = null,
+        publishedIn = ClaimPublication.entries.toSet(),
         acl = ParsedClaimAcl(
             consentScope = null,
             readableByUser = true,

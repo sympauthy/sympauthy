@@ -5,6 +5,7 @@ import com.sympauthy.api.resource.openid.UserInfoResource
 import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.ClaimGroup
+import com.sympauthy.business.model.user.claim.ClaimPublication
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import jakarta.inject.Singleton
 import java.time.LocalDate
@@ -19,13 +20,17 @@ class UserInfoResourceMapper(
     /**
      * The `/userinfo` answer for [userId], built from the [claims] a caller may read.
      *
+     * A claim the deployment does not publish in `/userinfo` is left out, whatever the ACL that let the
+     * caller read it: this narrows what it is handed and permits nothing it was refused.
+     *
      * A `<claim>_verified` companion is answered beside the claim it answers for and is false where that
      * value is unverified, which is what the id token claims for the same account — a client reading one
      * endpoint and then the other is owed the same shape from both.
      */
     suspend fun toResource(userId: UUID, claims: List<CollectedClaim>): UserInfoResource {
-        val claimById = claims.associateBy { it.claim.id }
-        val addressClaims = claims.filter { it.claim.group == ClaimGroup.ADDRESS }
+        val publishedClaims = claims.filter { it.claim.isPublishedIn(ClaimPublication.USERINFO) }
+        val claimById = publishedClaims.associateBy { it.claim.id }
+        val addressClaims = publishedClaims.filter { it.claim.group == ClaimGroup.ADDRESS }
 
         return UserInfoResource(
             sub = generatedClaimsManager.computeSubject(userId),
@@ -47,8 +52,38 @@ class UserInfoResourceMapper(
             phoneNumber = claimById.stringOrNull(OpenIdConnectClaimId.PHONE_NUMBER),
             phoneNumberVerified = claimById[OpenIdConnectClaimId.PHONE_NUMBER]?.let { it.verified ?: false },
             address = toAddressResource(addressClaims),
-            updatedAt = generatedClaimsManager.computeUpdatedAt(userId)
+            updatedAt = generatedClaimsManager.computeUpdatedAt(userId),
+            additionalClaims = toAdditionalClaims(publishedClaims)
         )
+    }
+
+    /**
+     * The [claims] this resource declares no property for, as the JSON properties they are published as.
+     *
+     * Every claim of the specification has a declared property of its own, so what is left is a deployment's
+     * own — and one carrying a `<claim>_verified` companion publishes it beside the value it answers for,
+     * the way the declared properties above do. A claim whose value was deleted publishes neither.
+     *
+     * A name [UserInfoResource] declares itself is left out rather than written twice, however a claim or a
+     * companion comes to carry one. The declared property is the one the contract promises, and the
+     * catch-all is what fills the space around it.
+     */
+    private fun toAdditionalClaims(claims: List<CollectedClaim>): Map<String, Any> {
+        val additionalClaims = mutableMapOf<String, Any>()
+        claims.forEach { collectedClaim ->
+            val value = collectedClaim.value ?: return@forEach
+            additionalClaims.putUndeclared(collectedClaim.claim.id, value)
+            collectedClaim.claim.verifiedId?.let {
+                additionalClaims.putUndeclared(it, collectedClaim.verified ?: false)
+            }
+        }
+        return additionalClaims
+    }
+
+    private fun MutableMap<String, Any>.putUndeclared(name: String, value: Any) {
+        if (name !in UserInfoResource.DECLARED_PROPERTIES) {
+            this[name] = value
+        }
     }
 
     /**

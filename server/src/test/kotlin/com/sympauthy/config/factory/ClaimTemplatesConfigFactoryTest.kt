@@ -1,7 +1,9 @@
 package com.sympauthy.config.factory
 
 import com.sympauthy.business.model.user.claim.ClaimGroup
+import com.sympauthy.business.model.user.claim.ClaimPublication.ID_TOKEN
 import com.sympauthy.config.ConfigParser
+import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.model.DisabledClaimTemplatesConfig
 import com.sympauthy.config.model.EnabledClaimTemplatesConfig
 import com.sympauthy.config.model.EnabledScopesConfig
@@ -38,10 +40,12 @@ class ClaimTemplatesConfigFactoryTest {
         id: String,
         enabled: String? = null,
         required: String? = null,
-        group: String? = null
+        group: String? = null,
+        publishedIn: List<String>? = null
     ): ClaimTemplateConfigurationProperties {
         return ClaimTemplateConfigurationProperties(id).apply {
             this.group = group
+            this.publishedIn = publishedIn
         }.also {
             if (enabled != null) {
                 val field = ClaimTemplateConfigurationProperties::class.java.getDeclaredField("enabled")
@@ -102,6 +106,32 @@ class ClaimTemplatesConfigFactoryTest {
         assertNull(template.required)
         assertNull(template.group)
         assertNull(template.allowedValues)
+        assertNull(template.publishedIn)
+    }
+
+    @Test
+    fun `provideClaimTemplates - Parses the channels it offers as a default`() {
+        setUp()
+        val templates = listOf(templateProperties(id = "token_only", publishedIn = listOf("id-token")))
+
+        val result = factory.provideClaimTemplates(templates)
+
+        assertInstanceOf(EnabledClaimTemplatesConfig::class.java, result)
+        val template = (result as EnabledClaimTemplatesConfig).templates["token_only"]!!
+        assertEquals(setOf(ID_TOKEN), template.publishedIn)
+    }
+
+    @Test
+    fun `provideClaimTemplates - Returns disabled config for an entry naming no channel`() {
+        setUp()
+        val templates = listOf(templateProperties(id = "bad", publishedIn = listOf("access-token")))
+
+        val result = factory.provideClaimTemplates(templates)
+
+        assertInstanceOf(DisabledClaimTemplatesConfig::class.java, result)
+        val errors = (result as DisabledClaimTemplatesConfig).configurationErrors!!
+            .filterIsInstance<ConfigurationException>()
+        assertEquals(listOf("templates.claims.bad.published-in[0]"), errors.map { it.key })
     }
 
     @Test
