@@ -5,6 +5,7 @@ CREATE TABLE collected_claims
     collection_date   timestamp NOT NULL,
     claim             text      NOT NULL,
     `value`           text,
+    folded_equality_hash bigint,
     verified          boolean,
     verification_date timestamp,
     session_id        uuid,
@@ -15,4 +16,4 @@ CREATE TABLE collected_claims
 );
 
 CREATE INDEX collected_user_info__user_id ON collected_claims (user_id);
-CREATE INDEX collected_user_info__login_claims ON collected_claims (claim, `value`);
+CREATE INDEX collected_user_info__login_claims ON collected_claims (claim, folded_equality_hash);

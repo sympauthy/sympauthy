@@ -119,6 +119,7 @@ class UserCollectionManagerTest {
             userId = userId,
             claim = "email",
             value = null,
+            foldedEqualityHash = null,
             verified = null,
             collectionDate = collectionDate,
             verificationDate = null,

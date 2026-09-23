@@ -7,6 +7,7 @@ import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.lock.HeldStripes
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
+import com.sympauthy.business.manager.user.ClaimValueValidator
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.TakenIdentifier
 import com.sympauthy.business.manager.user.UserManager
@@ -59,6 +60,9 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
     lateinit var claimManager: ClaimManager
 
     @MockK
+    lateinit var claimValueValidator: ClaimValueValidator
+
+    @MockK
     lateinit var uncheckedAuthConfig: EnabledAuthConfig
 
     /**
@@ -95,9 +99,19 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
         )
     }
 
+    /**
+     * The validator answering with the value it was handed, so that a test below turns on what the
+     * establisher does with a cleaned value rather than on how a claim's own type cleans one.
+     */
+    private fun cleansAsSubmitted() {
+        every { claimValueValidator.validateAndCleanValueForClaim(any(), any()) } answers {
+            Optional.of(secondArg<Any>())
+        }
+    }
+
     /** The shared rule answering that nothing committed holds what the provider asserts. */
     private fun identifierValues(valuesByClaimId: Map<String, String>, takenClaimId: String? = null) {
-        every { collectedClaimManager.getIdentifierValuesIn(any()) } returns valuesByClaimId
+        every { collectedClaimManager.getIdentifierFoldedValuesIn(any()) } returns valuesByClaimId
         coEvery {
             userManager.findTakenIdentifierOrNull(null, any(), valuesByClaimId)
         } returns takenClaimId?.let { TakenIdentifier(claimId = it, userId = ownerId) }
@@ -119,6 +133,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
             coEvery { providerClaimsManager.findByProviderAndSubject(provider, "sub-123") } returns null
             every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
             every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
+            cleansAsSubmitted()
             coEvery { userManager.findByIdentifierClaims(mapOf("email" to "user@example.com")) } returns existingUser
             coJustRun { providerClaimsManager.saveUserInfo(provider, existingUser.id, null, providerUserInfo) }
 
@@ -144,8 +159,9 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
             coEvery { providerClaimsManager.findByProviderAndSubject(provider, "sub-123") } returns null
             every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
             every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
+            cleansAsSubmitted()
             coEvery { userManager.findByIdentifierClaims(mapOf("email" to "new@example.com")) } returns null
-            identifierValues(mapOf("email" to "\"new@example.com\""))
+            identifierValues(mapOf("email" to "new@example.com"))
             coEvery { userManager.createUser(sessionId) } returns newUser
             coJustRun { collectedClaimManager.update(newUser, any()) }
             coJustRun { providerClaimsManager.saveUserInfo(provider, newUser.id, sessionId, providerUserInfo) }
@@ -183,6 +199,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
         )
         every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
         every { claimManager.findByIdOrNull(OpenIdConnectClaimId.PHONE_NUMBER) } returns phoneClaim
+        cleansAsSubmitted()
         coEvery {
             userManager.findByIdentifierClaims(mapOf("email" to "user@example.com", "phone_number" to "+33612345678"))
         } returns existingUser
@@ -215,6 +232,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
             )
             every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
             every { claimManager.findByIdOrNull(OpenIdConnectClaimId.PHONE_NUMBER) } returns phoneClaim
+            cleansAsSubmitted()
             coEvery {
                 userManager.findByIdentifierClaims(
                     mapOf(
@@ -224,7 +242,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
                 )
             } returns null
             identifierValues(
-                mapOf("email" to "\"new@example.com\"", "phone_number" to "\"+33612345678\"")
+                mapOf("email" to "new@example.com", "phone_number" to "+33612345678")
             )
             coEvery { userManager.createUser(sessionId) } returns newUser
             coJustRun { collectedClaimManager.update(newUser, any()) }
@@ -252,6 +270,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
             )
 
             every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
+            every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns mockk<Claim>()
 
             val exception = assertThrows<BusinessException> {
                 establisher.createOrAssociateUserWithProviderUserInfo(sessionId, provider, providerUserInfo)
@@ -259,6 +278,59 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
 
             assertEquals("user.create_with_provider.missing_identifier_claim", exception.detailsId)
             assertEquals("email", exception.values["claim"])
+        }
+
+    @Test
+    fun `createOrAssociateUserWithProviderUserInfo - Throw when an asserted value cleans away to nothing`() =
+        runTest {
+            val provider = createProvider()
+            val providerUserInfo = RawProviderClaims(subject = "sub-123", email = "   ")
+            val emailClaim = mockk<Claim>()
+
+            every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
+            every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
+            every { claimValueValidator.validateAndCleanValueForClaim(emailClaim, "   ") } returns Optional.empty()
+
+            val exception = assertThrows<BusinessException> {
+                establisher.createOrAssociateUserWithProviderUserInfo(sessionId, provider, providerUserInfo)
+            }
+
+            // A value that is no value is a claim the provider asserted nothing for.
+            assertEquals("user.create_with_provider.missing_identifier_claim", exception.detailsId)
+            assertEquals("email", exception.values["claim"])
+        }
+
+    @Test
+    fun `createOrAssociateUserWithProviderUserInfo - Writes the value the claim cleans the asserted one to`() =
+        runTest {
+            val provider = createProvider()
+            val providerUserInfo = RawProviderClaims(subject = "sub-123", email = " New@Example.COM ")
+            val newUser = createUser(sessionId = sessionId)
+            val emailClaim = mockk<Claim>()
+
+            every { uncheckedAuthConfig.userMergingEnabled } returns true
+            coEvery { providerClaimsManager.findByProviderAndSubject(provider, "sub-123") } returns null
+            every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
+            every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
+            every {
+                claimValueValidator.validateAndCleanValueForClaim(emailClaim, " New@Example.COM ")
+            } returns Optional.of("new@example.com")
+            coEvery { userManager.findByIdentifierClaims(mapOf("email" to "new@example.com")) } returns null
+            identifierValues(mapOf("email" to "new@example.com"))
+            coEvery { userManager.createUser(sessionId) } returns newUser
+            coJustRun { collectedClaimManager.update(newUser, any()) }
+            coJustRun { providerClaimsManager.saveUserInfo(provider, newUser.id, sessionId, providerUserInfo) }
+
+            establisher.createOrAssociateUserWithProviderUserInfo(sessionId, provider, providerUserInfo)
+
+            // The spelling the provider sent is an identity nothing this server stores would ever reach:
+            // what is resolved against, written and then compared on is the one the claim cleans it to.
+            coVerify {
+                userManager.findByIdentifierClaims(mapOf("email" to "new@example.com"))
+                collectedClaimManager.update(newUser, withArg { updates ->
+                    assertEquals(Optional.of("new@example.com"), updates.single().value)
+                })
+            }
         }
 
     @Test
@@ -296,7 +368,8 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
             coEvery { providerClaimsManager.findByProviderAndSubject(provider, "sub-123") } returns null
             every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
             every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
-            identifierValues(mapOf("email" to "\"new@example.com\""))
+            cleansAsSubmitted()
+            identifierValues(mapOf("email" to "new@example.com"))
             coEvery { userManager.createUser(sessionId) } returns newUser
             coJustRun { collectedClaimManager.update(newUser, any()) }
             coJustRun { providerClaimsManager.saveUserInfo(provider, newUser.id, sessionId, providerUserInfo) }
@@ -329,7 +402,8 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
         coEvery { providerClaimsManager.findByProviderAndSubject(provider, "sub-123") } returns null
         every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
         every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
-        identifierValues(mapOf("email" to "\"existing@example.com\""), takenClaimId = "email")
+        cleansAsSubmitted()
+        identifierValues(mapOf("email" to "existing@example.com"), takenClaimId = "email")
 
         val exception = assertThrows<BusinessException> {
             establisher.createOrAssociateUserWithProviderUserInfo(sessionId, provider, providerUserInfo)
@@ -361,6 +435,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
             )
             every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
             every { claimManager.findByIdOrNull(OpenIdConnectClaimId.PHONE_NUMBER) } returns phoneClaim
+            cleansAsSubmitted()
             // No account matches both, which is what the resolving read answers and why merging finds none.
             coEvery {
                 userManager.findByIdentifierClaims(
@@ -368,10 +443,10 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
                 )
             } returns null
             val asserted = mapOf(
-                "email" to "\"taken@example.com\"",
-                "phone_number" to "\"+33612345678\""
+                "email" to "taken@example.com",
+                "phone_number" to "+33612345678"
             )
-            every { collectedClaimManager.getIdentifierValuesIn(any()) } returns asserted
+            every { collectedClaimManager.getIdentifierFoldedValuesIn(any()) } returns asserted
             coEvery {
                 userManager.findTakenIdentifierOrNull(
                     null,
@@ -402,6 +477,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
 
             every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
             every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns mockk<Claim>()
+            cleansAsSubmitted()
             coEvery {
                 providerClaimsManager.findByProviderAndSubject(provider, "sub-123")
             } returns mockk<ProviderUserInfo>()

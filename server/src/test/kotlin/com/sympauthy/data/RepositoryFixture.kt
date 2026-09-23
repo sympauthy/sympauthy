@@ -1,6 +1,7 @@
 package com.sympauthy.data
 
 import com.sympauthy.data.model.AuthorizationCodeEntity
+import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.model.PasswordEntity
@@ -130,14 +131,20 @@ class RepositoryFixture(val database: Database) {
         deleteOnEnd { saved.id?.let { passwords.deleteById(it) } }
     }
 
-    /** Collects [claim] for [userId] holding [value], provisionally when [sessionId] is given. */
+    /**
+     * Collects [claim] for [userId] holding [value], provisionally when [sessionId] is given. [value] is
+     * the business value, written the way the mappers write one: encoded into the column, and hashed into
+     * the key the row is found by.
+     */
     suspend fun newClaim(userId: UUID, claim: String, value: String, sessionId: UUID? = null) {
         val claims = database.bean<CollectedClaimRepository>()
+        val values = database.bean<ClaimValueMapper>()
         val saved = claims.save(
             CollectedClaimEntity(
                 userId = userId,
                 claim = claim,
-                value = value,
+                value = values.toEntity(value),
+                foldedEqualityHash = values.toFoldedEqualityHash(value),
                 verified = null,
                 collectionDate = BASE_DATE,
                 verificationDate = null,

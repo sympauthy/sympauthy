@@ -12,6 +12,10 @@ import kotlin.jvm.optionals.getOrNull
 
 /**
  * We do not apply the ToEntityMapperConfig for this mapper because of weird behaviour with the userId.
+ *
+ * The value and its folded-equality hash are mapped by an expression rather than left to the generator:
+ * more than one method turning an `Optional<Any>` into a column is more than one candidate for the same
+ * property, and the generator refuses to choose between them.
  */
 @Mapper
 abstract class CollectedClaimUpdateMapper {
@@ -20,6 +24,8 @@ abstract class CollectedClaimUpdateMapper {
 
     @Mappings(
         Mapping(target = "id", ignore = true),
+        Mapping(target = "value", expression = "java(toValue(update.getValue()))"),
+        Mapping(target = "foldedEqualityHash", expression = "java(toFoldedEqualityHash(update.getValue()))"),
         Mapping(target = "verified", expression = "java(null)"),
         Mapping(target = "verificationDate", expression = "java(null)"),
         Mapping(target = "collectionDate", expression = "java(java.time.LocalDateTime.now())")
@@ -34,6 +40,8 @@ abstract class CollectedClaimUpdateMapper {
         Mapping(target = "id", ignore = true),
         Mapping(target = "userId", ignore = true),
         Mapping(target = "sessionId", ignore = true),
+        Mapping(target = "value", expression = "java(toValue(update.getValue()))"),
+        Mapping(target = "foldedEqualityHash", expression = "java(toFoldedEqualityHash(update.getValue()))"),
         Mapping(target = "verified", ignore = true),
         Mapping(target = "verificationDate", ignore = true),
         Mapping(target = "collectionDate", expression = "java(java.time.LocalDateTime.now())")
@@ -47,5 +55,15 @@ abstract class CollectedClaimUpdateMapper {
 
     fun toValue(value: Optional<Any>?): String? {
         return value?.getOrNull()?.let { claimValueMapper.toEntity(it) }
+    }
+
+    /** The [CollectedClaimEntity.foldedEqualityHash] of [value]. */
+    fun toFoldedEqualityHash(value: Optional<Any>?): Long? {
+        return claimValueMapper.toFoldedEqualityHash(value?.getOrNull())
+    }
+
+    /** The folded value of [value], which is what a caller re-checks a row this hash selected against. */
+    fun toFoldedValue(value: Optional<Any>?): String? {
+        return claimValueMapper.toFoldedValue(value?.getOrNull())
     }
 }

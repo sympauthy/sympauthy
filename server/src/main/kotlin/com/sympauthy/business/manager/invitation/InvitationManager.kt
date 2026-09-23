@@ -298,9 +298,23 @@ open class InvitationManager(
                 )
                 return@mapNotNull null
             }
+            // An invitation holds its claims as text, so the value has lost the type it was cleaned to
+            // when the invitation was written. Reading it back under the claim recovers that — a `number`
+            // claim's `42` is the Long again — and a row written from the text would hold a spelling no
+            // read of that claim could match. A value its claim no longer accepts, because the
+            // configuration moved under the invitation, is left alone rather than written wrong.
+            val cleaned = claimValueValidator.cleanValueForClaimOrNull(claim, value)
+            if (cleaned == null) {
+                logger.info(
+                    "Invitation {} carries a value for {} that the claim no longer accepts. It is left alone.",
+                    invitationId,
+                    claim.id
+                )
+                return@mapNotNull null
+            }
             CollectedClaimUpdate(
                 claim = claim,
-                value = Optional.of(value)
+                value = Optional.of(cleaned)
             )
         }
         if (claimUpdates.isNotEmpty()) {

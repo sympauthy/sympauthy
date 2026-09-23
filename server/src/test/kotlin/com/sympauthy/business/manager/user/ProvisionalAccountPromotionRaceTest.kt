@@ -35,8 +35,8 @@ import java.util.*
  */
 class ProvisionalAccountPromotionRaceTest {
 
-    /** As `collected_claims` spells a claim value, which is what the key carries. */
-    private val email = "\"race@example.com\""
+    /** The address both accounts are signing up with, and the value the key over it folds. */
+    private val email = "race@example.com"
 
     private val providerId = "provider-promotion-race"
     private val subject = "subject-promotion-race"

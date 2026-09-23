@@ -101,6 +101,7 @@ class CollectedClaimMapperTest {
         userId = UUID.randomUUID(),
         claim = claim,
         value = value,
+        foldedEqualityHash = null,
         verified = null,
         collectionDate = LocalDateTime.now(),
         verificationDate = null,

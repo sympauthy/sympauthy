@@ -1,15 +1,20 @@
 package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
+import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.UserRepository
 import io.micronaut.data.repository.jpa.criteria.PredicateSpecification
+import io.micronaut.serde.ObjectMapper
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -33,9 +38,19 @@ class UserManagerTest {
     private val emailClaim = OpenIdConnectClaimId.EMAIL
     private val phoneClaim = OpenIdConnectClaimId.PHONE_NUMBER
 
-    /** The two values as `collected_claims` spells them, which is the spelling every caller offers. */
-    private val storedAddress = "\"user@example.com\""
-    private val storedNumber = "\"+33612345678\""
+    /** The two values folded, which is the spelling every caller of the rule offers. */
+    private val storedAddress = "user@example.com"
+    private val storedNumber = "+33612345678"
+
+    /**
+     * The real mapper, because what the rule turns on is that a row's folded value is recovered from what
+     * it publishes and re-checked against what was offered — a double answering that would prove neither.
+     */
+    @SpyK
+    var claimValueMapper: ClaimValueMapper = ClaimValueMapper(ObjectMapper.getDefault())
+
+    @MockK
+    lateinit var claimManager: ClaimManager
 
     @MockK
     lateinit var collectedClaimRepository: CollectedClaimRepository
@@ -296,17 +311,78 @@ class UserManagerTest {
         assertEquals(TakenIdentifier(claimId = emailClaim, userId = ownerId), taken)
     }
 
+    @Test
+    fun `findByAnyIdentifierClaimValue - Answers the account a row of any of the claims holds it under`() =
+        runTest {
+            val ownerId = UUID.randomUUID()
+            val entity = mockk<UserEntity>()
+            val user = mockk<User>()
+            committedRows(claimRow(ownerId, phoneClaim, storedAddress))
+            coEvery { userRepository.findByIdAndSessionIdIsNull(ownerId) } returns entity
+            every { userMapper.toUser(entity) } returns user
+
+            // Offered under both, as a login is: a row of either answers, and it is the phone claim that
+            // happens to hold it.
+            val found = manager.findByAnyIdentifierClaimValue(
+                mapOf(emailClaim to storedAddress, phoneClaim to storedAddress)
+            )
+
+            assertSame(user, found)
+        }
+
+    @Test
+    fun `findByAnyIdentifierClaimValue - Drops a row whose folded value is not the one offered`() = runTest {
+        // What the hash selected is a candidate. This is the collision the re-check exists to refuse, and
+        // acting on it would sign somebody in against an account that is not theirs.
+        committedRows(claimRow(UUID.randomUUID(), emailClaim, "somebody.else@example.com"))
+
+        assertNull(manager.findByAnyIdentifierClaimValue(mapOf(emailClaim to storedAddress)))
+    }
+
+    @Test
+    fun `findByIdentifierClaims - Answers the account holding every one of the values`() = runTest {
+        val ownerId = UUID.randomUUID()
+        val entity = mockk<UserEntity>()
+        val user = mockk<User>()
+        committedRows(
+            claimRow(ownerId, emailClaim, storedAddress),
+            claimRow(ownerId, phoneClaim, storedNumber)
+        )
+        coEvery { userRepository.findByIdInListAndSessionIdIsNull(listOf(ownerId)) } returns listOf(entity)
+        every { userMapper.toUser(entity) } returns user
+
+        val found = manager.findByIdentifierClaims(mapOf(emailClaim to storedAddress, phoneClaim to storedNumber))
+
+        assertSame(user, found)
+    }
+
+    @Test
+    fun `findByIdentifierClaims - Answers none where an account holds only some of the values`() = runTest {
+        // Resolving is the read that has to answer one account rather than a choice between several, so an
+        // account matching the address and not the number is not the one being asked after.
+        committedRows(claimRow(UUID.randomUUID(), emailClaim, storedAddress))
+        coEvery { userRepository.findByIdInListAndSessionIdIsNull(emptyList()) } returns emptyList()
+
+        val found = manager.findByIdentifierClaims(mapOf(emailClaim to storedAddress, phoneClaim to storedNumber))
+
+        assertNull(found)
+    }
+
     private fun committedRows(vararg rows: CollectedClaimEntity) {
+        every { claimManager.findByIdOrNull(any()) } returns mockk<Claim> {
+            every { dataType } returns ClaimDataType.STRING
+        }
         every {
             collectedClaimRepository.findAll(any<PredicateSpecification<CollectedClaimEntity>>())
         } returns rows.asList().asFlow()
     }
 
-    /** The values are the ones `collected_claims` holds, quotes included, which is what the rows compare on. */
+    /** A row as a write leaves it: the value encoded, and the key the folded value hashes to. */
     private fun claimRow(userId: UUID, claim: String, value: String) = CollectedClaimEntity(
         userId = userId,
         claim = claim,
-        value = value,
+        value = claimValueMapper.toEntity(value),
+        foldedEqualityHash = claimValueMapper.toFoldedEqualityHash(value),
         verified = null,
         collectionDate = LocalDateTime.now(),
         verificationDate = null,

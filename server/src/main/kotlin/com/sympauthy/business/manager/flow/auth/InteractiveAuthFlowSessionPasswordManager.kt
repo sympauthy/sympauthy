@@ -15,7 +15,6 @@ import com.sympauthy.business.manager.password.PasswordManager
 import com.sympauthy.business.manager.user.ClaimValueValidator
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
-import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
@@ -26,8 +25,6 @@ import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.config.model.orThrow
-import com.sympauthy.data.repository.CollectedClaimRepository
-import com.sympauthy.data.repository.findAnyClaimMatching
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -47,14 +44,12 @@ open class InteractiveAuthFlowSessionPasswordManager(
     @Inject private val userSecurityContextManager: UserSecurityContextManager,
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
-    @Inject private val collectedClaimRepository: CollectedClaimRepository,
     @Inject private val invitationManager: InvitationManager,
     @Inject private val passwordManager: PasswordManager,
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
     @Inject private val engine: InteractiveFlowEngine,
     @Inject private val reauthenticationManager: InteractiveFlowSessionReauthenticationManager,
     @Inject private val userManager: UserManager,
-    @Inject private val claimValueMapper: ClaimValueMapper,
     @Inject private val uncheckedAuthConfig: AuthConfig
 ) {
 
@@ -75,16 +70,17 @@ open class InteractiveAuthFlowSessionPasswordManager(
         }
 
     /**
-     * Find the end-user with a claim matching the [login].
-     * The claims used to match the login are configured in [EnabledAuthConfig.identifierClaims].
+     * Find the committed end-user holding [identifierClaimValue] under any one of the claims
+     * [EnabledAuthConfig.identifierClaims] configures. Otherwise, return null.
+     *
+     * The rows are matched on the spelling they are compared in rather than the one they publish, so an
+     * account is reached however the person who owns it capitalised their own value. A claim that could
+     * hold no such value at all is not offered one, and matches nothing — no row of it holds a value that
+     * claim would have refused.
      */
-    internal suspend fun findByLogin(login: String): User? {
-        val identifierClaims = uncheckedAuthConfig.orThrow().identifierClaims
-        val userInfo = collectedClaimRepository.findAnyClaimMatching(
-            claimIds = identifierClaims,
-            value = claimValueMapper.toEntity(login) ?: return null,
-        )
-        return userInfo?.userId?.let { userManager.findByIdOrNull(it) }
+    internal suspend fun findByAnyIdentifierClaimValue(identifierClaimValue: String): User? {
+        val folded = collectedClaimManager.getIdentifierFoldedValuesOf(identifierClaimValue)
+        return userManager.findByAnyIdentifierClaimValue(folded)
     }
 
     /**
@@ -113,7 +109,7 @@ open class InteractiveAuthFlowSessionPasswordManager(
             )
         }
 
-        val user = findByLogin(login)
+        val user = findByAnyIdentifierClaimValue(login)
         // The user does not exist or has been created using a third-party provider.
         if (user == null || user.status != UserStatus.ENABLED) {
             throw recoverableBusinessExceptionOf(
@@ -274,13 +270,13 @@ open class InteractiveAuthFlowSessionPasswordManager(
      * across every identifier claim rather than within the one offering it. The account being signed up
      * does not exist yet, so nothing is exempt and the caller is named as none.
      *
-     * The values come from [CollectedClaimManager.getIdentifierValuesIn], which is the one place that says
-     * which updates carry an identifier value and how `collected_claims` spells it — the spelling the rows
+     * The values come from [CollectedClaimManager.getIdentifierFoldedValuesIn], the one place that says
+     * which updates carry an identifier value and how `collected_claims` folds it — the spelling the rows
      * compare on and the key locks under.
      */
     internal suspend fun checkForConflictingUsers(claims: List<CollectedClaimUpdate>) {
         val claimIds = claims.map { it.claim.id }
-        val valuesByClaimId = collectedClaimManager.getIdentifierValuesIn(claims)
+        val valuesByClaimId = collectedClaimManager.getIdentifierFoldedValuesIn(claims)
         val taken = userManager.findTakenIdentifierOrNull(null, claimIds, valuesByClaimId) ?: return
         throw recoverableBusinessExceptionOf(
             detailsId = "flow.password.sign_up.existing",

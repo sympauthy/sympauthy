@@ -211,7 +211,7 @@ class UserRepositoryTest {
             val session = newSession()
             val userId = newUser(status = status, sessionId = session.id)
             newPassword(userId, sessionId = session.id)
-            newClaim(userId, "email", "\"abandoned@$status.test\"", sessionId = session.id)
+            newClaim(userId, "email", "abandoned@$status.test", sessionId = session.id)
             newProviderLink("provider-$status", userId, "subject-$status", sessionId = session.id)
             newTotpEnrollment(userId, sessionId = session.id)
             repository<InteractiveFlowSessionRepository>().deleteByIds(listOf(session.id!!))
@@ -240,7 +240,7 @@ class UserRepositoryTest {
             val sessionId = session.id!!
             val userId = newUser(status = status, sessionId = sessionId)
             newPassword(userId, sessionId = sessionId)
-            newClaim(userId, "email", "\"promoted@$status.test\"", sessionId = sessionId)
+            newClaim(userId, "email", "promoted@$status.test", sessionId = sessionId)
             newProviderLink("promoted-$status", userId, "subject-promoted-$status", sessionId = sessionId)
             newTotpEnrollment(userId, sessionId = sessionId)
             repository<InteractiveFlowSessionRepository>().deleteByIds(listOf(sessionId))

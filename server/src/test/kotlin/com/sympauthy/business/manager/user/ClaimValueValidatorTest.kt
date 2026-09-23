@@ -15,6 +15,7 @@ import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -48,7 +49,7 @@ class ClaimValueValidatorTest {
 
     @Test
     fun `validateAndCleanValueForClaim - Throws if value type does not match claim dataType`() {
-        val claim = mockStringClaim()
+        val claim = mockClaimOfType(STRING)
         every { claim.id } returns "test_claim"
         assertThrowsLocalizedException("user.claim_value_validator.invalid_type") {
             validator.validateAndCleanValueForClaim(claim, 123)
@@ -229,6 +230,20 @@ class ClaimValueValidatorTest {
     }
 
     @Test
+    fun `validateAndCleanStringForClaim - Takes the padding off an EMAIL claim and nothing else`() {
+        val claim = mockClaimOfType(EMAIL)
+        assertEquals("User@Example.COM", validator.validateAndCleanStringForClaim(claim, " User@Example.COM ").get())
+    }
+
+    @Test
+    fun `validateAndCleanStringForClaim - Keeps the case of a STRING claim`() {
+        // How somebody capitalises their own name is theirs to decide; what comparisons are made in is a
+        // second spelling `collected_claims` holds beside this one.
+        val claim = mockStringClaim()
+        assertEquals("Alice", validator.validateAndCleanStringForClaim(claim, "Alice").get())
+    }
+
+    @Test
     fun `validateAndCleanStringForClaim - Trims whitespace on PHONE_NUMBER claims`() {
         // The padded number was refused as not conforming to E.164, which it does.
         val claim = mockClaimOfType(PHONE_NUMBER)
@@ -298,6 +313,13 @@ class ClaimValueValidatorTest {
         val result = validator.validateEmailForClaim("user@example.com")
         assertTrue(result.isPresent)
         assertEquals("user@example.com", result.get())
+    }
+
+    @Test
+    fun `validateEmailForClaim - Returns the address as it was written`() {
+        // Two spellings of one address are one identity, but that is settled by the spelling they are
+        // compared in rather than by rewriting what somebody typed.
+        assertEquals("User@Example.COM", validator.validateEmailForClaim("User@Example.COM").get())
     }
 
     @Test
@@ -426,5 +448,32 @@ class ClaimValueValidatorTest {
         assertThrowsLocalizedException("user.claim_value_validator.invalid_time_zone") {
             validator.validateTimeZoneForClaim("Not/A/Timezone")
         }
+    }
+
+    @Test
+    fun `cleanValueForClaimOrNull - Answers the value the claim would store`() {
+        val claim = mockClaimOfType(EMAIL)
+        every { claim.allowedValues } returns null
+        assertEquals("User@Example.COM", validator.cleanValueForClaimOrNull(claim, " User@Example.COM "))
+    }
+
+    @Test
+    fun `cleanValueForClaimOrNull - Answers none where the claim could hold no such value`() {
+        val claim = mockClaimOfType(EMAIL)
+        assertNull(validator.cleanValueForClaimOrNull(claim, "not-an-address"))
+    }
+
+    @Test
+    fun `cleanValueForClaimOrNull - Answers none for a value outside the allowed ones`() {
+        val claim = mockStringClaim()
+        every { claim.allowedValues } returns listOf("allowed")
+        assertNull(validator.cleanValueForClaimOrNull(claim, "refused"))
+    }
+
+    @Test
+    fun `cleanValueForClaimOrNull - Answers none where the value is no value at all`() {
+        val claim = mockk<Claim> { every { allowedValues } returns null }
+        assertNull(validator.cleanValueForClaimOrNull(claim, "   "))
+        assertNull(validator.cleanValueForClaimOrNull(claim, null))
     }
 }

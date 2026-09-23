@@ -5,6 +5,7 @@ import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.HeldStripes
 import com.sympauthy.business.manager.lock.LockManager
+import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.CollectedClaimMapper
 import com.sympauthy.business.mapper.CollectedClaimUpdateMapper
 import com.sympauthy.business.model.user.CollectedClaim
@@ -56,6 +57,12 @@ class CollectedClaimManagerTest {
 
     @MockK
     lateinit var collectedClaimUpdateMapper: CollectedClaimUpdateMapper
+
+    @MockK
+    lateinit var claimValueValidator: ClaimValueValidator
+
+    @MockK
+    lateinit var claimValueMapper: ClaimValueMapper
 
     @SpyK
     @InjectMockKs
@@ -357,10 +364,10 @@ class CollectedClaimManagerTest {
         val update = mockUpdateOfClaim(emailClaim, Optional.of(EMAIL))
 
         every { claimManager.listIdentifierClaims() } returns listOf(emailClaim)
-        every { collectedClaimUpdateMapper.toValue(update.value) } returns STORED_EMAIL
+        every { collectedClaimUpdateMapper.toFoldedValue(update.value) } returns FOLDED_EMAIL
         coEvery {
             userManager.findTakenIdentifierOrNull(
-                user.id, listOf(EMAIL_CLAIM), mapOf(EMAIL_CLAIM to STORED_EMAIL)
+                user.id, listOf(EMAIL_CLAIM), mapOf(EMAIL_CLAIM to FOLDED_EMAIL)
             )
         } returns TakenIdentifier(claimId = EMAIL_CLAIM, userId = ownerId)
 
@@ -372,7 +379,7 @@ class CollectedClaimManagerTest {
         assertEquals("user.claims.identifier_taken", exception.detailsId)
         assertEquals(EMAIL_CLAIM, exception.values["claim"])
         assertEquals(ownerId.toString(), exception.values["userId"])
-        coVerify { objectLockRepository.lock(LockKey.IdentifierValue(STORED_EMAIL).stripe) }
+        coVerify { objectLockRepository.lock(LockKey.IdentifierValue(FOLDED_EMAIL).stripe) }
     }
 
     @Test
@@ -383,10 +390,10 @@ class CollectedClaimManagerTest {
         val collectedClaim = mockk<CollectedClaim>()
 
         every { claimManager.listIdentifierClaims() } returns listOf(emailClaim)
-        every { collectedClaimUpdateMapper.toValue(update.value) } returns STORED_EMAIL
+        every { collectedClaimUpdateMapper.toFoldedValue(update.value) } returns FOLDED_EMAIL
         coEvery {
             userManager.findTakenIdentifierOrNull(
-                user.id, listOf(EMAIL_CLAIM), mapOf(EMAIL_CLAIM to STORED_EMAIL)
+                user.id, listOf(EMAIL_CLAIM), mapOf(EMAIL_CLAIM to FOLDED_EMAIL)
             )
         } returns null
         coEvery { manager.writeUpdates(user, listOf(update)) } returns listOf(collectedClaim)
@@ -395,7 +402,7 @@ class CollectedClaimManagerTest {
 
         assertEquals(1, result.count())
         assertSame(collectedClaim, result[0])
-        coVerify { objectLockRepository.lock(LockKey.IdentifierValue(STORED_EMAIL).stripe) }
+        coVerify { objectLockRepository.lock(LockKey.IdentifierValue(FOLDED_EMAIL).stripe) }
     }
 
     @Test
@@ -408,10 +415,10 @@ class CollectedClaimManagerTest {
         val update = mockUpdateOfClaim(phoneClaim, Optional.of(EMAIL))
 
         every { claimManager.listIdentifierClaims() } returns listOf(mockEmailClaim(), phoneClaim)
-        every { collectedClaimUpdateMapper.toValue(update.value) } returns STORED_EMAIL
+        every { collectedClaimUpdateMapper.toFoldedValue(update.value) } returns FOLDED_EMAIL
         coEvery {
             userManager.findTakenIdentifierOrNull(
-                user.id, listOf(EMAIL_CLAIM, PHONE_CLAIM), mapOf(PHONE_CLAIM to STORED_EMAIL)
+                user.id, listOf(EMAIL_CLAIM, PHONE_CLAIM), mapOf(PHONE_CLAIM to FOLDED_EMAIL)
             )
         } returns TakenIdentifier(claimId = PHONE_CLAIM, userId = ownerId)
 
@@ -477,7 +484,7 @@ class CollectedClaimManagerTest {
         val collectedClaim = mockk<CollectedClaim>()
 
         every { claimManager.listIdentifierClaims() } returns listOf(identifierClaim)
-        every { collectedClaimUpdateMapper.toValue(null) } returns null
+        every { collectedClaimUpdateMapper.toFoldedValue(null) } returns null
         coEvery { manager.writeUpdates(user, listOf(update)) } returns listOf(collectedClaim)
 
         val result = manager.applyUpdates(user, listOf(update))
@@ -488,40 +495,90 @@ class CollectedClaimManagerTest {
     }
 
     @Test
-    fun `getIdentifierValuesIn - Keeps an identifier claim's value, as collected_claims spells it`() {
-        val emailClaim = mockEmailClaim()
-        val update = mockUpdateOfClaim(emailClaim, Optional.of(EMAIL))
-        every { claimManager.listIdentifierClaims() } returns listOf(emailClaim)
-        every { collectedClaimUpdateMapper.toValue(Optional.of(EMAIL)) } returns STORED_EMAIL
+    fun `getFoldedValueOf - Cleans the value under the claim, then folds it to plain text`() {
+        // The claim is never named here: spelling a value is a question about the value, not about which
+        // claim is asking. The quoting `value` carries is not part of it either.
+        val emailClaim = mockk<Claim>()
+        every {
+            claimValueValidator.cleanValueForClaimOrNull(emailClaim, " Someone@Example.COM ")
+        } returns "Someone@Example.COM"
+        every { claimValueMapper.toFoldedValue("Someone@Example.COM") } returns FOLDED_EMAIL
 
-        assertEquals(mapOf(EMAIL_CLAIM to STORED_EMAIL), manager.getIdentifierValuesIn(listOf(update)))
+        assertEquals(FOLDED_EMAIL, manager.getFoldedValueOf(emailClaim, " Someone@Example.COM "))
     }
 
     @Test
-    fun `getIdentifierValuesIn - Drops a claim that is not an identifier one`() {
+    fun `getFoldedValueOf - Answers none where the claim could hold no such value`() {
+        val emailClaim = mockk<Claim>()
+        every { claimValueValidator.cleanValueForClaimOrNull(emailClaim, "not-an-address") } returns null
+
+        // The mapper is never reached: a value the claim would refuse matches no row of it either.
+        assertNull(manager.getFoldedValueOf(emailClaim, "not-an-address"))
+    }
+
+    @Test
+    fun `getIdentifierFoldedValuesOf - Spells one value under every identifier claim, by the claim holding it`() {
+        val emailClaim = mockEmailClaim()
+        val usernameClaim = mockk<Claim> { every { id } returns "preferred_username" }
+        every { claimManager.listIdentifierClaims() } returns listOf(emailClaim, usernameClaim)
+        every { claimValueValidator.cleanValueForClaimOrNull(emailClaim, EMAIL) } returns EMAIL
+        every { claimValueValidator.cleanValueForClaimOrNull(usernameClaim, EMAIL) } returns EMAIL
+        every { claimValueMapper.toFoldedValue(EMAIL) } returns FOLDED_EMAIL
+
+        assertEquals(
+            mapOf(EMAIL_CLAIM to FOLDED_EMAIL, "preferred_username" to FOLDED_EMAIL),
+            manager.getIdentifierFoldedValuesOf(EMAIL)
+        )
+    }
+
+    @Test
+    fun `getIdentifierFoldedValuesOf - Drops a claim that could hold no such value`() {
+        val emailClaim = mockEmailClaim()
+        val numberClaim = mockk<Claim>()
+        every { claimManager.listIdentifierClaims() } returns listOf(emailClaim, numberClaim)
+        every { claimValueValidator.cleanValueForClaimOrNull(emailClaim, EMAIL) } returns EMAIL
+        every { claimValueValidator.cleanValueForClaimOrNull(numberClaim, EMAIL) } returns null
+        every { claimValueMapper.toFoldedValue(EMAIL) } returns FOLDED_EMAIL
+
+        // Absent rather than present with nothing: no row of that claim holds a value it would refuse.
+        assertEquals(mapOf(EMAIL_CLAIM to FOLDED_EMAIL), manager.getIdentifierFoldedValuesOf(EMAIL))
+    }
+
+    @Test
+    fun `getIdentifierFoldedValuesIn - Keeps an identifier claim's value, as the rows compare on it`() {
+        val emailClaim = mockEmailClaim()
+        val update = mockUpdateOfClaim(emailClaim, Optional.of(EMAIL))
+        every { claimManager.listIdentifierClaims() } returns listOf(emailClaim)
+        every { collectedClaimUpdateMapper.toFoldedValue(Optional.of(EMAIL)) } returns FOLDED_EMAIL
+
+        assertEquals(mapOf(EMAIL_CLAIM to FOLDED_EMAIL), manager.getIdentifierFoldedValuesIn(listOf(update)))
+    }
+
+    @Test
+    fun `getIdentifierFoldedValuesIn - Drops a claim that is not an identifier one`() {
         every { claimManager.listIdentifierClaims() } returns listOf(mockk())
 
         // Nothing about the update is stubbed: one whose claim is not in the set is dropped before either
         // its claim id or its value is read, which is the whole of what this holds.
-        assertTrue(manager.getIdentifierValuesIn(listOf(mockk(relaxed = true))).isEmpty())
+        assertTrue(manager.getIdentifierFoldedValuesIn(listOf(mockk(relaxed = true))).isEmpty())
     }
 
     @Test
-    fun `getIdentifierValuesIn - Drops an update clearing a claim, which takes no value from anybody`() {
+    fun `getIdentifierFoldedValuesIn - Drops an update clearing a claim, which takes no value from anybody`() {
         val emailClaim = mockk<Claim>()
         every { claimManager.listIdentifierClaims() } returns listOf(emailClaim)
-        every { collectedClaimUpdateMapper.toValue(null) } returns null
+        every { collectedClaimUpdateMapper.toFoldedValue(null) } returns null
 
-        assertTrue(manager.getIdentifierValuesIn(listOf(mockUpdateOfClaim(emailClaim, null))).isEmpty())
+        assertTrue(manager.getIdentifierFoldedValuesIn(listOf(mockUpdateOfClaim(emailClaim, null))).isEmpty())
     }
 
     @Test
-    fun `getIdentifierValuesIn - Answers nothing when the deployment names no identifier claim`() {
+    fun `getIdentifierFoldedValuesIn - Answers nothing when the deployment names no identifier claim`() {
         every { claimManager.listIdentifierClaims() } returns emptyList()
 
         // The updates are never looked at: with no identifier claim configured there is nothing to match
         // them against, and the read below them never runs.
-        assertTrue(manager.getIdentifierValuesIn(listOf(mockk())).isEmpty())
+        assertTrue(manager.getIdentifierFoldedValuesIn(listOf(mockk())).isEmpty())
     }
 
     /** The account a refusal names as holding the value, which reaches an operator and never the person refused. */
@@ -558,9 +615,8 @@ class CollectedClaimManagerTest {
     private companion object {
         const val EMAIL_CLAIM = "email"
         const val PHONE_CLAIM = "phone_number"
-        const val EMAIL = "someone@example.com"
-
-        /** The value as `collected_claims` spells it, which is what both the key and the check compare on. */
-        const val STORED_EMAIL = "\"someone@example.com\""
+        /** The address as somebody wrote it, and the spelling every comparison on it is made in. */
+        const val EMAIL = "Someone@Example.com"
+        const val FOLDED_EMAIL = "someone@example.com"
     }
 }

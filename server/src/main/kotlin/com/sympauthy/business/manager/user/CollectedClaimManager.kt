@@ -5,6 +5,7 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
+import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.CollectedClaimMapper
 import com.sympauthy.business.mapper.CollectedClaimUpdateMapper
 import com.sympauthy.business.model.user.CollectedClaim
@@ -34,7 +35,9 @@ open class CollectedClaimManager(
     @Inject private val lockManager: LockManager,
     @Inject private val collectedClaimRepository: CollectedClaimRepository,
     @Inject private val collectedClaimMapper: CollectedClaimMapper,
-    @Inject private val collectedClaimUpdateMapper: CollectedClaimUpdateMapper
+    @Inject private val collectedClaimUpdateMapper: CollectedClaimUpdateMapper,
+    @Inject private val claimValueValidator: ClaimValueValidator,
+    @Inject private val claimValueMapper: ClaimValueMapper
 ) {
 
     /**
@@ -157,7 +160,7 @@ open class CollectedClaimManager(
         if (user.sessionId != null) {
             return writeUpdates(user, applicableUpdates)
         }
-        val identifierValues = getIdentifierValuesIn(applicableUpdates)
+        val identifierValues = getIdentifierFoldedValuesIn(applicableUpdates)
         if (identifierValues.isEmpty()) {
             return writeUpdates(user, applicableUpdates)
         }
@@ -169,14 +172,18 @@ open class CollectedClaimManager(
     }
 
     /**
-     * The identifier claim values [updates] would write, by the claim writing them, as `collected_claims`
-     * spells them. An update clearing a claim is not one: it takes no value from anybody.
+     * The identifier claim values [updates] would write, by the claim writing them, folded the way
+     * `collected_claims` compares them. An update clearing a claim is not one: it takes no value from
+     * anybody.
      *
      * Public because it is the one spelling of that map: asking whether these values are taken means asking
      * in the spelling the rows compare on, and writing it out again elsewhere is a second definition of
-     * which updates count and how their values are stored, with the two to be changed together.
+     * which updates count and how their values are folded, with the two to be changed together. It answers
+     * for an update, whose value the validator already cleaned, by folding exactly what the write will
+     * fold; a caller holding a value that has not been through the validator asks [getFoldedValueOf],
+     * which cleans it first and answers the same spelling.
      */
-    fun getIdentifierValuesIn(updates: List<CollectedClaimUpdate>): Map<String, String> {
+    fun getIdentifierFoldedValuesIn(updates: List<CollectedClaimUpdate>): Map<String, String> {
         val identifierClaims = claimManager.listIdentifierClaims().toSet()
         if (identifierClaims.isEmpty()) {
             return emptyMap()
@@ -184,9 +191,41 @@ open class CollectedClaimManager(
         return updates
             .filter { it.claim in identifierClaims }
             .mapNotNull { update ->
-                collectedClaimUpdateMapper.toValue(update.value)?.let { update.claim.id to it }
+                collectedClaimUpdateMapper.toFoldedValue(update.value)?.let { update.claim.id to it }
             }
             .toMap()
+    }
+
+    /**
+     * The folded value [claim] compares [value] under, or null where [claim] could hold no such value at
+     * all. It answers equality under folding and nothing else.
+     *
+     * Cleaning and then folding is one step, and this is where it is written for a caller holding a value
+     * rather than a row: a caller that folded without cleaning would ask for a spelling no write ever
+     * produced, and one that cleaned under a claim other than the one it is looking under would ask a
+     * number claim for what a string claim made of the value. Answering null for a value the claim would
+     * refuse is the right answer rather than a failure — no row of that claim holds one either.
+     *
+     * It agrees with what the write folds before hashing it into
+     * [CollectedClaimEntity.foldedEqualityHash]; the two spell one rule and change together.
+     */
+    fun getFoldedValueOf(claim: Claim, value: Any): String? {
+        return claimValueValidator.cleanValueForClaimOrNull(claim, value)
+            ?.let(claimValueMapper::toFoldedValue)
+    }
+
+    /**
+     * The folded value each configured identifier claim compares [value] under, by the claim comparing it.
+     * A claim that could hold no such value at all is absent rather than present with nothing.
+     *
+     * This is how one typed value is offered to the whole set: each claim is asked in the spelling it
+     * would have folded the value to, because a claim only matches a row that went through its own
+     * cleaning first.
+     */
+    fun getIdentifierFoldedValuesOf(value: Any): Map<String, String> {
+        return claimManager.listIdentifierClaims().mapNotNull { claim ->
+            getFoldedValueOf(claim, value)?.let { claim.id to it }
+        }.toMap()
     }
 
     /**

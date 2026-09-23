@@ -2,7 +2,10 @@ package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.mapper.ClaimValueMapper
+import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.manager.lock.HeldStripes
+import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.model.ProviderUserInfoEntity
@@ -63,6 +66,9 @@ class ProvisionalAccountManagerTest {
     @MockK(relaxed = true)
     lateinit var objectLockRepository: ObjectLockRepository
 
+    @MockK
+    lateinit var claimValueMapper: ClaimValueMapper
+
     lateinit var manager: ProvisionalAccountManager
 
     private val sessionId = UUID.randomUUID()
@@ -75,6 +81,7 @@ class ProvisionalAccountManagerTest {
     fun setUp() {
         manager = ProvisionalAccountManager(
             claimManager = claimManager,
+            claimValueMapper = claimValueMapper,
             userManager = userManager,
             lockManager = LockManager(objectLockRepository, HeldStripes()),
             userRepository = userRepository,
@@ -123,10 +130,11 @@ class ProvisionalAccountManagerTest {
         identifierClaims("email")
         coEvery {
             collectedClaimRepository.findByUserIdAndClaimInList(userId, listOf("email"))
-        } returns listOf(claimEntity("email", "\"taken@example.com\""))
+        } returns listOf(claimEntity("email", "taken@example.com"))
+        stubFoldOf("email", "taken@example.com")
         coEvery {
             userManager.findTakenIdentifierOrNull(
-                userId, listOf("email"), mapOf("email" to "\"taken@example.com\"")
+                userId, listOf("email"), mapOf("email" to "taken@example.com")
             )
         } returns TakenIdentifier(claimId = "email", userId = ownerId)
         coEvery { providerUserInfoRepository.findByUserId(userId) } returns emptyList()
@@ -137,11 +145,12 @@ class ProvisionalAccountManagerTest {
         assertEquals("email", exception.values["claim"])
         assertEquals(ownerId.toString(), exception.values["userId"])
         coVerify(exactly = 0) { userRepository.clearSessionId(any(), any()) }
-        // Stripe 10 is the value as collected_claims spells it, quotes included, which LockKeyTest holds.
+        // The key names the folded value, which is what the check it protects compares on. Which row a
+        // key maps to is LockKeyTest's; that it is this key is this test's.
         coVerifyOrder {
-            objectLockRepository.lock(10)
+            objectLockRepository.lock(LockKey.IdentifierValue("taken@example.com").stripe)
             userManager.findTakenIdentifierOrNull(
-                userId, listOf("email"), mapOf("email" to "\"taken@example.com\"")
+                userId, listOf("email"), mapOf("email" to "taken@example.com")
             )
         }
     }
@@ -160,9 +169,8 @@ class ProvisionalAccountManagerTest {
         assertEquals("user.promote.provider_subject_taken", exception.detailsId)
         assertEquals("discord", exception.values["providerId"])
         coVerify(exactly = 0) { userRepository.clearSessionId(any(), any()) }
-        // Stripe 62 is the discord identity subject-1, which LockKeyTest holds.
         coVerifyOrder {
-            objectLockRepository.lock(62)
+            objectLockRepository.lock(LockKey.ProviderSubject("discord", "subject-1").stripe)
             providerUserInfoRepository.findByProviderIdAndSubjectAndSessionIdIsNull("discord", "subject-1")
         }
     }
@@ -242,10 +250,11 @@ class ProvisionalAccountManagerTest {
         identifierClaims("email")
         coEvery {
             collectedClaimRepository.findByUserIdAndClaimInList(userId, listOf("email"))
-        } returns listOf(claimEntity("email", "\"free@example.com\""))
+        } returns listOf(claimEntity("email", "free@example.com"))
+        stubFoldOf("email", "free@example.com")
         coEvery {
             userManager.findTakenIdentifierOrNull(
-                userId, listOf("email"), mapOf("email" to "\"free@example.com\"")
+                userId, listOf("email"), mapOf("email" to "free@example.com")
             )
         } returns null
         coEvery { providerUserInfoRepository.findByUserId(userId) } returns emptyList()
@@ -258,9 +267,8 @@ class ProvisionalAccountManagerTest {
         manager.promote(sessionId, userId)
 
         coVerify { userRepository.clearSessionId(userId, sessionId) }
-        // Stripe 20 is "free@example.com" as collected_claims spells it, which LockKeyTest holds.
         coVerifyOrder {
-            objectLockRepository.lock(20)
+            objectLockRepository.lock(LockKey.IdentifierValue("free@example.com").stripe)
             userManager.findTakenIdentifierOrNull(any(), any(), any())
             userRepository.clearSessionId(userId, sessionId)
         }
@@ -288,10 +296,20 @@ class ProvisionalAccountManagerTest {
         }
     }
 
+    /**
+     * The claim [claim] of the account being promoted, and the mapper answering the folded value the
+     * promotion recovers from it — the row carries a key, not the fold.
+     */
+    private fun stubFoldOf(claim: String, value: String) {
+        every { claimManager.findByIdOrNull(claim) } returns mockk { every { dataType } returns ClaimDataType.STRING }
+        every { claimValueMapper.toFoldedValueOfStored(value, ClaimDataType.STRING) } returns value
+    }
+
     private fun claimEntity(claim: String, value: String) = CollectedClaimEntity(
         userId = userId,
         claim = claim,
         value = value,
+        foldedEqualityHash = value.hashCode().toLong(),
         verified = null,
         collectionDate = LocalDateTime.now(),
         verificationDate = null,

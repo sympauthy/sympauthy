@@ -10,6 +10,7 @@ import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
+import com.sympauthy.business.manager.user.ClaimValueValidator
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.CreateOrAssociateResult
 import com.sympauthy.business.manager.user.UserManager
@@ -26,6 +27,7 @@ import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.util.*
+import kotlin.jvm.optionals.getOrNull
 
 /**
  * OAuth2-authorize consumer implementation of [ProviderUserEstablisher].
@@ -46,6 +48,7 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
     @Inject private val providerClaimsManager: ProviderClaimsManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val claimManager: ClaimManager,
+    @Inject private val claimValueValidator: ClaimValueValidator,
     @Inject private val lockManager: LockManager,
     @Inject private val uncheckedAuthConfig: AuthConfig,
 ) : ProviderUserEstablisher {
@@ -134,7 +137,7 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
     @Transactional
     internal open suspend fun createOrAssociateUserByIdentifierClaimsWithProviderUserInfo(
         sessionId: UUID,
-        identifierClaims: Map<String, Pair<Claim, String>>,
+        identifierClaims: Map<String, Pair<Claim, Any>>,
         provider: EnabledProvider,
         providerUserInfo: RawProviderClaims
     ): CreateOrAssociateResult {
@@ -167,7 +170,7 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
     @Transactional
     internal open suspend fun createUserWithProviderUserInfo(
         sessionId: UUID,
-        identifierClaims: Map<String, Pair<Claim, String>>,
+        identifierClaims: Map<String, Pair<Claim, Any>>,
         provider: EnabledProvider,
         providerUserInfo: RawProviderClaims
     ): CreateOrAssociateResult {
@@ -205,7 +208,7 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
      */
     private suspend fun createUserWithIdentifierClaims(
         sessionId: UUID,
-        identifierClaims: Map<String, Pair<Claim, String>>
+        identifierClaims: Map<String, Pair<Claim, Any>>
     ): User {
         val updates = identifierClaims.values.map { (claim, value) ->
             CollectedClaimUpdate(claim = claim, value = Optional.of(value))
@@ -213,7 +216,7 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
         val taken = userManager.findTakenIdentifierOrNull(
             userId = null,
             claimIds = uncheckedAuthConfig.orThrow().identifierClaims,
-            valuesByClaimId = collectedClaimManager.getIdentifierValuesIn(updates)
+            valuesByClaimId = collectedClaimManager.getIdentifierFoldedValuesIn(updates)
         )
         if (taken != null) {
             throw businessExceptionOf(
@@ -228,24 +231,36 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
     }
 
     /**
-     * Extract identifier claim values from [providerUserInfo] and resolve the corresponding
-     * [Claim] business objects.
+     * The value [providerUserInfo] asserts for each of [EnabledAuthConfig.identifierClaims], resolved
+     * against the claim configuring it and cleaned by [ClaimValueValidator] the way a value collected from
+     * an end-user is.
+     *
+     * An asserted value goes through the validator rather than onto the account as it arrived, because
+     * these are the values the account is then identified by and a comparison on one of them is exact: an
+     * address a provider spells in mixed case, or pads, is otherwise an identity none of this deployment's
+     * own spellings ever reaches. The refusal a value that is not of its claim's type earns is the
+     * validator's own, recoverable, so the end-user is returned to the step and may sign in another way.
+     *
+     * Throws `user.create_with_provider.missing_identifier_claim_config` where a configured identifier
+     * claim names no claim this deployment declares, and `user.create_with_provider.missing_identifier_claim`
+     * where the provider asserts nothing for one — which a value cleaning away to nothing at all is.
      */
     private suspend fun resolveIdentifierClaims(
         authConfig: EnabledAuthConfig,
         provider: EnabledProvider,
         providerUserInfo: RawProviderClaims
-    ): Map<String, Pair<Claim, String>> {
+    ): Map<String, Pair<Claim, Any>> {
         return authConfig.identifierClaims.associateWith { claimId ->
-            val value = providerUserInfo.getClaimValueOrNull(claimId)
-                ?: throw businessExceptionOf(
-                    "user.create_with_provider.missing_identifier_claim",
-                    "providerId" to provider.id,
-                    "claim" to claimId
-                )
             val claim = claimManager.findByIdOrNull(claimId)
                 ?: throw businessExceptionOf(
                     "user.create_with_provider.missing_identifier_claim_config",
+                    "claim" to claimId
+                )
+            val value = providerUserInfo.getClaimValueOrNull(claimId)
+                ?.let { claimValueValidator.validateAndCleanValueForClaim(claim, it).getOrNull() }
+                ?: throw businessExceptionOf(
+                    "user.create_with_provider.missing_identifier_claim",
+                    "providerId" to provider.id,
                     "claim" to claimId
                 )
             claim to value

@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
+import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.flow.link.InteractiveFlowSessionLinkProviderManager
 import com.sympauthy.business.manager.flow.reauth.InteractiveFlowSessionReauthenticationManager
 import com.sympauthy.business.manager.lock.LockKey
@@ -11,8 +12,8 @@ import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderClaimsResolver
 import com.sympauthy.business.manager.provider.ProviderManager
+import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
-import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
@@ -60,7 +61,8 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
     @Inject private val establisher: ProviderUserEstablisher,
     @Inject private val linkProviderManager: InteractiveFlowSessionLinkProviderManager,
     @Inject private val userManager: UserManager,
-    @Inject private val claimValueMapper: ClaimValueMapper,
+    @Inject private val claimManager: ClaimManager,
+    @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val lockManager: LockManager,
     @Inject private val uncheckedAuthConfig: AuthConfig
 ) {
@@ -396,20 +398,23 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
      *
      * The values the check compares and the keys locking them come out of this one read, and null answers
      * for both: a key over a check that does not run excludes a promotion for nothing, and a check with no
-     * key over it is the one this answer exists to keep out. Only the identifier **values** are needed (not
-     * the resolved claim objects), so this is a plain lookup rather than the full sign-up claim resolution.
-     * A value the mapper cannot spell as `collected_claims` holds it drops out with the claim asserting it:
-     * neither half of the pair can be formed for it.
+     * key over it is the one this answer exists to keep out. An asserted value is spelled by
+     * [CollectedClaimManager.getFoldedValueOf], which cleans it under the claim asserting it first,
+     * the check compares on the spelling a collected value was stored in — an address a provider
+     * capitalises is otherwise a conflict nothing sees. A value that claim could hold no such value of
+     * drops out with it: neither half of the pair can be formed, and no row it would have matched exists.
      */
     private fun getAssertedIdentifiersOrNull(rawUserInfo: RawProviderClaims): AssertedIdentifiers? {
-        val identifierClaims = uncheckedAuthConfig.orThrow().identifierClaims
-        val valuesByClaimId = identifierClaims.mapNotNull { claimId ->
-            rawUserInfo.getClaimValueOrNull(claimId)
-                ?.let(claimValueMapper::toEntity)
-                ?.let { claimId to it }
+        val valuesByClaimId = claimManager.listIdentifierClaims().mapNotNull { claim ->
+            rawUserInfo.getClaimValueOrNull(claim)
+                ?.let { collectedClaimManager.getFoldedValueOf(claim, it) }
+                ?.let { claim.id to it }
         }.toMap()
         if (valuesByClaimId.isEmpty()) return null
-        return AssertedIdentifiers(claimIds = identifierClaims, valuesByClaimId = valuesByClaimId)
+        return AssertedIdentifiers(
+            claimIds = uncheckedAuthConfig.orThrow().identifierClaims,
+            valuesByClaimId = valuesByClaimId
+        )
     }
 
     /**
