@@ -16,10 +16,12 @@ import org.junit.jupiter.params.provider.EnumSource
 /**
  * Feature scenario — **one address is one identity, however the person spelled it.**
  *
- * An `email` identifier claim is stored folded and trimmed, so an account signed up as
- * `Ada@Example.COM` is reached by `ADA@EXAMPLE.COM` and by the same address padded with spaces, and a
- * second account cannot be opened on any other spelling of it. Every comparison this server makes on an
- * identifier is an exact one, so what makes two spellings meet is the single spelling that got stored.
+ * Every claim named in `auth.identifier-claims` stores its value folded and trimmed, so an account signed
+ * up as `Ada@Example.COM` is reached by `ADA@EXAMPLE.COM` and by the same address padded with spaces, and
+ * a second account cannot be opened on any other spelling of it. Every comparison this server makes on an
+ * identifier is an exact one, so what makes two spellings meet is the single spelling that got stored —
+ * and a set whose claims folded differently would let one typed value reach a row of one account under
+ * the claim that folds and a row of another under the claim that does not.
  *
  * No unit test reaches this. What is stored is written by one flow and read back through the userinfo
  * endpoint with that flow's own access token; that the folded row is what a later login matches is
@@ -82,6 +84,50 @@ class IdentifierSpellingFeatureIT : AbstractSympauthyIT() {
         }
     }
 
+    @ParameterizedTest(name = "a username identifier is folded like the address on {0}")
+    @EnumSource(Database::class)
+    fun foldsEveryClaimOfTheIdentifierSet(database: Database) {
+        withContainer(database, extraConfig = twoIdentifierClaims(), scopes = PROFILE_SCOPES) { sympauthy, registry ->
+            val signedUp = registry.newFlow()
+                .withSignUpHandler {
+                    mapOf("email" to STORED, "preferred_username" to TYPED_USERNAME, "password" to PASSWORD)
+                }
+                .run()
+            val account = subjectOf(sympauthy, signedUp.exchange().idToken())
+
+            assertEquals(
+                account, subjectOf(sympauthy, signIn(registry, SHOUTED_USERNAME)),
+                "a username is folded like an address, because being an identifier is what folds it",
+            )
+
+            // The second account offers, as its username, the spelling of the first's that the first did
+            // not type. Folding the whole set is what leaves one row to reach rather than one of each.
+            val crossing = registry.newFlow()
+                .withSignUpHandler {
+                    mapOf(
+                        "email" to OTHER_EMAIL,
+                        "preferred_username" to STORED_USERNAME,
+                        "password" to OTHER_PASSWORD,
+                    )
+                }
+
+            assertThrows<FlowException>("the sign-up must not complete") { crossing.run() }
+        }
+    }
+
+    /**
+     * A second identifier claim of another type, and the `profile` scope it is published under. The base
+     * configuration allows the client `openid` alone and defaults it to the same, so both lists are
+     * overridden with the pair.
+     */
+    private fun twoIdentifierClaims(): Map<String, Any> = mapOf(
+        "auth" to mapOf("identifier-claims" to listOf("email", "preferred_username")),
+        "claims" to mapOf("preferred_username" to mapOf("enabled" to true)),
+        "clients" to mapOf(
+            clientId to mapOf("allowed-scopes" to PROFILE_SCOPES, "default-scopes" to PROFILE_SCOPES),
+        ),
+    )
+
     /**
      * The `email` scope on top of the base configuration, so that the userinfo endpoint publishes the
      * address back. The base configuration allows the client `openid` alone and defaults it to the same,
@@ -113,7 +159,14 @@ class IdentifierSpellingFeatureIT : AbstractSympauthyIT() {
         const val SHOUTED = "ADA@EXAMPLE.COM"
         const val PASSWORD = "Str0ngP@ssw0rd!"
         const val OTHER_PASSWORD = "0therP@ssw0rd!"
+        const val OTHER_EMAIL = "grace@example.com"
+
+        /** A username as the person typed it, and the two other spellings of the same identity. */
+        const val TYPED_USERNAME = "Ada.Lovelace"
+        const val STORED_USERNAME = "ada.lovelace"
+        const val SHOUTED_USERNAME = "ADA.LOVELACE"
 
         val SCOPES = listOf("openid", "email")
+        val PROFILE_SCOPES = listOf("openid", "profile")
     }
 }

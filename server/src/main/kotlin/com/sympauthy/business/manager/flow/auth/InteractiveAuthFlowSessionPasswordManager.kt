@@ -12,10 +12,8 @@ import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.password.PasswordManager
-import com.sympauthy.business.manager.user.ClaimValueValidator
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
-import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
@@ -46,7 +44,6 @@ open class InteractiveAuthFlowSessionPasswordManager(
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
     @Inject private val userSecurityContextManager: UserSecurityContextManager,
     @Inject private val claimManager: ClaimManager,
-    @Inject private val claimValueValidator: ClaimValueValidator,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val collectedClaimRepository: CollectedClaimRepository,
     @Inject private val invitationManager: InvitationManager,
@@ -55,7 +52,6 @@ open class InteractiveAuthFlowSessionPasswordManager(
     @Inject private val engine: InteractiveFlowEngine,
     @Inject private val reauthenticationManager: InteractiveFlowSessionReauthenticationManager,
     @Inject private val userManager: UserManager,
-    @Inject private val claimValueMapper: ClaimValueMapper,
     @Inject private val uncheckedAuthConfig: AuthConfig
 ) {
 
@@ -88,11 +84,7 @@ open class InteractiveAuthFlowSessionPasswordManager(
      * holds a value that claim would have refused.
      */
     internal suspend fun findByAnyIdentifierClaimValue(identifierClaimValue: String): User? {
-        val claimValues = claimManager.listIdentifierClaims().mapNotNull { claim ->
-            claimValueValidator.cleanValueForClaimOrNull(claim, identifierClaimValue)
-                ?.let(claimValueMapper::toEntity)
-                ?.let { claim.id to it }
-        }.toMap()
+        val claimValues = collectedClaimManager.getIdentifierValuesOf(identifierClaimValue)
         val userInfo = collectedClaimRepository.findAnyClaimMatching(claimValues)
         return userInfo?.userId?.let { userManager.findByIdOrNull(it) }
     }

@@ -12,9 +12,8 @@ import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderClaimsResolver
 import com.sympauthy.business.manager.provider.ProviderManager
-import com.sympauthy.business.manager.user.ClaimValueValidator
+import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
-import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
@@ -63,8 +62,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
     @Inject private val linkProviderManager: InteractiveFlowSessionLinkProviderManager,
     @Inject private val userManager: UserManager,
     @Inject private val claimManager: ClaimManager,
-    @Inject private val claimValueValidator: ClaimValueValidator,
-    @Inject private val claimValueMapper: ClaimValueMapper,
+    @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val lockManager: LockManager,
     @Inject private val uncheckedAuthConfig: AuthConfig
 ) {
@@ -400,24 +398,23 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
      *
      * The values the check compares and the keys locking them come out of this one read, and null answers
      * for both: a key over a check that does not run excludes a promotion for nothing, and a check with no
-     * key over it is the one this answer exists to keep out. An asserted value is cleaned by the claim
-     * asserting it before it is spelled, because the check compares on the spelling a collected value was
-     * stored in and an address a provider capitalises is otherwise a conflict nothing sees. A value drops
-     * out with the claim asserting it where that claim is not one this deployment declares, where it could
-     * hold no such value, or where the mapper cannot spell it as `collected_claims` holds it: neither half
-     * of the pair can be formed for it, and no row it would have matched exists.
+     * key over it is the one this answer exists to keep out. An asserted value is spelled by
+     * [CollectedClaimManager.getStoredValueOf], which cleans it under the claim asserting it first, because
+     * the check compares on the spelling a collected value was stored in — an address a provider
+     * capitalises is otherwise a conflict nothing sees. A value that claim could hold no such value of
+     * drops out with it: neither half of the pair can be formed, and no row it would have matched exists.
      */
-    private fun getAssertedIdentifiersOrNull(rawUserInfo: RawProviderClaims): AssertedIdentifiers? {
-        val identifierClaims = uncheckedAuthConfig.orThrow().identifierClaims
-        val valuesByClaimId = identifierClaims.mapNotNull { claimId ->
-            val claim = claimManager.findByIdOrNull(claimId) ?: return@mapNotNull null
-            rawUserInfo.getClaimValueOrNull(claimId)
-                ?.let { claimValueValidator.cleanValueForClaimOrNull(claim, it) }
-                ?.let(claimValueMapper::toEntity)
-                ?.let { claimId to it }
+    private suspend fun getAssertedIdentifiersOrNull(rawUserInfo: RawProviderClaims): AssertedIdentifiers? {
+        val valuesByClaimId = claimManager.listIdentifierClaims().mapNotNull { claim ->
+            rawUserInfo.getClaimValueOrNull(claim)
+                ?.let { collectedClaimManager.getStoredValueOf(claim, it) }
+                ?.let { claim.id to it }
         }.toMap()
         if (valuesByClaimId.isEmpty()) return null
-        return AssertedIdentifiers(claimIds = identifierClaims, valuesByClaimId = valuesByClaimId)
+        return AssertedIdentifiers(
+            claimIds = uncheckedAuthConfig.orThrow().identifierClaims,
+            valuesByClaimId = valuesByClaimId
+        )
     }
 
     /**

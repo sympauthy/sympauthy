@@ -57,32 +57,42 @@ conflict.
 which of them keeps it is settled when the first one
 [promotes](provisional-user.md#when-uniqueness-is-settled).
 
-## One spelling, and the claim's type decides it
+## One spelling, and being an identifier is what decides it
 
 **A value is compared exactly as `collected_claims` stores it, so two spellings are one identity
 only where one of them is what got stored.** Nothing folds anything at comparison time: the rule
 above is an equality, the read resolving a login is an equality, and `LockKey.IdentifierValue`
 hashes the stored string.
 
-**Which spelling that is belongs to the claim's data type, and `ClaimValueValidator` is where each
-type says so.** An `email` is trimmed and lowercased, a `phone_number` is E.164 and a `date` is
-`yyyy-MM-dd` before anything asks, and a `string` is kept as it was typed — whether two
-capitalisations of a username are one person is a deployment's policy rather than this server's.
+**Every claim in the set stores its value folded, whatever its type.** `ClaimValueValidator` cleans
+by type first — an `email` lowercased, a `phone_number` in E.164, a `number` as a `Long` — and then
+folds a `string` value because the claim holding it is named in `auth.identifier-claims`. The same
+claim outside the set keeps whatever case it was given.
+
+**Folding the whole set, rather than the claims whose type happens to fold, is what keeps the
+crossed pair out.** Let one claim fold and another not: an account holds
+`preferred_username = Bob@X.com` as typed, a second is allowed to take `email = bob@x.com` because
+no row equals it, and typing `Bob@X.com` then reaches a row of each. The rule above compares one
+value against every claim in the set, and it is true only while every claim in the set spells that
+value the same way.
 
 **An address is folded whole, local part included.** RFC 5321 leaves that half to the receiving
 host, but no mail provider a deployment will meet delivers `Alice@x.com` and `alice@x.com` to two
 mailboxes, and a server honouring the distinction would refuse to recognise somebody who
 capitalised their own name at sign-in.
 
+**A type that cannot identify a person is refused at startup.** `ClaimDataType.canIdentify` is the
+criterion and its KDoc is the authority: a `boolean` identifier claim would cap a deployment at two
+accounts and a `date` one at a single account per day, and a `timezone` can be neither folded nor
+compared, because its parser is case-sensitive and the value is published back.
+
 **Every writer of an identifier value goes through that validator**, including the ones taking a
 value from a provider rather than from the person it belongs to. A row written around it holds a
 spelling nothing else here will ever match.
 
-**A read cleans the value it offers, once per claim, the way that claim cleans what it stores.** One
-login becomes a `(claim, value)` pair per identifier claim rather than one string matched against
-the set, because folding a single spelling for all of them would reach a genuinely capitalised
-username by a login that is not it. A claim that could hold no such value at all is offered none,
-and matches nothing: no row of it holds a value that claim would have refused.
+**A read cleans the value it offers, once per claim, and matches `(claim, value)` pairs.** A claim
+that could hold no such value at all is offered none, and matches nothing: no row of it holds a
+value that claim would have refused.
 
 ## Resolving an identity is not asking whether one is free
 

@@ -5,7 +5,10 @@ import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimDataType.*
+import com.sympauthy.config.model.AuthConfig
+import com.sympauthy.config.model.orThrow
 import com.sympauthy.util.wireName
+import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.math.BigDecimal
 import java.time.DateTimeException
@@ -26,9 +29,16 @@ import kotlin.jvm.optionals.getOrNull
  * type with one canonical spelling answers with it rather than with what was submitted — an email
  * lowercased, a boolean folded, a number read as a [Long]. What this returns is what gets stored, and a
  * caller comparing against a stored value asks [cleanValueForClaimOrNull] for the same spelling.
+ *
+ * A claim named in `auth.identifier-claims` is folded on top of that, because a value somebody signs in
+ * with has to reach its account however they capitalised it — and because a set whose claims folded
+ * differently would let one typed value reach a row of one account under one claim and a row of another
+ * under the next. See `docs/identifier-claims.md`.
  */
 @Singleton
-class ClaimValueValidator {
+class ClaimValueValidator(
+    @Inject private val uncheckedAuthConfig: AuthConfig
+) {
 
     companion object {
         private val E164_PATTERN = Regex("^\\+[0-9]{1,15}$")
@@ -99,6 +109,11 @@ class ClaimValueValidator {
      * stored padded, and a phone number or a time zone refused for a reason that names the wrong thing. It
      * settles that a `string` claim cannot hold a deliberately padded value, which nothing asks for and which
      * would want a type saying so rather than this one keeping the padding by omission.
+     *
+     * A `string` value is the one this folds by [foldIfIdentifier] rather than by its type. Of the types an
+     * identifier claim may be ([ClaimDataType.canIdentify]) the rest already answer one spelling — an email
+     * lowercased, a phone number in E.164, a number as a [Long] — so `string` is where being an identifier
+     * is what decides it.
      */
     internal fun validateAndCleanStringForClaim(claim: Claim, value: String): Optional<Any> {
         val trimmedValue = value.trim()
@@ -111,9 +126,22 @@ class ClaimValueValidator {
             EMAIL -> validateEmailForClaim(trimmedValue)
             NUMBER -> validateAndCleanNumberForClaim(trimmedValue)
             PHONE_NUMBER -> validatePhoneNumberForClaim(trimmedValue)
-            STRING -> Optional.of(trimmedValue)
+            STRING -> Optional.of(foldIfIdentifier(claim, trimmedValue))
             TIMEZONE -> validateTimeZoneForClaim(trimmedValue)
         }
+    }
+
+    /**
+     * The [value] lowercased where [claim] is one of `auth.identifier-claims`, and unchanged otherwise.
+     *
+     * Being signed in with is what makes a value folded, rather than being of any particular type: a
+     * `preferred_username` outside the identifier set keeps whatever case it was given, and the same claim
+     * inside it does not. Two claims of the set folding differently is the case this exists to prevent —
+     * one typed value would reach a row of one account under the claim that folds and a row of another
+     * under the claim that does not, which is the crossed pair `docs/identifier-claims.md` refuses.
+     */
+    private fun foldIfIdentifier(claim: Claim, value: String): String {
+        return if (claim.id in uncheckedAuthConfig.orThrow().identifierClaims) value.lowercase() else value
     }
 
     /**

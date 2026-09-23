@@ -5,6 +5,7 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
+import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.CollectedClaimMapper
 import com.sympauthy.business.mapper.CollectedClaimUpdateMapper
 import com.sympauthy.business.model.user.CollectedClaim
@@ -34,7 +35,9 @@ open class CollectedClaimManager(
     @Inject private val lockManager: LockManager,
     @Inject private val collectedClaimRepository: CollectedClaimRepository,
     @Inject private val collectedClaimMapper: CollectedClaimMapper,
-    @Inject private val collectedClaimUpdateMapper: CollectedClaimUpdateMapper
+    @Inject private val collectedClaimUpdateMapper: CollectedClaimUpdateMapper,
+    @Inject private val claimValueValidator: ClaimValueValidator,
+    @Inject private val claimValueMapper: ClaimValueMapper
 ) {
 
     /**
@@ -174,7 +177,10 @@ open class CollectedClaimManager(
      *
      * Public because it is the one spelling of that map: asking whether these values are taken means asking
      * in the spelling the rows compare on, and writing it out again elsewhere is a second definition of
-     * which updates count and how their values are stored, with the two to be changed together.
+     * which updates count and how their values are stored, with the two to be changed together. It answers
+     * for an update, whose value the validator already cleaned, by spelling exactly what the write will
+     * spell; a caller holding a value that has not been through the validator asks [getStoredValueOf],
+     * which cleans it first and answers the same spelling.
      */
     fun getIdentifierValuesIn(updates: List<CollectedClaimUpdate>): Map<String, String> {
         val identifierClaims = claimManager.listIdentifierClaims().toSet()
@@ -187,6 +193,36 @@ open class CollectedClaimManager(
                 collectedClaimUpdateMapper.toValue(update.value)?.let { update.claim.id to it }
             }
             .toMap()
+    }
+
+    /**
+     * The spelling `collected_claims` holds for [value] under [claim], or null where [claim] could hold no
+     * such value at all.
+     *
+     * Cleaning and then spelling is one step, and this is where it is written: a caller that spelled a
+     * value without cleaning it would ask for a row no write ever produced, and one that cleaned it under
+     * a claim other than the one it is looking under would ask for a spelling that claim does not use.
+     * Answering null for a value the claim would refuse is the right answer rather than a failure — no row
+     * of that claim holds one either.
+     */
+    fun getStoredValueOf(claim: Claim, value: Any): String? {
+        return claimValueValidator.cleanValueForClaimOrNull(claim, value)
+            ?.let(claimValueMapper::toEntity)
+    }
+
+    /**
+     * The spelling each configured identifier claim holds [value] in, by the claim holding it. A claim that
+     * could hold no such value at all is absent rather than present with nothing.
+     *
+     * This is how one typed value is offered to the whole set: each claim is asked in the spelling it
+     * stores, rather than the set being asked in one spelling, because a claim only matches a row that
+     * went through its own cleaning. The claims of the set fold alike — [ClaimValueValidator] sees to that
+     * — so they differ here only where one of them would refuse the value outright.
+     */
+    fun getIdentifierValuesOf(value: Any): Map<String, String> {
+        return claimManager.listIdentifierClaims().mapNotNull { claim ->
+            getStoredValueOf(claim, value)?.let { claim.id to it }
+        }.toMap()
     }
 
     /**

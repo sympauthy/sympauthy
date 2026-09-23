@@ -6,6 +6,7 @@ import com.sympauthy.config.model.*
 import com.sympauthy.config.parsing.ParsedAuthConfig
 import com.sympauthy.config.properties.AuthConfigurationProperties.Companion.AUTH_KEY
 import com.sympauthy.config.properties.ByPasswordConfigurationProperties.Companion.BY_PASSWORD_KEY
+import com.sympauthy.util.wireName
 import jakarta.inject.Singleton
 
 @Singleton
@@ -16,20 +17,30 @@ class AuthConfigValidator {
         parsed: ParsedAuthConfig,
         uncheckedClaimsConfig: ClaimsConfig
     ): EnabledAuthConfig? {
-        // Validate identifier claims exist and are enabled.
+        // Validate identifier claims exist, are enabled, and are of a type an identifier can be compared in.
         val enabledClaimsConfig = uncheckedClaimsConfig as? EnabledClaimsConfig
         if (enabledClaimsConfig != null) {
-            val enabledClaimIds = enabledClaimsConfig.claims
+            val enabledClaims = enabledClaimsConfig.claims
                 .filter { it.enabled }
-                .map { it.id }
-                .toSet()
+                .associateBy { it.id }
             parsed.identifierClaims.forEach { identifierClaimId ->
-                if (identifierClaimId !in enabledClaimIds) {
+                val claim = enabledClaims[identifierClaimId]
+                if (claim == null) {
                     ctx.addError(
                         configExceptionOf(
                             "$AUTH_KEY.identifier-claims",
                             "config.auth.identifier_claim.disabled",
                             "claim" to identifierClaimId
+                        )
+                    )
+                } else if (!claim.dataType.canIdentify) {
+                    // Which types may identify, and why the rest may not, is ClaimDataType.canIdentify.
+                    ctx.addError(
+                        configExceptionOf(
+                            "$AUTH_KEY.identifier-claims",
+                            "config.auth.identifier_claim.unidentifiable_type",
+                            "claim" to identifierClaimId,
+                            "type" to claim.dataType.wireName
                         )
                     )
                 }

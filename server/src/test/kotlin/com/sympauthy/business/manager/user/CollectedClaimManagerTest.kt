@@ -5,6 +5,7 @@ import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.HeldStripes
 import com.sympauthy.business.manager.lock.LockManager
+import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.CollectedClaimMapper
 import com.sympauthy.business.mapper.CollectedClaimUpdateMapper
 import com.sympauthy.business.model.user.CollectedClaim
@@ -56,6 +57,12 @@ class CollectedClaimManagerTest {
 
     @MockK
     lateinit var collectedClaimUpdateMapper: CollectedClaimUpdateMapper
+
+    @MockK
+    lateinit var claimValueValidator: ClaimValueValidator
+
+    @MockK
+    lateinit var claimValueMapper: ClaimValueMapper
 
     @SpyK
     @InjectMockKs
@@ -485,6 +492,54 @@ class CollectedClaimManagerTest {
         assertEquals(1, result.count())
         assertSame(collectedClaim, result[0])
         coVerify(exactly = 0) { objectLockRepository.lock(any()) }
+    }
+
+    @Test
+    fun `getStoredValueOf - Cleans the value under the claim before spelling it`() {
+        // The claim is never named here: spelling a value is a question about the value, not about which
+        // claim is asking.
+        val emailClaim = mockk<Claim>()
+        every { claimValueValidator.cleanValueForClaimOrNull(emailClaim, " Someone@Example.COM ") } returns EMAIL
+        every { claimValueMapper.toEntity(EMAIL) } returns STORED_EMAIL
+
+        assertEquals(STORED_EMAIL, manager.getStoredValueOf(emailClaim, " Someone@Example.COM "))
+    }
+
+    @Test
+    fun `getStoredValueOf - Answers none where the claim could hold no such value`() {
+        val emailClaim = mockk<Claim>()
+        every { claimValueValidator.cleanValueForClaimOrNull(emailClaim, "not-an-address") } returns null
+
+        // The mapper is never reached: a value the claim would refuse matches no row of it either.
+        assertNull(manager.getStoredValueOf(emailClaim, "not-an-address"))
+    }
+
+    @Test
+    fun `getIdentifierValuesOf - Spells one value under every identifier claim, by the claim holding it`() {
+        val emailClaim = mockEmailClaim()
+        val usernameClaim = mockk<Claim> { every { id } returns "preferred_username" }
+        every { claimManager.listIdentifierClaims() } returns listOf(emailClaim, usernameClaim)
+        every { claimValueValidator.cleanValueForClaimOrNull(emailClaim, EMAIL) } returns EMAIL
+        every { claimValueValidator.cleanValueForClaimOrNull(usernameClaim, EMAIL) } returns EMAIL
+        every { claimValueMapper.toEntity(EMAIL) } returns STORED_EMAIL
+
+        assertEquals(
+            mapOf(EMAIL_CLAIM to STORED_EMAIL, "preferred_username" to STORED_EMAIL),
+            manager.getIdentifierValuesOf(EMAIL)
+        )
+    }
+
+    @Test
+    fun `getIdentifierValuesOf - Drops a claim that could hold no such value`() {
+        val emailClaim = mockEmailClaim()
+        val numberClaim = mockk<Claim>()
+        every { claimManager.listIdentifierClaims() } returns listOf(emailClaim, numberClaim)
+        every { claimValueValidator.cleanValueForClaimOrNull(emailClaim, EMAIL) } returns EMAIL
+        every { claimValueValidator.cleanValueForClaimOrNull(numberClaim, EMAIL) } returns null
+        every { claimValueMapper.toEntity(EMAIL) } returns STORED_EMAIL
+
+        // Absent rather than present with nothing: no row of that claim holds a value it would refuse.
+        assertEquals(mapOf(EMAIL_CLAIM to STORED_EMAIL), manager.getIdentifierValuesOf(EMAIL))
     }
 
     @Test
