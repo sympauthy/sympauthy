@@ -19,9 +19,9 @@ import org.junit.jupiter.params.provider.EnumSource
  *
  * An account signed up as `Ada@Example.COM` publishes that address back, and is reached by
  * `ADA@EXAMPLE.COM`, by the same address padded with spaces, and by no second account opened on any
- * other spelling of it. Every comparison this server makes on an identifier runs against a second
- * spelling the row carries beside the one it publishes, so nothing has to rewrite what somebody typed in
- * order to recognise them. The same holds of every claim in the set, whatever its type.
+ * other spelling of it. A row is found by a key it carries beside the value it publishes, so nothing has
+ * to rewrite what somebody typed in order to recognise them. The same holds of every claim in the set,
+ * whatever its type.
  *
  * No unit test reaches this. What is stored is written by one flow and read back through the userinfo
  * endpoint with that flow's own access token; that a differently spelled login still matches is decided
@@ -39,7 +39,7 @@ class IdentifierSpellingFeatureIT : AbstractSympauthyIT() {
     fun signsInWithAnySpellingOfTheAddress(database: Database) {
         withContainer(database, extraConfig = emailScope(), scopes = SCOPES) { sympauthy, registry ->
             val tokens = registry.newFlow()
-                .withSignUpHandler { mapOf("email" to TYPED, "password" to PASSWORD) }
+                .withSignUpHandler { mapOf("email" to PADDED, "password" to PASSWORD) }
                 .run()
                 .exchange()
             val account = subjectOf(sympauthy, tokens.idToken())
@@ -50,7 +50,7 @@ class IdentifierSpellingFeatureIT : AbstractSympauthyIT() {
             requireNotNull(stored) { "userinfo returned an empty body" }
 
             assertEquals(
-                TYPED.trim(), stored.email,
+                WRITTEN, stored.email,
                 "the address comes back as it was written, trimmed and otherwise untouched",
             )
             assertEquals(
@@ -58,7 +58,7 @@ class IdentifierSpellingFeatureIT : AbstractSympauthyIT() {
                 "a third spelling of the address reaches the account that owns it",
             )
             assertEquals(
-                account, subjectOf(sympauthy, signIn(registry, "  $STORED  ")),
+                account, subjectOf(sympauthy, signIn(registry, "  $LOWERED  ")),
                 "a login padded with whitespace reaches the same account",
             )
         }
@@ -69,19 +69,19 @@ class IdentifierSpellingFeatureIT : AbstractSympauthyIT() {
     fun refusesASecondAccountOverAnotherSpelling(database: Database) {
         withContainer(database) { sympauthy, registry ->
             val first = registry.newFlow()
-                .withSignUpHandler { mapOf("email" to TYPED, "password" to PASSWORD) }
+                .withSignUpHandler { mapOf("email" to PADDED, "password" to PASSWORD) }
                 .run()
             val account = subjectOf(sympauthy, first.exchange().idToken())
 
             // The same address in the spelling the first account did not type. Its password differs, so
             // an account that did come out of it could not be mistaken for the one that already exists.
             val second = registry.newFlow()
-                .withSignUpHandler { mapOf("email" to STORED, "password" to OTHER_PASSWORD) }
+                .withSignUpHandler { mapOf("email" to LOWERED, "password" to OTHER_PASSWORD) }
 
             assertThrows<FlowException>("the sign-up must not complete") { second.run() }
 
             assertEquals(
-                account, subjectOf(sympauthy, signIn(registry, STORED, PASSWORD)),
+                account, subjectOf(sympauthy, signIn(registry, LOWERED, PASSWORD)),
                 "the address still reaches the account that owns it, under its own password",
             )
         }
@@ -93,7 +93,7 @@ class IdentifierSpellingFeatureIT : AbstractSympauthyIT() {
         withContainer(database, extraConfig = twoIdentifierClaims(), scopes = PROFILE_SCOPES) { sympauthy, registry ->
             val tokens = registry.newFlow()
                 .withSignUpHandler {
-                    mapOf("email" to STORED, "preferred_username" to TYPED_USERNAME, "password" to PASSWORD)
+                    mapOf("email" to WRITTEN, "preferred_username" to WRITTEN_USERNAME, "password" to PASSWORD)
                 }
                 .run()
                 .exchange()
@@ -105,7 +105,7 @@ class IdentifierSpellingFeatureIT : AbstractSympauthyIT() {
             requireNotNull(stored) { "userinfo returned an empty body" }
 
             assertEquals(
-                TYPED_USERNAME, stored.preferredUsername,
+                WRITTEN_USERNAME, stored.preferredUsername,
                 "the username keeps the capitalisation its owner chose",
             )
             assertEquals(
@@ -120,7 +120,7 @@ class IdentifierSpellingFeatureIT : AbstractSympauthyIT() {
                 .withSignUpHandler {
                     mapOf(
                         "email" to OTHER_EMAIL,
-                        "preferred_username" to STORED_USERNAME,
+                        "preferred_username" to LOWERED_USERNAME,
                         "password" to OTHER_PASSWORD,
                     )
                 }
@@ -167,18 +167,27 @@ class IdentifierSpellingFeatureIT : AbstractSympauthyIT() {
 
     private companion object {
 
-        /** The address as the person typed it at sign-up, in mixed case and padded. */
-        const val TYPED = " Ada@Example.COM "
-        const val STORED = "ada@example.com"
+        /**
+         * One address in the spellings this scenario types it in. [WRITTEN] is what the person wrote, so
+         * it is what the row holds and what userinfo answers; the rest are the same identity spelled
+         * otherwise, and each of them has to reach the account [WRITTEN] opened.
+         *
+         * None of them is what the row is found by. That is a hash of the folded value, which no column
+         * holds as text and no reader is ever answered with.
+         */
+        const val WRITTEN = "Ada@Example.COM"
+        const val PADDED = " $WRITTEN "
+        const val LOWERED = "ada@example.com"
         const val SHOUTED = "ADA@EXAMPLE.COM"
+
+        /** One username, in the spellings this scenario types it in. [WRITTEN_USERNAME] is the stored one. */
+        const val WRITTEN_USERNAME = "Ada.Lovelace"
+        const val LOWERED_USERNAME = "ada.lovelace"
+        const val SHOUTED_USERNAME = "ADA.LOVELACE"
+
         const val PASSWORD = "Str0ngP@ssw0rd!"
         const val OTHER_PASSWORD = "0therP@ssw0rd!"
         const val OTHER_EMAIL = "grace@example.com"
-
-        /** A username as the person typed it, and the two other spellings of the same identity. */
-        const val TYPED_USERNAME = "Ada.Lovelace"
-        const val STORED_USERNAME = "ada.lovelace"
-        const val SHOUTED_USERNAME = "ADA.LOVELACE"
 
         val SCOPES = listOf("openid", "email")
         val PROFILE_SCOPES = listOf("openid", "profile")
