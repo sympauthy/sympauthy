@@ -399,7 +399,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
      * The values the check compares and the keys locking them come out of this one read, and null answers
      * for both: a key over a check that does not run excludes a promotion for nothing, and a check with no
      * key over it is the one this answer exists to keep out. An asserted value is spelled by
-     * [CollectedClaimManager.getComparisonValueOf], which cleans it under the claim asserting it first,
+     * [CollectedClaimManager.getFoldedValueOf], which cleans it under the claim asserting it first,
      * the check compares on the spelling a collected value was stored in — an address a provider
      * capitalises is otherwise a conflict nothing sees. A value that claim could hold no such value of
      * drops out with it: neither half of the pair can be formed, and no row it would have matched exists.
@@ -407,7 +407,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
     private suspend fun getAssertedIdentifiersOrNull(rawUserInfo: RawProviderClaims): AssertedIdentifiers? {
         val valuesByClaimId = claimManager.listIdentifierClaims().mapNotNull { claim ->
             rawUserInfo.getClaimValueOrNull(claim)
-                ?.let { collectedClaimManager.getComparisonValueOf(claim, it) }
+                ?.let { collectedClaimManager.getFoldedValueOf(claim, it) }
                 ?.let { claim.id to it }
         }.toMap()
         if (valuesByClaimId.isEmpty()) return null

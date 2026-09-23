@@ -117,7 +117,7 @@ class UserCollectionManagerTest {
             userId = userId,
             claim = "email",
             value = null,
-            comparisonValue = null,
+            foldedEqualityHash = null,
             verified = null,
             collectionDate = collectionDate,
             verificationDate = null,

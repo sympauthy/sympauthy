@@ -24,8 +24,6 @@ import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.config.model.orThrow
-import com.sympauthy.data.repository.CollectedClaimRepository
-import com.sympauthy.data.repository.findAnyClaimMatching
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -45,7 +43,6 @@ open class InteractiveAuthFlowSessionPasswordManager(
     @Inject private val userSecurityContextManager: UserSecurityContextManager,
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
-    @Inject private val collectedClaimRepository: CollectedClaimRepository,
     @Inject private val invitationManager: InvitationManager,
     @Inject private val passwordManager: PasswordManager,
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
@@ -81,9 +78,8 @@ open class InteractiveAuthFlowSessionPasswordManager(
      * claim would have refused.
      */
     internal suspend fun findByAnyIdentifierClaimValue(identifierClaimValue: String): User? {
-        val claimValues = collectedClaimManager.getIdentifierComparisonValuesOf(identifierClaimValue)
-        val userInfo = collectedClaimRepository.findAnyClaimMatching(claimValues)
-        return userInfo?.userId?.let { userManager.findByIdOrNull(it) }
+        val folded = collectedClaimManager.getIdentifierFoldedValuesOf(identifierClaimValue)
+        return userManager.findByAnyIdentifierClaimValue(folded)
     }
 
     /**
@@ -266,13 +262,13 @@ open class InteractiveAuthFlowSessionPasswordManager(
      * across every identifier claim rather than within the one offering it. The account being signed up
      * does not exist yet, so nothing is exempt and the caller is named as none.
      *
-     * The values come from [CollectedClaimManager.getIdentifierComparisonValuesIn], the one place that says
+     * The values come from [CollectedClaimManager.getIdentifierFoldedValuesIn], the one place that says
      * which updates carry an identifier value and how `collected_claims` folds it — the spelling the rows
      * compare on and the key locks under.
      */
     internal suspend fun checkForConflictingUsers(claims: List<CollectedClaimUpdate>) {
         val claimIds = claims.map { it.claim.id }
-        val valuesByClaimId = collectedClaimManager.getIdentifierComparisonValuesIn(claims)
+        val valuesByClaimId = collectedClaimManager.getIdentifierFoldedValuesIn(claims)
         val taken = userManager.findTakenIdentifierOrNull(null, claimIds, valuesByClaimId) ?: return
         throw recoverableBusinessExceptionOf(
             detailsId = "flow.password.sign_up.existing",

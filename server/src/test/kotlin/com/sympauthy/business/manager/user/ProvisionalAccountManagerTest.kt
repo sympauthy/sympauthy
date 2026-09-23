@@ -2,6 +2,8 @@ package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.mapper.ClaimValueMapper
+import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.manager.lock.HeldStripes
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.data.model.CollectedClaimEntity
@@ -63,6 +65,9 @@ class ProvisionalAccountManagerTest {
     @MockK(relaxed = true)
     lateinit var objectLockRepository: ObjectLockRepository
 
+    @MockK
+    lateinit var claimValueMapper: ClaimValueMapper
+
     lateinit var manager: ProvisionalAccountManager
 
     private val sessionId = UUID.randomUUID()
@@ -75,6 +80,7 @@ class ProvisionalAccountManagerTest {
     fun setUp() {
         manager = ProvisionalAccountManager(
             claimManager = claimManager,
+            claimValueMapper = claimValueMapper,
             userManager = userManager,
             lockManager = LockManager(objectLockRepository, HeldStripes()),
             userRepository = userRepository,
@@ -124,6 +130,7 @@ class ProvisionalAccountManagerTest {
         coEvery {
             collectedClaimRepository.findByUserIdAndClaimInList(userId, listOf("email"))
         } returns listOf(claimEntity("email", "\"taken@example.com\""))
+        stubFoldOf("email", "\"taken@example.com\"")
         coEvery {
             userManager.findTakenIdentifierOrNull(
                 userId, listOf("email"), mapOf("email" to "\"taken@example.com\"")
@@ -243,6 +250,7 @@ class ProvisionalAccountManagerTest {
         coEvery {
             collectedClaimRepository.findByUserIdAndClaimInList(userId, listOf("email"))
         } returns listOf(claimEntity("email", "\"free@example.com\""))
+        stubFoldOf("email", "\"free@example.com\"")
         coEvery {
             userManager.findTakenIdentifierOrNull(
                 userId, listOf("email"), mapOf("email" to "\"free@example.com\"")
@@ -288,11 +296,20 @@ class ProvisionalAccountManagerTest {
         }
     }
 
+    /**
+     * The claim [claim] of the account being promoted, and the mapper answering the folded value the
+     * promotion recovers from it — the row carries a key, not the fold.
+     */
+    private fun stubFoldOf(claim: String, value: String) {
+        every { claimManager.findByIdOrNull(claim) } returns mockk { every { dataType } returns ClaimDataType.STRING }
+        every { claimValueMapper.toFoldedValueOfStored(value, ClaimDataType.STRING) } returns value
+    }
+
     private fun claimEntity(claim: String, value: String) = CollectedClaimEntity(
         userId = userId,
         claim = claim,
         value = value,
-        comparisonValue = value,
+        foldedEqualityHash = value.hashCode().toLong(),
         verified = null,
         collectionDate = LocalDateTime.now(),
         verificationDate = null,

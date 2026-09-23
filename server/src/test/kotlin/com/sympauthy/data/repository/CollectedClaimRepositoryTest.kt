@@ -16,12 +16,12 @@ import java.time.LocalDateTime
 import java.util.*
 
 /**
- * The claims collected against a user: the two queries [CollectedClaimRepository] writes as raw SQL, and
- * the three criteria queries its file declares as extensions, none of which a unit test can reach.
+ * The claims collected against a user: the queries [CollectedClaimRepository] writes as raw SQL, and the
+ * criteria query its file declares as an extension, none of which a unit test can reach.
  *
- * What they have to prove compiles either way — that a user matches only when every claim in the map
- * matches, that a scalar projection over `MAX` comes back typed, and that setting a claim verified twice
- * keeps the first date.
+ * What they have to prove compiles either way — that a row is found by the key its own write computed
+ * whatever spelling it publishes, that a scalar projection over `MAX` comes back typed, and that setting
+ * a claim verified twice keeps the first date.
  */
 class CollectedClaimRepositoryTest {
 
@@ -185,50 +185,61 @@ class CollectedClaimRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `findAnyClaimMatching - Finds the claim of a pair holding that pair's value`(database: Database) =
+    fun `findCommittedClaimsMatching - Finds the claim of a pair holding that pair's key`(database: Database) =
         withFixture(database) {
             val users = seedUsers()
             val claims = repository<CollectedClaimRepository>()
 
-            val found = claims.findAnyClaimMatching(
-                mapOf("email" to compared(bobEmail), "phone_number" to compared(bobEmail))
+            val found = claims.findCommittedClaimsMatching(
+                listOf("email" to keyOf(bobEmail), "phone_number" to keyOf(bobEmail))
             )
 
-            assertEquals(users.bobId, found?.userId)
-            assertNull(claims.findAnyClaimMatching(mapOf("name" to compared(bobEmail))))
+            assertEquals(listOf(users.bobId), found.map { it.userId })
+            assertTrue(claims.findCommittedClaimsMatching(listOf("name" to keyOf(bobEmail))).isEmpty())
         }
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `findAnyClaimMatching - Matches a value only under the claim it was offered for`(database: Database) =
+    fun `findCommittedClaimsMatching - Finds a row written in one spelling by the key of another`(
+        database: Database
+    ) = withFixture(database) {
+        // The whole point of the column: the row publishes the capitalisation its owner chose, and the
+        // key it is found by folds it away.
+        val userId = newUser()
+        val typed = "Ada.Lovelace-$qualifier"
+        saveClaim(userId, "name", typed)
+        val claims = repository<CollectedClaimRepository>()
+
+        val found = claims.findCommittedClaimsMatching(listOf("name" to keyOf(typed.uppercase())))
+
+        assertEquals(listOf(userId), found.map { it.userId })
+        assertEquals(encoded(typed), found.single().value)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findCommittedClaimsMatching - Matches a key only under the claim it was offered for`(
+        database: Database
+    ) = withFixture(database) {
+        val users = seedUsers()
+        val claims = repository<CollectedClaimRepository>()
+
+        assertTrue(claims.findCommittedClaimsMatching(listOf("email" to keyOf(bobName))).isEmpty())
+        assertEquals(
+            listOf(users.bobId),
+            claims.findCommittedClaimsMatching(listOf("name" to keyOf(bobName))).map { it.userId }
+        )
+    }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findCommittedClaimsMatching - Returns every row any of the pairs names`(database: Database) =
         withFixture(database) {
-            // Each claim carries its own spelling, so a value reaching one of them says nothing about the rest.
             val users = seedUsers()
             val claims = repository<CollectedClaimRepository>()
 
-            assertNull(claims.findAnyClaimMatching(mapOf("email" to compared(bobName))))
-            assertEquals(users.bobId, claims.findAnyClaimMatching(mapOf("name" to compared(bobName)))?.userId)
-        }
-
-    @ParameterizedTest
-    @EnumSource(Database::class)
-    fun `findAnyClaimMatching - Returns nothing when no pair is offered`(database: Database) =
-        withFixture(database) {
-            seedUsers()
-
-            assertNull(repository<CollectedClaimRepository>().findAnyClaimMatching(emptyMap()))
-        }
-
-    @ParameterizedTest
-    @EnumSource(Database::class)
-    fun `findAnyClaimMatching - Returns every claim matching any of the values`(database: Database) =
-        withFixture(database) {
-            val users = seedUsers()
-            val claims = repository<CollectedClaimRepository>()
-
-            val found = claims.findAnyClaimMatching(
-                listOf("email", "name"),
-                listOf(compared(aliceEmail), compared(bobName))
+            val found = claims.findCommittedClaimsMatching(
+                listOf("email" to keyOf(aliceEmail), "name" to keyOf(bobName))
             )
 
             assertEquals(setOf(users.aliceId, users.bobId, users.charlieId), found.map { it.userId }.toSet())
@@ -236,67 +247,11 @@ class CollectedClaimRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `findAnyClaimMatching - Returns nothing when either list is empty`(database: Database) =
+    fun `findCommittedClaimsMatching - Returns nothing when no pair is offered`(database: Database) =
         withFixture(database) {
             seedUsers()
-            val claims = repository<CollectedClaimRepository>()
 
-            assertTrue(claims.findAnyClaimMatching(emptyList(), listOf(compared(aliceEmail))).isEmpty())
-            assertTrue(claims.findAnyClaimMatching(listOf("email"), emptyList()).isEmpty())
-        }
-
-    @ParameterizedTest
-    @EnumSource(Database::class)
-    fun `findUserIdsMatchingAllClaims - Returns nothing when no claim is given`(database: Database) =
-        withFixture(database) {
-            assertTrue(repository<CollectedClaimRepository>().findUserIdsMatchingAllClaims(emptyMap()).isEmpty())
-        }
-
-    @ParameterizedTest
-    @EnumSource(Database::class)
-    fun `findUserIdsMatchingAllClaims - Returns every user matching one claim`(database: Database) =
-        withFixture(database) {
-            val users = seedUsers()
-
-            val found = repository<CollectedClaimRepository>()
-                .findUserIdsMatchingAllClaims(mapOf("email" to compared(aliceEmail)))
-
-            assertEquals(setOf(users.aliceId, users.charlieId), found.toSet())
-        }
-
-    @ParameterizedTest
-    @EnumSource(Database::class)
-    fun `findUserIdsMatchingAllClaims - Returns only the users matching all claims`(database: Database) =
-        withFixture(database) {
-            val users = seedUsers()
-
-            val found = repository<CollectedClaimRepository>().findUserIdsMatchingAllClaims(
-                mapOf("email" to compared(aliceEmail), "name" to compared(aliceName))
-            )
-
-            assertEquals(listOf(users.aliceId), found)
-        }
-
-    @ParameterizedTest
-    @EnumSource(Database::class)
-    fun `findUserIdsMatchingAllClaims - Returns nothing when one claim misses`(database: Database) =
-        withFixture(database) {
-            seedUsers()
-            val claims = repository<CollectedClaimRepository>()
-
-            val mismatched = claims.findUserIdsMatchingAllClaims(
-                mapOf("email" to compared(aliceEmail), "name" to compared(bobName))
-            )
-            val unknownValue = claims.findUserIdsMatchingAllClaims(
-                mapOf("email" to compared("nobody@$qualifier.test"))
-            )
-            val unknownClaim = claims.findUserIdsMatchingAllClaims(
-                mapOf("phone_number" to compared("phone-$qualifier"))
-            )
-
-            assertTrue(mismatched.isEmpty())
-            assertTrue(unknownValue.isEmpty())
-            assertTrue(unknownClaim.isEmpty())
+            assertTrue(repository<CollectedClaimRepository>().findCommittedClaimsMatching(emptyList()).isEmpty())
         }
 
     /**
@@ -318,24 +273,20 @@ class CollectedClaimRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `findAnyClaimMatching - Hides a claim a session is still signing up`(database: Database) =
+    fun `findCommittedClaimsMatching - Hides a claim a session is still signing up`(database: Database) =
         withFixture(database) {
             val claims = repository<CollectedClaimRepository>()
             val session = newSession()
             val userId = newUser(sessionId = session.id)
             val email = "provisional@$qualifier.test"
             saveClaim(userId, "email", email, sessionId = session.id)
-            val value = compared(email)
+            val pair = listOf("email" to keyOf(email))
 
-            assertNull(claims.findAnyClaimMatching(mapOf("email" to value)))
-            assertTrue(claims.findAnyClaimMatching(listOf("email"), listOf(value)).isEmpty())
-            assertTrue(claims.findUserIdsMatchingAllClaims(mapOf("email" to value)).isEmpty())
+            assertTrue(claims.findCommittedClaimsMatching(pair).isEmpty())
 
             assertEquals(1, claims.clearSessionId(userId, session.id!!))
 
-            assertEquals(userId, claims.findAnyClaimMatching(mapOf("email" to value))?.userId)
-            assertEquals(listOf(userId), claims.findAnyClaimMatching(listOf("email"), listOf(value)).map { it.userId })
-            assertEquals(listOf(userId), claims.findUserIdsMatchingAllClaims(mapOf("email" to value)))
+            assertEquals(listOf(userId), claims.findCommittedClaimsMatching(pair).map { it.userId })
         }
 
     @ParameterizedTest
@@ -372,7 +323,7 @@ class CollectedClaimRepositoryTest {
                 userId = userId,
                 claim = claim,
                 value = value?.let { encoded(it) },
-                comparisonValue = value?.lowercase(),
+                foldedEqualityHash = repository<ClaimValueMapper>().toFoldedEqualityHash(value),
                 verified = verified,
                 collectionDate = collectedAt,
                 verificationDate = if (verified == true) collectedAt else null,
@@ -385,6 +336,7 @@ class CollectedClaimRepositoryTest {
     private fun RepositoryFixture.encoded(value: Any?): String? =
         repository<ClaimValueMapper>().toEntity(value)
 
-    /** The spelling the identifier queries compare on: the value as plain text, lowercased. */
-    private fun compared(value: String): String = value.lowercase()
+    /** The key an identifier row is found by, as the mapper that wrote the row computed it. */
+    private fun RepositoryFixture.keyOf(value: String): Long =
+        repository<ClaimValueMapper>().toFoldedEqualityHash(value)!!
 }

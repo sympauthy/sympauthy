@@ -20,10 +20,8 @@ import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.config.model.AuthConfig
-import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.UserRepository
-import io.micronaut.data.repository.jpa.criteria.PredicateSpecification
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -122,41 +120,22 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
     }
 
     @Test
-    fun `findByAnyIdentifierClaimValue - Resolves the account a committed claim of the set holds it under`() =
-        runTest {
-            // Which spelling each claim is offered is CollectedClaimManagerTest's; this is what the
-            // manager does with the answer.
-            every { collectedClaimManager.getIdentifierComparisonValuesOf(login) } returns
-                mapOf("email" to login)
-            coEvery { collectedClaimRepository.findOne(any<PredicateSpecification<CollectedClaimEntity>>()) } returns
-                mockk { every { this@mockk.userId } returns this@InteractiveAuthFlowSessionPasswordManagerTest.userId }
-            coEvery { userManager.findByIdOrNull(userId) } returns user
+    fun `findByAnyIdentifierClaimValue - Hands the value folded per claim to the account read`() = runTest {
+        // Which fold each claim gets is CollectedClaimManagerTest's, and which row answers is
+        // UserManagerTest's; what this holds is that the one is what reaches the other.
+        val folded = mapOf("email" to login)
+        every { collectedClaimManager.getIdentifierFoldedValuesOf(login) } returns folded
+        coEvery { userManager.findByAnyIdentifierClaimValue(folded) } returns user
 
-            assertSame(user, manager.findByAnyIdentifierClaimValue(login))
-        }
-
-    @Test
-    fun `findByAnyIdentifierClaimValue - Queries nothing where no claim of the set could hold the value`() =
-        runTest {
-            every { collectedClaimManager.getIdentifierComparisonValuesOf("alice") } returns emptyMap()
-
-            assertNull(manager.findByAnyIdentifierClaimValue("alice"))
-
-            coVerify(exactly = 0) {
-                collectedClaimRepository.findOne(any<PredicateSpecification<CollectedClaimEntity>>())
-            }
-        }
+        assertSame(user, manager.findByAnyIdentifierClaimValue(login))
+    }
 
     @Test
     fun `findByAnyIdentifierClaimValue - Answers none where no committed claim holds the value`() = runTest {
-        every { collectedClaimManager.getIdentifierComparisonValuesOf(login) } returns mapOf("email" to login)
-        coEvery {
-            collectedClaimRepository.findOne(any<PredicateSpecification<CollectedClaimEntity>>())
-        } returns null
+        every { collectedClaimManager.getIdentifierFoldedValuesOf(login) } returns mapOf("email" to login)
+        coEvery { userManager.findByAnyIdentifierClaimValue(any()) } returns null
 
         assertNull(manager.findByAnyIdentifierClaimValue(login))
-
-        coVerify(exactly = 0) { userManager.findByIdOrNull(any()) }
     }
 
     @Test
@@ -287,7 +266,7 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
     fun `checkForConflictingUsers - Refuses recoverably when a committed account holds one value`() = runTest {
         val updates = listOf(claimUpdate("email", "a@example.com"), claimUpdate("phone_number", "+33612345678"))
         val offered = mapOf("email" to "\"a@example.com\"", "phone_number" to "\"+33612345678\"")
-        every { collectedClaimManager.getIdentifierComparisonValuesIn(updates) } returns offered
+        every { collectedClaimManager.getIdentifierFoldedValuesIn(updates) } returns offered
         coEvery {
             userManager.findTakenIdentifierOrNull(null, listOf("email", "phone_number"), offered)
         } returns TakenIdentifier(claimId = "email", userId = ownerId)
@@ -305,7 +284,7 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
         runTest {
             val updates = listOf(claimUpdate("email", "a@example.com"))
             val offered = mapOf("email" to "\"a@example.com\"")
-            every { collectedClaimManager.getIdentifierComparisonValuesIn(updates) } returns offered
+            every { collectedClaimManager.getIdentifierFoldedValuesIn(updates) } returns offered
             coEvery { userManager.findTakenIdentifierOrNull(null, any(), any()) } returns null
 
             manager.checkForConflictingUsers(updates)
@@ -320,7 +299,7 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
         // CollectedClaimManagerTest's — and the claim is searched all the same, because a value has to be
         // free across every one of them.
         val offered = mapOf("email" to "\"a@example.com\"")
-        every { collectedClaimManager.getIdentifierComparisonValuesIn(updates) } returns offered
+        every { collectedClaimManager.getIdentifierFoldedValuesIn(updates) } returns offered
         coEvery { userManager.findTakenIdentifierOrNull(null, any(), any()) } returns null
 
         manager.checkForConflictingUsers(updates)

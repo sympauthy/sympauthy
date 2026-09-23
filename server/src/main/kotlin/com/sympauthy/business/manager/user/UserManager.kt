@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.user.User
@@ -9,8 +10,7 @@ import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.UserRepository
-import com.sympauthy.data.repository.findAnyClaimMatching
-import com.sympauthy.data.repository.findUserIdsMatchingAllClaims
+import com.sympauthy.data.repository.findCommittedClaimsMatching
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -26,6 +26,9 @@ open class UserManager(
 
     @Inject
     private lateinit var claimValueMapper: ClaimValueMapper
+
+    @Inject
+    private lateinit var claimManager: ClaimManager
 
     /**
      * Find the committed end-user identified by [id]. Otherwise, return null.
@@ -90,10 +93,55 @@ open class UserManager(
      * provider capitalised it.
      */
     suspend fun findByIdentifierClaims(claimValues: Map<String, Any>): User? {
-        val comparisonValues = claimValues.mapValues { (_, value) -> claimValueMapper.toComparisonValue(value) }
-        val userIds = collectedClaimRepository.findUserIdsMatchingAllClaims(comparisonValues)
-        return userRepository.findByIdInListAndSessionIdIsNull(userIds).firstOrNull()
+        val foldedByClaimId = claimValues.mapNotNull { (claimId, value) ->
+            claimValueMapper.toFoldedValue(value)?.let { claimId to it }
+        }
+        if (foldedByClaimId.isEmpty()) {
+            return null
+        }
+        val matched = findCommittedClaimsFolding(foldedByClaimId)
+            .groupBy(CollectedClaimEntity::userId)
+            .filterValues { rows -> foldedByClaimId.all { (claimId, _) -> rows.any { it.claim == claimId } } }
+        return userRepository.findByIdInListAndSessionIdIsNull(matched.keys.toList()).firstOrNull()
             ?.let(userMapper::toUser)
+    }
+
+    /**
+     * Find the committed end-user holding [foldedByClaimId] under **any one** of the claims it names.
+     * Otherwise, return null.
+     *
+     * This is how a single value somebody typed is resolved to an account: the caller has folded it once
+     * per identifier claim, and a row of any of them holding it answers. A caller asking instead which
+     * account holds *every* one of a set of values wants [findByIdentifierClaims], and one asking whether
+     * a value is free wants [findTakenIdentifierOrNull] — `docs/identifier-claims.md` is why those are
+     * three reads and not one.
+     */
+    suspend fun findByAnyIdentifierClaimValue(foldedByClaimId: Map<String, String>): User? {
+        val matched = findCommittedClaimsFolding(foldedByClaimId.toList()).firstOrNull() ?: return null
+        return findByIdOrNull(matched.userId)
+    }
+
+    /**
+     * The committed rows whose claim is one of [foldedByClaim] and whose folded value is the one offered
+     * for that claim, the hash having only narrowed the search.
+     *
+     * The re-check is the point: the column holds eight bytes of a digest, so a row it selected is a
+     * candidate that a birthday search can plant, and acting on one unchecked would merge a provider into
+     * a stranger's account. A row whose claim this deployment no longer declares cannot be checked and is
+     * therefore not one.
+     */
+    private suspend fun findCommittedClaimsFolding(
+        foldedByClaim: Collection<Pair<String, String>>
+    ): List<CollectedClaimEntity> {
+        val hashes = foldedByClaim.mapNotNull { (claimId, folded) ->
+            claimValueMapper.toFoldedEqualityHash(folded)?.let { claimId to it }
+        }
+        val expected = foldedByClaim.groupBy({ it.first }, { it.second })
+        return collectedClaimRepository.findCommittedClaimsMatching(hashes).filter { row ->
+            val claim = claimManager.findByIdOrNull(row.claim) ?: return@filter false
+            val folded = claimValueMapper.toFoldedValueOfStored(row.value, claim.dataType)
+            folded != null && folded in expected[row.claim].orEmpty()
+        }
     }
 
     /**
@@ -180,10 +228,9 @@ open class UserManager(
      * value at a time — neither blocks the other, and the question is asked again when the first of them
      * promotes. See [com.sympauthy.data.model.SessionScoped] and `docs/provisional-user.md`.
      *
-     * The values are the ones `collected_claims` compares on — [CollectedClaimEntity.comparisonValue],
-     * which [CollectedClaimManager.getComparisonValueOf] spells — and not the ones it stores. Two
-     * spellings of one value are one identity, so a caller offering the stored one would ask a question
-     * every difference of case answers wrongly.
+     * The values are folded ones — what [CollectedClaimManager.getFoldedValueOf] answers — and not the
+     * ones `collected_claims` publishes. Two spellings of one value are one identity, so a caller
+     * offering the published one would ask a question every difference of case answers wrongly.
      */
     suspend fun findTakenIdentifierOrNull(
         userId: UUID?,
@@ -193,10 +240,16 @@ open class UserManager(
         if (claimIds.isEmpty() || valuesByClaimId.isEmpty()) {
             return null
         }
-        val committed = collectedClaimRepository.findAnyClaimMatching(claimIds, valuesByClaimId.values.toList())
-        return valuesByClaimId.firstNotNullOfOrNull { (claimId, comparisonValue) ->
-            committed.firstOrNull { it.comparisonValue == comparisonValue && it.userId != userId }
-                ?.let { TakenIdentifier(claimId = claimId, userId = it.userId) }
+        val offered = claimIds.flatMap { claimId -> valuesByClaimId.values.map { claimId to it } }
+        val committed = findCommittedClaimsFolding(offered)
+        return valuesByClaimId.firstNotNullOfOrNull { (claimId, folded) ->
+            committed.firstOrNull { row ->
+                row.userId != userId &&
+                    claimValueMapper.toFoldedValueOfStored(
+                        row.value,
+                        claimManager.findByIdOrNull(row.claim)?.dataType ?: return@firstOrNull false
+                    ) == folded
+            }?.let { TakenIdentifier(claimId = claimId, userId = it.userId) }
         }
     }
 

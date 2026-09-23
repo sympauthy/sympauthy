@@ -57,37 +57,42 @@ conflict.
 which of them keeps it is settled when the first one
 [promotes](provisional-user.md#when-uniqueness-is-settled).
 
-## The value the row publishes, and the value it is compared in
+## The value the row publishes, and the key it is found by
 
-**A row holds both: `value` as the person wrote it, and `comparison_value` as everything compares on
-it.** The first is what every reader is answered with, and nothing rewrites it. The second is the
-cleaned value as plain text, lowercased, and it is what an identifier is matched, checked and locked
-on.
+**A row holds `value` as the person wrote it, and nothing rewrites it.** It is what every reader is
+answered with — somebody who capitalised their own name keeps that. Case is not theirs to lose so
+that a query can be written.
 
-**Case is not the person's identity to lose.** Somebody who capitalises their own name or their own
-address keeps that in what this server publishes back — `Ada.Lovelace` stays `Ada.Lovelace` — while
-signing in as `ada.lovelace` still reaches them. Folding the stored value would have settled the
-comparison by discarding what they typed.
+**What an identifier is found by is `folded_equality_hash`, and the name is the whole of what it
+answers.** Equality, under folding, and nothing else: it does not order, it does not prefix-match,
+and it is never published. The folded value it hashes is the cleaned value as plain text,
+lowercased.
 
-**Plain text and not the stored encoding, so one typed thing is one identity across types.**
-`collected_claims.value` holds the JSON a claim's type is exchanged as, which spells `42` under a
-`number` claim and `"42"` under a `string` one. Comparing those would make one typed `42` reach a
-row of one account under the first and a row of another under the second, which is the crossed pair
-of the section above.
+**Plain text and not the exchanged encoding, so one typed thing is one identity across types.**
+`value` holds the JSON a claim's type is exchanged as, which spells `42` under a `number` claim and
+`"42"` under a `string` one. Folding those apart would let one typed `42` reach a row of one account
+under the first and a row of another under the second, which is the crossed pair of the section
+above.
 
-**It is a column rather than a `LOWER(...)` in the query.** A function comparison is spelled
-differently by each dialect and wants an index each of them expresses, and it is invisible to
-`LockKey.IdentifierValue`, which hashes a string and never sees a query — so the lock and the check
-would agree on nothing.
+**An integer, so that the index and the comparison cost the same whatever the value's length.** A
+claim may hold a long document; none of it is compared, and none of it is indexed. It is also what
+lets the key be spelled identically by every dialect, where a `LOWER(...)` comparison is not — and
+`LockKey.IdentifierValue`, which hashes a string and never sees a query, could not agree with one.
 
-**One declaration spells it, and every writer and every reader goes through that one.**
-`ClaimValueMapper.toComparisonValue` is it; the entity mapper fills the column with it, and
-`CollectedClaimManager.getComparisonValueOf` cleans a value under its claim and then asks it, for a
-caller holding a value rather than a row.
+**A row the hash selected is a candidate, and every caller re-checks the folded value itself.**
+Eight bytes of a digest are a birthday search away from a deliberate collision, and a collision that
+went unchecked would merge a provider into a stranger's account. `UserManager` recovers the folded
+value from what the row publishes — `ClaimValueMapper.toFoldedValueOfStored` — rather than storing
+it a second time.
 
-**A read offers each claim its own spelling, and a claim that could hold no such value is offered
-none.** A `number` claim reads `0042` as `42` where a `string` one does not, so one typed value is
-cleaned per claim before it is folded — and a claim that would refuse the value matches nothing,
+**The fold has one declaration, and so does its hash.** `ClaimValueMapper.toFoldedValue` and
+`toFoldedEqualityHash` are they; the entity mapper writes the column from them and
+`CollectedClaimManager.getFoldedValueOf` cleans a value under its claim and then asks them. The
+mapping is fixed for the life of the schema, because a row is found by it and by nothing else.
+
+**A read offers each claim its own folded value, and a claim that could hold no such value is
+offered none.** A `number` claim reads `0042` as `42` where a `string` one does not, so one typed
+value is cleaned per claim before it is folded — and a claim that would refuse it matches nothing,
 since no row of it holds one either.
 
 **A type that cannot identify a person is refused at startup.** `ClaimDataType.canIdentify` is the

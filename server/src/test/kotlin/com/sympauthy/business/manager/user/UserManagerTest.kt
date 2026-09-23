@@ -1,15 +1,20 @@
 package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
+import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.UserRepository
 import io.micronaut.data.repository.jpa.criteria.PredicateSpecification
+import io.micronaut.serde.ObjectMapper
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -33,9 +38,19 @@ class UserManagerTest {
     private val emailClaim = OpenIdConnectClaimId.EMAIL
     private val phoneClaim = OpenIdConnectClaimId.PHONE_NUMBER
 
-    /** The two values as `collected_claims` spells them, which is the spelling every caller offers. */
-    private val storedAddress = "\"user@example.com\""
-    private val storedNumber = "\"+33612345678\""
+    /** The two values folded, which is the spelling every caller of the rule offers. */
+    private val storedAddress = "user@example.com"
+    private val storedNumber = "+33612345678"
+
+    /**
+     * The real mapper, because what the rule turns on is that a row's folded value is recovered from what
+     * it publishes and re-checked against what was offered — a double answering that would prove neither.
+     */
+    @SpyK
+    var claimValueMapper: ClaimValueMapper = ClaimValueMapper(ObjectMapper.getDefault())
+
+    @MockK
+    lateinit var claimManager: ClaimManager
 
     @MockK
     lateinit var collectedClaimRepository: CollectedClaimRepository
@@ -297,17 +312,20 @@ class UserManagerTest {
     }
 
     private fun committedRows(vararg rows: CollectedClaimEntity) {
+        every { claimManager.findByIdOrNull(any()) } returns mockk<Claim> {
+            every { dataType } returns ClaimDataType.STRING
+        }
         every {
             collectedClaimRepository.findAll(any<PredicateSpecification<CollectedClaimEntity>>())
         } returns rows.asList().asFlow()
     }
 
-    /** The values are the ones `collected_claims` holds, quotes included, which is what the rows compare on. */
+    /** A row as a write leaves it: the value encoded, and the key the folded value hashes to. */
     private fun claimRow(userId: UUID, claim: String, value: String) = CollectedClaimEntity(
         userId = userId,
         claim = claim,
-        value = value,
-        comparisonValue = value,
+        value = claimValueMapper.toEntity(value),
+        foldedEqualityHash = claimValueMapper.toFoldedEqualityHash(value),
         verified = null,
         collectionDate = LocalDateTime.now(),
         verificationDate = null,

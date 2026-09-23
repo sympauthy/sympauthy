@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.user
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.model.user.claim.Claim
@@ -34,6 +35,7 @@ import java.util.*
 @Singleton
 open class ProvisionalAccountManager(
     @Inject private val claimManager: ClaimManager,
+    @Inject private val claimValueMapper: ClaimValueMapper,
     @Inject private val userManager: UserManager,
     @Inject private val lockManager: LockManager,
     @Inject private val userRepository: UserRepository,
@@ -96,14 +98,17 @@ open class ProvisionalAccountManager(
     }
 
     /**
-     * The identifier claim values [userId] holds, by the claim holding them, in the spelling
-     * `collected_claims` compares them in rather than the one it publishes. Keyed by claim because the
+     * The identifier claim values [userId] holds, by the claim holding them, folded the way
+     * `collected_claims` compares them rather than the way it publishes them. Keyed by claim because the
      * check below is asked in those pairs; the keys it takes are not.
      */
     private suspend fun identifierValuesOf(userId: UUID, claimIds: List<String>): Map<String, String> {
         if (claimIds.isEmpty()) return emptyMap()
         return collectedClaimRepository.findByUserIdAndClaimInList(userId, claimIds)
-            .mapNotNull { claim -> claim.comparisonValue?.let { claim.claim to it } }
+            .mapNotNull { row ->
+                val dataType = claimManager.findByIdOrNull(row.claim)?.dataType ?: return@mapNotNull null
+                claimValueMapper.toFoldedValueOfStored(row.value, dataType)?.let { row.claim to it }
+            }
             .toMap()
     }
 
