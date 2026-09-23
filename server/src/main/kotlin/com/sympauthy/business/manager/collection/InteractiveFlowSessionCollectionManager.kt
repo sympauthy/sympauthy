@@ -15,6 +15,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionSecurityContext
 import com.sympauthy.business.model.flow.InteractiveFlowSessionStatus
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.flow.interactiveFlowSessionExpiredExceptionOf
 import com.sympauthy.business.model.collection.CollectionCapabilities
 import com.sympauthy.business.model.collection.CollectionCriteria
 import com.sympauthy.business.model.collection.CollectionFieldType.BOOLEAN
@@ -159,6 +160,12 @@ class InteractiveFlowSessionCollectionManager(
         val session = sessionMapper.toInteractiveFlowSessionAs(entity, status)
         val completedPurposes = sessionMapper.toCompletedPurposes(entity).toSet()
         val currentPurpose = currentPurposeOrNull(session)
+        // An expired session carries no error columns — nothing failed, the person stopped — so the
+        // failure it ended with is the one the flow synthesises to route them, read from where that
+        // one is named rather than from a row nothing wrote.
+        val expired = if (status == InteractiveFlowSessionStatus.EXPIRED) {
+            interactiveFlowSessionExpiredExceptionOf(entity.expirationDate)
+        } else null
 
         return InteractiveFlowSessionDetail(
             id = session.id,
@@ -170,9 +177,9 @@ class InteractiveFlowSessionCollectionManager(
             signedUp = entity.signedUp,
             sessionDate = entity.sessionDate,
             expirationDate = entity.expirationDate,
-            errorDetailsId = entity.errorDetailsId,
-            errorDescriptionId = entity.errorDescriptionId,
-            errorValues = entity.errorValues,
+            errorDetailsId = expired?.detailsId ?: entity.errorDetailsId,
+            errorDescriptionId = expired?.descriptionId ?: entity.errorDescriptionId,
+            errorValues = expired?.values ?: entity.errorValues,
             purposes = session.purposes.map { purpose ->
                 InteractiveFlowPurposeProgress(
                     purpose = purpose,
@@ -482,9 +489,11 @@ class InteractiveFlowSessionCollectionManager(
     /**
      * One session, every purpose it carries and where each one stands.
      *
-     * The three error fields are the keys the session failed with and the values they interpolate, carried
-     * unrendered because rendering happens at the edge, once. They are absent for every status but
-     * [InteractiveFlowSessionStatus.FAILED].
+     * The three error fields are the keys the session ended with and the values they interpolate, carried
+     * unrendered because rendering happens at the edge, once. A session that ran out of time ended with a
+     * failure nothing wrote down, so its three are the ones
+     * [com.sympauthy.business.model.flow.interactiveFlowSessionExpiredExceptionOf] names; every status but
+     * that one and [InteractiveFlowSessionStatus.FAILED] carries none.
      */
     data class InteractiveFlowSessionDetail(
         val id: UUID,

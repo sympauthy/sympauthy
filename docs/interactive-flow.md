@@ -160,6 +160,12 @@ publishes both the keys and the sentences they name, read against the locale the
 request asks for — and a key this deployment holds no message under yields no sentence rather than
 a dotted identifier, the key beside it still saying what happened.
 
+**A session that ran out of time ended with a failure too, and it is the same one.** Nothing refused
+anything and no column records it, so the failure is named once — beside the session model, where
+both the projection that routes the person and the page that answers an operator read it — rather
+than synthesised twice with two chances to drift. An expired session therefore publishes the five
+error fields a failed one does.
+
 **Both halves are rendered the way the error page rendered them**, through the same mapper and as
 the same terminal failure. An operator asking what a person was told is asking about that page, and
 two renderings of one failure are two sentences to reconcile the first time they disagree — so a

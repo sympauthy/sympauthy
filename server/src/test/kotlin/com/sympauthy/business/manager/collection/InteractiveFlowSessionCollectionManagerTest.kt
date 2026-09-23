@@ -528,6 +528,53 @@ class InteractiveFlowSessionCollectionManagerTest {
         assertEquals(session.userId, (handed as OnGoingInteractiveFlowSession).userId)
     }
 
+    @Test
+    fun `findSessionOrNull - Answers an expired session with the failure it was routed on`() = runTest {
+        val session = entity(expirationDate = NOW.minusMinutes(10))
+        givenDetailReads(session)
+        coEvery { engine.currentPurposeOrNull(any()) } returns null
+
+        val detail = manager.findSessionOrNull(session.id!!)
+
+        // The projection the flow routes the person with, which is what the page has to agree with
+        // rather than a second spelling of the same three values.
+        val routed = sessionMapper.toExpiredInteractiveFlowSession(session)
+        assertEquals(InteractiveFlowSessionStatus.EXPIRED, detail?.status)
+        assertEquals(routed.errorDetailsId, detail?.errorDetailsId)
+        assertEquals(routed.errorDescriptionId, detail?.errorDescriptionId)
+        assertEquals(routed.errorValues, detail?.errorValues)
+    }
+
+    @Test
+    fun `findSessionOrNull - Keeps the failure of a session that failed before its expiration passed`() = runTest {
+        val session = entity(
+            expirationDate = NOW.minusMinutes(10),
+            errorDate = NOW.minusMinutes(20),
+            errorDetailsId = "some.error"
+        )
+        givenDetailReads(session)
+
+        val detail = manager.findSessionOrNull(session.id!!)
+
+        assertEquals(InteractiveFlowSessionStatus.FAILED, detail?.status)
+        assertEquals("some.error", detail?.errorDetailsId)
+        assertNull(detail?.errorValues)
+    }
+
+    @Test
+    fun `findSessionOrNull - Carries no failure for a session that is still ongoing`() = runTest {
+        val session = entity()
+        givenDetailReads(session)
+        coEvery { engine.currentPurposeOrNull(any()) } returns InteractiveFlowPurpose.OAUTH2_AUTHORIZE
+
+        val detail = manager.findSessionOrNull(session.id!!)
+
+        assertEquals(InteractiveFlowSessionStatus.ONGOING, detail?.status)
+        assertNull(detail?.errorDetailsId)
+        assertNull(detail?.errorDescriptionId)
+        assertNull(detail?.errorValues)
+    }
+
     private suspend fun criteriaOf(
         vararg filters: Pair<String, String>,
         sort: String? = null,
