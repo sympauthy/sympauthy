@@ -86,6 +86,12 @@ and nothing publishes it.
 claim may hold a long document and none of it is indexed or compared, and an integer is spelled the
 same by every dialect where a `LOWER(...)` comparison is not.
 
+**Every claim carrying a value carries the hash, and the index covers every claim.** Neither of them
+depends on the set a deployment declares, so a claim added to `auth.identifier-claims` is looked up
+against the rows written before it — [the design
+FAQ](design-faq.md#is-the-identifier-lookup-indexed-over-the-claims-a-deployment-identifies-by)
+holds what that costs.
+
 **`LockKey.IdentifierValue` takes the folded value and hashes a stripe of its own from it.** The
 lock and the check therefore name one thing, which a comparison living inside a query could not — a
 lock hashes a string and never sees one.

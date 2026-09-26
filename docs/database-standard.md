@@ -24,6 +24,12 @@ the way each dialect wants them.
 manager that writes the row.** A partial unique index is the case that arises; hold it as a backstop
 and a query optimisation.
 
+**A predicate names the state of a column and never a value a deployment chooses.** These files
+cannot read the configuration, so a value enumerated in one is a guess — right for the deployments
+that happen to match it and silently wrong for the rest. Narrow a partial index by
+`session_id IS NULL` or by `revoked_at IS NULL`, and take an index broader than the rows a read
+looks at over one that depends on a YAML file.
+
 ## Naming
 
 **An identifier is lowercase `snake_case`**, quoted in the file of the dialect that reserves it.

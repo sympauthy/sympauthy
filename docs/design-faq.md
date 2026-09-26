@@ -346,6 +346,62 @@ from one whose claim is merely absent for this person. The alternative is a serv
 audience restriction holds everywhere except the one place a value is posted to a third party, and a
 rule about who may know a claim is worth less than the weakest path to it.
 
+### Is the identifier lookup indexed over the claims a deployment identifies by?
+
+**Decision:** No. `collected_claims__claim_folded_equality_hash__where_committed` covers every
+committed row of the table, and its predicate is `session_id IS NULL` and nothing else.
+`collected_claims.folded_equality_hash` is likewise written for every claim carrying a value,
+whatever `auth.identifier-claims` names.
+
+**Options considered:**
+
+- **Enumerate the identifier claims in the index** — what the file held, `claim =
+  'preferred_username' OR claim = 'email' OR claim = 'phone_number'`, beside the state predicate.
+- **Index every committed row** — the whole of what a migration can say about this table without
+  reading the configuration.
+- **Write the hash for the configured claims only**, index `WHERE folded_equality_hash IS NOT NULL`,
+  and rewrite the rows on a job lease when the set changes.
+- **A `user_identifiers` projection** — a row per identifier an account holds, written beside the
+  claim and rebuilt from the hash when the set changes.
+
+**Rationale:**
+
+The enumeration was a guess about configuration made in a file that cannot read it.
+`ClaimDataType.canIdentify` admits `email`, `phone_number`, `number` and `string`, and a custom
+claim has whatever id a deployment gave it, so no migration can name the set: one identifying by an
+`employee_number` had no index for it, and every sign-in, uniqueness check, promotion and provider
+link scanned `collected_claims` — answering correctly, getting slower with each account, and
+reporting nothing. The H2 twin carried no predicate at all, so that deployment was indexed on the
+dialect its tests run against and unindexed on the one it runs in production. What generalises out
+of it is a rule rather than this entry, and [the database
+standard](database-standard.md#one-schema-spelled-per-dialect) states it.
+
+The two narrow options are the ones worth arguing about, and both make a row depend on the
+configuration it was written under. Writing the hash for the configured claims alone is the smallest
+index of the four and strands every account created before a claim joined the set: unreachable by
+the identifier it was told it had, until a pass over the table rewrites its rows. That trades a size
+cost for an availability one. The projection answers that objection — the hash stays on every row,
+config-independent, so the second table is a pure function of the first and a rebuild can never lose
+an account — and it is the only shape here that is both general and minimal. It costs a table, a
+write inside every transaction that writes a claim, the provisional and committed distinction
+spelled a second time, and a window after a configuration change where the new identifier does not
+resolve yet.
+
+What the chosen option costs is index keys for claims nobody signs in with, and that is smaller than
+the claim list suggests. A row exists only for a claim actually collected —
+`CollectedClaimManager.deleteExistingClaimsUpdatedToNull` deletes one cleared to null rather than
+storing it blank — so the index is sized by the claims an account collects over the claims it is
+identified by, not by the twenty-one the shipped configuration declares. The projection is what to
+build when that ratio is measured and found to matter, and nothing else decided here changes if it
+is.
+
+Two refinements were dropped with it. `AND folded_equality_hash IS NOT NULL` describes the rows the
+read can match, but buys no keys back for the reason above and does not fit the 63-byte ceiling
+without abbreviating the table out of the name. Leading with the hash rather than the claim plans
+identically for an exact match on both columns, and would only pay off if
+`findCommittedClaimsMatching` were rewritten as one `IN` over the hashes — its own change, and one
+that would want its own measurement.
+
 ---
 
 ## Where a request came from
