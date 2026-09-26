@@ -19,5 +19,5 @@ CREATE TABLE interactive_flow_session_security_context
     FOREIGN KEY (session_id) REFERENCES interactive_flow_sessions (id)
 );
 
-CREATE UNIQUE INDEX interactive_flow_session_security_context__session_id__fingerprint
+CREATE UNIQUE INDEX ifssc__session_id_fingerprint
     ON interactive_flow_session_security_context (session_id, fingerprint);

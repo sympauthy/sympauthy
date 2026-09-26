@@ -31,8 +31,27 @@ and a query optimisation.
 **A table is named in the plural.** A table attached to another by its lifetime is
 `<parent>_<concern>`, and carries the parent's key under the parent's name.
 
-**An index is named `<table>__<columns>`.** Name every index and constraint rather than leaving one
-to the database.
+**An index is named `<table>__<columns>`**, the columns joined with a single `_` so that `__` marks
+the table off from them. Name every index and constraint rather than leaving one to the database.
+
+**A conditional index is suffixed `__where_<condition>`**, summarising the predicate in a few words
+rather than spelling it. Only the dialect that carries the condition carries the suffix, so the twin
+an unconditional dialect writes stays `<table>__<columns>`.
+
+```sql
+CREATE UNIQUE INDEX consents__user_id_audience_id__where_not_revoked
+    ON consents (user_id, audience_id) WHERE revoked_at IS NULL;
+```
+
+**An identifier is at most 63 bytes**, which is PostgreSQL's ceiling: a longer one is truncated
+there under a notice nothing fails on and kept whole by H2, so one file would build two
+differently-named indexes. **Where a name does not fit, abbreviate the table to the first letter of
+each of its words** and keep every column spelled in full.
+
+```sql
+CREATE UNIQUE INDEX ifssc__session_id_fingerprint
+    ON interactive_flow_session_security_context (session_id, fingerprint);
+```
 
 ## Columns
 

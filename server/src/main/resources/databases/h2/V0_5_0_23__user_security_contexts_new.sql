@@ -19,5 +19,5 @@ CREATE TABLE user_security_contexts
 );
 
 CREATE INDEX user_security_contexts__last_seen_date ON user_security_contexts (last_seen_date);
-CREATE UNIQUE INDEX user_security_contexts__user_id__fingerprint
+CREATE UNIQUE INDEX user_security_contexts__user_id_fingerprint
     ON user_security_contexts (user_id, fingerprint);

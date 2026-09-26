@@ -8,4 +8,4 @@ CREATE TABLE users
     PRIMARY KEY (id)
 );
 
-CREATE INDEX users__session_id ON users (session_id) WHERE session_id IS NOT NULL;
+CREATE INDEX users__session_id__where_provisional ON users (session_id) WHERE session_id IS NOT NULL;

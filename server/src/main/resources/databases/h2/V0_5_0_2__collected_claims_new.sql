@@ -15,5 +15,5 @@ CREATE TABLE collected_claims
     UNIQUE (user_id, claim)
 );
 
-CREATE INDEX collected_user_info__user_id ON collected_claims (user_id);
-CREATE INDEX collected_user_info__login_claims ON collected_claims (claim, folded_equality_hash);
+CREATE INDEX collected_claims__user_id ON collected_claims (user_id);
+CREATE INDEX collected_claims__claim_folded_equality_hash ON collected_claims (claim, folded_equality_hash);
