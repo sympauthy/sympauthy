@@ -38,6 +38,34 @@ enum class GeneratedOpenIdConnectClaim(
         scope = "profile",
         publishedIn = setOf(ClaimPublication.USERINFO)
     );
+
+    /**
+     * Who may read this claim, which is the same for every generated claim but the scope above.
+     *
+     * It carries no unconditional client scope, and a file cannot give it one: every channel that
+     * publishes a generated claim computes the value rather than reading it out of the claims
+     * collected from a person, so the list [UnconditionalAcl] would hold is consulted by nothing.
+     */
+    val acl: ClaimAcl
+        get() = ClaimAcl(
+            consent = ConsentAcl(
+                scope = scope,
+                readableByUser = true,
+                writableByUser = false,
+                readableByClient = true,
+                writableByClient = false
+            ),
+            unconditional = UnconditionalAcl(
+                readableWithClientScopes = emptyList(),
+                writableWithClientScopes = emptyList()
+            )
+        )
+
+    companion object {
+
+        /** The ids of every generated claim, which is what a claim written in a file is held against. */
+        val ids: Set<String> = entries.mapTo(mutableSetOf(), GeneratedOpenIdConnectClaim::id)
+    }
 }
 
 /**

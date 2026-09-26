@@ -7,14 +7,10 @@ import com.sympauthy.business.model.user.claim.ClaimPublication
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.parsing.ParsedClaim
 import com.sympauthy.config.parsing.ParsedClaimAcl
-import com.sympauthy.config.properties.ClaimConfigurationProperties
-import com.sympauthy.config.validation.ClaimsConfigValidator.Companion.KEYS_NO_GENERATED_CLAIM_READS
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.FieldSource
 
 class ClaimsConfigValidatorTest {
 
@@ -48,12 +44,12 @@ class ClaimsConfigValidatorTest {
 
     private fun validate(
         parsed: List<ParsedClaim> = emptyList(),
-        propertiesList: List<ClaimConfigurationProperties> = emptyList(),
+        writtenKeys: Set<String> = emptySet(),
         identifierClaims: List<String>? = null
     ): ConfigParsingContext {
         val ctx = ConfigParsingContext()
         validator.validate(
-            ctx, parsed, propertiesList, emptyMap(), audiencesById, emptyMap<String, Scope>(),
+            ctx, parsed, writtenKeys, emptyMap(), audiencesById, emptyMap<String, Scope>(),
             identifierClaims, null
         )
         return ctx
@@ -93,139 +89,53 @@ class ClaimsConfigValidatorTest {
         assertFalse(ctx.hasErrors)
     }
 
-    @ParameterizedTest
-    @FieldSource("keysNoGeneratedClaimReads")
-    fun `validate - Refuse a key written on a generated claim against its own name`(written: WrittenKey) {
-        val ctx = validate(propertiesList = listOf(written.properties))
+    @Test
+    fun `validate - Refuse a key written on a generated claim, as the file spells it`() {
+        val ctx = validate(writtenKeys = setOf("claims.sub.enabled"))
 
         assertEquals(listOf("config.claim.generated.not_configurable"), ctx.errors.map { it.messageId })
-        assertEquals(listOf("claims.sub.${written.key}"), ctx.errors.map { it.key })
+        assertEquals(listOf("claims.sub.enabled"), ctx.errors.map { it.key })
+        assertEquals(listOf("sub"), ctx.errors.map { it.values["claim"] })
     }
 
     @Test
-    fun `Every key a generated claim does not read has a case above`() {
-        assertEquals(
-            KEYS_NO_GENERATED_CLAIM_READS.keys,
-            keysNoGeneratedClaimReads.mapTo(mutableSetOf(), WrittenKey::key),
-            "The keys refused above and the keys a case is written for have to be the same set: a key " +
-                "with no case of its own is one whose refusal names whatever property the set reads for it."
-        )
+    fun `validate - Refuse a key a claim's configuration does not declare at all`() {
+        // Nothing has to be said here for a property added to a claim tomorrow to be refused on a
+        // generated one, which is the step `published-in` skipped.
+        val ctx = validate(writtenKeys = setOf("claims.sub.collected-at"))
+
+        assertEquals(listOf("claims.sub.collected-at"), ctx.errors.map { it.key })
     }
 
     @Test
-    fun `validate - Refuse a key written on a generated claim spelt with an underscore`() {
-        val properties = ClaimConfigurationProperties("updated-at").apply { type = "string" }
+    fun `validate - Refuse a key written on a generated claim spelt with a hyphen`() {
+        val ctx = validate(writtenKeys = setOf("claims.updated-at.type"))
 
-        val ctx = validate(propertiesList = listOf(properties))
-
-        assertEquals(listOf("claims.updated_at.type"), ctx.errors.map { it.key })
+        assertEquals(listOf("claims.updated-at.type"), ctx.errors.map { it.key })
+        assertEquals(listOf("updated_at"), ctx.errors.map { it.values["claim"] })
     }
 
     @Test
     fun `validate - Report every key written on a generated claim`() {
-        val propertiesList = listOf(
-            ClaimConfigurationProperties("sub").apply {
-                enabled = "false"
-                publishedIn = listOf("userinfo")
-            },
-            ClaimConfigurationProperties("updated-at").apply {
-                type = "string"
-                acl = aclProperties(consentScope = "profile")
-            }
+        val writtenKeys = setOf(
+            "claims.sub.enabled",
+            "claims.sub.acl.consent-scope",
+            "claims.updated_at.type",
+            "claims.email.enabled"
         )
 
-        val ctx = validate(propertiesList = propertiesList)
+        val ctx = validate(writtenKeys = writtenKeys)
 
         assertEquals(
-            listOf(
-                "claims.sub.enabled",
-                "claims.sub.published-in",
-                "claims.updated_at.type",
-                "claims.updated_at.acl.consent-scope"
-            ),
+            listOf("claims.sub.acl.consent-scope", "claims.sub.enabled", "claims.updated_at.type"),
             ctx.errors.map { it.key }
         )
     }
 
     @Test
     fun `validate - Accept a generated claim the deployment wrote no key under`() {
-        val ctx = validate(propertiesList = listOf(ClaimConfigurationProperties("sub")))
+        val ctx = validate(writtenKeys = setOf("claims.sub", "claims.email.type"))
 
         assertFalse(ctx.hasErrors)
     }
-
-    @Test
-    fun `validate - Accept a key written on a claim the deployment configures`() {
-        val properties = ClaimConfigurationProperties("email").apply { enabled = "false" }
-
-        val ctx = validate(propertiesList = listOf(properties))
-
-        assertFalse(ctx.hasErrors)
-    }
-
-    companion object {
-
-        @JvmStatic
-        private val keysNoGeneratedClaimReads = listOf(
-            WrittenKey("template") { template = "openid" },
-            WrittenKey("enabled") { enabled = "false" },
-            WrittenKey("required") { required = "true" },
-            WrittenKey("type") { type = "string" },
-            WrittenKey("group") { group = "identity" },
-            WrittenKey("verified-id") { verifiedId = "sub_verified" },
-            WrittenKey("allowed-values") { allowedValues = listOf("anonymous") },
-            WrittenKey("audience") { audience = "billing" },
-            WrittenKey("published-in") { publishedIn = listOf("userinfo") },
-            WrittenKey("acl.consent-scope") { acl = aclProperties(consentScope = "profile") },
-            WrittenKey("acl.readable-by-user-when-consented") {
-                acl = aclProperties(readableByUser = "true")
-            },
-            WrittenKey("acl.writable-by-user-when-consented") {
-                acl = aclProperties(writableByUser = "true")
-            },
-            WrittenKey("acl.readable-by-client-when-consented") {
-                acl = aclProperties(readableByClient = "true")
-            },
-            WrittenKey("acl.writable-by-client-when-consented") {
-                acl = aclProperties(writableByClient = "true")
-            },
-            WrittenKey("acl.readable-with-client-scopes-unconditionally") {
-                acl = aclProperties(readableWithClientScopes = listOf("users:claims:read"))
-            },
-            WrittenKey("acl.writable-with-client-scopes-unconditionally") {
-                acl = aclProperties(writableWithClientScopes = listOf("users:claims:write"))
-            }
-        )
-    }
-}
-
-/**
- * One key written under `claims.sub` and nothing else, so an error naming another key is the set of
- * refused keys reading the wrong property for this one.
- */
-class WrittenKey(
-    val key: String,
-    write: ClaimConfigurationProperties.() -> Unit
-) {
-    val properties = ClaimConfigurationProperties("sub").apply(write)
-
-    override fun toString() = key
-}
-
-private fun aclProperties(
-    consentScope: String? = null,
-    readableByUser: String? = null,
-    writableByUser: String? = null,
-    readableByClient: String? = null,
-    writableByClient: String? = null,
-    readableWithClientScopes: List<String>? = null,
-    writableWithClientScopes: List<String>? = null
-): ClaimConfigurationProperties.AclConfig = object : ClaimConfigurationProperties.AclConfig {
-    override val consentScope = consentScope
-    override val readableByUserWhenConsented = readableByUser
-    override val writableByUserWhenConsented = writableByUser
-    override val readableByClientWhenConsented = readableByClient
-    override val writableByClientWhenConsented = writableByClient
-    override val readableWithClientScopesUnconditionally = readableWithClientScopes
-    override val writableWithClientScopesUnconditionally = writableWithClientScopes
 }

@@ -18,7 +18,13 @@ data class ParsedClaimAcl(
     val writableByClient: Boolean?,
     val readableWithClientScopes: List<String>?,
     val writableWithClientScopes: List<String>?
-)
+) {
+    companion object {
+
+        /** An ACL no file spoke for, which every field of falls back to whatever reads it. */
+        val NONE = ParsedClaimAcl(null, null, null, null, null, null, null)
+    }
+}
 
 /**
  * Parses ACL properties into typed values.
@@ -39,7 +45,7 @@ class ClaimAclParser(
         configKeyPrefix: String
     ): ParsedClaimAcl {
         if (acl == null) {
-            return ParsedClaimAcl(null, null, null, null, null, null, null)
+            return ParsedClaimAcl.NONE
         }
         return ParsedClaimAcl(
             consentScope = acl.consentScope,

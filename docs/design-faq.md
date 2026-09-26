@@ -411,15 +411,18 @@ The projection is what to build when the index that remains is measured and foun
 ### Why is a key written on a generated claim refused rather than applied or ignored?
 
 **Decision:** `claims.sub` and `claims.updated_at` accept no key at all. `ClaimsConfigValidator`
-records one error per key written under either, whatever value it was written with — so
-`claims.sub.enabled: true` is refused although it is what `sub` already is, and
-`claims.sub.template` is refused rather than resolved. `GeneratedOpenIdConnectClaim` is the whole of
-what a generated claim is.
+records one error per key a file wrote under either, whatever value it was written with and whether
+or not any property binds it — so `claims.sub.enabled: true` is refused although it is what `sub`
+already is, `claims.sub.template` is refused rather than resolved, and `claims.sub.enabled:` with
+nothing under it is refused too. `GeneratedOpenIdConnectClaim` is the whole of what a generated
+claim is, its ACL included.
 
 **Options considered:**
 
 - **Refuse in the parser**, where the generated claim is already assembled from the enum.
-- **Refuse in the validator**, handed the properties list its factory already holds.
+- **Refuse in the validator**, handed what the file wrote by its factory.
+- **Refuse the values that bound**, reading each property a claim declares off
+  `ClaimConfigurationProperties` and reporting the ones that are not null.
 - **Refuse every key but `template` and `acl.readable-with-client-scopes-unconditionally`**, the two
   the parser reads.
 - **Let the properties apply**, making a generated claim disableable, typed, restricted to an
@@ -436,6 +439,14 @@ belongs with the other decisions, in the validator, and not in the class the sta
 converts. Refusing in the parser costs ten lines and no signature, and it would leave a reader
 looking for why a key was refused with two places to open and the next inapplicable value landing in
 whichever one its author happened to be in.
+
+The refusal is on the key rather than on the value under it, which is not the same rule written
+twice. A properties class cannot answer for a key: `claims.sub.enabled:` with nothing under it binds
+to null, exactly as a key nobody wrote does, so a rule reading the bound values accepts in silence
+the very file this exists to refuse. Reading the keys instead also names them as the operator spelt
+them — `claims.updated-at.type` rather than the `updated_at` Micronaut normalises to — and needs no
+list of what a claim accepts, so a property added to a claim tomorrow is refused on a generated one
+without anyone classifying it, which is exactly the step `published-in` skipped.
 
 Sparing the two keys the parser reads was the first shape of this, and it does not survive reading
 what becomes of them. `acl.readable-with-client-scopes-unconditionally` reaches
@@ -455,12 +466,22 @@ computation. A log line reaches whoever is already looking, and the deployment t
 one that wrote a key, restarted, and saw a ready server.
 
 Refusing only the keys with a visible effect draws a line that is invisible from the file an
-operator is holding, and it would have to be argued again for every key added afterwards. That the
-line is unmaintainable is not a prediction: `published-in` was added to a claim's configuration and
-became one more property a generated claim read and discarded, with a unit test shipped asserting
-the silence, and nothing in the build noticed. The same reasoning refuses a value equal to the one
-the server would have used — comparing them would make the refusal depend on the value rather than
-on the key, and a rule that fires only sometimes is one nobody can predict from their own file.
+operator is holding, and it would have to be argued again for every key added afterwards. The same
+reasoning refuses a value equal to the one the server would have used — comparing them would make
+the refusal depend on the value rather than on the key, and a rule that fires only sometimes is one
+nobody can predict from their own file.
+
+**What a deployment sees.** A deployment with no `claims.sub` or `claims.updated_at` section is
+unaffected, which is every file the server ships. One that wrote a key under either reports one
+error per key at startup and serves nothing until the keys are gone, where the previous release
+started and ignored them. A key reaching those sections from `System.env` or `System.properties` is
+not read here, the same surface [the key-binding rule](config-layer-code-standard.md) answers for.
+
+**What correcting one takes.** Deleting the key, and nothing else: none of them decided anything, so
+no behaviour follows the deletion. A `templates.claims` template carrying keys a generated claim
+cannot use is untouched — a generated claim names no template now, so nothing it holds reaches one,
+and the shipped `default` template goes on serving every claim that does. That break reaches no
+stable release, and the deployments it does reach are correctable by hand.
 
 ---
 

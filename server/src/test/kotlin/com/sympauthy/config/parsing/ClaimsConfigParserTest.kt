@@ -121,6 +121,21 @@ class ClaimsConfigParserTest {
     }
 
     @Test
+    fun `parse - Answer a generated claim off the enum, whatever a file wrote under it`() {
+        val ctx = ConfigParsingContext()
+        val properties = claimProperties("sub", "number", "openid", publishedIn = listOf("userinfo"))
+        val templates = mapOf(DEFAULT to claimTemplate(DEFAULT), "openid" to claimTemplate("openid"))
+
+        val sub = parser.parse(ctx, listOf(properties), templates).first { it.id == "sub" }
+
+        assertEquals(STRING, sub.dataType)
+        assertEquals(setOf(ID_TOKEN, USERINFO), sub.publishedIn)
+        assertEquals(ParsedClaimAcl.NONE, sub.acl)
+        // Refusing what the file wrote is the validator's, so the parser reports nothing at all here.
+        assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
+    }
+
+    @Test
     fun `parseAllowedValues - Return null when there are none`() {
         val ctx = ConfigParsingContext()
 

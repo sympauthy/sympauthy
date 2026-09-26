@@ -65,8 +65,6 @@ class ClaimsConfigParser(
         propertiesList: List<ClaimConfigurationProperties>,
         templates: Map<String, ClaimTemplate>
     ): List<ParsedClaim> {
-        val generatedClaimIds = GeneratedOpenIdConnectClaim.entries.map { it.id }.toSet()
-
         val generatedClaims = GeneratedOpenIdConnectClaim.entries.map(::parseGeneratedClaim)
 
         // A template several claims name is converted once per type rather than once per claim, so that a
@@ -75,7 +73,7 @@ class ClaimsConfigParser(
 
         val configurableClaims = propertiesList.mapNotNull { properties ->
             val normalizedId = properties.id.normalizeClaimId()
-            if (normalizedId in generatedClaimIds) return@mapNotNull null
+            if (normalizedId in GeneratedOpenIdConnectClaim.ids) return@mapNotNull null
             parseClaim(ctx, properties, templates, inheritedAllowedValues)
         }
 
@@ -105,7 +103,7 @@ class ClaimsConfigParser(
             // so no `published-in` written here could move one. It is the truth rather than the withholding
             // value because the discovery document reads it to say what a channel can supply.
             publishedIn = generatedClaim.publishedIn,
-            acl = ParsedClaimAcl(null, null, null, null, null, null, null)
+            acl = ParsedClaimAcl.NONE
         )
     }
 

@@ -91,27 +91,6 @@ class ClaimAclValidator {
         )
     }
 
-    /**
-     * The ACL of a generated claim, which is the same for every one of them but the [consentScope] the
-     * claim is gated on. It takes no parsed values because a generated claim reads no key a file writes,
-     * and no unconditional scope because the channels that publish one never consult this.
-     */
-    fun validateGeneratedClaimAcl(consentScope: String): ClaimAcl {
-        return ClaimAcl(
-            consent = ConsentAcl(
-                scope = consentScope,
-                readableByUser = true,
-                writableByUser = false,
-                readableByClient = true,
-                writableByClient = false
-            ),
-            unconditional = UnconditionalAcl(
-                readableWithClientScopes = emptyList(),
-                writableWithClientScopes = emptyList()
-            )
-        )
-    }
-
     private fun validateConsentScope(
         ctx: ConfigParsingContext,
         scope: String?,

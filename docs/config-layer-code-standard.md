@@ -34,6 +34,12 @@ error naming the key, so a setting that will not take effect is never accepted i
 refused against the key and not against the value, so a value equal to the one the server would have
 used is refused too.
 
+**A rule about a key rather than about a value reads the keys a deployment wrote.**
+`WrittenConfigurationKeys` holds them as the files spell them, because a properties class cannot
+answer for a key — one written with nothing under it binds to null, exactly as a key nobody wrote
+does. The error then names the key the operator wrote rather than the one Micronaut normalised it
+to, and a key no property declares is caught alongside the ones that do.
+
 **A key that binds to nothing is refused.** A prefix a configuration domain declares is the server's
 to answer for, so a key under one that no domain reads is an error naming the key and the file it
 came from. What the server declares is read off the properties classes the compiler generated,

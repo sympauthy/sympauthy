@@ -4,6 +4,7 @@ import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.ClaimOrigin
 import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
 import com.sympauthy.config.ConfigParser
+import com.sympauthy.config.WrittenConfigurationKeys
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.model.*
 import com.sympauthy.config.parsing.ClaimAclParser
@@ -30,6 +31,9 @@ class ClaimsConfigFactoryTest {
 
     @MockK
     lateinit var authProperties: AuthConfigurationProperties
+
+    @MockK
+    lateinit var writtenConfigurationKeys: WrittenConfigurationKeys
 
     lateinit var factory: ClaimsConfigFactory
 
@@ -61,6 +65,7 @@ class ClaimsConfigFactoryTest {
     fun setUp() {
         every { authProperties.userMergingEnabled } returns null
         every { authProperties.identifierClaims } returns null
+        every { writtenConfigurationKeys.under(any()) } returns emptySet()
 
         val claimAclParser = ClaimAclParser(parser)
         val claimAclValidator = ClaimAclValidator()
@@ -74,6 +79,7 @@ class ClaimsConfigFactoryTest {
             ClaimsConfigParser(parser, claimAclParser),
             ClaimsConfigValidator(claimAclValidator),
             authProperties,
+            writtenConfigurationKeys,
             claimTemplatesConfig,
             EnabledAudiencesConfig(emptyList()),
             EnabledScopesConfig(emptyList())
@@ -240,6 +246,7 @@ class ClaimsConfigFactoryTest {
 
     @Test
     fun `provideClaims - Refuse a key written on a generated claim`() {
+        every { writtenConfigurationKeys.under(any()) } returns setOf("claims.sub.type")
         val properties = listOf(
             claimProperties(id = "sub", type = "string")
         )
@@ -257,6 +264,7 @@ class ClaimsConfigFactoryTest {
 
     @Test
     fun `provideClaims - Refuse a template named on a generated claim rather than resolving it`() {
+        every { writtenConfigurationKeys.under(any()) } returns setOf("claims.sub.template")
         val properties = listOf(
             claimProperties(id = "sub", template = "nonexistent")
         )
@@ -293,6 +301,7 @@ class ClaimsConfigFactoryTest {
             ClaimsConfigParser(parser, claimAclParser),
             ClaimsConfigValidator(claimAclValidator),
             authProperties,
+            writtenConfigurationKeys,
             EnabledClaimTemplatesConfig(mapOf(DEFAULT to writableTemplate)),
             EnabledAudiencesConfig(emptyList()),
             EnabledScopesConfig(emptyList())

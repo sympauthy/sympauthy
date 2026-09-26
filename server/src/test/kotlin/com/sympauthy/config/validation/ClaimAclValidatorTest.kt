@@ -213,22 +213,4 @@ class ClaimAclValidatorTest {
         )
     }
 
-    @Test
-    fun `validateGeneratedClaimAcl - Read only, with the consent scope it is given`() {
-        val result = validator.validateGeneratedClaimAcl("profile")
-
-        assertEquals(
-            ClaimAcl(
-                consent = ConsentAcl(
-                    scope = "profile",
-                    readableByUser = true,
-                    writableByUser = false,
-                    readableByClient = true,
-                    writableByClient = false
-                ),
-                unconditional = UnconditionalAcl(emptyList(), emptyList())
-            ),
-            result
-        )
-    }
 }
