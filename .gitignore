@@ -33,6 +33,7 @@ server/src/main/resources/sympauthy-admin/*
 # Claude Code local settings
 .claude/*
 !.claude/rules/
+!.claude/skills/
 
 # Eclipse Gradle plugin generated files
 # Eclipse Core
