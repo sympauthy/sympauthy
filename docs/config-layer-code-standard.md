@@ -30,7 +30,9 @@ silence.
 like a boolean, a number or a duration. The parser converts it, and names the key when it cannot.
 
 **A value that cannot apply where it was written is refused, not ignored.** The validator records an
-error naming the key, so a setting that will not take effect is never accepted in silence.
+error naming the key, so a setting that will not take effect is never accepted in silence. It is
+refused against the key and not against the value, so a value equal to the one the server would have
+used is refused too.
 
 **A key that binds to nothing is refused.** A prefix a configuration domain declares is the server's
 to answer for, so a key under one that no domain reads is an error naming the key and the file it

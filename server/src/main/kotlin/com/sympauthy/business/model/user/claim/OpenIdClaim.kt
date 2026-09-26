@@ -3,8 +3,8 @@ package com.sympauthy.business.model.user.claim
 /**
  * Generated OpenID Connect claims whose values are managed by the authorization server.
  *
- * These claims are always enabled, read-only, and not configurable beyond unconditional
- * client read scopes. All structural properties are hardcoded.
+ * These claims are always enabled and read-only, and a deployment configures nothing about them: every
+ * key `claims.<id>` accepts is refused where it is written. What they are is held here, and nowhere else.
  */
 enum class GeneratedOpenIdConnectClaim(
     val id: String,

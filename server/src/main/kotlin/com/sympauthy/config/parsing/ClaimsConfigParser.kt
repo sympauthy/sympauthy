@@ -20,7 +20,7 @@ import jakarta.inject.Singleton
  * Micronaut normalizes property keys to kebab-case (e.g. `preferred_username` becomes `preferred-username`).
  * OpenID claim IDs use underscores. This function normalizes the Micronaut key back to match the OpenID ID.
  */
-private fun String.normalizeClaimId() = replace('-', '_')
+internal fun String.normalizeClaimId() = replace('-', '_')
 
 /**
  * Convert each of the [values] into the OpenID channel it names, recording an error against the entry's own
@@ -67,14 +67,7 @@ class ClaimsConfigParser(
     ): List<ParsedClaim> {
         val generatedClaimIds = GeneratedOpenIdConnectClaim.entries.map { it.id }.toSet()
 
-        val generatedClaims = GeneratedOpenIdConnectClaim.entries.map { generatedClaim ->
-            parseGeneratedClaim(
-                ctx,
-                properties = propertiesList.firstOrNull { it.id.normalizeClaimId() == generatedClaim.id },
-                generatedClaim = generatedClaim,
-                templates = templates
-            )
-        }
+        val generatedClaims = GeneratedOpenIdConnectClaim.entries.map(::parseGeneratedClaim)
 
         // A template several claims name is converted once per type rather than once per claim, so that a
         // mistake in one is reported once instead of once for every claim that inherits it.
@@ -89,20 +82,14 @@ class ClaimsConfigParser(
         return generatedClaims + configurableClaims
     }
 
-    private fun parseGeneratedClaim(
-        ctx: ConfigParsingContext,
-        properties: ClaimConfigurationProperties?,
-        generatedClaim: GeneratedOpenIdConnectClaim,
-        templates: Map<String, ClaimTemplate>
-    ): ParsedClaim {
-        val template = if (properties != null) {
-            resolveTemplate(ctx, properties, templates)
-        } else {
-            templates[DEFAULT]
-        }
-        val configKeyPrefix = "$CLAIMS_KEY.${generatedClaim.id}"
-        val acl = claimAclParser.parseGeneratedClaimAcl(ctx, properties?.acl, template, configKeyPrefix)
-
+    /**
+     * The claim [generatedClaim] describes, which a deployment's file has no part in.
+     *
+     * Nothing is read off `claims.<id>` here, not even the template it might name: every key that
+     * section accepts is refused by [com.sympauthy.config.validation.ClaimsConfigValidator], so there
+     * is nothing to resolve and nothing to fall back to.
+     */
+    private fun parseGeneratedClaim(generatedClaim: GeneratedOpenIdConnectClaim): ParsedClaim {
         return ParsedClaim(
             id = generatedClaim.id,
             enabled = true,
@@ -118,7 +105,7 @@ class ClaimsConfigParser(
             // so no `published-in` written here could move one. It is the truth rather than the withholding
             // value because the discovery document reads it to say what a channel can supply.
             publishedIn = generatedClaim.publishedIn,
-            acl = acl
+            acl = ParsedClaimAcl(null, null, null, null, null, null, null)
         )
     }
 

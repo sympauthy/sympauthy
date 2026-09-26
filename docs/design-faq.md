@@ -408,6 +408,62 @@ The projection is what to build when the index that remains is measured and foun
 
 ---
 
+### Why is a key written on a generated claim refused rather than applied or ignored?
+
+**Decision:** `claims.sub` and `claims.updated_at` accept no key at all. `ClaimsConfigValidator`
+records one error per key written under either, whatever value it was written with — so
+`claims.sub.enabled: true` is refused although it is what `sub` already is, and
+`claims.sub.template` is refused rather than resolved. `GeneratedOpenIdConnectClaim` is the whole of
+what a generated claim is.
+
+**Options considered:**
+
+- **Refuse in the parser**, where the generated claim is already assembled from the enum.
+- **Refuse in the validator**, handed the properties list its factory already holds.
+- **Refuse every key but `template` and `acl.readable-with-client-scopes-unconditionally`**, the two
+  the parser reads.
+- **Let the properties apply**, making a generated claim disableable, typed, restricted to an
+  audience and published where a file says.
+- **Warn in the log and carry on.**
+- **Refuse only the keys with a visible effect** — `enabled`, `audience` — and go on ignoring the
+  rest.
+
+**Rationale:**
+
+Nothing here fails to convert. `type: string` on `updated_at` is a perfectly good enum value with
+nowhere to go, and deciding that it has nowhere to go is a decision rather than a conversion — so it
+belongs with the other decisions, in the validator, and not in the class the standard says only
+converts. Refusing in the parser costs ten lines and no signature, and it would leave a reader
+looking for why a key was refused with two places to open and the next inapplicable value landing in
+whichever one its author happened to be in.
+
+Sparing the two keys the parser reads was the first shape of this, and it does not survive reading
+what becomes of them. `acl.readable-with-client-scopes-unconditionally` reaches
+`UnconditionalAcl.readableWithClientScopes`, whose only reader is `Claim.canBeReadByClient`, whose
+only callers filter the claims *collected* from a person — and a generated claim is never one of
+those, because its value is computed. Every channel that publishes one computes it instead: the id
+token through `IdTokenGenerator`, `/userinfo` and the client claims endpoint through
+`GeneratedClaimsManager`, the last of them gated by the scope on the endpoint rather than by
+anything in the file. `template` was then read for that same list and nothing else, so it decided
+nothing either. Keeping a key whose only effect is that a misspelt scope under it takes readiness
+down is the defect this entry is about, not an exception to it.
+
+Making the properties apply is a feature per property rather than one change, and most of them are
+incoherent on their face: OpenID Connect Core §2 requires `sub` in every id token, and a `type` on a
+value this server computes is a promise the server would then have to keep against its own
+computation. A log line reaches whoever is already looking, and the deployment this protects is the
+one that wrote a key, restarted, and saw a ready server.
+
+Refusing only the keys with a visible effect draws a line that is invisible from the file an
+operator is holding, and it would have to be argued again for every key added afterwards. That the
+line is unmaintainable is not a prediction: `published-in` was added to a claim's configuration and
+became one more property a generated claim read and discarded, with a unit test shipped asserting
+the silence, and nothing in the build noticed. The same reasoning refuses a value equal to the one
+the server would have used — comparing them would make the refusal depend on the value rather than
+on the key, and a rule that fires only sometimes is one nobody can predict from their own file.
+
+---
+
 ## Where a request came from
 
 ### Should the places a session is driven from share the table the fold reads?

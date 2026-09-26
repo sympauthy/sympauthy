@@ -215,11 +215,8 @@ class ClaimAclValidatorTest {
 
     @Test
     fun `validateGeneratedClaimAcl - Read only, with the consent scope it is given`() {
-        val ctx = ConfigParsingContext()
+        val result = validator.validateGeneratedClaimAcl("profile")
 
-        val result = validator.validateGeneratedClaimAcl(ctx, parsedAcl(), "claims.sub", "profile")
-
-        assertFalse(ctx.hasErrors)
         assertEquals(
             ClaimAcl(
                 consent = ConsentAcl(
@@ -233,16 +230,5 @@ class ClaimAclValidatorTest {
             ),
             result
         )
-    }
-
-    @Test
-    fun `validateGeneratedClaimAcl - Keep the parsed readable client scopes`() {
-        val ctx = ConfigParsingContext()
-        val parsed = parsedAcl(readableWithClientScopes = listOf("users:claims:read"))
-
-        val result = validator.validateGeneratedClaimAcl(ctx, parsed, "claims.sub", "profile")
-
-        assertFalse(ctx.hasErrors)
-        assertEquals(listOf("users:claims:read"), result.unconditional.readableWithClientScopes)
     }
 }

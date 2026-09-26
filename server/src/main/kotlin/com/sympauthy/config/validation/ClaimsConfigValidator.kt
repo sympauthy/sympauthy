@@ -8,6 +8,8 @@ import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.ClaimTemplate
 import com.sympauthy.config.parsing.ParsedClaim
+import com.sympauthy.config.parsing.normalizeClaimId
+import com.sympauthy.config.properties.ClaimConfigurationProperties
 import com.sympauthy.config.properties.ClaimConfigurationProperties.Companion.CLAIMS_KEY
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -20,12 +22,15 @@ class ClaimsConfigValidator(
     fun validate(
         ctx: ConfigParsingContext,
         parsed: List<ParsedClaim>,
+        propertiesList: List<ClaimConfigurationProperties>,
         templates: Map<String, ClaimTemplate>,
         audiencesById: Map<String, Audience>,
         scopesById: Map<String, Scope>,
         identifierClaims: List<String>?,
         userMergingEnabled: Boolean?
     ): List<Claim> {
+        refuseKeysWrittenOnAGeneratedClaim(ctx, propertiesList)
+
         val claims = parsed.mapNotNull { parsedClaim ->
             validateClaim(ctx, parsedClaim, audiencesById, scopesById)
         }
@@ -67,6 +72,38 @@ class ClaimsConfigValidator(
         return claims
     }
 
+    /**
+     * Record an error against every key a deployment wrote under a generated claim, so that a setting
+     * which will not take effect is never accepted in silence. A generated claim reads none of them.
+     *
+     * The value is not compared with the one the server would have used. `claims.sub.enabled: true` is
+     * what `sub` already is, and the deployment that wrote it believes it is deciding something; a rule
+     * firing only where the two differ is one nobody can predict from their own file.
+     */
+    private fun refuseKeysWrittenOnAGeneratedClaim(
+        ctx: ConfigParsingContext,
+        propertiesList: List<ClaimConfigurationProperties>
+    ) {
+        val generatedClaimIds = GeneratedOpenIdConnectClaim.entries.map { it.id }.toSet()
+        propertiesList
+            .filter { it.id.normalizeClaimId() in generatedClaimIds }
+            .forEach { properties ->
+                val claimId = properties.id.normalizeClaimId()
+                KEYS_NO_GENERATED_CLAIM_READS
+                    .filterValues { valueOf -> valueOf(properties) != null }
+                    .keys
+                    .forEach { key ->
+                        ctx.addError(
+                            configExceptionOf(
+                                "$CLAIMS_KEY.$claimId.$key",
+                                "config.claim.generated.not_configurable",
+                                "claim" to claimId
+                            )
+                        )
+                    }
+            }
+    }
+
     private fun validateClaim(
         ctx: ConfigParsingContext,
         parsed: ParsedClaim,
@@ -86,7 +123,7 @@ class ClaimsConfigValidator(
         // Validate ACL scope references.
         val acl = if (parsed.generated) {
             val generatedClaim = GeneratedOpenIdConnectClaim.entries.first { it.id == parsed.id }
-            claimAclValidator.validateGeneratedClaimAcl(ctx, parsed.acl, configKeyPrefix, generatedClaim.scope)
+            claimAclValidator.validateGeneratedClaimAcl(generatedClaim.scope)
         } else {
             claimAclValidator.validateAcl(ctx, parsed.acl, configKeyPrefix, scopesById)
         }
@@ -106,6 +143,42 @@ class ClaimsConfigValidator(
             audienceId = audienceId,
             publishedIn = parsed.publishedIn,
             acl = acl
+        )
+    }
+
+    companion object {
+
+        /**
+         * Every key `claims.<id>` accepts, paired with the value a deployment wrote under it. A generated
+         * claim reads none of them.
+         *
+         * Everything about such a claim is this server's: [GeneratedOpenIdConnectClaim] holds its type,
+         * its group, its verified id and the channels it reaches, its value is computed rather than
+         * collected, and OpenID Connect Core §2 requires `sub` in every id token. Its ACL is fixed too —
+         * the id token, `/userinfo` and the client claims endpoint each compute the value rather than
+         * read it out of the collected claims, so the one list [ClaimAcl] would have taken from a file is
+         * consulted by nothing.
+         *
+         * A key is spelt as Micronaut publishes it rather than read off the property behind it, so that
+         * nothing here has to reproduce the hyphenation the properties class went through.
+         */
+        internal val KEYS_NO_GENERATED_CLAIM_READS: Map<String, (ClaimConfigurationProperties) -> Any?> = mapOf(
+            "template" to { it.template },
+            "enabled" to { it.enabled },
+            "required" to { it.required },
+            "type" to { it.type },
+            "group" to { it.group },
+            "verified-id" to { it.verifiedId },
+            "allowed-values" to { it.allowedValues },
+            "audience" to { it.audience },
+            "published-in" to { it.publishedIn },
+            "acl.consent-scope" to { it.acl?.consentScope },
+            "acl.readable-by-user-when-consented" to { it.acl?.readableByUserWhenConsented },
+            "acl.writable-by-user-when-consented" to { it.acl?.writableByUserWhenConsented },
+            "acl.readable-by-client-when-consented" to { it.acl?.readableByClientWhenConsented },
+            "acl.writable-by-client-when-consented" to { it.acl?.writableByClientWhenConsented },
+            "acl.readable-with-client-scopes-unconditionally" to { it.acl?.readableWithClientScopesUnconditionally },
+            "acl.writable-with-client-scopes-unconditionally" to { it.acl?.writableWithClientScopesUnconditionally }
         )
     }
 }

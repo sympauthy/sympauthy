@@ -4,6 +4,7 @@ import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.ClaimOrigin
 import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
 import com.sympauthy.config.ConfigParser
+import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.model.*
 import com.sympauthy.config.parsing.ClaimAclParser
 import com.sympauthy.config.parsing.ClaimsConfigParser
@@ -226,7 +227,7 @@ class ClaimsConfigFactoryTest {
     @Test
     fun `provideClaims - Generated claims are not duplicated when also in properties`() {
         val properties = listOf(
-            claimProperties(id = "sub", type = "string")
+            claimProperties(id = "sub")
         )
 
         val result = factory.provideClaims(properties)
@@ -235,6 +236,40 @@ class ClaimsConfigFactoryTest {
         val claims = (result as EnabledClaimsConfig).claims
         val subClaims = claims.filter { it.id == "sub" }
         assertEquals(1, subClaims.size)
+    }
+
+    @Test
+    fun `provideClaims - Refuse a key written on a generated claim`() {
+        val properties = listOf(
+            claimProperties(id = "sub", type = "string")
+        )
+
+        val result = factory.provideClaims(properties)
+
+        assertInstanceOf(DisabledClaimsConfig::class.java, result)
+        assertEquals(
+            listOf("claims.sub.type"),
+            (result as DisabledClaimsConfig).configurationErrors
+                ?.filterIsInstance<ConfigurationException>()
+                ?.map { it.key }
+        )
+    }
+
+    @Test
+    fun `provideClaims - Refuse a template named on a generated claim rather than resolving it`() {
+        val properties = listOf(
+            claimProperties(id = "sub", template = "nonexistent")
+        )
+
+        val result = factory.provideClaims(properties)
+
+        assertInstanceOf(DisabledClaimsConfig::class.java, result)
+        assertEquals(
+            listOf("config.claim.generated.not_configurable"),
+            (result as DisabledClaimsConfig).configurationErrors
+                ?.filterIsInstance<ConfigurationException>()
+                ?.map { it.messageId }
+        )
     }
 
     @Test

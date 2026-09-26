@@ -35,7 +35,7 @@ class ClaimsConfigFactory(
         val ctx = ConfigParsingContext()
         val parsed = claimsParser.parse(ctx, propertiesList, enabledTemplatesConfig.templates)
         val claims = claimsValidator.validate(
-            ctx, parsed, enabledTemplatesConfig.templates,
+            ctx, parsed, propertiesList, enabledTemplatesConfig.templates,
             enabledAudiencesConfig.audiences.associateBy { it.id },
             enabledScopesConfig.scopes.associateBy(Scope::scope),
             authProperties.identifierClaims,

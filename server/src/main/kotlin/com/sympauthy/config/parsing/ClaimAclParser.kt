@@ -114,29 +114,6 @@ class ClaimAclParser(
         )
     }
 
-    /**
-     * Parse a generated claim ACL. Only [readableWithClientScopes] is configurable.
-     */
-    fun parseGeneratedClaimAcl(
-        ctx: ConfigParsingContext,
-        acl: ClaimAclProperties?,
-        template: ClaimTemplate?,
-        configKeyPrefix: String
-    ): ParsedClaimAcl {
-        val readableWithClientScopes = acl?.readableWithClientScopesUnconditionally
-            ?: template?.acl?.readableWithClientScopesUnconditionally
-            ?: emptyList()
-        return ParsedClaimAcl(
-            consentScope = null,
-            readableByUser = null,
-            writableByUser = null,
-            readableByClient = null,
-            writableByClient = null,
-            readableWithClientScopes = readableWithClientScopes,
-            writableWithClientScopes = emptyList()
-        )
-    }
-
     private fun parseOptionalBoolean(
         ctx: ConfigParsingContext,
         value: String?,
