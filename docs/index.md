@@ -72,6 +72,9 @@ an agent when a file it governs is read.
   cleanly, pass every test, and then fail in production.
 - **[Documentation standard](docs-standard.md)** — how a standard here is written, and what it
   states in place of the code that happens to follow it.
+- **[Description standard](description-standard.md)** — how the other kind of document here is
+  written: what a description answers about the part it names, and what it leaves to the code, to
+  the standards and to the FAQ.
 
 ## Goals
 

@@ -16,4 +16,4 @@ CREATE TABLE collected_claims
 );
 
 CREATE INDEX collected_claims__user_id ON collected_claims (user_id);
-CREATE INDEX collected_claims__claim_folded_equality_hash__where_committed ON collected_claims (claim, folded_equality_hash) WHERE session_id IS NULL AND (claim = 'preferred_username' OR claim = 'email' OR claim = 'phone_number');
+CREATE INDEX collected_claims__claim_folded_equality_hash__where_committed ON collected_claims (claim, folded_equality_hash) WHERE session_id IS NULL AND folded_equality_hash IS NOT NULL;

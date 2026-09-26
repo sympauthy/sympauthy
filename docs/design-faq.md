@@ -346,6 +346,66 @@ from one whose claim is merely absent for this person. The alternative is a serv
 audience restriction holds everywhere except the one place a value is posted to a third party, and a
 rule about who may know a claim is worth less than the weakest path to it.
 
+### Is the identifier lookup indexed over the claims a deployment identifies by?
+
+**Decision:** No. `collected_claims__claim_folded_equality_hash__where_committed` covers every
+committed row carrying a value, whatever claim it belongs to: its predicate is `session_id IS NULL
+AND folded_equality_hash IS NOT NULL`, and it names no claim.
+`collected_claims.folded_equality_hash` is likewise written for every claim carrying a value,
+whatever `auth.identifier-claims` names.
+
+**Options considered:**
+
+- **Enumerate the identifier claims in the index** — what the file held, `claim =
+  'preferred_username' OR claim = 'email' OR claim = 'phone_number'`, beside the state predicate.
+- **Index every committed row carrying a value** — the whole of what a migration can say about
+  this table without reading the configuration.
+- **Write the hash for the configured claims only**, index `WHERE folded_equality_hash IS NOT NULL`,
+  and rewrite the rows on a job lease when the set changes.
+- **A `user_identifiers` projection** — a row per identifier an account holds, written beside the
+  claim and rebuilt from the hash when the set changes.
+
+**Rationale:**
+
+The enumeration was a guess about configuration made in a file that cannot read it.
+`ClaimDataType.canIdentify` admits `email`, `phone_number`, `number` and `string`, and a custom
+claim has whatever id a deployment gave it, so no migration can name the set: one identifying by an
+`employee_number` had no index for it, and every sign-in, uniqueness check, promotion and provider
+link scanned `collected_claims` — answering correctly, getting slower with each account, and
+reporting nothing. The H2 twin carried no predicate at all, so the two files disagreed about which
+rows were indexed, and the dialect without the index was the one a production deployment runs. What
+generalises out of it is a rule rather than this entry, and [the database
+standard](database-standard.md#one-schema-spelled-per-dialect) states it.
+
+The two narrow options are the ones worth arguing about, and both make a row depend on the
+configuration it was written under. Writing the hash for the configured claims alone is the smallest
+index of the four and strands every account created before a claim joined the set: unreachable by
+the identifier it was told it had, until a pass over the table rewrites its rows. That trades a size
+cost for an availability one. The projection answers that objection — the hash stays on every row,
+config-independent, so the second table is a pure function of the first and a rebuild can never lose
+an account — and it is the only shape here that is both general and minimal. It costs a table, a
+write inside every transaction that writes a claim, the provisional and committed distinction
+spelled a second time, and a window after a configuration change where the new identifier does not
+resolve yet.
+
+What the chosen option costs is index keys for claims nobody signs in with, and the second half of
+the predicate is what keeps that from being every row of the table. A claim submitted blank is
+stored rather than skipped — `ClaimValueValidator` answers `Optional.empty()`, which
+`CollectedClaimUpdate` defines as a value replaced by null, and only a caller passing no optional at
+all deletes the row — so a sign-up posting every declared field writes a row for each of them,
+carrying no value and no hash. `folded_equality_hash IS NOT NULL` leaves all of those out, and it
+costs the read nothing: every branch of `findCommittedClaimsMatching` is an equality on the hash,
+which is strict, so the planner has the implication it needs to use the index.
+
+The name goes on saying only `__where_committed`. It is 61 bytes with that half alone and does not
+fit the other one, and which half a short name keeps was settled when the index was renamed: the one
+that makes a lookup correct over the one that only makes the index small.
+
+Leading with the hash rather than the claim was dropped with the enumeration. It plans identically
+for an exact match on both columns, and would only pay off if `findCommittedClaimsMatching` were
+rewritten as one `IN` over the hashes — its own change, and one that would want its own measurement.
+The projection is what to build when the index that remains is measured and found to matter.
+
 ---
 
 ## Where a request came from

@@ -9,7 +9,8 @@ paths:
 # Documentation standard
 
 How a standard in `docs/` is written — a document named `<subject>-standard.md`. The other documents
-there are descriptions, and [the index](index.md) says what each of them covers.
+there are descriptions, and [the description standard](description-standard.md) is how one of those
+is written; [the index](index.md) names every document and says what each of them covers.
 
 ## Shape of a standard
 
@@ -125,7 +126,9 @@ symlinked into `.claude/rules/`.** The symlink carries the [frontmatter](#frontm
 
 ## What this standard does not cover
 
-**Descriptions.** [The index](index.md) names them, and nothing here says how one is written.
+**Descriptions.** [The description standard](description-standard.md) holds them. It is split
+off rather than written here because the two kinds are read at different moments — a rule by
+somebody about to break it, a description by somebody about to change the part it describes.
 
 **The public documentation.** It is written in another repository, and nothing here governs it.
 
