@@ -125,7 +125,9 @@ symlinked into `.claude/rules/`.** The symlink carries the [frontmatter](#frontm
 
 ## What this standard does not cover
 
-**Descriptions.** [The index](index.md) names them, and nothing here says how one is written.
+**Descriptions.** [The description standard](description-standard.md) holds them. It is split
+off rather than written here because the two kinds are read at different moments — a rule by
+somebody about to break it, a description by somebody about to change the part it describes.
 
 **The public documentation.** It is written in another repository, and nothing here governs it.
 
