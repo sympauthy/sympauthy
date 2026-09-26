@@ -4,6 +4,8 @@ import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.ClaimOrigin
 import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
 import com.sympauthy.config.ConfigParser
+import com.sympauthy.config.WrittenConfigurationKeys
+import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.model.*
 import com.sympauthy.config.parsing.ClaimAclParser
 import com.sympauthy.config.parsing.ClaimsConfigParser
@@ -29,6 +31,9 @@ class ClaimsConfigFactoryTest {
 
     @MockK
     lateinit var authProperties: AuthConfigurationProperties
+
+    @MockK
+    lateinit var writtenConfigurationKeys: WrittenConfigurationKeys
 
     lateinit var factory: ClaimsConfigFactory
 
@@ -60,6 +65,7 @@ class ClaimsConfigFactoryTest {
     fun setUp() {
         every { authProperties.userMergingEnabled } returns null
         every { authProperties.identifierClaims } returns null
+        every { writtenConfigurationKeys.under(any()) } returns emptySet()
 
         val claimAclParser = ClaimAclParser(parser)
         val claimAclValidator = ClaimAclValidator()
@@ -73,6 +79,7 @@ class ClaimsConfigFactoryTest {
             ClaimsConfigParser(parser, claimAclParser),
             ClaimsConfigValidator(claimAclValidator),
             authProperties,
+            writtenConfigurationKeys,
             claimTemplatesConfig,
             EnabledAudiencesConfig(emptyList()),
             EnabledScopesConfig(emptyList())
@@ -226,7 +233,7 @@ class ClaimsConfigFactoryTest {
     @Test
     fun `provideClaims - Generated claims are not duplicated when also in properties`() {
         val properties = listOf(
-            claimProperties(id = "sub", type = "string")
+            claimProperties(id = "sub")
         )
 
         val result = factory.provideClaims(properties)
@@ -235,6 +242,42 @@ class ClaimsConfigFactoryTest {
         val claims = (result as EnabledClaimsConfig).claims
         val subClaims = claims.filter { it.id == "sub" }
         assertEquals(1, subClaims.size)
+    }
+
+    @Test
+    fun `provideClaims - Refuse a key written on a generated claim`() {
+        every { writtenConfigurationKeys.under(any()) } returns setOf("claims.sub.type")
+        val properties = listOf(
+            claimProperties(id = "sub", type = "string")
+        )
+
+        val result = factory.provideClaims(properties)
+
+        assertInstanceOf(DisabledClaimsConfig::class.java, result)
+        assertEquals(
+            listOf("claims.sub.type"),
+            (result as DisabledClaimsConfig).configurationErrors
+                ?.filterIsInstance<ConfigurationException>()
+                ?.map { it.key }
+        )
+    }
+
+    @Test
+    fun `provideClaims - Refuse a template named on a generated claim rather than resolving it`() {
+        every { writtenConfigurationKeys.under(any()) } returns setOf("claims.sub.template")
+        val properties = listOf(
+            claimProperties(id = "sub", template = "nonexistent")
+        )
+
+        val result = factory.provideClaims(properties)
+
+        assertInstanceOf(DisabledClaimsConfig::class.java, result)
+        assertEquals(
+            listOf("config.claim.generated.not_configurable"),
+            (result as DisabledClaimsConfig).configurationErrors
+                ?.filterIsInstance<ConfigurationException>()
+                ?.map { it.messageId }
+        )
     }
 
     @Test
@@ -258,6 +301,7 @@ class ClaimsConfigFactoryTest {
             ClaimsConfigParser(parser, claimAclParser),
             ClaimsConfigValidator(claimAclValidator),
             authProperties,
+            writtenConfigurationKeys,
             EnabledClaimTemplatesConfig(mapOf(DEFAULT to writableTemplate)),
             EnabledAudiencesConfig(emptyList()),
             EnabledScopesConfig(emptyList())

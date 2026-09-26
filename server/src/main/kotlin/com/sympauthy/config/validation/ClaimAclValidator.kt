@@ -91,36 +91,6 @@ class ClaimAclValidator {
         )
     }
 
-    /**
-     * Validate a generated claim ACL. Only validates [readableWithClientScopes].
-     */
-    fun validateGeneratedClaimAcl(
-        ctx: ConfigParsingContext,
-        parsed: ParsedClaimAcl,
-        configKeyPrefix: String,
-        consentScope: String
-    ): ClaimAcl {
-        validateClientScopeList(
-            ctx,
-            parsed.readableWithClientScopes,
-            "$configKeyPrefix.acl.readable-with-client-scopes-unconditionally"
-        )
-
-        return ClaimAcl(
-            consent = ConsentAcl(
-                scope = consentScope,
-                readableByUser = true,
-                writableByUser = false,
-                readableByClient = true,
-                writableByClient = false
-            ),
-            unconditional = UnconditionalAcl(
-                readableWithClientScopes = parsed.readableWithClientScopes ?: emptyList(),
-                writableWithClientScopes = emptyList()
-            )
-        )
-    }
-
     private fun validateConsentScope(
         ctx: ConfigParsingContext,
         scope: String?,

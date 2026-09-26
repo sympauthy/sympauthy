@@ -248,37 +248,4 @@ class ClaimAclParserTest {
             ctx.errors.map { it.key }
         )
     }
-
-    @Test
-    fun `parseGeneratedClaimAcl - Read the readable client scopes from the properties`() {
-        val ctx = ConfigParsingContext()
-        val acl = aclProperties(readableWithClientScopes = listOf("users:claims:read"))
-
-        val parsed = parser.parseGeneratedClaimAcl(ctx, acl, null, "claims.sub")
-
-        assertFalse(ctx.hasErrors)
-        assertEquals(
-            ParsedClaimAcl(
-                consentScope = null,
-                readableByUser = null,
-                writableByUser = null,
-                readableByClient = null,
-                writableByClient = null,
-                readableWithClientScopes = listOf("users:claims:read"),
-                writableWithClientScopes = emptyList()
-            ),
-            parsed
-        )
-    }
-
-    @Test
-    fun `parseGeneratedClaimAcl - Fall back to the template for the readable client scopes`() {
-        val ctx = ConfigParsingContext()
-        val template = template(readableWithClientScopes = listOf("users:claims:read"))
-
-        val parsed = parser.parseGeneratedClaimAcl(ctx, null, template, "claims.sub")
-
-        assertFalse(ctx.hasErrors)
-        assertEquals(listOf("users:claims:read"), parsed.readableWithClientScopes)
-    }
 }

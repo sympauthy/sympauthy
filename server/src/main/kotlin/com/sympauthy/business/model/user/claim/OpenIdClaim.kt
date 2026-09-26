@@ -3,8 +3,8 @@ package com.sympauthy.business.model.user.claim
 /**
  * Generated OpenID Connect claims whose values are managed by the authorization server.
  *
- * These claims are always enabled, read-only, and not configurable beyond unconditional
- * client read scopes. All structural properties are hardcoded.
+ * These claims are always enabled and read-only, and a deployment configures nothing about them: every
+ * key `claims.<id>` accepts is refused where it is written. What they are is held here, and nowhere else.
  */
 enum class GeneratedOpenIdConnectClaim(
     val id: String,
@@ -38,6 +38,34 @@ enum class GeneratedOpenIdConnectClaim(
         scope = "profile",
         publishedIn = setOf(ClaimPublication.USERINFO)
     );
+
+    /**
+     * Who may read this claim, which is the same for every generated claim but the scope above.
+     *
+     * It carries no unconditional client scope, and a file cannot give it one: every channel that
+     * publishes a generated claim computes the value rather than reading it out of the claims
+     * collected from a person, so the list [UnconditionalAcl] would hold is consulted by nothing.
+     */
+    val acl: ClaimAcl
+        get() = ClaimAcl(
+            consent = ConsentAcl(
+                scope = scope,
+                readableByUser = true,
+                writableByUser = false,
+                readableByClient = true,
+                writableByClient = false
+            ),
+            unconditional = UnconditionalAcl(
+                readableWithClientScopes = emptyList(),
+                writableWithClientScopes = emptyList()
+            )
+        )
+
+    companion object {
+
+        /** The ids of every generated claim, which is what a claim written in a file is held against. */
+        val ids: Set<String> = entries.mapTo(mutableSetOf(), GeneratedOpenIdConnectClaim::id)
+    }
 }
 
 /**
