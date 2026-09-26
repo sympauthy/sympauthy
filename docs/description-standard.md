@@ -69,9 +69,10 @@ the decision.
 argument elsewhere. Writing it out is what turns a paragraph a reader skims into one they skip.
 
 ```markdown
-**Every claim carrying a value carries the hash, and the index covers every claim.** Neither of them
-depends on the set a deployment declares, so a claim added to `auth.identifier-claims` is looked up
-against the rows written before it — [the design FAQ](design-faq.md#…) holds what that costs.
+**Every claim carrying a value carries the hash, and the index covers every claim that does.**
+Neither of them depends on the set a deployment declares — [the design
+FAQ](design-faq.md#is-the-identifier-lookup-indexed-over-the-claims-a-deployment-identifies-by)
+holds what that costs.
 ```
 
 **A signature, a field list or a call sequence.** Write what a reader cannot get from the file in

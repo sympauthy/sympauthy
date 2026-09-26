@@ -9,7 +9,8 @@ paths:
 # Documentation standard
 
 How a standard in `docs/` is written — a document named `<subject>-standard.md`. The other documents
-there are descriptions, and [the index](index.md) says what each of them covers.
+there are descriptions, and [the description standard](description-standard.md) is how one of those
+is written; [the index](index.md) names every document and says what each of them covers.
 
 ## Shape of a standard
 
