@@ -1,6 +1,6 @@
 [versions]
 # Platform / framework
-micronaut = "5.1.5"
+micronaut = "5.2.0"
 # Gradle plugins
 micronaut-plugin = "5.0.2"
 kotlin = "2.4.20"

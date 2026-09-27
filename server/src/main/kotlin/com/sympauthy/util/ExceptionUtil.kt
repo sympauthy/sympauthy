@@ -3,6 +3,7 @@ package com.sympauthy.util
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.exception.LocalizedException
 import io.micronaut.context.MessageSource
+import io.micronaut.data.exceptions.EntityExistsException
 import java.util.*
 
 /**
@@ -27,6 +28,26 @@ fun Exception.getKeyAndLocalizedMessage(messageSource: MessageSource): Pair<Stri
         else -> javaClass.name to message
     }
 }
+
+/**
+ * Whether the write was refused because a row for the key it carried is already there, which is the
+ * violation `docs/locking-standard.md` has the manager writing the row translate.
+ *
+ * This is narrower than the integrity failures the driver raises one exception for: a foreign key with
+ * nothing behind it and a column refusing null are this server writing a row it should not have, and
+ * they travel on rather than being answered as something the caller sent twice.
+ *
+ * The cause chain is walked rather than the type matched, because the failure reaches a manager through
+ * a transaction interceptor and a coroutine bridge — either of which may wrap it, and a wrapped one a
+ * manager did not recognise would silently lose the translation.
+ */
+internal fun Throwable.isRowAlreadyThere(): Boolean =
+    generateSequence(this, Throwable::cause)
+        .take(CAUSE_DEPTH)
+        .any { it is EntityExistsException }
+
+/** Bounded, so an exception whose cause is itself cannot hold the walk open. */
+private const val CAUSE_DEPTH = 10
 
 /**
  * Renders the message [messageId] names in [locale], interpolating [values] into its placeholders,

@@ -6,9 +6,9 @@ import com.sympauthy.data.RepositoryFixture
 import com.sympauthy.data.bean
 import com.sympauthy.data.model.UserSecurityContextEntity
 import com.sympauthy.data.withFixture
+import com.sympauthy.util.isRowAlreadyThere
 import io.r2dbc.spi.Connection
 import io.r2dbc.spi.ConnectionFactory
-import io.r2dbc.spi.R2dbcDataIntegrityViolationException
 import kotlinx.coroutines.reactive.awaitFirst
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -95,10 +95,13 @@ class UserSecurityContextRepositoryTest {
         }
 
     /**
-     * A departure from leaving a constraint to the database: `UserSecurityContextManager` catches this
-     * exact violation and folds again as an update, so a dialect not enforcing the index leaves that
-     * branch unreachable and duplicates a person's places instead. The H2 spelling of `consents` drops
-     * its partial unique index, which is what makes proving this one on every dialect worth a case.
+     * A departure from leaving a constraint to the database: `UserSecurityContextManager` recognises this
+     * violation and folds again as an update, so a dialect not enforcing the index leaves that branch
+     * unreachable and duplicates a person's places instead. The H2 spelling of `consents` drops its
+     * partial unique index, which is what makes proving this one on every dialect worth a case.
+     *
+     * The refusal is asserted through the predicate that manager reads it with: what the branch needs is
+     * not a type the framework happens to raise but a refusal it still recognises as this key being taken.
      */
     @ParameterizedTest
     @EnumSource(Database::class)
@@ -107,7 +110,9 @@ class UserSecurityContextRepositoryTest {
             val userId = newUser()
             saveContext(userId, fingerprint)
 
-            assertThrows<R2dbcDataIntegrityViolationException> { saveContext(userId, fingerprint) }
+            val refusal = assertThrows<Exception> { saveContext(userId, fingerprint) }
+
+            assertTrue(refusal.isRowAlreadyThere(), "The refusal does not read as the key being taken.")
         }
 
     @ParameterizedTest

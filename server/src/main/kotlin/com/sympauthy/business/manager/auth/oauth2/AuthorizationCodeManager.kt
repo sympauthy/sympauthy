@@ -8,7 +8,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.data.model.AuthorizationCodeEntity
 import com.sympauthy.data.repository.AuthorizationCodeRepository
-import io.r2dbc.spi.R2dbcDataIntegrityViolationException
+import com.sympauthy.util.isRowAlreadyThere
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.time.LocalDateTime
@@ -24,6 +24,15 @@ class AuthorizationCodeManager(
     @Inject private val randomGenerator: RandomGenerator
 ) {
 
+    /**
+     * Generate the authorization code a client exchanges for [session]'s tokens.
+     *
+     * Throws `code.already_generated` where the session already holds one: the primary key over
+     * `session_id` is what refuses the second, so an authorization request replayed against a session
+     * that already answered one is told so rather than handed a second code. Every other way the write
+     * can be refused — the foreign key over a session that is gone — travels on as this server's own
+     * failure, because nothing the client sent would have prevented it.
+     */
     suspend fun generateCode(
         session: InteractiveFlowSession
     ): AuthorizationCode {
@@ -38,7 +47,10 @@ class AuthorizationCodeManager(
         return try {
             authorizeCodeRepository.save(entity)
                 .let(authorizationCodeMapper::toAuthorizationCode)
-        } catch (_: R2dbcDataIntegrityViolationException) {
+        } catch (failure: Exception) {
+            if (!failure.isRowAlreadyThere()) {
+                throw failure
+            }
             throw oauth2ExceptionOf(INVALID_REQUEST, "code.already_generated", "description.oauth2.replay")
         }
     }
