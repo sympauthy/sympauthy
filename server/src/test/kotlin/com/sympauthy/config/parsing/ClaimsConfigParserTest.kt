@@ -110,14 +110,29 @@ class ClaimsConfigParserTest {
     }
 
     @Test
-    fun `parse - Publish a generated claim in the channels it already reaches, whatever it was configured with`() {
+    fun `parse - Publish a generated claim in the channels it already reaches`() {
         val ctx = ConfigParsingContext()
-        val properties = claimProperties("sub", "string", publishedIn = listOf("userinfo"))
 
-        val claims = parser.parse(ctx, listOf(properties), mapOf(DEFAULT to claimTemplate(DEFAULT)))
+        val claims = parser.parse(ctx, emptyList(), mapOf(DEFAULT to claimTemplate(DEFAULT)))
 
         assertEquals(setOf(ID_TOKEN, USERINFO), claims.first { it.id == "sub" }.publishedIn)
         assertEquals(setOf(USERINFO), claims.first { it.id == "updated_at" }.publishedIn)
+        assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
+    }
+
+    @Test
+    fun `parse - Answer a generated claim off the enum, whatever a file wrote under it`() {
+        val ctx = ConfigParsingContext()
+        val properties = claimProperties("sub", "number", "openid", publishedIn = listOf("userinfo"))
+        val templates = mapOf(DEFAULT to claimTemplate(DEFAULT), "openid" to claimTemplate("openid"))
+
+        val sub = parser.parse(ctx, listOf(properties), templates).first { it.id == "sub" }
+
+        assertEquals(STRING, sub.dataType)
+        assertEquals(setOf(ID_TOKEN, USERINFO), sub.publishedIn)
+        assertEquals(ParsedClaimAcl.NONE, sub.acl)
+        // Refusing what the file wrote is the validator's, so the parser reports nothing at all here.
+        assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
     }
 
     @Test

@@ -8,6 +8,7 @@ import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.ClaimTemplate
 import com.sympauthy.config.parsing.ParsedClaim
+import com.sympauthy.config.parsing.normalizeClaimId
 import com.sympauthy.config.properties.ClaimConfigurationProperties.Companion.CLAIMS_KEY
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -20,12 +21,15 @@ class ClaimsConfigValidator(
     fun validate(
         ctx: ConfigParsingContext,
         parsed: List<ParsedClaim>,
+        writtenKeys: Set<String>,
         templates: Map<String, ClaimTemplate>,
         audiencesById: Map<String, Audience>,
         scopesById: Map<String, Scope>,
         identifierClaims: List<String>?,
         userMergingEnabled: Boolean?
     ): List<Claim> {
+        refuseKeysWrittenOnAGeneratedClaim(ctx, writtenKeys)
+
         val claims = parsed.mapNotNull { parsedClaim ->
             validateClaim(ctx, parsedClaim, audiencesById, scopesById)
         }
@@ -67,6 +71,31 @@ class ClaimsConfigValidator(
         return claims
     }
 
+    /**
+     * Record an error against every one of the [writtenKeys] a deployment wrote under a generated
+     * claim, so that a setting which will not take effect is never accepted in silence. A generated
+     * claim reads none of them, whichever key it is.
+     *
+     * The key is refused rather than the value under it, which is what makes this answer for the whole
+     * section rather than for a list of properties. A key written with nothing under it is refused,
+     * because a deployment that wrote one believes it is deciding something; a value equal to the one
+     * the server would have used is refused too, because a rule firing only where the two differ is
+     * one nobody can predict from their own file; and a property added to a claim tomorrow is refused
+     * without anyone having to say so.
+     *
+     * The error names the key as the file spells it, so an operator reads back what they wrote — the
+     * claim id included, which Micronaut would otherwise hand over hyphenated.
+     */
+    private fun refuseKeysWrittenOnAGeneratedClaim(ctx: ConfigParsingContext, writtenKeys: Set<String>) {
+        writtenKeys.sorted().forEach { key ->
+            val claimId = key.removePrefix("$CLAIMS_KEY.").substringBefore('.', "").normalizeClaimId()
+            if (claimId !in GeneratedOpenIdConnectClaim.ids) return@forEach
+            ctx.addError(
+                configExceptionOf(key, "config.claim.generated.not_configurable", "claim" to claimId)
+            )
+        }
+    }
+
     private fun validateClaim(
         ctx: ConfigParsingContext,
         parsed: ParsedClaim,
@@ -86,7 +115,7 @@ class ClaimsConfigValidator(
         // Validate ACL scope references.
         val acl = if (parsed.generated) {
             val generatedClaim = GeneratedOpenIdConnectClaim.entries.first { it.id == parsed.id }
-            claimAclValidator.validateGeneratedClaimAcl(ctx, parsed.acl, configKeyPrefix, generatedClaim.scope)
+            generatedClaim.acl
         } else {
             claimAclValidator.validateAcl(ctx, parsed.acl, configKeyPrefix, scopesById)
         }

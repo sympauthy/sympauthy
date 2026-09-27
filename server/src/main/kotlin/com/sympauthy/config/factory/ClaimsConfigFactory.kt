@@ -2,10 +2,12 @@ package com.sympauthy.config.factory
 
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.config.ConfigParsingContext
+import com.sympauthy.config.WrittenConfigurationKeys
 import com.sympauthy.config.model.*
 import com.sympauthy.config.parsing.ClaimsConfigParser
 import com.sympauthy.config.properties.AuthConfigurationProperties
 import com.sympauthy.config.properties.ClaimConfigurationProperties
+import com.sympauthy.config.properties.ClaimConfigurationProperties.Companion.CLAIMS_KEY
 import com.sympauthy.config.validation.ClaimsConfigValidator
 import io.micronaut.context.annotation.Factory
 import jakarta.inject.Inject
@@ -16,6 +18,7 @@ class ClaimsConfigFactory(
     @Inject private val claimsParser: ClaimsConfigParser,
     @Inject private val claimsValidator: ClaimsConfigValidator,
     @Inject private val authProperties: AuthConfigurationProperties,
+    @Inject private val writtenConfigurationKeys: WrittenConfigurationKeys,
     @Inject private val claimTemplatesConfig: ClaimTemplatesConfig,
     @Inject private val uncheckedAudiencesConfig: AudiencesConfig,
     @Inject private val uncheckedScopesConfig: ScopesConfig
@@ -35,7 +38,7 @@ class ClaimsConfigFactory(
         val ctx = ConfigParsingContext()
         val parsed = claimsParser.parse(ctx, propertiesList, enabledTemplatesConfig.templates)
         val claims = claimsValidator.validate(
-            ctx, parsed, enabledTemplatesConfig.templates,
+            ctx, parsed, writtenConfigurationKeys.under("$CLAIMS_KEY."), enabledTemplatesConfig.templates,
             enabledAudiencesConfig.audiences.associateBy { it.id },
             enabledScopesConfig.scopes.associateBy(Scope::scope),
             authProperties.identifierClaims,

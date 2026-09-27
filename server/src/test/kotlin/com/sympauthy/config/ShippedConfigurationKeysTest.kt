@@ -32,7 +32,9 @@ class ShippedConfigurationKeysTest {
         builder.build().use { context ->
             context.environment.start()
 
-            val keys = UnboundConfigurationKeys(context.environment, DeclaredConfigurationKeyReader())
+            val keys = UnboundConfigurationKeys(
+                WrittenConfigurationKeys(context.environment), DeclaredConfigurationKeyReader()
+            )
             val unboundKeys = keys.configurationErrors
 
             assertEquals(
