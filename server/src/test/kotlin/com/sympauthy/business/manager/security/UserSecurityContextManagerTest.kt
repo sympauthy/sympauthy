@@ -15,7 +15,7 @@ import io.mockk.coVerifyOrder
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import io.mockk.slot
-import io.r2dbc.spi.R2dbcDataIntegrityViolationException
+import io.micronaut.data.exceptions.EntityExistsException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -273,7 +273,8 @@ class UserSecurityContextManagerTest {
 
     /**
      * Two completions inserting one place: the loser of the unique index folds again, and the second pass
-     * finds the row and updates it.
+     * finds the row and updates it. The violation is wrapped on the way, which is the shape a framework
+     * translating it into one of its own leaves it in.
      */
     @Test
     fun `fold - Folds again as an update when it lost the race to insert`() = runTest {
@@ -281,7 +282,9 @@ class UserSecurityContextManagerTest {
         coEvery { sessionRepository.findBySessionId(sessionId) } returns listOf(row())
         coEvery { contextRepository.findByUserIdAndFingerprint(userId, FINGERPRINT) } returnsMany
             listOf(null, existing(existingId, observationCount = 1))
-        coEvery { contextRepository.save(any()) } throws R2dbcDataIntegrityViolationException("duplicate")
+        coEvery { contextRepository.save(any()) } throws IllegalStateException(
+            "transaction failed", EntityExistsException("duplicate key")
+        )
 
         manager.fold(sessionId, userId)
 

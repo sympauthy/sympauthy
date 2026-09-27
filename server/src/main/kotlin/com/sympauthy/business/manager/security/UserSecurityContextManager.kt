@@ -8,9 +8,9 @@ import com.sympauthy.data.model.InteractiveFlowSessionSecurityContextEntity
 import com.sympauthy.data.model.UserSecurityContextEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
 import com.sympauthy.data.repository.UserSecurityContextRepository
+import com.sympauthy.util.isRowAlreadyThere
 import com.sympauthy.util.loggerForClass
 import io.micronaut.transaction.annotation.Transactional
-import io.r2dbc.spi.R2dbcDataIntegrityViolationException
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.CancellationException
@@ -269,15 +269,9 @@ open class UserSecurityContextManager(
 
     /**
      * Whether this is the unique index over `(user_id, fingerprint)` refusing a second row for one place.
-     *
-     * The cause chain is walked rather than the type matched, because the driver's exception reaches here
-     * through a transaction interceptor and a coroutine bridge — either of which may wrap it, and a
-     * wrapped one would silently turn the retry below into a lost sighting.
+     * A refusal this did not recognise would silently turn the retry into a lost sighting.
      */
-    private fun Throwable.isPlaceAlreadyRecorded(): Boolean =
-        generateSequence(this, Throwable::cause)
-            .take(CAUSE_DEPTH)
-            .any { it is R2dbcDataIntegrityViolationException }
+    private fun Throwable.isPlaceAlreadyRecorded(): Boolean = isRowAlreadyThere()
 
     private companion object {
 
@@ -294,8 +288,5 @@ open class UserSecurityContextManager(
          * attempt would be a second loser of a race only two writers can enter.
          */
         const val ATTEMPTS = 2
-
-        /** Bounded, so an exception whose cause is itself cannot hold this open. */
-        const val CAUSE_DEPTH = 10
     }
 }
