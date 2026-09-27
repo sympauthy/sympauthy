@@ -11,6 +11,15 @@ promise a deployment makes when it names a proxy, and about what the server does
 promise has been made. The settings are `advanced.security-context`, and the authentication and
 authorization this sits beside are [security](security.md).
 
+A change to any of it starts in a handful of places. `SecurityContextUtil` reads a request under
+the trust model a deployment configured and answers with an `ObservedRequest`, and
+`ObservedRequestFilter` is what calls it, once, ahead of everything else. An edge is an
+implementation of `IpProvider` or of `GeoProvider`, and each interface's KDoc is the authority on
+why one is named and the other may be detected. `SecurityContextConfig` and the types under it are
+what the settings parse into. What is recorded lands in
+`InteractiveFlowSessionSecurityContextEntity` while a flow runs and in `UserSecurityContextEntity`
+once one completes, and `UserSecurityContextManager` folds the first into the second.
+
 ## What is believed, and on whose word
 
 **No header is believed until an operator names the proxy that sets it.** With nothing configured
@@ -62,8 +71,8 @@ balancer in front of it.
 
 **An edge is a rule for extracting values, not a table of header names.** A `Map<field, header>`
 cannot describe an edge that packs several fields into one header, as Google's load balancer and
-Akamai's EdgeScape do, or one that puts a port beside the address, as CloudFront does — so each edge
-carries the extraction it needs.
+Akamai's EdgeScape do, or one that puts a port beside the address, as CloudFront does — so each
+implementation of `IpProvider` and `GeoProvider` carries the extraction it needs.
 
 **Where a header arrives more than once, the last value is the edge's.** A caller may have sent it
 already and a proxy may append rather than replace, so everything before the last is the caller's —
@@ -74,9 +83,11 @@ naming a header is saying the value is in it, as it stands; a deployment needing
 a packed header names the edge that knows how. A name no request could carry — one holding a space
 or a colon — is refused at startup rather than silently matching nothing.
 
-**It is read once, at the boundary, and passed on as an ordinary parameter.** A filter reads every
-request ahead of the security filter and leaves the result on the request; a handler is handed it
-and passes it down.
+**It is read once, at the boundary, and passed on as an ordinary parameter.**
+`ObservedRequestFilter` runs ahead of Micronaut Security, over every path rather than one surface,
+and leaves an `ObservedRequest` on the request; a handler binds that and passes it down. Why it is
+scoped to no surface, and what it costs on the requests that never use it, is the filter's own
+KDoc.
 
 **What is refused is a manager reaching back for it.** There is no request-scoped bean and no
 thread-local: [the general standard](general-code-standard.md#dependency-rules) keeps a manager
@@ -88,11 +99,12 @@ null address against a real security decision, silently.
 been authenticated is no use to anything deciding whether to answer them at all, which is what
 throttling will have to decide about a caller who has presented nothing yet.
 
-**A configuration that did not parse is believed about nothing.** The reading narrows the sealed
-configuration type rather than throwing, and falls back to the socket peer — which is where a
-deployment that configured nothing lands anyway. A file that did not parse names no proxy, so it
-makes none of the promise that believing one rests on; and a reading that threw would fail every
-request in the chain, including the one telling an operator which key is at fault.
+**A configuration that did not parse is believed about nothing.** `SecurityContextUtil` narrows
+`AdvancedConfig` to its enabled shape rather than throwing, and one that did not produce that shape
+falls back to the socket peer — which is where a deployment that configured nothing lands anyway. A
+file that did not parse names no proxy, so it makes none of the promise that believing one rests
+on; and a reading that threw would fail every request in the chain, including the one telling an
+operator which key is at fault.
 
 ## What is kept, and for how long
 
@@ -141,6 +153,26 @@ a street group, and nothing here has a use for that.
 **An address is personal data, and the deletion ships with the record rather than after it.** The
 cutoff is computed when the sweep runs, so lowering the retention takes effect on the next run
 instead of on each row's next sighting.
+
+## What this document does not settle
+
+**What anything does with a place once it is recorded.** The record exists and nothing reads it to
+decide anything: no new-device mail, no impossible-travel check, no risk score.
+[Security](security.md#what-this-design-does-not-do) names that as a gap of its own, and what this
+document settles is only what is worth keeping for whatever eventually does.
+
+**Throttling.** It is named here twice as the thing reading early is for, and it is not built —
+[the interactive flow](interactive-flow.md#what-this-design-does-not-do) is where that gap is
+tracked. Whether it keys on the address this reads, and what a deployment behind an unnamed proxy
+would be throttling if it did, is open.
+
+**Whether a person may see or delete their own places.** They are personal data kept for months,
+and the only surface reading them is the administration one. Which of the subject rights that
+implies, and on which surface they would be served, is undecided.
+
+**How an edge's extraction is proven right.** Each implementation is written from that vendor's
+documentation, and nothing holds it against a real header from a real deployment. A vendor that
+changes what it publishes is discovered by a location going wrong.
 
 ---
 

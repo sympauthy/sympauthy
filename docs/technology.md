@@ -75,6 +75,19 @@ tool version this project cannot move past, a dependency excluded to avoid a cla
 reason as a comment beside the constraint, because a version range with no explanation is one
 somebody eventually widens.
 
+## What this document does not settle
+
+**When a pick is revisited.** Each entry says why it was chosen and none says what would unseat it,
+so a library that stops being maintained, or a framework release that changes what a native image
+costs, is noticed by whoever trips over it rather than by anything written here.
+
+**What a dependency has to clear before it joins the list.** The ones here were each argued on their
+own, and no bar is stated — not a licence policy, not a maintenance signal, not a limit on how much
+a new library may add to the native image.
+
+**The versions.** They are in the build files, which are the authority, and nothing here tracks
+them or says which are pinned against which.
+
 ---
 
 ← [Design documentation](index.md)

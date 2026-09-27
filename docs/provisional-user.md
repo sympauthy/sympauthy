@@ -14,11 +14,12 @@ whatever it signed up.
 ## A row that does not count yet
 
 **A row a sign-up writes carries the id of the session writing it, and does not count until the
-session completes.** The five tables an account is made of carry a nullable `session_id`; the
-interface `SessionScoped` and its KDoc are the authority on what the column means. On success the
-column is cleared — one transaction, every table — and on abandonment the rows are collected with
-the session. It is a long-running transaction emulated with a tombstone and compensating cleanup,
-which is what one does when a real transaction cannot span the work.
+session completes.** Every table an account is made of carries a nullable `session_id`, and
+`SessionScoped` is the interface each of them implements — its KDoc is the authority on what the
+column means and on which entities carry it. On success the column is cleared — one transaction,
+every table — and on abandonment the rows are collected with the session. It is a long-running
+transaction emulated with a tombstone and compensating cleanup, which is what one does when a real
+transaction cannot span the work.
 
 **A row is provisional exactly when its user is.** Every row an account owns takes its session id
 from the account rather than from the session the request happens to be serving, so a committed
@@ -106,16 +107,35 @@ takes those two in the opposite order, and together they would deadlock.
 
 **Its deletes carry the predicate its select selected by.** A flow may promote one of the accounts
 between the read that listed it and the deletes that collect it, and an id names a row whatever
-became of it since. Each of the five statements names the session id instead, so a database that
-blocked on the promotion re-checks the account as the promotion left it and skips a promoted one.
-The guarantee on the other side — that a flow whose session the cleaner expired cannot complete —
-is the flow's, and the sweep does not lean on it.
+became of it since. Each statement names the session id instead, so a database that blocked on the
+promotion re-checks the account as the promotion left it and skips a promoted one. The guarantee on
+the other side — that a flow whose session the cleaner expired cannot complete — is the flow's, and
+the sweep does not lean on it.
 
 **A table that references `users` is classified when it is added.** Collecting an abandoned account
 means deleting it, and a foreign key that delete breaks would abort the whole sweep — again every
 quarter of an hour, indefinitely. Each such table is either owned by the account and deleted with
 it, or named in the guard that skips an account something still refers to. That guard is the query
 the collection selects by, and it is where the rule is written.
+
+## What this document does not settle
+
+**How the completion transaction stops holding a lock across I/O.** It names the breach and the
+reason the obvious fix is not one — a terminal effect's webhook cannot simply move ahead of the
+promotion, because the effects write against the account the promotion is what makes real — and
+stops there. What would settle it is a way to commit the identity before the effects run without
+giving up the re-check the lock is held for, and nothing here proposes one.
+
+**How long an abandoned account lives.** It is collected once its session is gone, so the session
+expiry decides it and no setting is its own. Whether a half-finished sign-up deserves a life of its
+own is open in both directions: longer, so that somebody returning to a stale tab keeps what they
+typed, and shorter, so that a value one of them is sitting on frees up sooner.
+
+**Whether a sign-up that got as far as promotion can be resumed.** A completion that fails takes
+the promotion down with it, and the person starts again from nothing. That is the same question as
+resuming across sessions, which [the interactive
+flow](interactive-flow.md#what-this-design-does-not-do) leaves open too, and neither document is
+the one to settle it alone.
 
 ---
 

@@ -11,11 +11,11 @@ order does not explain it.
 
 ## The session
 
-`InteractiveFlowSession` is the primitive. It is sealed, and its subtypes are the states a flow can
-be in: `OnGoing`, `Completed`, `Failed`, `Cancelled`. It carries only **flow-generic** state — its
-id, the ordered list of purposes it exists to satisfy, which of them initiated it and for which
-client, the user once one is known, whether MFA has been passed, where to redirect on success and on
-cancel, and when it expires.
+`InteractiveFlowSession` is the primitive, and it is sealed: its subtypes are the states a flow can
+be in, `OnGoing` and the terminal ones beside it. **It carries only flow-generic state** — what the
+engine needs to sequence purposes over it and to hand the person back where they came from, such as
+the ordered purpose list and the redirect to take on success. The type is the authority on which
+fields those are.
 
 **Which purpose and which client started it are stored rather than derived**, and set once. Gates
 are prepended and follow-ups inserted at runtime, so no positional rule over the purpose list stays
@@ -91,15 +91,10 @@ has to take turns with, is [the provisional user](provisional-user.md).
 
 ## A purpose handler is pure
 
-`InteractiveFlowPurposeHandler` has three required members and two with defaults:
-
-| Member | Answers |
-| --- | --- |
-| `purpose` | which value of the enum this handler is for |
-| `nextStepOrNull` | the step this purpose still needs, or nothing if it is satisfied |
-| `debugInformation` | what this purpose has to say about where a session stands |
-| `followUpPurposes` | purposes to insert after this one |
-| `applyTerminalEffect` | the work this purpose does when the flow is about to succeed |
+**`InteractiveFlowPurposeHandler` is one purpose's answers to the engine, and its KDoc is the
+authority on what each member is asked.** Which of them a new handler has to implement and which
+default is stated there; what this document holds is the part the interface cannot say — why a
+handler may only answer, and what the engine does with each answer it gives.
 
 **A handler reads the session and describes what its purpose needs. It never mutates or persists
 anything.** Appending purposes, marking one complete, completing or failing the session are the
@@ -163,8 +158,8 @@ a dotted identifier, the key beside it still saying what happened.
 **A session that ran out of time ended with a failure too, and it is the same one.** Nothing refused
 anything and no column records it, so the failure is named once — beside the session model, where
 both the projection that routes the person and the page that answers an operator read it — rather
-than synthesised twice with two chances to drift. An expired session therefore publishes the five
-error fields a failed one does.
+than synthesised twice with two chances to drift. An expired session therefore publishes every error
+field a failed one does.
 
 **Both halves are rendered the way the error page rendered them**, through the same mapper and as
 the same terminal failure. An operator asking what a person was told is asking about that page, and
@@ -192,15 +187,15 @@ switched on.
 
 1. Add the value to the enum, with a KDoc saying what it is for, which role it plays, and the label
    a person reads it under.
-2. Write its handler as a bean: the purpose, `nextStepOrNull`, `debugInformation`, and whichever of
-   the other two it needs.
+2. Write its handler as a bean, implementing the members `InteractiveFlowPurposeHandler` requires
+   and whichever of the defaulted ones it needs.
 3. If it has state of its own, add a record keyed by the session id, its table in every dialect,
    and a manager that reads and writes it.
 4. Give it an entry point. There is no generic "start a flow" endpoint: each purpose is initiated by
    whatever asks for it, which creates the session with the ordered purpose list, names the client
    it is for, and persists any attached record **in the same transaction** — then hands the session
-   it got back to the controller helper, which records where it was started from, as
-   [the `api` layer standard](api-layer-code-standard.md#the-flow-controller) requires.
+   it got back to `InteractiveAuthFlowSessionControllerUtil`, which records where it was started
+   from, as [the `api` layer standard](api-layer-code-standard.md#the-flow-controller) requires.
 5. Test the handler's branches directly — including that `debugInformation` answers for a session
    with no user, no attached record and a terminal status, and that no credential is among what it
    emits — and add an integration test that drives the flow.
@@ -209,18 +204,18 @@ switched on.
 
 1. Add it to the sealed step type — an object, or a class when the step is parameterised.
 2. Map it to a redirect, from the page address the flow's configuration names.
-3. Serve it as an endpoint under the flow surface, gated on the session token, going through the
-   controller helper rather than decoding the state itself.
+3. Serve it as an endpoint under the flow surface, gated on the session token, going through
+   `InteractiveAuthFlowSessionControllerUtil` rather than decoding the state itself.
 4. Make its applicability predicate mirror the handler's, or expect a loop.
 
 ## Writing a step endpoint
 
-**Every flow handler goes through the shared controller helper.** It verifies the signed state,
-loads the session, records where the request came from, runs the work, asks the engine what comes
-next, turns that into a redirect, and translates a failure into either a retryable error or a
-failed session. A controller that decodes state, loads a session or builds a redirect itself is
-doing five things the helper already does identically everywhere else — and doing at least one of
-them slightly differently.
+**Every flow handler goes through `InteractiveAuthFlowSessionControllerUtil`.** It verifies the
+signed state, loads the session, records where the request came from, runs the work, asks the engine
+what comes next, turns that into a redirect, and translates a failure into either a retryable error
+or a failed session. A controller that decodes state, loads a session or builds a redirect itself is
+re-doing work the helper already does identically everywhere else — and doing at least one part of
+it slightly differently.
 
 **A handler binds the observed request and passes it to the helper.** It is read once at the
 boundary and threaded down as an ordinary parameter, which [the security
@@ -254,13 +249,13 @@ again from the client that sent them.
 
 **One attached record is read rather than collected, where the flow completed.** The places a
 session was driven from are attached to it — one row per distinct place, written where the session
-is created and at every request that resolves one still in flight, both through the shared
-controller helper.
-Completing the flow folds the one a credential was proven at into that person's own record and
-consumes them all; what the cleaner collects is therefore only the places of flows that never
-finished. It is the one thing a session writes whose contents outlive it — deliberately, because
-[the security context](security-context.md) keeps a place for months and a session for half an
-hour, and only the row a proof stamped is ever read that way.
+is created and at every request that resolves one still in flight, both through
+`InteractiveAuthFlowSessionControllerUtil`. Completing the flow folds the one a credential was
+proven at into that person's own record and consumes them all; what the cleaner collects is
+therefore only the places of flows that never finished. It is the one thing a session writes whose
+contents outlive it — deliberately, because [the security context](security-context.md) keeps a
+place for months and a session for half an hour, and only the row a proof stamped is ever read that
+way.
 
 **It does not model steps that branch on client-supplied data.** Every predicate is a function of
 the session and the configuration. A step that needed the client to say which of two paths to take

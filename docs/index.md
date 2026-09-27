@@ -17,7 +17,8 @@ they are *not* is a user manual: how to configure and integrate with a running S
 
 ### How the system works
 
-What the server is, how each of its parts works, and why it is built the way it is.
+What the server is and how each of its parts works. Each of these is a description, written the way
+[the description standard](description-standard.md) asks.
 
 - **[Architecture](architecture.md)** — the layers and what cuts across them, what makes something
   its own API surface and which of them carry a version, and the project layout on disk.
@@ -37,7 +38,14 @@ What the server is, how each of its parts works, and why it is built the way it 
 - **[The security context](security-context.md)** — the address, the user agent and the location a
   request is believed to carry: which proxy a deployment names, what naming one promises and what it
   does not, and how long a place somebody signs in from is kept.
-- **[Design FAQ](design-faq.md)** — decisions taken once, with the options that lost.
+
+### Neither of those
+
+A document that is not a description of a part and not a rule a change is held to. [The description
+standard](description-standard.md) governs neither of them, and each says what shapes it instead.
+
+- **[Design FAQ](design-faq.md)** — decisions taken once, with the options that lost. Its own
+  preamble says what belongs in it and what an entry carries.
 - **[Running locally](running-locally.md)** — setting the project up, running it on the JVM and as a
   native image, and running both test suites.
 

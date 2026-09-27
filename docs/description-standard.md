@@ -108,6 +108,13 @@ carries, and that is the authority.
 **[Running locally](running-locally.md).** It is a getting-started guide rather than a description
 of a part of the server, and nothing here governs one.
 
+**[Technology](technology.md)'s catalogue.** Its entries are named things — a framework, a library,
+a runtime — so a bold lead there is that name rather than a claim, and the reason a thing was picked
+stays under it rather than moving to [the design FAQ](design-faq.md). Neither rule is waived for
+convenience: a catalogue answers *what is this built on*, one entry at a time, and a reader
+comparing two picks wants both reasons on the page in front of them rather than one of them a link
+away. The rest of this standard holds of it, the closing section included.
+
 **How long a description may be.** The ones written run from a page to ten, and nothing says which
 is right for a part.
 

@@ -17,7 +17,7 @@ data class AdminInteractiveFlowSessionDetailResource(
     @get:Schema(
         description = "What became of the session. 'expired' means it was still ongoing when its expiration " +
                 "passed — nobody finished it. Both 'failed' and 'expired' ended in a failure and carry the " +
-                "five error fields below; an expired session's are the ones the expiry itself names, since " +
+                "error fields below; an expired session's are the ones the expiry itself names, since " +
                 "no rule refused anything.",
         allowableValues = ["ongoing", "completed", "cancelled", "failed", "expired"]
     )

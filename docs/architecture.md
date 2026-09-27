@@ -66,29 +66,23 @@ would be a second copy of the domain, and the two copies would drift.
 ## Beside the layers
 
 Some packages sit next to the three rather than inside one of them, and the test is the same in
-every case: **a package belongs beside the layers when it owns no layer's model.** The ones there
-today:
+every case: **a package belongs beside the layers when it owns no layer's model.** The package tree
+is what says which are there; what the test looks like in practice is easiest to read off two of
+them.
 
-- **`client/`** — requests *leaving* this server: the token, UserInfo and discovery endpoints of a
-  third-party identity provider, and the authorization webhook. One package per protocol, each with
-  its own `model/` of response types. Those types are a foreign contract, exactly as a database row
-  is, and they get the rule `data` already lives under: a client's response type does not reach a
-  manager unmapped.
-- **`exception/`** — `LocalizedException`, the root every failure in this server extends, and the
-  mapper that renders one against a message bundle. It is above all three layers because `business`
-  and `api` both throw, and neither may depend on the other. See [the exception
-  standard](exception-code-standard.md).
+- **`client/`** — requests *leaving* this server, one package per protocol, each with its own
+  `model/` of response types. Those types are a foreign contract, exactly as a database row is, and
+  they get the rule `data` already lives under: a client's response type does not reach a manager
+  unmapped. It is beside the layers because it owns none of theirs.
 - **`expression/`** — the small language a deployment writes its rules in: the functions an
   expression may call, and the compiler that turns one into a boolean or a failure. It is beside the
   layers because `config` refuses an expression when the file is read and `business` evaluates one
   when a request is served, so putting the grammar in either would force the other to import it.
-- **`health/`** — what this server reports about itself to whatever is watching it. A health
-  indicator answers for a layer without belonging to it, and configuration in particular must not
-  depend on the thing that publishes its verdict.
-- **`cron/`** and **`server/`** — scheduled cleanup, and the factories that publish the message
-  sources and the executor.
-- **`view/`** and **`util/`** — the controllers that serve the two bundled single-page applications,
-  and the extension functions shared everywhere.
+
+The same test puts the failure root and its mapper beside the layers — `business` and `api` both
+throw and neither may depend on the other, which [the exception
+standard](exception-code-standard.md) holds — and it puts the health indicators there too, since
+configuration must not depend on the thing that publishes its verdict.
 
 ## Surfaces
 
@@ -181,8 +175,7 @@ sympauthy/
 │       ├── databases/          Flyway migrations, postgresql/ and h2/
 │       ├── views/mails/        FreeMarker mail templates
 │       ├── META-INF/native-image/   reflection and resource metadata
-│       ├── error_messages.properties  display_messages.properties
-│       ├── mail_messages.properties
+│       ├── *_messages.properties    a bundle per audience
 │       └── application*.yml    defaults and the environment overlays
 ├── integration-tests/          the server in a container, over real HTTP
 ├── bruno/                      a request collection for exercising it by hand
@@ -194,6 +187,28 @@ Two directories in that tree are not written by hand. `server/src/main/resources
 and `sympauthy-admin/` hold the built single-page applications, injected by CI from their own
 repositories, and the OpenAPI document the integration tests generate their client from is produced
 at build time and never committed.
+
+Which bundles sit under `resources/` is [the internationalization
+standard](i18n-standard.md#a-bundle-per-audience)'s question rather than this tree's: a bundle
+serves one audience, and naming each of them here would be a second list to keep in step with the
+rule that decides them.
+
+## What this document does not settle
+
+**Where a package goes that owns no layer's model and is not shared.** The test puts it beside the
+layers, which is where everything answering it has gone so far. A package only one layer will ever
+call would pass the same test and be better off inside that layer, and nothing here says how to
+tell the two apart before the second one exists.
+
+**Whether a surface may ever be split across processes.** Every surface is a route prefix in one
+deployable, and the admin console in particular is gated by scope rather than by being unreachable.
+A deployment wanting the back office on its own port or its own binary has no answer here, and what
+that would cost the shared `business` layer is unexamined.
+
+**What a second major version of a versioned surface looks like.** Each carries a version so that
+its contract can be broken independently, and none has been. Whether a new one is a parallel prefix
+served beside the old, or a replacement with a deprecation window, is decided the first time one is
+needed.
 
 ---
 

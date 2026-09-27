@@ -164,6 +164,49 @@ here: a refresh reissues what the authorization it descends from was issued, or 
 
 ---
 
+### Should a configuration that makes a large id token be refused?
+
+**Decision:** No. What an audience publishes is what the id token carries, and nothing caps the
+number of claims, the size of a value, or the serialized token.
+
+**Options considered:**
+
+- **Refuse at startup** a configuration whose audience publishes past some ceiling of claims or
+  bytes.
+- **Refuse at issue**, when a token is actually built and its size is known.
+- **Warn at startup** and issue the token anyway.
+- **Cap nothing**, and publish what the deployment asked for.
+
+**Rationale:**
+
+The limits that bite are not this server's. An id token is returned in a response body rather than
+a header, so this server hands over whatever it built; what fails is downstream — a browser cookie
+a client chose to store it in, an `id_token_hint` on a logout request travelling as a query
+parameter, a proxy's header ceiling on a request carrying it. Each of those belongs to a component
+this server does not know it is talking to, and a deployment whose clients hold the token in memory
+meets none of them.
+
+A startup ceiling would therefore refuse a configuration that works. It cannot be computed from the
+configuration either: what a token carries depends on the claim values a person actually holds, so
+the only honest startup figure is a worst case over value lengths nothing bounds. Refusing at issue
+is worse — it turns a sizing problem into a failed sign-in, at the moment a person is waiting, for
+a token the client may have been perfectly able to hold.
+
+Warning at startup is the option that nearly wins and loses on where the warning goes. It would fire
+on every boot of a deployment that has already decided it is fine, which is the shape of message an
+operator learns to scroll past, and it would say nothing about the client that is actually in
+trouble. The deployment that hits a real limit finds out from the component that imposed it, and
+what it changes in response is `published-in` on the claims it does not need in the token — which is
+the setting it already owns, readable off the administration API.
+
+What the chosen option costs is that a deployment can configure an id token too large for a client
+it has, and nothing says so until that client fails. It is the same trade [the silent answer is the
+withholding one](security.md#where-a-claim-is-published) makes from the other direction: the
+defaults keep a value back rather than publish it, so reaching a size worth worrying about takes a
+deployment writing `published-in` on claim after claim deliberately.
+
+---
+
 ## Clients
 
 ### May a client's default scopes fall outside its allowed scopes?
@@ -253,58 +296,60 @@ caller told its invitation was created, holding a token that will not do what th
 
 ### What form does a claim's value take once it leaves this server?
 
-**Decision:** The type the deployment declared. `ClaimDataType.typeClass` is the type a validated value
-is held in, the type a stored one is read back as, and the JSON type a published one takes, and the id
-token switches on `Claim.dataType` exhaustively rather than on the type the value is carrying. A
-`boolean` claim is therefore the JSON `true`, not the string `"true"` it used to be.
+**Decision:** The type the deployment declared. `ClaimDataType.typeClass` is the type a validated
+value is held in, the type a stored one is read back as, and the JSON type a published one takes,
+and the id token switches on `Claim.dataType` exhaustively rather than on the type the value is
+carrying. A `boolean` claim is therefore the JSON `true`, not the string `"true"` it used to be.
 
-A claim's `<claim>_verified` companion goes with that: it is claimed only beside a value, where it used
-to be claimed whether or not one was published. `foo_verified: true` with no `foo` is this server
-asserting it verified something it did not send, and a client reading the companion alone was reading
-an assertion about nothing.
+A claim's `<claim>_verified` companion goes with that: it is claimed only beside a value, where it
+used to be claimed whether or not one was published. `foo_verified: true` with no `foo` is this
+server asserting it verified something it did not send, and a client reading the companion alone was
+reading an assertion about nothing.
 
 **Options considered:**
 
 - **The runtime type of the value** — publish a `String` as a string, and log whatever else arrives.
-- **The declared type, with `boolean` left as a string** — the `number` half fixed, the wire form of a
-  `boolean` claim left as every deployment already reads it.
-- **The declared type, exhaustively** — one `when` per publisher over `ClaimDataType`, with no `else`.
+- **The declared type, with `boolean` left as a string** — the `number` half fixed, the wire form
+  of a `boolean` claim left as every deployment already reads it.
+- **The declared type, exhaustively** — one `when` per publisher over `ClaimDataType`, with no
+  `else`.
 
 **Rationale:**
 
-The runtime type is an artifact of how a value round-tripped through `ObjectMapper`, so reading the wire
-form off it makes an id token's contents a consequence of a mapper's behaviour rather than of a decision.
-That is how `number` — then the only type whose value was not a `String` — came to be absent from every
-id token ever issued, whatever its ACL and whatever the person consented to, with nothing to notice it
-but an error line per claim per token. An `else` arm is what swallowed it, and an exhaustive `when` is
-what makes the next type answer for itself instead of inheriting that silence.
+The runtime type is an artifact of how a value round-tripped through `ObjectMapper`, so reading the
+wire form off it makes an id token's contents a consequence of a mapper's behaviour rather than of a
+decision. That is how `number` — then the only type whose value was not a `String` — came to be
+absent from every id token ever issued, whatever its ACL and whatever the person consented to, with
+nothing to notice it but an error line per claim per token. An `else` arm is what swallowed it, and
+an exhaustive `when` is what makes the next type answer for itself instead of inheriting that
+silence.
 
-Leaving `boolean` as a string was the cheaper half, and it was already ruled out here:
-[the API standard](api-standard.md#json) says a boolean is a boolean. A claim published as `"false"` is
-truthy in every language that tests it without comparing, which is the failure a client writes once and
-never sees. And it was not even one form consistently — `/userinfo` answered `"email_verified": "true"`
-where the id token answered `true` for the same account, against OpenID Connect Core, which makes the
-same value two shapes depending on which endpoint a client asked.
+Leaving `boolean` as a string was the cheaper half, and it was already ruled out here: [the API
+standard](api-standard.md#json) says a boolean is a boolean. A claim published as `"false"` is
+truthy in every language that tests it without comparing, which is the failure a client writes once
+and never sees. And it was not even one form consistently — `/userinfo` answered `"email_verified":
+"true"` where the id token answered `true` for the same account, against OpenID Connect Core, which
+makes the same value two shapes depending on which endpoint a client asked.
 
-What it costs is a wire change for a deployment holding a `boolean` claim, and it is taken now because
-pre-1.0 is the cheapest this gets: the value is `true` on the id token, the client API and the admin API
-alike, and a client comparing against `"true"` stops matching. Nothing migrates the rows, because which
-claim a row belongs to is configuration rather than a column and no migration could find them — the
-mapper reads a stored `"true"` back as a `Boolean` instead, which is what carries the existing ones
-across.
+What it costs is a wire change for a deployment holding a `boolean` claim, and it is taken now
+because pre-1.0 is the cheapest this gets: the value is `true` on the id token, the client API and
+the admin API alike, and a client comparing against `"true"` stops matching. Nothing migrates the
+rows, because which claim a row belongs to is configuration rather than a column and no migration
+could find them — the mapper reads a stored `"true"` back as a `Boolean` instead, which is what
+carries the existing ones across.
 
-The address is the one place the declared type does not decide, and it is not an exception to the rule so
-much as the specification answering first: every member of the `address` object is a string under OpenID
-Connect Core §5.1.1, so a component is rendered rather than published as its own type — and rendered
-rather than dropped, which is what a `postal_code` configured as a number used to be.
+The address is the one place the declared type does not decide, and it is not an exception to the
+rule so much as the specification answering first: every member of the `address` object is a string
+under OpenID Connect Core §5.1.1, so a component is rendered rather than published as its own type —
+and rendered rather than dropped, which is what a `postal_code` configured as a number used to be.
 
 **`/userinfo` is not held to this yet, and that is a limitation rather than a decision.**
-`UserInfoResource` is a fixed data class whose scalar fields are `String?`, so `UserInfoResourceMapper`
-reads each one with `value as? String` and a standard claim a deployment retyped — `gender` as a
-`number`, say — is published in the id token and silently absent there. What the rule would need is a
-resource able to carry a claim's own type, which is the same question as `/userinfo` publishing custom
-claims at all. The address and the two `_verified` companions are held to it, because those it could
-express.
+`UserInfoResource` is a fixed data class whose scalar fields are `String?`, so
+`UserInfoResourceMapper` reads each one with `value as? String` and a standard claim a deployment
+retyped — `gender` as a `number`, say — is published in the id token and silently absent there. What
+the rule would need is a resource able to carry a claim's own type, which is the same question as
+`/userinfo` publishing custom claims at all. The address and the two `_verified` companions are held
+to it, because those it could express.
 
 ### Does a granting rule see claims of every audience?
 

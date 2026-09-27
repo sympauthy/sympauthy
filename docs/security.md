@@ -71,9 +71,10 @@ annotation runs.
 ## Scopes
 
 `Scope` is a sealed hierarchy, and **the split is about where a scope comes from** rather than what
-it is called: a scope the person agrees to is one kind, a scope a configured rule decides is
-another, a scope a client holds in its own right is a third. The sealed type is the source of truth,
-and a new kind of scope has to answer the same question — who decides that a caller has it.
+it is called: who decides that a caller has it is the question each kind answers differently — a
+scope the person agrees to, a scope a configured rule decides, a scope a client holds in its own
+right. The sealed type is the authority on which kinds there are, and a new one has to answer that
+same question.
 
 **A grantable scope cannot be asked for, and that is the point.** Anything a client could request it
 would request, so a scope representing authority — administrating, acting as another user — is
@@ -97,12 +98,13 @@ ordinary client being granted administration by naming an admin scope, so a depl
 configures no admin audience has no admin scopes at all rather than admin scopes nothing is
 restricted from.
 
-**A scope the deployment turned off is a shape of its own, not an absence.** Those three kinds are
-the `EnabledScope` half of the hierarchy, and `DisabledScope` is the other: a scope this server
-knows about and does not serve. Everything that consents, grants, resolves a request or issues a
-token takes the enabled type, so a scope that is off cannot be handed to any of them — the compiler
-refuses it, rather than each of those paths remembering to filter it out. Only the administration
-API asks for the whole set, because an operator has to be able to see what they turned off.
+**A scope the deployment turned off is a shape of its own, not an absence.** Every kind that
+answers the question above is an `EnabledScope`, and `DisabledScope` is the other half of the
+hierarchy: a scope this server knows about and does not serve. Everything that consents, grants,
+resolves a request or issues a token takes the enabled type, so a scope that is off cannot be handed
+to any of them — the compiler refuses it, rather than each of those paths remembering to filter it
+out. Only the administration API asks for the whole set, because an operator has to be able to see
+what they turned off.
 
 **Being advertised is not being served.** The discovery document lists what a client that has not
 been told what to ask for could ask for, and nothing consults that list when a request arrives. A
@@ -216,11 +218,10 @@ reads what their deployment publishes off the surface built for them rather than
 token. Publication is the part of a claim with no other reader — what the ACL permits shows up in
 the consent a person is asked for, and where a value goes shows up nowhere else.
 
-**`/userinfo` carries a claim it declares no property for.** `UserInfoResource` lists the properties
-the specification names, and a deployment's own claim is serialized beside them out of the claims
-naming `userinfo`. Until it could, the id token was the only channel a custom claim ever reached —
-an accident of that class rather than a decision anybody took. What `/userinfo` may carry is still
-`canBeReadByUser`, consent alone, and the shipped `default` claim template leaves that false.
+**`/userinfo` carries a claim it declares no property for.** `UserInfoResource` lists the
+properties the specification names, and a deployment's own claim is serialized beside them out of
+the claims naming `userinfo`. What it may carry is still `canBeReadByUser`, consent alone, and the
+shipped `default` claim template leaves that false.
 
 **A generated claim's channels are recorded rather than configured.** `sub` and `updated_at` are
 computed rather than collected, so neither channel reads them out of the claims it filters — the id
@@ -229,12 +230,10 @@ where each one arrives, because what the discovery document says a channel can s
 it: `sub` reaches both and `updated_at` only `/userinfo`, which is what the id token has always
 carried.
 
-**Nothing refuses a configuration that makes a large id token.** What an audience publishes is what
-the token carries, and an id token is returned in a response body rather than a header — so the
-limits that bite are downstream ones, a browser cookie or an `id_token_hint` on a logout request,
-and they belong to proxies and browsers rather than to this server. A deployment whose clients hold
-the token in memory has no problem, this server cannot tell which one it is talking to, and refusing
-a configuration that works is worse than publishing what it asked for.
+**Nothing refuses a configuration that makes a large id token.** What an audience publishes is
+what the token carries, and no ceiling is imposed on that — [the design
+FAQ](design-faq.md#should-a-configuration-that-makes-a-large-id-token-be-refused) holds what that
+costs and where the limit actually bites.
 
 ### Writing a claim
 
