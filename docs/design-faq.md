@@ -71,17 +71,18 @@ What it costs is a column holding a value that means no value, which is what the
 
 **Rationale:**
 
-SympAuthy is built around a single user pool shared by every client. Per-client MFA control would
-produce a confusing experience — the same person challenged on one application and not on another —
-and a real bypass, since a client could opt out of a policy the deployment enforces globally.
+SympAuthy is built around a single pool of accounts shared by every client. Per-client MFA control
+would produce a confusing experience — the same person challenged on one application and not on
+another — and a real bypass, since a client could opt out of a policy the deployment enforces
+globally.
 
 The deeper reason is that enrolment is a property of the person, not of the client: someone has one
 authenticator regardless of which application sent them here. A policy attached to the client would
 be describing something the client does not own.
 
 Audiences group clients for the purposes of consent, but they do not create separate populations of
-users. Per-audience MFA policy is the version of this that could be reconsidered later; per-client
-is not.
+accounts. Per-audience MFA policy is the version of this that could be reconsidered later;
+per-client is not.
 
 ---
 
@@ -201,7 +202,7 @@ the setting it already owns, readable off the administration API.
 
 What the chosen option costs is that a deployment can configure an id token too large for a client
 it has, and nothing says so until that client fails. It is the same trade [the silent answer is the
-withholding one](security.md#where-a-claim-is-published) makes from the other direction: the
+withholding one](claims.md#where-a-claim-is-published) makes from the other direction: the
 defaults keep a value back rather than publish it, so reaching a size worth worrying about takes a
 deployment writing `published-in` on claim after claim deliberately.
 
@@ -271,7 +272,7 @@ every other configuration error.
 **Options considered:**
 
 - **Refuse only a client** — the literal reading of the rule
-  [#454 stated](security.md#claims-and-audiences), beside the ACL check, which is already a
+  [#454 stated](claims.md#writing-a-claim), beside the ACL check, which is already a
   client-only question.
 - **Refuse every caller** — the audience asked apart from the ACL, of whoever names it.
 - **Refuse a client, and warn an administrator** — the capability kept, with the mistake reported.
@@ -279,7 +280,7 @@ every other configuration error.
 **Rationale:**
 
 The administration surface reads across every audience, so excepting it here would have been
-consistent with the one exception [the security document](security.md#claims-and-audiences) already
+consistent with the one exception [the claims document](claims.md#reading-a-persons-claims) already
 grants it. It is not the same question. Reading across audiences is an administrator answering for
 the deployment; an invitation is an instrument of exactly one audience, consumed by a client of that
 audience and by no other. A claim restricted to another is therefore a value the flow applying it
@@ -527,6 +528,53 @@ no behaviour follows the deletion. A `templates.claims` template carrying keys a
 cannot use is untouched — a generated claim names no template now, so nothing it holds reaches one,
 and the shipped `default` template goes on serving every claim that does. That break reaches no
 stable release, and the deployments it does reach are correctable by hand.
+
+### Is a person's profile one value for every audience, or one per audience?
+
+**Decision:** One value, declared as the person's. A claim carries a kind, `personal` or
+`application`, and a personal claim every audience has grants no client write — it is written by the
+person, in the flow or through their own token — while an application claim stays the client's
+wherever the deployment put it. #507 states it, and [the
+claims](claims.md#who-may-read-and-write-a-claim) hold the rule.
+
+**Options considered:**
+
+- **A population of accounts per audience** — Keycloak's realm: a person signing up to two audiences
+  is two accounts, and nothing one audience's client writes reaches the other.
+- **A value per audience for a shared claim** — one account, and a row per audience for `name`, the
+  person confirming it once per audience from a suggestion.
+- **Every shared claim the person's** — a client writes only a claim restricted to its audience,
+  whatever the claim is.
+- **The kind inferred from the consent scope** — a claim carrying one is the person's, a claim
+  carrying none an application's.
+- **A declared kind** — what was chosen.
+
+**Rationale:**
+
+The pain was a client of one audience writing `name` for every other, and full isolation is the
+largest fix for it. It pays with everything an identity is made of — identifier uniqueness,
+password, second factor and provider links per audience, an administrator holding a second account,
+an act-as token whose subject is another population's row — and it does not remove the concern,
+only shrinks it, since a client still writes what its siblings in the audience read. A value per
+audience keeps identity whole and makes the person maintain their profile once per audience. Its
+precedent, Okta's per-application profile, exists for provisioning into SaaS schemas and is not read
+into OIDC claims, and no product ships a per-application `name`.
+
+What the market agrees on is narrower than a shared profile: the person's profile is written by the
+person, through the sign-in pages or their own token, and a client secret writes application data —
+Auth0's `user_metadata` against `app_metadata`, Cognito's write permission per attribute per app
+client. Making every shared claim the person's took that too far, and took the application's claims
+from the client that owns them: a credit score would have needed an audience to be writable at all,
+every bare custom claim with it. Inferring the kind from the consent scope missed in both
+directions, because consent gates disclosure and not ownership — a person's claim may carry no
+scope, and an application's may carry one where the person has to agree before a client is told
+their score. So the kind is declared, a template carries the default, and the validator holds the
+ACL to it.
+
+**What it costs.** A deployment that declared a consented, user-collected claim by hand and named no
+template is refused at startup and told to say whose the claim is, which is one line. And a person's
+name is one value: a deployment wanting a different display name per audience declares a personal
+claim restricted to each.
 
 ---
 

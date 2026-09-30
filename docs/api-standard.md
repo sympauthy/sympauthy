@@ -114,7 +114,7 @@ name a row, a claim, a provider or a key; what the caller sees never depends on 
 session.** The flag keeps the server's internals away from a caller nobody vouched for, and the
 reader there is not one — the surface is gated by `admin:interactive-flow-sessions:read`, and a
 message that may name a row, a claim, a provider or a key is written for exactly the person holding
-it. What earns the exemption is that audience, so a surface an end-user or an unvouched-for client
+it. What earns the exemption is that audience, so a surface a person or an unvouched-for client
 can reach never gets one.
 
 **`properties` carries per-field validation**, one entry per violated property, each with the path

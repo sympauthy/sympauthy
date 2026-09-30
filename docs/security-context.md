@@ -43,6 +43,12 @@ it records is the proxy's own address, which is the shipped default.
 detected.** They are separate settings because they carry different risk and admit different
 answers, and holding them together would give the weaker half the reach of the stronger one.
 
+**A Kubernetes cluster on Google behind an nginx ingress is the shape this split is for**: the
+address comes from the ingress, which is adjacent to this server, and the location from the load
+balancer in front of it.
+
+### The address
+
 **Only the proxy nearest this server knows the address**, as the peer it accepted a connection from
 rather than a value it was handed. So `advanced.security-context.ip` names one proxy, or one header
 read as it stands, and falls back to the socket peer.
@@ -51,6 +57,8 @@ There is no detecting it, and no merging two answers. An edge reading an entry o
 reads it at a position only its own hop count explains, so a server guessing which edge is in front
 would read that position under the wrong assumption and reach an entry the caller wrote — a forgery
 that works through a *legitimate* proxy, which a closed origin does not stop.
+
+### The location
 
 **A location is published by each edge under a header of its own** — `CF-IPCountry`,
 `X-Akamai-Edgescape`, `CloudFront-Viewer-City` — rather than at a position in one they share. Two
@@ -62,49 +70,6 @@ costs a wrong location on a record, not a request attributed to whoever asked fo
 **An edge publishing no location cannot be named under the geo setting.** nginx, Traefik, Caddy,
 Fastly and Azure Front Door publish an address and nothing else, so naming one there is refused at
 startup rather than accepted to no effect.
-
-**A Kubernetes cluster on Google behind an nginx ingress is the shape this split is for**: the
-address comes from the ingress, which is adjacent to this server, and the location from the load
-balancer in front of it.
-
-## What is read, and how
-
-**An edge is a rule for extracting values, not a table of header names.** A `Map<field, header>`
-cannot describe an edge that packs several fields into one header, as Google's load balancer and
-Akamai's EdgeScape do, or one that puts a port beside the address, as CloudFront does — so each
-implementation of `IpProvider` and `GeoProvider` carries the extraction it needs.
-
-**Where a header arrives more than once, the last value is the edge's.** A caller may have sent it
-already and a proxy may append rather than replace, so everything before the last is the caller's —
-the same rule that makes only the rightmost entries of `X-Forwarded-For` worth reading.
-
-**A header a deployment names for one field replaces that field and never parses.** An operator
-naming a header is saying the value is in it, as it stands; a deployment needing a value dug out of
-a packed header names the edge that knows how. A name no request could carry — one holding a space
-or a colon — is refused at startup rather than silently matching nothing.
-
-**It is read once, at the boundary, and passed on as an ordinary parameter.**
-`ObservedRequestFilter` runs ahead of Micronaut Security, over every path rather than one surface,
-and leaves an `ObservedRequest` on the request; a handler binds that and passes it down. Why it is
-scoped to no surface, and what it costs on the requests that never use it, is the filter's own
-KDoc.
-
-**What is refused is a manager reaching back for it.** There is no request-scoped bean and no
-thread-local: [the general standard](general-code-standard.md#dependency-rules) keeps a manager
-callable from a scheduled job and a unit test, and every manager here is `suspend`, so a
-thread-local would be intermittently absent across the coroutine boundaries they cross — recording a
-null address against a real security decision, silently.
-
-**Reading it early is what lets something act on it.** An address that exists only once a caller has
-been authenticated is no use to anything deciding whether to answer them at all, which is what
-throttling will have to decide about a caller who has presented nothing yet.
-
-**A configuration that did not parse is believed about nothing.** `SecurityContextUtil` narrows
-`AdvancedConfig` to its enabled shape rather than throwing, and one that did not produce that shape
-falls back to the socket peer — which is where a deployment that configured nothing lands anyway. A
-file that did not parse names no proxy, so it makes none of the promise that believing one rests
-on; and a reading that threw would fail every request in the chain, including the one telling an
-operator which key is at fault.
 
 ## What is kept, and for how long
 
@@ -153,6 +118,52 @@ a street group, and nothing here has a use for that.
 **An address is personal data, and the deletion ships with the record rather than after it.** The
 cutoff is computed when the sweep runs, so lowering the retention takes effect on the next run
 instead of on each row's next sighting.
+
+## What is read, and how
+
+Two questions run through this: how a value is pulled out of the header carrying it, and where in
+the request the reading happens.
+
+### How a value is extracted
+
+**An edge is a rule for extracting values, not a table of header names.** A `Map<field, header>`
+cannot describe an edge that packs several fields into one header, as Google's load balancer and
+Akamai's EdgeScape do, or one that puts a port beside the address, as CloudFront does — so each
+implementation of `IpProvider` and `GeoProvider` carries the extraction it needs.
+
+**Where a header arrives more than once, the last value is the edge's.** A caller may have sent it
+already and a proxy may append rather than replace, so everything before the last is the caller's —
+the same rule that makes only the rightmost entries of `X-Forwarded-For` worth reading.
+
+**A header a deployment names for one field replaces that field and never parses.** An operator
+naming a header is saying the value is in it, as it stands; a deployment needing a value dug out of
+a packed header names the edge that knows how. A name no request could carry — one holding a space
+or a colon — is refused at startup rather than silently matching nothing.
+
+**A configuration that did not parse is believed about nothing.** `SecurityContextUtil` narrows
+`AdvancedConfig` to its enabled shape rather than throwing, and one that did not produce that shape
+falls back to the socket peer — which is where a deployment that configured nothing lands anyway. A
+file that did not parse names no proxy, so it makes none of the promise that believing one rests
+on; and a reading that threw would fail every request in the chain, including the one telling an
+operator which key is at fault.
+
+### Where the reading happens
+
+**It is read once, at the boundary, and passed on as an ordinary parameter.**
+`ObservedRequestFilter` runs ahead of Micronaut Security, over every path rather than one surface,
+and leaves an `ObservedRequest` on the request; a handler binds that and passes it down. Why it is
+scoped to no surface, and what it costs on the requests that never use it, is the filter's own
+KDoc.
+
+**What is refused is a manager reaching back for it.** There is no request-scoped bean and no
+thread-local: [the general standard](general-code-standard.md#dependency-rules) keeps a manager
+callable from a scheduled job and a unit test, and every manager here is `suspend`, so a
+thread-local would be intermittently absent across the coroutine boundaries they cross — recording a
+null address against a real security decision, silently.
+
+**Reading it early is what lets something act on it.** An address that exists only once a caller has
+been authenticated is no use to anything deciding whether to answer them at all, which is what
+throttling will have to decide about a caller who has presented nothing yet.
 
 ## What this document does not settle
 

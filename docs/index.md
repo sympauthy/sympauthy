@@ -20,21 +20,24 @@ they are *not* is a user manual: how to configure and integrate with a running S
 What the server is and how each of its parts works. Each of these is a description, written the way
 [the description standard](description-standard.md) asks.
 
-- **[Architecture](architecture.md)** — the layers and what cuts across them, what makes something
-  its own API surface and which of them carry a version, and the project layout on disk.
+- **[Architecture](architecture.md)** — what makes something its own API surface and which of them
+  carry a version, the layers and what cuts across them, and the project layout on disk.
 - **[Technology](technology.md)** — the frameworks and runtime the server is built on, and why each
   was picked.
-- **[The interactive flow](interactive-flow.md)** — the session, the purposes an engine sequences
-  over it, and how a purpose or a step is added.
+- **[The interactive flow](interactive-flow.md)** — the purposes a person is put through, the
+  session an engine sequences them over, and how a purpose or a step is added.
 - **[The provisional user](provisional-user.md)** — the account a sign-up has not finished creating:
   the rows it owns, what makes them count, and what collects them when nothing ever does.
+- **[The claims](claims.md)** — what this server knows about a person: whose a claim is, who may
+  read and write one and through which credential, which audience has it, and which channel carries
+  it off this server.
 - **[The identifier claims](identifier-claims.md)** — what a deployment identifies a person by:
   what it may declare, what makes a value belong to one account across the set rather than within a
-  claim, when two values somebody typed are one value and how a row is found by one, what a sign-up
-  has to collect, and which of three reads a caller wants.
-- **[Security](security.md)** — how a credential becomes an authentication, what a scope is allowed
-  to mean, which audience a claim may be published to and which channel carries it, and what each
-  surface's gate does and does not protect.
+  claim, what a sign-up has to collect, and how a value resolves to an account — when two values
+  somebody typed are one value, how a row is found by one, and which of three reads a caller wants.
+- **[Security](security.md)** — what each surface's gate does and does not protect, what a scope is
+  allowed to mean, how a credential becomes an authentication, and what a token carries and how it
+  is checked.
 - **[The security context](security-context.md)** — the address, the user agent and the location a
   request is believed to carry: which proxy a deployment names, what naming one promises and what it
   does not, and how long a place somebody signs in from is kept.
@@ -60,7 +63,7 @@ tree.
   own: [`api`](api-layer-code-standard.md), [`business`](business-layer-code-standard.md),
   [`data`](data-layer-code-standard.md), [`config`](config-layer-code-standard.md).
 - **[Exception standard](exception-code-standard.md)** — which exception each layer may throw, how a
-  code names both its technical message and the one an end-user reads, and the one place the OAuth2
+  code names both its technical message and the one a person reads, and the one place the OAuth2
   specification overrides the rule.
 - **[API standard](api-standard.md)** — what a client sees: how a route is spelled, what the JSON
   looks like, the body a failure returns, and why no redirect is a 307.

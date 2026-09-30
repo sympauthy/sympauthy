@@ -90,6 +90,14 @@ sealed type's KDoc.
 false the day a third dialect, provider or surface arrives, so write it at any size — *once per
 dialect*, *a copy per dialect* — and let the criterion say what the members are.
 
+**The human is a person.** Write *a person* for whoever signs in or reads a message, never *the
+user* or *the end-user*. Keep *user* for what the tree spells that way — the `User` model, the
+`users` table, `readable-by-user-when-consented`, the `/api/v1/user` surface.
+
+**What this server holds for a person is an account.** A credential, the claims, the provider links
+and the second factor are an account's, so a rule about them says *account* where it would have said
+*the user's*.
+
 ## What a standard sends elsewhere
 
 **A rule the code breaks is still written as the rule.** File the breach as an issue and leave the
@@ -118,6 +126,10 @@ that caused it and the discussion that settled it.
 ## Mechanics
 
 **Wrap at 100 columns and write headings in sentence case.**
+
+**A heading's depth is how general it is.** A `##` section asks one question about the subject and a
+`###` or `####` under it answers one case of that question, so a reader going down the headings
+meets the general answer before any particular one.
 
 **Write plain Markdown.** Keep to what GitHub and an IDE both render.
 

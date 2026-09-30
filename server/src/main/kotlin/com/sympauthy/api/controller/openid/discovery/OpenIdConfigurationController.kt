@@ -68,7 +68,7 @@ class OpenIdConfigurationController(
             .map { it.scope }
         // A claim this deployment publishes in neither channel is supplied through neither, so listing it
         // would advertise a value no client can ever be told. Hiding one that is published stays a
-        // deployment's own choice: see docs/security.md.
+        // deployment's own choice: see docs/claims.md.
         val claims = claimManager.listEnabledOpenIdConnectClaims()
             .filter { it.publishedIn.isNotEmpty() }
             .flatMap { listOfNotNull(it.id, it.verifiedId) }

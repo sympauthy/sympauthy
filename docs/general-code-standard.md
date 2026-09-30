@@ -95,9 +95,9 @@ one that may match.
 nullable one binds a different overload and drops every named value — so an absent value goes in as
 an empty string where the exception is built.
 
-**A name says what a thing is.** A collection of claims a user consented to is `consentedClaims` and
-the same list unfiltered is `allClaims`; where two lists of one type coexist, the filter is in the
-name.
+**A name says what a thing is.** A collection of claims a person consented to is `consentedClaims`
+and the same list unfiltered is `allClaims`; where two lists of one type coexist, the filter is in
+the name.
 
 ## Concurrency
 

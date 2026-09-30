@@ -15,7 +15,7 @@ is [the API standard](api-standard.md#errors).
 ## One root, a type per layer
 
 **Every failure extends one localized exception type**, which carries a code, an optional second
-code for the end-user's version, a map of values to interpolate, and whether the caller could
+code for the person's version, a map of values to interpolate, and whether the caller could
 recover. The root type is extended and rendered, never thrown.
 
 | Layer | Throws | Meaning |
@@ -55,11 +55,11 @@ row that cannot become a model and a provider that answered something unparseabl
 
 **Recoverable and having something to say are separate questions.** Recoverable decides the status
 and whether a retry is worth suggesting; the description decides what the reader is told, and a
-`400` takes a second code for the end-user's message either way. A `500` takes none: the caller is
+`400` takes a second code for the person's message either way. A `500` takes none: the caller is
 not at fault and has nothing to do but report it.
 
 **Inside an interactive flow, recoverable decides whether the flow survives.** `handleException`
-rethrows a recoverable failure to the caller, so the end-user stays on the step and can send
+rethrows a recoverable failure to the caller, so the person stays on the step and can send
 something else; a non-recoverable one fails the session and routes them to the error page, which
 reads the two codes and their values and no status at all.
 
@@ -95,7 +95,7 @@ the contract.
 ## A code names two messages
 
 **An error code is a message-bundle key.** The code names the technical message an operator reads,
-and the same code prefixed with `description.` names the one an end-user is shown.
+and the same code prefixed with `description.` names the one a person is shown.
 
 **A code that is thrown has its technical message in the bundle, and one named with a description
 has its `description.` message too.** A description the bundle does not hold renders as null and is
@@ -123,7 +123,7 @@ code out of the set.
 The first may name a scope, a claim, a provider or an algorithm; the second says what the reader
 does next, in their own words.
 
-**Anything about another end-user's account is named in the technical message and never in the
+**Anything about another person's account is named in the technical message and never in the
 description.** The description is rendered for whoever tripped the failure, so a refusal that tells
 them which account holds a value hands them an oracle over it — and the values both halves render
 from are one map, so the restriction is on the message rather than on what the throw site supplies.

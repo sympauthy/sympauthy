@@ -1,56 +1,20 @@
 # Security
 
-Three questions, asked in that order: who is calling, what are they allowed to do, and what are they
-allowed to be told. Everything here answers one of them — the authentications a credential turns
-into, the gate each of [the surfaces](architecture.md#surfaces) applies, the scopes that say what a
-caller may do, the audiences that bound both what it may hold and what it may be told, and the
-tokens that carry the answers off this server. It closes with what this design deliberately does
-not do.
+Three questions, asked of every request in that order: who is calling, what are they allowed to do,
+and what are they allowed to be told. Everything here answers one of them — the gate each of [the
+surfaces](architecture.md#surfaces) applies, the scopes that say what a caller may do, the
+authentications a credential turns into, and the tokens that carry the answers off this server. What
+a caller may be told about a person is [the claims](claims.md), which those gates and scopes are
+enforced through. It closes with what this design deliberately does not do.
 
 The rules for writing a secured controller are [the `api` layer
 standard](api-layer-code-standard.md); this document is what those annotations are annotating. What
 a request is believed about — the address it came from, and the proxy taken at its word — is
 [the security context](security-context.md).
 
-## A credential becomes an authentication
-
-The `security/` package turns each kind of credential into an implementation of the framework's
-`Authentication`, and the roles it grants are what every `@Secured` annotation in the server
-compares against. **A new kind of caller is a new implementation when it is authenticated
-differently, not when it is merely authorized differently** — a caller distinguished only by what it
-may do is a scope, not a principal.
-
-An access token issued to a person grants a user role and that token's scopes; client credentials
-grant a client role and the client's own scopes; the signed state of an interactive flow grants a
-role that says only which flow is asking. The package is the source of truth for which exist.
-
-**The user authentication carries the consented and granted scopes separately**, because they answer
-different questions: what the person agreed to share, and what the deployment's rules decided they
-may do. Merging them at the moment of authentication would lose the distinction everywhere
-downstream, including in the token that gets issued.
-
-**An administrator is a user with admin scopes, not a separate kind of principal.** There is one
-user pool, and the admin role and the individual admin scopes are derived from the scopes on the
-token — so the admin console is an OAuth2 client like any other, and an administrator signs in
-through the same flow as everybody else.
-
-### The state authentication is not a session
-
-**`ROLE_STATE` is granted by a signed token that identifies an interactive flow session, and nothing
-else.** It is minted when a flow starts, presented as a query parameter on a `GET` and an
-authorization header on a `POST`, and it says only which session the request belongs to.
-
-**It is emphatically not a user's access token, and it is not a cookie.** It carries no identity:
-the flow it names may not have a user yet, which is the entire point of the sign-in step. So a
-handler behind `ROLE_STATE` knows which session is asking and must load everything else, and one
-treating the state as proof of who the caller is would be trusting the single credential designed to
-make no such claim.
-
-**The signature is what makes it safe to put in a URL.** A person navigating between flow pages
-carries the state through their address bar; it is short-lived, bound to one session, and useless
-once that session ends.
-
 ## What each surface is protected by
+
+### The protocol surfaces
 
 **The OAuth2 surface is protected by the protocol, not by a role.** Client authentication, PKCE,
 redirect-URI matching, the signed state, one-time authorization codes: the endpoints are anonymous
@@ -59,9 +23,13 @@ because a specification says they are, and every check they do is one the specif
 **Discovery is public**, deliberately and by specification. It lists endpoints that answer for
 themselves and a key set that is public by definition.
 
+### The flow surface
+
 **The flow surface is protected by the state**, and by CORS. Its origins are the pages a deployment
 configured, which is the boundary that stops another site driving a person's sign-in in the
 background.
+
+### The client and admin surfaces
 
 **The client and admin surfaces are protected by scope**, declared at class level so the whole
 surface is gated in one place. Anything narrower than the surface — this administrator may act on
@@ -87,11 +55,11 @@ credentials produce a client authentication, an authorization code produces a us
 of the wrong kind in either is a token authorizing something nobody consented to.
 
 **A scope may be restricted to one audience, and a client of another audience is refused it.**
-`Scope.audienceId` names the restriction exactly as [a claim's does](#what-a-restriction-means), and
-a scope naming no audience is every audience's. The refusal is made in both places a client comes by
-a scope: the configuration validator refuses at startup a client configured with another audience's
-scope, and `ScopeManager` refuses one at request time, whether it arrived in an authorization
-request or is being resolved for a client directly.
+`Scope.audienceId` names the restriction exactly as [a claim's
+does](claims.md#what-a-restriction-means), and a scope naming no audience is every audience's. The
+refusal is made in both places a client comes by a scope: the configuration validator refuses at
+startup a client configured with another audience's scope, and `ScopeManager` refuses one at request
+time, whether it arrived in an authorization request or is being resolved for a client directly.
 
 **Every admin scope is restricted to the admin audience.** That restriction is what stops an
 ordinary client being granted administration by naming an admin scope, so a deployment that
@@ -120,145 +88,74 @@ the one that grants it, and the two spellings would differ silently.
 
 ## Claims and audiences
 
-A claim is something this server knows about a person; an audience is the set of applications
-entitled to it. Nearly every rule below keeps those two straight: which audience a claim belongs to,
-which audience a read is made for, and which audience a writer may name.
+A claim is something this server knows about a person, and an audience is the set of applications
+entitled to it. Whose a claim is, who may read and write one, which audience has it and which
+channel carries it off this server are [the claims](claims.md). Every rule there is asked after the
+gate of the surface a request reached and with the scopes its credential carries, which is what
+stays here.
 
-### What a restriction means
+## Where a request came from
 
-**A claim may be restricted to one audience, and it then leaves this server only to that audience.**
-`Claim.audienceId` names the restriction and `Claim.belongsToAudience` is the whole of the test: a
-claim naming no audience is every audience's, and a claim restricted to one is answered to no other.
+The server reads the address a request came from, the user agent it claimed, and whatever location
+the deployment's edge supplied, and it believes none of it until a deployment has named the proxy
+that sets it — which is a promise about the deployment's own topology rather than a setting.
 
-**A generated claim belongs to every audience.** `sub` and `updated_at` are computed rather than
-collected, the parser gives them no audience whatever the configuration says, and nothing about a
-person is disclosed by either.
+That trust model and what it costs where the promise is not kept, why the address and the location
+are configured apart, what each edge publishes, and how long a place is kept, are [the security
+context](security-context.md).
 
-**An identifier claim belongs to every audience, and restricting one is refused at startup.**
-`auth.identifier-claims` is declared once for the deployment, so every audience signs people in with
-the same set of claims — what that set means, and how a person signs in with any one of them, is
-[its own document](identifier-claims.md). A restriction on one would be filtered out of the reads
-that resolve an account, and a deployment would lose its sign-in rather than be told; the validator
-names it instead.
+## A credential becomes an authentication
 
-### Reading a person's claims
+The `security/` package turns each kind of credential into an implementation of the framework's
+`Authentication`, and the roles it grants are what every `@Secured` annotation in the server
+compares against. **A new kind of caller is a new implementation when it is authenticated
+differently, not when it is merely authorized differently** — a caller distinguished only by what it
+may do is a scope, not a principal.
 
-**A read of a person's claims names the audience it is for, and the audience is not optional.**
-Consent is recorded per user and audience, so a set of consented scopes is always some audience's,
-and whoever holds them knows which. A reader taking the scopes and not the audience would be
-modelling a state that cannot arise.
+An access token issued to a person grants a user role and that token's scopes; client credentials
+grant a client role and the client's own scopes; the signed state of an interactive flow grants a
+role that says only which flow is asking. The package is the source of truth for which exist.
 
-**What a client is told about is its own audience, resolved from the credential.** The id token, the
-`/userinfo` response and the client API each take it from the client that authenticated, never from
-anything the request carried, because a client belongs to exactly one audience.
+**The user authentication carries the consented and granted scopes separately**, because they answer
+different questions: what the person agreed to share, and what the deployment's rules decided they
+may do. Merging them at the moment of authentication would lose the distinction everywhere
+downstream, including in the token that gets issued.
 
-**The audience is the one the decision lands in, which is not always the caller's own.** An
-authorization grants scopes to the client that started the flow, so the flow's audience is the
-flow's own; an act-as token is issued for the audience the exchange names, which may be neither the
-acting client's nor the default it falls back to. Read the target's claims, not the asker's.
+**An administrator is a user with admin scopes, not a separate kind of principal.** There is one
+pool of accounts, and the admin role and the individual admin scopes are derived from the scopes on
+the token — so the admin console is an OAuth2 client like any other, and an administrator signs in
+through the same flow as everybody else.
 
-**The audience an interactive flow works in is the one its authorization is for**, the audience of
-the client that started it. It decides the whole of what that flow does with claims: which it offers
-to collect, which it accepts, which it holds as required, and which it asks a person to confirm with
-a validation code. Someone signing in to one audience is neither asked for another's claims nor held
-to them.
+### The state authentication is not a session
 
-**A configured rule sees the audience's claims, and consent is the only thing it sees past.** What a
-rule may branch on and what a person agreed to disclose are different questions, so a rule runs on
-claims regardless of consent — but one keyed on a claim restricted to another audience decides from
-a value it may not be told, and what it decides leaves the server: a granted scope, an act-as token.
-The authorization webhook is handed the same claims and posts them off this server outright.
+**`ROLE_STATE` is granted by a signed token that identifies an interactive flow session, and nothing
+else.** It is minted when a flow starts, presented as a query parameter on a `GET` and an
+authorization header on a `POST`, and it says only which session the request belongs to.
 
-**Those claims are read for one audience rather than read whole and narrowed after.**
-`CollectedClaimManager.findByUserIdAndAudience` is that read, and it applies no consent — the
-audience is a different question from what a person agreed to disclose.
+**It is emphatically not a user's access token, and it is not a cookie.** It carries no identity:
+the flow it names may not have a user yet, which is the entire point of the sign-in step. So a
+handler behind `ROLE_STATE` knows which session is asking and must load everything else, and one
+treating the state as proof of who the caller is would be trusting the single credential designed to
+make no such claim.
 
-**The administration surface reads across every audience, and it is the only reader that does.** An
-administrator answers for the deployment rather than for one of its applications, so the audience a
-claim is restricted to is something they are shown rather than something that hides it from them.
-
-### Where a claim is published
-
-**A claim names the OpenID channels its value travels through, and publication is not permission.**
-`claims.<id>.published-in` names them, `Claim.publishedIn` holds them and `Claim.isPublishedIn` is
-the whole of the test. The ACL answers whether a caller may know a value at all; this answers which
-channel carries one they may already know, so it only ever narrows. It is never a grant, and a claim
-the ACL refuses is answered in no channel whatever it names.
-
-**It reaches the two OpenID channels and nothing else.** The id token and `/userinfo` each filter
-what they were handed, while the client, admin and user APIs are gated by the ACL alone and answer
-whatever it permits — so a claim published in neither channel is still read through those. The
-access token is not a channel: it carries the client, the scopes and the binding, and no attribute
-of a person.
-
-**A claim published in neither channel is not advertised as one either.** `claims_supported` lists
-what a client could be told through OpenID Connect, and a claim no channel carries is a name no
-client can ever obtain a value for. That is the other direction from [being advertised and being
-served](#scopes): a deployment stays free to serve what it does not list, and this stops it listing
-what it cannot serve.
-
-**The two channels do not gate alike, and publication does not change that.** `/userinfo` asks
-`canBeReadByUser`, which is consent alone, because that endpoint is not client-authenticated; the id
-token asks `canBeReadByClient`, which consent *or* the client's own unconditional scopes satisfy. A
-claim can therefore be permitted in one and refused in the other before publication is asked at all.
-
-**A claim naming no channel is published in none.** A value leaves this server through the channels
-a deployment named and through no other, so a claim its file never mentions reaches neither. The
-shipped `openid` template names both, which is what keeps the claims the specification defines
-travelling where a client expects them without every deployment writing it again.
-
-**The silent answer is the withholding one, deliberately.** Publishing by default would put a
-deployment's own claim into every id token a client may read on the strength of a line nobody wrote,
-and nothing downstream would report it; withholding by default keeps back a value somebody meant to
-send, which the deployment sees the first time it looks and fixes in the file it already owns.
-
-**The administration API is where it looks.** `published_in` on the claim resource lists the
-channels a claim travels through, and lists none where it travels through neither, so an operator
-reads what their deployment publishes off the surface built for them rather than by decoding a
-token. Publication is the part of a claim with no other reader — what the ACL permits shows up in
-the consent a person is asked for, and where a value goes shows up nowhere else.
-
-**`/userinfo` carries a claim it declares no property for.** `UserInfoResource` lists the
-properties the specification names, and a deployment's own claim is serialized beside them out of
-the claims naming `userinfo`. What it may carry is still `canBeReadByUser`, consent alone, and the
-shipped `default` claim template leaves that false.
-
-**A generated claim's channels are recorded rather than configured.** `sub` and `updated_at` are
-computed rather than collected, so neither channel reads them out of the claims it filters — the id
-token claims the subject itself and the `/userinfo` mapper computes both. The enum still states
-where each one arrives, because what the discovery document says a channel can supply is read off
-it: `sub` reaches both and `updated_at` only `/userinfo`, which is what the id token has always
-carried.
-
-**Nothing refuses a configuration that makes a large id token.** What an audience publishes is
-what the token carries, and no ceiling is imposed on that — [the design
-FAQ](design-faq.md#should-a-configuration-that-makes-a-large-id-token-be-refused) holds what that
-costs and where the limit actually bites.
-
-### Writing a claim
-
-**A client writes only its own audience's claims, and naming another's is refused rather than
-ignored.** A restriction enforced on the way out alone would let a client set what it is not allowed
-to read — choosing what another audience is told about a person while never being accountable for
-the value.
-
-**An invitation pre-assigns only its own audience's claims, and an administrator is held to that
-too.** An invitation names the audience it is for and is consumed by a client of that one alone, so
-a claim restricted to another is a value chosen for an audience nobody asked and never read back by
-the flow that writes it. A bootstrap invitation is refused at startup rather than at creation,
-because the file it is written in is what the deployment is being told about.
-
-**No client writes an identifier claim, whatever its scopes.** An identifier is what an account
-signs in with, and nothing in a claim write verifies the value it stores — so a client able to set
-one could repoint an account's sign-in at an address it holds, with nobody asked and nothing sent.
-The scopes that let a client write a claim say what it may record about a person, not what that
-person signs in as. The client surface refuses one by name rather than dropping it, and the manager
-behind it leaves it out the same way the interactive flow already does.
+**The signature is what makes it safe to put in a URL.** A person navigating between flow pages
+carries the state through their address bar; it is short-lived, bound to one session, and useless
+once that session ends.
 
 ## Tokens
 
 **An access token is validated on every request**, as a signature over this server's own keys, with
 its issuer, audience and expiry checked. Nothing is trusted because it parsed.
+
+**A token may be bound to a key the client holds**, in which case the proof accompanying the request
+is verified against the method and URI it was made for. That binding is what stops a stolen token
+being usable on its own.
+
+**A revoked token stops working immediately**, because revocation is a row rather than a shorter
+expiry. This is the deliberate cost of not being purely stateless: every request presenting a token
+asks the database about it.
+
+### The id token
 
 **An id token names the access token it was issued beside**, as the `at_hash` claim of OpenID
 Connect Core §3.1.3.6. A third-party provider's id token is held to the same claim by the same
@@ -276,24 +173,6 @@ again is the claim values — the consented scopes filtering them are the set re
 the audience filtering them is the refreshing client's, and a consent revoked since refuses the
 refresh outright rather than narrowing the token it would have issued.
 [The design FAQ](design-faq.md#does-a-refresh-issue-a-new-id-token) argues the alternative.
-
-**A token may be bound to a key the client holds**, in which case the proof accompanying the request
-is verified against the method and URI it was made for. That binding is what stops a stolen token
-being usable on its own.
-
-**A revoked token stops working immediately**, because revocation is a row rather than a shorter
-expiry. This is the deliberate cost of not being purely stateless: every request presenting a token
-asks the database about it.
-
-## Where a request came from
-
-The server reads the address a request came from, the user agent it claimed, and whatever location
-the deployment's edge supplied, and it believes none of it until a deployment has named the proxy
-that sets it — which is a promise about the deployment's own topology rather than a setting.
-
-That trust model and what it costs where the promise is not kept, why the address and the location
-are configured apart, what each edge publishes, and how long a place is kept, are [the security
-context](security-context.md).
 
 ## What this design does not do
 
@@ -313,13 +192,6 @@ built.
 
 **It does not encrypt tokens at rest beyond hashing what must be hashed.** What the storage layer
 does underneath is the deployment's.
-
-**It does not let a client choose where a claim is delivered.** OpenID Connect Core §5.5 defines the
-`claims` request parameter, which asks for a named claim in `id_token` or in `userinfo`
-specifically, and this server implements neither it nor the `claims_parameter_supported` that would
-advertise it — so the discovery document tells a client it may not ask.
-[Where a claim is published](#where-a-claim-is-published) is the deployment deciding instead, for
-clients that ask for nothing, which is every client today.
 
 **It does not change the identifier an account signs in with.** An account takes its identifier
 claims at sign-up and keeps them. No surface writes one afterwards — not the client claim endpoint,

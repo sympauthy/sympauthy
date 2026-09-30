@@ -9,6 +9,26 @@ person to, a way to remember where they were, and a rule for what comes next.
 session.** This document is that engine — the only subsystem here where reading the code in file
 order does not explain it.
 
+## Purposes
+
+**`InteractiveFlowPurpose` is the authoritative list, and its KDoc is the authoritative description
+of each value.** Read it before adding one. What this document holds is the part the enum cannot
+say: the three roles a purpose plays, and how the engine treats each.
+
+| Role | A purpose has this role when | Owns the handoff at the end |
+| --- | --- | --- |
+| initiating | it is the reason the session was created at all | yes |
+| gate | it must be satisfied before another purpose may run | no |
+| follow-up | another purpose appends it once it knows it is needed | no |
+
+Authorizing a client is initiating; confirming that the person meant to start this is a gate;
+challenging for a second factor is a follow-up. Those are illustrations of the criterion, not the
+set — the roles are what a new purpose has to be classified into, and the classification decides
+where in the order it goes and whether it may complete the session.
+
+A session's purposes are **ordered**, gates first and the initiating purpose last, and the list is
+**appendable** while the session runs.
+
 ## The session
 
 `InteractiveFlowSession` is the primitive, and it is sealed: its subtypes are the states a flow can
@@ -42,26 +62,6 @@ that is missing.
 submit, or a replayed callback all become one write that succeeds and one that finds the version
 moved and routes to the error page, rather than two writes that both look fine.
 
-## Purposes
-
-**`InteractiveFlowPurpose` is the authoritative list, and its KDoc is the authoritative description
-of each value.** Read it before adding one. What this document holds is the part the enum cannot
-say: the three roles a purpose plays, and how the engine treats each.
-
-| Role | A purpose has this role when | Owns the handoff at the end |
-| --- | --- | --- |
-| initiating | it is the reason the session was created at all | yes |
-| gate | it must be satisfied before another purpose may run | no |
-| follow-up | another purpose appends it once it knows it is needed | no |
-
-Authorizing a client is initiating; confirming that the person meant to start this is a gate;
-challenging for a second factor is a follow-up. Those are illustrations of the criterion, not the
-set — the roles are what a new purpose has to be classified into, and the classification decides
-where in the order it goes and whether it may complete the session.
-
-A session's purposes are **ordered**, gates first and the initiating purpose last, and the list is
-**appendable** while the session runs.
-
 ## The engine
 
 `InteractiveFlowEngine.advance(session)` is the only thing that decides what happens next, and the
@@ -89,12 +89,14 @@ or not at all — everything before them is deliberately not, because a flow a p
 walking through is many requests and no transaction spans them. What a promotion is, and what it
 has to take turns with, is [the provisional user](provisional-user.md).
 
-## A purpose handler is pure
+## The handlers
 
 **`InteractiveFlowPurposeHandler` is one purpose's answers to the engine, and its KDoc is the
 authority on what each member is asked.** Which of them a new handler has to implement and which
 default is stated there; what this document holds is the part the interface cannot say — why a
 handler may only answer, and what the engine does with each answer it gives.
+
+### A purpose handler is pure
 
 **A handler reads the session and describes what its purpose needs. It never mutates or persists
 anything.** Appending purposes, marking one complete, completing or failing the session are the
@@ -115,7 +117,7 @@ by purpose, so a new handler is wired up by existing. A purpose with no handler 
 and a test asserts that every enum value resolves — so the gap is a build failure, not a production
 one.
 
-## A handler describes its own purpose
+### A handler describes its own purpose
 
 **`debugInformation` is what an operator reads when a session is stuck**, one label and one value at
 a time, published by the admin API. The handler owns it because the handler is the only thing that
@@ -169,7 +171,7 @@ code published beside it is the one that sentence was read under rather than the
 holds. The technical half is asked for whatever `features.print-details-in-error` says, which is
 what that mapper's override is for, and the reason is [the API standard](api-standard.md#errors)'s.
 
-## A purpose carries its own label
+### A purpose carries its own label
 
 **A purpose's label is declared on the enum rather than on the handler.** What a purpose *is* needs
 no session, no read and no bean, so a caller naming one can read its label without resolving the
@@ -183,7 +185,11 @@ is why it is declared on every value rather than derived: no transformation of t
 produces it. Nothing may switch on it either, for the reason no `debugInformation` label may be
 switched on.
 
-## Adding a purpose
+## Extending the engine
+
+Adding a purpose, adding a step and writing the endpoint that serves one are each set out below.
+
+### Adding a purpose
 
 1. Add the value to the enum, with a KDoc saying what it is for, which role it plays, and the label
    a person reads it under.
@@ -200,7 +206,7 @@ switched on.
    with no user, no attached record and a terminal status, and that no credential is among what it
    emits — and add an integration test that drives the flow.
 
-## Adding a step
+### Adding a step
 
 1. Add it to the sealed step type — an object, or a class when the step is parameterised.
 2. Map it to a redirect, from the page address the flow's configuration names.
@@ -208,7 +214,7 @@ switched on.
    `InteractiveAuthFlowSessionControllerUtil` rather than decoding the state itself.
 4. Make its applicability predicate mirror the handler's, or expect a loop.
 
-## Writing a step endpoint
+### Writing a step endpoint
 
 **Every flow handler goes through `InteractiveAuthFlowSessionControllerUtil`.** It verifies the
 signed state, loads the session, records where the request came from, runs the work, asks the engine
@@ -237,7 +243,7 @@ and whose failure looks like a session expiry.
 ## What this design does not do
 
 **It does not let a client choose the steps.** A client asks for a purpose; which steps that implies
-is the server's, derived from configuration and from what the user has already done.
+is the server's, derived from configuration and from what the person has already done.
 
 **It does not throttle anything.** Nothing limits how many times a credential, a validation code or
 a second factor may be attempted within a session. This is a known gap with its own work, not a
@@ -260,7 +266,6 @@ way.
 **It does not model steps that branch on client-supplied data.** Every predicate is a function of
 the session and the configuration. A step that needed the client to say which of two paths to take
 would be a purpose, not a step.
-
 ---
 
 ← [Design documentation](index.md)

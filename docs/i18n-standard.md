@@ -28,7 +28,7 @@ the name a deployment wrote once rather than asking for a second copy of it.
 
 ## Keys
 
-**An error code is its key**, and the same code prefixed with `description.` names the end-user's
+**An error code is its key**, and the same code prefixed with `description.` names the person's
 message. [The exception standard](exception-code-standard.md#a-code-names-two-messages) owns how a
 code is built.
 

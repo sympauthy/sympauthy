@@ -46,7 +46,58 @@ and **`security`** turns a credential into an `Authentication` the controllers c
 are drawn across the three layers because both are consumed by all of them:
 [the `config` layer standard](config-layer-code-standard.md) and [security](security.md).
 
-## A model per layer
+## Surfaces
+
+SympAuthy answers to several very different callers, and the split is visible in the route. **A
+surface is a route prefix with one audience and one gate** — which is also the test for whether
+something is a new surface or a route on an existing one: a caller authenticated differently, or one
+a whole prefix should be refusable for in one place, is its own surface.
+
+The routing is the source of truth for which exist. Today they run from the protocol endpoints under
+`/api/oauth2` and `/api/openid`, through the flow the sign-in pages drive under `/api/v1/flow`, to
+the server-to-server and back-office prefixes under `/api/v1/client` and `/api/v1/admin`.
+
+### How a surface is gated
+
+**A gate is never one check.** The protocol endpoints are guarded by the protocol itself — client
+authentication, PKCE, a signed `state` — rather than by a role; discovery is public by
+specification; the flow prefix is gated on a signed session token that is emphatically not a user's
+access token; and the application prefixes are gated on scope. [Security](security.md) is where each
+is spelled out.
+
+**The prefix is a security boundary, not only a routing convention.** It is what lets a whole
+surface be gated once, in the security configuration, instead of one annotation at a time. What each
+gate does and does not protect against is [security](security.md).
+
+### When a surface carries a version
+
+**A surface carries a version when its contract is ours to break.** The protocol prefixes do not:
+their routes are named by RFC 6749, RFC 7009, RFC 7662 and the OpenID Connect Core and Discovery
+specifications, and a client that finds them by reading `/.well-known/openid-configuration` never
+sees the path we chose anyway. Everything we design ourselves is versioned.
+
+**Versioned surfaces freeze on different schedules**, which is why each is its own prefix rather
+than one API with sections. The admin console ships alongside the server; a client integration may
+be years old; the sign-in pages are replaced whenever the front end is. One shared version would
+chain them together and force a bump on one surface for another's benefit.
+
+## The interactive flow is an engine, not a script
+
+Signing in, enrolling a second factor, confirming an action, re-proving who you are, linking an
+identity provider: these are not separate flows. Each is a **purpose**, and a single engine
+sequences purposes over one `InteractiveFlowSession` — which is why a session can carry several at
+once, why the list grows as the server learns what else is needed, and why the server, never the
+client, decides which step comes next.
+
+This is the one subsystem where reading the code in file order does not explain it, so it has its
+own description: [the interactive flow](interactive-flow.md).
+
+## The layers
+
+The layers are `api`, `business` and `data`, and the rules below decide what belongs inside one,
+what is shared between them, and what sits beside them.
+
+### A model per layer
 
 Each layer defines its **own** model and translates at the boundary — the API resources, the
 business models, and the persistence entities are separate types even when they describe the same
@@ -56,14 +107,14 @@ touching a published contract, and the domain is never shaped by either.
 The rule that enforces it is that **a manager never returns an entity**. When the boundary is
 broken, it is broken there first, by a method that returns a `…Entity` because it was quicker.
 
-## The split stops at `api`
+### The split stops at `api`
 
 `business` and `data` are shared whole. Revoking a consent is the same use case over the same domain
 model whether an administrator asked for it or the person did, so managers are divided by **domain**
 — user, client, consent, token, flow — never by caller. An `admin/` package below the HTTP boundary
 would be a second copy of the domain, and the two copies would drift.
 
-## Beside the layers
+### Beside the layers
 
 Some packages sit next to the three rather than inside one of them, and the test is the same in
 every case: **a package belongs beside the layers when it owns no layer's model.** The package tree
@@ -84,37 +135,6 @@ throw and neither may depend on the other, which [the exception
 standard](exception-code-standard.md) holds — and it puts the health indicators there too, since
 configuration must not depend on the thing that publishes its verdict.
 
-## Surfaces
-
-SympAuthy answers to several very different callers, and the split is visible in the route. **A
-surface is a route prefix with one audience and one gate** — which is also the test for whether
-something is a new surface or a route on an existing one: a caller authenticated differently, or one
-a whole prefix should be refusable for in one place, is its own surface.
-
-The routing is the source of truth for which exist. Today they run from the protocol endpoints under
-`/api/oauth2` and `/api/openid`, through the flow the sign-in pages drive under `/api/v1/flow`, to
-the server-to-server and back-office prefixes under `/api/v1/client` and `/api/v1/admin`.
-
-**A gate is never one check.** The protocol endpoints are guarded by the protocol itself — client
-authentication, PKCE, a signed `state` — rather than by a role; discovery is public by
-specification; the flow prefix is gated on a signed session token that is emphatically not a user's
-access token; and the application prefixes are gated on scope. [Security](security.md) is where each
-is spelled out.
-
-**A surface carries a version when its contract is ours to break.** The protocol prefixes do not:
-their routes are named by RFC 6749, RFC 7009, RFC 7662 and the OpenID Connect Core and Discovery
-specifications, and a client that finds them by reading `/.well-known/openid-configuration` never
-sees the path we chose anyway. Everything we design ourselves is versioned.
-
-**Versioned surfaces freeze on different schedules**, which is why each is its own prefix rather
-than one API with sections. The admin console ships alongside the server; a client integration may
-be years old; the sign-in pages are replaced whenever the front end is. One shared version would
-chain them together and force a bump on one surface for another's benefit.
-
-**The prefix is a security boundary, not only a routing convention.** It is what lets a whole
-surface be gated once, in the security configuration, instead of one annotation at a time. What each
-gate does and does not protect against is [security](security.md).
-
 ## One schema, more than one database
 
 Every repository interface has an empty implementation per dialect, selected by a condition on the
@@ -128,17 +148,6 @@ them diverging in practice rather than in principle is that
 [both suites run against each](testing-standard.md): a repository test starts a real database of
 every dialect, and an integration test boots the server against every dialect. The repository tests
 are where a spelling is caught, and starting a PostgreSQL for them is why `test` needs Docker.
-
-## The interactive flow is an engine, not a script
-
-Signing in, enrolling a second factor, confirming an action, re-proving who you are, linking an
-identity provider: these are not separate flows. Each is a **purpose**, and a single engine
-sequences purposes over one `InteractiveFlowSession` — which is why a session can carry several at
-once, why the list grows as the server learns what else is needed, and why the server, never the
-client, decides which step comes next.
-
-This is the one subsystem where reading the code in file order does not explain it, so it has its
-own description: [the interactive flow](interactive-flow.md).
 
 ## Project layout
 

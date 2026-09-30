@@ -77,7 +77,7 @@ in transactions that already hold one.
 
 **The loser of one of these races is answered where it can still act on it.** A promotion that finds
 a value or a subject taken fails non-recoverably: every purpose has resolved, and no step is left
-for the end-user to retry. A writer that loses earlier in a flow still has one, and is answered
+for the person to retry. A writer that loses earlier in a flow still has one, and is answered
 recoverably where going through that step again reaches the outcome the person came for. Which
 failure each of them raises is written at the writer.
 

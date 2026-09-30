@@ -225,7 +225,7 @@ One scenario:
 constraints, so a green local run is necessary and not sufficient. What the tests are expected to
 prove is [the testing standard](testing-standard.md).
 
-### Changing a flow-configuration response
+#### Changing a flow-configuration response
 
 The Testcontainers helper library parses the flow configuration the server returns, so changing the
 shape of one of those responses breaks the integration tests in a way that looks unrelated to the

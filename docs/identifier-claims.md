@@ -10,10 +10,10 @@ failure that shows: it answers, and the answer is wrong only for the accounts ho
 values and not the rest.
 
 This document says what a deployment may declare, what it means for a value to belong to one
-account, when two values somebody typed are one value and how a row is found by one, which of three
-reads a caller wants, and what a sign-up has to collect before an account exists. When the
+account, what a sign-up has to collect before an account exists, when two values somebody typed are
+one value and how a row is found by one, and which of three reads a caller wants. When the
 uniqueness of an account being signed up is settled is [the provisional
-user](provisional-user.md); who may read and write one of these claims is [security](security.md).
+user](provisional-user.md); who may read and write one of these claims is [the claims](claims.md).
 
 ## The set a deployment declares
 
@@ -25,7 +25,7 @@ the account, and so does the phone number.
 signed in with their number is the person who signed in with their address.
 
 **The set belongs to the deployment, not to an account or an audience.** It is declared once, and
-[a restriction on one is refused at startup](security.md#what-a-restriction-means): an audience that
+[a restriction on one is refused at startup](claims.md#what-a-restriction-means): an audience that
 could not see an identifier claim would lose its sign-in rather than be told it had.
 
 **A type that cannot identify a person may not be named in it.** `ClaimDataType.canIdentify` is the
@@ -56,7 +56,41 @@ account's row is a conflict.
 which of them keeps it is settled when the first one
 [promotes](provisional-user.md#when-uniqueness-is-settled).
 
-## When two values are one value
+## Collecting them at sign-up
+
+**A sign-up collects every claim in the set, each of them carrying a value.** One arriving without
+is refused on the step that collects it — recoverably, naming the claim — and no account is written:
+the person fills the field in and posts again.
+
+**A claim submitted blank is one being cleared, and an identifier claim cleared is a missing one.**
+Emptying a field is what a blank submission means everywhere else, and an account created holding no
+value for a claim it is identified by holds a row no login matches. Nobody reaches it again, and
+nothing collects it either: it is committed, so it is not the abandoned account [the
+cleaner](provisional-user.md#collecting-one-that-never-will) sweeps.
+
+**The step collecting the value is where those two readings part, so the refusal is there.** What
+validates a value is handed one claim and one value and is told nothing of which claims the
+deployment identifies by; what promotes the account answers after it is written, at the end of a
+flow where the person has no step left to correct.
+
+## What a provider asserts
+
+**A provider link checks whatever subset of the set the provider asserts.** Linking writes no
+collected claim, so what was asserted is the whole of what there is to compare, and an account
+already holding one of those values owns the identity whichever of the others the provider is silent
+about. Requiring every configured claim would leave the check dead in the ordinary deployment — an
+address and a number configured, against a provider that carries an address and no number.
+
+**Creating an account from a provider requires every one of them.** Those values are written onto
+the account being created, so a partial assertion would leave a partial account behind, which is a
+different thing from a partial check.
+
+## How a value resolves to an account
+
+A login is a single value somebody typed, and three things stand between it and an account: when
+two values count as one value, how a row is found by one, and which of three reads a caller wants.
+
+### When two values are one value
 
 **A value is stored as the person wrote it and compared folded.** `collected_claims.value` is what
 every reader is answered with — somebody who capitalised their own name keeps that — and nothing
@@ -76,7 +110,7 @@ where a `string` one does not, so a caller offers each claim its own folded valu
 could hold no such value at all is offered none, and matches nothing, since no row of it holds one
 either.
 
-## How a row is found
+### How a row is found
 
 **A row is found by `collected_claims.folded_equality_hash`, and the name is the whole of what it
 answers.** Equality, under folding, and nothing else: it does not order, it does not prefix-match,
@@ -108,7 +142,7 @@ hash is answered and the fold confirmed, for every one of the reads below.
 two versions disagreeing about it makes an account unreachable rather than merely slow, and
 `ClaimValueMapperTest` holds it to the values it answers today.
 
-## Three reads, three questions
+### Three reads, three questions
 
 **Which account is this, does one account hold all of these, and is this value free are three
 questions and three reads.** They coincide exactly when the set holds one claim, which is what makes
@@ -141,35 +175,6 @@ exclude; a caller whose account does not exist yet names none.
 and answers for the refusal itself. They are not listed here: a census stops being true the next
 time one is added, which is [the comment standard's](comment-standard.md) rule and holds of a
 document as much as of a KDoc.
-
-## Collecting them at sign-up
-
-**A sign-up collects every claim in the set, each of them carrying a value.** One arriving without
-is refused on the step that collects it — recoverably, naming the claim — and no account is written:
-the person fills the field in and posts again.
-
-**A claim submitted blank is one being cleared, and an identifier claim cleared is a missing one.**
-Emptying a field is what a blank submission means everywhere else, and an account created holding no
-value for a claim it is identified by holds a row no login matches. Nobody reaches it again, and
-nothing collects it either: it is committed, so it is not the abandoned account [the
-cleaner](provisional-user.md#collecting-one-that-never-will) sweeps.
-
-**The step collecting the value is where those two readings part, so the refusal is there.** What
-validates a value is handed one claim and one value and is told nothing of which claims the
-deployment identifies by; what promotes the account answers after it is written, at the end of a
-flow where the person has no step left to correct.
-
-## What a provider asserts
-
-**A provider link checks whatever subset of the set the provider asserts.** Linking writes no
-collected claim, so what was asserted is the whole of what there is to compare, and an account
-already holding one of those values owns the identity whichever of the others the provider is silent
-about. Requiring every configured claim would leave the check dead in the ordinary deployment — an
-address and a number configured, against a provider that carries an address and no number.
-
-**Creating an account from a provider requires every one of them.** Those values are written onto
-the account being created, so a partial assertion would leave a partial account behind, which is a
-different thing from a partial check.
 
 ## What this document does not settle
 

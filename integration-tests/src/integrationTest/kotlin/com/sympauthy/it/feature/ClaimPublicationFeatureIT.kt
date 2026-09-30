@@ -45,7 +45,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * recorded in code, and what the document lists is read off the parsed configuration.
  *
  * Issue: [#485](https://github.com/sympauthy/sympauthy/issues/485), and
- * [`docs/security.md`](https://github.com/sympauthy/sympauthy/blob/main/docs/security.md).
+ * [`docs/claims.md`](https://github.com/sympauthy/sympauthy/blob/main/docs/claims.md).
  */
 @Tag("feature")
 class ClaimPublicationFeatureIT : AbstractSympauthyIT() {

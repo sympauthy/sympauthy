@@ -5,63 +5,84 @@ choices live in [the code standards](general-code-standard.md); this is the list
 
 ## The application
 
-- **[Micronaut](https://micronaut.io)** — the application framework. Dependency injection and
-  configuration are resolved at compile time rather than by scanning at startup, which is what makes
-  a native image both feasible and small: there is little left to reflect over.
-- **Kotlin [coroutines](https://kotlinlang.org/docs/coroutines-overview.html)** — the concurrency
-  model throughout. Controllers, managers and repositories are all `suspend`, so no request occupies
-  a thread while waiting on a database or on a third-party provider.
-- **[MapStruct](https://mapstruct.org)** — mapping between the layers' models, generated at compile
-  time. Generated rather than reflective so that a mapping is a method a debugger can step into, and
-  so that a field nothing maps to fails the build.
+### [Micronaut](https://micronaut.io)
 
-## Persistence
+The application framework. Dependency injection and configuration are resolved at compile time
+rather than by scanning at startup, which is what makes a native image both feasible and small:
+there is little left to reflect over.
 
-- **[Micronaut Data
-  R2DBC](https://micronaut-projects.github.io/micronaut-data/latest/guide/#r2dbc)** over
-  **PostgreSQL** and **H2** — reactive, non-blocking data access, which is what lets a repository
-  method be `suspend` rather than a blocking call wrapped in a dispatcher. Two databases because a
-  deployment should be able to try this server with no database to install; [what that
-  costs](database-standard.md#one-schema-spelled-per-dialect) is paid in the schema.
-- **[Flyway](https://documentation.red-gate.com/flyway)** — schema migration, run at startup against
-  whichever dialect is configured.
+### Kotlin [coroutines](https://kotlinlang.org/docs/coroutines-overview.html)
+
+The concurrency model throughout. Controllers, managers and repositories are all `suspend`, so no
+request occupies a thread while waiting on a database or on a third-party provider.
+
+### [MapStruct](https://mapstruct.org)
+
+Mapping between the layers' models, generated at compile time. Generated rather than reflective so
+that a mapping is a method a debugger can step into, and so that a field nothing maps to fails the
+build.
 
 ## What ships
 
-- **[GraalVM native image](https://www.graalvm.org/reference-manual/native-image/)** — the
-  production artifact is compiled ahead of time, for a startup measured in milliseconds and a memory
-  footprint a small deployment can afford. A JVM run is what development uses, and the difference
-  between the two is a standard of its own: [native image](native-image-standard.md).
-- **[distroless](https://github.com/GoogleContainerTools/distroless)** — the base of the published
-  Docker image. A compiled binary needs no runtime installed under it, so the base holds the two
-  libraries the binary links against and neither a shell nor a package manager: there is nothing for
-  a process that escapes the server to reach for, and nothing to patch that the server does not use.
-  The image runs as a non-root user for the same reason, which is what a configuration file or a
-  database file mounted into it has to be readable by.
+### [GraalVM native image](https://www.graalvm.org/reference-manual/native-image/)
+
+The production artifact is compiled ahead of time, for a startup measured in milliseconds and a
+memory footprint a small deployment can afford. A JVM run is what development uses, and the
+difference between the two is a standard of its own: [native image](native-image-standard.md).
+
+### [distroless](https://github.com/GoogleContainerTools/distroless)
+
+The base of the published Docker image. A compiled binary needs no runtime installed under it, so
+the base holds the two libraries the binary links against and neither a shell nor a package manager:
+there is nothing for a process that escapes the server to reach for, and nothing to patch that the
+server does not use. The image runs as a non-root user for the same reason, which is what a
+configuration file or a database file mounted into it has to be readable by.
+
+## Persistence
+
+### [Micronaut Data R2DBC](https://micronaut-projects.github.io/micronaut-data/latest/guide/#r2dbc) over PostgreSQL and H2
+
+Reactive, non-blocking data access, which is what lets a repository method be `suspend` rather than
+a blocking call wrapped in a dispatcher. Two databases because a deployment should be able to try
+this server with no database to install; [what that
+costs](database-standard.md#one-schema-spelled-per-dialect) is paid in the schema.
+
+### [Flyway](https://documentation.red-gate.com/flyway)
+
+Schema migration, run at startup against whichever dialect is configured.
 
 ## Cryptography
 
-- **[Nimbus JOSE + JWT](https://connect2id.com/products/nimbus-jose-jwt)** — every JWT and JWK
-  operation: signing, verification, key-set serialization. **This is the only JWT library, and a
-  second one is not introduced.** Two libraries would mean two answers to which algorithms are
-  acceptable and two places a signature is verified, and the one an attacker cares about is
-  whichever is more permissive.
-- **[Bouncy Castle](https://www.bouncycastle.org)** and the JDK's own cryptography — the primitives
-  underneath: hashing, key generation, the algorithms the configuration allows.
+### [Nimbus JOSE + JWT](https://connect2id.com/products/nimbus-jose-jwt)
+
+Every JWT and JWK operation: signing, verification, key-set serialization. **This is the only JWT
+library, and a second one is not introduced.** Two libraries would mean two answers to which
+algorithms are acceptable and two places a signature is verified, and the one an attacker cares
+about is whichever is more permissive.
+
+### [Bouncy Castle](https://www.bouncycastle.org) and the JDK's own cryptography
+
+The primitives underneath: hashing, key generation, the algorithms the configuration allows.
 
 ## Configuration and content
 
-- **[EvalEx](https://github.com/ezylang/EvalEx)** — the expression language a deployment writes
-  scope granting and act-as rules in. An expression evaluator rather than a plugin interface because
-  these rules are configuration, and configuration should not need a build.
-- **[FreeMarker](https://freemarker.apache.org)** — mail templates. Their structure only; every
-  string in them comes from [a message bundle](i18n-standard.md).
+### [EvalEx](https://github.com/ezylang/EvalEx)
+
+The expression language a deployment writes scope granting and act-as rules in. An expression
+evaluator rather than a plugin interface because these rules are configuration, and configuration
+should not need a build.
+
+### [FreeMarker](https://freemarker.apache.org)
+
+Mail templates. Their structure only; every string in them comes from [a message
+bundle](i18n-standard.md).
 
 ## Testing
 
-- **JUnit 5 and [MockK](https://mockk.io)** — unit testing, with
-  [Testcontainers](https://testcontainers.com) driving the container-based [integration
-  tests](testing-standard.md).
+### JUnit 5 and [MockK](https://mockk.io)
+
+Unit testing, with [Testcontainers](https://testcontainers.com) driving the container-based
+[integration tests](testing-standard.md).
 
 ## The build
 
