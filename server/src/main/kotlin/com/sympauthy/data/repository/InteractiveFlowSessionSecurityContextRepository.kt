@@ -10,7 +10,7 @@ import java.util.*
  * [observe] is the one statement on the hot path of every flow request, and it is the one method here
  * whose SQL each dialect spells for itself: an upsert has no spelling they share, and a
  * read-then-write in its place would be two round-trips and a race the unique index over
- * `(session_id, fingerprint)` would then refuse. `docs/data-layer-code-standard.md` carries the rule
+ * `(session_id, fingerprint)` would then refuse. `docs/standards/data-layer-code-standard.md` carries the rule
  * that lets a statement no intersection can express be spelled once per dialect.
  */
 interface InteractiveFlowSessionSecurityContextRepository :

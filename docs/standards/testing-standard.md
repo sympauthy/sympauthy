@@ -91,7 +91,7 @@ under test.
 ## Integration tests
 
 They live in their own module, run only when asked for, and boot the server as a container to drive
-it over real HTTP. Running them is [running locally](running-locally.md).
+it over real HTTP. Running them is [running locally](../design/running-locally.md).
 
 **An integration test covers what a unit test cannot: a feature that spans several controllers and
 needs the whole instance live.** Driving the authorization flow is the case that keeps arising — a
@@ -192,4 +192,4 @@ belongs to the frontend that renders it.
 
 ---
 
-← [Design documentation](index.md)
+← [How the code is written](index.md)

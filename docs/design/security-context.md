@@ -156,8 +156,8 @@ scoped to no surface, and what it costs on the requests that never use it, is th
 KDoc.
 
 **What is refused is a manager reaching back for it.** There is no request-scoped bean and no
-thread-local: [the general standard](general-code-standard.md#dependency-rules) keeps a manager
-callable from a scheduled job and a unit test, and every manager here is `suspend`, so a
+thread-local: [the general standard](../standards/general-code-standard.md#dependency-rules) keeps a
+manager callable from a scheduled job and a unit test, and every manager here is `suspend`, so a
 thread-local would be intermittently absent across the coroutine boundaries they cross — recording a
 null address against a real security decision, silently.
 
@@ -187,4 +187,4 @@ changes what it publishes is discovered by a location going wrong.
 
 ---
 
-← [Design documentation](index.md)
+← [How the system works](index.md)

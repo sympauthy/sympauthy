@@ -169,7 +169,8 @@ two renderings of one failure are two sentences to reconcile the first time they
 failure naming no message of its own carries the generic sentence that was on the screen, and the
 code published beside it is the one that sentence was read under rather than the absence the row
 holds. The technical half is asked for whatever `features.print-details-in-error` says, which is
-what that mapper's override is for, and the reason is [the API standard](api-standard.md#errors)'s.
+what that mapper's override is for, and the reason is [the API
+standard](../standards/api-standard.md#errors)'s.
 
 ### A purpose carries its own label
 
@@ -201,7 +202,8 @@ Adding a purpose, adding a step and writing the endpoint that serves one are eac
    whatever asks for it, which creates the session with the ordered purpose list, names the client
    it is for, and persists any attached record **in the same transaction** — then hands the session
    it got back to `InteractiveAuthFlowSessionControllerUtil`, which records where it was started
-   from, as [the `api` layer standard](api-layer-code-standard.md#the-flow-controller) requires.
+   from, as [the `api` layer standard](../standards/api-layer-code-standard.md#the-flow-controller)
+   requires.
 5. Test the handler's branches directly — including that `debugInformation` answers for a session
    with no user, no attached record and a terminal status, and that no credential is among what it
    emits — and add an integration test that drives the flow.
@@ -268,4 +270,4 @@ the session and the configuration. A step that needed the client to say which of
 would be a purpose, not a step.
 ---
 
-← [Design documentation](index.md)
+← [How the system works](index.md)

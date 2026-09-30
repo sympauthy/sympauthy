@@ -27,7 +27,7 @@ The fix is the author's first reading, and the change may find a better shape.
 **A decision the issue rests on is cited from the document that states it.** Link the sentence in
 `docs/` the design follows from, and say where the design departs from one.
 
-**Behaviour is described in the vocabulary `docs/` uses.** Name a thing as the description governing
+**Behaviour is described in the vocabulary `docs/` uses.** Name a thing as the document governing
 it names it — an identifier claim value, an audience, a purpose — and keep the wire's own word for
 what travels on the wire.
 
@@ -111,4 +111,4 @@ what its pages have to say, and nothing here shapes how they say it.
 
 ---
 
-← [Design documentation](index.md)
+← [How the code is written](index.md)

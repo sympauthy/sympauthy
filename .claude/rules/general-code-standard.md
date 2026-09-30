@@ -1,1 +1,1 @@
-../../docs/general-code-standard.md
+../../docs/standards/general-code-standard.md

@@ -145,12 +145,12 @@ open class CollectedClaimManager(
      * [ProvisionalAccountManager.promote]. Checking here would answer a question that account is not yet
      * asking, and — since the promotion and the sign-up both already lock and check — would only add a
      * second `withLock` to transactions that already hold one. See [com.sympauthy.data.model.SessionScoped]
-     * and `docs/provisional-user.md`.
+     * and `docs/design/provisional-user.md`.
      *
      * **The check is serialised by the values being written**, held over the check and the writes both, and
      * the competitor it has to exclude is whichever of the promotion and another write commits first. The
      * keys name the value as `collected_claims` spells it, which is what both sides compare on. See
-     * [LockKey.IdentifierValue] and `docs/locking-standard.md`.
+     * [LockKey.IdentifierValue] and `docs/standards/locking-standard.md`.
      */
     @Transactional
     open suspend fun applyUpdates(

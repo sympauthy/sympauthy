@@ -19,7 +19,7 @@ import java.time.LocalDateTime
  *
  * **It claims a bounded batch rather than issuing one `DELETE`**, because the size of that statement is
  * whatever an operator's retention change makes it and `DELETE … LIMIT` is no part of PostgreSQL. The
- * claim is the one in `docs/locking-standard.md`.
+ * claim is the one in `docs/standards/locking-standard.md`.
  */
 @Singleton
 open class UserSecurityContextCleaner(

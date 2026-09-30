@@ -1,1 +1,0 @@
-../../docs/description-standard.md

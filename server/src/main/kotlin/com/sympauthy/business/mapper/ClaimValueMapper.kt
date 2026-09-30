@@ -54,7 +54,7 @@ class ClaimValueMapper(
      * Plain text rather than the exchanged encoding, so that one typed thing is one identity whatever
      * type holds it — `42` under a number claim and `42` under a string one are one value here, where a
      * JSON `42` against a JSON `"42"` would make them two. The one definition of what two identifier
-     * values being equal means. See `docs/identifier-claims.md`.
+     * values being equal means. See `docs/design/identifier-claims.md`.
      */
     fun toFoldedValue(value: Any?): String? {
         return value?.toString()?.lowercase()

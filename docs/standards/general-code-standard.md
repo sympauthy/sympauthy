@@ -7,9 +7,9 @@ paths:
 
 # General code standard
 
-[Architecture](architecture.md) says what the layers are and why each owns its own model. This
-document says what a feature is made of, and what holds across every layer. What each layer does
-with its own components is a standard per layer:
+[Architecture](../design/architecture.md) says what the layers are and why each owns its own model.
+This document says what a feature is made of, and what holds across every layer. What each layer
+does with its own components is a standard per layer:
 
 | Standard | Covers |
 | --- | --- |
@@ -140,4 +140,4 @@ third-party providers.
 
 ---
 
-← [Design documentation](index.md)
+← [How the code is written](index.md)

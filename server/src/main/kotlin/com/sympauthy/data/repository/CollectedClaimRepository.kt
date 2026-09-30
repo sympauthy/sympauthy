@@ -65,7 +65,7 @@ interface CollectedClaimRepository : CoroutineCrudRepository<CollectedClaimEntit
  * **These are candidates, not matches.** The hash answers equality under folding at the width of eight
  * bytes, which is what makes the index and the comparison cost the same whatever the value's length and
  * what makes a deliberate collision cheap. A caller acts on a row only after re-checking the folded value
- * itself. See `docs/identifier-claims.md`.
+ * itself. See `docs/design/identifier-claims.md`.
  *
  * A claim a session is still signing up is excluded, which is what lets two sign-ups hold one identifier
  * at once: neither blocks the other, and the collision is settled when the first of them promotes. It is

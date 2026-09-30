@@ -1,1 +1,1 @@
-../../docs/native-image-standard.md
+../../docs/standards/native-image-standard.md

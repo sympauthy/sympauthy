@@ -15,7 +15,7 @@ shape of a failure. The Kotlin behind it is
 ## Routes
 
 Which prefix belongs to which surface, and why only some carry a version, is
-[architecture](architecture.md#surfaces). What is left is everything after the prefix.
+[architecture](../design/architecture.md#surfaces). What is left is everything after the prefix.
 
 **A path segment is a lowercase plural noun.** The verb is the method, and a segment needing two
 words is kebab-case.
@@ -190,4 +190,4 @@ version in sight.
 
 ---
 
-← [Design documentation](index.md)
+← [How the code is written](index.md)

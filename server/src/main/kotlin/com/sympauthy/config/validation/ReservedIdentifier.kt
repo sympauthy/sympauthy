@@ -11,7 +11,7 @@ import com.sympauthy.config.exception.configExceptionOf
  * named by that word would be unreachable through its own item route. The set of collections that
  * have one grows, and an identifier is written once and read for the life of a deployment, so it is
  * refused for every configured item a route names by string rather than for the ones that happen to
- * have an item route today. See docs/collection-standard.md.
+ * have an item route today. See docs/standards/collection-standard.md.
  */
 const val RESERVED_IDENTIFIER = "capabilities"
 

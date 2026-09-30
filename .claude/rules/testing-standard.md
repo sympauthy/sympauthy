@@ -1,1 +1,1 @@
-../../docs/testing-standard.md
+../../docs/standards/testing-standard.md

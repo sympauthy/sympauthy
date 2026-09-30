@@ -1,7 +1,8 @@
 # Technology
 
 What this server is built on, and why each piece was picked. The rules that follow from these
-choices live in [the code standards](general-code-standard.md); this is the list and the reasoning.
+choices live in [the code standards](../standards/general-code-standard.md); this is the list and
+the reasoning.
 
 ## The application
 
@@ -28,7 +29,8 @@ build.
 
 The production artifact is compiled ahead of time, for a startup measured in milliseconds and a
 memory footprint a small deployment can afford. A JVM run is what development uses, and the
-difference between the two is a standard of its own: [native image](native-image-standard.md).
+difference between the two is a standard of its own: [native
+image](../standards/native-image-standard.md).
 
 ### [distroless](https://github.com/GoogleContainerTools/distroless)
 
@@ -45,7 +47,7 @@ configuration file or a database file mounted into it has to be readable by.
 Reactive, non-blocking data access, which is what lets a repository method be `suspend` rather than
 a blocking call wrapped in a dispatcher. Two databases because a deployment should be able to try
 this server with no database to install; [what that
-costs](database-standard.md#one-schema-spelled-per-dialect) is paid in the schema.
+costs](../standards/database-standard.md#one-schema-spelled-per-dialect) is paid in the schema.
 
 ### [Flyway](https://documentation.red-gate.com/flyway)
 
@@ -75,21 +77,21 @@ should not need a build.
 ### [FreeMarker](https://freemarker.apache.org)
 
 Mail templates. Their structure only; every string in them comes from [a message
-bundle](i18n-standard.md).
+bundle](../standards/i18n-standard.md).
 
 ## Testing
 
 ### JUnit 5 and [MockK](https://mockk.io)
 
 Unit testing, with [Testcontainers](https://testcontainers.com) driving the container-based
-[integration tests](testing-standard.md).
+[integration tests](../standards/testing-standard.md).
 
 ## The build
 
 **Two annotation processors run over this source, and that is deliberate rather than accidental.**
 Most processing is done by the newer one; one generator still requires the older. The cost shows up
-in the [API standard](api-standard.md#openapi): both produce an OpenAPI document, and the two do not
-agree.
+in the [API standard](../standards/api-standard.md#openapi): both produce an OpenAPI document, and
+the two do not agree.
 
 **The build pins its own tooling for reasons that are written down where they are pinned.** A build
 tool version this project cannot move past, a dependency excluded to avoid a clash: each carries its
@@ -111,4 +113,4 @@ them or says which are pinned against which.
 
 ---
 
-← [Design documentation](index.md)
+← [How the system works](index.md)

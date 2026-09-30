@@ -53,11 +53,11 @@ and no step is left to retry.
 
 **What makes the first of them the only one is a lock over the values themselves.** The promotion
 names every identifier value and every provider subject it is about to make committed as a
-[named lock](locking-standard.md), holds them across its re-check and its writes, and so answers
-against what the winner committed rather than against the rows it read before the winner existed.
-Both halves are serialised on every dialect; the unique index PostgreSQL carries over a provider
-subject is a backstop behind the lock rather than the rule, since H2 spells no partial index and a
-partial index is what two provisional links sharing a subject requires.
+[named lock](../standards/locking-standard.md), holds them across its re-check and its writes, and
+so answers against what the winner committed rather than against the rows it read before the winner
+existed. Both halves are serialised on every dialect; the unique index PostgreSQL carries over a
+provider subject is a backstop behind the lock rather than the rule, since H2 spells no partial
+index and a partial index is what two provisional links sharing a subject requires.
 
 ### What else takes the same key
 
@@ -67,8 +67,8 @@ writers holds a row the others could have waited on. The key is what puts them i
 arrives second waits, reads again what the first committed, and is refused against that rather than
 against the rows it saw before the first existed. Which writers take `LockKey.IdentifierValue` and
 `LockKey.ProviderSubject` is the sealed type's KDoc to say — [the locking
-standard](locking-standard.md) makes that list the authority, and a writer is added there rather
-than here.
+standard](../standards/locking-standard.md) makes that list the authority, and a writer is added
+there rather than here.
 
 **A write to an account that is still provisional takes no key and checks nothing.** Its identifier
 is not one yet, and this is where it becomes one: locking there would serialise sign-ups against
@@ -88,8 +88,8 @@ held until that transaction commits, terminal effects included, so a terminal ef
 its own is everybody's problem: the OAuth2 effect calls the client's authorization webhook where one
 is configured, and a flow whose identity hashes to the same stripe waits however long that client
 takes to answer. That is the server breaking
-[the rule against holding a lock across I/O](locking-standard.md), not an exception to it — and
-moving that call out is not a reordering, because the effects write consents and a consumed
+[the rule against holding a lock across I/O](../standards/locking-standard.md), not an exception to
+it — and moving that call out is not a reordering, because the effects write consents and a consumed
 invitation against an account the promotion is what makes real.
 
 **An invitation is consumed at completion rather than at sign-up**, for the same reason the
@@ -139,4 +139,4 @@ the one to settle it alone.
 
 ---
 
-← [Design documentation](index.md)
+← [How the system works](index.md)

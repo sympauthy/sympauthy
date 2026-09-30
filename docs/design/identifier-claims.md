@@ -165,7 +165,7 @@ precisely what the two resolving reads answer nothing about.
 **The uniqueness read answers what was taken and who holds it, and raises nothing.** What to say
 about a value being taken belongs where it was being claimed, and which account holds it reaches an
 operator and never the person refused — [the exception
-standard](exception-code-standard.md#a-code-names-two-messages) is why.
+standard](../standards/exception-code-standard.md#a-code-names-two-messages) is why.
 
 **A caller holding an account of its own names it, and every row that account already holds is
 exempt.** A value it holds resolves to it under whichever claim the row sits, so there is no pair to
@@ -173,8 +173,8 @@ exclude; a caller whose account does not exist yet names none.
 
 **Every writer that makes a value an account's asks the third question at the moment it claims it**,
 and answers for the refusal itself. They are not listed here: a census stops being true the next
-time one is added, which is [the comment standard's](comment-standard.md) rule and holds of a
-document as much as of a KDoc.
+time one is added, which is [the comment standard's](../standards/comment-standard.md) rule and
+holds of a document as much as of a KDoc.
 
 ## What this document does not settle
 
@@ -193,4 +193,4 @@ sign-up and keeps them; why no surface writes one afterwards is
 
 ---
 
-← [Design documentation](index.md)
+← [How the system works](index.md)

@@ -204,7 +204,7 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
      * provisional account's identifier is settled when it is promoted — under the key that promotion takes
      * over these same values. Locking here would serialise sign-ups against each other, which is the thing
      * the provisional row exists to avoid, and would put a second lock in a transaction already holding one
-     * over the provider subject. See `docs/provisional-user.md`.
+     * over the provider subject. See `docs/design/provisional-user.md`.
      */
     private suspend fun createUserWithIdentifierClaims(
         sessionId: UUID,

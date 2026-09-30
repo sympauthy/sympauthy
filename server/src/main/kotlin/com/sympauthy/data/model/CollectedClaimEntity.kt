@@ -26,7 +26,7 @@ class CollectedClaimEntity(
      * and it is a fixed-width integer so that the index and the comparison cost the same whatever the
      * value's length. A caller acting on a row this selected re-checks the folded value itself: a hash
      * this wide is cheap to collide on purpose, and a collision here would merge a provider into a
-     * stranger's account. See `docs/identifier-claims.md`.
+     * stranger's account. See `docs/design/identifier-claims.md`.
      *
      * The mapping is fixed for the life of the schema, for the reason
      * [com.sympauthy.business.manager.lock.LockKey.stripe] gives: two versions disagreeing about it make

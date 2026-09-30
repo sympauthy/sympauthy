@@ -7,7 +7,7 @@ import io.micronaut.http.HttpHeaders
  * `advanced.security-context.ip.provider` to have that edge's header believed.
  *
  * It is a model rather than a manager because a setting selects an implementation of it, which
- * `docs/config-layer-code-standard.md` says puts it here.
+ * `docs/standards/config-layer-code-standard.md` says puts it here.
  *
  * **A deployment names exactly one, and there is no detecting which to use.** Only the proxy nearest
  * this server knows the address as something other than a value it was handed, and an edge reading

@@ -1,1 +1,1 @@
-../../docs/comment-standard.md
+../../docs/standards/comment-standard.md

@@ -53,7 +53,7 @@ private const val SOURCES = "src/main/kotlin"
 private const val BUNDLE = "src/main/resources/error_messages.properties"
 
 /**
- * Where a code sits in the argument list of each factory docs/exception-code-standard.md names.
+ * Where a code sits in the argument list of each factory docs/standards/exception-code-standard.md names.
  * The description, where one is passed positionally, is the argument after it.
  */
 private val FACTORIES = mapOf(

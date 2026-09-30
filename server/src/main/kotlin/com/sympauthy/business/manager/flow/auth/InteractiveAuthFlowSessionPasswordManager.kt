@@ -246,7 +246,7 @@ open class InteractiveAuthFlowSessionPasswordManager(
      * A claim submitted blank is one being cleared: [ClaimValueValidator] answers an empty value for it,
      * which is how a person empties a field everywhere else. Cleared here, it writes the account a row
      * holding `NULL` that no login ever matches, leaving an account nobody can sign in to. An identifier
-     * claim is not optional, whatever [Claim.required] says of it, and `docs/identifier-claims.md` is
+     * claim is not optional, whatever [Claim.required] says of it, and `docs/design/identifier-claims.md` is
      * where that rule lives.
      */
     internal fun checkForMissingClaims(signUpClaimUpdateMap: Map<Claim, CollectedClaimUpdate?>) {

@@ -1,6 +1,7 @@
 ---
 name: review-followup
-description: File a SympAuthy issue for a defect, or a breach of a rule in docs/, that a code review
+description: File a SympAuthy issue for a defect, or a breach of a rule in docs/standards/, that a
+  code review
   turned up and the branch under review will not fix. Use after /code-review — or any review —
   surfaces something real that predates the diff or is not that diff's to answer.
 ---
@@ -13,11 +14,11 @@ one of them as an issue, so the finding outlives the review that found it.
 
 ## What gets filed
 
-**Only a defect, or a breach of a rule in `docs/`.** A defect is code doing something other than
-what it promises — its KDoc, its error code, its configuration key, or the behaviour a caller is
-entitled to. A breach is code not conforming to a standard. Nothing else is a finding: a preference,
-a shape somebody would have written differently, or a capability nobody has decided to build is not
-one.
+**Only a defect, or a breach of a rule in `docs/standards/`.** A defect is code doing something
+other than what it promises — its KDoc, its error code, its configuration key, or the behaviour a
+caller is entitled to. A breach is code not conforming to a standard. Nothing else is a finding: a
+preference, a shape somebody would have written differently, or a capability nobody has decided to
+build is not one.
 
 **Never say whether the answer is a fix or a feature.** The issue reports what is wrong and stops
 there. Whether that is answered with one line, with a validator, or with something that does not

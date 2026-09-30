@@ -179,7 +179,7 @@ splits every deployment mid-upgrade.
 ## What this standard does not cover
 
 **A lock held across requests.** The interactive flow session serialises its own steps with a
-version-guarded update, and [the interactive flow](interactive-flow.md) owns that.
+version-guarded update, and [the interactive flow](../design/interactive-flow.md) owns that.
 
 **A work row leased across transactions.** Nothing yet claims a row, commits, and takes minutes to
 finish it; a queue whose delivery outlives its transaction would need a lease column of its own.
@@ -203,4 +203,4 @@ instance is alive, which is all this needs; a roster an operator can read is a f
 
 ---
 
-← [Design documentation](index.md)
+← [How the code is written](index.md)

@@ -120,7 +120,7 @@ dependencies {
     testImplementation(libs.mock.webserver)
     testImplementation(kotlin("test"))
     // A repository test runs against a real database of each supported dialect. H2 is embedded; PostgreSQL
-    // is a container, which is why the default `test` task requires Docker. See docs/testing-standard.md.
+    // is a container, which is why the default `test` task requires Docker. See docs/standards/testing-standard.md.
     testImplementation(libs.testcontainers)
     testImplementation(libs.testcontainers.postgresql)
 }

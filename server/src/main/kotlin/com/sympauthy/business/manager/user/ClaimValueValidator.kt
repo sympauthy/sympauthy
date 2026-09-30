@@ -27,7 +27,7 @@ import kotlin.jvm.optionals.getOrNull
  * number read as a [Long]. What this returns is what gets stored and what every reader is answered with,
  * so **nothing here folds the case of a value a person chose**: how somebody capitalises their own name
  * or their own address is theirs to decide, and the spelling comparisons are made in is a second one
- * `collected_claims` holds beside it. See `docs/identifier-claims.md`.
+ * `collected_claims` holds beside it. See `docs/design/identifier-claims.md`.
  */
 @Singleton
 class ClaimValueValidator {

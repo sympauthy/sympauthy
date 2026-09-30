@@ -1,1 +1,1 @@
-../../docs/api-standard.md
+../../docs/standards/api-standard.md

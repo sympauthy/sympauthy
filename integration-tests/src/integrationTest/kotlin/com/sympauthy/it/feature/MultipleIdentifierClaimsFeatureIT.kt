@@ -32,8 +32,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * matching a row of each — and the server answers one of them, so the owner of the address can be signed
  * in against the other account.
  *
- * Issue: [#479](https://github.com/sympauthy/sympauthy/issues/479), and
- * [`docs/identifier-claims.md`](https://github.com/sympauthy/sympauthy/blob/main/docs/identifier-claims.md).
+ * Issue: [#479](https://github.com/sympauthy/sympauthy/issues/479), and `docs/design/identifier-claims.md`.
  */
 @Tag("feature")
 class MultipleIdentifierClaimsFeatureIT : AbstractSympauthyIT() {

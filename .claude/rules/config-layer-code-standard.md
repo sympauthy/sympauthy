@@ -1,1 +1,1 @@
-../../docs/config-layer-code-standard.md
+../../docs/standards/config-layer-code-standard.md

@@ -376,4 +376,4 @@ given, and why no surface writes one afterwards is
 
 ---
 
-← [Design documentation](index.md)
+← [How the system works](index.md)

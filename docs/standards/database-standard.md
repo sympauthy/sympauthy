@@ -77,8 +77,8 @@ Give a column a default where a value is merely inconvenient to supply at insert
 
 **A `bytea` column is `NOT NULL`.** A null one cannot be written — the R2DBC binding types it
 `smallint[]`, which PostgreSQL refuses against a `bytea` — so give the absent value a spelling of
-its own and translate it in the mapper. [The design FAQ](design-faq.md) holds the case that settled
-it.
+its own and translate it in the mapper. [The design FAQ](../design/design-faq.md) holds the case
+that settled it.
 
 ## Migrations
 
@@ -110,17 +110,17 @@ as an `_edit` under the version that carries the change.
 **Soft-delete as a schema pattern.** A revoked-at column is a domain state with its own meaning, and
 nothing filters rows on the way out. The nullable session id the tables a sign-up writes carry is
 the one exception, and it is not a soft delete: it says the row is not real yet rather than no
-longer. [The provisional user](provisional-user.md) owns it.
+longer. [The provisional user](../design/provisional-user.md) owns it.
 
 **Data retention, except where a table holds personal data.** A scheduled job collects expired
 sessions and the accounts an abandoned sign-up left half-written, and the places a person signs in
 from carry a retention of their own because an address is personal data — [the security
-context](security-context.md) holds it. How long a revoked token or a used validation code is kept
-is still a policy nobody has set.
+context](../design/security-context.md) holds it. How long a revoked token or a used validation code
+is kept is still a policy nobody has set.
 
 **Encryption at rest and column-level encryption.** Secrets are hashed where they are secrets, and
 what the storage does underneath is the deployment's business.
 
 ---
 
-← [Design documentation](index.md)
+← [How the code is written](index.md)

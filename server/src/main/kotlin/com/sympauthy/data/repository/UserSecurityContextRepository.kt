@@ -12,7 +12,7 @@ import java.util.*
  * is no part of PostgreSQL and one statement over a table holding a row per place per person is a
  * transaction whose size an operator sets by lowering a retention.
  *
- * [claimExpired] therefore follows the claim in `docs/locking-standard.md`,
+ * [claimExpired] therefore follows the claim in `docs/standards/locking-standard.md`,
  * and [deleteByIdInAndLastSeenDateLessThan] re-asserts the predicate the claim selected by: the fold
  * writes this table too, so a row seen again between the claim and the delete has to survive it.
  */

@@ -1,1 +1,1 @@
-../../docs/exception-code-standard.md
+../../docs/standards/exception-code-standard.md

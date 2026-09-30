@@ -91,7 +91,7 @@ run against one of them proves half the query. See [the testing standard](testin
 on the way out. The one column a query does filter on is the session id a sign-up's rows carry until
 it completes — and that is not a soft delete either: the rows are not a past state being hidden,
 they are a future one that has not happened yet, and only the queries that could hand one out name
-it. [The provisional user](provisional-user.md) is where that lives.
+it. [The provisional user](../design/provisional-user.md) is where that lives.
 
 **Pagination in the repository.** Page and size arrive as ordinary parameters, and the defaults and
 caps are [the collection standard's](collection-standard.md).
@@ -100,4 +100,4 @@ caps are [the collection standard's](collection-standard.md).
 
 ---
 
-← [Design documentation](index.md)
+← [How the code is written](index.md)

@@ -8,9 +8,9 @@ a caller may be told about a person is [the claims](claims.md), which those gate
 enforced through. It closes with what this design deliberately does not do.
 
 The rules for writing a secured controller are [the `api` layer
-standard](api-layer-code-standard.md); this document is what those annotations are annotating. What
-a request is believed about — the address it came from, and the proxy taken at its word — is
-[the security context](security-context.md).
+standard](../standards/api-layer-code-standard.md); this document is what those annotations are
+annotating. What a request is believed about — the address it came from, and the proxy taken at its
+word — is [the security context](security-context.md).
 
 ## What each surface is protected by
 
@@ -202,4 +202,4 @@ its own, and it is designed and not yet built.
 
 ---
 
-← [Design documentation](index.md)
+← [How the system works](index.md)

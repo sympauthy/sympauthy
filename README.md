@@ -15,8 +15,9 @@ configure and integrate with a running server is the
 
 ## Working on SympAuthy
 
-**[`docs/`](docs/index.md) is the authority on how this server is built** — the architecture, the
-standards every layer holds to, and the decisions behind them. Read the document governing a change
-before the code it governs.
+**[`docs/`](docs/index.md) is the authority on how this server is built**, in two halves:
+[`design/`](docs/design/index.md) for how each part works and the decisions behind it, and
+[`standards/`](docs/standards/index.md) for the rules every layer holds to. Read the document
+governing a change before the code it governs.
 
-To set the project up and run it, see [Running locally](docs/running-locally.md).
+To set the project up and run it, see [Running locally](docs/design/running-locally.md).

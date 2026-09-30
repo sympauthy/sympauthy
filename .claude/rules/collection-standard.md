@@ -1,1 +1,1 @@
-../../docs/collection-standard.md
+../../docs/standards/collection-standard.md

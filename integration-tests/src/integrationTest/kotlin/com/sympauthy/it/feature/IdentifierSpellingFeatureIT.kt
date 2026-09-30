@@ -28,8 +28,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * in a query against a column nothing publishes, and that a second sign-up loses to it is a third
  * complete flow — each against both databases.
  *
- * Issue: [#488](https://github.com/sympauthy/sympauthy/issues/488), and
- * [`docs/identifier-claims.md`](https://github.com/sympauthy/sympauthy/blob/main/docs/identifier-claims.md).
+ * Issue: [#488](https://github.com/sympauthy/sympauthy/issues/488), and `docs/design/identifier-claims.md`.
  */
 @Tag("feature")
 class IdentifierSpellingFeatureIT : AbstractSympauthyIT() {

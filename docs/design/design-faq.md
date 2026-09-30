@@ -234,9 +234,10 @@ and defaulting to `openid` says two things about `openid`, and picking one is gu
 default that should have been narrowed and an allowed set that was written short. This layer answers
 a contradiction between two values the same way everywhere else — a value that cannot apply where it
 was written is
-[refused rather than ignored](config-layer-code-standard.md#the-artifacts-of-a-configuration-domain)
-— and filtering would have left the file saying something the server does not do, which is what hid
-this in the first place.
+[refused rather than
+ignored](../standards/config-layer-code-standard.md#the-artifacts-of-a-configuration-domain) — and
+filtering would have left the file saying something the server does not do, which is what hid this
+in the first place.
 
 **What a deployment sees.** A client whose defaults are all allowed is unaffected, and so is one
 with no allowed set at all — its own or a template's — which allows every scope and has nothing to
@@ -326,11 +327,11 @@ an exhaustive `when` is what makes the next type answer for itself instead of in
 silence.
 
 Leaving `boolean` as a string was the cheaper half, and it was already ruled out here: [the API
-standard](api-standard.md#json) says a boolean is a boolean. A claim published as `"false"` is
-truthy in every language that tests it without comparing, which is the failure a client writes once
-and never sees. And it was not even one form consistently — `/userinfo` answered `"email_verified":
-"true"` where the id token answered `true` for the same account, against OpenID Connect Core, which
-makes the same value two shapes depending on which endpoint a client asked.
+standard](../standards/api-standard.md#json) says a boolean is a boolean. A claim published as
+`"false"` is truthy in every language that tests it without comparing, which is the failure a client
+writes once and never sees. And it was not even one form consistently — `/userinfo` answered
+`"email_verified": "true"` where the id token answered `true` for the same account, against OpenID
+Connect Core, which makes the same value two shapes depending on which endpoint a client asked.
 
 What it costs is a wire change for a deployment holding a `boolean` claim, and it is taken now
 because pre-1.0 is the cheapest this gets: the value is `true` on the id token, the client API and
@@ -421,7 +422,7 @@ link scanned `collected_claims` — answering correctly, getting slower with eac
 reporting nothing. The H2 twin carried no predicate at all, so the two files disagreed about which
 rows were indexed, and the dialect without the index was the one a production deployment runs. What
 generalises out of it is a rule rather than this entry, and [the database
-standard](database-standard.md#one-schema-spelled-per-dialect) states it.
+standard](../standards/database-standard.md#one-schema-spelled-per-dialect) states it.
 
 The two narrow options are the ones worth arguing about, and both make a row depend on the
 configuration it was written under. Writing the hash for the configured claims alone is the smallest
@@ -521,7 +522,8 @@ nobody can predict from their own file.
 unaffected, which is every file the server ships. One that wrote a key under either reports one
 error per key at startup and serves nothing until the keys are gone, where the previous release
 started and ignored them. A key reaching those sections from `System.env` or `System.properties` is
-not read here, the same surface [the key-binding rule](config-layer-code-standard.md) answers for.
+not read here, the same surface [the key-binding rule](../standards/config-layer-code-standard.md)
+answers for.
 
 **What correcting one takes.** Deleting the key, and nothing else: none of them decided anything, so
 no behaviour follows the deletion. A `templates.claims` template carrying keys a generated claim
@@ -615,4 +617,4 @@ place is the last to go. [The security context](security-context.md) holds them.
 
 ---
 
-← [Design documentation](index.md)
+← [How the system works](index.md)

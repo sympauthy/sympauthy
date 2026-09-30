@@ -63,7 +63,7 @@ open class UserSecurityContextManager(
      * **Call this only where a credential has verified *and* resolved this session's user.** The
      * password check answers for whatever account matches the login, and a flow whose user is already
      * fixed may reach a step where that answer changes nothing — so a call placed at the verification
-     * rather than at the resolution lets anybody holding the session's state, which `docs/security.md`
+     * rather than at the resolution lets anybody holding the session's state, which `docs/design/security.md`
      * says carries no identity and travels in a URL, write their own address into somebody else's
      * record.
      *

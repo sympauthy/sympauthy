@@ -29,7 +29,8 @@ complexity:
   # A manager's constructor parameters are dependency injection, not an argument list anyone writes.
   LongParameterList:
     active: false
-  # A size threshold is a taste call, deferred until one is argued for in docs/general-code-standard.md.
+  # A size threshold is a taste call, deferred until one is argued for in
+  # docs/standards/general-code-standard.md.
   LongMethod:
     active: false
   TooManyFunctions:
@@ -118,7 +119,7 @@ style:
   WildcardImport:
     active: false
   # Guard clauses are the documented idiom, so several of each per function is expected. See
-  # docs/exception-code-standard.md.
+  # docs/standards/exception-code-standard.md.
   ReturnCount:
     active: false
   ThrowsCount:

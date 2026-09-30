@@ -1,1 +1,1 @@
-../../docs/business-layer-code-standard.md
+../../docs/standards/business-layer-code-standard.md

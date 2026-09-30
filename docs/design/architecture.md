@@ -28,23 +28,25 @@ all of them. A request flows down through the three and back:
   split by surface; `resource/` holds the DTOs that are each surface's public contract; `mapper/`
   turns a business model into one; `filter/` and `errorhandler/` handle CORS and the translation of
   a failure into a status and a body. What a class here looks like is [the `api` layer
-  standard](api-layer-code-standard.md); what it serializes to is [the API
-  standard](api-standard.md).
+  standard](../standards/api-layer-code-standard.md); what it serializes to is [the API
+  standard](../standards/api-standard.md).
 - **`business`** — the logic. `manager/` holds the use cases, `model/` the domain types managers
   exchange, `mapper/` the MapStruct mappers that turn an entity into one. Nothing here is reached
   from a request rather than called: a manager takes what it needs as a parameter, and a model
   naming an HTTP type does so because the concept it describes is one a protocol defines — the
   credentials a provider is called with, the headers an edge writes about a caller. See [the
-  `business` layer standard](business-layer-code-standard.md).
+  `business` layer standard](../standards/business-layer-code-standard.md).
 - **`data`** — persistence against **PostgreSQL or H2** over [Micronaut Data
   R2DBC](https://micronaut-projects.github.io/micronaut-data/latest/guide/#r2dbc), whose
   non-blocking driver is what lets a repository be `suspend`. See [the `data` layer
-  standard](data-layer-code-standard.md) and [the database standard](database-standard.md).
+  standard](../standards/data-layer-code-standard.md) and [the database
+  standard](../standards/database-standard.md).
 
 **`config`** turns the deployment's YAML into validated, typed models before anything can use it,
 and **`security`** turns a credential into an `Authentication` the controllers can be gated on. Both
 are drawn across the three layers because both are consumed by all of them:
-[the `config` layer standard](config-layer-code-standard.md) and [security](security.md).
+[the `config` layer standard](../standards/config-layer-code-standard.md) and
+[security](security.md).
 
 ## Surfaces
 
@@ -90,7 +92,7 @@ once, why the list grows as the server learns what else is needed, and why the s
 client, decides which step comes next.
 
 This is the one subsystem where reading the code in file order does not explain it, so it has its
-own description: [the interactive flow](interactive-flow.md).
+own document: [the interactive flow](interactive-flow.md).
 
 ## The layers
 
@@ -132,8 +134,8 @@ them.
 
 The same test puts the failure root and its mapper beside the layers — `business` and `api` both
 throw and neither may depend on the other, which [the exception
-standard](exception-code-standard.md) holds — and it puts the health indicators there too, since
-configuration must not depend on the thing that publishes its verdict.
+standard](../standards/exception-code-standard.md) holds — and it puts the health indicators there
+too, since configuration must not depend on the thing that publishes its verdict.
 
 ## One schema, more than one database
 
@@ -143,11 +145,11 @@ PostgreSQL is what a deployment runs; H2 is what a developer runs with nothing t
 
 The cost is real — a schema change is a file per dialect, and a raw query has to be expressible in
 each of them — and it is paid deliberately, so that trying SympAuthy out needs no database at all.
-The [database standard](database-standard.md) holds the rules that keep them in step. What stops
-them diverging in practice rather than in principle is that
-[both suites run against each](testing-standard.md): a repository test starts a real database of
-every dialect, and an integration test boots the server against every dialect. The repository tests
-are where a spelling is caught, and starting a PostgreSQL for them is why `test` needs Docker.
+The [database standard](../standards/database-standard.md) holds the rules that keep them in step.
+What stops them diverging in practice rather than in principle is that [both suites run against
+each](../standards/testing-standard.md): a repository test starts a real database of every dialect,
+and an integration test boots the server against every dialect. The repository tests are where a
+spelling is caught, and starting a PostgreSQL for them is why `test` needs Docker.
 
 ## Project layout
 
@@ -189,7 +191,9 @@ sympauthy/
 ├── integration-tests/          the server in a container, over real HTTP
 ├── bruno/                      a request collection for exercising it by hand
 ├── config/                     the local deployment's configuration
-└── docs/                       these documents
+└── docs/
+    ├── design/                 a document per part of the server
+    └── standards/              the rules a change is held to
 ```
 
 Two directories in that tree are not written by hand. `server/src/main/resources/sympauthy-flow/`
@@ -198,9 +202,9 @@ repositories, and the OpenAPI document the integration tests generate their clie
 at build time and never committed.
 
 Which bundles sit under `resources/` is [the internationalization
-standard](i18n-standard.md#a-bundle-per-audience)'s question rather than this tree's: a bundle
-serves one audience, and naming each of them here would be a second list to keep in step with the
-rule that decides them.
+standard](../standards/i18n-standard.md#a-bundle-per-audience)'s question rather than this tree's: a
+bundle serves one audience, and naming each of them here would be a second list to keep in step with
+the rule that decides them.
 
 ## What this document does not settle
 
@@ -221,4 +225,4 @@ needed.
 
 ---
 
-← [Design documentation](index.md)
+← [How the system works](index.md)

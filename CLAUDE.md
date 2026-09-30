@@ -9,14 +9,17 @@ set of applications share, issues the tokens they trust, and serves the interact
 signs in through. Kotlin and Micronaut, coroutines throughout, R2DBC against PostgreSQL **and** H2,
 compiled to a GraalVM native image.
 
-**`docs/` is the authority** (start at `docs/index.md`). Read the document governing a change before
-the code it governs, and put a new design decision there before or alongside its code. The standards
-are symlinked into `.claude/rules/`, each loaded when a file it governs is read, so a rule one of
-them states is not restated here — it would be a second copy, and the copy that drifts.
+**`docs/` is the authority** (start at [`docs/index.md`](docs/index.md)), and it is in two halves:
+[`docs/design/`](docs/design/index.md) describes each part of the server, and
+[`docs/standards/`](docs/standards/index.md) holds the rules a change is held to. Read the document
+governing a change before the code it governs, and put a new design decision there before or
+alongside its code. The standards are symlinked into `.claude/rules/`, each loaded when a file it
+governs is read, so a rule one of them states is not restated here — it would be a second copy, and
+the copy that drifts.
 
 **Rules, not inventory.** What exists is answered by the package tree, `git log` and `docs/`. What
 belongs here is what no symlinked standard carries: how the project is run, and the shape of the
-system the descriptions in `docs/` hold. Never a status report.
+system the design documentation in `docs/design/` holds. Never a status report.
 
 **Treat an absence as a decision, not an oversight.** Every standard ends with what it deliberately
 does not cover. If you end a deferral, say there why.
@@ -44,15 +47,15 @@ export GITHUB_ACTOR=$(gh api user --jq .login) GITHUB_TOKEN=$(gh auth token)
 ./gradlew :integration-tests:integrationTest -Dsympauthy.image=server:latest
 ```
 
-Full setup is `docs/running-locally.md`.
+Full setup is `docs/design/running-locally.md`.
 
 ## Issues
 
-**An issue is written to [`docs/issue-standard.md`](docs/issue-standard.md).** Read it before
-opening one: it says what a feature and a bug each carry, and which label and milestone an issue
-opens under.
+**An issue is written to [`docs/standards/issue-standard.md`](docs/standards/issue-standard.md).**
+Read it before opening one: it says what a feature and a bug each carry, and which label and
+milestone an issue opens under.
 
-## Architecture — `docs/architecture.md`, `docs/general-code-standard.md`
+## Architecture — `docs/design/architecture.md`, `docs/standards/general-code-standard.md`
 
 - **`api`** — HTTP boundary. Controllers, resources, mappers, filters, error handlers.
 - **`business`** — managers (use cases + transaction boundary), models, entity mappers.

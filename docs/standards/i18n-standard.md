@@ -87,4 +87,4 @@ their strings.
 
 ---
 
-← [Design documentation](index.md)
+← [How the code is written](index.md)

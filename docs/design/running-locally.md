@@ -61,7 +61,8 @@ have to be running for the server to start, but a flow cannot be completed witho
 
 **A configuration error takes readiness down rather than stopping the process**, so a server that
 starts and then reports itself unhealthy is telling you to read the startup log. Every error in the
-file is reported at once — see [the `config` layer standard](config-layer-code-standard.md).
+file is reported at once — see [the `config` layer
+standard](../standards/config-layer-code-standard.md).
 
 ### Signing in as an administrator
 
@@ -108,8 +109,8 @@ url: r2dbc:postgresql://localhost:5432/sympauthy
 ```
 
 The schema is migrated at startup against whichever is configured. A migration whose version is
-unreleased may be [edited in place](database-standard.md#migrations), so pulling a change to one
-means recreating the database rather than migrating it.
+unreleased may be [edited in place](../standards/database-standard.md#migrations), so pulling a
+change to one means recreating the database rather than migrating it.
 
 ## Running the server
 
@@ -177,8 +178,8 @@ Compilation is slow — minutes, not seconds — so in IntelliJ it is worth two 
 compiles and runs, and one that only runs the binary already built.
 
 **This is the artifact a deployment runs, and it is the only way to exercise
-[the native-image rules](native-image-standard.md).** A change touching generated mappers,
-reflection or resource loading is not finished until this has run.
+[the native-image rules](../standards/native-image-standard.md).** A change touching generated
+mappers, reflection or resource loading is not finished until this has run.
 
 ## Tests
 
@@ -223,7 +224,7 @@ One scenario:
 
 **A JVM image is not the image CI runs.** It exercises the code but none of the closed-world
 constraints, so a green local run is necessary and not sufficient. What the tests are expected to
-prove is [the testing standard](testing-standard.md).
+prove is [the testing standard](../standards/testing-standard.md).
 
 #### Changing a flow-configuration response
 
@@ -234,4 +235,4 @@ releasing that library and bumping it here in the same change.
 
 ---
 
-← [Design documentation](index.md)
+← [How the system works](index.md)

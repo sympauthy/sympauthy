@@ -1,1 +1,1 @@
-../../docs/data-layer-code-standard.md
+../../docs/standards/data-layer-code-standard.md

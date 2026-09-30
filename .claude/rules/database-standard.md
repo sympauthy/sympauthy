@@ -1,1 +1,1 @@
-../../docs/database-standard.md
+../../docs/standards/database-standard.md

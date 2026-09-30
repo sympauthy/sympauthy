@@ -27,7 +27,7 @@ enum class ClaimDataType(
      * [NUMBER] is one: an employee number identifies a person. The rest name a property somebody shares
      * with everybody else who has it — a [BOOLEAN] identifier would cap a deployment at two accounts, a
      * [DATE] one at a single account per day, and a [TIMEZONE] one at a single account per zone, which is
-     * not an identity but a collision waiting for the second person. See `docs/identifier-claims.md`.
+     * not an identity but a collision waiting for the second person. See `docs/design/identifier-claims.md`.
      */
     val canIdentify: Boolean = false
 ) {

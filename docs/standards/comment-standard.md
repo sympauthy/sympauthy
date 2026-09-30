@@ -64,9 +64,9 @@ repository — an issue, a pull request, a wiki — is a copy this change cannot
 who cannot reach it is left with less than the comment would have said on its own.
 
 **A pointer names the document that states the behaviour, never the FAQ.**
-[The design FAQ](design-faq.md) holds the options that lost, which is what somebody re-opening a
-decision reads and never what somebody reading the code needs. Say what the declaration does here,
-and point at the standard or the design document that governs it.
+[The design FAQ](../design/design-faq.md) holds the options that lost, which is what somebody
+re-opening a decision reads and never what somebody reading the code needs. Say what the declaration
+does here, and point at the standard or the design document that governs it.
 
 **Citing what a test protects is not this.** An integration test names the RFC section or the issue
 it guards, which is provenance for the case rather than a reason a reader needs in order to change
@@ -125,4 +125,4 @@ git, and nothing here shapes it.
 
 ---
 
-← [Design documentation](index.md)
+← [How the code is written](index.md)

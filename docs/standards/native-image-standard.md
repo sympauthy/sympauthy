@@ -53,4 +53,4 @@ eagerly does so at runtime.
 
 ---
 
-← [Design documentation](index.md)
+← [How the code is written](index.md)

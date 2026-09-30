@@ -44,8 +44,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * shipped template publishes — must. Nothing smaller proves it: the channels a generated claim reaches are
  * recorded in code, and what the document lists is read off the parsed configuration.
  *
- * Issue: [#485](https://github.com/sympauthy/sympauthy/issues/485), and
- * [`docs/claims.md`](https://github.com/sympauthy/sympauthy/blob/main/docs/claims.md).
+ * Issue: [#485](https://github.com/sympauthy/sympauthy/issues/485), and `docs/design/claims.md`.
  */
 @Tag("feature")
 class ClaimPublicationFeatureIT : AbstractSympauthyIT() {

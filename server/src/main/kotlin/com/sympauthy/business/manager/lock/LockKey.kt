@@ -69,7 +69,7 @@ sealed class LockKey(
      * commits no link and takes nothing.
      *
      * The unique index PostgreSQL carries over `(provider_id, subject)` is the backstop
-     * `docs/database-standard.md` asks for and not the rule: it is partial, because two provisional links
+     * `docs/standards/database-standard.md` asks for and not the rule: it is partial, because two provisional links
      * may share a subject by the same design that lets two sign-ups share an address, and H2 spells no
      * partial index at all.
      *

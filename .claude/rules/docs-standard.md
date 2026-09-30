@@ -1,1 +1,1 @@
-../../docs/docs-standard.md
+../../docs/standards/docs-standard.md

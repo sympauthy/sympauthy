@@ -31,7 +31,7 @@ fun Exception.getKeyAndLocalizedMessage(messageSource: MessageSource): Pair<Stri
 
 /**
  * Whether the write was refused because a row for the key it carried is already there, which is the
- * violation `docs/locking-standard.md` has the manager writing the row translate.
+ * violation `docs/standards/locking-standard.md` has the manager writing the row translate.
  *
  * This is narrower than the integrity failures the driver raises one exception for: a foreign key with
  * nothing behind it and a column refusing null are this server writing a row it should not have, and

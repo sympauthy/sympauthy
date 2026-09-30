@@ -1,11 +1,11 @@
-# SympAuthy — design
+# SympAuthy — documentation
 
 SympAuthy is a self-hosted OAuth2 and OpenID Connect authorization server. It owns the accounts a
 set of applications share, issues the tokens those applications trust, and serves the interactive
 flow a person signs in through.
 
 It is a Kotlin [Micronaut](https://micronaut.io) application, non-blocking end to end and compiled
-to a GraalVM native image; [Technology](technology.md) says why each of those was picked. A
+to a GraalVM native image; [Technology](design/technology.md) says why each of those was picked. A
 deployment is a YAML file and a database, and nothing else.
 
 These documents are the authority on how the server is built. They are read before the code they
@@ -13,83 +13,20 @@ govern, and a new decision is written here before or alongside the change that i
 they are *not* is a user manual: how to configure and integrate with a running SympAuthy is the
 [public documentation](https://sympauthy.github.io).
 
-## Contents
+## The two halves
 
-### How the system works
+They come in two kinds, and the folder is which kind a document is. The two are read at different
+moments — a design document by somebody about to change the part it describes, a rule by somebody
+about to break it — and each kind has a standard of its own saying how one is written, over [the one
+that holds of both](standards/docs-standard.md).
 
-What the server is and how each of its parts works. Each of these is a description, written the way
-[the description standard](description-standard.md) asks.
-
-- **[Architecture](architecture.md)** — what makes something its own API surface and which of them
-  carry a version, the layers and what cuts across them, and the project layout on disk.
-- **[Technology](technology.md)** — the frameworks and runtime the server is built on, and why each
-  was picked.
-- **[The interactive flow](interactive-flow.md)** — the purposes a person is put through, the
-  session an engine sequences them over, and how a purpose or a step is added.
-- **[The provisional user](provisional-user.md)** — the account a sign-up has not finished creating:
-  the rows it owns, what makes them count, and what collects them when nothing ever does.
-- **[The claims](claims.md)** — what this server knows about a person: whose a claim is, who may
-  read and write one and through which credential, which audience has it, and which channel carries
-  it off this server.
-- **[The identifier claims](identifier-claims.md)** — what a deployment identifies a person by:
-  what it may declare, what makes a value belong to one account across the set rather than within a
-  claim, what a sign-up has to collect, and how a value resolves to an account — when two values
-  somebody typed are one value, how a row is found by one, and which of three reads a caller wants.
-- **[Security](security.md)** — what each surface's gate does and does not protect, what a scope is
-  allowed to mean, how a credential becomes an authentication, and what a token carries and how it
-  is checked.
-- **[The security context](security-context.md)** — the address, the user agent and the location a
-  request is believed to carry: which proxy a deployment names, what naming one promises and what it
-  does not, and how long a place somebody signs in from is kept.
-
-### Neither of those
-
-A document that is not a description of a part and not a rule a change is held to. [The description
-standard](description-standard.md) governs neither of them, and each says what shapes it instead.
-
-- **[Design FAQ](design-faq.md)** — decisions taken once, with the options that lost. Its own
-  preamble says what belongs in it and what an entry carries.
-- **[Running locally](running-locally.md)** — setting the project up, running it on the JVM and as a
-  native image, and running both test suites.
-
-### How the code is written
-
-The rules a change is held to. Each is named `<subject>-standard.md`, holds one subject, and reaches
-an agent when a file it governs is read, or from `CLAUDE.md` where what it governs is not in the
-tree.
-
-- **[General code standard](general-code-standard.md)** — the components a feature is made of, what
-  each layer may import from another, and the naming that holds everywhere. Each layer then has its
-  own: [`api`](api-layer-code-standard.md), [`business`](business-layer-code-standard.md),
-  [`data`](data-layer-code-standard.md), [`config`](config-layer-code-standard.md).
-- **[Exception standard](exception-code-standard.md)** — which exception each layer may throw, how a
-  code names both its technical message and the one a person reads, and the one place the OAuth2
-  specification overrides the rule.
-- **[API standard](api-standard.md)** — what a client sees: how a route is spelled, what the JSON
-  looks like, the body a failure returns, and why no redirect is a 307.
-- **[Collection standard](collection-standard.md)** — what a paged collection answers with and what
-  a caller may ask of one: the response, the paging, the filter, order and search grammar, and the
-  document a collection publishes saying which of its fields it accepts.
-- **[Database standard](database-standard.md)** — how a table and a migration are written, and what
-  keeps the PostgreSQL and H2 schemas from drifting apart.
-- **[Locking standard](locking-standard.md)** — how two instances take turns over one database: the
-  lock a transaction holds over an object, the batch a run claims, and the lease a job takes.
-- **[Internationalization standard](i18n-standard.md)** — why there is a bundle per audience, how a
-  key is named, and how it reaches the reader in their own language.
-- **[Comment standard](comment-standard.md)** — what a KDoc carries, and where the rationale that
-  does not belong in one goes instead.
-- **[Testing standard](testing-standard.md)** — what each kind of subject is tested with, where its
-  test lives, how it is named, what it is expected to prove, and why it carries almost no comment.
-- **[Native image standard](native-image-standard.md)** — the closed-world rules that compile
-  cleanly, pass every test, and then fail in production.
-- **[Documentation standard](docs-standard.md)** — how a standard here is written, and what it
-  states in place of the code that happens to follow it.
-- **[Description standard](description-standard.md)** — how the other kind of document here is
-  written: what a description answers about the part it names, and what it leaves to the code, to
-  the standards and to the FAQ.
-- **[Issue standard](issue-standard.md)** — what an issue in the tracker settles and what it leaves
-  to the change: the title, the fixed sections, what a feature and a bug each name, and the label
-  and milestone it opens under.
+- **[How the system works](design/index.md)**, in `design/` — a document per part of the server:
+  what it does, what implements it, and why it was settled that way. [The design
+  FAQ](design/design-faq.md) and [running locally](design/running-locally.md) live there too, held
+  to the mechanics and to nothing else.
+- **[How the code is written](standards/index.md)**, in `standards/` — the rules a change is held
+  to, one subject per document, each named `<subject>-standard.md`. A standard reaches an agent
+  when a file it governs is read, through the symlink in `.claude/rules/`.
 
 ## Goals
 

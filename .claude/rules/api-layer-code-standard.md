@@ -1,1 +1,1 @@
-../../docs/api-layer-code-standard.md
+../../docs/standards/api-layer-code-standard.md

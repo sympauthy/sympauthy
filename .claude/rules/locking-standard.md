@@ -1,1 +1,1 @@
-../../docs/locking-standard.md
+../../docs/standards/locking-standard.md

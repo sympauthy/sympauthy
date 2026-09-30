@@ -60,7 +60,7 @@ open class ProvisionalAccountManager(
      * and the writes both. Without them two promotions of one address each read committed rows the other
      * has not written yet, both find it free and both commit — and the loser of that race is only found
      * when a sign-in with that address matches two accounts. The loser now waits on the winner instead, and
-     * re-checks against what the winner committed. See [LockKey] and `docs/locking-standard.md`.
+     * re-checks against what the winner committed. See [LockKey] and `docs/standards/locking-standard.md`.
      *
      * The keys come from a read taken before the lock, because the lock has to name them. What that read
      * cannot miss is another promotion, which is what the keys are for; what it may miss is [deleteAbandoned]

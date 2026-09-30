@@ -5,7 +5,7 @@ package com.sympauthy.business.model.key
  * in `advanced.keys-generation-strategy`.
  *
  * It is a model rather than a manager because a setting selects an implementation of it, which
- * `docs/config-layer-code-standard.md` says puts it here.
+ * `docs/standards/config-layer-code-standard.md` says puts it here.
  */
 interface CryptoKeysGenerationStrategy {
 

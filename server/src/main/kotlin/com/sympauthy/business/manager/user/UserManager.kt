@@ -112,7 +112,7 @@ open class UserManager(
      * This is how a single value somebody typed is resolved to an account: the caller has folded it once
      * per identifier claim, and a row of any of them holding it answers. A caller asking instead which
      * account holds *every* one of a set of values wants [findByIdentifierClaims], and one asking whether
-     * a value is free wants [findTakenIdentifierOrNull] — `docs/identifier-claims.md` is why those are
+     * a value is free wants [findTakenIdentifierOrNull] — `docs/design/identifier-claims.md` is why those are
      * three reads and not one.
      */
     suspend fun findByAnyIdentifierClaimValue(foldedByClaimId: Map<String, String>): User? {
@@ -233,7 +233,7 @@ open class UserManager(
      *
      * An account a session is still signing up is invisible here, which is what lets two sign-ups hold one
      * value at a time — neither blocks the other, and the question is asked again when the first of them
-     * promotes. See [com.sympauthy.data.model.SessionScoped] and `docs/provisional-user.md`.
+     * promotes. See [com.sympauthy.data.model.SessionScoped] and `docs/design/provisional-user.md`.
      *
      * The values are folded ones — what [CollectedClaimManager.getFoldedValueOf] answers — and not the
      * ones `collected_claims` publishes. Two spellings of one value are one identity, so a caller
@@ -283,7 +283,7 @@ open class UserManager(
  * reads, which a deployment prints only by turning `features.print-details-in-error` on. Neither belongs
  * in the `description.` beside it: that one is shown to whoever tripped the refusal, and telling them
  * which account owns a value turns every check into an oracle over it. See
- * `docs/exception-code-standard.md`.
+ * `docs/standards/exception-code-standard.md`.
  */
 data class TakenIdentifier(
     /**

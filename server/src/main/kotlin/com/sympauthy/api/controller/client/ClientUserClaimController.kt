@@ -109,7 +109,7 @@ class ClientUserClaimController(
         // stores, and a client able to set one could move an account's sign-in to an address it holds. A
         // deployment that granted the write scope over it is told that, rather than told it lacks a scope.
         // Nothing here changes an identifier either: proving the new value and the person asking is a flow,
-        // and `docs/security.md` records that the server does not serve one.
+        // and `docs/design/security.md` records that the server does not serve one.
         val identifierClaimIds = claimManager.listIdentifierClaims().map(Claim::id).toSet()
         val identifierClaim = body.keys.firstOrNull { it in identifierClaimIds }
         if (identifierClaim != null) {

@@ -1,1 +1,1 @@
-../../docs/i18n-standard.md
+../../docs/standards/i18n-standard.md

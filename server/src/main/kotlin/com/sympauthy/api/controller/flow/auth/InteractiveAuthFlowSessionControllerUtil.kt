@@ -33,7 +33,7 @@ import java.net.URI
  * comes through here to resolve one, and every controller that starts one comes through
  * [observeStartedSession] — which is what makes one place enough: a step added later is observed by having
  * been written the ordinary way. The [ObservedRequest] is threaded in from the controller that bound it
- * rather than reached back for, which `docs/security-context.md` refuses.
+ * rather than reached back for, which `docs/design/security-context.md` refuses.
  */
 @Singleton
 class InteractiveAuthFlowSessionControllerUtil(

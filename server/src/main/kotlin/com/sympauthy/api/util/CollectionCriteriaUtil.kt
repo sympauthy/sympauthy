@@ -95,7 +95,7 @@ const val SEARCH_PARAMETER_DESCRIPTION = "Partial, case-insensitive match across
  * is published rather than what is kept, is one — is named in [reservedParameters] instead of being
  * read as a criterion.
  *
- * What is refused, and under which code, is docs/collection-standard.md.
+ * What is refused, and under which code, is docs/standards/collection-standard.md.
  */
 fun collectionCriteriaOf(
     request: HttpRequest<*>,

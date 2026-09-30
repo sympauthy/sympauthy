@@ -9,7 +9,7 @@ import kotlin.reflect.KClass
 
 /**
  * What the container publishes for an interface a setting selects an implementation from, which
- * `docs/config-layer-code-standard.md` makes the set of words that setting accepts.
+ * `docs/standards/config-layer-code-standard.md` makes the set of words that setting accepts.
  */
 @Singleton
 class PublishedImplementationReader(

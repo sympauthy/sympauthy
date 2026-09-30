@@ -20,7 +20,7 @@ import java.util.*
  * one row that says eleven rather than eleven rows.
  *
  * **[provenDate] is the whole of the fold's contract.** Every request that touches a session writes
- * here, which includes every request made by whoever holds the session's state — `docs/security.md`
+ * here, which includes every request made by whoever holds the session's state — `docs/design/security.md`
  * says that carries no identity and travels in a URL — so the fold reads the latest row a credential
  * proof stamped and is blind to the rest by construction rather than by a filter somebody has to
  * remember to write.
