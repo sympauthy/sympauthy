@@ -51,6 +51,7 @@ rather than left empty.
 | `## Summary` | the gap today, and the behaviour that closes it |
 | one section per decision | what is decided, what it looks like from outside, and why |
 | `## Configuration` | each key a deployment writes, what it accepts, and its default |
+| `## Documentation` | the pages the public documentation rewrites, and the issue filed for it |
 | `## What was considered and not chosen` | each option that lost, with the reason it lost |
 | `## Verification` | numbered steps, each an observable outcome |
 | `## Out of scope` | what the issue leaves out, and where each part goes |
@@ -61,6 +62,10 @@ person sees as a result.
 
 **A configuration key is written as a deployment writes it.** Spell the key in full, say what values
 it accepts and what the default is, and say what a wrong value is refused with.
+
+**A change to what a deployment configures or a caller observes says what the public documentation
+has to say.** Name each page to rewrite and what it has to say, and link the issue filed for it on
+the documentation's own tracker.
 
 **An error a caller is answered with is named by its code.** [The API
 standard](api-standard.md#errors) makes the code the contract, so the issue fixes it and leaves the
@@ -101,8 +106,8 @@ issue leaves them out.
 **Issues grouping other issues.** Whether an epic is opened, and what it carries beyond a list, is
 not set.
 
-**The public documentation's tracker.** It belongs to another repository, and nothing here governs
-what is filed there.
+**How the public documentation is written.** It belongs to another repository; an issue here says
+what its pages have to say, and nothing here shapes how they say it.
 
 ---
 
