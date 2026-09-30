@@ -50,6 +50,7 @@ import java.util.UUID
 @Singleton
 open class InteractiveFlowSessionOAuth2ProviderManager(
     @Inject private val sessionManager: InteractiveFlowSessionManager,
+    @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
     @Inject private val providerManager: InteractiveFlowSessionProviderManager,
     @Inject private val reauthenticationManager: InteractiveFlowSessionReauthenticationManager,
     @Inject private val userSecurityContextManager: UserSecurityContextManager,
@@ -216,6 +217,10 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
         // Stamped before the flow advances: completing it is what folds the observation into the person's
         // record. The provider round-trip landed in their own browser, so this is their address.
         userSecurityContextManager.markProven(updatedSession.id, observedRequest)
+        // The callback resolving to the account is the moment the credential was proven, and this branch
+        // is the one an authorization reaches — the two above it confirm or link against a fixed user and
+        // belong to purposes that issue no token.
+        oauth2Manager.setAuthenticationDate(updatedSession)
 
         // Complete the flow if the end-user has no more step to go through.
         return engine.completeIfNecessary(updatedSession)

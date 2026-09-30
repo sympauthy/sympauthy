@@ -114,6 +114,15 @@ The authorization server includes this value unmodified in the ID Token.
                 )
             ),
             Parameter(
+                name = "max_age",
+                `in` = QUERY,
+                description = "Maximum number of seconds since the end-user last authenticated, per OpenID Connect Core 3.1.2.1. This server keeps no session between authorizations, so every authorization signs the end-user in anew and any non-negative value is satisfied by construction; the id token it issues states `auth_time`. A value that is not a non-negative integer is refused.",
+                schema = Schema(
+                    type = "integer",
+                    format = "int64"
+                )
+            ),
+            Parameter(
                 name = "invitation_token",
                 `in` = QUERY,
                 description = "Invitation token to bind to this authorization flow. When provided, the invitation is validated and bound to the flow state.",
@@ -147,7 +156,9 @@ The authorization server includes this value unmodified in the ID Token.
         @QueryValue("code_challenge_method")
         uncheckedCodeChallengeMethod: String?,
         @QueryValue("invitation_token")
-        uncheckedInvitationToken: String?
+        uncheckedInvitationToken: String?,
+        @QueryValue("max_age")
+        uncheckedMaxAge: String?
     ): HttpResponse<*> {
         if (responseType.isNullOrBlank()) {
             throw oauth2ExceptionOf(UNSUPPORTED_RESPONSE_TYPE, "authorize.response_type.missing")
@@ -162,7 +173,8 @@ The authorization server includes this value unmodified in the ID Token.
                 uncheckedRedirectUri = uncheckedRedirectUri,
                 uncheckedCodeChallenge = uncheckedCodeChallenge,
                 uncheckedCodeChallengeMethod = uncheckedCodeChallengeMethod,
-                uncheckedInvitationToken = uncheckedInvitationToken
+                uncheckedInvitationToken = uncheckedInvitationToken,
+                uncheckedMaxAge = uncheckedMaxAge
             )
 
             null -> throw oauth2ExceptionOf(
@@ -181,7 +193,8 @@ The authorization server includes this value unmodified in the ID Token.
         uncheckedRedirectUri: String?,
         uncheckedCodeChallenge: String?,
         uncheckedCodeChallengeMethod: String?,
-        uncheckedInvitationToken: String?
+        uncheckedInvitationToken: String?,
+        uncheckedMaxAge: String?
     ): HttpResponse<*> {
         val (session, flow) = interactiveAuthFlowSessionManager.startAuthorizationWith(
             uncheckedClientId = uncheckedClientId,
@@ -191,7 +204,8 @@ The authorization server includes this value unmodified in the ID Token.
             uncheckedRedirectUri = uncheckedRedirectUri,
             uncheckedCodeChallenge = uncheckedCodeChallenge,
             uncheckedCodeChallengeMethod = uncheckedCodeChallengeMethod,
-            uncheckedInvitationToken = uncheckedInvitationToken
+            uncheckedInvitationToken = uncheckedInvitationToken,
+            uncheckedMaxAge = uncheckedMaxAge
         )
         interactiveAuthFlowSessionControllerUtil.observeStartedSession(session, observedRequest)
 

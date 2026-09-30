@@ -3,6 +3,7 @@ package com.sympauthy.config.model
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.ClaimPublication
 import com.sympauthy.config.exception.ConfigurationException
+import java.time.Duration
 
 sealed class ClaimTemplatesConfig(
     configurationErrors: List<ConfigurationException>? = null
@@ -50,10 +51,12 @@ data class ClaimTemplate(
  */
 data class ClaimTemplateAcl(
     val consentScope: String?,
-    val readableByUserWhenConsented: Boolean?,
-    val writableByUserWhenConsented: Boolean?,
+    val readableByPersonWhenConsented: Boolean?,
+    val collectedInFlowWhenConsented: Boolean?,
+    val writableByPersonWhenConsented: Boolean?,
     val readableByClientWhenConsented: Boolean?,
     val writableByClientWhenConsented: Boolean?,
     val readableWithClientScopesUnconditionally: List<String>?,
-    val writableWithClientScopesUnconditionally: List<String>?
+    val writableWithClientScopesUnconditionally: List<String>?,
+    val writeMaxAuthenticationAge: Duration?
 )

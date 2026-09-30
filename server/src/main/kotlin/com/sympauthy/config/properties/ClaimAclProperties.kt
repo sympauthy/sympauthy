@@ -10,10 +10,12 @@ package com.sympauthy.config.properties
  */
 interface ClaimAclProperties {
     val consentScope: String?
-    val readableByUserWhenConsented: String?
-    val writableByUserWhenConsented: String?
+    val readableByPersonWhenConsented: String?
+    val collectedInFlowWhenConsented: String?
+    val writableByPersonWhenConsented: String?
     val readableByClientWhenConsented: String?
     val writableByClientWhenConsented: String?
     val readableWithClientScopesUnconditionally: List<String>?
     val writableWithClientScopesUnconditionally: List<String>?
+    val writeMaxAuthenticationAge: String?
 }

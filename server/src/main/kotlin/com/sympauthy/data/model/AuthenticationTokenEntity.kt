@@ -45,6 +45,17 @@ class AuthenticationTokenEntity(
     val grantType: String,
 
     /**
+     * When the person this token was issued for proved a credential of their account, in the flow the
+     * authorization behind it came from.
+     *
+     * Null where no person's authentication is behind the token: a `client_credentials` grant has no
+     * person at all, and a token exchange asserts an identity nobody proved. A refresh carries the
+     * original authentication's date unchanged, which is what keeps it from looking a minute old a month
+     * on.
+     */
+    val authenticationDate: LocalDateTime? = null,
+
+    /**
      * JWK SHA-256 Thumbprint (RFC 7638) of the DPoP public key this token is bound to.
      * Null for bearer tokens (no DPoP binding).
      */

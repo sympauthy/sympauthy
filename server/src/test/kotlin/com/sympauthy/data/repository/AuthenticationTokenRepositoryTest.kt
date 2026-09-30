@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import java.time.LocalDateTime
 import java.util.*
 
 /**
@@ -58,6 +59,19 @@ class AuthenticationTokenRepositoryTest {
         assertNull(stored.sessionId)
         assertNull(stored.expirationDate)
         assertNull(stored.revokedAt)
+    }
+
+    /** The moment a person proved a credential, which every token of their authorization carries. */
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `save - Round-trips the authentication date`(database: Database) = withFixture(database) {
+        val tokens = repository<AuthenticationTokenRepository>()
+        val authenticationDate = BASE_DATE.minusMinutes(2)
+        val id = saveToken(newUser(), authenticationDate = authenticationDate)
+        val withoutOne = saveToken(userId = null, sessionId = null, grantType = "client_credentials")
+
+        assertEquals(authenticationDate, tokens.findById(id)!!.authenticationDate)
+        assertNull(tokens.findById(withoutOne)!!.authenticationDate)
     }
 
     @ParameterizedTest
@@ -157,6 +171,7 @@ class AuthenticationTokenRepositoryTest {
         sessionId: UUID? = UUID.randomUUID(),
         grantType: String = "authorization_code",
         actorTokenId: UUID? = null,
+        authenticationDate: LocalDateTime? = null,
         grantedScopes: Array<String> = emptyArray(),
         consentedScopes: Array<String> = arrayOf("openid"),
         clientScopes: Array<String> = emptyArray()
@@ -173,6 +188,7 @@ class AuthenticationTokenRepositoryTest {
                 sessionId = sessionId,
                 grantType = grantType,
                 actorTokenId = actorTokenId,
+                authenticationDate = authenticationDate,
                 issueDate = BASE_DATE,
                 expirationDate = null
             )

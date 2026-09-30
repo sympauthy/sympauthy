@@ -60,6 +60,19 @@ data class AuthenticationToken(
     val grantType: String,
 
     /**
+     * When the person this token was issued for proved a credential of their account, in the flow the
+     * authorization behind it came from. Stated as `auth_time` wherever this token is published.
+     *
+     * Null where no person's authentication is behind the token: a `client_credentials` grant has no
+     * person at all, and a token exchange asserts an identity nobody proved. It is also null on a token
+     * issued before this server recorded the date.
+     *
+     * A refresh carries it unchanged, which is what separates it from [issueDate]: an authentication a
+     * month old states a month-old `auth_time` on a token minted a minute ago.
+     */
+    val authenticationDate: LocalDateTime? = null,
+
+    /**
      * JWK SHA-256 Thumbprint (RFC 7638) of the DPoP public key this token is bound to.
      * Null for bearer tokens (no DPoP binding).
      */

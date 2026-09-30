@@ -2,6 +2,8 @@ package com.sympauthy.business.model.user.claim
 
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import java.time.Duration
+import java.time.LocalDateTime
 
 class ClaimTest {
 
@@ -9,12 +11,14 @@ class ClaimTest {
         id: String = "test_claim",
         publishedIn: Set<ClaimPublication> = ClaimPublication.entries.toSet(),
         consentScope: String? = null,
-        readableByUser: Boolean = false,
-        writableByUser: Boolean = false,
+        readableByPerson: Boolean = false,
+        collectedInFlow: Boolean = false,
         readableByClient: Boolean = false,
         writableByClient: Boolean = false,
         readableWithClientScopes: List<String> = emptyList(),
-        writableWithClientScopes: List<String> = emptyList()
+        writableWithClientScopes: List<String> = emptyList(),
+        writableByPerson: Boolean = false,
+        writeMaxAuthenticationAge: Duration? = null
     ) = Claim(
         id = id,
         enabled = true,
@@ -23,16 +27,18 @@ class ClaimTest {
         group = null,
         required = false,
         generated = false,
-        userInputted = writableByUser,
+        collectedInFlow = collectedInFlow,
         allowedValues = null,
         publishedIn = publishedIn,
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = consentScope,
-                readableByUser = readableByUser,
-                writableByUser = writableByUser,
+                readableByPerson = readableByPerson,
+                collectedInFlow = collectedInFlow,
+                writableByPerson = writableByPerson,
                 readableByClient = readableByClient,
-                writableByClient = writableByClient
+                writableByClient = writableByClient,
+                writeMaxAuthenticationAge = writeMaxAuthenticationAge
             ),
             unconditional = UnconditionalAcl(
                 readableWithClientScopes = readableWithClientScopes,
@@ -91,51 +97,51 @@ class ClaimTest {
     }
 
     @Test
-    fun `canBeReadByUser - true when readable and no scope required`() {
-        val claim = claim(readableByUser = true, consentScope = null)
-        assertTrue(claim.canBeReadByUser(emptyList()))
+    fun `canBeReadByPerson - true when readable and no scope required`() {
+        val claim = claim(readableByPerson = true, consentScope = null)
+        assertTrue(claim.canBeReadByPerson(emptyList()))
     }
 
     @Test
-    fun `canBeReadByUser - true when readable and scope consented`() {
-        val claim = claim(readableByUser = true, consentScope = "profile")
-        assertTrue(claim.canBeReadByUser(listOf("profile")))
+    fun `canBeReadByPerson - true when readable and scope consented`() {
+        val claim = claim(readableByPerson = true, consentScope = "profile")
+        assertTrue(claim.canBeReadByPerson(listOf("profile")))
     }
 
     @Test
-    fun `canBeReadByUser - false when not readable`() {
-        val claim = claim(readableByUser = false, consentScope = null)
-        assertFalse(claim.canBeReadByUser(listOf("profile")))
+    fun `canBeReadByPerson - false when not readable`() {
+        val claim = claim(readableByPerson = false, consentScope = null)
+        assertFalse(claim.canBeReadByPerson(listOf("profile")))
     }
 
     @Test
-    fun `canBeReadByUser - false when readable but scope not consented`() {
-        val claim = claim(readableByUser = true, consentScope = "profile")
-        assertFalse(claim.canBeReadByUser(listOf("email")))
+    fun `canBeReadByPerson - false when readable but scope not consented`() {
+        val claim = claim(readableByPerson = true, consentScope = "profile")
+        assertFalse(claim.canBeReadByPerson(listOf("email")))
     }
 
     @Test
-    fun `canBeWrittenByUser - true when writable and no scope required`() {
-        val claim = claim(writableByUser = true, consentScope = null)
-        assertTrue(claim.canBeWrittenByUser(emptyList()))
+    fun `isCollectedInFlow - true when writable and no scope required`() {
+        val claim = claim(collectedInFlow = true, consentScope = null)
+        assertTrue(claim.isCollectedInFlow(emptyList()))
     }
 
     @Test
-    fun `canBeWrittenByUser - true when writable and scope consented`() {
-        val claim = claim(writableByUser = true, consentScope = "profile")
-        assertTrue(claim.canBeWrittenByUser(listOf("profile")))
+    fun `isCollectedInFlow - true when writable and scope consented`() {
+        val claim = claim(collectedInFlow = true, consentScope = "profile")
+        assertTrue(claim.isCollectedInFlow(listOf("profile")))
     }
 
     @Test
-    fun `canBeWrittenByUser - false when not writable`() {
-        val claim = claim(writableByUser = false, consentScope = null)
-        assertFalse(claim.canBeWrittenByUser(listOf("profile")))
+    fun `isCollectedInFlow - false when not writable`() {
+        val claim = claim(collectedInFlow = false, consentScope = null)
+        assertFalse(claim.isCollectedInFlow(listOf("profile")))
     }
 
     @Test
-    fun `canBeWrittenByUser - false when writable but scope not consented`() {
-        val claim = claim(writableByUser = true, consentScope = "profile")
-        assertFalse(claim.canBeWrittenByUser(listOf("email")))
+    fun `isCollectedInFlow - false when writable but scope not consented`() {
+        val claim = claim(collectedInFlow = true, consentScope = "profile")
+        assertFalse(claim.isCollectedInFlow(listOf("email")))
     }
 
     @Test
@@ -200,5 +206,69 @@ class ClaimTest {
     fun `canBeWrittenByClient - unconditional does not use consentedScopes`() {
         val claim = claim(writableWithClientScopes = listOf("users:claims:write"))
         assertFalse(claim.canBeWrittenByClient(listOf("users:claims:write"), emptyList()))
+    }
+
+    @Test
+    fun `canBeWrittenByPerson - true when the flag is set and no scope gates it`() {
+        val claim = claim(writableByPerson = true)
+        assertTrue(claim.canBeWrittenByPerson(emptyList()))
+    }
+
+    @Test
+    fun `canBeWrittenByPerson - true when the consent scope was consented`() {
+        val claim = claim(consentScope = "profile", writableByPerson = true)
+        assertTrue(claim.canBeWrittenByPerson(listOf("profile")))
+    }
+
+    @Test
+    fun `canBeWrittenByPerson - false when the consent scope was not consented`() {
+        val claim = claim(consentScope = "profile", writableByPerson = true)
+        assertFalse(claim.canBeWrittenByPerson(listOf("email")))
+    }
+
+    @Test
+    fun `canBeWrittenByPerson - false where only the flow may write the claim`() {
+        val claim = claim(collectedInFlow = true, writableByPerson = false)
+        assertFalse(claim.canBeWrittenByPerson(emptyList()))
+    }
+
+    @Test
+    fun `isAuthenticationRecentEnough - true where the claim declares no maximum age`() {
+        val claim = claim(writableByPerson = true)
+        assertTrue(claim.isAuthenticationRecentEnough(NOW.minusDays(30), NOW))
+    }
+
+    @Test
+    fun `isAuthenticationRecentEnough - true where the claim declares none and nothing authenticated`() {
+        val claim = claim(writableByPerson = true)
+        assertTrue(claim.isAuthenticationRecentEnough(null, NOW))
+    }
+
+    @Test
+    fun `isAuthenticationRecentEnough - true within the age the claim declares`() {
+        val claim = claim(writableByPerson = true, writeMaxAuthenticationAge = Duration.ofMinutes(5))
+        assertTrue(claim.isAuthenticationRecentEnough(NOW.minusMinutes(4), NOW))
+    }
+
+    @Test
+    fun `isAuthenticationRecentEnough - true at exactly the age the claim declares`() {
+        val claim = claim(writableByPerson = true, writeMaxAuthenticationAge = Duration.ofMinutes(5))
+        assertTrue(claim.isAuthenticationRecentEnough(NOW.minusMinutes(5), NOW))
+    }
+
+    @Test
+    fun `isAuthenticationRecentEnough - false past the age the claim declares`() {
+        val claim = claim(writableByPerson = true, writeMaxAuthenticationAge = Duration.ofMinutes(5))
+        assertFalse(claim.isAuthenticationRecentEnough(NOW.minusMinutes(6), NOW))
+    }
+
+    @Test
+    fun `isAuthenticationRecentEnough - false where the token states no authentication at all`() {
+        val claim = claim(writableByPerson = true, writeMaxAuthenticationAge = Duration.ofMinutes(5))
+        assertFalse(claim.isAuthenticationRecentEnough(null, NOW))
+    }
+
+    private companion object {
+        val NOW: LocalDateTime = LocalDateTime.of(2025, 6, 1, 12, 0, 0)
     }
 }

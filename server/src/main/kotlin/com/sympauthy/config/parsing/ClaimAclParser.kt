@@ -5,6 +5,7 @@ import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.ClaimTemplate
 import com.sympauthy.config.properties.ClaimAclProperties
 import jakarta.inject.Singleton
+import java.time.Duration
 
 /**
  * Parsed ACL data shared between template ACL and full claim ACL.
@@ -12,17 +13,19 @@ import jakarta.inject.Singleton
  */
 data class ParsedClaimAcl(
     val consentScope: String?,
-    val readableByUser: Boolean?,
-    val writableByUser: Boolean?,
+    val readableByPerson: Boolean?,
+    val collectedInFlow: Boolean?,
+    val writableByPerson: Boolean?,
     val readableByClient: Boolean?,
     val writableByClient: Boolean?,
     val readableWithClientScopes: List<String>?,
-    val writableWithClientScopes: List<String>?
+    val writableWithClientScopes: List<String>?,
+    val writeMaxAuthenticationAge: Duration?
 ) {
     companion object {
 
         /** An ACL no file spoke for, which every field of falls back to whatever reads it. */
-        val NONE = ParsedClaimAcl(null, null, null, null, null, null, null)
+        val NONE = ParsedClaimAcl(null, null, null, null, null, null, null, null, null)
     }
 }
 
@@ -49,15 +52,20 @@ class ClaimAclParser(
         }
         return ParsedClaimAcl(
             consentScope = acl.consentScope,
-            readableByUser = parseOptionalBoolean(
+            readableByPerson = parseOptionalBoolean(
                 ctx,
-                acl.readableByUserWhenConsented,
-                "$configKeyPrefix.acl.readable-by-user-when-consented"
+                acl.readableByPersonWhenConsented,
+                "$configKeyPrefix.acl.readable-by-person-when-consented"
             ),
-            writableByUser = parseOptionalBoolean(
+            collectedInFlow = parseOptionalBoolean(
                 ctx,
-                acl.writableByUserWhenConsented,
-                "$configKeyPrefix.acl.writable-by-user-when-consented"
+                acl.collectedInFlowWhenConsented,
+                "$configKeyPrefix.acl.collected-in-flow-when-consented"
+            ),
+            writableByPerson = parseOptionalBoolean(
+                ctx,
+                acl.writableByPersonWhenConsented,
+                "$configKeyPrefix.acl.writable-by-person-when-consented"
             ),
             readableByClient = parseOptionalBoolean(
                 ctx,
@@ -70,7 +78,12 @@ class ClaimAclParser(
                 "$configKeyPrefix.acl.writable-by-client-when-consented"
             ),
             readableWithClientScopes = acl.readableWithClientScopesUnconditionally,
-            writableWithClientScopes = acl.writableWithClientScopesUnconditionally
+            writableWithClientScopes = acl.writableWithClientScopesUnconditionally,
+            writeMaxAuthenticationAge = parseOptionalDuration(
+                ctx,
+                acl.writeMaxAuthenticationAge,
+                "$configKeyPrefix.acl.write-max-authentication-age"
+            )
         )
     }
 
@@ -89,17 +102,23 @@ class ClaimAclParser(
         val templateAcl = template?.acl
         return ParsedClaimAcl(
             consentScope = acl?.consentScope ?: templateAcl?.consentScope ?: defaultConsentScope,
-            readableByUser = resolveBoolean(
+            readableByPerson = resolveBoolean(
                 ctx,
-                acl?.readableByUserWhenConsented,
-                templateAcl?.readableByUserWhenConsented,
-                "$configKeyPrefix.acl.readable-by-user-when-consented"
+                acl?.readableByPersonWhenConsented,
+                templateAcl?.readableByPersonWhenConsented,
+                "$configKeyPrefix.acl.readable-by-person-when-consented"
             ),
-            writableByUser = resolveBoolean(
+            collectedInFlow = resolveBoolean(
                 ctx,
-                acl?.writableByUserWhenConsented,
-                templateAcl?.writableByUserWhenConsented,
-                "$configKeyPrefix.acl.writable-by-user-when-consented"
+                acl?.collectedInFlowWhenConsented,
+                templateAcl?.collectedInFlowWhenConsented,
+                "$configKeyPrefix.acl.collected-in-flow-when-consented"
+            ),
+            writableByPerson = resolveBoolean(
+                ctx,
+                acl?.writableByPersonWhenConsented,
+                templateAcl?.writableByPersonWhenConsented,
+                "$configKeyPrefix.acl.writable-by-person-when-consented"
             ),
             readableByClient = resolveBoolean(
                 ctx,
@@ -116,7 +135,13 @@ class ClaimAclParser(
             readableWithClientScopes = acl?.readableWithClientScopesUnconditionally
                 ?: templateAcl?.readableWithClientScopesUnconditionally ?: emptyList(),
             writableWithClientScopes = acl?.writableWithClientScopesUnconditionally
-                ?: templateAcl?.writableWithClientScopesUnconditionally ?: emptyList()
+                ?: templateAcl?.writableWithClientScopesUnconditionally ?: emptyList(),
+            writeMaxAuthenticationAge = resolveDuration(
+                ctx,
+                acl?.writeMaxAuthenticationAge,
+                templateAcl?.writeMaxAuthenticationAge,
+                "$configKeyPrefix.acl.write-max-authentication-age"
+            )
         )
     }
 
@@ -129,6 +154,15 @@ class ClaimAclParser(
         return ctx.parse { parser.getBoolean(value, configKey) { it } }
     }
 
+    private fun parseOptionalDuration(
+        ctx: ConfigParsingContext,
+        value: String?,
+        configKey: String
+    ): Duration? {
+        if (value == null) return null
+        return ctx.parse { parser.getDuration(value, configKey) { it } }
+    }
+
     private fun resolveBoolean(
         ctx: ConfigParsingContext,
         propertyValue: String?,
@@ -139,5 +173,17 @@ class ClaimAclParser(
             return ctx.parse { parser.getBoolean(propertyValue, configKey) { it } } ?: false
         }
         return templateValue ?: false
+    }
+
+    private fun resolveDuration(
+        ctx: ConfigParsingContext,
+        propertyValue: String?,
+        templateValue: Duration?,
+        configKey: String
+    ): Duration? {
+        if (propertyValue != null) {
+            return ctx.parse { parser.getDuration(propertyValue, configKey) { it } }
+        }
+        return templateValue
     }
 }

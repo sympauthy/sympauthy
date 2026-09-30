@@ -71,8 +71,8 @@ templates:
       # set the specification defines names them here rather than being defaulted into.
       published-in: [ id-token, userinfo ]
       acl:
-        readable-by-user-when-consented: "true"
-        writable-by-user-when-consented: "true"
+        readable-by-person-when-consented: "true"
+        collected-in-flow-when-consented: "true"
         readable-by-client-when-consented: "true"
         writable-by-client-when-consented: "false"
   clients:

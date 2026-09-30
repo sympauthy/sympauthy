@@ -64,7 +64,7 @@ must be redirected to continue the authorization flow.
             state = authentication.stateOrNull,
             observedRequest = observedRequest,
             run = { session, _ ->
-                val collectableClaims = consentAwareClaimManager.listCollectableClaimsBySession(session)
+                val collectableClaims = consentAwareClaimManager.listClaimsCollectedInFlowBySession(session)
                 if (collectableClaims.isEmpty()) {
                     null
                 } else {
@@ -114,7 +114,7 @@ but they chose not to provide a value.
             observedRequest = observedRequest,
             update = { session, _, user ->
                 val oauth2 = oauth2Manager.fetchOAuth2(session)
-                consentAwareCollectedClaimManager.updateByUser(
+                consentAwareCollectedClaimManager.updateInFlow(
                     user = user,
                     audienceId = oauth2Manager.getAudienceId(oauth2),
                     updates = collectedClaimUpdateMapper.toUpdates(inputResource.claims),

@@ -29,16 +29,18 @@ class AdminScopeResourceMapperTest {
         group = null,
         required = false,
         generated = false,
-        userInputted = false,
+        collectedInFlow = false,
         allowedValues = null,
         publishedIn = ClaimPublication.entries.toSet(),
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = "profile",
-                readableByUser = true,
-                writableByUser = true,
+                readableByPerson = true,
+                collectedInFlow = true,
+                writableByPerson = false,
                 readableByClient = false,
-                writableByClient = false
+                writableByClient = false,
+                writeMaxAuthenticationAge = null
             ),
             unconditional = UnconditionalAcl(emptyList(), emptyList())
         )

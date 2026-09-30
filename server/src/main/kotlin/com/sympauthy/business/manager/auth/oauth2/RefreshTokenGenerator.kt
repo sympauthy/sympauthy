@@ -46,6 +46,7 @@ class RefreshTokenGenerator(
         clientScopes = emptyList(),
         sessionId = oauth2.sessionId,
         grantType = "authorization_code",
+        authenticationDate = oauth2.authenticationDate,
         dpopJkt = dpopJkt
     )
 
@@ -69,6 +70,7 @@ class RefreshTokenGenerator(
         clientScopes = refreshToken.clientScopes,
         sessionId = refreshToken.sessionId,
         grantType = "refresh_token",
+        authenticationDate = refreshToken.authenticationDate,
         dpopJkt = dpopJkt
     )
 
@@ -85,6 +87,12 @@ class RefreshTokenGenerator(
         clientScopes: List<String>,
         sessionId: UUID?,
         grantType: String,
+        /**
+         * When the person named by [userId] proved a credential of their account. It is carried on the
+         * row rather than claimed in the token — nothing reads a refresh token but this server — and it
+         * is what the next access and id token this refresh mints state as `auth_time`.
+         */
+        authenticationDate: LocalDateTime? = null,
         dpopJkt: String? = null
     ): EncodedAuthenticationToken? {
         val enabledAuthConfig = authConfig.orThrow()
@@ -107,6 +115,7 @@ class RefreshTokenGenerator(
             clientScopes = clientScopes.toTypedArray(),
             sessionId = sessionId,
             grantType = grantType,
+            authenticationDate = authenticationDate,
             dpopJkt = dpopJkt,
             issueDate = issueDate,
             expirationDate = expirationDate

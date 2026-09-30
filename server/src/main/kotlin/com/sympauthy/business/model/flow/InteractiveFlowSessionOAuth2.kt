@@ -68,6 +68,22 @@ data class InteractiveFlowSessionOAuth2(
     val invitationId: UUID? = null,
 
     /**
+     * When the end-user proved a credential of the account this authorization is for: a password checked,
+     * a third-party provider's callback resolved to the account, or the account created at sign-up. Null
+     * until one has been proven.
+     *
+     * Every token this authorization produces states it as `auth_time`, and a refresh reissues it
+     * unchanged — so it is the moment the credential verified rather than the moment the code was
+     * exchanged or the token minted. A second factor is a purpose that follows in the same session and
+     * does not move it.
+     *
+     * It is held here rather than on the [InteractiveFlowSession] because it is part of what the
+     * authorization records, beside [consentedAt] and [grantedAt]: a session serving a purpose that issues
+     * no token has nothing to say it to.
+     */
+    val authenticationDate: LocalDateTime? = null,
+
+    /**
      * Consentable scopes that the user consented to during the authorization process.
      */
     val consentedScopes: List<String>? = null,

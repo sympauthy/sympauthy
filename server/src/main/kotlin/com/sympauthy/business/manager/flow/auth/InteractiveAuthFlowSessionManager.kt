@@ -92,6 +92,8 @@ class InteractiveAuthFlowSessionManager(
      *   error.
      * - validating the [uncheckedInvitationToken] if provided: checks that the invitation exists, is pending, and
      *   belongs to the same audience as the client. The invitation ID is stored on the session's OAuth2 record.
+     * - validating the [uncheckedMaxAge] if provided, which [checkMaxAge] explains is all this server has to
+     *   do with it.
      * - creating the [InteractiveFlowSession].
      *
      * Parameters are expected to be non-validated as this method will perform the validation and assign default values
@@ -105,7 +107,8 @@ class InteractiveAuthFlowSessionManager(
         uncheckedRedirectUri: String?,
         uncheckedCodeChallenge: String? = null,
         uncheckedCodeChallengeMethod: String? = null,
-        uncheckedInvitationToken: String? = null
+        uncheckedInvitationToken: String? = null,
+        uncheckedMaxAge: String? = null
     ): Pair<InteractiveFlowSession, InteractiveFlow> {
         val (client, clientException) = try {
             val client = clientManager.parseRequestedClient(uncheckedClientId)
@@ -164,6 +167,8 @@ class InteractiveAuthFlowSessionManager(
             uncheckedCodeChallengeMethod = uncheckedCodeChallengeMethod
         )
 
+        val maxAgeException = checkMaxAge(uncheckedMaxAge)
+
         val (invitation, invitationException) = if (!uncheckedInvitationToken.isNullOrBlank() && client != null) {
             try {
                 invitationManager.validateToken(uncheckedInvitationToken, client.audience.id) to null
@@ -190,7 +195,8 @@ class InteractiveAuthFlowSessionManager(
                 scopeException,
                 redirectUriException,
                 pkceException,
-                invitationException
+                invitationException,
+                maxAgeException
             ).firstOrNull()
         )
         return session to flow
@@ -230,6 +236,35 @@ class InteractiveAuthFlowSessionManager(
         }
 
         return Triple(uncheckedCodeChallenge, method, null)
+    }
+
+    /**
+     * Return the refusal [uncheckedMaxAge] earns, or null where the client sent an acceptable value or none
+     * at all. It is answered rather than thrown because the authorize endpoint collects what it refuses and
+     * reports the first of them on the session it creates, the way every other parameter here is refused.
+     *
+     * `max_age` asks, per OpenID Connect Core §3.1.2.1, for an authentication no older than that many
+     * seconds, so anything but a non-negative integer is malformed. A value sent with nothing after the `=`
+     * is treated as not sent, which RFC 6749 §3.1 requires of every parameter of this endpoint.
+     *
+     * **An acceptable value is checked and not kept, deliberately.** This server holds no session
+     * between authorizations — see `docs/design/interactive-flow.md` and `docs/design/security.md` — so
+     * every authorization signs the person in anew and the authentication a code represents is always
+     * younger than the flow that produced it. There is nothing for a maximum age to prepend, and what a
+     * client observes is what §3.1.2.1 asks of a server answering one: an id token stating `auth_time`,
+     * which this server states on every id token whether or not a client asked.
+     */
+    internal fun checkMaxAge(uncheckedMaxAge: String?): BusinessException? {
+        if (uncheckedMaxAge.isNullOrBlank()) return null
+        val maxAge = uncheckedMaxAge.toLongOrNull()
+        if (maxAge == null || maxAge < 0) {
+            return businessExceptionOf(
+                detailsId = "authorize.max_age.invalid",
+                descriptionId = "description.authorize.max_age.invalid",
+                values = arrayOf("maxAge" to uncheckedMaxAge)
+            )
+        }
+        return null
     }
 
     /**

@@ -46,12 +46,14 @@ class ClaimAclValidator {
 
         return ClaimTemplateAcl(
             consentScope = parsed.consentScope,
-            readableByUserWhenConsented = parsed.readableByUser,
-            writableByUserWhenConsented = parsed.writableByUser,
+            readableByPersonWhenConsented = parsed.readableByPerson,
+            collectedInFlowWhenConsented = parsed.collectedInFlow,
+            writableByPersonWhenConsented = parsed.writableByPerson,
             readableByClientWhenConsented = parsed.readableByClient,
             writableByClientWhenConsented = parsed.writableByClient,
             readableWithClientScopesUnconditionally = parsed.readableWithClientScopes,
-            writableWithClientScopesUnconditionally = parsed.writableWithClientScopes
+            writableWithClientScopesUnconditionally = parsed.writableWithClientScopes,
+            writeMaxAuthenticationAge = parsed.writeMaxAuthenticationAge
         )
     }
 
@@ -75,20 +77,61 @@ class ClaimAclValidator {
             parsed.writableWithClientScopes,
             "$configKeyPrefix.acl.writable-with-client-scopes-unconditionally"
         )
+        validateWriteMaxAuthenticationAge(ctx, parsed, configKeyPrefix)
 
         return ClaimAcl(
             consent = ConsentAcl(
                 scope = parsed.consentScope,
-                readableByUser = parsed.readableByUser ?: false,
-                writableByUser = parsed.writableByUser ?: false,
+                readableByPerson = parsed.readableByPerson ?: false,
+                collectedInFlow = parsed.collectedInFlow ?: false,
+                writableByPerson = parsed.writableByPerson ?: false,
                 readableByClient = parsed.readableByClient ?: false,
-                writableByClient = parsed.writableByClient ?: false
+                writableByClient = parsed.writableByClient ?: false,
+                writeMaxAuthenticationAge = parsed.writeMaxAuthenticationAge
             ),
             unconditional = UnconditionalAcl(
                 readableWithClientScopes = parsed.readableWithClientScopes ?: emptyList(),
                 writableWithClientScopes = parsed.writableWithClientScopes ?: emptyList()
             )
         )
+    }
+
+    /**
+     * Record an error where a maximum authentication age is set on a claim no access token may write.
+     *
+     * The age qualifies the write through a person's own access token and nothing else — a read is never
+     * challenged, and the flow's own write is presence by definition — so on a claim that door is shut
+     * for, nothing would ever ask it. It is refused rather than accepted to no effect, like every other
+     * key this layer cannot honour.
+     *
+     * It is checked on the resolved ACL rather than on the template's, so a template naming the age and
+     * a claim opening the door agree, which is what makes the key settable on a template at all.
+     *
+     * An age of zero or less is refused as well, whichever door is open: it would refuse every write of
+     * the claim for the life of the deployment, which is not something a duration can be written to mean.
+     */
+    private fun validateWriteMaxAuthenticationAge(
+        ctx: ConfigParsingContext,
+        parsed: ParsedClaimAcl,
+        configKeyPrefix: String
+    ) {
+        val maxAge = parsed.writeMaxAuthenticationAge ?: return
+        val configKey = "$configKeyPrefix.acl.write-max-authentication-age"
+        if (parsed.writableByPerson != true) {
+            ctx.addError(
+                configExceptionOf(configKey, "config.claim.acl.write_max_authentication_age.not_writable")
+            )
+        }
+        // Zero is the case a reader stumbles on: it looks like "no age at all" and means the opposite,
+        // since no authentication is ever more recent than the moment it is asked about.
+        if (!maxAge.isPositive) {
+            ctx.addError(
+                configExceptionOf(
+                    configKey, "config.claim.acl.write_max_authentication_age.not_positive",
+                    "duration" to maxAge.toString()
+                )
+            )
+        }
     }
 
     private fun validateConsentScope(

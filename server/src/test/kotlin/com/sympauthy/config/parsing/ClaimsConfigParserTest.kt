@@ -34,7 +34,7 @@ class ClaimsConfigParserTest {
         audienceId = null,
         allowedValues = allowedValues,
         publishedIn = publishedIn,
-        acl = ClaimTemplateAcl(null, null, null, null, null, null, null)
+        acl = ClaimTemplateAcl(null, null, null, null, null, null, null, null, null)
     )
 
     private fun claimProperties(
@@ -117,6 +117,21 @@ class ClaimsConfigParserTest {
 
         assertEquals(setOf(ID_TOKEN, USERINFO), claims.first { it.id == "sub" }.publishedIn)
         assertEquals(setOf(USERINFO), claims.first { it.id == "updated_at" }.publishedIn)
+        assertEquals(setOf(ID_TOKEN), claims.first { it.id == "auth_time" }.publishedIn)
+        assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
+    }
+
+    @Test
+    fun `parse - Answer the authentication time whatever the file declares under its name`() {
+        val ctx = ConfigParsingContext()
+        val properties = claimProperties("auth_time", "string", publishedIn = listOf("userinfo"))
+        val templates = mapOf(DEFAULT to claimTemplate(DEFAULT))
+
+        val claims = parser.parse(ctx, listOf(properties), templates).filter { it.id == "auth_time" }
+
+        val authTime = claims.single()
+        assertEquals(NUMBER, authTime.dataType)
+        assertEquals(setOf(ID_TOKEN), authTime.publishedIn)
         assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
     }
 

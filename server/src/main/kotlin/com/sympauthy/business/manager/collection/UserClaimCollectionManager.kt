@@ -17,6 +17,7 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimOrigin
+import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import jakarta.inject.Inject
@@ -75,12 +76,19 @@ class UserClaimCollectionManager(
 
     /**
      * The claims this collection has a row for: the ones this deployment serves, less the ones whose
-     * whole job is to say that another claim was verified.
+     * whole job is to say that another claim was verified, and less the generated ones that describe
+     * an authorization rather than an account.
+     *
+     * The last of those is what keeps `auth_time` off a person's row. This collection answers what
+     * this server knows about somebody, and an authentication time is not known about a person —
+     * see [GeneratedOpenIdConnectClaim.computedPerAccount].
      */
     private fun listableClaims(): List<Claim> {
         val enabledClaims = claimManager.listEnabledClaims()
         val verifiedClaimIds = enabledClaims.mapNotNull(Claim::verifiedId).toSet()
-        return enabledClaims.filter { it.id !in verifiedClaimIds }
+        return enabledClaims
+            .filter { it.id !in verifiedClaimIds }
+            .filter { !it.generated || it.id in GeneratedOpenIdConnectClaim.idsComputedPerAccount }
     }
 
     /**

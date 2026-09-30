@@ -47,11 +47,17 @@ gates disclosure, and says nothing about whose the value is.
 
 ### A generated claim
 
-**A generated claim is computed, not collected, and is neither kind.** `sub` and `updated_at` are
-answered from the account rather than from a row, belong to every audience, and are written by
-nobody. A key written on one is refused at startup, and
+**A generated claim is computed, not collected, and is neither kind.** `sub`, `updated_at` and
+`auth_time` are answered by this server rather than from a row, belong to every audience, and are
+written by nobody. A key written on one is refused at startup, and
 [the design FAQ](design-faq.md#why-is-a-key-written-on-a-generated-claim-refused-rather-than-applied-or-ignored)
 says why refusing beat applying or ignoring it.
+
+**What they share is where the value comes from, not who it is about.** `sub` and `updated_at`
+describe the account and are answered for a person wherever this server is asked about one.
+`auth_time` describes a single authorization, so there is no value to answer for a person in the
+abstract, and the surfaces that list what is known about somebody leave it out rather than
+answering null for everybody.
 
 ## Who may read and write a claim
 
@@ -75,20 +81,33 @@ shipped configuration — and nothing at all about the person being there.
 
 #### A personal claim
 
-**The flow collects what the consent half marks writable by the person, and `/userinfo` answers what
-it marks readable.** The read is consent alone, because that endpoint is not client-authenticated.
+**Each door is named for itself, and no flag covers both.** The consent half says separately what
+the flow collects, what the person's token reads and what the person's token writes, so the word
+*person* on a flag always means the person holding their own access token and the flow is never
+one of them. It is the same distinction `ConsentAcl` draws in Kotlin, and the reason it is drawn
+at all: one flag spanning two doors is turned on for the near one and read by the far one.
+
+**The flow collects what the consent half marks collected in the flow, and `/userinfo` answers what
+it marks readable by the person.** The read is consent alone, because that endpoint is not
+client-authenticated.
 
 **The person's own token writes through a permission of its own.** A claim it may write is marked
-separately from the one the flow collects, is off unless a deployment marks it, and the surface that
-honours it is the user surface; both are designed and not yet built. Honouring the flow's flag
+separately from the one the flow collects and is off unless a deployment marks it; the surface that
+honours it is the user surface, which is designed and not yet built. Honouring the flow's flag
 instead would have made every profile claim writable through an API on the day of the upgrade, with
 nobody asked.
 
 **A write through that door may ask how recently the person authenticated.** A deployment marks a
 claim with the age an authentication may have behind a write, and a surface presented with an older
 one refuses with the challenge RFC 9470 defines, telling the client to re-authorize with `max_age`.
-A read is never challenged. What a token says about when the person authenticated is
-[security](security.md#tokens), and the marking is designed and not yet built.
+A read is never challenged, and the flow's own write is presence by definition and is never
+challenged either. What a token says about when the person authenticated, and what the challenge
+carries, are [security's](security.md#when-the-person-authenticated).
+
+**The age is refused where no access token may write the claim.** It qualifies that one permission
+and nothing else, so on a claim that door is shut for it would never be asked — and a key that
+cannot mean anything is refused at startup rather than accepted in silence, like every other one
+here.
 
 #### An application claim
 
@@ -309,14 +328,20 @@ the ACL refuses is answered in no channel whatever it names.
 **It reaches the two OpenID channels and nothing else.** The id token and `/userinfo` each filter
 what they were handed, while the client, admin and user APIs are gated by the ACL alone and answer
 whatever it permits — so a claim published in neither channel is still read through those. The
-access token is not a channel: it carries the client, the scopes and the binding, and no attribute
-of a person.
+access token is not a channel: it carries the client, the scopes, the binding and the moment the
+person authenticated, and no attribute of a person. `auth_time` there is a property of the
+authentication rather than something this server was told about anybody, which is
+[security's](security.md#when-the-person-authenticated).
 
 **A claim published in neither channel is not advertised as one either.** `claims_supported` lists
 what a client could be told through OpenID Connect, and a claim no channel carries is a name no
 client can ever obtain a value for. That is the other direction from [being advertised and being
 served](security.md#scopes): a deployment stays free to serve what it does not list, and this stops
 it listing what it cannot serve.
+
+**`auth_time` is listed whatever the file says**, because it is a generated claim like the other
+two: a `claims.auth_time` section is dropped and every key written under one is refused at startup.
+It is an entry of that list a deployment neither chose nor can withhold.
 
 **A claim naming no channel is published in none.** A value leaves this server through the channels
 a deployment named and through no other, so a claim its file never mentions reaches neither. The
@@ -339,12 +364,12 @@ properties the specification names, and a deployment's own claim is serialized b
 the claims naming `userinfo`. What it may carry is still what the person may read, consent alone,
 and the shipped `default` claim template leaves that false.
 
-**A generated claim's channels are recorded rather than configured.** `sub` and `updated_at` are
-computed rather than collected, so neither channel reads them out of the claims it filters — the id
-token claims the subject itself and the `/userinfo` mapper computes both. The enum still states
-where each one arrives, because what the discovery document says a channel can supply is read off
-it: `sub` reaches both and `updated_at` only `/userinfo`, which is what the id token has always
-carried.
+**A generated claim's channels are recorded rather than configured.** `sub`, `updated_at` and
+`auth_time` are computed rather than collected, so neither channel reads them out of the claims it
+filters — the id token claims the subject and the authentication time itself, and the `/userinfo`
+mapper computes what it answers. The enum still states where each one arrives, because what the
+discovery document says a channel can supply is read off it: `sub` reaches both, `updated_at` only
+`/userinfo`, and `auth_time` only the id token.
 
 **Nothing refuses a configuration that makes a large id token.** What an audience publishes is
 what the token carries, and no ceiling is imposed on that — [the design
@@ -360,6 +385,13 @@ advertise it — so the discovery document tells a client it may not ask.
 [Where a claim is published](#where-a-claim-is-published) is the deployment deciding instead, for
 clients that ask for nothing, which is every client today; whether a client should get a say is
 open.
+
+**Whether a deployment may put a claim in the access token or in the introspection response.** Both
+carry one today — `auth_time`, which this server states rather than collects — and neither is a
+channel `published-in` can name, so a resource server wanting an attribute of the person calls
+`/userinfo` or introspects for it. What it would cost to open them is that an access token is a
+bearer credential presented on every request, where an id token is handed over once; whether that
+trade is the deployment's to make is open.
 
 **A claim holding a structured value.** `ClaimDataType` holds scalars, and a deployment wanting to
 keep a document about a person on this server has no type for it. Whether one is added, and what the

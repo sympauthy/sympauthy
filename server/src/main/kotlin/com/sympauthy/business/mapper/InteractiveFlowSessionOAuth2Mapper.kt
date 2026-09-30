@@ -35,6 +35,7 @@ abstract class InteractiveFlowSessionOAuth2Mapper {
             codeChallenge = codeChallenge,
             codeChallengeMethod = codeChallengeMethod,
             invitationId = entity.invitationId,
+            authenticationDate = entity.authenticationDate,
             consentedScopes = entity.consentedScopes?.toList(),
             consentedAt = entity.consentedAt,
             consentedBy = consentedBy(entity.consentedBy),

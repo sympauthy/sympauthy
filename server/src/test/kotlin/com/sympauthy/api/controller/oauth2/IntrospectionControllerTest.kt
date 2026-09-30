@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import java.time.LocalDateTime
+import java.time.ZoneOffset
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
@@ -67,6 +68,7 @@ class IntrospectionControllerTest {
         val tokenId = UUID.randomUUID()
         val issueDate = LocalDateTime.of(2025, 1, 1, 0, 0, 0)
         val expirationDate = LocalDateTime.of(2025, 1, 1, 1, 0, 0)
+        val authenticationDate = LocalDateTime.of(2024, 12, 31, 23, 45, 0)
 
         val token = mockk<AuthenticationToken> {
             every { id } returns tokenId
@@ -74,6 +76,7 @@ class IntrospectionControllerTest {
             every { this@mockk.userId } returns userId
             every { allScopes } returns listOf("openid", "profile")
             every { dpopJkt } returns null
+            every { this@mockk.authenticationDate } returns authenticationDate
             every { this@mockk.issueDate } returns issueDate
             every { this@mockk.expirationDate } returns expirationDate
         }
@@ -99,6 +102,7 @@ class IntrospectionControllerTest {
         assertEquals(tokenId.toString(), result.jti)
         assertNotNull(result.exp)
         assertNotNull(result.iat)
+        assertEquals(authenticationDate.toEpochSecond(ZoneOffset.UTC), result.authTime)
     }
 
     @Test
@@ -173,6 +177,7 @@ class IntrospectionControllerTest {
             every { userId } returns null
             every { allScopes } returns emptyList()
             every { dpopJkt } returns "some-thumbprint"
+            every { authenticationDate } returns null
             every { issueDate } returns LocalDateTime.of(2025, 1, 1, 0, 0, 0)
             every { expirationDate } returns null
         }
@@ -202,6 +207,7 @@ class IntrospectionControllerTest {
             every { userId } returns null
             every { allScopes } returns listOf("read")
             every { dpopJkt } returns null
+            every { authenticationDate } returns null
             every { issueDate } returns LocalDateTime.of(2025, 1, 1, 0, 0, 0)
             every { expirationDate } returns null
         }
@@ -219,6 +225,7 @@ class IntrospectionControllerTest {
 
         assertTrue(result.active)
         assertEquals("test-client", result.sub)
+        assertNull(result.authTime)
     }
 
     @Test

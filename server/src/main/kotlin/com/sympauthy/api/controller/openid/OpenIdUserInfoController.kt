@@ -41,9 +41,9 @@ class OpenIdUserInfoController(
     ): UserInfoResource {
         val clientId = authentication.userAuthentication.authenticationToken.clientId
         val client = clientManager.findClientById(clientId)
-        // Use ReadableByUser (not ReadableByClient) because this endpoint is only protected
-        // by a bearer token without client authentication, so the caller may be the end-user directly.
-        val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByUser(
+        // The person's own read rather than the client's: this endpoint is protected by a bearer token
+        // alone, with no client authentication, so consent is the whole of what it may go on.
+        val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByPerson(
             userId = authentication.userId,
             audienceId = client.audience.id,
             consentedScopes = authentication.consentedScopes.map(Scope::scope)

@@ -197,7 +197,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
             consentedScopes = consentedScopes
         )
         val allClaims = (identifierClaims + consentedClaims).distinctBy { it.claim.id }
-        val missingRequiredClaims = !consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(
+        val missingRequiredClaims = !consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedInFlow(
             allClaims, audienceId, consentedScopes
         )
         val missingMediaForClaimValidation = claimValidationManager.getReasonsToSendValidationCode(

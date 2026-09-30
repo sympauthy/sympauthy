@@ -170,6 +170,43 @@ class InteractiveAuthFlowSessionManagerTest {
     }
 
     @Test
+    fun `checkMaxAge - Accept a non-negative number of seconds`() {
+        assertNull(manager.checkMaxAge("300"))
+    }
+
+    @Test
+    fun `checkMaxAge - Accept zero, which asks for an authentication of this moment`() {
+        assertNull(manager.checkMaxAge("0"))
+    }
+
+    @Test
+    fun `checkMaxAge - Accept the parameter not being sent at all`() {
+        assertNull(manager.checkMaxAge(null))
+    }
+
+    @Test
+    fun `checkMaxAge - Treat a value sent empty as not sent`() {
+        assertNull(manager.checkMaxAge(""))
+    }
+
+    @Test
+    fun `checkMaxAge - Refuse a value that is not a number`() {
+        val error = manager.checkMaxAge("abc")
+
+        assertNotNull(error)
+        assertEquals("authorize.max_age.invalid", error!!.detailsId)
+        assertEquals("abc", error.values["maxAge"])
+    }
+
+    @Test
+    fun `checkMaxAge - Refuse a negative number of seconds`() {
+        val error = manager.checkMaxAge("-1")
+
+        assertNotNull(error)
+        assertEquals("authorize.max_age.invalid", error!!.detailsId)
+    }
+
+    @Test
     fun `getDefaultInteractiveFlow - Returns template flow when default template has a InteractiveFlow`() =
         runTest {
             val templateFlow = mockk<InteractiveFlow>()

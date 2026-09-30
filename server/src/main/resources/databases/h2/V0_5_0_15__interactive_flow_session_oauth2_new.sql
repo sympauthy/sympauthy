@@ -12,6 +12,8 @@ CREATE TABLE interactive_flow_session_oauth2
 
     invitation_id         uuid,
 
+    authentication_date   timestamp,
+
     consented_scopes      text array,
     consented_at          timestamp,
     consented_by          text,

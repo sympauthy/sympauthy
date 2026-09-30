@@ -33,7 +33,7 @@ dialect*, *a copy per dialect* — and let the criterion say what the members ar
 
 **The human is a person.** Write *a person* for whoever signs in or reads a message, never *the
 user* or *the end-user*. Keep *user* for what the tree spells that way — the `User` model, the
-`users` table, `readable-by-user-when-consented`, the `/api/v1/user` surface.
+`users` table, the `/api/v1/user` surface.
 
 **What this server holds for a person is an account.** A credential, the claims, the provider links
 and the second factor are an account's, so a sentence about them says *account* where it would have

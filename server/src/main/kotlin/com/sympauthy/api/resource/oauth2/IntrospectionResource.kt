@@ -43,6 +43,10 @@ data class IntrospectionResource(
     @get:Schema(description = "Time at which the token was issued as a Unix timestamp (seconds since epoch).")
     val iat: Long? = null,
 
+    @get:Schema(description = "Time at which the end-user proved a credential of their account, as a Unix timestamp (seconds since epoch). Absent for a token no end-user authentication is behind: a client_credentials token, or one obtained through token exchange.")
+    @get:JsonProperty("auth_time")
+    val authTime: Long? = null,
+
     @get:Schema(description = "Subject of the token. For user tokens this is the user ID; for client_credentials tokens this is the client ID.")
     val sub: String? = null,
 

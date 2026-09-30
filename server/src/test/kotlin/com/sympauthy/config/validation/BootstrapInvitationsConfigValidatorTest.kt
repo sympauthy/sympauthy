@@ -33,17 +33,19 @@ class BootstrapInvitationsConfigValidatorTest {
         group = null,
         required = false,
         generated = false,
-        userInputted = true,
+        collectedInFlow = true,
         allowedValues = null,
         audienceId = audienceId,
         publishedIn = ClaimPublication.entries.toSet(),
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = null,
-                readableByUser = true,
-                writableByUser = true,
+                readableByPerson = true,
+                collectedInFlow = true,
+                writableByPerson = false,
                 readableByClient = true,
-                writableByClient = false
+                writableByClient = false,
+                writeMaxAuthenticationAge = null
             ),
             unconditional = UnconditionalAcl(
                 readableWithClientScopes = emptyList(),

@@ -51,6 +51,9 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
     lateinit var sessionManager: InteractiveFlowSessionManager
 
     @MockK
+    lateinit var oauth2Manager: InteractiveFlowSessionOAuth2Manager
+
+    @MockK
     lateinit var providerManager: InteractiveFlowSessionProviderManager
 
     @MockK

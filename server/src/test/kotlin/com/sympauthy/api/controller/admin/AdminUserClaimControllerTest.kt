@@ -73,10 +73,12 @@ class AdminUserClaimControllerTest {
     private val acl = ClaimAcl(
         consent = ConsentAcl(
             scope = null,
-            readableByUser = false,
-            writableByUser = false,
+            readableByPerson = false,
+            collectedInFlow = false,
+            writableByPerson = false,
             readableByClient = false,
-            writableByClient = false
+            writableByClient = false,
+            writeMaxAuthenticationAge = null
         ),
         unconditional = UnconditionalAcl(emptyList(), emptyList())
     )
@@ -90,7 +92,7 @@ class AdminUserClaimControllerTest {
             group = null,
             required = false,
             generated = false,
-            userInputted = false,
+            collectedInFlow = false,
             allowedValues = null,
             publishedIn = ClaimPublication.entries.toSet(),
             acl = acl
