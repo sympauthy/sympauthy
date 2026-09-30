@@ -52,7 +52,8 @@ standard](description-standard.md) governs neither of them, and each says what s
 ### How the code is written
 
 The rules a change is held to. Each is named `<subject>-standard.md`, holds one subject, and reaches
-an agent when a file it governs is read.
+an agent when a file it governs is read, or from `CLAUDE.md` where what it governs is not in the
+tree.
 
 - **[General code standard](general-code-standard.md)** — the components a feature is made of, what
   each layer may import from another, and the naming that holds everywhere. Each layer then has its
@@ -83,6 +84,9 @@ an agent when a file it governs is read.
 - **[Description standard](description-standard.md)** — how the other kind of document here is
   written: what a description answers about the part it names, and what it leaves to the code, to
   the standards and to the FAQ.
+- **[Issue standard](issue-standard.md)** — what an issue in the tracker settles and what it leaves
+  to the change: the title, the fixed sections, what a feature and a bug each name, and the label
+  and milestone it opens under.
 
 ## Goals
 

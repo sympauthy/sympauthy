@@ -48,9 +48,9 @@ Full setup is `docs/running-locally.md`.
 
 ## Issues
 
-**A new issue opens in the earliest open milestone**, unless the user names another. That milestone
-is the next release; read the list rather than assuming which one it is, since it moves as releases
-ship.
+**An issue is written to [`docs/issue-standard.md`](docs/issue-standard.md).** Read it before
+opening one: it says what a feature and a bug each carry, and which label and milestone an issue
+opens under.
 
 ## Architecture — `docs/architecture.md`, `docs/general-code-standard.md`
 

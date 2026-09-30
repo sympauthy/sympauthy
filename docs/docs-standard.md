@@ -40,8 +40,8 @@ and say that it is open.
 
 ## Frontmatter
 
-**A standard opens with frontmatter.** The block carries two keys, and the heading under it names
-the standard.
+**A standard opens with frontmatter.** The block carries `description` and, where a file loads it,
+`paths`; the heading under it names the standard.
 
 ```yaml
 ---
@@ -60,6 +60,9 @@ the package it names moves.
 
 **The key is spelled `paths`, the way the tooling that reads it spells it.** Rename it here when
 what reads it renames it.
+
+**A standard governing what lives outside the tree carries `description` alone.** No file read loads
+it, so it is not symlinked, and `CLAUDE.md` names it beside the task it governs.
 
 ## What a standard names
 
@@ -121,8 +124,9 @@ that caused it and the discussion that settled it.
 **Link between documents relatively, keeping the `.md`.** Link to the [public
 documentation](https://sympauthy.github.io) with an absolute URL.
 
-**A new standard joins [the index](index.md)'s standards section in the same commit, and is
-symlinked into `.claude/rules/`.** The symlink carries the [frontmatter](#frontmatter) with it.
+**A new standard joins [the index](index.md)'s standards section in the same commit, and one
+carrying `paths` is symlinked into `.claude/rules/`.** The symlink carries the
+[frontmatter](#frontmatter) with it.
 
 ## What this standard does not cover
 
