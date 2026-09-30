@@ -13,7 +13,9 @@ import com.sympauthy.config.model.ClaimTemplateAcl
 import com.sympauthy.config.parsing.ParsedClaimAcl
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.time.Duration
 
 class ClaimAclValidatorTest {
 
@@ -27,20 +29,24 @@ class ClaimAclValidatorTest {
 
     private fun parsedAcl(
         consentScope: String? = null,
-        readableByUser: Boolean? = null,
-        writableByUser: Boolean? = null,
+        readableByPerson: Boolean? = null,
+        collectedInFlow: Boolean? = null,
         readableByClient: Boolean? = null,
         writableByClient: Boolean? = null,
         readableWithClientScopes: List<String>? = null,
-        writableWithClientScopes: List<String>? = null
+        writableWithClientScopes: List<String>? = null,
+        writableByPerson: Boolean? = null,
+        writeMaxAuthenticationAge: Duration? = null
     ) = ParsedClaimAcl(
         consentScope = consentScope,
-        readableByUser = readableByUser,
-        writableByUser = writableByUser,
+        readableByPerson = readableByPerson,
+        collectedInFlow = collectedInFlow,
+        writableByPerson = writableByPerson,
         readableByClient = readableByClient,
         writableByClient = writableByClient,
         readableWithClientScopes = readableWithClientScopes,
-        writableWithClientScopes = writableWithClientScopes
+        writableWithClientScopes = writableWithClientScopes,
+        writeMaxAuthenticationAge = writeMaxAuthenticationAge
     )
 
     @Test
@@ -50,7 +56,7 @@ class ClaimAclValidatorTest {
         val result = validator.validateTemplateAcl(ctx, parsedAcl(), "templates.claims.test", scopesById)
 
         assertFalse(ctx.hasErrors)
-        assertEquals(ClaimTemplateAcl(null, null, null, null, null, null, null), result)
+        assertEquals(ClaimTemplateAcl(null, null, null, null, null, null, null, null, null), result)
     }
 
     @Test
@@ -58,8 +64,8 @@ class ClaimAclValidatorTest {
         val ctx = ConfigParsingContext()
         val parsed = parsedAcl(
             consentScope = "profile",
-            readableByUser = true,
-            writableByUser = false,
+            readableByPerson = true,
+            collectedInFlow = false,
             readableByClient = true,
             writableByClient = false,
             readableWithClientScopes = listOf("users:claims:read"),
@@ -72,12 +78,14 @@ class ClaimAclValidatorTest {
         assertEquals(
             ClaimTemplateAcl(
                 consentScope = "profile",
-                readableByUserWhenConsented = true,
-                writableByUserWhenConsented = false,
+                readableByPersonWhenConsented = true,
+                collectedInFlowWhenConsented = false,
+                writableByPersonWhenConsented = null,
                 readableByClientWhenConsented = true,
                 writableByClientWhenConsented = false,
                 readableWithClientScopesUnconditionally = listOf("users:claims:read"),
-                writableWithClientScopesUnconditionally = listOf("users:claims:write")
+                writableWithClientScopesUnconditionally = listOf("users:claims:write"),
+                writeMaxAuthenticationAge = null
             ),
             result
         )
@@ -100,8 +108,8 @@ class ClaimAclValidatorTest {
         val ctx = ConfigParsingContext()
         val parsed = parsedAcl(
             consentScope = "profile",
-            readableByUser = true,
-            writableByUser = false,
+            readableByPerson = true,
+            collectedInFlow = false,
             readableByClient = true,
             writableByClient = false,
             readableWithClientScopes = listOf("users:claims:read"),
@@ -115,10 +123,12 @@ class ClaimAclValidatorTest {
             ClaimAcl(
                 consent = ConsentAcl(
                     scope = "profile",
-                    readableByUser = true,
-                    writableByUser = false,
+                    readableByPerson = true,
+                    collectedInFlow = false,
+                    writableByPerson = false,
                     readableByClient = true,
-                    writableByClient = false
+                    writableByClient = false,
+                    writeMaxAuthenticationAge = null
                 ),
                 unconditional = UnconditionalAcl(
                     readableWithClientScopes = listOf("users:claims:read"),
@@ -140,10 +150,12 @@ class ClaimAclValidatorTest {
             ClaimAcl(
                 consent = ConsentAcl(
                     scope = null,
-                    readableByUser = false,
-                    writableByUser = false,
+                    readableByPerson = false,
+                    collectedInFlow = false,
+                    writableByPerson = false,
                     readableByClient = false,
-                    writableByClient = false
+                    writableByClient = false,
+                    writeMaxAuthenticationAge = null
                 ),
                 unconditional = UnconditionalAcl(emptyList(), emptyList())
             ),
@@ -213,4 +225,55 @@ class ClaimAclValidatorTest {
         )
     }
 
+    @Test
+    fun `validateAcl - Keep a maximum authentication age beside the write it qualifies`() {
+        val ctx = ConfigParsingContext()
+
+        val result = validator.validateAcl(
+            ctx,
+            parsedAcl(
+                writableByPerson = true,
+                writeMaxAuthenticationAge = Duration.ofMinutes(5)
+            ),
+            "claims.test",
+            scopesById
+        )
+
+        assertFalse(ctx.hasErrors)
+        assertTrue(result.consent.writableByPerson)
+        assertEquals(Duration.ofMinutes(5), result.consent.writeMaxAuthenticationAge)
+    }
+
+    @Test
+    fun `validateAcl - Reject a maximum authentication age on a claim no access token may write`() {
+        val ctx = ConfigParsingContext()
+
+        validator.validateAcl(
+            ctx,
+            parsedAcl(writeMaxAuthenticationAge = Duration.ofMinutes(5)),
+            "claims.test",
+            scopesById
+        )
+
+        assertEquals(
+            listOf("config.claim.acl.write_max_authentication_age.not_writable"),
+            ctx.errors.map { it.messageId }
+        )
+        assertEquals(listOf("claims.test.acl.write-max-authentication-age"), ctx.errors.map { it.key })
+    }
+
+    @Test
+    fun `validateTemplateAcl - Keep a maximum authentication age the claim's own write opens`() {
+        val ctx = ConfigParsingContext()
+
+        val result = validator.validateTemplateAcl(
+            ctx,
+            parsedAcl(writeMaxAuthenticationAge = Duration.ofMinutes(5)),
+            "templates.claims.test",
+            scopesById
+        )
+
+        assertFalse(ctx.hasErrors)
+        assertEquals(Duration.ofMinutes(5), result.writeMaxAuthenticationAge)
+    }
 }

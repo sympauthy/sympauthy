@@ -509,7 +509,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
             )
         } returns emptyList()
         every {
-            consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedByUser(
+            consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedInFlow(
                 any(), testAudience.id, consentedScopes
             )
         } returns allRequiredCollected

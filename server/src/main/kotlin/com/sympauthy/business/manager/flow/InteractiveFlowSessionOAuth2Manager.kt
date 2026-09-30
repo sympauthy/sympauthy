@@ -164,6 +164,47 @@ open class InteractiveFlowSessionOAuth2Manager(
     }
 
     /**
+     * Record on this [session]'s OAuth2 record that the end-user has just proven a credential of the
+     * account the authorization is for — a password checked, a third-party provider's callback resolved
+     * to that account, or the account created at sign-up.
+     *
+     * The date it writes is what every token issued out of this authorization states as `auth_time`, so
+     * **call it only where a credential has verified *and* resolved this session's user**, which is the
+     * condition
+     * [UserSecurityContextManager.markProven][com.sympauthy.business.manager.security.UserSecurityContextManager.markProven]
+     * is called under and for the same reason: a credential answers for whatever account matches it, and
+     * a session whose user is fixed as somebody else must not be stamped by one proving a different
+     * account.
+     *
+     * Writing it twice overwrites, which is what a flow proving a credential a second time is owed: the
+     * later proof is the one a token answers for.
+     *
+     * Throws an internal [BusinessException] where the [session] serves no authorization, as every
+     * reader of this record does — a purpose issuing no token has no authentication time to state — and
+     * where the write moved no row. The second is why it does not answer best-effort the way the place a
+     * credential was proven at does: a lost stamp here ships an authorization whose every token states
+     * no `auth_time`, which a resource server reads as a token issued before the claim existed.
+     */
+    suspend fun setAuthenticationDate(session: OnGoingInteractiveFlowSession) {
+        if (session.initiatingPurpose != InteractiveFlowPurpose.OAUTH2_AUTHORIZE) {
+            throw internalBusinessExceptionOf(
+                "auth.interactive_flow_session.oauth2.wrong_type",
+                "type" to session.initiatingPurpose.name
+            )
+        }
+        val updated = oauth2Repository.updateAuthenticationDate(
+            sessionId = session.id,
+            authenticationDate = LocalDateTime.now()
+        )
+        if (updated == 0) {
+            throw internalBusinessExceptionOf(
+                "auth.interactive_flow_session.oauth2.missing",
+                "sessionId" to session.id.toString()
+            )
+        }
+    }
+
+    /**
      * Set and save the consentable scopes obtained through user consent for this session's OAuth2 record.
      */
     suspend fun setConsentedScopes(

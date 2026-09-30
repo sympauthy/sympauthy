@@ -28,6 +28,17 @@ class InteractiveFlowSessionOAuth2Entity(
 
     val invitationId: UUID? = null,
 
+    /**
+     * When the end-user proved a credential of the account this authorization is for: a password checked,
+     * a third-party provider's callback resolved to the account, or the account created at sign-up. Null
+     * until one has been proven.
+     *
+     * It is what every token this authorization produces states as `auth_time`, so it is the moment the
+     * credential verified and never the moment the code was exchanged. Passing a second factor follows in
+     * the same session and does not move it.
+     */
+    val authenticationDate: LocalDateTime? = null,
+
     val consentedScopes: Array<String>? = null,
     val consentedAt: LocalDateTime? = null,
     val consentedBy: String? = null,

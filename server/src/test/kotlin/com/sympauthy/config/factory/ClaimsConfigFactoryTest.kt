@@ -37,7 +37,7 @@ class ClaimsConfigFactoryTest {
 
     lateinit var factory: ClaimsConfigFactory
 
-    private val defaultTemplateAcl = ClaimTemplateAcl(null, null, null, null, null, null, null)
+    private val defaultTemplateAcl = ClaimTemplateAcl(null, null, null, null, null, null, null, null, null)
 
     private fun defaultTemplate() = ClaimTemplate(
         id = DEFAULT,
@@ -226,7 +226,7 @@ class ClaimsConfigFactoryTest {
             assertNotNull(claim, "Generated claim ${generated.id} should be present")
             assertTrue(claim!!.enabled, "Generated claim ${generated.id} should be enabled")
             assertTrue(claim.generated, "Generated claim ${generated.id} should be marked as generated")
-            assertFalse(claim.userInputted, "Generated claim ${generated.id} should not be user-inputted")
+            assertFalse(claim.collectedInFlow, "Generated claim ${generated.id} should not be user-inputted")
         }
     }
 
@@ -281,15 +281,17 @@ class ClaimsConfigFactoryTest {
     }
 
     @Test
-    fun `provideClaims - userInputted is true when ACL allows user write`() {
+    fun `provideClaims - collectedInFlow is true when ACL allows user write`() {
         val writableTemplateAcl = ClaimTemplateAcl(
             consentScope = null,
-            readableByUserWhenConsented = null,
-            writableByUserWhenConsented = true,
+            readableByPersonWhenConsented = null,
+            collectedInFlowWhenConsented = true,
+            writableByPersonWhenConsented = null,
             readableByClientWhenConsented = null,
             writableByClientWhenConsented = null,
             readableWithClientScopesUnconditionally = null,
-            writableWithClientScopesUnconditionally = null
+            writableWithClientScopesUnconditionally = null,
+            writeMaxAuthenticationAge = null
         )
         val writableTemplate = ClaimTemplate(
             id = DEFAULT, enabled = null, required = null, group = null,
@@ -315,11 +317,11 @@ class ClaimsConfigFactoryTest {
 
         assertInstanceOf(EnabledClaimsConfig::class.java, result)
         val claim = (result as EnabledClaimsConfig).claims.first { it.id == "department" }
-        assertTrue(claim.userInputted)
+        assertTrue(claim.collectedInFlow)
     }
 
     @Test
-    fun `provideClaims - userInputted is false when ACL disallows user write`() {
+    fun `provideClaims - collectedInFlow is false when ACL disallows user write`() {
         val properties = listOf(
             claimProperties(id = "department", type = "string")
         )
@@ -328,7 +330,7 @@ class ClaimsConfigFactoryTest {
 
         assertInstanceOf(EnabledClaimsConfig::class.java, result)
         val claim = (result as EnabledClaimsConfig).claims.first { it.id == "department" }
-        assertFalse(claim.userInputted)
+        assertFalse(claim.collectedInFlow)
     }
 
     @Test

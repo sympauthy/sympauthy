@@ -52,8 +52,8 @@ class ClaimManager(
     /**
      * List all [Claim] that we want to present to the end-user during the authentication flow.
      */
-    fun listCollectableClaims(): List<Claim> {
-        return listEnabledClaims().filter(Claim::userInputted)
+    fun listClaimsCollectedInFlow(): List<Claim> {
+        return listEnabledClaims().filter(Claim::collectedInFlow)
     }
 
     /**

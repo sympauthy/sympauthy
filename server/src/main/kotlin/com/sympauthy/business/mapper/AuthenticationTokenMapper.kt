@@ -94,6 +94,7 @@ abstract class AuthenticationTokenMapper {
                         "grantType" to token.grantType
                     )
                 }
+                requireNoAuthenticationDate(token)
                 requireNoActorTokenId(token)
             }
 
@@ -111,6 +112,7 @@ abstract class AuthenticationTokenMapper {
                         "grantType" to token.grantType
                     )
                 }
+                requireNoAuthenticationDate(token)
                 // An act-as token is always issued by exchanging a subject_token.
                 if (token.actorTokenId == null) {
                     throw internalBusinessExceptionOf(
@@ -135,6 +137,23 @@ abstract class AuthenticationTokenMapper {
                 }
                 requireNoActorTokenId(token)
             }
+        }
+    }
+
+    /**
+     * A token no person's authentication is behind must carry no [AuthenticationToken.authenticationDate].
+     *
+     * A client-credentials grant has no person at all and a token exchange asserts an identity nobody
+     * proved, so a date on either would be published as an `auth_time` naming an authentication that
+     * never happened — and a resource server deciding recency off it would let through exactly the
+     * unattended caller it was asking about.
+     */
+    private fun requireNoAuthenticationDate(token: AuthenticationToken) {
+        if (token.authenticationDate != null) {
+            throw internalBusinessExceptionOf(
+                "mapper.authentication_token.invalid_authentication_date",
+                "grantType" to token.grantType
+            )
         }
     }
 

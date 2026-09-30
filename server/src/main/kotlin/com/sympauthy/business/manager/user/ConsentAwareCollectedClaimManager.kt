@@ -41,13 +41,13 @@ open class ConsentAwareCollectedClaimManager(
      *
      * Use this method when the caller is the end-user themselves and there is no client authentication.
      */
-    suspend fun findByUserIdAndReadableByUser(
+    suspend fun findByUserIdAndReadableByPerson(
         userId: UUID,
         audienceId: String,
         consentedScopes: List<String>
     ): List<CollectedClaim> {
         return collectedClaimManager.findByUserId(userId).filter {
-            it.claim.belongsToAudience(audienceId) && it.claim.canBeReadByUser(consentedScopes)
+            it.claim.belongsToAudience(audienceId) && it.claim.canBeReadByPerson(consentedScopes)
         }
     }
 
@@ -124,13 +124,13 @@ open class ConsentAwareCollectedClaimManager(
      * on: an identifier claim is collected whatever the consent. That makes no required claim look collected
      * that is not.
      */
-    fun areAllRequiredClaimsCollectedByUser(
+    fun areAllRequiredClaimsCollectedInFlow(
         collectedClaims: List<CollectedClaim>,
         audienceId: String,
         consentedScopes: List<String>
     ): Boolean {
         val requiredClaims = claimManager.listRequiredClaims()
-            .filter { it.belongsToAudience(audienceId) && it.canBeWrittenByUser(consentedScopes) }
+            .filter { it.belongsToAudience(audienceId) && it.isCollectedInFlow(consentedScopes) }
         if (requiredClaims.isEmpty()) {
             return true
         }
@@ -142,18 +142,21 @@ open class ConsentAwareCollectedClaimManager(
      * Update the claims collected for the [user] during the authorization flow, for the audience identified
      * by [audienceId].
      *
-     * Only updates targeting collectable claims (user-inputted, non-identifier, of that audience and within
+     * Only updates targeting claims the flow collects (non-identifier, of that audience and within
      * the [consentedScopes]) are applied. Other updates are silently ignored — a flow may only write what it
      * was entitled to ask for.
      */
     @Transactional
-    open suspend fun updateByUser(
+    open suspend fun updateInFlow(
         user: User,
         audienceId: String,
         updates: List<CollectedClaimUpdate>,
         consentedScopes: List<String>
     ): List<CollectedClaim> {
-        val collectableClaims = consentAwareClaimManager.listCollectableClaimsWithScopes(audienceId, consentedScopes)
+        val collectableClaims = consentAwareClaimManager.listClaimsCollectedInFlowWithScopes(
+            audienceId = audienceId,
+            consentedScopes = consentedScopes
+        )
         val applicableUpdates = updates.filter { it.claim in collectableClaims }
         return collectedClaimManager.applyUpdates(user, applicableUpdates)
     }
@@ -171,8 +174,8 @@ open class ConsentAwareCollectedClaimManager(
      * rule that a write may step around: a client told nothing about a claim must not be able to set it
      * either, or it decides what another audience reads.
      *
-     * **An identifier claim is left out whatever the scopes**, which is the rule [updateByUser] already gets
-     * from [ConsentAwareClaimManager.listCollectableClaimsWithScopes]. It is what an account signs in with,
+     * **An identifier claim is left out whatever the scopes**, which is the rule [updateInFlow] already gets
+     * from [ConsentAwareClaimManager.listClaimsCollectedInFlowWithScopes]. It is what an account signs in with,
      * so a client that could rewrite it could move an account's sign-in to an address it controls — and the
      * account would be none the wiser, since nothing in a claim write verifies the value it stores. The
      * surface says so rather than silently dropping it: see `ClientUserClaimController.updateUserClaims`.

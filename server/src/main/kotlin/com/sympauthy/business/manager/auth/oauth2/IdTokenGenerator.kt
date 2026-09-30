@@ -12,6 +12,7 @@ import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimDataType.*
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.ClaimPublication
+import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
@@ -62,6 +63,7 @@ class IdTokenGenerator(
         grantedScopes = oauth2.grantedScopes ?: emptyList(),
         consentedScopes = oauth2.consentedScopes ?: emptyList(),
         nonce = oauth2.nonce,
+        authenticationDate = oauth2.authenticationDate,
         accessToken = accessToken,
         grantType = "authorization_code"
     )
@@ -76,9 +78,11 @@ class IdTokenGenerator(
      *
      * [accessToken] is the one issued in the same response, and the token's `at_hash` claim names it.
      *
-     * The subject, the audience and the session are the ones of the authentication the [refreshToken]
-     * descends from, and only the issue date, the expiry and the claims are read again, which is what
-     * OpenID Connect Core §12.2 requires of an id token issued for a refresh.
+     * The subject, the audience, the session and the authentication time are the ones of the
+     * authentication the [refreshToken] descends from, and only the issue date, the expiry and the claims
+     * are read again, which is what OpenID Connect Core §12.2 requires of an id token issued for a
+     * refresh. Reading the authentication time again would be this server saying the person authenticated
+     * at the moment their client asked for a new token.
      *
      * No `nonce` is claimed, which §12.2 asks for in as many words: a refreshed id token "SHOULD NOT
      * have a `nonce` Claim, even when the ID Token issued at the time of the original authentication
@@ -100,6 +104,7 @@ class IdTokenGenerator(
         grantedScopes = refreshToken.grantedScopes,
         consentedScopes = refreshToken.consentedScopes,
         sessionId = refreshToken.sessionId,
+        authenticationDate = refreshToken.authenticationDate,
         accessToken = accessToken,
         grantType = "refresh_token"
     )
@@ -113,6 +118,12 @@ class IdTokenGenerator(
         sessionId: UUID?,
         accessToken: EncodedAuthenticationToken,
         nonce: String? = null,
+        /**
+         * When the person named by [userId] proved a credential of their account, in the flow the
+         * authorization came from. A caller with no such moment to state passes null, and the token then
+         * carries no `auth_time`.
+         */
+        authenticationDate: LocalDateTime? = null,
         grantType: String
     ): EncodedAuthenticationToken? {
         // ID tokens are only for user authentication, not client credentials
@@ -146,6 +157,7 @@ class IdTokenGenerator(
             clientScopes = emptyArray(),
             sessionId = sessionId,
             grantType = grantType,
+            authenticationDate = authenticationDate,
             issueDate = issueDate,
             expirationDate = expirationDate
         ).let { tokenRepository.save(it) }
@@ -160,6 +172,10 @@ class IdTokenGenerator(
             issueTime(Date.from(issueDate.toInstant(ZoneOffset.UTC)))
             expirationTime(Date.from(expirationDate.toInstant(ZoneOffset.UTC)))
             nonce?.let { claim("nonce", it) }
+            // Claimed on every id token rather than only where a client asked with `max_age`, which is the
+            // minimum OpenID Connect Core §2 allows: a resource server checking recency needs it in every
+            // token, and nothing about a person is disclosed by it.
+            authenticationDate?.let { claim(OpenIdConnectClaimId.AUTH_TIME, it.toEpochSecond(ZoneOffset.UTC)) }
             claim("at_hash", advancedConfig.publicJwtAlgorithm.hashAlgorithm.atHash(accessToken.token))
 
             val (addressClaims, otherClaims) = claims.partition { it.claim.group == ClaimGroup.ADDRESS }

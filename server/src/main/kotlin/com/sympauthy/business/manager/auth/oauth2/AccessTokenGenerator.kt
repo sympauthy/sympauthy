@@ -7,6 +7,7 @@ import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
+import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.AuthenticationTokenEntity
@@ -47,6 +48,7 @@ class AccessTokenGenerator(
         clientScopes = emptyList(),
         sessionId = oauth2.sessionId,
         grantType = "authorization_code",
+        authenticationDate = oauth2.authenticationDate,
         dpopJkt = dpopJkt
     )
 
@@ -70,6 +72,7 @@ class AccessTokenGenerator(
         clientScopes = refreshToken.clientScopes,
         sessionId = refreshToken.sessionId,
         grantType = "refresh_token",
+        authenticationDate = refreshToken.authenticationDate,
         dpopJkt = dpopJkt
     )
 
@@ -80,6 +83,10 @@ class AccessTokenGenerator(
      * The token carries the target [userId] as `sub`, the acting client (derived from [actorToken]) as `client_id` and
      * in the `act` claim, and no scopes. The resource server authorizes from the asserted identity and the trusted
      * actor. The [actorToken] is the client-credentials token that was exchanged; its id is recorded for provenance.
+     *
+     * It states no `auth_time`: nobody proved a credential of the target account here, and the acting client's
+     * own token is not a person's authentication. A resource server reading recency off this token would read
+     * the moment a backend asked to act as somebody.
      */
     suspend fun generateActAsAccessToken(
         userId: UUID,
@@ -146,6 +153,13 @@ class AccessTokenGenerator(
         clientScopes: List<String>,
         sessionId: UUID?,
         grantType: String,
+        /**
+         * When the person named by [userId] proved a credential of their account, in the flow the
+         * authorization came from. A caller issuing a token no person's authentication is behind — a
+         * client-credentials grant, a token exchange — passes null, and the token then states no
+         * `auth_time`.
+         */
+        authenticationDate: LocalDateTime? = null,
         dpopJkt: String? = null,
         /**
          * When non-null, the token records this client as the actor via the RFC 8693 `act` claim
@@ -175,6 +189,7 @@ class AccessTokenGenerator(
             clientScopes = clientScopes.toTypedArray(),
             sessionId = sessionId,
             grantType = grantType,
+            authenticationDate = authenticationDate,
             dpopJkt = dpopJkt,
             actorTokenId = actorTokenId,
             issueDate = issueDate,
@@ -190,6 +205,9 @@ class AccessTokenGenerator(
             subject(userId?.toString() ?: clientId)
             claim("client_id", clientId)
             claim("scope", allScopes.joinToString(" "))
+            // RFC 9068 §2.2.1 puts it here so a resource server that is not this one can tell a password
+            // typed a minute ago from one typed a month ago, which `iat` cannot say across a refresh.
+            authenticationDate?.let { claim(OpenIdConnectClaimId.AUTH_TIME, it.toEpochSecond(ZoneOffset.UTC)) }
             actorClientId?.let { claim("act", mapOf("sub" to it)) }
             dpopJkt?.let { claim("cnf", mapOf("jkt" to it)) }
             issueTime(Date.from(issueDate.toInstant(ZoneOffset.UTC)))

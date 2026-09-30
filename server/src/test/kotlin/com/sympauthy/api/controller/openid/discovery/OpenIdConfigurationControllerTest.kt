@@ -174,16 +174,18 @@ class OpenIdConfigurationControllerTest {
         group = null,
         required = false,
         generated = false,
-        userInputted = false,
+        collectedInFlow = false,
         allowedValues = null,
         publishedIn = publishedIn,
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = null,
-                readableByUser = true,
-                writableByUser = false,
+                readableByPerson = true,
+                collectedInFlow = false,
+                writableByPerson = false,
                 readableByClient = true,
-                writableByClient = false
+                writableByClient = false,
+                writeMaxAuthenticationAge = null
             ),
             unconditional = UnconditionalAcl(
                 readableWithClientScopes = emptyList(),

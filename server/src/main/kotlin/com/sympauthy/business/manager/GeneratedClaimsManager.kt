@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager
 
+import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.data.repository.CollectedClaimRepository
 import jakarta.inject.Singleton
@@ -10,6 +11,10 @@ import java.util.*
 /**
  * Computes values for generated claims — claims whose values are produced by the authorization server
  * at runtime rather than collected from users (e.g. `sub`, `updated_at`).
+ *
+ * It answers for an account, so it reads the generated claims that have a value for one. A generated
+ * claim belonging to a single authorization is left out: see
+ * [GeneratedOpenIdConnectClaim.computedPerAccount].
  */
 @Singleton
 class GeneratedClaimsManager(
@@ -37,7 +42,10 @@ class GeneratedClaimsManager(
         computeValues(userId) { latestCollectionDate?.epochSecond }
 
     private suspend fun computeValues(userId: UUID, updatedAt: suspend () -> Long?): Map<String, Any?> {
-        val generatedClaims = claimManager.listEnabledClaims().filter { it.generated }
+        // A generated claim this server computes per authorization rather than per account — `auth_time`
+        // — has no value to answer here, and answering null for it would publish it against everybody.
+        val generatedClaims = claimManager.listEnabledClaims()
+            .filter { it.id in GeneratedOpenIdConnectClaim.idsComputedPerAccount }
         return generatedClaims.associate { claim ->
             claim.id to when (claim.id) {
                 OpenIdConnectClaimId.SUB -> computeSubject(userId)

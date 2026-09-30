@@ -33,18 +33,18 @@ class ConsentAwareClaimManager(
      * during the authorization flow associated to the [session].
      *
      * This excludes:
-     * - Claims that are not user-inputted (generated or client-managed).
+     * - Claims the flow does not collect (generated, or an application's to write).
      * - Identifier claims (e.g. email used for sign-in), which require separate validation.
      * - Claims outside the end-user's consented scopes.
      * - Claims restricted to an audience other than the one the session's authorization is for.
      */
-    suspend fun listCollectableClaimsBySession(session: InteractiveFlowSession): List<Claim> {
+    suspend fun listClaimsCollectedInFlowBySession(session: InteractiveFlowSession): List<Claim> {
         return when (session) {
             is FailedInteractiveFlowSession, is CancelledInteractiveFlowSession -> emptyList()
             is OnGoingInteractiveFlowSession, is CompletedInteractiveFlowSession -> {
                 val oauth2 = oauth2Manager.fetchOAuth2(session)
                 val consentedScopes = oauth2.consentedScopes ?: return emptyList()
-                listCollectableClaimsWithScopes(oauth2Manager.getAudienceId(oauth2), consentedScopes)
+                listClaimsCollectedInFlowWithScopes(oauth2Manager.getAudienceId(oauth2), consentedScopes)
             }
         }
     }
@@ -54,15 +54,15 @@ class ConsentAwareClaimManager(
      * identified by [audienceId] and given the [consentedScopes].
      *
      * This excludes:
-     * - Claims that are not user-inputted (generated or client-managed).
+     * - Claims the flow does not collect (generated, or an application's to write).
      * - Identifier claims (e.g. email used for sign-in), which require separate validation.
      * - Claims outside the provided [consentedScopes].
      * - Claims restricted to another audience, which this one has no business asking a person for.
      */
-    fun listCollectableClaimsWithScopes(audienceId: String, consentedScopes: List<String>): List<Claim> {
+    fun listClaimsCollectedInFlowWithScopes(audienceId: String, consentedScopes: List<String>): List<Claim> {
         val identifierClaims = claimManager.listIdentifierClaims()
-        return claimManager.listCollectableClaims()
+        return claimManager.listClaimsCollectedInFlow()
             .filter { it !in identifierClaims }
-            .filter { it.belongsToAudience(audienceId) && it.canBeWrittenByUser(consentedScopes) }
+            .filter { it.belongsToAudience(audienceId) && it.isCollectedInFlow(consentedScopes) }
     }
 }

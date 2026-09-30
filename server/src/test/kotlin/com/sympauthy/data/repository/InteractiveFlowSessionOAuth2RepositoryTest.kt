@@ -105,6 +105,23 @@ class InteractiveFlowSessionOAuth2RepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
+    fun `updateAuthenticationDate - Writes the moment the credential was proven`(database: Database) =
+        withFixture(database) {
+            val records = repository<InteractiveFlowSessionOAuth2Repository>()
+            val session = newSession()
+            val other = newSession()
+            saveRecord(session.id!!)
+            saveRecord(other.id!!)
+            val authenticationDate = BASE_DATE.plusMinutes(3)
+
+            records.updateAuthenticationDate(session.id!!, authenticationDate)
+
+            assertEquals(authenticationDate, records.findById(session.id!!)!!.authenticationDate)
+            assertNull(records.findById(other.id!!)!!.authenticationDate)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
     fun `updateGrantedScopes - Writes the list into the array column`(database: Database) =
         withFixture(database) {
             val records = repository<InteractiveFlowSessionOAuth2Repository>()

@@ -87,6 +87,7 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
             val supported = discovery(sympauthy).claimsSupported.orEmpty()
 
             assertTrue(supported.contains("sub"), "a generated claim both channels carry")
+            assertTrue(supported.contains("auth_time"), "a generated claim the id token carries")
             assertTrue(supported.contains("updated_at"), "a generated claim /userinfo carries")
             assertTrue(supported.contains("name"), "an OpenID claim the shipped template publishes")
             assertFalse(supported.contains("nickname"), "an OpenID claim published in neither channel")
@@ -131,8 +132,8 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
             "acl",
             mapOf(
                 "consent-scope" to "profile",
-                "readable-by-user-when-consented" to "true",
-                "writable-by-user-when-consented" to "true",
+                "readable-by-person-when-consented" to "true",
+                "collected-in-flow-when-consented" to "true",
                 "readable-by-client-when-consented" to "true",
             ),
         )

@@ -97,6 +97,7 @@ Client authentication is supported via:
             tokenType = if (authenticationToken.dpopJkt != null) "DPoP" else "Bearer",
             exp = authenticationToken.expirationDate?.toEpochSecond(ZoneOffset.UTC),
             iat = authenticationToken.issueDate.toEpochSecond(ZoneOffset.UTC),
+            authTime = authenticationToken.authenticationDate?.toEpochSecond(ZoneOffset.UTC),
             sub = authenticationToken.userId?.toString() ?: authenticationToken.clientId,
             aud = client.audience.tokenAudience,
             iss = authConfig.issuer,

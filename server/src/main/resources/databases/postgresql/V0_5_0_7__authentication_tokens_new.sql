@@ -13,6 +13,7 @@ CREATE TABLE authentication_tokens
     client_scopes        text[]    NOT NULL DEFAULT '{}',
     session_id           uuid,
     grant_type           text      NOT NULL,
+    authentication_date  timestamp,
 
     dpop_jkt             text,
 

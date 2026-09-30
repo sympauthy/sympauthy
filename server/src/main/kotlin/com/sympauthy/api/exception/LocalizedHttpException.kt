@@ -40,7 +40,18 @@ open class LocalizedHttpException(
     descriptionId = descriptionId,
     values = values,
     throwable = throwable
-)
+) {
+
+    /**
+     * The `WWW-Authenticate` value this refusal answers with, or null where it carries none — which is
+     * every refusal but the handful that tell a client what credential would have been accepted.
+     *
+     * It is a property of the failure rather than something the handler assembles, because what a
+     * challenge says is particular to the rule that refused: the age [InsufficientUserAuthenticationException]
+     * demands is read off the claim being written, and no handler holds it.
+     */
+    open val challenge: String? get() = null
+}
 
 /**
  * This failure as a [LocalizedHttpException] answering with [httpStatus], carrying the code, the

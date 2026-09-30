@@ -5,13 +5,31 @@ package com.sympauthy.business.model.user.claim
  *
  * These claims are always enabled and read-only, and a deployment configures nothing about them: every
  * key `claims.<id>` accepts is refused where it is written. What they are is held here, and nowhere else.
+ *
+ * **What they share is where the value comes from, not who it is about.** All of them are produced by
+ * this server at runtime rather than collected from a person, and [computedPerAccount] is where the two
+ * kinds part: one is an attribute of the account and the other belongs to a single authorization.
  */
 enum class GeneratedOpenIdConnectClaim(
     val id: String,
     val verifiedId: String? = null,
     val dataType: ClaimDataType,
     val group: ClaimGroup? = null,
-    val scope: String,
+    /**
+     * The consentable scope agreeing to which opens this claim, or null where nothing gates it.
+     */
+    val scope: String? = null,
+    /**
+     * Whether this claim has a value for an account, which
+     * [GeneratedClaimsManager][com.sympauthy.business.manager.GeneratedClaimsManager] can compute from
+     * a user id alone.
+     *
+     * True for the claims that describe the account. False for one that describes a single
+     * authorization instead: there is no value to answer for a person in the abstract, so the surfaces
+     * that list what this server knows about somebody leave it out rather than answering null for
+     * everybody.
+     */
+    val computedPerAccount: Boolean = true,
     /**
      * The channels this claim already reaches, which no deployment decides.
      *
@@ -37,6 +55,31 @@ enum class GeneratedOpenIdConnectClaim(
         dataType = ClaimDataType.NUMBER,
         scope = "profile",
         publishedIn = setOf(ClaimPublication.USERINFO)
+    ),
+
+    /**
+     * When the person proved a credential of their account, which the id token claims for itself out of
+     * the authorization rather than reading it off the account.
+     *
+     * It is the one entry that is not [computedPerAccount]: an account has no authentication time, only
+     * an authorization does, so the surfaces that answer what this server knows about a person leave it
+     * out. It is declared here all the same, because that is what keeps a deployment from declaring a
+     * claim of its own under the name and shadowing it in the id token.
+     *
+     * Nothing gates it on consent. Every id token issued for a person states it whatever they agreed
+     * to, which is what lets a resource server rely on it being there.
+     *
+     * **[publishedIn] names the id token alone, and the value travels further than that.** The access
+     * token carries it where RFC 9068 §2.2.1 puts it and the introspection response where RFC 9470 §6.2
+     * does, and neither is a [ClaimPublication]: that enum models the two OpenID channels a *collected*
+     * value is filtered into, and nothing filters this one. What the set is read for here is
+     * `claims_supported`, which the id token alone already answers for.
+     */
+    AUTHENTICATION_TIME(
+        id = OpenIdConnectClaimId.AUTH_TIME,
+        dataType = ClaimDataType.NUMBER,
+        publishedIn = setOf(ClaimPublication.ID_TOKEN),
+        computedPerAccount = false
     );
 
     /**
@@ -50,10 +93,12 @@ enum class GeneratedOpenIdConnectClaim(
         get() = ClaimAcl(
             consent = ConsentAcl(
                 scope = scope,
-                readableByUser = true,
-                writableByUser = false,
+                readableByPerson = true,
+                collectedInFlow = false,
+                writableByPerson = false,
                 readableByClient = true,
-                writableByClient = false
+                writableByClient = false,
+                writeMaxAuthenticationAge = null
             ),
             unconditional = UnconditionalAcl(
                 readableWithClientScopes = emptyList(),
@@ -65,6 +110,15 @@ enum class GeneratedOpenIdConnectClaim(
 
         /** The ids of every generated claim, which is what a claim written in a file is held against. */
         val ids: Set<String> = entries.mapTo(mutableSetOf(), GeneratedOpenIdConnectClaim::id)
+
+        /**
+         * The ids of the generated claims that describe an account, which is the set every per-person
+         * surface answers for. One this server computes per authorization is absent, so nothing lists
+         * it against somebody or answers null for it.
+         */
+        val idsComputedPerAccount: Set<String> = entries
+            .filter(GeneratedOpenIdConnectClaim::computedPerAccount)
+            .mapTo(mutableSetOf(), GeneratedOpenIdConnectClaim::id)
     }
 }
 
@@ -77,6 +131,22 @@ enum class GeneratedOpenIdConnectClaim(
  * @see <a href="https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims">Standard claims</a>
  */
 object OpenIdConnectClaimId {
+    /**
+     * When the person proved a credential of their account, which OpenID Connect Core §2 defines and
+     * RFC 9068 §2.2.1 places in a JWT access token as well.
+     *
+     * **It is deliberately absent from [ALL], and a deployment may not declare a claim under this name**
+     * — `ClaimsConfigValidator` refuses one. Every other id in this object names something this server
+     * may be told about a person and holds a row for; this one is a property of the authentication
+     * behind the token, computed per token and never collected.
+     *
+     * **That is also why it is not a [GeneratedOpenIdConnectClaim]**, which is how `sub` and
+     * `updated_at` are kept out of a deployment's hands. A generated claim is a value computed from a
+     * user id, and every per-person claim surface publishes one for each account; there is no
+     * authentication time to compute for an account, only for an authorization.
+     */
+    const val AUTH_TIME = "auth_time"
+
     const val SUB = "sub"
     const val NAME = "name"
     const val GIVEN_NAME = "given_name"
@@ -103,7 +173,7 @@ object OpenIdConnectClaimId {
     const val COUNTRY = "country"
 
     val ALL: Set<String> = setOf(
-        SUB, NAME, GIVEN_NAME, FAMILY_NAME, MIDDLE_NAME, NICKNAME,
+        AUTH_TIME, SUB, NAME, GIVEN_NAME, FAMILY_NAME, MIDDLE_NAME, NICKNAME,
         PREFERRED_USERNAME, PROFILE, PICTURE, WEBSITE, EMAIL, EMAIL_VERIFIED,
         GENDER, BIRTH_DATE, ZONE_INFO, LOCALE, PHONE_NUMBER, PHONE_NUMBER_VERIFIED,
         UPDATED_AT, STREET_ADDRESS, LOCALITY, REGION, POSTAL_CODE, COUNTRY

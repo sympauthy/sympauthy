@@ -58,7 +58,8 @@ class AuthorizeControllerTest {
                 uncheckedClientNonce = null,
                 uncheckedCodeChallenge = null,
                 uncheckedCodeChallengeMethod = null,
-                uncheckedInvitationToken = null
+                uncheckedInvitationToken = null,
+                uncheckedMaxAge = null
             )
         }
         assertEquals(UNSUPPORTED_RESPONSE_TYPE, exception.errorCode)
@@ -78,7 +79,8 @@ class AuthorizeControllerTest {
                 uncheckedClientNonce = null,
                 uncheckedCodeChallenge = null,
                 uncheckedCodeChallengeMethod = null,
-                uncheckedInvitationToken = null
+                uncheckedInvitationToken = null,
+                uncheckedMaxAge = null
             )
         }
         assertEquals(UNSUPPORTED_RESPONSE_TYPE, exception.errorCode)
@@ -98,7 +100,8 @@ class AuthorizeControllerTest {
                 uncheckedClientNonce = null,
                 uncheckedCodeChallenge = null,
                 uncheckedCodeChallengeMethod = null,
-                uncheckedInvitationToken = null
+                uncheckedInvitationToken = null,
+                uncheckedMaxAge = null
             )
         }
         assertEquals(UNSUPPORTED_RESPONSE_TYPE, exception.errorCode)
@@ -118,7 +121,8 @@ class AuthorizeControllerTest {
                 uncheckedClientNonce = null,
                 uncheckedCodeChallenge = null,
                 uncheckedCodeChallengeMethod = null,
-                uncheckedInvitationToken = null
+                uncheckedInvitationToken = null,
+                uncheckedMaxAge = null
             )
         }
         assertEquals(UNSUPPORTED_RESPONSE_TYPE, exception.errorCode)
@@ -138,7 +142,8 @@ class AuthorizeControllerTest {
                 uncheckedClientNonce = null,
                 uncheckedCodeChallenge = null,
                 uncheckedCodeChallengeMethod = null,
-                uncheckedInvitationToken = null
+                uncheckedInvitationToken = null,
+                uncheckedMaxAge = null
             )
         }
         assertEquals(UNSUPPORTED_RESPONSE_TYPE, exception.errorCode)
@@ -160,7 +165,8 @@ class AuthorizeControllerTest {
                 uncheckedRedirectUri = "https://example.com/callback",
                 uncheckedCodeChallenge = null,
                 uncheckedCodeChallengeMethod = null,
-                uncheckedInvitationToken = null
+                uncheckedInvitationToken = null,
+                uncheckedMaxAge = null
             )
         } returns (session to flow)
 
@@ -176,7 +182,8 @@ class AuthorizeControllerTest {
             uncheckedClientNonce = null,
             uncheckedCodeChallenge = null,
             uncheckedCodeChallengeMethod = null,
-            uncheckedInvitationToken = null
+            uncheckedInvitationToken = null,
+            uncheckedMaxAge = null
         )
 
         assertEquals(HttpStatus.SEE_OTHER, result.status)
@@ -214,7 +221,8 @@ class AuthorizeControllerTest {
             uncheckedClientNonce = "my-nonce",
             uncheckedCodeChallenge = "challenge123",
             uncheckedCodeChallengeMethod = "S256",
-            uncheckedInvitationToken = null
+            uncheckedInvitationToken = null,
+            uncheckedMaxAge = null
         )
 
         coVerify(exactly = 1) {
@@ -245,7 +253,8 @@ class AuthorizeControllerTest {
                 uncheckedRedirectUri = null,
                 uncheckedCodeChallenge = null,
                 uncheckedCodeChallengeMethod = null,
-                uncheckedInvitationToken = null
+                uncheckedInvitationToken = null,
+                uncheckedMaxAge = null
             )
         } returns (session to flow)
 
@@ -261,7 +270,8 @@ class AuthorizeControllerTest {
             uncheckedClientNonce = null,
             uncheckedCodeChallenge = null,
             uncheckedCodeChallengeMethod = null,
-            uncheckedInvitationToken = null
+            uncheckedInvitationToken = null,
+            uncheckedMaxAge = null
         )
 
         coVerify(exactly = 1) {
@@ -273,7 +283,8 @@ class AuthorizeControllerTest {
                 uncheckedRedirectUri = null,
                 uncheckedCodeChallenge = null,
                 uncheckedCodeChallengeMethod = null,
-                uncheckedInvitationToken = null
+                uncheckedInvitationToken = null,
+                uncheckedMaxAge = null
             )
         }
     }

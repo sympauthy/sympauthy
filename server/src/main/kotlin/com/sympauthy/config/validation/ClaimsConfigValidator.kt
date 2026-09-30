@@ -130,7 +130,7 @@ class ClaimsConfigValidator(
             group = parsed.group,
             required = parsed.required,
             generated = parsed.generated,
-            userInputted = if (!parsed.generated) acl.consent.writableByUser else false,
+            collectedInFlow = if (!parsed.generated) acl.consent.collectedInFlow else false,
             allowedValues = parsed.allowedValues,
             audienceId = audienceId,
             publishedIn = parsed.publishedIn,

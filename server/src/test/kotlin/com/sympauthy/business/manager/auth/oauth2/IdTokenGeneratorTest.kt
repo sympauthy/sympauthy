@@ -51,6 +51,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import java.time.Duration
 import java.time.LocalDateTime
+import java.time.ZoneOffset
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
@@ -124,6 +125,52 @@ class IdTokenGeneratorTest {
         assertEquals(listOf(CONSENTED_SCOPE), entity.consentedScopes.toList())
         assertEquals(sessionId, entity.sessionId)
         assertEquals("refresh_token", entity.grantType)
+    }
+
+    @Test
+    fun `generateIdToken - Claim the moment the authorization proved a credential`() = runTest {
+        val userId = UUID.randomUUID()
+        val builder = stubGeneration(userId)
+
+        generator.generateIdToken(
+            oauth2 = oauth2(grantedScopes = listOf(BuiltInGrantableScopeId.OPENID)),
+            userId = userId,
+            audienceId = AUDIENCE,
+            accessToken = mockk { every { token } returns ACCESS_TOKEN }
+        )
+
+        assertEquals(
+            AUTHENTICATION_DATE.toEpochSecond(ZoneOffset.UTC),
+            builder.build().getLongClaim("auth_time")
+        )
+    }
+
+    @Test
+    fun `generateIdToken - Claim no auth_time where the authorization recorded none`() = runTest {
+        val userId = UUID.randomUUID()
+        val builder = stubGeneration(userId)
+
+        generator.generateIdToken(
+            oauth2 = oauth2(
+                grantedScopes = listOf(BuiltInGrantableScopeId.OPENID),
+                authenticationDate = null
+            ),
+            userId = userId,
+            audienceId = AUDIENCE,
+            accessToken = mockk { every { token } returns ACCESS_TOKEN }
+        )
+
+        assertNull(builder.build().getClaim("auth_time"))
+    }
+
+    @Test
+    fun `generateIdToken - Claim the original auth_time on a refresh`() = runTest {
+        val claimsSet = issue(mockRefreshToken(sessionId = UUID.randomUUID()))
+
+        assertEquals(
+            AUTHENTICATION_DATE.toEpochSecond(ZoneOffset.UTC),
+            claimsSet.getLongClaim("auth_time")
+        )
     }
 
     @Test
@@ -276,17 +323,19 @@ class IdTokenGeneratorTest {
         group = group,
         required = false,
         generated = false,
-        userInputted = true,
+        collectedInFlow = true,
         allowedValues = null,
         audienceId = null,
         publishedIn = publishedIn,
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = null,
-                readableByUser = true,
-                writableByUser = true,
+                readableByPerson = true,
+                collectedInFlow = true,
+                writableByPerson = false,
                 readableByClient = true,
-                writableByClient = false
+                writableByClient = false,
+                writeMaxAuthenticationAge = null
             ),
             unconditional = UnconditionalAcl(
                 readableWithClientScopes = emptyList(),
@@ -324,26 +373,33 @@ class IdTokenGeneratorTest {
         claims = claims.toList()
     )
 
-    private fun oauth2(grantedScopes: List<String>) = InteractiveFlowSessionOAuth2(
+    private fun oauth2(
+        grantedScopes: List<String>,
+        authenticationDate: LocalDateTime? = AUTHENTICATION_DATE
+    ) = InteractiveFlowSessionOAuth2(
         sessionId = UUID.randomUUID(),
         clientId = "client",
         redirectUri = "https://client.example.com/callback",
         requestedScopes = grantedScopes,
-        grantedScopes = grantedScopes
+        grantedScopes = grantedScopes,
+        authenticationDate = authenticationDate
     )
 
     private fun mockRefreshToken(
         sessionId: UUID,
-        grantedScopes: List<String> = listOf(BuiltInGrantableScopeId.OPENID)
+        grantedScopes: List<String> = listOf(BuiltInGrantableScopeId.OPENID),
+        authenticationDate: LocalDateTime? = AUTHENTICATION_DATE
     ): AuthenticationToken {
         val id = UUID.randomUUID()
         val scopes = grantedScopes
+        val authenticatedAt = authenticationDate
         return mockk {
             every { userId } returns id
             every { clientId } returns "client"
             every { this@mockk.grantedScopes } returns scopes
             every { consentedScopes } returns listOf(CONSENTED_SCOPE)
             every { this@mockk.sessionId } returns sessionId
+            every { this@mockk.authenticationDate } returns authenticatedAt
         }
     }
 
@@ -427,5 +483,7 @@ class IdTokenGeneratorTest {
         const val CONSENTED_SCOPE = "email"
         const val AUDIENCE = "storefront"
         const val ACCESS_TOKEN = "jHkWEdUXMU1BwAsC4vtUsZwnNvTIxEl0z9K3vx5KF0Y"
+
+        val AUTHENTICATION_DATE: LocalDateTime = LocalDateTime.of(2025, 3, 4, 9, 15, 0)
     }
 }

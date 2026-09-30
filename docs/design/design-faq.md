@@ -165,6 +165,95 @@ here: a refresh reissues what the authorization it descends from was issued, or 
 
 ---
 
+### Does a token state `auth_time` only when a client asked for it?
+
+**Decision:** No. Every token issued for a person states it — the id token, the access token and
+the introspection response alike — whether or not the authorization carried `max_age`.
+
+**Options considered:**
+
+- **Only where `max_age` was asked**, which is the minimum OpenID Connect Core §2 allows: the claim
+  is REQUIRED when the request asked for it and OPTIONAL otherwise.
+- **Always in the id token**, and nowhere else.
+- **Always in the id token, the access token and introspection**, which is what was built.
+
+**Rationale:**
+
+The whole point of the claim is that somebody downstream can tell a password typed a minute ago
+from one typed a month ago. The party that needs to do the telling is a resource server, and a
+resource server does not make the authorization request — so making the claim conditional on a
+parameter the *client* sent decides, at authorization time, whether a rule the resource server has
+not been written yet will be enforceable. A deployment that adds a recency rule later would have to
+go round every client and have them send `max_age` before the rule could refuse anything, and until
+they all had, the rule would fail open on exactly the tokens it was written for.
+
+Nothing is disclosed by stating it unasked. `auth_time` is a property of the authentication rather
+than an attribute of the person, and the client it reaches is the one that just drove that
+authentication.
+
+The access token carries it because RFC 9068 §2.2.1 puts it there, and because a resource server
+that is not this one holds an access token and no id token. Introspection carries it because
+RFC 9470 §6.2 puts it there, for the resource server that validates by asking rather than by
+verifying a signature.
+
+The cost is a claim in every token nobody may read. That is the shape of `iat` and `jti` too.
+
+---
+
+### Is `iat` the recency a resource server should read?
+
+**Decision:** No, and that is the gap `auth_time` closes rather than a second way of saying the
+same thing.
+
+**Options considered:**
+
+- **`iat`** — the token is already stamped with it, and no column, no claim and no plumbing would
+  have been needed.
+- **A claim of its own**, recorded where the authorization is recorded and reissued unchanged by
+  every refresh.
+
+**Rationale:**
+
+`iat` is the minting time. A refresh mints a new token whenever the client likes — for thirty days
+under the shipped `auth.token.refresh-expiration` — so an authentication thirty days old shows an
+`iat` of a minute ago on every refreshed token. A resource server reading recency off it would let
+through precisely the unattended caller it was asking about, and would do so silently.
+
+---
+
+### Is a stale authentication answered with a challenge or with a re-authenticated flow?
+
+**Decision:** With the challenge RFC 9470 §3 defines — a `401` naming
+`insufficient_user_authentication` and the `max_age` the operation demands — rather than with a
+flow of its own.
+
+**Options considered:**
+
+- **The RFC 9470 challenge.** The client re-authorizes with `max_age` and retries with the token it
+  is issued.
+- **A re-authenticated edit session**, Keycloak's shape for its sensitive actions, and what #470
+  keeps for changing an identifier.
+- **Refuse, and say nothing about how to succeed.**
+
+**Rationale:**
+
+The second is right where the *new value* has to be proven as well as the person — changing the
+address an account signs in with is that, and it stays a flow. For a claim write there is no new
+value to prove: the question is only whether the person is there, and a redirect already answers
+it. An edit session would cost a browser round trip through a purpose of its own on every write,
+to obtain what one redirect obtains.
+
+The third is what a bare `403` would be. A client cannot tell a permission it will never have from
+one it could have by sending the person through a redirect it already knows how to make, so the
+challenge is the difference between an error a client can act on and one it can only report.
+
+The challenge names `max_age` alone of the two parameters RFC 9470 allows. `acr_values` would mean
+inventing a vocabulary of authentication strengths for one value, and advertising
+`acr_values_supported` for a server that offers no choice: an account is proven by its credential,
+and by its second factor where one is enrolled.
+
+---
+
 ### Should a configuration that makes a large id token be refused?
 
 **Decision:** No. What an audience publishes is what the id token carries, and nothing caps the

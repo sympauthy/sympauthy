@@ -137,7 +137,11 @@ open class InteractiveAuthFlowSessionPasswordManager(
                 // Stamped before the flow advances, because completing it is what folds the observation
                 // into the person's record — one stamped afterwards would arrive a completion too late.
                 userSecurityContextManager.markProven(session.id, observedRequest)
-                engine.completeIfNecessary(sessionManager.setAuthenticatedUserId(session, user.id))
+                val authenticated = sessionManager.setAuthenticatedUserId(session, user.id)
+                // Stamped once the session's user is this person's, which is the condition the
+                // authentication date is written under.
+                oauth2Manager.setAuthenticationDate(authenticated)
+                engine.completeIfNecessary(authenticated)
             }
 
             engine.currentPurposeOrNull(session) == InteractiveFlowPurpose.REAUTHENTICATION ->
@@ -194,6 +198,9 @@ open class InteractiveAuthFlowSessionPasswordManager(
 
         val updatedSession = createAccountWithClaimsAndPassword(session, unfilteredUpdates, password)
         userSecurityContextManager.markProven(updatedSession.id, observedRequest)
+        // Creating the account is proving a credential of it: the password written above is the one this
+        // person will sign in with, so the authorization carries this moment rather than none at all.
+        oauth2Manager.setAuthenticationDate(updatedSession)
 
         // Outside the transaction above, deliberately. Completing runs the terminal effects, the promotion
         // and the completion write in a transaction of its own, and a refusal there has to roll that back

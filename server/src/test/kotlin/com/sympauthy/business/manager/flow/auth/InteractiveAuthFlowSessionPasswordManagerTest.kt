@@ -203,6 +203,7 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
         val updated = mockk<OnGoingInteractiveFlowSession>()
         val advanced = mockk<InteractiveFlowSession>()
         stubSuccessfulCredential()
+        coEvery { oauth2Manager.setAuthenticationDate(updated) } returns Unit
         coEvery { sessionManager.setAuthenticatedUserId(session, userId, any()) } returns updated
         coEvery { engine.completeIfNecessary(updated) } returns advanced
 
@@ -210,6 +211,7 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
 
         assertSame(advanced, result)
         coVerify { sessionManager.setAuthenticatedUserId(session, userId, any()) }
+        coVerify { oauth2Manager.setAuthenticationDate(updated) }
         coVerify(exactly = 0) { reauthenticationManager.markPrimaryCredentialProven(any()) }
         // The user is not yet known on a normal sign-in, so the engine is never walked to detect the purpose.
         coVerify(exactly = 0) { engine.currentPurposeOrNull(any()) }
@@ -401,6 +403,7 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
         }
         val updated = mockk<OnGoingInteractiveFlowSession>()
         stubSuccessfulCredential()
+        coEvery { oauth2Manager.setAuthenticationDate(updated) } returns Unit
         coEvery { sessionManager.setAuthenticatedUserId(session, userId, any()) } returns updated
         coEvery { engine.completeIfNecessary(updated) } returns mockk()
 
@@ -422,5 +425,8 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
         manager.signInWithPassword(session, login, password, observedRequestOf())
 
         coVerify { userSecurityContextManager.markProven(sessionId, any()) }
+        // A re-authentication gate runs on a session serving a purpose that issues no token, so there is
+        // no authorization to stamp and reaching for its record would fail.
+        coVerify(exactly = 0) { oauth2Manager.setAuthenticationDate(any()) }
     }
 }

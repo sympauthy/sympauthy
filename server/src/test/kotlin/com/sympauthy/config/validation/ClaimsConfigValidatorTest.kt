@@ -20,25 +20,31 @@ class ClaimsConfigValidatorTest {
         "billing" to Audience(id = "billing", tokenAudience = "billing")
     )
 
-    private fun parsedClaim(id: String, audienceId: String? = null) = ParsedClaim(
+    private fun parsedClaim(
+        id: String,
+        audienceId: String? = null,
+        verifiedId: String? = null
+    ) = ParsedClaim(
         id = id,
         enabled = true,
         dataType = ClaimDataType.EMAIL,
         group = null,
         required = false,
         generated = false,
-        verifiedId = null,
+        verifiedId = verifiedId,
         audienceId = audienceId,
         allowedValues = null,
         publishedIn = ClaimPublication.entries.toSet(),
         acl = ParsedClaimAcl(
             consentScope = null,
-            readableByUser = true,
-            writableByUser = true,
+            readableByPerson = true,
+            collectedInFlow = true,
+            writableByPerson = null,
             readableByClient = true,
             writableByClient = false,
             readableWithClientScopes = emptyList(),
-            writableWithClientScopes = emptyList()
+            writableWithClientScopes = emptyList(),
+            writeMaxAuthenticationAge = null
         )
     )
 

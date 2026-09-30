@@ -155,6 +155,70 @@ being usable on its own.
 expiry. This is the deliberate cost of not being purely stateless: every request presenting a token
 asks the database about it.
 
+### When the person authenticated
+
+**Every token issued for a person says when they proved a credential of their account**, as the
+`auth_time` OpenID Connect Core §2 defines. The id token carries it, the access token carries it
+where RFC 9068 §2.2.1 puts it so a resource server that is not this one can read it too, and the
+introspection response reports it where RFC 9470 §6.2 puts it. `claims_supported` lists it, and a
+deployment configures nothing about it: it is [a generated claim](claims.md#a-generated-claim), so a
+section written under its name is dropped and every key under one is refused at startup.
+It is stated whether or not a client asked for it, and [the design
+FAQ](design-faq.md#does-a-token-state-auth_time-only-when-a-client-asked-for-it) argues the
+minimum the specification would have allowed.
+
+**It is the moment the credential verified, and nothing else.** A password checked, a third-party
+provider's callback resolved to the account, or the account created at sign-up: the authorization
+records that moment and every token it produces states it. It is not the moment the code was
+exchanged and it is not `iat`, which is why it is recorded where the authorization is recorded
+rather than computed when a token is minted; [the design
+FAQ](design-faq.md#is-iat-the-recency-a-resource-server-should-read) holds what reading `iat`
+instead would cost.
+
+**A second factor does not move it.** Passing one is a purpose that follows in the same session, so
+`auth_time` says when the credential was proven and whether a second factor followed is a question
+for `amr`, which this server does not publish.
+
+**A refresh reissues it unchanged.** A refresh reissues the identity of the original authentication
+and the time of that authentication is part of it — reading it again would have the server say a
+person authenticated at the moment their client asked for a new token, which is the whole of what
+`iat` already fails to answer. An authentication a month old therefore states a month-old
+`auth_time` on a token minted a minute ago.
+
+**A token no person's authentication is behind carries none.** A `client_credentials` grant has no
+person at all, and a token exchange asserts an identity nobody proved; a date on either would be a
+resource server told an unattended caller had just signed in. No generator writes one, and the
+mapper refuses such a row when it is read back — so a date that reached the column would take that
+token out of service rather than travel on it unnoticed.
+
+**A client may ask for a recent authentication with `max_age`**, which the authorize endpoint reads
+with the meaning §3.1.2.1 gives it, refusing anything but a non-negative number of seconds. It is
+satisfied by construction: this server keeps no session between authorizations — see
+[the state authentication is not a session](#the-state-authentication-is-not-a-session) and
+[the interactive flow](interactive-flow.md#what-this-design-does-not-do) — so every authorization
+signs the person in anew and the authentication a code represents is always younger than the flow
+that produced it. Should a session ever be kept, this is what would prepend the re-authentication
+gate; today there is nothing to prepend, and what a client observes is the `auth_time` §3.1.2.1
+asks for, which every id token states whether or not one was asked for.
+
+**A surface may refuse an authentication that is too old**, with the challenge RFC 9470 §3 defines:
+a `401` carrying
+`WWW-Authenticate: Bearer error="insufficient_user_authentication", …, max_age="300"`, and the
+[API standard's body](../standards/api-standard.md#errors) under
+`authentication.insufficient_user_authentication` beside it, so a client reading headers and one
+reading bodies learn the same thing. The client re-authorizes with `max_age` and retries with the
+token it is issued, which a public client can do because authorizing is a redirect and nothing in
+the challenge needs a secret. The challenge names `max_age` alone of the two parameters RFC 9470
+allows: this server publishes no vocabulary of authentication strengths, so it has no `acr_values`
+to ask for. [The design
+FAQ](design-faq.md#is-a-stale-authentication-answered-with-a-challenge-or-with-a-re-authenticated-flow)
+argues the re-authenticated flow that lost to it.
+
+**Nothing emits that challenge yet.** The per-claim age a deployment marks is
+[the claims'](claims.md#the-person), and the surface that would read it — the person's own claim
+write through their access token — is designed and not yet built. A read is never challenged
+whenever it does arrive.
+
 ### The id token
 
 **An id token names the access token it was issued beside**, as the `at_hash` claim of OpenID
