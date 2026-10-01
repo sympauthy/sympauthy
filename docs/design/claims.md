@@ -332,8 +332,9 @@ is what the account signs in with, so an account holding no value for one holds 
 matches — which is not something a `required` key or a client's consent decides. The flow holds a
 person to it beside the required claims and never offers it at the claims step, so neither the set
 it offers nor the set it holds them to asks the flow's own flag about one. How a sign-up collects
-them, and what is still open about an account that predates one being added, is
-[the identifier claims](identifier-claims.md#collecting-them-at-sign-up).
+them is [the identifier claims](identifier-claims.md#collecting-them-at-sign-up), and what is still
+open about an account that predates one being added to the set is
+[what that document does not settle](identifier-claims.md#what-this-document-does-not-settle).
 
 ## Where a claim is published
 

@@ -117,21 +117,26 @@ open class ConsentAwareCollectedClaimManager(
      * [consentedScopes] are not: consent is recorded per audience, so scopes a person consented to are always
      * some audience's and the caller holding them knows which.
      *
-     * This is the flow's own half of the ACL. No client scopes are taken, because no client is party to it:
-     * the person is on this server's own pages having just authenticated. A caller holding what the flow
-     * offered a person needs this read rather than a client's, which answers less and leaves a claim a
-     * deployment collects and discloses to no client reading back as never collected.
+     * The flow collects a claim at one of two steps, and this answers for both. An identifier claim is
+     * collected by the sign-up, so it is answered whatever the ACL says — it is what the account signs in
+     * with, and a flow that could not see one would hold a person to a claim it cannot read. Every other
+     * claim is collected at the claims step, which is the flow's own half of the ACL: the audience's, within
+     * the consented scopes, and marked collected in the flow.
      *
-     * **An identifier claim is subject to the flag here like any other**, so a caller needing one whatever
-     * the ACL says asks [CollectedClaimManager.findIdentifierByUserId] beside this.
+     * No client scopes are taken, because no client is party to this: the person is on this server's own
+     * pages having just authenticated. A caller reading through a client's permission instead gets less than
+     * the flow offered, and a claim a deployment collects and discloses to no client reads back as never
+     * collected.
      */
     suspend fun findByUserIdAndCollectedInFlow(
         userId: UUID,
         audienceId: String,
         consentedScopes: List<String>
     ): List<CollectedClaim> {
+        val identifierClaims = claimManager.listIdentifierClaims().toSet()
         return collectedClaimManager.findByUserId(userId).filter {
-            it.claim.belongsToAudience(audienceId) && it.claim.isCollectedInFlow(consentedScopes)
+            it.claim in identifierClaims ||
+                    (it.claim.belongsToAudience(audienceId) && it.claim.isCollectedInFlow(consentedScopes))
         }
     }
 
@@ -188,29 +193,31 @@ open class ConsentAwareCollectedClaimManager(
      * claims to ask for — an audience gets its own required set, and a person signing in to one is not held
      * to another's.
      *
-     * [collectedClaims] holds at least the claims the flow collects, per [findByUserIdAndCollectedInFlow],
-     * and the identifier claims beside them, per [CollectedClaimManager.findIdentifierByUserId]. A caller
-     * handing over a narrower list answers false for a claim it was never given, and the step this gates is
-     * then served again however many times the person submits the value. It may hold more than this answer
-     * turns on, which makes no required claim look collected that is not.
+     * [collectedClaims] holds at least the claims the flow collects, per [findByUserIdAndCollectedInFlow].
+     * A caller handing over a narrower list answers false for a claim it was never given, and the step this
+     * gates is then served again however many times the person submits the value. It may hold more than this
+     * answer turns on, which makes no claim look collected that is not.
      *
-     * It answers on the presence of a row rather than of a value, which is what the claims step writes and
-     * reads back.
+     * **A claim is collected where it holds a value, not where it holds a row.** A blank submission is a
+     * value being cleared and writes a row holding null — see [CollectedClaimUpdate] — so a gate reading
+     * presence alone is satisfied by a person posting an empty field, which is the opposite of what
+     * `required` asks. An identifier claim cleared is a missing one for the same reason: it holds a row no
+     * login matches.
      */
     fun areAllIdentifierAndRequiredClaimsCollectedInFlow(
         collectedClaims: List<CollectedClaim>,
         audienceId: String,
         consentedScopes: List<String>
     ): Boolean {
-        val identifierClaims = claimManager.listIdentifierClaims()
+        val identifierClaims = claimManager.listIdentifierClaims().toSet()
+        // The required half leaves identifier claims to the first term rather than answering them twice. It
+        // does not change the answer; it is what keeps the flow's own flag unasked of an identifier claim,
+        // which is the rule ConsentAcl.collectedInFlow states.
         val heldToClaims = identifierClaims + claimManager.listRequiredClaims()
             .filter { it !in identifierClaims }
             .filter { it.belongsToAudience(audienceId) && it.isCollectedInFlow(consentedScopes) }
-        if (heldToClaims.isEmpty()) {
-            return true
-        }
-        val collectedClaimSet = collectedClaims.map { it.claim }.toSet()
-        return heldToClaims.all { it in collectedClaimSet }
+        val claimsHoldingAValue = collectedClaims.filter { it.value != null }.map { it.claim }.toSet()
+        return heldToClaims.all { it in claimsHoldingAValue }
     }
 
     /**

@@ -367,13 +367,10 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
             val session = onGoingSessionMock(userId)
             val consentedScopes = listOf("openid", "profile")
             val oauth2 = oauth2Of(consentedScopes = consentedScopes)
-            val collectedInFlow = listOf(mockk<CollectedClaim> {
-                every { claim } returns mockk { every { id } returns "secret_note" }
-            })
+            val collectedInFlow = listOf(mockk<CollectedClaim>())
 
             coEvery { oauth2Manager.getAudienceId(oauth2) } returns testAudience.id
-            coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns emptyList()
-            coEvery {
+                coEvery {
                 consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(
                     userId, testAudience.id, consentedScopes
                 )
@@ -384,11 +381,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
                 )
             } returns true
             every {
-                claimValidationManager.getReasonsToSendValidationCode(
-                    testAudience.id,
-                    identifierClaims = emptyList(),
-                    collectedInFlowClaims = collectedInFlow
-                )
+                claimValidationManager.getReasonsToSendValidationCode(testAudience.id, collectedInFlow)
             } returns emptyList()
 
             val status = handler.computeStatus(session, oauth2)
@@ -542,7 +535,6 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         val consentedScopes = listOf("openid", "profile")
         val oauth2 = oauth2Of(consentedScopes = consentedScopes)
         coEvery { oauth2Manager.getAudienceId(oauth2) } returns testAudience.id
-        coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns emptyList()
         coEvery {
             consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(
                 userId, testAudience.id, consentedScopes
@@ -553,7 +545,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
                 any(), testAudience.id, consentedScopes
             )
         } returns allRequiredCollected
-        every { claimValidationManager.getReasonsToSendValidationCode(any(), any(), any()) } returns reasons
+        every { claimValidationManager.getReasonsToSendValidationCode(any(), any()) } returns reasons
         return oauth2
     }
 

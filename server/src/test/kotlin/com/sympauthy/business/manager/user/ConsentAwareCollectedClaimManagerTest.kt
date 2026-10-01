@@ -305,9 +305,27 @@ class ConsentAwareCollectedClaimManagerTest {
             every { claim } returns hidden
         }
 
+        every { claimManager.listIdentifierClaims() } returns emptyList()
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collected)
 
         val result = manager.findByUserIdAndCollectedInFlow(userId, AUDIENCE, listOf(scope))
+
+        assertEquals(1, result.count())
+        assertSame(collected, result[0])
+    }
+
+    @Test
+    fun `findByUserIdAndCollectedInFlow - Answer an identifier claim the flow does not mark collected`() = runTest {
+        val userId = UUID.randomUUID()
+        val identifier = claimWithConsentScope("scope1", collectedInFlow = false)
+        val collected = mockk<CollectedClaim> {
+            every { claim } returns identifier
+        }
+
+        every { claimManager.listIdentifierClaims() } returns listOf(identifier)
+        coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collected)
+
+        val result = manager.findByUserIdAndCollectedInFlow(userId, "storefront", emptyList())
 
         assertEquals(1, result.count())
         assertSame(collected, result[0])
@@ -321,6 +339,7 @@ class ConsentAwareCollectedClaimManagerTest {
             every { claim } returns claimWithConsentScope(scope, collectedInFlow = false)
         }
 
+        every { claimManager.listIdentifierClaims() } returns emptyList()
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collected)
 
         assertTrue(manager.findByUserIdAndCollectedInFlow(userId, AUDIENCE, listOf(scope)).isEmpty())
@@ -333,6 +352,7 @@ class ConsentAwareCollectedClaimManagerTest {
             every { claim } returns claimWithConsentScope("scope1")
         }
 
+        every { claimManager.listIdentifierClaims() } returns emptyList()
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collected)
 
         assertTrue(manager.findByUserIdAndCollectedInFlow(userId, AUDIENCE, listOf("scope2")).isEmpty())
@@ -346,6 +366,7 @@ class ConsentAwareCollectedClaimManagerTest {
             every { claim } returns claimWithConsentScope(scope, audienceId = "billing")
         }
 
+        every { claimManager.listIdentifierClaims() } returns emptyList()
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collected)
 
         assertTrue(manager.findByUserIdAndCollectedInFlow(userId, "storefront", listOf(scope)).isEmpty())
@@ -457,8 +478,10 @@ class ConsentAwareCollectedClaimManagerTest {
         )
         val collected = mockk<CollectedClaim> {
             every { claim } returns required
+            every { value } returns "note"
         }
 
+        every { claimManager.listIdentifierClaims() } returns emptyList()
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collected)
         every { claimManager.listIdentifierClaims() } returns emptyList()
         every { claimManager.listRequiredClaims() } returns listOf(required)
@@ -499,6 +522,7 @@ class ConsentAwareCollectedClaimManagerTest {
             )
             val collected = mockk<CollectedClaim> {
                 every { claim } returns identifier
+                every { value } returns "ada@example.com"
             }
 
             every { claimManager.listIdentifierClaims() } returns listOf(identifier)
@@ -507,6 +531,31 @@ class ConsentAwareCollectedClaimManagerTest {
             assertTrue(
                 manager.areAllIdentifierAndRequiredClaimsCollectedInFlow(
                     listOf(collected), "storefront", emptyList()
+                )
+            )
+        }
+
+    @Test
+    fun `areAllIdentifierAndRequiredClaimsCollectedInFlow - A claim submitted blank is not collected`() =
+        runTest {
+            // A blank submission writes a row holding null rather than none, so a gate reading the row
+            // would be satisfied by a person posting an empty field.
+            val scope = "scope1"
+            val required = claimWithConsentScope(scope, audienceId = "storefront", required = true)
+            val cleared = mockk<CollectedClaim> {
+                every { value } returns null
+            }
+            val answered = mockk<CollectedClaim> {
+                every { claim } returns claimWithConsentScope("scope2")
+                every { value } returns "something else"
+            }
+
+            every { claimManager.listIdentifierClaims() } returns emptyList()
+            every { claimManager.listRequiredClaims() } returns listOf(required)
+
+            assertFalse(
+                manager.areAllIdentifierAndRequiredClaimsCollectedInFlow(
+                    listOf(cleared, answered), "storefront", listOf(scope)
                 )
             )
         }

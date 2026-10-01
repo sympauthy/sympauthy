@@ -97,21 +97,6 @@ open class CollectedClaimManager(
     }
 
     /**
-     * Return true if all [Claim] that have been marked as [Claim.required] have been collected from the end-user.
-     */
-    fun areAllRequiredClaimCollected(collectedClaims: List<CollectedClaim>): Boolean {
-        val requiredClaims = claimManager.listRequiredClaims()
-        if (requiredClaims.isEmpty()) {
-            return true
-        }
-        val missingRequiredClaims = collectedClaims.fold(requiredClaims.toMutableSet()) { acc, claim ->
-            acc.remove(claim.claim)
-            acc
-        }
-        return missingRequiredClaims.isEmpty()
-    }
-
-    /**
      * Update the claims collected for the [user] and return all the claims collected for the user.
      * All [updates] will be applied without any scope restriction.
      *

@@ -105,47 +105,6 @@ class CollectedClaimManagerTest {
     }
 
     @Test
-    fun `areAllRequiredClaimCollected - True if all required claims are collected false otherwise`() {
-        val firstRequiredClaim = mockk<Claim>()
-        val secondRequiredClaim = mockk<Claim>()
-        val optionalClaim = mockk<Claim>()
-
-        val firstRequiredCollectedClaim = mockk<CollectedClaim> {
-            every { claim } returns firstRequiredClaim
-        }
-        val secondRequiredCollectedClaim = mockk<CollectedClaim> {
-            every { claim } returns secondRequiredClaim
-        }
-        val optionalCollectedClaim = mockk<CollectedClaim> {
-            every { claim } returns optionalClaim
-        }
-
-        every { claimManager.listRequiredClaims() } returns listOf(firstRequiredClaim, secondRequiredClaim)
-
-        assertTrue(
-            manager.areAllRequiredClaimCollected(
-                listOf(
-                    firstRequiredCollectedClaim,
-                    secondRequiredCollectedClaim
-                )
-            )
-        )
-
-        assertFalse(manager.areAllRequiredClaimCollected(listOf()))
-        assertFalse(manager.areAllRequiredClaimCollected(listOf(firstRequiredCollectedClaim)))
-        assertFalse(manager.areAllRequiredClaimCollected(listOf(secondRequiredCollectedClaim)))
-        assertFalse(manager.areAllRequiredClaimCollected(listOf(optionalCollectedClaim)))
-    }
-
-    @Test
-    fun `areAllRequiredClaimCollected - Always true if not required claims`() {
-        every { claimManager.listRequiredClaims() } returns emptyList()
-
-        assertTrue(manager.areAllRequiredClaimCollected(listOf()))
-        assertTrue(manager.areAllRequiredClaimCollected(listOf(mockk())))
-    }
-
-    @Test
     fun `writeUpdates - Return the created, the updated and the untouched claims`() = runTest {
         val userId = UUID.randomUUID()
         val user = mockk<User> {
