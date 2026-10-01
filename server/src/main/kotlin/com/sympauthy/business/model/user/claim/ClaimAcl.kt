@@ -30,12 +30,12 @@ data class ConsentAcl(
      * offers and what it reads back — and is neither [readableByPerson], which `/userinfo` answers from,
      * nor [writableByPerson], which a person's own access token writes through.
      *
-     * **The claims step does not offer an identifier claim whatever this says.** What an account signs in
-     * with is collected by the sign-in and the sign-up instead, and
-     * `ConsentAwareClaimManager.listClaimsCollectedInFlowWithScopes` filters identifier claims out before
-     * asking this flag at all. The flag is still read about one elsewhere — the required set
-     * `ConsentAwareCollectedClaimManager.areAllRequiredClaimsCollectedInFlow` computes asks it of every
-     * required claim — so it is not inert on one, only disconnected from the step it is named for.
+     * **An identifier claim is outside it, and nothing asks this flag of one.** What an account signs in
+     * with is collected by the sign-up rather than by the claims step, and is required of every account by
+     * being what it signs in with — so neither the set the flow offers
+     * (`ConsentAwareClaimManager.listClaimsCollectedInFlowWithScopes`) nor the set it holds a person to
+     * (`ConsentAwareCollectedClaimManager.areAllIdentifierAndRequiredClaimsCollectedInFlow`) reaches this
+     * flag for one. Both answer for an identifier claim before asking it.
      *
      * **It is accepted on an identifier claim rather than refused**, unlike [writeMaxAuthenticationAge] on
      * a claim no access token may write: the shipped `openid` template marks it, and the shipped `mail`

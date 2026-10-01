@@ -170,33 +170,47 @@ open class ConsentAwareCollectedClaimManager(
     }
 
     /**
-     * Return true if all required claims that the end-user can write given the [consentedScopes]
-     * have been collected, for the audience identified by [audienceId].
+     * Return true if every claim this flow holds the end-user to has been collected, for the audience
+     * identified by [audienceId] and given the [consentedScopes]. There are two kinds of them, and each
+     * arrives by a rule of its own.
      *
-     * A required claim is one of three things at once: it belongs to [audienceId], the end-user consented to
-     * the scope it sits under, and they may write it. Required claims outside the consented scopes are not
-     * considered, since the end-user has not consented to provide them in this authorization flow; required
-     * claims restricted to another audience are not either, because they are not this audience's claims to ask
-     * for — an audience gets its own required set, and a person signing in to one is not held to another's.
+     * **An identifier claim is held to whatever its file says.** It is what the account signs in with, so it
+     * is required of every account and is collected by the sign-up rather than by the claims step — a
+     * password sign-up refuses a value that arrives without one, and a provider sign-up refuses an account
+     * the provider asserts none for. Neither `required` nor the flow's own flag is asked of one, and the
+     * consent scope is not either: an account holding no value for a claim it is identified by holds a row no
+     * login matches, which is not something a client's consent decides.
+     *
+     * **A required claim is one of three things at once**: it belongs to [audienceId], the end-user consented
+     * to the scope it sits under, and the flow collects it. Required claims outside the consented scopes are
+     * not considered, since the end-user has not consented to provide them in this authorization flow;
+     * required claims restricted to another audience are not either, because they are not this audience's
+     * claims to ask for — an audience gets its own required set, and a person signing in to one is not held
+     * to another's.
      *
      * [collectedClaims] holds at least the claims the flow collects, per [findByUserIdAndCollectedInFlow],
-     * and the identifier claims beside them. A caller handing over a narrower list answers false for a claim
-     * it was never given, and the step this gates is then served again however many times the person submits
-     * the value. It may hold more than this answer turns on, which makes no required claim look collected
-     * that is not.
+     * and the identifier claims beside them, per [CollectedClaimManager.findIdentifierByUserId]. A caller
+     * handing over a narrower list answers false for a claim it was never given, and the step this gates is
+     * then served again however many times the person submits the value. It may hold more than this answer
+     * turns on, which makes no required claim look collected that is not.
+     *
+     * It answers on the presence of a row rather than of a value, which is what the claims step writes and
+     * reads back.
      */
-    fun areAllRequiredClaimsCollectedInFlow(
+    fun areAllIdentifierAndRequiredClaimsCollectedInFlow(
         collectedClaims: List<CollectedClaim>,
         audienceId: String,
         consentedScopes: List<String>
     ): Boolean {
-        val requiredClaims = claimManager.listRequiredClaims()
+        val identifierClaims = claimManager.listIdentifierClaims()
+        val heldToClaims = identifierClaims + claimManager.listRequiredClaims()
+            .filter { it !in identifierClaims }
             .filter { it.belongsToAudience(audienceId) && it.isCollectedInFlow(consentedScopes) }
-        if (requiredClaims.isEmpty()) {
+        if (heldToClaims.isEmpty()) {
             return true
         }
         val collectedClaimSet = collectedClaims.map { it.claim }.toSet()
-        return requiredClaims.all { it in collectedClaimSet }
+        return heldToClaims.all { it in collectedClaimSet }
     }
 
     /**

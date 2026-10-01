@@ -325,8 +325,15 @@ companion true beside no value would be this server asserting it verified someth
 **A required claim holds up the flow of an audience that has it.** A person signing in to an
 audience is asked for the required claims that audience has, and for no other audience's; what the
 flow does with them once collected is [the interactive flow](interactive-flow.md). Required is read
-against [what the flow collects](#the-person), so a claim outside that set holds up nothing — an
-identifier claim excepted, which is required of every account by being what it signs in with.
+against [what the flow collects](#the-person), so a claim outside that set holds up nothing.
+
+**An identifier claim is required whatever its file says, and the sign-up is what collects it.** It
+is what the account signs in with, so an account holding no value for one holds a row no login
+matches — which is not something a `required` key or a client's consent decides. The flow holds a
+person to it beside the required claims and never offers it at the claims step, so neither the set
+it offers nor the set it holds them to asks the flow's own flag about one. How a sign-up collects
+them, and what is still open about an account that predates one being added, is
+[the identifier claims](identifier-claims.md#collecting-them-at-sign-up).
 
 ## Where a claim is published
 

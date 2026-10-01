@@ -431,19 +431,22 @@ class ConsentAwareCollectedClaimManagerTest {
     }
 
     @Test
-    fun `areAllRequiredClaimsCollectedInFlow - A required claim of the audience must be collected`() = runTest {
+    fun `areAllIdentifierAndRequiredClaimsCollectedInFlow - A required claim of the audience must be collected`() =
+        runTest {
         val scope = "scope1"
         val required = claimWithConsentScope(scope, audienceId = "storefront", required = true)
 
+        every { claimManager.listIdentifierClaims() } returns emptyList()
         every { claimManager.listRequiredClaims() } returns listOf(required)
 
         assertFalse(
-            manager.areAllRequiredClaimsCollectedInFlow(emptyList(), "storefront", listOf(scope))
+            manager.areAllIdentifierAndRequiredClaimsCollectedInFlow(emptyList(), "storefront", listOf(scope))
         )
     }
 
     @Test
-    fun `areAllRequiredClaimsCollectedInFlow - A required claim no client may read reads as collected`() = runTest {
+    fun `areAllIdentifierAndRequiredClaimsCollectedInFlow - A required claim no client may read reads as collected`() =
+        runTest {
         val userId = UUID.randomUUID()
         val scope = "scope1"
         val required = claimWithConsentScope(
@@ -457,50 +460,95 @@ class ConsentAwareCollectedClaimManagerTest {
         }
 
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collected)
+        every { claimManager.listIdentifierClaims() } returns emptyList()
         every { claimManager.listRequiredClaims() } returns listOf(required)
 
         val readBack = manager.findByUserIdAndCollectedInFlow(userId, "storefront", listOf(scope))
 
         assertTrue(
-            manager.areAllRequiredClaimsCollectedInFlow(readBack, "storefront", listOf(scope))
+            manager.areAllIdentifierAndRequiredClaimsCollectedInFlow(readBack, "storefront", listOf(scope))
         )
     }
 
     @Test
-    fun `areAllRequiredClaimsCollectedInFlow - A required claim restricted to another audience is not required`() =
+    fun `areAllIdentifierAndRequiredClaimsCollectedInFlow - An identifier claim is held to whatever its file says`() =
+        runTest {
+            // Neither required, nor collected in the flow, nor under a consented scope: an identifier claim
+            // is held to by being what the account signs in with.
+            val identifier = claimWithConsentScope(
+                "scope1",
+                required = false,
+                collectedInFlow = false
+            )
+
+            every { claimManager.listIdentifierClaims() } returns listOf(identifier)
+            every { claimManager.listRequiredClaims() } returns emptyList()
+
+            assertFalse(
+                manager.areAllIdentifierAndRequiredClaimsCollectedInFlow(emptyList(), "storefront", emptyList())
+            )
+        }
+
+    @Test
+    fun `areAllIdentifierAndRequiredClaimsCollectedInFlow - An identifier claim the sign-up collected is collected`() =
+        runTest {
+            val identifier = claimWithConsentScope(
+                "scope1",
+                required = false,
+                collectedInFlow = false
+            )
+            val collected = mockk<CollectedClaim> {
+                every { claim } returns identifier
+            }
+
+            every { claimManager.listIdentifierClaims() } returns listOf(identifier)
+            every { claimManager.listRequiredClaims() } returns emptyList()
+
+            assertTrue(
+                manager.areAllIdentifierAndRequiredClaimsCollectedInFlow(
+                    listOf(collected), "storefront", emptyList()
+                )
+            )
+        }
+
+    @Test
+    fun `areAllIdentifierAndRequiredClaimsCollectedInFlow - A required claim of another audience is not held to`() =
         runTest {
             val scope = "scope1"
             val required = claimWithConsentScope(scope, audienceId = "billing", required = true)
 
+            every { claimManager.listIdentifierClaims() } returns emptyList()
             every { claimManager.listRequiredClaims() } returns listOf(required)
 
             assertTrue(
-                manager.areAllRequiredClaimsCollectedInFlow(emptyList(), "storefront", listOf(scope))
+                manager.areAllIdentifierAndRequiredClaimsCollectedInFlow(emptyList(), "storefront", listOf(scope))
             )
         }
 
     @Test
-    fun `areAllRequiredClaimsCollectedInFlow - A required claim restricted to no audience is every audience's`() =
+    fun `areAllIdentifierAndRequiredClaimsCollectedInFlow - A required claim of no audience is every audience's`() =
         runTest {
             val scope = "scope1"
             val required = claimWithConsentScope(scope, required = true)
 
+            every { claimManager.listIdentifierClaims() } returns emptyList()
             every { claimManager.listRequiredClaims() } returns listOf(required)
 
             assertFalse(
-                manager.areAllRequiredClaimsCollectedInFlow(emptyList(), "storefront", listOf(scope))
+                manager.areAllIdentifierAndRequiredClaimsCollectedInFlow(emptyList(), "storefront", listOf(scope))
             )
         }
 
     @Test
-    fun `areAllRequiredClaimsCollectedInFlow - A required claim outside the consented scopes is not required`() =
+    fun `areAllIdentifierAndRequiredClaimsCollectedInFlow - A required claim outside the consented scopes`() =
         runTest {
             val required = claimWithConsentScope("scope1", audienceId = "storefront", required = true)
 
+            every { claimManager.listIdentifierClaims() } returns emptyList()
             every { claimManager.listRequiredClaims() } returns listOf(required)
 
             assertTrue(
-                manager.areAllRequiredClaimsCollectedInFlow(emptyList(), "storefront", listOf("scope2"))
+                manager.areAllIdentifierAndRequiredClaimsCollectedInFlow(emptyList(), "storefront", listOf("scope2"))
             )
         }
 

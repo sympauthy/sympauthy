@@ -121,8 +121,8 @@ data class Claim(
      * is configured on this claim, or the person has consented to it. It is the flow's permission
      * alone, and [canBeWrittenByPerson] is the one a person's own access token writes through.
      *
-     * An identifier claim answers from the flag like any other, and the claims step still does not offer
-     * one: [ConsentAcl.collectedInFlow] says which readers of this it reaches and which it does not.
+     * An identifier claim answers from the flag like any other, and the flow asks neither what it offers
+     * nor what it holds a person to of one: [ConsentAcl.collectedInFlow] says why.
      */
     fun isCollectedInFlow(consentedScopes: List<String>): Boolean =
         acl.consent.collectedInFlow && (acl.consent.scope == null || acl.consent.scope in consentedScopes)

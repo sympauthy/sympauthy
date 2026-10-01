@@ -379,7 +379,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
                 )
             } returns collectedInFlow
             every {
-                consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedInFlow(
+                consentAwareCollectedClaimManager.areAllIdentifierAndRequiredClaimsCollectedInFlow(
                     collectedInFlow, testAudience.id, consentedScopes
                 )
             } returns true
@@ -549,7 +549,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
             )
         } returns emptyList()
         every {
-            consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedInFlow(
+            consentAwareCollectedClaimManager.areAllIdentifierAndRequiredClaimsCollectedInFlow(
                 any(), testAudience.id, consentedScopes
             )
         } returns allRequiredCollected
