@@ -358,6 +358,45 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     }
 
     @Test
+    fun `computeStatus - Hold the person to the claims the flow collects rather than the ones a client reads`() =
+        runTest {
+            // The client's half of the ACL is left unstubbed: reaching the assertions proves the read that
+            // would have dropped a claim disclosed to no client was never made.
+            val userId = UUID.randomUUID()
+            val session = onGoingSessionMock(userId)
+            val consentedScopes = listOf("openid", "profile")
+            val oauth2 = oauth2Of(consentedScopes = consentedScopes)
+            val collectedInFlow = listOf(mockk<CollectedClaim> {
+                every { claim } returns mockk { every { id } returns "secret_note" }
+            })
+
+            coEvery { oauth2Manager.getAudienceId(oauth2) } returns testAudience.id
+            coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns emptyList()
+            coEvery {
+                consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(
+                    userId, testAudience.id, consentedScopes
+                )
+            } returns collectedInFlow
+            every {
+                consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedInFlow(
+                    collectedInFlow, testAudience.id, consentedScopes
+                )
+            } returns true
+            every {
+                claimValidationManager.getReasonsToSendValidationCode(
+                    testAudience.id,
+                    identifierClaims = emptyList(),
+                    collectedInFlowClaims = collectedInFlow
+                )
+            } returns emptyList()
+
+            val status = handler.computeStatus(session, oauth2)
+
+            assertFalse(status.missingRequiredClaims)
+            assertTrue(status.missingMediaForClaimValidation.isEmpty())
+        }
+
+    @Test
     fun `computeStatus - Missing validation media when a claim needs validation`() = runTest {
         val userId = UUID.randomUUID()
         val session = onGoingSessionMock(userId)
@@ -504,7 +543,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         coEvery { oauth2Manager.getAudienceId(oauth2) } returns testAudience.id
         coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns emptyList()
         coEvery {
-            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
+            consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(
                 userId, testAudience.id, consentedScopes
             )
         } returns emptyList()

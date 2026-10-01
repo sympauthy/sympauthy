@@ -106,11 +106,36 @@ open class ConsentAwareCollectedClaimManager(
     }
 
     /**
+     * Return the list of [CollectedClaim] collected from the user identified by [userId] that the interactive
+     * flow collects, given the [consentedScopes].
+     *
+     * [audienceId] is the audience the answer is for: a claim restricted to another one is left out, and a
+     * claim restricted to none is answered whatever the audience. It is not optional, because
+     * [consentedScopes] are not: consent is recorded per audience, so scopes a person consented to are always
+     * some audience's and the caller holding them knows which.
+     *
+     * This is the flow's own half of the ACL, and it is the read every part of the flow makes of a person's
+     * claims — the values a step shows back, the required set it holds them to, the value a confirmation code
+     * is sent to. No client scopes are taken, because no client is party to it: the person is on this server's
+     * own pages having just authenticated. Reading through a client's permission instead answers less than the
+     * flow asked for, so a claim a deployment collects and discloses to no client would never read back as
+     * collected.
+     */
+    suspend fun findByUserIdAndCollectedInFlow(
+        userId: UUID,
+        audienceId: String,
+        consentedScopes: List<String>
+    ): List<CollectedClaim> {
+        return collectedClaimManager.findByUserId(userId).filter {
+            it.claim.belongsToAudience(audienceId) && it.claim.isCollectedInFlow(consentedScopes)
+        }
+    }
+
+    /**
      * Return the list of [CollectedClaim] collected from the end-user associated to the [session].
      *
-     * Only the claims that are readable according to the consented scopes of the session's OAuth2 record will
-     * be returned, and only those of the audience that authorization is for. No client scopes are passed since
-     * interactive flow sessions operate in the user consent context only.
+     * The claims the flow collects, per [findByUserIdAndCollectedInFlow], within the consented scopes of the
+     * session's OAuth2 record and of the audience that authorization is for.
      */
     suspend fun findBySession(
         session: InteractiveFlowSession
@@ -121,7 +146,7 @@ open class ConsentAwareCollectedClaimManager(
                 val userId = session.userId ?: return emptyList()
                 val oauth2 = oauth2Manager.fetchOAuth2(session)
                 val consentedScopes = oauth2.consentedScopes ?: return emptyList()
-                findByUserIdAndReadableByClient(
+                findByUserIdAndCollectedInFlow(
                     userId = userId,
                     audienceId = oauth2Manager.getAudienceId(oauth2),
                     consentedScopes = consentedScopes
@@ -131,7 +156,7 @@ open class ConsentAwareCollectedClaimManager(
             is CompletedInteractiveFlowSession -> {
                 val oauth2 = oauth2Manager.fetchOAuth2(session)
                 val consentedScopes = oauth2.consentedScopes ?: return emptyList()
-                findByUserIdAndReadableByClient(
+                findByUserIdAndCollectedInFlow(
                     userId = session.userId,
                     audienceId = oauth2Manager.getAudienceId(oauth2),
                     consentedScopes = consentedScopes
@@ -150,9 +175,11 @@ open class ConsentAwareCollectedClaimManager(
      * claims restricted to another audience are not either, because they are not this audience's claims to ask
      * for — an audience gets its own required set, and a person signing in to one is not held to another's.
      *
-     * [collectedClaims] is what the caller has of the end-user, and it may hold more than this answer turns
-     * on: an identifier claim is collected whatever the consent. That makes no required claim look collected
-     * that is not.
+     * [collectedClaims] is what the caller has of the end-user, and it holds at least the claims the flow
+     * collects — [findByUserIdAndCollectedInFlow] is that read. A caller handing over a narrower list answers
+     * false for a claim it was never given, and the step this gates is then served again however many times
+     * the person submits the value. It may equally hold more than this answer turns on: an identifier claim
+     * is collected whatever the consent, and that makes no required claim look collected that is not.
      */
     fun areAllRequiredClaimsCollectedInFlow(
         collectedClaims: List<CollectedClaim>,

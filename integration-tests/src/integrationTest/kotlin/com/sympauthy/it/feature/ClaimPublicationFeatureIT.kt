@@ -48,17 +48,21 @@ import org.junit.jupiter.params.provider.EnumSource
  * place is not being allowed to reach it, and the ACL is what decides who may be told. Two components of
  * the address group name `introspection` beside them, because the one object OpenID Connect Core §5.1.1
  * defines is what every place assembles them into and the response serializes it as a nested member rather
- * than as a claim of its own. It takes the whole instance because the three are answered by two generators
- * and a controller from one authorization, and because introspection is answered to a client that
- * authenticated.
+ * than as a claim of its own.
+ *
+ * `secret_note` is required as well as hidden, so the scenario reaches the token exchange only if the flow
+ * reads a person's claims back through the half it collects them through. It takes the whole instance
+ * because the three places are answered by two generators and a controller from one authorization, and
+ * because introspection is answered to a client that authenticated.
  *
  * The third scenario reads the discovery document off the first configuration: `claims_supported` names
  * what a client could be told, so a claim whose file says `discovery` appears there and a claim carried
  * without it does not. Nothing smaller proves it: the places a generated claim reaches are recorded in
  * code, and what the document lists is read off the parsed configuration.
  *
- * Issue: [#485](https://github.com/sympauthy/sympauthy/issues/485) and
- * [#510](https://github.com/sympauthy/sympauthy/issues/510), and `docs/design/claims.md`.
+ * Issue: [#485](https://github.com/sympauthy/sympauthy/issues/485),
+ * [#510](https://github.com/sympauthy/sympauthy/issues/510) and
+ * [#512](https://github.com/sympauthy/sympauthy/issues/512), and `docs/design/claims.md`.
  */
 @Tag("feature")
 class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
@@ -190,10 +194,9 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
     private fun customClaim(
         publishedIn: List<String>? = null,
         readableByClient: Boolean = true,
-        required: Boolean = true,
     ): Map<String, Any> = buildMap {
         put("enabled", true)
-        put("required", required)
+        put("required", true)
         put("type", "string")
         put(
             "acl",
@@ -210,8 +213,8 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
     /**
      * The three custom claims the second scenario turns on: one in the access token, one in the
      * introspection response, and one naming both that the ACL refuses the client. `secret_note` is still
-     * collected in the flow and readable by the person, so the sign-up supplies a value for it and what
-     * keeps it out of both places is the client's half of the ACL alone.
+     * required, collected in the flow and readable by the person, so the sign-up supplies a value for it and
+     * what keeps it out of both places is the client's half of the ACL alone.
      */
     private fun claimsPublishedPerTokenPlace(): Map<String, Any> = mapOf(
         "claims" to mapOf(
@@ -221,12 +224,9 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
             // OpenID Connect Core §5.1.1 defines rather than publishing as members of their own.
             "locality" to addressClaim(),
             "country" to addressClaim(),
-            // Collected and not required: the flow offers an optional claim and the sign-up answers it,
-            // and a required claim the client may not read is one the flow would ask for again forever.
             "secret_note" to customClaim(
                 publishedIn = listOf("access-token", "introspection"),
                 readableByClient = false,
-                required = false,
             ),
         ),
         "clients" to mapOf(

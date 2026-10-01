@@ -58,6 +58,8 @@ class ConsentAwareCollectedClaimManagerTest {
         scope: String,
         audienceId: String? = null,
         required: Boolean = false,
+        collectedInFlow: Boolean = true,
+        readableByClient: Boolean = true,
         publishedIn: Set<ClaimPublicationPlace> = ClaimPublicationPlace.entries.toSet()
     ) = Claim(
         id = "claim_$scope",
@@ -68,7 +70,7 @@ class ConsentAwareCollectedClaimManagerTest {
         group = null,
         required = required,
         generated = false,
-        collectedInFlow = true,
+        collectedInFlow = collectedInFlow,
         allowedValues = null,
         audienceId = audienceId,
         publishedIn = publishedIn,
@@ -76,9 +78,9 @@ class ConsentAwareCollectedClaimManagerTest {
             consent = ConsentAcl(
                 scope = scope,
                 readableByPerson = true,
-                collectedInFlow = true,
+                collectedInFlow = collectedInFlow,
                 writableByPerson = false,
-                readableByClient = true,
+                readableByClient = readableByClient,
                 writableByClient = true,
                 writeMaxAuthenticationAge = null
             ),
@@ -295,6 +297,61 @@ class ConsentAwareCollectedClaimManagerTest {
     }
 
     @Test
+    fun `findByUserIdAndCollectedInFlow - Answer a claim the flow collects and no client may read`() = runTest {
+        val userId = UUID.randomUUID()
+        val scope = "scope1"
+        val hidden = claimWithConsentScope(scope, readableByClient = false)
+        val collected = mockk<CollectedClaim> {
+            every { claim } returns hidden
+        }
+
+        coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collected)
+
+        val result = manager.findByUserIdAndCollectedInFlow(userId, AUDIENCE, listOf(scope))
+
+        assertEquals(1, result.count())
+        assertSame(collected, result[0])
+    }
+
+    @Test
+    fun `findByUserIdAndCollectedInFlow - Leave out a claim the flow does not collect`() = runTest {
+        val userId = UUID.randomUUID()
+        val scope = "scope1"
+        val collected = mockk<CollectedClaim> {
+            every { claim } returns claimWithConsentScope(scope, collectedInFlow = false)
+        }
+
+        coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collected)
+
+        assertTrue(manager.findByUserIdAndCollectedInFlow(userId, AUDIENCE, listOf(scope)).isEmpty())
+    }
+
+    @Test
+    fun `findByUserIdAndCollectedInFlow - Leave out a claim outside the consented scopes`() = runTest {
+        val userId = UUID.randomUUID()
+        val collected = mockk<CollectedClaim> {
+            every { claim } returns claimWithConsentScope("scope1")
+        }
+
+        coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collected)
+
+        assertTrue(manager.findByUserIdAndCollectedInFlow(userId, AUDIENCE, listOf("scope2")).isEmpty())
+    }
+
+    @Test
+    fun `findByUserIdAndCollectedInFlow - Leave out a claim restricted to another audience`() = runTest {
+        val userId = UUID.randomUUID()
+        val scope = "scope1"
+        val collected = mockk<CollectedClaim> {
+            every { claim } returns claimWithConsentScope(scope, audienceId = "billing")
+        }
+
+        coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collected)
+
+        assertTrue(manager.findByUserIdAndCollectedInFlow(userId, "storefront", listOf(scope)).isEmpty())
+    }
+
+    @Test
     fun `findBySession - Return empty list for FailedInteractiveFlowSession`() = runTest {
         val session = mockk<FailedInteractiveFlowSession>()
 
@@ -328,7 +385,7 @@ class ConsentAwareCollectedClaimManagerTest {
         coEvery { oauth2Manager.getAudienceId(oauth2) } returns AUDIENCE
 
         coEvery {
-            manager.findByUserIdAndReadableByClient(userId, AUDIENCE, consentedScopes)
+            manager.findByUserIdAndCollectedInFlow(userId, AUDIENCE, consentedScopes)
         } returns listOf(collectedClaim1)
 
         val result = manager.findBySession(session)
@@ -364,7 +421,7 @@ class ConsentAwareCollectedClaimManagerTest {
         coEvery { oauth2Manager.getAudienceId(oauth2) } returns AUDIENCE
 
         coEvery {
-            manager.findByUserIdAndReadableByClient(userId, AUDIENCE, consentedScopes)
+            manager.findByUserIdAndCollectedInFlow(userId, AUDIENCE, consentedScopes)
         } returns listOf(collectedClaim1)
 
         val result = manager.findBySession(session)
@@ -382,6 +439,30 @@ class ConsentAwareCollectedClaimManagerTest {
 
         assertFalse(
             manager.areAllRequiredClaimsCollectedInFlow(emptyList(), "storefront", listOf(scope))
+        )
+    }
+
+    @Test
+    fun `areAllRequiredClaimsCollectedInFlow - A required claim no client may read reads as collected`() = runTest {
+        val userId = UUID.randomUUID()
+        val scope = "scope1"
+        val required = claimWithConsentScope(
+            scope,
+            audienceId = "storefront",
+            required = true,
+            readableByClient = false
+        )
+        val collected = mockk<CollectedClaim> {
+            every { claim } returns required
+        }
+
+        coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collected)
+        every { claimManager.listRequiredClaims() } returns listOf(required)
+
+        val readBack = manager.findByUserIdAndCollectedInFlow(userId, "storefront", listOf(scope))
+
+        assertTrue(
+            manager.areAllRequiredClaimsCollectedInFlow(readBack, "storefront", listOf(scope))
         )
     }
 

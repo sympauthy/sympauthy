@@ -178,7 +178,10 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
      *
      * Everything about the claims is the audience's, resolved from the client [oauth2] names: what is required,
      * what is read back as collected, and what is left needing a validation code. A claim restricted to another
-     * audience neither holds up a flow that did not start from it nor is asked to be confirmed by one.
+     * audience neither holds up a flow that did not start from it nor is asked to be confirmed by one. They
+     * are read through the flow's own half of the ACL, per
+     * [ConsentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow], which is the half the required set
+     * and the validation reasons are both drawn from.
      */
     internal suspend fun computeStatus(
         session: OnGoingInteractiveFlowSession,
@@ -191,19 +194,19 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
         val consentedScopes = oauth2.consentedScopes ?: emptyList()
         val audienceId = oauth2Manager.getAudienceId(oauth2)
         val identifierClaims = collectedClaimManager.findIdentifierByUserId(userId)
-        val consentedClaims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
+        val collectedInFlowClaims = consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(
             userId = userId,
             audienceId = audienceId,
             consentedScopes = consentedScopes
         )
-        val allClaims = (identifierClaims + consentedClaims).distinctBy { it.claim.id }
+        val allClaims = (identifierClaims + collectedInFlowClaims).distinctBy { it.claim.id }
         val missingRequiredClaims = !consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedInFlow(
             allClaims, audienceId, consentedScopes
         )
         val missingMediaForClaimValidation = claimValidationManager.getReasonsToSendValidationCode(
             audienceId = audienceId,
             identifierClaims = identifierClaims,
-            consentedClaims = consentedClaims
+            collectedInFlowClaims = collectedInFlowClaims
         )
             .map(ValidationCodeReason::media)
             .distinct()

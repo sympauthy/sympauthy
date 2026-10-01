@@ -91,6 +91,14 @@ at all: one flag spanning two doors is turned on for the near one and read by th
 it marks readable by the person.** The read is consent alone, because that endpoint is not
 client-authenticated.
 
+**The flow reads a person's claims back through the same flag it collects them through.** One door
+is one permission in both directions, so the claims the flow offers, the values it shows back, the
+required ones it holds a person to and the address it sends a confirmation code to are all one
+read. A flow reading them through a client's permission instead would hold a person to a required
+set drawn from one flag and look for it collected under another: a claim a deployment collects and
+discloses to no client would be asked for again on every pass, and the sign-in would never
+complete.
+
 **The person's own token writes through a permission of its own.** A claim it may write is marked
 separately from the one the flow collects and is off unless a deployment marks it; the surface that
 honours it is the user surface, which is designed and not yet built. Honouring the flow's flag
@@ -316,7 +324,9 @@ companion true beside no value would be this server asserting it verified someth
 
 **A required claim holds up the flow of an audience that has it.** A person signing in to an
 audience is asked for the required claims that audience has, and for no other audience's; what the
-flow does with them once collected is [the interactive flow](interactive-flow.md).
+flow does with them once collected is [the interactive flow](interactive-flow.md). Required
+qualifies what [the flow collects](#the-person) and nothing else, so a claim the flow never asks
+for holds up nothing whatever its file says.
 
 ## Where a claim is published
 
