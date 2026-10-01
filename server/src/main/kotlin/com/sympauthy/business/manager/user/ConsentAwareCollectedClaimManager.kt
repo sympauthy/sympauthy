@@ -19,9 +19,12 @@ import java.util.*
 /**
  * Manages access to collected claims with consent-based scope filtering.
  *
- * Unlike [CollectedClaimManager] which provides unrestricted access for admin and internal use,
- * this manager filters claims based on the consented scopes and who is performing the operation
- * (the end-user themselves or a client acting on their behalf).
+ * Unlike [CollectedClaimManager] which provides unrestricted access for admin and internal use, this
+ * manager filters claims on the consented scopes and on the door the caller came through. There are three,
+ * and each has a read of its own: the interactive flow, where the person is on this server's own pages
+ * having just authenticated; the person's own access token; and a client acting on their behalf. A flag is
+ * named for one door and read by none of the others — `docs/design/claims.md` is where they are told apart,
+ * and [com.sympauthy.business.model.user.claim.ConsentAcl] is where each is a property.
  */
 @Singleton
 open class ConsentAwareCollectedClaimManager(
@@ -114,12 +117,13 @@ open class ConsentAwareCollectedClaimManager(
      * [consentedScopes] are not: consent is recorded per audience, so scopes a person consented to are always
      * some audience's and the caller holding them knows which.
      *
-     * This is the flow's own half of the ACL, and it is the read every part of the flow makes of a person's
-     * claims — the values a step shows back, the required set it holds them to, the value a confirmation code
-     * is sent to. No client scopes are taken, because no client is party to it: the person is on this server's
-     * own pages having just authenticated. Reading through a client's permission instead answers less than the
-     * flow asked for, so a claim a deployment collects and discloses to no client would never read back as
-     * collected.
+     * This is the flow's own half of the ACL. No client scopes are taken, because no client is party to it:
+     * the person is on this server's own pages having just authenticated. A caller holding what the flow
+     * offered a person needs this read rather than a client's, which answers less and leaves a claim a
+     * deployment collects and discloses to no client reading back as never collected.
+     *
+     * **An identifier claim is subject to the flag here like any other**, so a caller needing one whatever
+     * the ACL says asks [CollectedClaimManager.findIdentifierByUserId] beside this.
      */
     suspend fun findByUserIdAndCollectedInFlow(
         userId: UUID,
@@ -175,11 +179,11 @@ open class ConsentAwareCollectedClaimManager(
      * claims restricted to another audience are not either, because they are not this audience's claims to ask
      * for — an audience gets its own required set, and a person signing in to one is not held to another's.
      *
-     * [collectedClaims] is what the caller has of the end-user, and it holds at least the claims the flow
-     * collects — [findByUserIdAndCollectedInFlow] is that read. A caller handing over a narrower list answers
-     * false for a claim it was never given, and the step this gates is then served again however many times
-     * the person submits the value. It may equally hold more than this answer turns on: an identifier claim
-     * is collected whatever the consent, and that makes no required claim look collected that is not.
+     * [collectedClaims] holds at least the claims the flow collects, per [findByUserIdAndCollectedInFlow],
+     * and the identifier claims beside them. A caller handing over a narrower list answers false for a claim
+     * it was never given, and the step this gates is then served again however many times the person submits
+     * the value. It may hold more than this answer turns on, which makes no required claim look collected
+     * that is not.
      */
     fun areAllRequiredClaimsCollectedInFlow(
         collectedClaims: List<CollectedClaim>,

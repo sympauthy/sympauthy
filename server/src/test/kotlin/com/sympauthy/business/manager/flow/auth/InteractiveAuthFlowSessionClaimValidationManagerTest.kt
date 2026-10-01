@@ -60,6 +60,7 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
         }
         val collectedClaim = mockk<CollectedClaim> {
             every { claim } returns emailClaim
+            every { value } returns "ada@example.com"
             every { verified } returns false
         }
 
@@ -83,6 +84,7 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
         }
         val collectedClaim = mockk<CollectedClaim> {
             every { claim } returns emailClaim
+            every { value } returns "ada@example.com"
             every { verified } returns false
         }
 
@@ -96,6 +98,48 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
         )
 
         assertTrue(result.contains(EMAIL_CLAIM))
+    }
+
+    @Test
+    fun `getUnfilteredReasonsToSendValidationCode - Ask nothing of a claim no value was collected for`() {
+        // No id is stubbed: an empty set of collected claims is not searched by it.
+        val emailClaim = mockk<Claim> {
+            every { belongsToAudience(AUDIENCE) } returns true
+        }
+
+        every { manager.validationCodeReasons } returns listOf(EMAIL_CLAIM)
+        every { manager.getClaimValidatedBy(EMAIL_CLAIM) } returns emailClaim
+
+        val result = manager.getUnfilteredReasonsToSendValidationCode(
+            AUDIENCE,
+            identifierClaims = emptyList(),
+            collectedInFlowClaims = emptyList()
+        )
+
+        assertFalse(result.contains(EMAIL_CLAIM))
+    }
+
+    @Test
+    fun `getUnfilteredReasonsToSendValidationCode - Ask nothing of a claim whose value was cleared`() {
+        val emailClaim = mockk<Claim> {
+            every { id } returns OpenIdConnectClaimId.EMAIL
+            every { belongsToAudience(AUDIENCE) } returns true
+        }
+        val cleared = mockk<CollectedClaim> {
+            every { claim } returns emailClaim
+            every { value } returns null
+        }
+
+        every { manager.validationCodeReasons } returns listOf(EMAIL_CLAIM)
+        every { manager.getClaimValidatedBy(EMAIL_CLAIM) } returns emailClaim
+
+        val result = manager.getUnfilteredReasonsToSendValidationCode(
+            AUDIENCE,
+            identifierClaims = listOf(cleared),
+            collectedInFlowClaims = emptyList()
+        )
+
+        assertFalse(result.contains(EMAIL_CLAIM))
     }
 
     @Test
@@ -126,6 +170,7 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
         }
         val collectedClaim = mockk<CollectedClaim> {
             every { claim } returns emailClaim
+            every { value } returns "ada@example.com"
             every { verified } returns true
         }
 

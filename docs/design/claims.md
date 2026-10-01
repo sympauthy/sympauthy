@@ -324,9 +324,9 @@ companion true beside no value would be this server asserting it verified someth
 
 **A required claim holds up the flow of an audience that has it.** A person signing in to an
 audience is asked for the required claims that audience has, and for no other audience's; what the
-flow does with them once collected is [the interactive flow](interactive-flow.md). Required
-qualifies what [the flow collects](#the-person) and nothing else, so a claim the flow never asks
-for holds up nothing whatever its file says.
+flow does with them once collected is [the interactive flow](interactive-flow.md). Required is read
+against [what the flow collects](#the-person), so a claim outside that set holds up nothing — an
+identifier claim excepted, which is required of every account by being what it signs in with.
 
 ## Where a claim is published
 

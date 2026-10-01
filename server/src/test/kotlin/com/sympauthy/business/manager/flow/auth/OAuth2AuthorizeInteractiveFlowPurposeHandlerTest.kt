@@ -358,10 +358,11 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     }
 
     @Test
-    fun `computeStatus - Hold the person to the claims the flow collects rather than the ones a client reads`() =
+    fun `computeStatus - Draw the required set and the validation reasons from the flow's own read`() =
         runTest {
-            // The client's half of the ACL is left unstubbed: reaching the assertions proves the read that
-            // would have dropped a claim disclosed to no client was never made.
+            // The client's half of the ACL is left unstubbed, and both stubs below match on the exact list
+            // the flow's read answered: reaching the assertions proves that list reached both, and that the
+            // read which would have dropped a claim disclosed to no client was never made.
             val userId = UUID.randomUUID()
             val session = onGoingSessionMock(userId)
             val consentedScopes = listOf("openid", "profile")

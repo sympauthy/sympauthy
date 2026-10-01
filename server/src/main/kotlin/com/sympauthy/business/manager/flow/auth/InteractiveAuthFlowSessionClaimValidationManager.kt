@@ -87,6 +87,13 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
      * not the client asked for them; [collectedInFlowClaims] are the ones this interactive flow session
      * collects. A claim appearing in both is considered once. A reason naming a claim outside [audienceId] is
      * not this flow's to ask about.
+     *
+     * **A reason is a value this server can send a code to.** A claim no value was collected for, or one
+     * whose value was cleared, is nothing to prove rather than something left unproven — this server cannot
+     * assert it verified what it never sent. Answering a reason for one would route the flow to a step whose
+     * send has no destination, which
+     * [ValidationCodeManager.getSenderByMediaMap][com.sympauthy.business.manager.validationcode.ValidationCodeManager]
+     * refuses with `validationcode.missing_claim`.
      */
     internal fun getUnfilteredReasonsToSendValidationCode(
         audienceId: String,
@@ -98,8 +105,12 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
             getClaimValidatedBy(reason)
                 ?.takeIf { it.belongsToAudience(audienceId) }
                 ?.let { claim ->
-                    val collectedClaim = allClaims.firstOrNull { it.claim.id == claim.id }
-                    if (collectedClaim?.verified != true) reason else null
+                    val collected = allClaims.firstOrNull { it.claim.id == claim.id }
+                    if (collected == null || collected.value == null || collected.verified == true) {
+                        null
+                    } else {
+                        reason
+                    }
                 }
         }
     }
