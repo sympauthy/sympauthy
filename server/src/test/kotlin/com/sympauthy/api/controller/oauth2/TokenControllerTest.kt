@@ -115,7 +115,7 @@ class TokenControllerTest {
     /** A client the issued token is named after, which only the client credentials grant does. */
     private fun mockClientIdentifiedAs(id: String): Client = mockClient().also {
         every { it.id } returns id
-        every { it.audience } returns mockk { every { tokenAudience } returns "https://test-audience" }
+        every { it.audience } returns mockk()
     }
 
     private fun mockOAuth2(redirectUri: String): InteractiveFlowSessionOAuth2 = mockk {
@@ -600,7 +600,7 @@ class TokenControllerTest {
         coEvery {
             accessTokenGenerator.generateAccessTokenForClient(
                 clientId = "my-client",
-                tokenAudience = any(),
+                audience = any(),
                 clientScopes = listOf("read"),
                 dpopJkt = null
             )
@@ -644,7 +644,7 @@ class TokenControllerTest {
         coEvery {
             accessTokenGenerator.generateAccessTokenForClient(
                 clientId = "my-client",
-                tokenAudience = any(),
+                audience = any(),
                 clientScopes = emptyList(),
                 dpopJkt = null
             )

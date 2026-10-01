@@ -3,7 +3,7 @@ package com.sympauthy.config.validation
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.ClaimPublication
+import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.UnconditionalAcl
 import com.sympauthy.config.ConfigParsingContext
@@ -28,7 +28,7 @@ class AuthConfigValidatorTest {
         generated = false,
         collectedInFlow = true,
         allowedValues = null,
-        publishedIn = ClaimPublication.entries.toSet(),
+        publishedIn = ClaimPublicationPlace.entries.toSet(),
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = null,

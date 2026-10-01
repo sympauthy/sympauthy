@@ -1,8 +1,11 @@
 package com.sympauthy.it.feature
 
+import com.nimbusds.jose.util.JSONObjectUtils
+import com.nimbusds.jwt.SignedJWT
 import com.sympauthy.api.client.api.OpenidApi
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
+import com.sympauthy.testcontainers.Client
 import com.sympauthy.testcontainers.SympauthyContainer
 import com.sympauthy.testcontainers.flow.InteractiveFlowRegistry
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -14,16 +17,15 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
 /**
- * Feature scenario — **an operator decides which OpenID channel carries each claim.**
+ * Feature scenario — **an operator decides every place each claim is published in.**
  *
- * `claims.<id>.published-in` names the channels a claim's value travels through, and a claim naming none
- * travels through neither. Four custom claims are configured under the `profile` scope: `loyalty_tier`
- * names both channels, `preferences` names `userinfo`, `internal_ref` names `id-token` and `internal_note`
- * names none at all. Two OpenID claims sit beside them: `name`, which names nothing of its own and takes
- * both channels from the shipped `openid` template, and `nickname`, which overrides that template with an
- * empty list. One person signs up supplying every one of them, and the single authorization that follows is
- * read twice — the `id_token` it was issued, verified against the server's own key set, and the `/userinfo`
- * it reads with the access token issued beside it.
+ * `claims.<id>.published-in` names them, and a claim naming none is published nowhere. The first scenario
+ * covers the two OpenID channels: four custom claims sit under the `profile` scope — `loyalty_tier` names
+ * both, `preferences` names `userinfo`, `internal_ref` names `id-token` and `internal_note` names nothing —
+ * beside two OpenID claims, `name`, which takes both channels from the shipped `openid` template, and
+ * `nickname`, which overrides that template with an empty list. One person signs up supplying every one of
+ * them, and the single authorization that follows is read twice: the `id_token` it was issued, verified
+ * against the server's own key set, and the `/userinfo` it reads with the access token issued beside it.
  *
  * Each channel must carry the claims that name it and the one that names both, and neither may carry the
  * claim that names the other or either claim that names nothing. That last pair is the point of the
@@ -32,19 +34,31 @@ import org.junit.jupiter.params.provider.EnumSource
  * OpenID Connect defines reach both channels because the shipped template says so, which is what a
  * deployment that never mentions publication keeps.
  *
- * No unit test reaches this: the two channels are built by different classes from the same collected rows,
- * and what proves they disagree on purpose is one grant answered by both. `/userinfo` carrying a custom
+ * No unit test reaches this: the places are built by different classes from the same collected rows, and
+ * what proves they disagree on purpose is one grant answered by all of them. `/userinfo` carrying a custom
  * claim at all is new here — the response had no property for one — so those assertions read the
  * deserialized wire body, while `name` and `nickname` are read off their declared fields, which is what
  * shows the two living side by side.
  *
- * The second scenario reads the discovery document off the same configuration: `claims_supported` names
- * what a client could be told, so an enabled claim no channel carries must not appear there while `sub`,
- * `updated_at` and `name` — a generated claim in both channels, one in `/userinfo` alone, and one the
- * shipped template publishes — must. Nothing smaller proves it: the channels a generated claim reaches are
- * recorded in code, and what the document lists is read off the parsed configuration.
+ * The second scenario reads the two places a resource server holding a token reaches, off a confidential
+ * client's own grant: `stored_tier` names `access-token`, `stored_ref` names `introspection`, and
+ * `secret_note` names both while the ACL refuses the client every one of its claims. The decoded access
+ * token and the introspection response must each carry the claim that named it and not the other's, the
+ * id token issued beside them must carry neither, and none of the three may carry `secret_note` — naming a
+ * place is not being allowed to reach it, and the ACL is what decides who may be told. Two components of
+ * the address group name `introspection` beside them, because the one object OpenID Connect Core §5.1.1
+ * defines is what every place assembles them into and the response serializes it as a nested member rather
+ * than as a claim of its own. It takes the whole instance because the three are answered by two generators
+ * and a controller from one authorization, and because introspection is answered to a client that
+ * authenticated.
  *
- * Issue: [#485](https://github.com/sympauthy/sympauthy/issues/485), and `docs/design/claims.md`.
+ * The third scenario reads the discovery document off the first configuration: `claims_supported` names
+ * what a client could be told, so a claim whose file says `discovery` appears there and a claim carried
+ * without it does not. Nothing smaller proves it: the places a generated claim reaches are recorded in
+ * code, and what the document lists is read off the parsed configuration.
+ *
+ * Issue: [#485](https://github.com/sympauthy/sympauthy/issues/485) and
+ * [#510](https://github.com/sympauthy/sympauthy/issues/510), and `docs/design/claims.md`.
  */
 @Tag("feature")
 class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
@@ -80,17 +94,66 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
         }
     }
 
-    @ParameterizedTest(name = "the discovery document advertises only what a channel can supply on {0}")
+    @ParameterizedTest(name = "a token and its introspection each carry the claims that name them on {0}")
     @EnumSource(Database::class)
-    fun advertisesOnlyTheClaimsAChannelCanSupply(database: Database) {
+    fun publishesEachClaimInTheTokenPlaceItNames(database: Database) {
+        val confidentialClient = Client.confidentialClient(clientId, CLIENT_SECRET)
+
+        withContainer(
+            database,
+            extraConfig = claimsPublishedPerTokenPlace(),
+            client = confidentialClient,
+            scopes = TOKEN_PLACE_SCOPES,
+        ) { sympauthy, registry ->
+            val tokens = signUp(registry)
+            val accessToken = requireNotNull(tokens.accessToken()) { "the exchange should yield an access token" }
+
+            val accessTokenClaims = SignedJWT.parse(accessToken).jwtClaimsSet
+            assertEquals(GOLD, accessTokenClaims.getStringClaim("stored_tier"), "a claim naming the access token")
+            assertNull(accessTokenClaims.getClaim("stored_ref"), "a claim naming introspection alone")
+            assertNull(accessTokenClaims.getClaim("secret_note"), "a claim the ACL refuses the client")
+
+            val idTokenClaims = verifyIdTokenSignature(
+                sympauthy,
+                requireNotNull(tokens.idToken()) { "the openid scope should yield an id_token" },
+            )
+            assertNull(idTokenClaims.getClaim("stored_tier"), "a claim naming the access token alone")
+            assertNull(idTokenClaims.getClaim("stored_ref"), "a claim naming introspection alone")
+
+            val auth = mapOf("Authorization" to basicAuth(registry.clientId(), checkNotNull(registry.clientSecret())))
+            val response = httpPostForm(
+                discovery(sympauthy).introspectionEndpoint!!,
+                mapOf("token" to accessToken),
+                auth,
+            )
+            assertEquals(200, response.statusCode(), "introspection should answer the client, body=${response.body()}")
+            val introspection = JSONObjectUtils.parse(response.body())
+
+            assertEquals(true, introspection["active"])
+            assertEquals(REFERENCE, introspection["stored_ref"], "a claim naming introspection")
+            assertNull(introspection["stored_tier"], "a claim naming the access token alone")
+            assertNull(introspection["secret_note"], "a claim the ACL refuses the client")
+
+            @Suppress("UNCHECKED_CAST")
+            val address = introspection["address"] as? Map<String, Any>
+            requireNotNull(address) { "the claims of the address group should be one object" }
+            assertEquals(LOCALITY, address["locality"], "a component of the address object")
+            assertEquals("$LOCALITY\n$COUNTRY", address["formatted"], "the rendered address")
+        }
+    }
+
+    @ParameterizedTest(name = "the discovery document advertises what a file said discovery on {0}")
+    @EnumSource(Database::class)
+    fun advertisesTheClaimsWhoseFileNamesTheDocument(database: Database) {
         withContainer(database, extraConfig = claimsPublishedPerChannel(), scopes = SCOPES) { sympauthy, _ ->
             val supported = discovery(sympauthy).claimsSupported.orEmpty()
 
-            assertTrue(supported.contains("sub"), "a generated claim both channels carry")
-            assertTrue(supported.contains("auth_time"), "a generated claim the id token carries")
-            assertTrue(supported.contains("updated_at"), "a generated claim /userinfo carries")
-            assertTrue(supported.contains("name"), "an OpenID claim the shipped template publishes")
-            assertFalse(supported.contains("nickname"), "an OpenID claim published in neither channel")
+            assertTrue(supported.contains("sub"), "a generated claim the document names")
+            assertTrue(supported.contains("auth_time"), "a generated claim the document names")
+            assertTrue(supported.contains("updated_at"), "a generated claim the document names")
+            assertTrue(supported.contains("name"), "an OpenID claim the shipped template advertises")
+            assertFalse(supported.contains("nickname"), "an OpenID claim published nowhere at all")
+            assertFalse(supported.contains("loyalty_tier"), "a claim carried by both channels and advertised in none")
         }
     }
 
@@ -124,9 +187,13 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
         ),
     )
 
-    private fun customClaim(publishedIn: List<String>? = null): Map<String, Any> = buildMap {
+    private fun customClaim(
+        publishedIn: List<String>? = null,
+        readableByClient: Boolean = true,
+        required: Boolean = true,
+    ): Map<String, Any> = buildMap {
         put("enabled", true)
-        put("required", true)
+        put("required", required)
         put("type", "string")
         put(
             "acl",
@@ -134,11 +201,50 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
                 "consent-scope" to "profile",
                 "readable-by-person-when-consented" to "true",
                 "collected-in-flow-when-consented" to "true",
-                "readable-by-client-when-consented" to "true",
+                "readable-by-client-when-consented" to readableByClient.toString(),
             ),
         )
         publishedIn?.let { put("published-in", it) }
     }
+
+    /**
+     * The three custom claims the second scenario turns on: one in the access token, one in the
+     * introspection response, and one naming both that the ACL refuses the client. `secret_note` is still
+     * collected in the flow and readable by the person, so the sign-up supplies a value for it and what
+     * keeps it out of both places is the client's half of the ACL alone.
+     */
+    private fun claimsPublishedPerTokenPlace(): Map<String, Any> = mapOf(
+        "claims" to mapOf(
+            "stored_tier" to customClaim(publishedIn = listOf("access-token")),
+            "stored_ref" to customClaim(publishedIn = listOf("introspection")),
+            // Two components of the address group, which every place assembles into the one object
+            // OpenID Connect Core §5.1.1 defines rather than publishing as members of their own.
+            "locality" to addressClaim(),
+            "country" to addressClaim(),
+            // Collected and not required: the flow offers an optional claim and the sign-up answers it,
+            // and a required claim the client may not read is one the flow would ask for again forever.
+            "secret_note" to customClaim(
+                publishedIn = listOf("access-token", "introspection"),
+                readableByClient = false,
+                required = false,
+            ),
+        ),
+        "clients" to mapOf(
+            clientId to mapOf(
+                "allowed-scopes" to TOKEN_PLACE_SCOPES,
+                "default-scopes" to TOKEN_PLACE_SCOPES,
+            ),
+        ),
+    )
+
+    /**
+     * A component of the address group, turned on and published in the introspection response, keeping the
+     * `openid` template's consent scope and group.
+     */
+    private fun addressClaim(): Map<String, Any> = mapOf(
+        "enabled" to true,
+        "published-in" to listOf("introspection"),
+    )
 
     private companion object {
 
@@ -150,8 +256,15 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
         const val REFERENCE = "CRM-4417"
         const val NOTE = "renewal due"
         const val NICKNAME = "Ada"
+        const val LOCALITY = "Brussels"
+        const val COUNTRY = "Belgium"
 
         val SCOPES = listOf("openid", "profile")
+
+        /** The second scenario consents to `address` as well, for the claims of that group. */
+        val TOKEN_PLACE_SCOPES = SCOPES + "address"
+
+        const val CLIENT_SECRET = "claim-publication-client-secret-value"
 
         /** The value the sign-up collects for each claim its flow asks for, by claim id. */
         val COLLECTED: Map<String, String> = mapOf(
@@ -162,6 +275,11 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
             "internal_ref" to REFERENCE,
             "internal_note" to NOTE,
             "nickname" to NICKNAME,
+            "stored_tier" to GOLD,
+            "stored_ref" to REFERENCE,
+            "secret_note" to NOTE,
+            "locality" to LOCALITY,
+            "country" to COUNTRY,
         )
     }
 }

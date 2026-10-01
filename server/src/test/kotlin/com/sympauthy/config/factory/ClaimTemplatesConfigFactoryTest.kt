@@ -1,7 +1,7 @@
 package com.sympauthy.config.factory
 
 import com.sympauthy.business.model.user.claim.ClaimGroup
-import com.sympauthy.business.model.user.claim.ClaimPublication.ID_TOKEN
+import com.sympauthy.business.model.user.claim.ClaimPublicationPlace.ID_TOKEN
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.model.DisabledClaimTemplatesConfig
@@ -110,7 +110,7 @@ class ClaimTemplatesConfigFactoryTest {
     }
 
     @Test
-    fun `provideClaimTemplates - Parses the channels it offers as a default`() {
+    fun `provideClaimTemplates - Parses the places it offers as a default`() {
         setUp()
         val templates = listOf(templateProperties(id = "token_only", publishedIn = listOf("id-token")))
 
@@ -122,9 +122,9 @@ class ClaimTemplatesConfigFactoryTest {
     }
 
     @Test
-    fun `provideClaimTemplates - Returns disabled config for an entry naming no channel`() {
+    fun `provideClaimTemplates - Returns disabled config for an entry naming no place`() {
         setUp()
-        val templates = listOf(templateProperties(id = "bad", publishedIn = listOf("access-token")))
+        val templates = listOf(templateProperties(id = "bad", publishedIn = listOf("nowhere")))
 
         val result = factory.provideClaimTemplates(templates)
 

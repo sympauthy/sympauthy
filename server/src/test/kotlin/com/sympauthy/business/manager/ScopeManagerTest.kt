@@ -7,6 +7,7 @@ import com.sympauthy.business.model.oauth2.DisabledScope
 import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.oauth2.GrantableUserScope
+import com.sympauthy.business.model.oauth2.ScopePublicationPlace.DISCOVERY
 import com.sympauthy.business.model.oauth2.ScopeType
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.config.model.*
@@ -267,7 +268,9 @@ class ScopeManagerTest {
 
     @Test
     fun `listClaimsProtectedByScope - Return no claim for a scope that is not consentable`() = runTest {
-        val result = scopeManager.listClaimsProtectedByScope(GrantableUserScope("openid", discoverable = true))
+        val scope = GrantableUserScope("openid", publishedIn = setOf(DISCOVERY))
+
+        val result = scopeManager.listClaimsProtectedByScope(scope)
 
         assertTrue(result.isEmpty())
     }
@@ -281,7 +284,7 @@ class ScopeManagerTest {
 
     private fun adminScopes(audienceId: String): List<EnabledScope> {
         return AdminScope.entries.map {
-            GrantableUserScope(scope = it.scope, discoverable = false, audienceId = audienceId)
+            GrantableUserScope(scope = it.scope, publishedIn = emptySet(), audienceId = audienceId)
         }
     }
 }

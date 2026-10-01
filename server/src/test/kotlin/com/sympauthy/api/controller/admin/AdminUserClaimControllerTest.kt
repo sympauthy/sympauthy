@@ -94,7 +94,7 @@ class AdminUserClaimControllerTest {
             generated = false,
             collectedInFlow = false,
             allowedValues = null,
-            publishedIn = ClaimPublication.entries.toSet(),
+            publishedIn = ClaimPublicationPlace.entries.toSet(),
             acl = acl
         ),
         identifier = false,

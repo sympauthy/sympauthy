@@ -5,7 +5,12 @@ import com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.api.resource.oauth2.IntrospectionResource
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
+import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
+import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
+import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
+import com.sympauthy.business.model.user.publishedMembers
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import io.micronaut.http.HttpRequest
@@ -26,6 +31,7 @@ import java.time.ZoneOffset
 @Suppress("MaxLineLength")
 class IntrospectionController(
     @Inject private val tokenManager: TokenManager,
+    @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
     @Inject private val clientAuthenticationUtil: ClientAuthenticationUtil,
     @Inject private val uncheckedAuthConfig: AuthConfig
 ) {
@@ -101,8 +107,35 @@ Client authentication is supported via:
             sub = authenticationToken.userId?.toString() ?: authenticationToken.clientId,
             aud = client.audience.tokenAudience,
             iss = authConfig.issuer,
-            jti = authenticationToken.id.toString()
+            jti = authenticationToken.id.toString(),
+            additionalClaims = publishedClaimMembers(authenticationToken, client)
         )
+    }
+
+    /**
+     * The claims of the person the [token] was issued for that this response carries: the ones the
+     * [client] may read and the deployment publishes in the introspection response, as the members they
+     * travel as.
+     *
+     * A member [IntrospectionResource] declares itself is left out rather than written twice, so a claim a
+     * deployment named after one of RFC 7662's own members never displaces it.
+     *
+     * Empty for a token no person is behind, which is a `client_credentials` token: there are no claims of
+     * anybody to answer.
+     */
+    private suspend fun publishedClaimMembers(
+        token: AuthenticationToken,
+        client: Client
+    ): Map<String, Any> {
+        val userId = token.userId ?: return emptyMap()
+        val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClientAndPublishedIn(
+            userId = userId,
+            audienceId = client.audience.id,
+            place = ClaimPublicationPlace.INTROSPECTION,
+            consentedScopes = token.consentedScopes,
+            clientScopes = token.clientScopes
+        )
+        return claims.publishedMembers(reserved = IntrospectionResource.DECLARED_MEMBERS)
     }
 
     companion object {

@@ -3,7 +3,7 @@ package com.sympauthy.config.validation
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.ClaimPublication
+import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.parsing.ParsedClaim
 import com.sympauthy.config.parsing.ParsedClaimAcl
@@ -23,7 +23,8 @@ class ClaimsConfigValidatorTest {
     private fun parsedClaim(
         id: String,
         audienceId: String? = null,
-        verifiedId: String? = null
+        verifiedId: String? = null,
+        publishedIn: Set<ClaimPublicationPlace> = ClaimPublicationPlace.entries.toSet()
     ) = ParsedClaim(
         id = id,
         enabled = true,
@@ -34,7 +35,7 @@ class ClaimsConfigValidatorTest {
         verifiedId = verifiedId,
         audienceId = audienceId,
         allowedValues = null,
-        publishedIn = ClaimPublication.entries.toSet(),
+        publishedIn = publishedIn,
         acl = ParsedClaimAcl(
             consentScope = null,
             readableByPerson = true,
@@ -67,6 +68,39 @@ class ClaimsConfigValidatorTest {
 
         assertEquals(listOf("config.reserved_identifier"), ctx.errors.map { it.messageId })
         assertEquals(listOf("claims.capabilities"), ctx.errors.map { it.key })
+    }
+
+    @Test
+    fun `validate - Refuse a claim advertised in the discovery document and carried nowhere`() {
+        val ctx = validate(listOf(parsedClaim("email", publishedIn = setOf(ClaimPublicationPlace.DISCOVERY))))
+
+        assertEquals(
+            listOf("config.claim.published_in.advertised_without_a_carrier"),
+            ctx.errors.map { it.messageId }
+        )
+        assertEquals(listOf("claims.email.published-in"), ctx.errors.map { it.key })
+        assertEquals(listOf("email"), ctx.errors.map { it.values["claim"] })
+    }
+
+    @Test
+    fun `validate - Accept a claim advertised beside a place that carries its value`() {
+        val ctx = validate(
+            listOf(
+                parsedClaim(
+                    "email",
+                    publishedIn = setOf(ClaimPublicationPlace.INTROSPECTION, ClaimPublicationPlace.DISCOVERY)
+                )
+            )
+        )
+
+        assertFalse(ctx.hasErrors)
+    }
+
+    @Test
+    fun `validate - Accept a claim carried and not advertised`() {
+        val ctx = validate(listOf(parsedClaim("email", publishedIn = setOf(ClaimPublicationPlace.ID_TOKEN))))
+
+        assertFalse(ctx.hasErrors)
     }
 
     @Test

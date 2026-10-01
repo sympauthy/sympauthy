@@ -57,7 +57,8 @@ class ConsentAwareCollectedClaimManagerTest {
     private fun claimWithConsentScope(
         scope: String,
         audienceId: String? = null,
-        required: Boolean = false
+        required: Boolean = false,
+        publishedIn: Set<ClaimPublicationPlace> = ClaimPublicationPlace.entries.toSet()
     ) = Claim(
         id = "claim_$scope",
 
@@ -70,7 +71,7 @@ class ConsentAwareCollectedClaimManagerTest {
         collectedInFlow = true,
         allowedValues = null,
         audienceId = audienceId,
-        publishedIn = ClaimPublication.entries.toSet(),
+        publishedIn = publishedIn,
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = scope,
@@ -96,7 +97,7 @@ class ConsentAwareCollectedClaimManagerTest {
         generated = false,
         collectedInFlow = false,
         allowedValues = null,
-        publishedIn = ClaimPublication.entries.toSet(),
+        publishedIn = ClaimPublicationPlace.entries.toSet(),
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = null,
@@ -206,6 +207,50 @@ class ConsentAwareCollectedClaimManagerTest {
 
         assertEquals(1, result.count())
         assertSame(collectedShared, result[0])
+    }
+
+    @Test
+    fun `findByUserIdAndReadableByClientAndPublishedIn - Leave out a claim the place does not carry`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val scope = "scope1"
+
+            val carried = claimWithConsentScope(scope)
+            val withheld = claimWithConsentScope(scope, publishedIn = setOf(ClaimPublicationPlace.USERINFO))
+            val collectedCarried = mockk<CollectedClaim> {
+                every { claim } returns carried
+            }
+            val collectedWithheld = mockk<CollectedClaim> {
+                every { claim } returns withheld
+            }
+
+            coEvery { collectedClaimManager.findByUserId(userId) } returns
+                    listOf(collectedCarried, collectedWithheld)
+
+            val result = manager.findByUserIdAndReadableByClientAndPublishedIn(
+                userId, AUDIENCE, ClaimPublicationPlace.ACCESS_TOKEN, listOf(scope)
+            )
+
+            assertEquals(1, result.count())
+            assertSame(collectedCarried, result[0])
+        }
+
+    @Test
+    fun `findByUserIdAndReadableByClientAndPublishedIn - Leave out a claim the ACL refuses`() = runTest {
+        val userId = UUID.randomUUID()
+
+        val refused = claimWithConsentScope("scope1")
+        val collectedRefused = mockk<CollectedClaim> {
+            every { claim } returns refused
+        }
+
+        coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedRefused)
+
+        val result = manager.findByUserIdAndReadableByClientAndPublishedIn(
+            userId, AUDIENCE, ClaimPublicationPlace.ACCESS_TOKEN, emptyList()
+        )
+
+        assertTrue(result.isEmpty())
     }
 
     @Test

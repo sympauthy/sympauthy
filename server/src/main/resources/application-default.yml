@@ -66,10 +66,13 @@ templates:
           - "users:claims:write"
     openid:
       enabled: "false"
-      # Both channels, which is where the claims OpenID Connect defines are expected. Nothing is
-      # published unless a file says so — a claim naming no channel travels through none — so the
-      # set the specification defines names them here rather than being defaulted into.
-      published-in: [ id-token, userinfo ]
+      # The two channels where the claims OpenID Connect defines are expected, and the discovery
+      # document that says they exist. Nothing is published unless a file says so — a claim naming no
+      # place reaches none — so the set the specification defines names them here rather than being
+      # defaulted into. Neither carrier is what the access token or the introspection response would
+      # be: a claim named there travels on every request a resource server makes, which is a decision
+      # no file shipped with the server takes on a deployment's behalf.
+      published-in: [ id-token, userinfo, discovery ]
       acl:
         readable-by-person-when-consented: "true"
         collected-in-flow-when-consented: "true"

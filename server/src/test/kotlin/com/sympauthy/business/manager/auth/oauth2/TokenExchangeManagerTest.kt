@@ -240,7 +240,7 @@ class TokenExchangeManagerTest {
             accessTokenGenerator.generateActAsAccessToken(
                 userId = userId,
                 actorToken = actorToken,
-                tokenAudience = "default-aud",
+                audience = defaultAudience,
                 dpopJkt = null
             )
         }
@@ -264,7 +264,7 @@ class TokenExchangeManagerTest {
             accessTokenGenerator.generateActAsAccessToken(
                 userId = userId,
                 actorToken = actorToken,
-                tokenAudience = "backend-aud",
+                audience = backendAudience,
                 dpopJkt = null
             )
         }

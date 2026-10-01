@@ -57,8 +57,8 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
         )
     }
 
-    private val scope1 = GrantableUserScope("scope1", discoverable = false)
-    private val scope2 = GrantableUserScope("scope2", discoverable = false)
+    private val scope1 = GrantableUserScope("scope1", publishedIn = emptySet())
+    private val scope2 = GrantableUserScope("scope2", publishedIn = emptySet())
 
     private fun mockSession(clientId: String = "test-client"): OnGoingInteractiveFlowSession {
         val session = mockSessionWithoutUser(clientId)
@@ -203,7 +203,7 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
 
     @Test
     fun `applyAuthorizationWebhookScopeGranting - grants additional scopes within allowed-scopes`() = runTest {
-        val extraScope = GrantableUserScope("extra-scope", discoverable = false)
+        val extraScope = GrantableUserScope("extra-scope", publishedIn = emptySet())
         val session = mockSession()
         val client = mockClient(
             authorizationWebhook = mockWebhookConfig(),
@@ -228,7 +228,7 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
 
     @Test
     fun `applyAuthorizationWebhookScopeGranting - does not grant scopes outside allowed-scopes`() = runTest {
-        val extraScope = GrantableUserScope("extra-scope", discoverable = false)
+        val extraScope = GrantableUserScope("extra-scope", publishedIn = emptySet())
         val session = mockSession()
         val client = mockClient(
             authorizationWebhook = mockWebhookConfig(),

@@ -1,24 +1,19 @@
 package com.sympauthy.business.manager.auth.oauth2
 
-import com.nimbusds.jwt.JWTClaimsSet
 import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.oauth2.*
-import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.ClaimDataType.*
-import com.sympauthy.business.model.user.claim.ClaimGroup
-import com.sympauthy.business.model.user.claim.ClaimPublication
+import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
+import com.sympauthy.business.model.user.publishedMembers
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.AuthenticationTokenEntity
 import com.sympauthy.data.repository.AuthenticationTokenRepository
-import com.sympauthy.util.loggerForClass
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.time.LocalDateTime
@@ -35,8 +30,6 @@ class IdTokenGenerator(
     @Inject private val uncheckedAdvancedConfig: AdvancedConfig,
     @Inject private val uncheckedAuthConfig: AuthConfig
 ) {
-
-    private val logger = loggerForClass()
 
     /**
      * Generate a new id token containing user info accessible according to the scopes granted in the
@@ -140,11 +133,12 @@ class IdTokenGenerator(
         val authConfig = uncheckedAuthConfig.orThrow()
         val advancedConfig = uncheckedAdvancedConfig.orThrow()
 
-        val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
+        val publishedClaims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClientAndPublishedIn(
             userId = userId,
             audienceId = audienceId,
+            place = ClaimPublicationPlace.ID_TOKEN,
             consentedScopes = consentedScopes
-        ).filter { it.claim.isPublishedIn(ClaimPublication.ID_TOKEN) }
+        )
 
         val issueDate = LocalDateTime.now()
         val expirationDate = issueDate.plus(authConfig.token.idExpiration)
@@ -177,88 +171,13 @@ class IdTokenGenerator(
             // token, and nothing about a person is disclosed by it.
             authenticationDate?.let { claim(OpenIdConnectClaimId.AUTH_TIME, it.toEpochSecond(ZoneOffset.UTC)) }
             claim("at_hash", advancedConfig.publicJwtAlgorithm.hashAlgorithm.atHash(accessToken.token))
-
-            val (addressClaims, otherClaims) = claims.partition { it.claim.group == ClaimGroup.ADDRESS }
-            otherClaims.forEach { claim ->
-                withClaim(claim)
+            // Last, and against what this token has already claimed, so that nothing a deployment named
+            // after a member the token states about its own authorization displaces it.
+            publishedClaims.publishedMembers(reserved = claims.keys).forEach { (name, value) ->
+                claim(name, value)
             }
-            withAddressClaim(addressClaims)
         }
 
         return tokenMapper.toEncodedAuthenticationToken(entity, encodedToken)
     }
-
-    /**
-     * Claim [claim] on this token, and its `<claim>_verified` companion beside it where the claim declares
-     * one. A claim holding no value is not claimed at all, and neither is one whose value this server has
-     * no wire form for.
-     *
-     * The companion is claimed only beside a value, because `foo_verified: true` with no `foo` is this
-     * server asserting it verified something it did not send.
-     */
-    private fun JWTClaimsSet.Builder.withClaim(claim: CollectedClaim) {
-        val value = claim.value ?: return
-        val encoded = encodeOrNull(claim.claim.dataType, value)
-        if (encoded == null) {
-            logger.error("Unable to encode claim '${claim.claim.id}' into id token.")
-            return
-        }
-        claim(claim.claim.id, encoded)
-        claim.claim.verifiedId?.let { claim(it, claim.verified ?: false) }
-    }
-
-    /**
-     * Claim the `address` object OpenID Connect Core §5.1.1 defines, assembled from the [addressClaims] of
-     * the group, or nothing where none of them carries a value this server can encode.
-     *
-     * Every member of that object is a string there, whatever type the claim behind it was configured as,
-     * so a component is rendered rather than left out — a `postal_code` configured as a number belongs in
-     * the object and in the `formatted` line as much as one configured as a string.
-     */
-    private fun JWTClaimsSet.Builder.withAddressClaim(addressClaims: List<CollectedClaim>) {
-        if (addressClaims.isEmpty()) return
-        val addressMap = mutableMapOf<String, String>()
-        addressClaims.forEach { claim ->
-            val value = claim.value ?: return@forEach
-            val encoded = encodeOrNull(claim.claim.dataType, value)
-            if (encoded == null) {
-                logger.error("Unable to encode claim '${claim.claim.id}' into the address of an id token.")
-                return@forEach
-            }
-            addressMap[claim.claim.id] = encoded.toString()
-        }
-        if (addressMap.isNotEmpty()) {
-            val formatted = listOfNotNull(
-                addressMap["street_address"],
-                listOfNotNull(
-                    addressMap["locality"],
-                    addressMap["region"],
-                    addressMap["postal_code"]
-                ).joinToString(", ").ifBlank { null },
-                addressMap["country"]
-            ).joinToString("\n").ifBlank { null }
-            formatted?.let { addressMap["formatted"] = it }
-            claim("address", addressMap)
-        }
-    }
-}
-
-/**
- * [value] as the JSON type a claim of [dataType] is published as, or null where this server publishes no
- * value of that type in an id token, or where the value is not one of that type after all.
- *
- * What decides the wire form is the type a deployment declared, exhaustively, and never the type the value
- * happens to be carrying. The second is an artifact of how the value round-tripped through the object
- * mapper, and reading the wire form off it is how `number` came to be absent from every id token ever
- * issued — with nothing to notice it but an error line per claim per token.
- *
- * The narrowing that remains is a belt-and-braces check rather than a decision.
- * [CollectedClaimMapper][com.sympauthy.business.mapper.CollectedClaimMapper] already drops a row that
- * does not read back as its claim's type, so nothing should reach here disagreeing with it, and the
- * caller logs it rather than publishing whatever it turned out to be.
- */
-private fun encodeOrNull(dataType: ClaimDataType, value: Any): Any? = when (dataType) {
-    BOOLEAN -> value as? Boolean
-    NUMBER -> (value as? Number)?.toLong()
-    DATE, EMAIL, PHONE_NUMBER, STRING, TIMEZONE -> value as? String
 }

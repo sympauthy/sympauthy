@@ -3,6 +3,7 @@ package com.sympauthy.api.resource.openid
 import com.fasterxml.jackson.annotation.JsonAnyGetter
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
+import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId.ADDRESS
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId.BIRTH_DATE
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId.EMAIL
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId.EMAIL_VERIFIED
@@ -147,11 +148,6 @@ data class UserInfoResource(
     val additionalClaims: Map<String, Any>
 ) {
     companion object {
-        /**
-         * The composite property the address group is published as, which no claim of its own carries.
-         */
-        const val ADDRESS = "address"
-
         /**
          * The JSON properties this resource declares, and therefore the names [additionalClaims] may not
          * be written under: a value published twice under one name is a response whose reader picks.

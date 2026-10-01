@@ -115,7 +115,7 @@ open class TokenManager(
             accessTokenGenerator.generateAccessToken(
                 oauth2,
                 session.userId,
-                tokenAudience,
+                client.audience,
                 dpopJkt = dpopJkt
             )
         }
@@ -209,7 +209,7 @@ open class TokenManager(
         val tokenAudience = client.audience.tokenAudience
 
         val accessToken =
-            accessTokenGenerator.generateAccessToken(refreshToken, tokenAudience, dpopJkt = effectiveDpopJkt)
+            accessTokenGenerator.generateAccessToken(refreshToken, client.audience, dpopJkt = effectiveDpopJkt)
         val refreshedRefreshToken = if (shouldRefreshToken(refreshToken, accessToken)) {
             refreshTokenGenerator.generateRefreshToken(refreshToken, tokenAudience, dpopJkt = effectiveDpopJkt)
         } else null

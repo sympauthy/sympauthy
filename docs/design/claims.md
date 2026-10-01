@@ -3,9 +3,9 @@
 A claim is something this server knows about a person: a name they typed, an address a provider
 asserted, a score an application computed. A deployment declares which claims exist, and everything
 else about one follows from that declaration — whose it is, who may read and write it, which
-audience has it, and which channel carries it off this server.
+audience has it, and which places this server publishes it in.
 
-This document is those four questions, in that order. Between the audience and the channel it says
+This document is those four questions, in that order. Between the audience and the places it says
 what a deployment writes to declare a claim, and what is known about a value it holds. What a
 deployment identifies a person *by* is [the identifier claims](identifier-claims.md); a value
 written by a sign-up that has not finished is [the provisional user](provisional-user.md); the
@@ -127,10 +127,11 @@ unconditional path answers a client holding a scope of its own, `users:claims:re
 unconditionally, which is what makes a claim declared in a line an application's; the `openid`
 template grants the consent path alone and no client write.
 
-**The two OpenID channels do not gate alike.** `/userinfo` asks whether the person may read the
-claim, which is consent alone, because that endpoint is not client-authenticated; the id token asks
-whether the client may, which consent *or* the client's own unconditional scopes satisfy. A claim
-can therefore be permitted in one and refused in the other before publication is asked at all.
+**The places a claim is published in do not gate alike.** `/userinfo` asks whether the person may
+read the claim, which is consent alone, because that endpoint is not client-authenticated; every
+other place asks whether the client may, which consent *or* the client's own unconditional scopes
+satisfy. A claim can therefore be permitted in one and refused in another before publication is
+asked at all — [which half each place asks](#where-a-claim-is-published) is its own.
 
 **Either way, a client write reaches no further than the deployment drew it.** For an application
 claim the deployment drew it wherever it put the claim; for a personal claim it is the client's own
@@ -252,7 +253,7 @@ afterwards is [security's](security.md#what-this-design-does-not-do).
 ## Configuration
 
 **A claim is declared under `claims.<id>`, and the id is the name its value travels under.** It is
-the key a channel publishes it under, the key a client names to write it and the key
+the key every place publishes it under, the key a client names to write it and the key
 `auth.identifier-claims` reaches for, so it is chosen once and not renamed afterwards. What each key
 means and accepts is
 [the public documentation](https://sympauthy.github.io/technical/configuration/claim); what this
@@ -289,7 +290,8 @@ a `string` one — which is also why the values are converted once per type rath
 claim.
 
 **The server ships two.** `openid` is the one every claim the specification defines names: it
-carries both publication channels and the consent flags a profile claim wants, and it holds them
+carries the two OpenID channels, the discovery document and the consent flags a profile claim wants,
+and it holds them
 disabled, so a deployment turns on the ones its applications ask for rather than serving the whole
 set. `default` is the one a claim naming none takes, and it grants the client scopes that read and
 write a claim whatever the person consented to — which is what makes a claim declared in one line an
@@ -309,9 +311,8 @@ why the declared type rather than the value's own decides the wire form.
 
 **A claim may name a companion saying its value was verified, and the companion travels only beside
 a value.** `email_verified` beside `email` is the specification's own case, and a deployment's claim
-declares one the same way. The flow proves a value by sending a code to it, and a channel claiming
-the companion true beside no value would be this server asserting it verified something it did not
-send.
+declares one the same way. The flow proves a value by sending a code to it, and a place claiming the
+companion true beside no value would be this server asserting it verified something it did not send.
 
 **A required claim holds up the flow of an audience that has it.** A person signing in to an
 audience is asked for the required claims that audience has, and for no other audience's; what the
@@ -319,62 +320,127 @@ flow does with them once collected is [the interactive flow](interactive-flow.md
 
 ## Where a claim is published
 
-**A claim names the OpenID channels its value travels through, and publication is not permission.**
+**A claim names the places it is published in, and publication is not permission.**
 `claims.<id>.published-in` names them, `Claim.publishedIn` holds them and `Claim.isPublishedIn` is
 the whole of the test. The ACL answers whether a caller may know a value at all; this answers which
-channel carries one they may already know, so it only ever narrows. It is never a grant, and a claim
-the ACL refuses is answered in no channel whatever it names.
+of the places they may already know it through carry it, so it only ever narrows. It is never a
+grant, and a claim the ACL refuses is published in no place whatever it names.
 
-**It reaches the two OpenID channels and nothing else.** The id token and `/userinfo` each filter
-what they were handed, while the client, admin and user APIs are gated by the ACL alone and answer
-whatever it permits — so a claim published in neither channel is still read through those. The
-access token is not a channel: it carries the client, the scopes, the binding and the moment the
-person authenticated, and no attribute of a person. `auth_time` there is a property of the
-authentication rather than something this server was told about anybody, which is
-[security's](security.md#when-the-person-authenticated).
+**There are five, and four of them carry a value.** The id token and `/userinfo` are the two OpenID
+channels; a JWT access token is where [RFC 9068
+§2.2.3](https://www.rfc-editor.org/rfc/rfc9068#section-2.2.3) defines the profile carrying identity
+claims, and an introspection response where [RFC 7662
+§2.2](https://datatracker.ietf.org/doc/html/rfc7662#section-2.2) leaves room for one. The fifth is
+the discovery document, which publishes the claim's name and never its value.
+`ClaimPublicationPlace` is the authoritative set and its KDoc is the authoritative description of
+each.
 
-**A claim published in neither channel is not advertised as one either.** `claims_supported` lists
-what a client could be told through OpenID Connect, and a claim no channel carries is a name no
-client can ever obtain a value for. That is the other direction from [being advertised and being
-served](security.md#scopes): a deployment stays free to serve what it does not list, and this stops
-it listing what it cannot serve.
+**The four that carry a value each filter what they were handed, and the client, admin and user APIs
+are gated by the ACL alone** — so a claim naming no place is still read through those.
 
-**`auth_time` is listed whatever the file says**, because it is a generated claim like the other
-two: a `claims.auth_time` section is dropped and every key written under one is refused at startup.
-It is an entry of that list a deployment neither chose nor can withhold.
+**Which half of the ACL is asked is the place's question, and for three of the four it is the
+client's.** An id token and an access token are issued to a client and an introspection response is
+answered to one, so each asks whether the client may read the claim, which consent *or* the client's
+own unconditional scopes satisfy. `/userinfo` asks whether the person may, which is consent alone,
+because that endpoint is not client-authenticated. A claim can therefore be permitted in one and
+refused in another before publication is asked at all, and
+`ConsentAwareCollectedClaimManager.findByUserIdAndReadableByClientAndPublishedIn` is the read the
+first three make.
 
-**A claim naming no channel is published in none.** A value leaves this server through the channels
-a deployment named and through no other, so a claim its file never mentions reaches neither. The
-shipped `openid` template names both, which is what keeps the claims the specification defines
-travelling where a client expects them without every deployment writing it again.
+**The audience restriction holds in every one of them.** A claim restricted to another audience is
+left out wherever the value would have gone, because [the audience is asked beside the
+ACL](#what-a-restriction-means) rather than inside it — and the audience a place answers for is the
+one the token was issued for, which for an act-as token is the audience the exchange named rather
+than the acting client's own.
+
+**A claim looks the same in every place that carries it.** `CollectedClaim.publishedMembers` is the
+one wire form: the value under the claim's id, the `<claim>_verified` companion beside it where the
+claim declares one, and the claims of the address group assembled into the single `address` object
+OpenID Connect Core §5.1.1 defines. A place naming its own spelling for any of those would answer a
+client differently depending on which of them it read.
+
+**A claim never displaces what a place states about the authorization.** A token says what it is —
+its subject, its audience, its scopes, its binding — and an introspection response says the same in
+RFC 7662's own members; a claim a deployment happens to have named after one of those is left out
+rather than written over it. Each place hands its own set to `CollectedClaim.publishedMembers`,
+which is why there is no default for it: a token reads back what it has already claimed, so nothing
+has to remember to grow a list, and the introspection response passes
+`IntrospectionResource.DECLARED_MEMBERS`.
+
+### The access token is the place a value travels furthest
+
+**An access token is a bearer credential presented on every request, to every resource server of its
+audience, for the whole life of the token.** An id token is handed over once, so a claim in one
+reaches the client the person authorized and stops there; a claim in an access token reaches
+whatever that client presents it to, for as long as the token lives.
+
+**What a deployment gets for that is a resource server reading an attribute of the person off the
+credential it already holds**, rather than a round trip to `/userinfo` or to introspection on every
+request, or a cache of its own that it then has to invalidate.
+
+**Withdrawing a claim from a token already issued means revoking that token.** Editing the file
+stops the next token carrying the value and does nothing to the ones already out; nothing here
+re-reads a claim a token states.
+
+**A claim in an access token is readable by whoever holds it.** Nothing encrypts a token this server
+issues, so the deployment naming a place is deciding that the value may be read by every party the
+credential passes through.
+
+### Advertising and serving come apart, in both directions
+
+**`claims_supported` is what a claim's file says and nothing else.** A claim naming `discovery` is
+advertised, whichever half of the specification its name comes from; a claim naming no `discovery`
+is served to every client that asks for it by name and named to none that does not. That is the
+freedom the scopes already have, stated in [security](security.md#scopes): a deployment may hide
+what it serves, and every client already naming it is answered exactly as before.
+
+**The other direction stays shut: `discovery` on a claim naming no place that carries the value is
+refused at startup.** Advertising a name no client could ever obtain a value for is what a derived
+list prevented by construction, and it survives as a rule about the file rather than as a
+consequence of one.
+
+**A generated claim's places are recorded rather than configured.** `sub`, `updated_at` and
+`auth_time` are computed rather than collected, so no place reads them out of the claims it filters
+— the id token claims the subject and the authentication time itself, the `/userinfo` mapper
+computes what it answers, and the access token and the introspection response state `auth_time` out
+of the authorization. The enum states where each one arrives all the same, because that is the truth
+an operator is owed off the administration API and what the discovery document is answered from:
+`sub` reaches both channels and the document, `updated_at` `/userinfo` and the document, and
+`auth_time` the id token, the access token, the introspection response and the document.
+
+### The default, and where a deployment reads it back
+
+**A claim naming no place is published in none.** A value leaves this server through the places a
+deployment named and through no other, so a claim its file never mentions reaches none of them. The
+shipped `openid` template names the two channels and the document, which is what keeps the claims
+the specification defines travelling where a client expects them, and advertised, without every
+deployment writing it again. It names neither carrier a token holds: putting a deployment's profile
+claims into a credential presented on every request is not a decision a file shipped with the server
+takes on its behalf.
 
 **The silent answer is the withholding one, deliberately.** Publishing by default would put a
-deployment's own claim into every id token a client may read on the strength of a line nobody wrote,
+deployment's own claim into every token a client may read on the strength of a line nobody wrote,
 and nothing downstream would report it; withholding by default keeps back a value somebody meant to
-send, which the deployment sees the first time it looks and fixes in the file it already owns.
+send, which the deployment sees the first time it looks and fixes in the file it already owns. It is
+the other way round from [a scope's default](security.md#scopes), and deliberately: a scope has no
+value to keep back, and hiding one nobody asked to hide would take it out of `scopes_supported` on
+upgrade.
 
-**The administration API is where it looks.** `published_in` on the claim resource lists the
-channels a claim travels through, and lists none where it travels through neither, so an operator
-reads what their deployment publishes off the surface built for them rather than by decoding a
-token. Publication is the part of a claim with no other reader — what the ACL permits shows up in
-the consent a person is asked for, and where a value goes shows up nowhere else.
+**The administration API is where it looks.** `published_in` on the claim resource lists every place
+a claim is published in, and lists none where it is published in none, so an operator reads what
+their deployment publishes off the surface built for them rather than by decoding a token.
+Publication is the part of a claim with no other reader — what the ACL permits shows up in the
+consent a person is asked for, and where a value goes shows up nowhere else.
 
-**`/userinfo` carries a claim it declares no property for.** `UserInfoResource` lists the
-properties the specification names, and a deployment's own claim is serialized beside them out of
-the claims naming `userinfo`. What it may carry is still what the person may read, consent alone,
-and the shipped `default` claim template leaves that false.
+**`/userinfo` carries a claim it declares no property for.** `UserInfoResource` lists the properties
+the specification names, and a deployment's own claim is serialized beside them out of the claims
+naming `userinfo`. What it may carry is still what the person may read, consent alone, and the
+shipped `default` claim template leaves that false.
 
-**A generated claim's channels are recorded rather than configured.** `sub`, `updated_at` and
-`auth_time` are computed rather than collected, so neither channel reads them out of the claims it
-filters — the id token claims the subject and the authentication time itself, and the `/userinfo`
-mapper computes what it answers. The enum still states where each one arrives, because what the
-discovery document says a channel can supply is read off it: `sub` reaches both, `updated_at` only
-`/userinfo`, and `auth_time` only the id token.
-
-**Nothing refuses a configuration that makes a large id token.** What an audience publishes is
-what the token carries, and no ceiling is imposed on that — [the design
-FAQ](design-faq.md#should-a-configuration-that-makes-a-large-id-token-be-refused) holds what that
-costs and where the limit actually bites.
+**Nothing refuses a configuration that makes a large token.** What an audience publishes is what the
+token carries, and no ceiling is imposed on that — [the design
+FAQ](design-faq.md#should-a-configuration-that-makes-a-large-token-be-refused) holds what that costs
+and where the limit actually bites.
 
 ## What this document does not settle
 
@@ -386,16 +452,13 @@ advertise it — so the discovery document tells a client it may not ask.
 clients that ask for nothing, which is every client today; whether a client should get a say is
 open.
 
-**Whether a deployment may put a claim in the access token or in the introspection response.** Both
-carry one today — `auth_time`, which this server states rather than collects — and neither is a
-channel `published-in` can name, so a resource server wanting an attribute of the person calls
-`/userinfo` or introspects for it. What it would cost to open them is that an access token is a
-bearer credential presented on every request, where an id token is handed over once; whether that
-trade is the deployment's to make is open.
+**A per-client choice, and a per-place one.** `published-in` is the claim's, so every client of the
+audience is told the same thing, and a place is named for the claim rather than for the pairing of a
+claim with a client.
 
 **A claim holding a structured value.** `ClaimDataType` holds scalars, and a deployment wanting to
 keep a document about a person on this server has no type for it. Whether one is added, and what the
-ACL and the channels make of a value with an inside, is open.
+ACL and the places it is published in make of a value with an inside, is open.
 
 **Whether an audience's own personal claim should be client-writable at all.** The kind leaves a
 restricted one where a deployment puts it; whether an application should ever set what a person

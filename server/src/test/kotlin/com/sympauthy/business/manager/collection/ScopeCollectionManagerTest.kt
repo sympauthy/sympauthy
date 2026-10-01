@@ -8,6 +8,7 @@ import com.sympauthy.business.model.oauth2.ConsentableUserScope
 import com.sympauthy.business.model.oauth2.DisabledScope
 import com.sympauthy.business.model.oauth2.GrantableUserScope
 import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.ScopePublicationPlace.DISCOVERY
 import com.sympauthy.business.model.oauth2.ScopeType
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.user.claim.Claim
@@ -37,7 +38,7 @@ class ScopeCollectionManagerTest {
 
     private val enabledScope = ConsentableUserScope(scope = "profile")
     private val disabledScope = DisabledScope(scope = "email", type = ScopeType.CONSENTABLE)
-    private val grantableScope = GrantableUserScope(scope = "openid", discoverable = true)
+    private val grantableScope = GrantableUserScope(scope = "openid", publishedIn = setOf(DISCOVERY))
 
     private val firstPage = PageParams(page = 0, size = 20)
 

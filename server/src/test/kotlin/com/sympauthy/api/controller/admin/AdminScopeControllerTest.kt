@@ -11,6 +11,7 @@ import com.sympauthy.api.util.collectionRequest
 import com.sympauthy.business.manager.collection.ScopeCollectionManager
 import com.sympauthy.business.model.oauth2.ConsentableUserScope
 import com.sympauthy.business.model.oauth2.GrantableUserScope
+import com.sympauthy.business.model.oauth2.ScopePublicationPlace.DISCOVERY
 import com.sympauthy.business.model.oauth2.ScopeType
 import com.sympauthy.business.manager.collection.ScopeCollectionManager.ScopeWithClaims
 import com.sympauthy.business.model.collection.CollectionCapabilities
@@ -90,7 +91,7 @@ class AdminScopeControllerTest {
     @Test
     fun `listScopes - Map every scope the page holds, in the order it holds them`() = runTest {
         val profile = ConsentableUserScope("profile")
-        val openid = GrantableUserScope("openid", discoverable = true)
+        val openid = GrantableUserScope("openid", publishedIn = setOf(DISCOVERY))
 
         val profileClaims = listOf(mockk<Claim>(), mockk<Claim>())
         val profileResource = mockResource("profile", "consentable", listOf("name", "family_name"))

@@ -3,6 +3,7 @@ package com.sympauthy.config.validation
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
@@ -96,6 +97,34 @@ class ClaimsConfigValidator(
         }
     }
 
+    /**
+     * Record an error where a claim is advertised in the discovery document and carried by no place at all.
+     *
+     * `claims_supported` says what a client could be told, so a name in it a client can never obtain a
+     * value for is the one direction publication may not go: a deployment stays free to carry what it does
+     * not advertise, and this is what stops it advertising what it does not carry.
+     *
+     * It is checked on the resolved set rather than on the claim's own entry, so that a template naming
+     * [ClaimPublicationPlace.DISCOVERY] and a claim naming a place that carries the value agree — which is what
+     * makes the value settable on a template at all. The error therefore names the claim's own key, which
+     * is where an operator writes the place that is missing.
+     */
+    private fun refuseAdvertisedWithoutACarrier(
+        ctx: ConfigParsingContext,
+        parsed: ParsedClaim,
+        configKeyPrefix: String
+    ) {
+        if (ClaimPublicationPlace.DISCOVERY !in parsed.publishedIn) return
+        if (parsed.publishedIn.any(ClaimPublicationPlace::carriesAValue)) return
+        ctx.addError(
+            configExceptionOf(
+                "$configKeyPrefix.published-in",
+                "config.claim.published_in.advertised_without_a_carrier",
+                "claim" to parsed.id
+            )
+        )
+    }
+
     private fun validateClaim(
         ctx: ConfigParsingContext,
         parsed: ParsedClaim,
@@ -105,6 +134,8 @@ class ClaimsConfigValidator(
         val configKeyPrefix = "$CLAIMS_KEY.${parsed.id}"
 
         ctx.refuseReservedIdentifier(configKeyPrefix, parsed.id)
+
+        refuseAdvertisedWithoutACarrier(ctx, parsed, configKeyPrefix)
 
         // Validate audience cross-reference.
         val audienceId = validateAudienceId(

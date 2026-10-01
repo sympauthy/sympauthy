@@ -1,13 +1,18 @@
 package com.sympauthy.business.manager.auth.oauth2
 
 import com.sympauthy.business.manager.jwt.JwtManager
+import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
+import com.sympauthy.business.model.user.CollectedClaim
+import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
+import com.sympauthy.business.model.user.publishedMembers
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.AuthenticationTokenEntity
@@ -19,8 +24,18 @@ import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.util.*
 
+/**
+ * Issues the access token a client presents to a resource server.
+ *
+ * Beside what the token says about its own authorization, it carries the claims the deployment publishes
+ * in [ClaimPublicationPlace.ACCESS_TOKEN] and the client may read — so a resource server reads an attribute of
+ * the person off the credential it was handed rather than calling `/userinfo` for it. That is the one
+ * place a claim travels as a bearer credential presented on every request, for the life of the token, so
+ * withdrawing one from a token already issued means revoking that token.
+ */
 @Singleton
 class AccessTokenGenerator(
+    @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
     @Inject private val jwtManager: JwtManager,
     @Inject private val tokenRepository: AuthenticationTokenRepository,
     @Inject private val tokenMapper: EncodedAuthenticationTokenMapper,
@@ -29,16 +44,19 @@ class AccessTokenGenerator(
 
     /**
      * Generate a new access token using the information stored in the session's [oauth2] request record.
+     *
+     * [audience] is the one the token is issued for: it names the token's own `aud`, and a claim
+     * restricted to another audience is left out.
      */
     suspend fun generateAccessToken(
         oauth2: InteractiveFlowSessionOAuth2,
         userId: UUID,
-        tokenAudience: String,
+        audience: Audience,
         dpopJkt: String? = null
     ) = generateAccessToken(
         userId = userId,
         clientId = oauth2.clientId,
-        tokenAudience = tokenAudience,
+        audience = audience,
         grantedScopes = oauth2.grantedScopes ?: emptyList(),
         grantedAt = oauth2.grantedAt,
         grantedBy = oauth2.grantedBy?.name,
@@ -54,15 +72,18 @@ class AccessTokenGenerator(
 
     /**
      * Generate a new access token using the information stored in a [refreshToken].
+     *
+     * [audience] is the one the token is issued for: it names the token's own `aud`, and a claim
+     * restricted to another audience is left out.
      */
     suspend fun generateAccessToken(
         refreshToken: AuthenticationToken,
-        tokenAudience: String,
+        audience: Audience,
         dpopJkt: String? = null
     ) = generateAccessToken(
         userId = refreshToken.userId,
         clientId = refreshToken.clientId,
-        tokenAudience = tokenAudience,
+        audience = audience,
         grantedScopes = refreshToken.grantedScopes,
         grantedAt = refreshToken.grantedAt,
         grantedBy = refreshToken.grantedBy?.name,
@@ -84,6 +105,10 @@ class AccessTokenGenerator(
      * in the `act` claim, and no scopes. The resource server authorizes from the asserted identity and the trusted
      * actor. The [actorToken] is the client-credentials token that was exchanged; its id is recorded for provenance.
      *
+     * [audience] is the one the exchange named, which is where the token goes and which claims it may
+     * carry. It holds none of the person's beyond the identity: a token carrying no scope satisfies no
+     * claim's ACL, so the publication rule has nothing left to place.
+     *
      * It states no `auth_time`: nobody proved a credential of the target account here, and the acting client's
      * own token is not a person's authentication. A resource server reading recency off this token would read
      * the moment a backend asked to act as somebody.
@@ -91,13 +116,13 @@ class AccessTokenGenerator(
     suspend fun generateActAsAccessToken(
         userId: UUID,
         actorToken: AuthenticationToken,
-        tokenAudience: String,
+        audience: Audience,
         dpopJkt: String? = null
     ): EncodedAuthenticationToken {
         return generateAccessToken(
             userId = userId,
             clientId = actorToken.clientId,
-            tokenAudience = tokenAudience,
+            audience = audience,
             grantedScopes = emptyList(),
             grantedAt = null,
             grantedBy = null,
@@ -115,18 +140,20 @@ class AccessTokenGenerator(
 
     /**
      * Generate an access token for client credentials flow (machine-to-machine).
-     * This token is not associated with any end-user.
+     * This token is not associated with any end-user, and carries no claim of one.
+     *
+     * [audience] is the one the token is issued for, and it names the token's own `aud`.
      */
     suspend fun generateAccessTokenForClient(
         clientId: String,
-        tokenAudience: String,
+        audience: Audience,
         clientScopes: List<String>,
         dpopJkt: String? = null
     ): EncodedAuthenticationToken {
         return generateAccessToken(
             userId = null,
             clientId = clientId,
-            tokenAudience = tokenAudience,
+            audience = audience,
             grantedScopes = emptyList(),
             grantedAt = null,
             grantedBy = null,
@@ -143,7 +170,7 @@ class AccessTokenGenerator(
     internal suspend fun generateAccessToken(
         userId: UUID?,
         clientId: String,
-        tokenAudience: String,
+        audience: Audience,
         grantedScopes: List<String>,
         grantedAt: java.time.LocalDateTime?,
         grantedBy: String?,
@@ -173,6 +200,9 @@ class AccessTokenGenerator(
     ): EncodedAuthenticationToken {
         val authConfig = uncheckedAuthConfig.orThrow()
         val allScopes = grantedScopes + consentedScopes + clientScopes
+        val tokenAudience = audience.tokenAudience
+
+        val publishedClaims = publishedClaimsOf(userId, audience.id, consentedScopes, clientScopes)
 
         val issueDate = LocalDateTime.now()
         val expirationDate = issueDate.plus(authConfig.token.accessExpiration)
@@ -212,8 +242,37 @@ class AccessTokenGenerator(
             dpopJkt?.let { claim("cnf", mapOf("jkt" to it)) }
             issueTime(Date.from(issueDate.toInstant(ZoneOffset.UTC)))
             expirationTime(Date.from(expirationDate.toInstant(ZoneOffset.UTC)))
+            // Last, and against what this token has already claimed, so that nothing a deployment named
+            // after a member the token states about its own authorization displaces it.
+            publishedClaims.publishedMembers(reserved = claims.keys).forEach { (name, value) ->
+                claim(name, value)
+            }
         }
 
         return tokenMapper.toEncodedAuthenticationToken(entity, encodedToken)
+    }
+
+    /**
+     * The claims of the person named by [userId] this token carries: the ones a client holding
+     * [consentedScopes] and [clientScopes] may read, of the audience identified by [audienceId], that the
+     * deployment publishes in the access token.
+     *
+     * Empty for a null [userId], which is a token no person is behind and therefore one with no claims to
+     * read for anybody — a `client_credentials` grant is the case.
+     */
+    private suspend fun publishedClaimsOf(
+        userId: UUID?,
+        audienceId: String,
+        consentedScopes: List<String>,
+        clientScopes: List<String>
+    ): List<CollectedClaim> {
+        if (userId == null) return emptyList()
+        return consentAwareCollectedClaimManager.findByUserIdAndReadableByClientAndPublishedIn(
+            userId = userId,
+            audienceId = audienceId,
+            place = ClaimPublicationPlace.ACCESS_TOKEN,
+            consentedScopes = consentedScopes,
+            clientScopes = clientScopes
+        )
     }
 }
