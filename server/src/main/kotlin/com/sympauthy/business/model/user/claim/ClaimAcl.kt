@@ -24,6 +24,17 @@ data class ConsentAcl(
      */
     val scope: String?,
     val readableByPerson: Boolean,
+    /**
+     * Whether the interactive flow collects this claim from the person, where they are on this server's
+     * own pages having just authenticated. It governs that one door in both directions — what the flow
+     * offers and what it reads back — and is neither [readableByPerson], which `/userinfo` answers from,
+     * nor [writableByPerson], which a person's own access token writes through.
+     *
+     * **An identifier claim ignores it.** What an account signs in with is collected by the sign-in and
+     * the sign-up rather than by the claims step, and read back unfiltered, so nothing about one turns on
+     * this flag. It is accepted rather than refused there because the shipped `openid` template marks it,
+     * so a deployment identifying by `email` carries it on without having written it.
+     */
     val collectedInFlow: Boolean,
     /**
      * Whether a person's own access token may write this claim, which is a different permission from
