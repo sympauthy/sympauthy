@@ -15,8 +15,8 @@ to change it, and why it was settled that way. The rules a change is held to are
 - **[The provisional user](provisional-user.md)** — the account a sign-up has not finished creating:
   the rows it owns, what makes them count, and what collects them when nothing ever does.
 - **[The claims](claims.md)** — what this server knows about a person: whose a claim is, who may
-  read and write one and through which credential, which audience has it, and which channel carries
-  it off this server.
+  read and write one and through which credential, which audience has it, and which places this
+  server publishes it in.
 - **[The identifier claims](identifier-claims.md)** — what a deployment identifies a person by:
   what it may declare, what makes a value belong to one account across the set rather than within a
   claim, what a sign-up has to collect, and how a value resolves to an account — when two values

@@ -10,6 +10,7 @@ import com.sympauthy.business.model.oauth2.DisabledScope
 import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.business.model.oauth2.GrantableUserScope
 import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.ScopePublicationPlace
 import com.sympauthy.business.model.oauth2.ScopeType
 import com.sympauthy.business.model.oauth2.isAdminScope
 import com.sympauthy.business.model.oauth2.isBuiltInClientScope
@@ -38,7 +39,7 @@ import jakarta.inject.Singleton
 class ScopeConfigValidator {
 
     private val builtInGrantableScopes: List<EnabledScope> = BuiltInGrantableScope.entries.map { builtIn ->
-        GrantableUserScope(scope = builtIn.scope, discoverable = builtIn.discoverable)
+        GrantableUserScope(scope = builtIn.scope, publishedIn = builtIn.publishedIn)
     }
 
     private val clientScopes: List<EnabledScope> = BuiltInClientScope.entries.map { builtIn ->
@@ -212,13 +213,13 @@ class ScopeConfigValidator {
 
             scopeType == ScopeType.CONSENTABLE -> ConsentableUserScope(
                 scope = parsed.id,
-                discoverable = isDiscoverable(parsed),
+                publishedIn = publishedIn(parsed),
                 audienceId = audienceId
             )
 
             else -> GrantableUserScope(
                 scope = parsed.id,
-                discoverable = isDiscoverable(parsed),
+                publishedIn = publishedIn(parsed),
                 audienceId = audienceId
             )
         }
@@ -235,13 +236,19 @@ class ScopeConfigValidator {
     }
 
     /**
-     * Whether the deployment advertises the scope in the discovery document, which is every scope
-     * it configured unless it said otherwise, and every scope it did not configure at all.
+     * The places the deployment publishes the scope in, which is the discovery document for every scope it
+     * configured unless it said otherwise, and for every scope it did not configure at all.
      *
-     * Discovery is a hint to a client that has not been told what to ask for, so hiding a scope is
-     * not turning it off: a client naming it is served exactly as before.
+     * The default is the advertising one, the other way round from a claim's. A claim keeps a value back
+     * until a file says to send it; a scope has no value to keep back, and hiding one nobody asked to hide
+     * would take it out of `scopes_supported` for every deployment on upgrade — so a client configuring
+     * itself from the document would stop asking for a scope this server still serves.
+     *
+     * The document is a hint to a client that has not been told what to ask for, so hiding a scope is not
+     * turning it off: a client naming it is served exactly as before.
      */
-    private fun isDiscoverable(parsed: ParsedScopeConfig?) = parsed?.discoverable ?: true
+    private fun publishedIn(parsed: ParsedScopeConfig?): Set<ScopePublicationPlace> =
+        parsed?.publishedIn ?: setOf(ScopePublicationPlace.DISCOVERY)
 
     /**
      * The scopes the OpenID Connect specification names, each built from what the deployment wrote
@@ -253,7 +260,7 @@ class ScopeConfigValidator {
             if (parsed?.enabled == false) {
                 DisabledScope(scope = it.scope, type = ScopeType.CONSENTABLE)
             } else {
-                ConsentableUserScope(scope = it.scope, discoverable = isDiscoverable(parsed))
+                ConsentableUserScope(scope = it.scope, publishedIn = publishedIn(parsed))
             }
         }
     }
@@ -263,9 +270,10 @@ class ScopeConfigValidator {
         return AdminScope.entries.map { adminScope ->
             GrantableUserScope(
                 scope = adminScope.scope,
-                discoverable = false,
+                publishedIn = emptySet(),
                 audienceId = adminAudienceId
             )
         }
     }
 }
+

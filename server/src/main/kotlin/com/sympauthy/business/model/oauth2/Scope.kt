@@ -48,11 +48,21 @@ sealed class EnabledScope(
     scope: String,
     type: ScopeType,
     /**
-     * Whether the scope is advertised by the OpenID Connect discovery document.
+     * The places this scope is published in, which is the discovery document or nothing at all.
+     *
+     * Publication is not permission here either: a scope is served whether or not it appears in that
+     * document, and [isPublishedIn] only ever answers whether a client that has not been told what to ask
+     * for could find the name.
      */
-    val discoverable: Boolean,
+    val publishedIn: Set<ScopePublicationPlace>,
     audienceId: String? = null
-) : Scope(scope, type, audienceId)
+) : Scope(scope, type, audienceId) {
+
+    /**
+     * Return true if this scope is published in [place].
+     */
+    fun isPublishedIn(place: ScopePublicationPlace): Boolean = place in publishedIn
+}
 
 /**
  * A scope that requires user consent to be included in tokens.
@@ -61,9 +71,9 @@ sealed class EnabledScope(
  */
 class ConsentableUserScope(
     scope: String,
-    discoverable: Boolean = true,
+    publishedIn: Set<ScopePublicationPlace> = setOf(ScopePublicationPlace.DISCOVERY),
     audienceId: String? = null
-) : EnabledScope(scope, ScopeType.CONSENTABLE, discoverable, audienceId)
+) : EnabledScope(scope, ScopeType.CONSENTABLE, publishedIn, audienceId)
 
 /**
  * A scope that is granted through granting rules or auto-granted.
@@ -71,17 +81,20 @@ class ConsentableUserScope(
  */
 class GrantableUserScope(
     scope: String,
-    discoverable: Boolean,
+    publishedIn: Set<ScopePublicationPlace>,
     audienceId: String? = null
-) : EnabledScope(scope, ScopeType.GRANTABLE, discoverable, audienceId)
+) : EnabledScope(scope, ScopeType.GRANTABLE, publishedIn, audienceId)
 
 /**
  * A scope that is only usable in `client_credentials` flows.
- * These scopes are never discoverable and are not tied to user consent or granting rules.
+ *
+ * It is published nowhere, and no deployment decides that: a client scope is unusable outside
+ * `client_credentials`, so advertising it to a client configuring an authorization would say nothing
+ * true.
  */
 class ClientScope(
     scope: String
-) : EnabledScope(scope, ScopeType.CLIENT, discoverable = false)
+) : EnabledScope(scope, ScopeType.CLIENT, publishedIn = emptySet())
 
 /**
  * A scope the deployment turned off, which this server lists and never serves.
@@ -89,8 +102,8 @@ class ClientScope(
  * It carries no reason for being off: there is exactly one, that the deployment wrote
  * `enabled: false` against it.
  *
- * It is not discoverable either, and that is not a property it holds: discovery advertises what a
- * client may request, and a disabled scope is not something a client may request.
+ * It is published nowhere either, and that is not a property it holds: the discovery document advertises
+ * what a client may request, and a disabled scope is not something a client may request.
  */
 class DisabledScope(
     scope: String,

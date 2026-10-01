@@ -89,7 +89,7 @@ class TokenExchangeManager(
         return accessTokenGenerator.generateActAsAccessToken(
             userId = targetUser,
             actorToken = actorToken,
-            tokenAudience = targetAudience.tokenAudience,
+            audience = targetAudience,
             dpopJkt = dpopJkt
         )
     }

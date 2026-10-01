@@ -1,5 +1,6 @@
 package com.sympauthy.api.resource.oauth2
 
+import com.fasterxml.jackson.annotation.JsonAnyGetter
 import com.fasterxml.jackson.annotation.JsonProperty
 import io.micronaut.serde.annotation.Serdeable
 import io.swagger.v3.oas.annotations.ExternalDocumentation
@@ -7,10 +8,11 @@ import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(
     name = "IntrospectionResource",
-    description = "Response from the token introspection endpoint per RFC 7662. When the token is inactive, only the 'active' field (set to false) is returned; all other fields are omitted.",
+    description = "Response from the token introspection endpoint per RFC 7662. When the token is inactive, only the 'active' field (set to false) is returned; all other fields are omitted. Beside the members declared here, the response carries the claims a deployment publishes in the introspection response, each under the identifier it was configured with.",
     externalDocs = ExternalDocumentation(
         url = "https://datatracker.ietf.org/doc/html/rfc7662#section-2.2"
-    )
+    ),
+    additionalProperties = Schema.AdditionalPropertiesValue.TRUE
 )
 @Serdeable
 @Suppress("MaxLineLength")
@@ -57,5 +59,31 @@ data class IntrospectionResource(
     val iss: String? = null,
 
     @get:Schema(description = "Unique identifier of the token.")
-    val jti: String? = null
-)
+    val jti: String? = null,
+
+    /**
+     * The claims of the person this token was issued for that the deployment publishes in the
+     * introspection response, each under the identifier it was configured with, serialized beside the
+     * members above rather than under a member of its own.
+     *
+     * Hidden from the schema because it is not a member a client ever reads: what it holds is declared on
+     * the class as additional properties, which is what the response actually carries.
+     */
+    @get:Schema(hidden = true)
+    @get:JsonAnyGetter
+    val additionalClaims: Map<String, Any> = emptyMap()
+) {
+    companion object {
+        /**
+         * The JSON members this resource declares, and therefore the names [additionalClaims] may not be
+         * written under: a value published twice under one name is a response whose reader picks.
+         *
+         * `username` is here although nothing answers it yet, because what the set is for is the contract
+         * this resource publishes rather than what one response happens to fill in.
+         */
+        val DECLARED_MEMBERS: Set<String> = setOf(
+            "active", "scope", "client_id", "username", "token_type",
+            "exp", "iat", "auth_time", "sub", "aud", "iss", "jti"
+        )
+    }
+}

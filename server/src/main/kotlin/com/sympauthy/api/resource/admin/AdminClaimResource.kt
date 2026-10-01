@@ -37,10 +37,11 @@ data class AdminClaimResource(
     @get:JsonInclude(JsonInclude.Include.ALWAYS)
     val group: String?,
     @get:Schema(
-        description = "OpenID channels this claim's value is published in. Empty when it is published in " +
-                "neither, which leaves the claim readable through this API and the client API and carried " +
-                "by no token.",
-        allowableValues = ["id_token", "userinfo"]
+        description = "Places this claim is published in: the four that carry its value, and the " +
+                "discovery document, which publishes the name alone. Empty when it is published in none, " +
+                "which leaves the claim readable through this API and the client API and carried by no " +
+                "token.",
+        allowableValues = ["id_token", "userinfo", "access_token", "introspection", "discovery"]
     )
     @get:JsonProperty("published_in")
     @get:JsonInclude(JsonInclude.Include.ALWAYS)

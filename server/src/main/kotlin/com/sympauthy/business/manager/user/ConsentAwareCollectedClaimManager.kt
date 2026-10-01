@@ -10,6 +10,7 @@ import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
+import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -73,6 +74,35 @@ open class ConsentAwareCollectedClaimManager(
         return collectedClaimManager.findByUserId(userId).filter {
             it.claim.belongsToAudience(audienceId) && it.claim.canBeReadByClient(consentedScopes, clientScopes)
         }
+    }
+
+    /**
+     * Return the list of [CollectedClaim] collected from the user identified by [userId] that a client may
+     * read, per [findByUserIdAndReadableByClient], and that the deployment publishes in [place].
+     *
+     * The two questions are asked in that order and neither substitutes for the other: the ACL decides
+     * whether this client may know the value at all, and [place] decides which of the values it may know
+     * are carried there. So this only ever narrows what the ACL permitted, and a claim the ACL refuses
+     * reaches [place] whatever its file says.
+     *
+     * It is the client's half of the ACL that is asked, for every [place] that answers a client: an id
+     * token and an access token are issued to one, and an introspection response is answered to one.
+     * `/userinfo` is not among them and reads [findByUserIdAndReadableByPerson] instead, because that
+     * endpoint is not client-authenticated.
+     */
+    suspend fun findByUserIdAndReadableByClientAndPublishedIn(
+        userId: UUID,
+        audienceId: String,
+        place: ClaimPublicationPlace,
+        consentedScopes: List<String>,
+        clientScopes: List<String> = emptyList()
+    ): List<CollectedClaim> {
+        return findByUserIdAndReadableByClient(
+            userId = userId,
+            audienceId = audienceId,
+            consentedScopes = consentedScopes,
+            clientScopes = clientScopes
+        ).filter { it.claim.isPublishedIn(place) }
     }
 
     /**

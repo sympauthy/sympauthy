@@ -9,7 +9,7 @@ class ClaimTest {
 
     private fun claim(
         id: String = "test_claim",
-        publishedIn: Set<ClaimPublication> = ClaimPublication.entries.toSet(),
+        publishedIn: Set<ClaimPublicationPlace> = ClaimPublicationPlace.entries.toSet(),
         consentScope: String? = null,
         readableByPerson: Boolean = false,
         collectedInFlow: Boolean = false,
@@ -60,22 +60,21 @@ class ClaimTest {
     }
 
     @Test
-    fun `isPublishedIn - true for a channel the claim names`() {
-        val claim = claim(publishedIn = setOf(ClaimPublication.USERINFO))
-        assertTrue(claim.isPublishedIn(ClaimPublication.USERINFO))
+    fun `isPublishedIn - true for a place the claim names`() {
+        val claim = claim(publishedIn = setOf(ClaimPublicationPlace.USERINFO))
+        assertTrue(claim.isPublishedIn(ClaimPublicationPlace.USERINFO))
     }
 
     @Test
-    fun `isPublishedIn - false for a channel the claim does not name`() {
-        val claim = claim(publishedIn = setOf(ClaimPublication.USERINFO))
-        assertFalse(claim.isPublishedIn(ClaimPublication.ID_TOKEN))
+    fun `isPublishedIn - false for a place the claim does not name`() {
+        val claim = claim(publishedIn = setOf(ClaimPublicationPlace.USERINFO))
+        assertFalse(claim.isPublishedIn(ClaimPublicationPlace.ID_TOKEN))
     }
 
     @Test
-    fun `isPublishedIn - false for every channel when the claim names none`() {
+    fun `isPublishedIn - false for every place when the claim names none`() {
         val claim = claim(publishedIn = emptySet())
-        assertFalse(claim.isPublishedIn(ClaimPublication.ID_TOKEN))
-        assertFalse(claim.isPublishedIn(ClaimPublication.USERINFO))
+        ClaimPublicationPlace.entries.forEach { assertFalse(claim.isPublishedIn(it)) }
     }
 
     @Test

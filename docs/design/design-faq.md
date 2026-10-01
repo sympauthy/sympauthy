@@ -254,10 +254,11 @@ and by its second factor where one is enrolled.
 
 ---
 
-### Should a configuration that makes a large id token be refused?
+### Should a configuration that makes a large token be refused?
 
-**Decision:** No. What an audience publishes is what the id token carries, and nothing caps the
-number of claims, the size of a value, or the serialized token.
+**Decision:** No. What an audience publishes is what the token carries, for an id token and for an
+access token alike, and nothing caps the number of claims, the size of a value, or the serialized
+token.
 
 **Options considered:**
 
@@ -289,11 +290,18 @@ trouble. The deployment that hits a real limit finds out from the component that
 what it changes in response is `published-in` on the claims it does not need in the token — which is
 the setting it already owns, readable off the administration API.
 
-What the chosen option costs is that a deployment can configure an id token too large for a client
-it has, and nothing says so until that client fails. It is the same trade [the silent answer is the
-withholding one](claims.md#where-a-claim-is-published) makes from the other direction: the
-defaults keep a value back rather than publish it, so reaching a size worth worrying about takes a
-deployment writing `published-in` on claim after claim deliberately.
+**An access token meets a limit more often, and it is the same limit.** It travels in an
+`Authorization` header on every request rather than once in a response body, so the ceiling it hits
+is a proxy's or a resource server's rather than a browser's — a component this server knows even
+less about, and one a deployment discovers by trying. Nothing here changes: a header a token no
+longer fits in is reported by whatever imposed the header, and the deployment answers by naming
+fewer places for its claims.
+
+What the chosen option costs is that a deployment can configure a token too large for a client or a
+resource server it has, and nothing says so until that party fails. It is the same trade [the silent
+answer is the withholding one](claims.md#where-a-claim-is-published) makes from the other direction:
+the defaults keep a value back rather than publish it, so reaching a size worth worrying about takes
+a deployment writing `published-in` on claim after claim deliberately.
 
 ---
 
@@ -588,7 +596,7 @@ Sparing the two keys the parser reads was the first shape of this, and it does n
 what becomes of them. `acl.readable-with-client-scopes-unconditionally` reaches
 `UnconditionalAcl.readableWithClientScopes`, whose only reader is `Claim.canBeReadByClient`, whose
 only callers filter the claims *collected* from a person — and a generated claim is never one of
-those, because its value is computed. Every channel that publishes one computes it instead: the id
+those, because its value is computed. Every place that publishes one computes it instead: the id
 token through `IdTokenGenerator`, `/userinfo` and the client claims endpoint through
 `GeneratedClaimsManager`, the last of them gated by the scope on the endpoint rather than by
 anything in the file. `template` was then read for that same list and nothing else, so it decided

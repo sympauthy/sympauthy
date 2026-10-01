@@ -53,9 +53,9 @@ class UserScopeGrantingManagerTest {
             requestedScopes = listOf("grantedScope1", "declinedScope1", "declinedScope2")
         )
 
-        val grantedScope1 = GrantableUserScope("grantedScope1", discoverable = false)
-        val declinedScope1 = GrantableUserScope("declinedScope1", discoverable = false)
-        val declinedScope2 = GrantableUserScope("declinedScope2", discoverable = false)
+        val grantedScope1 = GrantableUserScope("grantedScope1", publishedIn = emptySet())
+        val declinedScope1 = GrantableUserScope("declinedScope1", publishedIn = emptySet())
+        val declinedScope2 = GrantableUserScope("declinedScope2", publishedIn = emptySet())
 
         coEvery { scopeManager.findOrThrow("grantedScope1") } returns grantedScope1
         coEvery { scopeManager.findOrThrow("declinedScope1") } returns declinedScope1

@@ -1,7 +1,6 @@
 package com.sympauthy.business.manager
 
 import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.business.model.user.claim.ClaimOrigin
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.ClaimsConfig
 import com.sympauthy.config.model.orThrow
@@ -61,13 +60,6 @@ class ClaimManager(
      */
     fun listRequiredClaims(): List<Claim> {
         return listEnabledClaims().filter(Claim::required)
-    }
-
-    /**
-     * Return all the OpenID claims enabled on this authorization server.
-     */
-    fun listEnabledOpenIdConnectClaims(): List<Claim> {
-        return cachedClaimsMap.values.filter { it.origin == ClaimOrigin.OPENID_CONNECT && it.enabled }
     }
 
     /**

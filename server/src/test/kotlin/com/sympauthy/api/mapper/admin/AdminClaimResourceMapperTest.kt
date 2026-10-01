@@ -3,9 +3,9 @@ package com.sympauthy.api.mapper.admin
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.ClaimPublication
-import com.sympauthy.business.model.user.claim.ClaimPublication.ID_TOKEN
-import com.sympauthy.business.model.user.claim.ClaimPublication.USERINFO
+import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
+import com.sympauthy.business.model.user.claim.ClaimPublicationPlace.ID_TOKEN
+import com.sympauthy.business.model.user.claim.ClaimPublicationPlace.USERINFO
 import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.UnconditionalAcl
 import com.sympauthy.config.model.EnabledAuthConfig
@@ -33,28 +33,31 @@ class AdminClaimResourceMapperTest {
     }
 
     @Test
-    fun `toResource - Report the channels a claim is published in`() {
-        val resource = mapper.toResource(claim("loyalty_tier", setOf(ID_TOKEN, USERINFO)))
+    fun `toResource - Report every place a claim is published in`() {
+        val resource = mapper.toResource(claim("loyalty_tier", ClaimPublicationPlace.entries.toSet()))
 
-        assertEquals(listOf("id_token", "userinfo"), resource.publishedIn)
+        assertEquals(
+            listOf("id_token", "userinfo", "access_token", "introspection", "discovery"),
+            resource.publishedIn
+        )
     }
 
     @Test
-    fun `toResource - Report the channels in the same order whichever the claim names first`() {
+    fun `toResource - Report the places in the same order whichever the claim names first`() {
         val resource = mapper.toResource(claim("loyalty_tier", setOf(USERINFO, ID_TOKEN)))
 
         assertEquals(listOf("id_token", "userinfo"), resource.publishedIn)
     }
 
     @Test
-    fun `toResource - Report the one channel a claim is published in`() {
+    fun `toResource - Report the one place a claim is published in`() {
         val resource = mapper.toResource(claim("preferences", setOf(USERINFO)))
 
         assertEquals(listOf("userinfo"), resource.publishedIn)
     }
 
     @Test
-    fun `toResource - Report no channel for a claim published in neither`() {
+    fun `toResource - Report no place for a claim published in none`() {
         val resource = mapper.toResource(claim("internal_note", emptySet()))
 
         assertEquals(emptyList<String>(), resource.publishedIn)
@@ -66,7 +69,7 @@ class AdminClaimResourceMapperTest {
         assertEquals(false, mapper.toResource(claim("loyalty_tier", setOf(ID_TOKEN))).identifier)
     }
 
-    private fun claim(id: String, publishedIn: Set<ClaimPublication>) = Claim(
+    private fun claim(id: String, publishedIn: Set<ClaimPublicationPlace>) = Claim(
         id = id,
         enabled = true,
         verifiedId = null,

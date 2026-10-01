@@ -11,10 +11,14 @@ package com.sympauthy.business.model.oauth2
  */
 enum class BuiltInGrantableScope(
     val scope: String,
-    val discoverable: Boolean,
+    val publishedIn: Set<ScopePublicationPlace>,
     val autoGranted: Boolean
 ) {
-    OPENID(BuiltInGrantableScopeId.OPENID, discoverable = true, autoGranted = true);
+    OPENID(
+        BuiltInGrantableScopeId.OPENID,
+        publishedIn = setOf(ScopePublicationPlace.DISCOVERY),
+        autoGranted = true
+    );
 }
 
 /**

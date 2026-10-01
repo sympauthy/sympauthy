@@ -15,7 +15,7 @@ class ScopeTemplateConfigurationProperties(
     @param:Parameter val id: String
 ) {
     var enabled: String? = null
-    var discoverable: String? = null
+    var publishedIn: List<String>? = null
     var type: String? = null
     var audience: String? = null
 

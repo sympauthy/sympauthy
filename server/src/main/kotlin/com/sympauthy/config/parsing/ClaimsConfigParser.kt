@@ -3,7 +3,7 @@ package com.sympauthy.config.parsing
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimDataType.*
 import com.sympauthy.business.model.user.claim.ClaimGroup
-import com.sympauthy.business.model.user.claim.ClaimPublication
+import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
@@ -35,9 +35,9 @@ internal fun parsePublishedIn(
     parser: ConfigParser,
     values: List<String>?,
     key: String
-): Set<ClaimPublication>? = values
+): Set<ClaimPublicationPlace>? = values
     ?.mapIndexedNotNull { index, value ->
-        ctx.parse { parser.convertToEnum<ClaimPublication>("$key[$index]", value) }
+        ctx.parse { parser.convertToEnum<ClaimPublicationPlace>("$key[$index]", value) }
     }
     ?.toSet()
 
@@ -51,7 +51,7 @@ data class ParsedClaim(
     val verifiedId: String?,
     val audienceId: String?,
     val allowedValues: List<Any>?,
-    val publishedIn: Set<ClaimPublication>,
+    val publishedIn: Set<ClaimPublicationPlace>,
     val acl: ParsedClaimAcl
 )
 

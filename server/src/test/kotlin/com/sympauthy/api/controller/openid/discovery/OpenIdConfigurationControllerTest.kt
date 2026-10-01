@@ -10,7 +10,7 @@ import com.sympauthy.business.model.oauth2.ResponseType
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.ClaimPublication
+import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.business.model.user.claim.UnconditionalAcl
@@ -134,7 +134,7 @@ class OpenIdConfigurationControllerTest {
     }
 
     @Test
-    fun `getConfiguration - Advertises a claim the deployment publishes in a channel`() = runTest {
+    fun `getConfiguration - Advertises a claim whose file names the discovery document`() = runTest {
         val configuration = configurationWithClaims(
             claim(OpenIdConnectClaimId.EMAIL, verifiedId = OpenIdConnectClaimId.EMAIL_VERIFIED)
         )
@@ -146,10 +146,17 @@ class OpenIdConfigurationControllerTest {
     }
 
     @Test
-    fun `getConfiguration - Advertises no claim the deployment publishes in neither channel`() = runTest {
+    fun `getConfiguration - Advertises a claim of the deployment's own that names the document`() = runTest {
+        val configuration = configurationWithClaims(claim("loyalty_tier"))
+
+        assertEquals(listOf("loyalty_tier"), configuration.claimsSupported)
+    }
+
+    @Test
+    fun `getConfiguration - Advertises no claim the deployment carries and does not advertise`() = runTest {
         val configuration = configurationWithClaims(
             claim(OpenIdConnectClaimId.NAME),
-            claim(OpenIdConnectClaimId.EMAIL, publishedIn = emptySet())
+            claim(OpenIdConnectClaimId.EMAIL, publishedIn = setOf(ClaimPublicationPlace.ID_TOKEN))
         )
 
         assertEquals(listOf(OpenIdConnectClaimId.NAME), configuration.claimsSupported)
@@ -157,7 +164,7 @@ class OpenIdConfigurationControllerTest {
 
     private suspend fun configurationWithClaims(vararg claims: Claim): OpenIdConfigurationResource {
         coEvery { scopeManager.listEnabledScopes() } returns emptyList()
-        every { claimManager.listEnabledOpenIdConnectClaims() } returns claims.toList()
+        every { claimManager.listEnabledClaims() } returns claims.toList()
         every { uncheckedAdvancedConfig.publicJwtAlgorithm } returns JwtAlgorithm.ES256
         return controller.getConfiguration()
     }
@@ -165,7 +172,7 @@ class OpenIdConfigurationControllerTest {
     private fun claim(
         id: String,
         verifiedId: String? = null,
-        publishedIn: Set<ClaimPublication> = ClaimPublication.entries.toSet()
+        publishedIn: Set<ClaimPublicationPlace> = ClaimPublicationPlace.entries.toSet()
     ) = Claim(
         id = id,
         enabled = true,
@@ -200,7 +207,7 @@ class OpenIdConfigurationControllerTest {
      */
     private suspend fun configuration(): OpenIdConfigurationResource {
         coEvery { scopeManager.listEnabledScopes() } returns emptyList()
-        every { claimManager.listEnabledOpenIdConnectClaims() } returns emptyList()
+        every { claimManager.listEnabledClaims() } returns emptyList()
         every { uncheckedAdvancedConfig.publicJwtAlgorithm } returns JwtAlgorithm.ES256
         return controller.getConfiguration()
     }

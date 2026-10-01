@@ -111,7 +111,7 @@ class TokenManagerTest {
             accessTokenGenerator.generateAccessToken(
                 oauth2,
                 userId,
-                tokenAudience = any(),
+                audience = any(),
                 dpopJkt = null
             )
         } returns accessToken
@@ -204,7 +204,7 @@ class TokenManagerTest {
         coEvery {
             accessTokenGenerator.generateAccessToken(
                 refreshToken,
-                tokenAudience = any(),
+                audience = any(),
                 dpopJkt = null
             )
         } returns accessToken
@@ -249,7 +249,7 @@ class TokenManagerTest {
         coEvery {
             accessTokenGenerator.generateAccessToken(
                 refreshToken,
-                tokenAudience = any(),
+                audience = any(),
                 dpopJkt = null
             )
         } returns accessToken
@@ -308,7 +308,7 @@ class TokenManagerTest {
         coEvery {
             accessTokenGenerator.generateAccessToken(
                 refreshToken,
-                tokenAudience = any(),
+                audience = any(),
                 dpopJkt = null
             )
         } returns accessToken
@@ -344,7 +344,7 @@ class TokenManagerTest {
         coJustRun { userManager.checkPromoted(userId) }
         coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, any()) } returns mockk()
         coEvery {
-            accessTokenGenerator.generateAccessToken(refreshToken, tokenAudience = any(), dpopJkt = null)
+            accessTokenGenerator.generateAccessToken(refreshToken, audience = any(), dpopJkt = null)
         } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
         coEvery { idTokenGenerator.generateIdToken(refreshToken, "test-audience", accessToken) } returns idToken

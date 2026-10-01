@@ -9,7 +9,7 @@ import com.sympauthy.business.model.user.claim.ClaimDataType.EMAIL
 import com.sympauthy.business.model.user.claim.ClaimDataType.NUMBER
 import com.sympauthy.business.model.user.claim.ClaimDataType.STRING
 import com.sympauthy.business.model.user.claim.ClaimGroup
-import com.sympauthy.business.model.user.claim.ClaimPublication
+import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.business.model.user.claim.UnconditionalAcl
@@ -91,7 +91,7 @@ class UserInfoResourceMapperTest {
     fun `toResource - Leave out a standard claim the deployment publishes elsewhere`() = runTest {
         stubGenerated()
 
-        val claim = claim(OpenIdConnectClaimId.EMAIL, EMAIL, publishedIn = setOf(ClaimPublication.ID_TOKEN))
+        val claim = claim(OpenIdConnectClaimId.EMAIL, EMAIL, publishedIn = setOf(ClaimPublicationPlace.ID_TOKEN))
         val resource = mapper.toResource(userId, listOf(collected(claim, "ada@example.com")))
 
         assertNull(resource.email)
@@ -196,18 +196,18 @@ class UserInfoResourceMapperTest {
 
     /** A claim of the deployment's own, published here. */
     private fun published(id: String, verifiedId: String? = null) =
-        claim(id, STRING, verifiedId = verifiedId, publishedIn = setOf(ClaimPublication.USERINFO))
+        claim(id, STRING, verifiedId = verifiedId, publishedIn = setOf(ClaimPublicationPlace.USERINFO))
 
     /** A claim of the deployment's own, published in the other channel alone. */
     private fun publishedElsewhere(id: String) =
-        claim(id, STRING, publishedIn = setOf(ClaimPublication.ID_TOKEN))
+        claim(id, STRING, publishedIn = setOf(ClaimPublicationPlace.ID_TOKEN))
 
     private fun claim(
         id: String,
         dataType: ClaimDataType,
         group: ClaimGroup? = null,
         verifiedId: String? = null,
-        publishedIn: Set<ClaimPublication> = ClaimPublication.entries.toSet()
+        publishedIn: Set<ClaimPublicationPlace> = ClaimPublicationPlace.entries.toSet()
     ) = Claim(
         id = id,
         enabled = true,

@@ -9,6 +9,8 @@ import com.sympauthy.business.model.oauth2.ConsentableUserScope
 import com.sympauthy.business.model.oauth2.DisabledScope
 import com.sympauthy.business.model.oauth2.GrantableUserScope
 import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.oauth2.ScopePublicationPlace
+import com.sympauthy.business.model.oauth2.ScopePublicationPlace.DISCOVERY
 import com.sympauthy.business.model.oauth2.ScopeType
 import com.sympauthy.business.model.user.OpenIdConnectScope
 import com.sympauthy.config.ConfigParser
@@ -56,14 +58,14 @@ class ScopeConfigFactoryTest {
         type: String? = null,
         template: String? = null,
         enabled: String? = null,
-        discoverable: String? = null,
+        publishedIn: List<String>? = null,
         audience: String? = null
     ): ScopeConfigurationProperties {
         return ScopeConfigurationProperties(id).apply {
             this.type = type
             this.template = template
             this.enabled = enabled
-            this.discoverable = discoverable
+            this.publishedIn = publishedIn
             this.audience = audience
         }
     }
@@ -71,13 +73,13 @@ class ScopeConfigFactoryTest {
     private fun scopeTemplate(
         id: String,
         enabled: Boolean? = null,
-        discoverable: Boolean? = null,
+        publishedIn: Set<ScopePublicationPlace>? = null,
         type: String? = null,
         audienceId: String? = null
     ) = ScopeTemplate(
         id = id,
         enabled = enabled,
-        discoverable = discoverable,
+        publishedIn = publishedIn,
         type = type,
         audienceId = audienceId
     )
@@ -160,69 +162,74 @@ class ScopeConfigFactoryTest {
         val result = factory.provideScopes(listOf(scopeProperties(id = "my-scope")))
 
         assertInstanceOf(EnabledScopesConfig::class.java, result)
-        assertTrue(assertInstanceOf(GrantableUserScope::class.java, result.scopeNamed("my-scope")).discoverable)
+        val scope = assertInstanceOf(GrantableUserScope::class.java, result.scopeNamed("my-scope"))
+        assertEquals(setOf(DISCOVERY), scope.publishedIn)
     }
 
     @Test
     fun `provideScopes - Keep a custom scope out of the discovery document`() {
         val result = factory.provideScopes(
             listOf(
-                scopeProperties(id = "my-grantable", discoverable = "false"),
-                scopeProperties(id = "my-consentable", type = "consentable", discoverable = "false")
+                scopeProperties(id = "my-grantable", publishedIn = emptyList()),
+                scopeProperties(id = "my-consentable", type = "consentable", publishedIn = emptyList())
             )
         )
 
         assertInstanceOf(EnabledScopesConfig::class.java, result)
-        assertFalse(assertInstanceOf(GrantableUserScope::class.java, result.scopeNamed("my-grantable")).discoverable)
-        assertFalse(
-            assertInstanceOf(ConsentableUserScope::class.java, result.scopeNamed("my-consentable")).discoverable
-        )
+        val grantable = assertInstanceOf(GrantableUserScope::class.java, result.scopeNamed("my-grantable"))
+        val consentable = assertInstanceOf(ConsentableUserScope::class.java, result.scopeNamed("my-consentable"))
+        assertEquals(emptySet<ScopePublicationPlace>(), grantable.publishedIn)
+        assertEquals(emptySet<ScopePublicationPlace>(), consentable.publishedIn)
     }
 
     @Test
-    fun `provideScopes - Take the discoverability of a custom scope from the template it names`() {
+    fun `provideScopes - Take where a custom scope is published from the template it names`() {
         val factory = factoryWith(
             templates = listOf(
-                scopeTemplate(id = "my-template", discoverable = false)
+                scopeTemplate(id = "my-template", publishedIn = emptySet())
             )
         )
 
         val result = factory.provideScopes(listOf(scopeProperties(id = "my-scope", template = "my-template")))
 
         assertInstanceOf(EnabledScopesConfig::class.java, result)
-        assertFalse(assertInstanceOf(GrantableUserScope::class.java, result.scopeNamed("my-scope")).discoverable)
+        val scope = assertInstanceOf(GrantableUserScope::class.java, result.scopeNamed("my-scope"))
+        assertEquals(emptySet<ScopePublicationPlace>(), scope.publishedIn)
     }
 
     @Test
-    fun `provideScopes - Let a custom scope property override its template discoverability`() {
+    fun `provideScopes - Let a custom scope property override where its template publishes it`() {
         val factory = factoryWith(
             templates = listOf(
-                scopeTemplate(id = "my-template", discoverable = false)
+                scopeTemplate(id = "my-template", publishedIn = emptySet())
             )
         )
 
         val result = factory.provideScopes(
-            listOf(scopeProperties(id = "my-scope", template = "my-template", discoverable = "true"))
+            listOf(scopeProperties(id = "my-scope", template = "my-template", publishedIn = listOf("discovery")))
         )
 
         assertInstanceOf(EnabledScopesConfig::class.java, result)
-        assertTrue(assertInstanceOf(GrantableUserScope::class.java, result.scopeNamed("my-scope")).discoverable)
+        val scope = assertInstanceOf(GrantableUserScope::class.java, result.scopeNamed("my-scope"))
+        assertEquals(setOf(DISCOVERY), scope.publishedIn)
     }
 
     @Test
     fun `provideScopes - Keep an OpenID Connect scope out of the discovery document`() {
-        val result = factory.provideScopes(listOf(scopeProperties(id = "profile", discoverable = "false")))
+        val result = factory.provideScopes(listOf(scopeProperties(id = "profile", publishedIn = emptyList())))
 
         assertInstanceOf(EnabledScopesConfig::class.java, result)
-        assertFalse(assertInstanceOf(ConsentableUserScope::class.java, result.scopeNamed("profile")).discoverable)
-        assertTrue(assertInstanceOf(ConsentableUserScope::class.java, result.scopeNamed("email")).discoverable)
+        val profile = assertInstanceOf(ConsentableUserScope::class.java, result.scopeNamed("profile"))
+        val email = assertInstanceOf(ConsentableUserScope::class.java, result.scopeNamed("email"))
+        assertEquals(emptySet<ScopePublicationPlace>(), profile.publishedIn)
+        assertEquals(setOf(DISCOVERY), email.publishedIn)
     }
 
     @Test
-    fun `provideScopes - Report a discoverability that is not a boolean`() {
-        val result = factory.provideScopes(listOf(scopeProperties(id = "my-scope", discoverable = "maybe")))
+    fun `provideScopes - Report a place that names nothing`() {
+        val result = factory.provideScopes(listOf(scopeProperties(id = "my-scope", publishedIn = listOf("nowhere"))))
 
-        assertEquals(mapOf("scopes.my-scope.discoverable" to "config.invalid_boolean"), result.errorsByKey())
+        assertEquals(mapOf("scopes.my-scope.published-in[0]" to "config.invalid_enum_value"), result.errorsByKey())
     }
 
     @Test
@@ -321,7 +328,7 @@ class ScopeConfigFactoryTest {
 
         BuiltInGrantableScope.entries.forEach {
             val scope = assertInstanceOf(GrantableUserScope::class.java, result.scopeNamed(it.scope))
-            assertEquals(it.discoverable, scope.discoverable)
+            assertEquals(it.publishedIn, scope.publishedIn)
         }
         BuiltInClientScope.entries.forEach {
             assertInstanceOf(ClientScope::class.java, result.scopeNamed(it.scope))
@@ -338,7 +345,7 @@ class ScopeConfigFactoryTest {
 
         AdminScope.entries.forEach { adminScope ->
             val scope = assertInstanceOf(GrantableUserScope::class.java, result.scopeNamed(adminScope.scope))
-            assertFalse(scope.discoverable)
+            assertEquals(emptySet<ScopePublicationPlace>(), scope.publishedIn)
             assertEquals("admin", scope.audienceId)
         }
     }

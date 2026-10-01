@@ -31,30 +31,35 @@ enum class GeneratedOpenIdConnectClaim(
      */
     val computedPerAccount: Boolean = true,
     /**
-     * The channels this claim already reaches, which no deployment decides.
+     * The places this claim already reaches, which no deployment decides.
      *
-     * Neither channel reads a generated claim out of the collected claims — the id token claims the
-     * subject itself and the `/userinfo` mapper computes both — so nothing filters on this. It is
-     * recorded because what a deployment may be told a channel can supply is read off it.
+     * No place reads a generated claim out of the collected claims — the id token claims the subject
+     * itself and the `/userinfo` mapper computes both — so nothing filters on this. It is recorded
+     * because it is the truth about where the value goes, and the discovery document is answered off it
+     * like every other claim's.
      */
-    val publishedIn: Set<ClaimPublication>
+    val publishedIn: Set<ClaimPublicationPlace>
 ) {
     SUBJECT(
         id = OpenIdConnectClaimId.SUB,
         dataType = ClaimDataType.STRING,
         scope = "profile",
-        publishedIn = setOf(ClaimPublication.ID_TOKEN, ClaimPublication.USERINFO)
+        publishedIn = setOf(
+            ClaimPublicationPlace.ID_TOKEN,
+            ClaimPublicationPlace.USERINFO,
+            ClaimPublicationPlace.DISCOVERY
+        )
     ),
 
     /**
-     * Published in `/userinfo` alone: the id token carries the issue time of the token rather than the
+     * Carried by `/userinfo` alone: the id token carries the issue time of the token rather than the
      * date this person's claims were last collected, and never claimed `updated_at`.
      */
     UPDATED_AT(
         id = OpenIdConnectClaimId.UPDATED_AT,
         dataType = ClaimDataType.NUMBER,
         scope = "profile",
-        publishedIn = setOf(ClaimPublication.USERINFO)
+        publishedIn = setOf(ClaimPublicationPlace.USERINFO, ClaimPublicationPlace.DISCOVERY)
     ),
 
     /**
@@ -69,23 +74,28 @@ enum class GeneratedOpenIdConnectClaim(
      * Nothing gates it on consent. Every id token issued for a person states it whatever they agreed
      * to, which is what lets a resource server rely on it being there.
      *
-     * **[publishedIn] names the id token alone, and the value travels further than that.** The access
-     * token carries it where RFC 9068 §2.2.1 puts it and the introspection response where RFC 9470 §6.2
-     * does, and neither is a [ClaimPublication]: that enum models the two OpenID channels a *collected*
-     * value is filtered into, and nothing filters this one. What the set is read for here is
-     * `claims_supported`, which the id token alone already answers for.
+     * **[publishedIn] states every place it reaches**, which is three of them: the id token where OpenID
+     * Connect Core §2 defines it, the access token where RFC 9068 §2.2.1 puts it, and the introspection
+     * response where RFC 9470 §6.2 does. Nothing filters on the set, since each of those three states the
+     * moment out of the authorization rather than reading it off a collected row; it is recorded so that
+     * the administration API reports where the value goes rather than a narrower set.
      */
     AUTHENTICATION_TIME(
         id = OpenIdConnectClaimId.AUTH_TIME,
         dataType = ClaimDataType.NUMBER,
-        publishedIn = setOf(ClaimPublication.ID_TOKEN),
+        publishedIn = setOf(
+            ClaimPublicationPlace.ID_TOKEN,
+            ClaimPublicationPlace.ACCESS_TOKEN,
+            ClaimPublicationPlace.INTROSPECTION,
+            ClaimPublicationPlace.DISCOVERY
+        ),
         computedPerAccount = false
     );
 
     /**
      * Who may read this claim, which is the same for every generated claim but the scope above.
      *
-     * It carries no unconditional client scope, and a file cannot give it one: every channel that
+     * It carries no unconditional client scope, and a file cannot give it one: every place that
      * publishes a generated claim computes the value rather than reading it out of the claims
      * collected from a person, so the list [UnconditionalAcl] would hold is consulted by nothing.
      */
@@ -135,17 +145,27 @@ object OpenIdConnectClaimId {
      * When the person proved a credential of their account, which OpenID Connect Core §2 defines and
      * RFC 9068 §2.2.1 places in a JWT access token as well.
      *
-     * **It is deliberately absent from [ALL], and a deployment may not declare a claim under this name**
-     * — `ClaimsConfigValidator` refuses one. Every other id in this object names something this server
-     * may be told about a person and holds a row for; this one is a property of the authentication
-     * behind the token, computed per token and never collected.
-     *
-     * **That is also why it is not a [GeneratedOpenIdConnectClaim]**, which is how `sub` and
-     * `updated_at` are kept out of a deployment's hands. A generated claim is a value computed from a
-     * user id, and every per-person claim surface publishes one for each account; there is no
-     * authentication time to compute for an account, only for an authorization.
+     * **A deployment may not declare a claim under this name**: it is a
+     * [GeneratedOpenIdConnectClaim], so `ClaimsConfigValidator` refuses every key written under
+     * `claims.auth_time`. Every other id in this object names something this server may be told about a
+     * person and holds a row for; this one is a property of the authentication behind the token,
+     * computed per token and never collected — which is what
+     * [GeneratedOpenIdConnectClaim.computedPerAccount] being false says of it.
      */
     const val AUTH_TIME = "auth_time"
+
+    /**
+     * The composite claim OpenID Connect Core §5.1.1 defines, whose members are the claims of
+     * [ClaimGroup.ADDRESS] rather than claims of their own, and [FORMATTED] the one member no claim
+     * carries.
+     *
+     * **Both are deliberately absent from [ALL]**, which is the set a claim's [ClaimOrigin] is read
+     * against: no deployment declares a claim under either name, and every place that publishes an
+     * address assembles the object out of the claims that do carry its members.
+     */
+    const val ADDRESS = "address"
+
+    const val FORMATTED = "formatted"
 
     const val SUB = "sub"
     const val NAME = "name"

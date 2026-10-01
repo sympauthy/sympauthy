@@ -1,5 +1,6 @@
 package com.sympauthy.config.parsing
 
+import com.sympauthy.business.model.oauth2.ScopePublicationPlace
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
@@ -12,11 +13,30 @@ import com.sympauthy.business.model.user.isOpenIdConnectScope
 import com.sympauthy.config.properties.ScopeTemplateConfigurationProperties.Companion.DEFAULT_TEMPLATE_NAMES
 import jakarta.inject.Singleton
 
+/**
+ * Convert each of the [values] into the place it names, recording an error against the entry's own index
+ * for every one that names none, so a file naming two unknown places reports both. [key] is the property
+ * the entries were written under, whether that is a scope's or a template's.
+ *
+ * Returns null where [values] is null — nothing written, which falls through to whatever a template offers
+ * and then to the default. An entry-less list is a scope published nowhere, which does not.
+ */
+internal fun parseScopePublishedIn(
+    ctx: ConfigParsingContext,
+    parser: ConfigParser,
+    values: List<String>?,
+    key: String
+): Set<ScopePublicationPlace>? = values
+    ?.mapIndexedNotNull { index, value ->
+        ctx.parse { parser.convertToEnum<ScopePublicationPlace>("$key[$index]", value) }
+    }
+    ?.toSet()
+
 data class ParsedScopeConfig(
     val id: String,
     val isOpenIdConnect: Boolean,
     val enabled: Boolean?,
-    val discoverable: Boolean?,
+    val publishedIn: Set<ScopePublicationPlace>?,
     val type: ParsedScopeSetting?,
     val audience: ParsedScopeSetting?
 )
@@ -52,18 +72,15 @@ class ScopeConfigParser(
                     ScopeConfigurationProperties::enabled
                 )
             } ?: template?.enabled
-            val discoverable = ctx.parse {
-                parser.getBoolean(
-                    properties, "$configKeyPrefix.discoverable",
-                    ScopeConfigurationProperties::discoverable
-                )
-            } ?: template?.discoverable
+            val publishedIn = parseScopePublishedIn(
+                ctx, parser, properties.publishedIn, "$configKeyPrefix.published-in"
+            ) ?: template?.publishedIn
 
             ParsedScopeConfig(
                 id = properties.id,
                 isOpenIdConnect = isOpenIdConnect,
                 enabled = enabled,
-                discoverable = discoverable,
+                publishedIn = publishedIn,
                 type = resolveType(properties, template),
                 audience = resolveAudience(properties, template)
             )

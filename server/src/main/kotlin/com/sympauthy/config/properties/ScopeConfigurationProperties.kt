@@ -9,7 +9,7 @@ class ScopeConfigurationProperties(
 ) {
     var template: String? = null
     var enabled: String? = null
-    var discoverable: String? = null
+    var publishedIn: List<String>? = null
     var type: String? = null
     var audience: String? = null
 

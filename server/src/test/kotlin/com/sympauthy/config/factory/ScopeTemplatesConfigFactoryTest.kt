@@ -1,5 +1,6 @@
 package com.sympauthy.config.factory
 
+import com.sympauthy.business.model.oauth2.ScopePublicationPlace
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.model.DisabledScopeTemplatesConfig
@@ -35,13 +36,13 @@ class ScopeTemplatesConfigFactoryTest {
         id: String,
         type: String? = null,
         enabled: String? = null,
-        discoverable: String? = null,
+        publishedIn: List<String>? = null,
         audience: String? = null
     ): ScopeTemplateConfigurationProperties {
         return ScopeTemplateConfigurationProperties(id).apply {
             this.type = type
             this.enabled = enabled
-            this.discoverable = discoverable
+            this.publishedIn = publishedIn
             this.audience = audience
         }
     }
@@ -122,28 +123,28 @@ class ScopeTemplatesConfigFactoryTest {
     }
 
     @Test
-    fun `provideScopeTemplates - Carry the discoverability a template defines for the scopes using it`() {
+    fun `provideScopeTemplates - Carry where a template publishes the scopes using it`() {
         val templates = listOf(
-            scopeTemplateProperties(id = "internal_scopes", discoverable = "false")
+            scopeTemplateProperties(id = "internal_scopes", publishedIn = emptyList())
         )
 
         val result = factory.provideScopeTemplates(templates)
 
         assertInstanceOf(EnabledScopeTemplatesConfig::class.java, result)
         val config = result as EnabledScopeTemplatesConfig
-        assertEquals(false, config.templates["internal_scopes"]!!.discoverable)
+        assertEquals(emptySet<ScopePublicationPlace>(), config.templates["internal_scopes"]!!.publishedIn)
     }
 
     @Test
-    fun `provideScopeTemplates - Report a discoverability that is not a boolean`() {
+    fun `provideScopeTemplates - Report a place that names nothing`() {
         val templates = listOf(
-            scopeTemplateProperties(id = "internal_scopes", discoverable = "maybe")
+            scopeTemplateProperties(id = "internal_scopes", publishedIn = listOf("nowhere"))
         )
 
         val result = factory.provideScopeTemplates(templates)
 
         assertEquals(
-            mapOf("templates.scopes.internal_scopes.discoverable" to "config.invalid_boolean"),
+            mapOf("templates.scopes.internal_scopes.published-in[0]" to "config.invalid_enum_value"),
             result.errorsByKey()
         )
     }
@@ -202,15 +203,15 @@ class ScopeTemplatesConfigFactoryTest {
     @Test
     fun `provideScopeTemplates - Refuse hiding the OpenID Connect scopes from discovery as a set`() {
         val templates = listOf(
-            scopeTemplateProperties(id = "default_openid", discoverable = "false")
+            scopeTemplateProperties(id = "default_openid", publishedIn = emptyList())
         )
 
         val result = factory.provideScopeTemplates(templates)
 
         assertEquals(
             mapOf(
-                "templates.scopes.default_openid.discoverable"
-                        to "config.scope.template.discoverable_not_allowed_on_default_openid"
+                "templates.scopes.default_openid.published-in"
+                        to "config.scope.template.published_in_not_allowed_on_default_openid"
             ),
             result.errorsByKey()
         )
@@ -220,7 +221,7 @@ class ScopeTemplatesConfigFactoryTest {
     fun `provideScopeTemplates - Report every setting the OpenID Connect template may not carry`() {
         val templates = listOf(
             scopeTemplateProperties(
-                id = "default_openid", enabled = "false", discoverable = "false", type = "grantable",
+                id = "default_openid", enabled = "false", publishedIn = emptyList(), type = "grantable",
                 audience = "partners"
             )
         )
@@ -231,8 +232,8 @@ class ScopeTemplatesConfigFactoryTest {
             mapOf(
                 "templates.scopes.default_openid.enabled"
                         to "config.scope.template.enabled_not_allowed_on_default_openid",
-                "templates.scopes.default_openid.discoverable"
-                        to "config.scope.template.discoverable_not_allowed_on_default_openid",
+                "templates.scopes.default_openid.published-in"
+                        to "config.scope.template.published_in_not_allowed_on_default_openid",
                 "templates.scopes.default_openid.type"
                         to "config.scope.template.type_not_allowed_on_default_openid",
                 "templates.scopes.default_openid.audience"
@@ -254,7 +255,7 @@ class ScopeTemplatesConfigFactoryTest {
         val config = result as EnabledScopeTemplatesConfig
         val template = config.templates["minimal"]!!
         assertNull(template.enabled)
-        assertNull(template.discoverable)
+        assertNull(template.publishedIn)
         assertNull(template.type)
     }
 }

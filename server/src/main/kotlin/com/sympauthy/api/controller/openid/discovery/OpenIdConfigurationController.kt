@@ -13,6 +13,8 @@ import com.sympauthy.business.manager.auth.oauth2.DpopManager
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.ResponseType
+import com.sympauthy.business.model.oauth2.ScopePublicationPlace
+import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.config.model.*
 import com.sympauthy.util.wireName
 import io.micronaut.http.annotation.Controller
@@ -40,8 +42,10 @@ import jakarta.inject.Inject
  * reader is this document would relocate those literals rather than derive them, so they are held
  * by their test instead.
  *
- * `scopes_supported` is the exception to all of it, and deliberately: the scope list says what a
- * client could ask for, and a scope is served whether or not it appears here.
+ * `scopes_supported` and `claims_supported` are the exception to all of it, and deliberately: each says
+ * what a client could ask for, and each names what the deployment wrote `published-in: [ discovery ]`
+ * against rather than what this server happens to serve. Both are served whether or not they appear
+ * here — see `docs/design/claims.md` and `docs/design/security.md`.
  */
 @Secured(IS_ANONYMOUS)
 @Controller("/.well-known/openid-configuration")
@@ -64,13 +68,12 @@ class OpenIdConfigurationController(
         val advancedConfig = uncheckedAdvancedConfig.orThrow()
 
         val scopes = scopeManager.listEnabledScopes()
-            .filter { it.discoverable }
+            .filter { it.isPublishedIn(ScopePublicationPlace.DISCOVERY) }
             .map { it.scope }
-        // A claim this deployment publishes in neither channel is supplied through neither, so listing it
-        // would advertise a value no client can ever be told. Hiding one that is published stays a
-        // deployment's own choice: see docs/design/claims.md.
-        val claims = claimManager.listEnabledOpenIdConnectClaims()
-            .filter { it.publishedIn.isNotEmpty() }
+        // A claim is named here because its file said `discovery` and for no other reason, and a claim
+        // saying that is held to naming a place that carries the value too: see docs/design/claims.md.
+        val claims = claimManager.listEnabledClaims()
+            .filter { it.isPublishedIn(ClaimPublicationPlace.DISCOVERY) }
             .flatMap { listOfNotNull(it.id, it.verifiedId) }
 
         return OpenIdConfigurationResource(

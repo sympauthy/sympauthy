@@ -2,7 +2,7 @@ package com.sympauthy.api.mapper.admin
 
 import com.sympauthy.api.resource.admin.AdminClaimResource
 import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.business.model.user.claim.ClaimPublication
+import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.util.wireName
@@ -28,8 +28,8 @@ class AdminClaimResourceMapper(
             allowedValues = claim.allowedValues,
             group = claim.group?.wireName,
             // Listed in the enum's own order rather than the file's, so the answer is the same however a
-            // deployment happened to write the two channels.
-            publishedIn = ClaimPublication.entries.filter(claim::isPublishedIn).map { it.wireName }
+            // deployment happened to write the places.
+            publishedIn = ClaimPublicationPlace.entries.filter(claim::isPublishedIn).map { it.wireName }
         )
     }
 }

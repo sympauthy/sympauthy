@@ -3,9 +3,12 @@ package com.sympauthy.config.parsing
 import com.sympauthy.business.model.user.claim.ClaimDataType.BOOLEAN
 import com.sympauthy.business.model.user.claim.ClaimDataType.NUMBER
 import com.sympauthy.business.model.user.claim.ClaimDataType.STRING
-import com.sympauthy.business.model.user.claim.ClaimPublication
-import com.sympauthy.business.model.user.claim.ClaimPublication.ID_TOKEN
-import com.sympauthy.business.model.user.claim.ClaimPublication.USERINFO
+import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
+import com.sympauthy.business.model.user.claim.ClaimPublicationPlace.ACCESS_TOKEN
+import com.sympauthy.business.model.user.claim.ClaimPublicationPlace.DISCOVERY
+import com.sympauthy.business.model.user.claim.ClaimPublicationPlace.ID_TOKEN
+import com.sympauthy.business.model.user.claim.ClaimPublicationPlace.INTROSPECTION
+import com.sympauthy.business.model.user.claim.ClaimPublicationPlace.USERINFO
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.ClaimTemplate
@@ -25,7 +28,7 @@ class ClaimsConfigParserTest {
     private fun claimTemplate(
         id: String,
         allowedValues: List<Any>? = null,
-        publishedIn: Set<ClaimPublication>? = null
+        publishedIn: Set<ClaimPublicationPlace>? = null
     ) = ClaimTemplate(
         id = id,
         enabled = null,
@@ -53,17 +56,17 @@ class ClaimsConfigParserTest {
             .first { it.id == properties.id }
 
     @Test
-    fun `parse - Publish a claim in no channel where neither it nor its template names one`() {
+    fun `parse - Publish a claim nowhere where neither it nor its template names a place`() {
         val ctx = ConfigParsingContext()
 
         val claim = parseOne(ctx, claimProperties("loyalty_tier", "string"), claimTemplate(DEFAULT))
 
-        assertEquals(emptySet<ClaimPublication>(), claim.publishedIn)
+        assertEquals(emptySet<ClaimPublicationPlace>(), claim.publishedIn)
         assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
     }
 
     @Test
-    fun `parse - Publish a claim in the channels its template names`() {
+    fun `parse - Publish a claim in the places its template names`() {
         val ctx = ConfigParsingContext()
         val template = claimTemplate(DEFAULT, publishedIn = setOf(USERINFO))
 
@@ -74,7 +77,7 @@ class ClaimsConfigParserTest {
     }
 
     @Test
-    fun `parse - Publish a claim in the channels it names over the ones its template offers`() {
+    fun `parse - Publish a claim in the places it names over the ones its template offers`() {
         val ctx = ConfigParsingContext()
         val template = claimTemplate(DEFAULT, publishedIn = setOf(USERINFO))
         val properties = claimProperties("loyalty_tier", "string", publishedIn = listOf("id-token"))
@@ -86,21 +89,21 @@ class ClaimsConfigParserTest {
     }
 
     @Test
-    fun `parse - Publish a claim in no channel where it names none over the ones its template offers`() {
+    fun `parse - Publish a claim nowhere where it names no place over the ones its template offers`() {
         val ctx = ConfigParsingContext()
         val template = claimTemplate(DEFAULT, publishedIn = setOf(USERINFO))
         val properties = claimProperties("loyalty_tier", "string", publishedIn = emptyList())
 
         val claim = parseOne(ctx, properties, template)
 
-        assertEquals(emptySet<ClaimPublication>(), claim.publishedIn)
+        assertEquals(emptySet<ClaimPublicationPlace>(), claim.publishedIn)
         assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
     }
 
     @Test
-    fun `parse - Report every entry naming no channel against the index it was written at`() {
+    fun `parse - Report every entry naming no place against the index it was written at`() {
         val ctx = ConfigParsingContext()
-        val properties = claimProperties("loyalty_tier", "string", publishedIn = listOf("id-token", "access-token"))
+        val properties = claimProperties("loyalty_tier", "string", publishedIn = listOf("id-token", "nowhere"))
 
         val claim = parseOne(ctx, properties, claimTemplate(DEFAULT))
 
@@ -110,14 +113,17 @@ class ClaimsConfigParserTest {
     }
 
     @Test
-    fun `parse - Publish a generated claim in the channels it already reaches`() {
+    fun `parse - Publish a generated claim in the places it already reaches`() {
         val ctx = ConfigParsingContext()
 
         val claims = parser.parse(ctx, emptyList(), mapOf(DEFAULT to claimTemplate(DEFAULT)))
 
-        assertEquals(setOf(ID_TOKEN, USERINFO), claims.first { it.id == "sub" }.publishedIn)
-        assertEquals(setOf(USERINFO), claims.first { it.id == "updated_at" }.publishedIn)
-        assertEquals(setOf(ID_TOKEN), claims.first { it.id == "auth_time" }.publishedIn)
+        assertEquals(setOf(ID_TOKEN, USERINFO, DISCOVERY), claims.first { it.id == "sub" }.publishedIn)
+        assertEquals(setOf(USERINFO, DISCOVERY), claims.first { it.id == "updated_at" }.publishedIn)
+        assertEquals(
+            setOf(ID_TOKEN, ACCESS_TOKEN, INTROSPECTION, DISCOVERY),
+            claims.first { it.id == "auth_time" }.publishedIn
+        )
         assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
     }
 
@@ -131,7 +137,7 @@ class ClaimsConfigParserTest {
 
         val authTime = claims.single()
         assertEquals(NUMBER, authTime.dataType)
-        assertEquals(setOf(ID_TOKEN), authTime.publishedIn)
+        assertEquals(setOf(ID_TOKEN, ACCESS_TOKEN, INTROSPECTION, DISCOVERY), authTime.publishedIn)
         assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
     }
 
@@ -144,7 +150,7 @@ class ClaimsConfigParserTest {
         val sub = parser.parse(ctx, listOf(properties), templates).first { it.id == "sub" }
 
         assertEquals(STRING, sub.dataType)
-        assertEquals(setOf(ID_TOKEN, USERINFO), sub.publishedIn)
+        assertEquals(setOf(ID_TOKEN, USERINFO, DISCOVERY), sub.publishedIn)
         assertEquals(ParsedClaimAcl.NONE, sub.acl)
         // Refusing what the file wrote is the validator's, so the parser reports nothing at all here.
         assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })

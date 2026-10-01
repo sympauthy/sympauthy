@@ -1,5 +1,6 @@
 package com.sympauthy.config.parsing
 
+import com.sympauthy.business.model.oauth2.ScopePublicationPlace
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.properties.ScopeTemplateConfigurationProperties
@@ -9,7 +10,7 @@ import jakarta.inject.Singleton
 data class ParsedScopeTemplate(
     val id: String,
     val enabled: Boolean?,
-    val discoverable: Boolean?,
+    val publishedIn: Set<ScopePublicationPlace>?,
     val type: String?,
     val audienceId: String?
 )
@@ -35,16 +36,13 @@ class ScopeTemplatesConfigParser(
         val enabled = ctx.parse {
             parser.getBoolean(properties, "$configKeyPrefix.enabled", ScopeTemplateConfigurationProperties::enabled)
         }
-        val discoverable = ctx.parse {
-            parser.getBoolean(
-                properties, "$configKeyPrefix.discoverable",
-                ScopeTemplateConfigurationProperties::discoverable
-            )
-        }
+        val publishedIn = parseScopePublishedIn(
+            ctx, parser, properties.publishedIn, "$configKeyPrefix.published-in"
+        )
         return ParsedScopeTemplate(
             id = properties.id,
             enabled = enabled,
-            discoverable = discoverable,
+            publishedIn = publishedIn,
             type = properties.type?.lowercase(),
             audienceId = properties.audience
         )

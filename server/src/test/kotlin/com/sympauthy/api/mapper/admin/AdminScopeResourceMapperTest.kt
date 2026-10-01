@@ -4,11 +4,12 @@ import com.sympauthy.business.model.oauth2.ClientScope
 import com.sympauthy.business.model.oauth2.ConsentableUserScope
 import com.sympauthy.business.model.oauth2.DisabledScope
 import com.sympauthy.business.model.oauth2.GrantableUserScope
+import com.sympauthy.business.model.oauth2.ScopePublicationPlace.DISCOVERY
 import com.sympauthy.business.model.oauth2.ScopeType
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.ClaimPublication
+import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.UnconditionalAcl
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -31,7 +32,7 @@ class AdminScopeResourceMapperTest {
         generated = false,
         collectedInFlow = false,
         allowedValues = null,
-        publishedIn = ClaimPublication.entries.toSet(),
+        publishedIn = ClaimPublicationPlace.entries.toSet(),
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = "profile",
@@ -68,7 +69,7 @@ class AdminScopeResourceMapperTest {
 
     @Test
     fun `toResource - Report the type of a grantable scope`() {
-        val resource = mapper.toResource(GrantableUserScope("openid", discoverable = true), emptyList())
+        val resource = mapper.toResource(GrantableUserScope("openid", publishedIn = setOf(DISCOVERY)), emptyList())
 
         assertEquals("grantable", resource.type)
         assertNull(resource.claims)

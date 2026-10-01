@@ -61,12 +61,12 @@ data class Claim(
      */
     val audienceId: String? = null,
     /**
-     * The OpenID channels this claim's value is published in.
+     * The places this claim is published in.
      *
-     * Publication is not permission: these narrow what [acl] already allows, and a claim published in
-     * neither channel is still read through the client, admin and user APIs, which the ACL alone gates.
+     * Publication is not permission: these narrow what [acl] already allows, and a claim naming no place
+     * is still read through the client, admin and user APIs, which the ACL alone gates.
      */
-    val publishedIn: Set<ClaimPublication>,
+    val publishedIn: Set<ClaimPublicationPlace>,
     /**
      * Access control list determining who can read/write this claim and under what conditions.
      */
@@ -96,12 +96,12 @@ data class Claim(
         this.audienceId == null || this.audienceId == audienceId
 
     /**
-     * Return true if this claim's value travels through the OpenID [channel].
+     * Return true if this claim is published in [place].
      *
      * This narrows and never grants, so a caller asks it beside the permission test rather than instead
-     * of one: a claim the ACL refuses is answered in no channel whatever this says.
+     * of one: a claim the ACL refuses is published in no place whatever this says.
      */
-    fun isPublishedIn(channel: ClaimPublication): Boolean = channel in publishedIn
+    fun isPublishedIn(place: ClaimPublicationPlace): Boolean = place in publishedIn
 
     /**
      * Return true if the person can read this claim through their own access token, given the

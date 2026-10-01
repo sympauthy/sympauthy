@@ -5,7 +5,7 @@ import com.sympauthy.api.resource.openid.UserInfoResource
 import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.ClaimGroup
-import com.sympauthy.business.model.user.claim.ClaimPublication
+import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import jakarta.inject.Singleton
 import java.time.LocalDate
@@ -28,7 +28,7 @@ class UserInfoResourceMapper(
      * endpoint and then the other is owed the same shape from both.
      */
     suspend fun toResource(userId: UUID, claims: List<CollectedClaim>): UserInfoResource {
-        val publishedClaims = claims.filter { it.claim.isPublishedIn(ClaimPublication.USERINFO) }
+        val publishedClaims = claims.filter { it.claim.isPublishedIn(ClaimPublicationPlace.USERINFO) }
         val claimById = publishedClaims.associateBy { it.claim.id }
         val addressClaims = publishedClaims.filter { it.claim.group == ClaimGroup.ADDRESS }
 

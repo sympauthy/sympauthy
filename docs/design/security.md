@@ -81,6 +81,21 @@ real and never listed — so a deployment may hide one it serves, and every clie
 is answered exactly as before. Turning a scope off is the other question, and the other half of the
 hierarchy answers it.
 
+**`scopes.<id>.published-in` is where a deployment says so, and it is the word a claim uses.**
+`ScopePublicationPlace` holds the one place a scope is published in, the discovery document, and
+`EnabledScope.isPublishedIn` is the whole of the test; [a claim's
+`published-in`](claims.md#where-a-claim-is-published) names five. One question about a deployment's
+configuration has one key whichever half of it is being configured, so an operator who has read
+either has read both.
+
+**A scope is advertised unless the deployment says otherwise, which is the other way round from a
+claim.** A claim keeps a value back until a file says to send it; a scope has no value to keep back,
+so what a silent default would cost is a scope taken out of `scopes_supported` for every deployment
+on upgrade — and a client configuring itself from the document would stop asking for something this
+server still serves. A client scope is the exception and no deployment decides it: it is unusable
+outside `client_credentials`, so advertising it to a client configuring an authorization would say
+nothing true.
+
 **Scope strings are constants, never literals.** Both the admin and client scope identifiers are
 declared once and referenced everywhere — in the security rules, in the API documentation, in the
 grant logic. A scope spelled by hand in an annotation is one no compiler will ever compare against
@@ -89,8 +104,8 @@ the one that grants it, and the two spellings would differ silently.
 ## Claims and audiences
 
 A claim is something this server knows about a person, and an audience is the set of applications
-entitled to it. Whose a claim is, who may read and write one, which audience has it and which
-channel carries it off this server are [the claims](claims.md). Every rule there is asked after the
+entitled to it. Whose a claim is, who may read and write one, which audience has it and which places
+this server publishes it in are [the claims](claims.md). Every rule there is asked after the
 gate of the surface a request reached and with the scopes its credential carries, which is what
 stays here.
 

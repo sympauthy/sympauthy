@@ -1,5 +1,6 @@
 package com.sympauthy.config.model
 
+import com.sympauthy.business.model.oauth2.ScopePublicationPlace
 import com.sympauthy.config.exception.ConfigurationException
 
 sealed class ScopeTemplatesConfig(
@@ -33,7 +34,7 @@ fun ScopeTemplatesConfig.orNull(): EnabledScopeTemplatesConfig? {
 data class ScopeTemplate(
     val id: String,
     val enabled: Boolean?,
-    val discoverable: Boolean?,
+    val publishedIn: Set<ScopePublicationPlace>?,
     val type: String?,
     val audienceId: String?
 )
