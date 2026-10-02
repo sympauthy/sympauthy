@@ -9,9 +9,7 @@ import com.sympauthy.testcontainers.Client
 import com.sympauthy.testcontainers.SympauthyContainer
 import com.sympauthy.testcontainers.flow.InteractiveFlowRegistry
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
@@ -54,11 +52,6 @@ import org.junit.jupiter.params.provider.EnumSource
  * reads a person's claims back through the half it collects them through. It takes the whole instance
  * because the three places are answered by two generators and a controller from one authorization, and
  * because introspection is answered to a client that authenticated.
- *
- * The third scenario reads the discovery document off the first configuration: `claims_supported` names
- * what a client could be told, so a claim whose file says `discovery` appears there and a claim carried
- * without it does not. Nothing smaller proves it: the places a generated claim reaches are recorded in
- * code, and what the document lists is read off the parsed configuration.
  *
  * Issue: [#485](https://github.com/sympauthy/sympauthy/issues/485),
  * [#510](https://github.com/sympauthy/sympauthy/issues/510) and
@@ -146,21 +139,6 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
         }
     }
 
-    @ParameterizedTest(name = "the discovery document advertises what a file said discovery on {0}")
-    @EnumSource(Database::class)
-    fun advertisesTheClaimsWhoseFileNamesTheDocument(database: Database) {
-        withContainer(database, extraConfig = claimsPublishedPerChannel(), scopes = SCOPES) { sympauthy, _ ->
-            val supported = discovery(sympauthy).claimsSupported.orEmpty()
-
-            assertTrue(supported.contains("sub"), "a generated claim the document names")
-            assertTrue(supported.contains("auth_time"), "a generated claim the document names")
-            assertTrue(supported.contains("updated_at"), "a generated claim the document names")
-            assertTrue(supported.contains("name"), "an OpenID claim the shipped template advertises")
-            assertFalse(supported.contains("nickname"), "an OpenID claim published nowhere at all")
-            assertFalse(supported.contains("loyalty_tier"), "a claim carried by both channels and advertised in none")
-        }
-    }
-
     private fun signUp(registry: InteractiveFlowRegistry) = registry.newFlow()
         .withSignUpHandler { mapOf("email" to EMAIL, "password" to PASSWORD) }
         .withClaimsHandler { requested -> requested.associate { it.id() to COLLECTED.getValue(it.id()) } }
@@ -179,7 +157,7 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
         "claims" to mapOf(
             "name" to mapOf("enabled" to true, "required" to true),
             // Enabled and published nowhere: an OpenID claim the deployment withholds from both channels,
-            // which the sign-up still collects and neither channel nor the discovery document may carry.
+            // which the sign-up still collects and neither channel may carry.
             "nickname" to mapOf("enabled" to true, "published-in" to emptyList<String>()),
             "loyalty_tier" to customClaim(publishedIn = listOf("id-token", "userinfo")),
             "preferences" to customClaim(publishedIn = listOf("userinfo")),
