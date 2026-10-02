@@ -96,20 +96,16 @@ abstract class AbstractSympauthyIT {
      * The full server configuration for the on-demand MFA-enrollment client API: password auth, a
      * confidential client that owns [registry]'s flow and is allowed both the `authorization_code` grant
      * (to obtain an end-user access token) and the `client_credentials` grant carrying `users:mfa:write`
-     * (to call the enrollment endpoint), with the return/cancel URIs registered as redirect URIs. Pass
-     * [mfaEnabled] = false to boot with MFA off (to prove the endpoint refuses enrollment).
+     * (to call the enrollment endpoint), with the return/cancel URIs registered as redirect URIs.
      *
      * `features.grant-unhandled-scopes` lets the `client_credentials` grant actually hand out
      * `users:mfa:write` (there is no dedicated scope-granting rule), and `templates.clients.default` points
      * the standalone flow's pages at the mock frontend rather than the built-in flow pages under `<root>/flow`.
      */
-    protected fun mfaEnrollmentConfig(
-        registry: InteractiveFlowRegistry,
-        mfaEnabled: Boolean = true,
-    ): Map<String, Any> {
+    protected fun mfaEnrollmentConfig(registry: InteractiveFlowRegistry): Map<String, Any> {
         val secret = registry.clientSecret()
             ?: error("on-demand MFA enrollment requires a confidential client (client_credentials grant)")
-        val config = linkedMapOf<String, Any>(
+        return mapOf(
             "auth" to mapOf(
                 "by-password" to mapOf("enabled" to true),
                 "identifier-claims" to listOf("email"),
@@ -133,11 +129,8 @@ abstract class AbstractSympauthyIT {
                     ),
                 ),
             ),
+            "mfa" to mapOf("required" to false, "totp" to mapOf("enabled" to true)),
         )
-        if (mfaEnabled) {
-            config["mfa"] = mapOf("required" to false, "totp" to mapOf("enabled" to true))
-        }
-        return config
     }
 
     /** A configured, not-yet-started container backed by [fixture] and wired to [registry]. */
