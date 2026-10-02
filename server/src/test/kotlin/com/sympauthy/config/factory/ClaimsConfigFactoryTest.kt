@@ -1,6 +1,7 @@
 package com.sympauthy.config.factory
 
 import com.sympauthy.business.model.user.claim.ClaimGroup
+import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimOrigin
 import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
 import com.sympauthy.config.ConfigParser
@@ -11,7 +12,6 @@ import com.sympauthy.config.parsing.ClaimAclParser
 import com.sympauthy.config.parsing.ClaimsConfigParser
 import com.sympauthy.config.properties.AuthConfigurationProperties
 import com.sympauthy.config.properties.ClaimConfigurationProperties
-import com.sympauthy.config.properties.ClaimTemplateConfigurationProperties.Companion.DEFAULT
 import com.sympauthy.config.validation.ClaimAclValidator
 import com.sympauthy.config.validation.ClaimsConfigValidator
 import io.mockk.every
@@ -37,28 +37,40 @@ class ClaimsConfigFactoryTest {
 
     lateinit var factory: ClaimsConfigFactory
 
-    private val defaultTemplateAcl = ClaimTemplateAcl(null, null, null, null, null, null, null, null, null)
+    private val emptyTemplateAcl = ClaimTemplateAcl(null, null, null, null, null, null, null, null, null)
 
-    private fun defaultTemplate() = ClaimTemplate(
-        id = DEFAULT,
+    private fun applicationTemplate() = ClaimTemplate(
+        id = APPLICATION,
         enabled = null,
         required = null,
         group = null,
+        kind = ClaimKind.APPLICATION,
         audienceId = null,
         allowedValues = null,
         publishedIn = null,
-        acl = defaultTemplateAcl
+        acl = emptyTemplateAcl
     )
 
-    private fun openidTemplate() = ClaimTemplate(
-        id = "openid",
+    private fun personalTemplate() = ClaimTemplate(
+        id = PERSONAL,
         enabled = false,
         required = null,
         group = null,
+        kind = ClaimKind.PERSONAL,
         audienceId = null,
         allowedValues = null,
         publishedIn = null,
-        acl = defaultTemplateAcl
+        acl = emptyTemplateAcl
+    )
+
+    private fun factoryWithTemplate(template: ClaimTemplate) = ClaimsConfigFactory(
+        ClaimsConfigParser(parser, ClaimAclParser(parser)),
+        ClaimsConfigValidator(ClaimAclValidator()),
+        authProperties,
+        writtenConfigurationKeys,
+        EnabledClaimTemplatesConfig(mapOf(template.id to template)),
+        EnabledAudiencesConfig(emptyList()),
+        EnabledScopesConfig(emptyList())
     )
 
     @BeforeEach
@@ -71,8 +83,8 @@ class ClaimsConfigFactoryTest {
         val claimAclValidator = ClaimAclValidator()
 
         val templates = mapOf(
-            DEFAULT to defaultTemplate(),
-            "openid" to openidTemplate()
+            APPLICATION to applicationTemplate(),
+            PERSONAL to personalTemplate()
         )
         val claimTemplatesConfig = EnabledClaimTemplatesConfig(templates)
         factory = ClaimsConfigFactory(
@@ -91,15 +103,32 @@ class ClaimsConfigFactoryTest {
         type: String? = null,
         enabled: String? = null,
         required: String? = null,
-        template: String? = null,
+        template: String? = APPLICATION,
         group: String? = null,
-        verifiedId: String? = null
+        verifiedId: String? = null,
+        kind: String? = null,
+        collectedInFlow: String? = null,
+        clientWriteScopes: List<String>? = null
     ): ClaimConfigurationProperties {
         return ClaimConfigurationProperties(id).apply {
             this.type = type
             this.template = template
             this.group = group
             this.verifiedId = verifiedId
+            this.kind = kind
+            this.acl = if (collectedInFlow == null && clientWriteScopes == null) null else {
+                object : ClaimConfigurationProperties.AclConfig {
+                    override val consentScope = null
+                    override val readableByPersonWhenConsented = null
+                    override val collectedInFlowWhenConsented = collectedInFlow
+                    override val writableByPersonWhenConsented = null
+                    override val readableByClientWhenConsented = null
+                    override val writableByClientWhenConsented = null
+                    override val readableWithClientScopesUnconditionally = null
+                    override val writableWithClientScopesUnconditionally = clientWriteScopes
+                    override val writeMaxAuthenticationAge = null
+                }
+            }
         }.also {
             if (enabled != null) {
                 val field = ClaimConfigurationProperties::class.java.getDeclaredField("enabled")
@@ -115,23 +144,26 @@ class ClaimsConfigFactoryTest {
     }
 
     @Test
-    fun `provideClaims - Default template applied when no template set`() {
+    fun `provideClaims - Refuse a claim naming no template`() {
         val properties = listOf(
-            claimProperties(id = "department", type = "string")
+            claimProperties(id = "department", type = "string", template = null)
         )
 
         val result = factory.provideClaims(properties)
 
-        assertInstanceOf(EnabledClaimsConfig::class.java, result)
-        val claims = (result as EnabledClaimsConfig).claims
-        val customClaim = claims.first { it.id == "department" }
-        assertTrue(customClaim.enabled)
+        assertInstanceOf(DisabledClaimsConfig::class.java, result)
+        assertEquals(
+            listOf("config.claim.kind.missing"),
+            (result as DisabledClaimsConfig).configurationErrors
+                ?.filterIsInstance<ConfigurationException>()
+                ?.map { it.messageId }
+        )
     }
 
     @Test
     fun `provideClaims - Explicit template applied`() {
         val properties = listOf(
-            claimProperties(id = "email", type = "email", template = "openid")
+            claimProperties(id = "email", type = "email", template = PERSONAL)
         )
 
         val result = factory.provideClaims(properties)
@@ -143,14 +175,82 @@ class ClaimsConfigFactoryTest {
     }
 
     @Test
-    fun `provideClaims - Error when referencing default template explicitly`() {
+    fun `provideClaims - Make a claim naming the application template an application's`() {
+        val properties = listOf(claimProperties(id = "credit_score", type = "number"))
+
+        val result = factory.provideClaims(properties)
+
+        assertInstanceOf(EnabledClaimsConfig::class.java, result)
+        val claim = (result as EnabledClaimsConfig).claims.first { it.id == "credit_score" }
+        assertEquals(ClaimKind.APPLICATION, claim.kind)
+        assertEquals(ClaimOrigin.CUSTOM, claim.origin)
+    }
+
+    @Test
+    fun `provideClaims - Make a claim naming the personal template the person's`() {
+        val properties = listOf(claimProperties(id = "name", type = "string", template = PERSONAL))
+
+        val result = factory.provideClaims(properties)
+
+        assertInstanceOf(EnabledClaimsConfig::class.java, result)
+        val claim = (result as EnabledClaimsConfig).claims.first { it.id == "name" }
+        assertEquals(ClaimKind.PERSONAL, claim.kind)
+        assertEquals(ClaimOrigin.OPENID_CONNECT, claim.origin)
+    }
+
+    @Test
+    fun `provideClaims - Refuse the flow collecting a claim on the application template`() {
         val properties = listOf(
-            claimProperties(id = "department", type = "string", template = "default")
+            claimProperties(id = "discord_id", type = "string", collectedInFlow = "true")
         )
 
         val result = factory.provideClaims(properties)
 
         assertInstanceOf(DisabledClaimsConfig::class.java, result)
+        assertEquals(
+            listOf("config.claim.kind.application_claim_person_write"),
+            (result as DisabledClaimsConfig).configurationErrors
+                ?.filterIsInstance<ConfigurationException>()
+                ?.map { it.messageId }
+        )
+    }
+
+    @Test
+    fun `provideClaims - Refuse an application claim for the flow collection it takes from its template`() {
+        val factoryCollectingInTheFlow = factoryWithTemplate(
+            personalTemplate().copy(acl = emptyTemplateAcl.copy(collectedInFlowWhenConsented = true))
+        )
+        val properties = listOf(
+            claimProperties(id = "credit_score", type = "number", template = PERSONAL, kind = "application")
+        )
+
+        val result = factoryCollectingInTheFlow.provideClaims(properties)
+
+        assertInstanceOf(DisabledClaimsConfig::class.java, result)
+        val errors = (result as DisabledClaimsConfig).configurationErrors!!
+            .filterIsInstance<ConfigurationException>()
+        assertEquals(
+            listOf("config.claim.kind.application_claim_person_write"),
+            errors.map { it.messageId }
+        )
+        assertEquals(
+            listOf("claims.credit_score.acl.collected-in-flow-when-consented"),
+            errors.map { it.key }
+        )
+    }
+
+    @Test
+    fun `provideClaims - Collect a claim the deployment declared the person's`() {
+        val properties = listOf(
+            claimProperties(id = "discord_id", type = "string", kind = "personal", collectedInFlow = "true")
+        )
+
+        val result = factory.provideClaims(properties)
+
+        assertInstanceOf(EnabledClaimsConfig::class.java, result)
+        val claim = (result as EnabledClaimsConfig).claims.first { it.id == "discord_id" }
+        assertEquals(ClaimKind.PERSONAL, claim.kind)
+        assertTrue(claim.collectedInFlow)
     }
 
     @Test
@@ -167,7 +267,7 @@ class ClaimsConfigFactoryTest {
     @Test
     fun `provideClaims - Claim fields override template`() {
         val properties = listOf(
-            claimProperties(id = "email", type = "email", template = "openid", enabled = "true")
+            claimProperties(id = "email", type = "email", template = PERSONAL, enabled = "true")
         )
 
         val result = factory.provideClaims(properties)
@@ -204,7 +304,7 @@ class ClaimsConfigFactoryTest {
     @Test
     fun `provideClaims - verifiedId set from config`() {
         val properties = listOf(
-            claimProperties(id = "email", type = "email", template = "openid", verifiedId = "email_verified")
+            claimProperties(id = "email", type = "email", template = PERSONAL, verifiedId = "email_verified")
         )
 
         val result = factory.provideClaims(properties)
@@ -281,32 +381,73 @@ class ClaimsConfigFactoryTest {
     }
 
     @Test
+    fun `provideClaims - Refuse a claim whose template says whose the value is no more than it does`() {
+        val factoryWithASilentTemplate = factoryWithTemplate(applicationTemplate().copy(kind = null))
+        val properties = listOf(claimProperties(id = "credit_score", type = "number"))
+
+        val result = factoryWithASilentTemplate.provideClaims(properties)
+
+        assertInstanceOf(DisabledClaimsConfig::class.java, result)
+        val errors = (result as DisabledClaimsConfig).configurationErrors!!
+            .filterIsInstance<ConfigurationException>()
+        assertEquals(listOf("config.claim.kind.missing"), errors.map { it.messageId })
+        assertEquals(listOf("claims.credit_score.kind"), errors.map { it.key })
+    }
+
+    @Test
+    fun `provideClaims - Refuse a personal claim for the client write it takes from its template`() {
+        val factoryGrantingTheClientWrite = factoryWithTemplate(
+            applicationTemplate().copy(
+                acl = emptyTemplateAcl.copy(
+                    writableWithClientScopesUnconditionally = listOf("users:claims:write")
+                )
+            )
+        )
+        val properties = listOf(claimProperties(id = "discord_id", type = "string", kind = "personal"))
+
+        val result = factoryGrantingTheClientWrite.provideClaims(properties)
+
+        assertInstanceOf(DisabledClaimsConfig::class.java, result)
+        val errors = (result as DisabledClaimsConfig).configurationErrors!!
+            .filterIsInstance<ConfigurationException>()
+        assertEquals(
+            listOf("config.claim.kind.shared_personal_claim_client_write"),
+            errors.map { it.messageId }
+        )
+        assertEquals(
+            listOf("claims.discord_id.acl.writable-with-client-scopes-unconditionally"),
+            errors.map { it.key }
+        )
+    }
+
+    @Test
+    fun `provideClaims - Accept a personal claim that answers the client write with an empty list`() {
+        val factoryGrantingTheClientWrite = factoryWithTemplate(
+            applicationTemplate().copy(
+                acl = emptyTemplateAcl.copy(
+                    writableWithClientScopesUnconditionally = listOf("users:claims:write")
+                )
+            )
+        )
+        val properties = listOf(
+            claimProperties(id = "discord_id", type = "string", kind = "personal", clientWriteScopes = emptyList())
+        )
+
+        val result = factoryGrantingTheClientWrite.provideClaims(properties)
+
+        assertInstanceOf(EnabledClaimsConfig::class.java, result)
+        val claim = (result as EnabledClaimsConfig).claims.first { it.id == "discord_id" }
+        assertEquals(ClaimKind.PERSONAL, claim.kind)
+        assertEquals(emptyList<String>(), claim.acl.unconditional.writableWithClientScopes)
+    }
+
+    @Test
     fun `provideClaims - collectedInFlow is true when ACL allows user write`() {
-        val writableTemplateAcl = ClaimTemplateAcl(
-            consentScope = null,
-            readableByPersonWhenConsented = null,
-            collectedInFlowWhenConsented = true,
-            writableByPersonWhenConsented = null,
-            readableByClientWhenConsented = null,
-            writableByClientWhenConsented = null,
-            readableWithClientScopesUnconditionally = null,
-            writableWithClientScopesUnconditionally = null,
-            writeMaxAuthenticationAge = null
-        )
-        val writableTemplate = ClaimTemplate(
-            id = DEFAULT, enabled = null, required = null, group = null,
-            audienceId = null, allowedValues = null, publishedIn = null, acl = writableTemplateAcl
-        )
-        val claimAclParser = ClaimAclParser(parser)
-        val claimAclValidator = ClaimAclValidator()
-        val writableFactory = ClaimsConfigFactory(
-            ClaimsConfigParser(parser, claimAclParser),
-            ClaimsConfigValidator(claimAclValidator),
-            authProperties,
-            writtenConfigurationKeys,
-            EnabledClaimTemplatesConfig(mapOf(DEFAULT to writableTemplate)),
-            EnabledAudiencesConfig(emptyList()),
-            EnabledScopesConfig(emptyList())
+        val writableFactory = factoryWithTemplate(
+            applicationTemplate().copy(
+                kind = ClaimKind.PERSONAL,
+                acl = emptyTemplateAcl.copy(collectedInFlowWhenConsented = true)
+            )
         )
 
         val properties = listOf(
@@ -336,7 +477,7 @@ class ClaimsConfigFactoryTest {
     @Test
     fun `provideClaims - OpenID claim has OPENID_CONNECT origin`() {
         val properties = listOf(
-            claimProperties(id = "email", type = "email", template = "openid", enabled = "true")
+            claimProperties(id = "email", type = "email", template = PERSONAL, enabled = "true")
         )
 
         val result = factory.provideClaims(properties)
@@ -359,3 +500,7 @@ class ClaimsConfigFactoryTest {
         assertEquals(ClaimOrigin.CUSTOM, claim.origin)
     }
 }
+
+private const val APPLICATION = "application"
+
+private const val PERSONAL = "personal"

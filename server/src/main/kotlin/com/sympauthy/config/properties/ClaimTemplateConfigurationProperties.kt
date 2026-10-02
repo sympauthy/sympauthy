@@ -8,8 +8,8 @@ import io.micronaut.context.annotation.Parameter
 /**
  * Configuration of a claim template that defines default values for claims.
  *
- * The template named `default` is automatically applied when no explicit template is specified
- * on a claim. Custom templates can be referenced by name via the `template` property on a claim.
+ * A claim names the one it takes through its `template` property, and no template is applied to a
+ * claim naming none. The server ships `personal` and `application`, one per claim kind.
  */
 @EachProperty(TEMPLATES_CLAIMS_KEY)
 class ClaimTemplateConfigurationProperties(
@@ -19,6 +19,7 @@ class ClaimTemplateConfigurationProperties(
     var required: String? = null
     var group: String? = null
     var allowedValues: List<Any>? = null
+    var kind: String? = null
     var audience: String? = null
     var publishedIn: List<String>? = null
     var acl: AclConfig? = null
@@ -28,7 +29,5 @@ class ClaimTemplateConfigurationProperties(
 
     companion object {
         const val TEMPLATES_CLAIMS_KEY = "templates.claims"
-
-        const val DEFAULT = "default"
     }
 }

@@ -624,8 +624,8 @@ answers for.
 
 **What correcting one takes.** Deleting the key, and nothing else: none of them decided anything, so
 no behaviour follows the deletion. A `templates.claims` template carrying keys a generated claim
-cannot use is untouched — a generated claim names no template now, so nothing it holds reaches one,
-and the shipped `default` template goes on serving every claim that does. That break reaches no
+cannot use is untouched — a generated claim names no template, so nothing a template holds reaches
+one, and the template goes on serving the claims that do name it. That break reaches no
 stable release, and the deployments it does reach are correctable by hand.
 
 ### Is a person's profile one value for every audience, or one per audience?
@@ -633,7 +633,7 @@ stable release, and the deployments it does reach are correctable by hand.
 **Decision:** One value, declared as the person's. A claim carries a kind, `personal` or
 `application`, and a personal claim every audience has grants no client write — it is written by the
 person, in the flow or through their own token — while an application claim stays the client's
-wherever the deployment put it. #507 states it, and [the
+wherever the deployment put it. #507 stated it, and [the
 claims](claims.md#who-may-read-and-write-a-claim) hold the rule.
 
 **Options considered:**
@@ -670,10 +670,11 @@ scope, and an application's may carry one where the person has to agree before a
 their score. So the kind is declared, a template carries the default, and the validator holds the
 ACL to it.
 
-**What it costs.** A deployment that declared a consented, user-collected claim by hand and named no
-template is refused at startup and told to say whose the claim is, which is one line. And a person's
-name is one value: a deployment wanting a different display name per audience declares a personal
-claim restricted to each.
+**What it costs.** Every claim a deployment declared says whose its value is or names a template that
+does, which is one line per claim or one per template, and a claim of the person's that a client
+could write is refused until the deployment restricts it to an audience or drops the grant. And a
+person's name is one value: a deployment wanting a different display name per audience declares a
+personal claim restricted to each.
 
 ---
 

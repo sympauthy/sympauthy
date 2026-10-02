@@ -8,8 +8,8 @@ import java.time.LocalDateTime
  * A claim configured on this authorization server.
  *
  * Claims can originate from the OpenID Connect specification ([ClaimOrigin.OPENID_CONNECT]) or be
- * custom claims defined by the operator ([ClaimOrigin.CUSTOM]). Access control is determined
- * by the [acl] rather than the claim origin.
+ * custom claims defined by the operator ([ClaimOrigin.CUSTOM]). Access control is determined by the
+ * [acl] and the [kind] rather than the claim origin.
  */
 data class Claim(
     /**
@@ -55,6 +55,14 @@ data class Claim(
      * If null, all values are accepted by this authorization server.
      */
     val allowedValues: List<Any>?,
+    /**
+     * Whose this claim's value is, or null where it is nobody's to write because this server computes
+     * it — which, in a configuration that started, is every [generated] claim and only those.
+     *
+     * The [acl] is held to it at startup rather than at request time: a personal claim restricted to
+     * no audience grants no client write, and an application claim grants neither of the person's.
+     */
+    val kind: ClaimKind?,
     /**
      * Identifier of the audience this claim is restricted to.
      * When null, the claim is shared across all audiences.

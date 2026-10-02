@@ -10,6 +10,7 @@ import com.sympauthy.business.model.oauth2.ResponseType
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType
+import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
@@ -178,6 +179,7 @@ class OpenIdConfigurationControllerTest {
         enabled = true,
         verifiedId = verifiedId,
         dataType = ClaimDataType.STRING,
+        kind = ClaimKind.PERSONAL,
         group = null,
         required = false,
         generated = false,

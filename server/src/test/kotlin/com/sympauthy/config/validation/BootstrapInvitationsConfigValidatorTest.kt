@@ -4,6 +4,7 @@ import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType
+import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.UnconditionalAcl
@@ -30,6 +31,7 @@ class BootstrapInvitationsConfigValidatorTest {
         enabled = true,
         verifiedId = null,
         dataType = ClaimDataType.STRING,
+        kind = ClaimKind.PERSONAL,
         group = null,
         required = false,
         generated = false,

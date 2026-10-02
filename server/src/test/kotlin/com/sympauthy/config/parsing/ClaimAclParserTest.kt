@@ -51,6 +51,7 @@ class ClaimAclParserTest {
         enabled = null,
         required = null,
         group = null,
+        kind = null,
         audienceId = null,
         allowedValues = null,
         publishedIn = null,

@@ -126,8 +126,8 @@ class ClaimWriteBoundToAudienceIT : AbstractSympauthyIT() {
         /**
          * Password auth with an email identifier, a second audience beside the shipped `default`, and two
          * custom claims a client may write with `users:claims:write` — `custom_tier` restricted to `billing`,
-         * `custom_region` to nothing. Both take that write permission from `templates.claims.default`, so the
-         * audience is the only thing separating them.
+         * `custom_region` to nothing. Both take that write permission from `templates.claims.application`, so
+         * the audience is the only thing separating them.
          *
          * The confidential client names no audience, so it takes `default` from `templates.clients.default`,
          * and holds both the `authorization_code` grant (to sign the person up) and `client_credentials` (to
@@ -145,8 +145,13 @@ class ClaimWriteBoundToAudienceIT : AbstractSympauthyIT() {
             "features" to mapOf("grant-unhandled-scopes" to true),
             "claims" to mapOf(
                 "email" to mapOf("enabled" to true),
-                "custom_region" to mapOf("enabled" to true, "type" to "string"),
-                "custom_tier" to mapOf("enabled" to true, "type" to "string", "audience" to "billing"),
+                "custom_region" to mapOf("enabled" to true, "type" to "string", "template" to "application"),
+                "custom_tier" to mapOf(
+                    "enabled" to true,
+                    "type" to "string",
+                    "template" to "application",
+                    "audience" to "billing",
+                ),
             ),
             "clients" to mapOf(
                 registry.clientId() to mapOf(

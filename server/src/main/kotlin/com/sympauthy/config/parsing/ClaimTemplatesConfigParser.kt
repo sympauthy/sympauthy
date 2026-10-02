@@ -1,6 +1,7 @@
 package com.sympauthy.config.parsing
 
 import com.sympauthy.business.model.user.claim.ClaimGroup
+import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
@@ -14,6 +15,7 @@ data class ParsedClaimTemplate(
     val enabled: Boolean?,
     val required: Boolean?,
     val group: ClaimGroup?,
+    val kind: ClaimKind?,
     val audienceId: String?,
     val allowedValues: List<Any>?,
     val publishedIn: Set<ClaimPublicationPlace>?,
@@ -54,6 +56,12 @@ class ClaimTemplatesConfigParser(
             }
         }
 
+        val kind = ctx.parse {
+            properties.kind?.let {
+                parser.convertToEnum<ClaimKind>("$configKeyPrefix.kind", it)
+            }
+        }
+
         val publishedIn = parsePublishedIn(ctx, parser, properties.publishedIn, "$configKeyPrefix.published-in")
 
         val acl = claimAclParser.parseTemplateAcl(ctx, properties.acl, configKeyPrefix)
@@ -63,6 +71,7 @@ class ClaimTemplatesConfigParser(
             enabled = enabled,
             required = required,
             group = group,
+            kind = kind,
             audienceId = properties.audience,
             allowedValues = properties.allowedValues,
             publishedIn = publishedIn,

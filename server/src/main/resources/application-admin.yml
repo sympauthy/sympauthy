@@ -17,6 +17,10 @@ audiences:
 
 claims:
   is_sympauthy_admin:
+    # An application's: nobody types it, the bootstrap invitation below assigns it, and the granting
+    # rule reads it. The template is what says so, and it carries the client scopes that read and
+    # write a claim of that kind.
+    template: application
     type: boolean
     audience: admin
 

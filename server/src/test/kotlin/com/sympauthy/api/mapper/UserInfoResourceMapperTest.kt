@@ -9,6 +9,7 @@ import com.sympauthy.business.model.user.claim.ClaimDataType.EMAIL
 import com.sympauthy.business.model.user.claim.ClaimDataType.NUMBER
 import com.sympauthy.business.model.user.claim.ClaimDataType.STRING
 import com.sympauthy.business.model.user.claim.ClaimGroup
+import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
@@ -213,6 +214,7 @@ class UserInfoResourceMapperTest {
         enabled = true,
         verifiedId = verifiedId,
         dataType = dataType,
+        kind = ClaimKind.PERSONAL,
         group = group,
         required = false,
         generated = false,

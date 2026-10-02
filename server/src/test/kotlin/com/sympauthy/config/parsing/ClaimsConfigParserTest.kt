@@ -3,6 +3,7 @@ package com.sympauthy.config.parsing
 import com.sympauthy.business.model.user.claim.ClaimDataType.BOOLEAN
 import com.sympauthy.business.model.user.claim.ClaimDataType.NUMBER
 import com.sympauthy.business.model.user.claim.ClaimDataType.STRING
+import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace.ACCESS_TOKEN
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace.DISCOVERY
@@ -14,7 +15,6 @@ import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.ClaimTemplate
 import com.sympauthy.config.model.ClaimTemplateAcl
 import com.sympauthy.config.properties.ClaimConfigurationProperties
-import com.sympauthy.config.properties.ClaimTemplateConfigurationProperties.Companion.DEFAULT
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
@@ -26,14 +26,16 @@ class ClaimsConfigParserTest {
     private val parser = ClaimsConfigParser(configParser, ClaimAclParser(configParser))
 
     private fun claimTemplate(
-        id: String,
+        id: String = APPLICATION,
         allowedValues: List<Any>? = null,
-        publishedIn: Set<ClaimPublicationPlace>? = null
+        publishedIn: Set<ClaimPublicationPlace>? = null,
+        kind: ClaimKind? = ClaimKind.APPLICATION
     ) = ClaimTemplate(
         id = id,
         enabled = null,
         required = null,
         group = null,
+        kind = kind,
         audienceId = null,
         allowedValues = allowedValues,
         publishedIn = publishedIn,
@@ -43,12 +45,14 @@ class ClaimsConfigParserTest {
     private fun claimProperties(
         id: String,
         dataType: String,
-        templateId: String? = null,
-        publishedIn: List<String>? = null
+        templateId: String? = APPLICATION,
+        publishedIn: List<String>? = null,
+        kind: String? = null
     ) = ClaimConfigurationProperties(id).apply {
         type = dataType
         template = templateId
         this.publishedIn = publishedIn
+        this.kind = kind
     }
 
     private fun parseOne(ctx: ConfigParsingContext, properties: ClaimConfigurationProperties, template: ClaimTemplate) =
@@ -59,7 +63,7 @@ class ClaimsConfigParserTest {
     fun `parse - Publish a claim nowhere where neither it nor its template names a place`() {
         val ctx = ConfigParsingContext()
 
-        val claim = parseOne(ctx, claimProperties("loyalty_tier", "string"), claimTemplate(DEFAULT))
+        val claim = parseOne(ctx, claimProperties("loyalty_tier", "string"), claimTemplate())
 
         assertEquals(emptySet<ClaimPublicationPlace>(), claim.publishedIn)
         assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
@@ -68,7 +72,7 @@ class ClaimsConfigParserTest {
     @Test
     fun `parse - Publish a claim in the places its template names`() {
         val ctx = ConfigParsingContext()
-        val template = claimTemplate(DEFAULT, publishedIn = setOf(USERINFO))
+        val template = claimTemplate(publishedIn = setOf(USERINFO))
 
         val claim = parseOne(ctx, claimProperties("loyalty_tier", "string"), template)
 
@@ -79,7 +83,7 @@ class ClaimsConfigParserTest {
     @Test
     fun `parse - Publish a claim in the places it names over the ones its template offers`() {
         val ctx = ConfigParsingContext()
-        val template = claimTemplate(DEFAULT, publishedIn = setOf(USERINFO))
+        val template = claimTemplate(publishedIn = setOf(USERINFO))
         val properties = claimProperties("loyalty_tier", "string", publishedIn = listOf("id-token"))
 
         val claim = parseOne(ctx, properties, template)
@@ -91,7 +95,7 @@ class ClaimsConfigParserTest {
     @Test
     fun `parse - Publish a claim nowhere where it names no place over the ones its template offers`() {
         val ctx = ConfigParsingContext()
-        val template = claimTemplate(DEFAULT, publishedIn = setOf(USERINFO))
+        val template = claimTemplate(publishedIn = setOf(USERINFO))
         val properties = claimProperties("loyalty_tier", "string", publishedIn = emptyList())
 
         val claim = parseOne(ctx, properties, template)
@@ -105,7 +109,7 @@ class ClaimsConfigParserTest {
         val ctx = ConfigParsingContext()
         val properties = claimProperties("loyalty_tier", "string", publishedIn = listOf("id-token", "nowhere"))
 
-        val claim = parseOne(ctx, properties, claimTemplate(DEFAULT))
+        val claim = parseOne(ctx, properties, claimTemplate())
 
         assertEquals(setOf(ID_TOKEN), claim.publishedIn)
         assertEquals(listOf("config.invalid_enum_value"), ctx.errors.map { it.messageId })
@@ -113,10 +117,89 @@ class ClaimsConfigParserTest {
     }
 
     @Test
+    fun `parse - Report a claim neither it nor its template says whose the value is`() {
+        val ctx = ConfigParsingContext()
+        val template = claimTemplate(kind = null)
+
+        val claim = parseOne(ctx, claimProperties("loyalty_tier", "string"), template)
+
+        assertNull(claim.kind)
+        assertEquals(listOf("config.claim.kind.missing"), ctx.errors.map { it.messageId })
+        assertEquals(listOf("claims.loyalty_tier.kind"), ctx.errors.map { it.key })
+        assertEquals(listOf("loyalty_tier"), ctx.errors.map { it.values["claim"] })
+    }
+
+    @Test
+    fun `parse - Report nothing about the kind of a claim naming a template that does not exist`() {
+        val ctx = ConfigParsingContext()
+        val properties = claimProperties("loyalty_tier", "string", "crm")
+
+        parser.parse(ctx, listOf(properties), mapOf(APPLICATION to claimTemplate(kind = null)))
+
+        assertEquals(listOf("config.claim.template.not_found"), ctx.errors.map { it.messageId })
+    }
+
+    @Test
+    fun `parse - Take the kind its template declares`() {
+        val ctx = ConfigParsingContext()
+        val template = claimTemplate(PERSONAL, kind = ClaimKind.PERSONAL)
+
+        val claim = parseOne(ctx, claimProperties("nickname", "string", PERSONAL), template)
+
+        assertEquals(ClaimKind.PERSONAL, claim.kind)
+        assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
+    }
+
+    @Test
+    fun `parse - Take the kind it declares over the one its template offers`() {
+        val ctx = ConfigParsingContext()
+        val template = claimTemplate(PERSONAL, kind = ClaimKind.PERSONAL)
+        val properties = claimProperties("loyalty_tier", "string", PERSONAL, kind = "application")
+
+        val claim = parseOne(ctx, properties, template)
+
+        assertEquals(ClaimKind.APPLICATION, claim.kind)
+        assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
+    }
+
+    @Test
+    fun `parse - Report a kind naming neither of the two, and take none from the template`() {
+        val ctx = ConfigParsingContext()
+        val properties = claimProperties("loyalty_tier", "string", kind = "profile")
+
+        val claim = parseOne(ctx, properties, claimTemplate(kind = ClaimKind.PERSONAL))
+
+        assertNull(claim.kind)
+        assertEquals(listOf("config.invalid_enum_value"), ctx.errors.map { it.messageId })
+        assertEquals(listOf("claims.loyalty_tier.kind"), ctx.errors.map { it.key })
+    }
+
+    @Test
+    fun `parse - Name a claim whose template does not exist as its file spells it`() {
+        val ctx = ConfigParsingContext()
+        val properties = claimProperties("preferred-username", "string", "crm")
+
+        parser.parse(ctx, listOf(properties), mapOf(APPLICATION to claimTemplate()))
+
+        assertEquals(listOf("claims.preferred_username.template"), ctx.errors.map { it.key })
+        assertEquals(listOf("preferred_username"), ctx.errors.map { it.values["claim"] })
+    }
+
+    @Test
+    fun `parse - Give a generated claim no kind at all`() {
+        val ctx = ConfigParsingContext()
+
+        val claims = parser.parse(ctx, emptyList(), mapOf(APPLICATION to claimTemplate()))
+
+        assertNull(claims.first { it.id == "sub" }.kind)
+        assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
+    }
+
+    @Test
     fun `parse - Publish a generated claim in the places it already reaches`() {
         val ctx = ConfigParsingContext()
 
-        val claims = parser.parse(ctx, emptyList(), mapOf(DEFAULT to claimTemplate(DEFAULT)))
+        val claims = parser.parse(ctx, emptyList(), mapOf(APPLICATION to claimTemplate()))
 
         assertEquals(setOf(ID_TOKEN, USERINFO, DISCOVERY), claims.first { it.id == "sub" }.publishedIn)
         assertEquals(setOf(USERINFO, DISCOVERY), claims.first { it.id == "updated_at" }.publishedIn)
@@ -131,7 +214,7 @@ class ClaimsConfigParserTest {
     fun `parse - Answer the authentication time whatever the file declares under its name`() {
         val ctx = ConfigParsingContext()
         val properties = claimProperties("auth_time", "string", publishedIn = listOf("userinfo"))
-        val templates = mapOf(DEFAULT to claimTemplate(DEFAULT))
+        val templates = mapOf(APPLICATION to claimTemplate())
 
         val claims = parser.parse(ctx, listOf(properties), templates).filter { it.id == "auth_time" }
 
@@ -144,8 +227,8 @@ class ClaimsConfigParserTest {
     @Test
     fun `parse - Answer a generated claim off the enum, whatever a file wrote under it`() {
         val ctx = ConfigParsingContext()
-        val properties = claimProperties("sub", "number", "openid", publishedIn = listOf("userinfo"))
-        val templates = mapOf(DEFAULT to claimTemplate(DEFAULT), "openid" to claimTemplate("openid"))
+        val properties = claimProperties("sub", "number", PERSONAL, publishedIn = listOf("userinfo"))
+        val templates = mapOf(APPLICATION to claimTemplate(), PERSONAL to claimTemplate(PERSONAL))
 
         val sub = parser.parse(ctx, listOf(properties), templates).first { it.id == "sub" }
 
@@ -224,7 +307,7 @@ class ClaimsConfigParserTest {
     fun `parse - Read the values a claim inherits from a template as its own type`() {
         val ctx = ConfigParsingContext()
         val templates = mapOf(
-            DEFAULT to claimTemplate(DEFAULT, null),
+            APPLICATION to claimTemplate(),
             "ages" to claimTemplate("ages", listOf(18, 21))
         )
 
@@ -238,7 +321,7 @@ class ClaimsConfigParserTest {
     fun `parse - Report an inherited value against the template it is written in`() {
         val ctx = ConfigParsingContext()
         val templates = mapOf(
-            DEFAULT to claimTemplate(DEFAULT, null),
+            APPLICATION to claimTemplate(),
             "ages" to claimTemplate("ages", listOf("young"))
         )
 
@@ -254,7 +337,7 @@ class ClaimsConfigParserTest {
         // the inherited branch is reached at all.
         val ctx = ConfigParsingContext()
         val templates = mapOf(
-            DEFAULT to claimTemplate(DEFAULT, null),
+            APPLICATION to claimTemplate(),
             "ages" to claimTemplate("ages", listOf("young"))
         )
         val properties = claimProperties("age", "number", "ages").apply { allowedValues = listOf(30) }
@@ -269,7 +352,7 @@ class ClaimsConfigParserTest {
     fun `parse - Report an inherited value once however many claims of a type inherit it`() {
         val ctx = ConfigParsingContext()
         val templates = mapOf(
-            DEFAULT to claimTemplate(DEFAULT, null),
+            APPLICATION to claimTemplate(),
             "ages" to claimTemplate("ages", listOf("young"))
         )
         val properties = listOf(
@@ -287,7 +370,7 @@ class ClaimsConfigParserTest {
         // One template, two types: it is convertible for neither, and each is its own mistake to report.
         val ctx = ConfigParsingContext()
         val templates = mapOf(
-            DEFAULT to claimTemplate(DEFAULT, null),
+            APPLICATION to claimTemplate(),
             "shared" to claimTemplate("shared", listOf(" "))
         )
         val properties = listOf(
@@ -303,3 +386,7 @@ class ClaimsConfigParserTest {
         )
     }
 }
+
+private const val APPLICATION = "application"
+
+private const val PERSONAL = "personal"

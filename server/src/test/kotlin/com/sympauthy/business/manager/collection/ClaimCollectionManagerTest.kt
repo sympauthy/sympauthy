@@ -39,11 +39,17 @@ class ClaimCollectionManagerTest {
         unconditional = UnconditionalAcl(emptyList(), emptyList())
     )
 
-    private fun claim(id: String, enabled: Boolean = true, required: Boolean = false) = Claim(
+    private fun claim(
+        id: String,
+        enabled: Boolean = true,
+        required: Boolean = false,
+        kind: ClaimKind? = ClaimKind.PERSONAL
+    ) = Claim(
         id = id,
         enabled = enabled,
         verifiedId = null,
         dataType = ClaimDataType.STRING,
+        kind = kind,
         group = null,
         required = required,
         generated = false,
@@ -57,6 +63,8 @@ class ClaimCollectionManagerTest {
     private val disabledClaim = claim("custom_disabled", enabled = false)
     private val requiredClaim = claim("custom_required", required = true)
     private val openIdClaim = claim(OpenIdConnectClaimId.EMAIL)
+    private val applicationClaim = claim("loyalty_tier", kind = ClaimKind.APPLICATION)
+    private val generatedClaim = claim(OpenIdConnectClaimId.SUB, kind = null)
 
     private val firstPage = PageParams(page = 0, size = 20)
 
@@ -103,6 +111,24 @@ class ClaimCollectionManagerTest {
         val result = claimCollectionManager.listClaims(criteriaOf("origin" to "openid"), firstPage)
 
         assertEquals(listOf(openIdClaim), result.items)
+    }
+
+    @Test
+    fun `listClaims - Keep the claims of the kind the criterion names`() = runTest {
+        knownClaims(customClaim, applicationClaim, generatedClaim)
+
+        val result = claimCollectionManager.listClaims(criteriaOf("kind" to "application"), firstPage)
+
+        assertEquals(listOf(applicationClaim), result.items)
+    }
+
+    @Test
+    fun `listClaims - Keep the claims this server answers for itself, which are of neither kind`() = runTest {
+        knownClaims(customClaim, applicationClaim, generatedClaim)
+
+        val result = claimCollectionManager.listClaims(criteriaOf("kind.is_null" to "true"), firstPage)
+
+        assertEquals(listOf(generatedClaim), result.items)
     }
 
     @Test

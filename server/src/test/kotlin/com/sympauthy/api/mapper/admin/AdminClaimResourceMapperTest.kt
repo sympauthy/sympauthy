@@ -3,6 +3,7 @@ package com.sympauthy.api.mapper.admin
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType
+import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace.ID_TOKEN
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace.USERINFO
@@ -69,11 +70,34 @@ class AdminClaimResourceMapperTest {
         assertEquals(false, mapper.toResource(claim("loyalty_tier", setOf(ID_TOKEN))).identifier)
     }
 
-    private fun claim(id: String, publishedIn: Set<ClaimPublicationPlace>) = Claim(
+    @Test
+    fun `toResource - Report whose a claim is beside where its name comes from`() {
+        val personal = mapper.toResource(claim("name", setOf(ID_TOKEN)))
+        val application = mapper.toResource(
+            claim("loyalty_tier", setOf(ID_TOKEN), kind = ClaimKind.APPLICATION)
+        )
+
+        assertEquals("personal" to "openid", personal.kind to personal.origin)
+        assertEquals("application" to "custom", application.kind to application.origin)
+    }
+
+    @Test
+    fun `toResource - Report no kind for a claim this server answers for itself`() {
+        val resource = mapper.toResource(claim("sub", setOf(ID_TOKEN), kind = null))
+
+        assertEquals(null, resource.kind)
+    }
+
+    private fun claim(
+        id: String,
+        publishedIn: Set<ClaimPublicationPlace>,
+        kind: ClaimKind? = ClaimKind.PERSONAL
+    ) = Claim(
         id = id,
         enabled = true,
         verifiedId = null,
         dataType = ClaimDataType.STRING,
+        kind = kind,
         group = null,
         required = false,
         generated = false,

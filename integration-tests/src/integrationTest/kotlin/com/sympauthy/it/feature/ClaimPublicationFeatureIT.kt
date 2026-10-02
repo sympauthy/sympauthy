@@ -22,7 +22,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * `claims.<id>.published-in` names them, and a claim naming none is published nowhere. The first scenario
  * covers the two OpenID channels: four custom claims sit under the `profile` scope — `loyalty_tier` names
  * both, `preferences` names `userinfo`, `internal_ref` names `id-token` and `internal_note` names nothing —
- * beside two OpenID claims, `name`, which takes both channels from the shipped `openid` template, and
+ * beside two OpenID claims, `name`, which takes both channels from the shipped `personal` template, and
  * `nickname`, which overrides that template with an empty list. One person signs up supplying every one of
  * them, and the single authorization that follows is read twice: the `id_token` it was issued, verified
  * against the server's own key set, and the `/userinfo` it reads with the access token issued beside it.
@@ -168,7 +168,7 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
      * the client allowed and defaulted to that scope — the base configuration allows `openid` alone, and a
      * flow asking for more than its client allows is refused before any step runs.
      *
-     * `name` is turned on and otherwise left alone: it keeps the `openid` template, the `profile` consent
+     * `name` is turned on and otherwise left alone: it keeps the `personal` template, the `profile` consent
      * scope and the channels the shipped file gives it, which is the point of asserting it.
      */
     private fun claimsPublishedPerChannel(): Map<String, Any> = mapOf(
@@ -188,23 +188,26 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
     )
 
     private fun customClaim(
-        publishedIn: List<String>? = null,
+        publishedIn: List<String> = emptyList(),
         readableByClient: Boolean = true,
         required: Boolean = true,
     ): Map<String, Any> = buildMap {
         put("enabled", true)
         put("required", required)
         put("type", "string")
+        // The `personal` template, because the flow collects the value: it is what says the claim belongs
+        // to the person, and it carries the consent flags and the client read this scenario needs.
+        put("template", "personal")
+        // Always written, so each claim is published in exactly the places the scenario names: the
+        // template offers the two OpenID channels and the document, and an empty list withholds all three.
+        put("published-in", publishedIn)
         put(
             "acl",
             mapOf(
                 "consent-scope" to "profile",
-                "readable-by-person-when-consented" to "true",
-                "collected-in-flow-when-consented" to "true",
                 "readable-by-client-when-consented" to readableByClient.toString(),
             ),
         )
-        publishedIn?.let { put("published-in", it) }
     }
 
     /**
@@ -239,7 +242,7 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
 
     /**
      * A component of the address group, turned on and published in the introspection response, keeping the
-     * `openid` template's consent scope and group.
+     * `personal` template's consent scope and group.
      */
     private fun addressClaim(): Map<String, Any> = mapOf(
         "enabled" to true,
