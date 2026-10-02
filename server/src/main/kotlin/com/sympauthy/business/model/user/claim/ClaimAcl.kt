@@ -24,6 +24,25 @@ data class ConsentAcl(
      */
     val scope: String?,
     val readableByPerson: Boolean,
+    /**
+     * Whether the interactive flow collects this claim from the person, where they are on this server's
+     * own pages having just authenticated. It governs that one door in both directions — what the flow
+     * offers and what it reads back — and is neither [readableByPerson], which `/userinfo` answers from,
+     * nor [writableByPerson], which a person's own access token writes through.
+     *
+     * **An identifier claim is outside it.** What an account signs in with is collected by the sign-up
+     * rather than by the claims step, and is required of every account by being what it signs in with, so
+     * the flow answers for one before this flag is reached — the set it offers, the set it holds a person to
+     * and the values it reads back each take an identifier claim whatever this says.
+     * `ConsentAwareCollectedClaimManager` is where all three are, and setting this flag on one changes
+     * nothing the flow does.
+     *
+     * **It is accepted on an identifier claim rather than refused**, unlike [writeMaxAuthenticationAge] on
+     * a claim no access token may write: the shipped `openid` template marks it, and the shipped `mail`
+     * environment identifies by `email`, which takes that template. A refusal on the resolved ACL — where
+     * the other cross-checks of this kind deliberately look — would reject a file shipped with the server
+     * on a value no deployment wrote.
+     */
     val collectedInFlow: Boolean,
     /**
      * Whether a person's own access token may write this claim, which is a different permission from

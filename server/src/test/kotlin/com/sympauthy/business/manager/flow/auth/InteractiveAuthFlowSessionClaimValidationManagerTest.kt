@@ -53,13 +53,14 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
     lateinit var manager: InteractiveAuthFlowSessionClaimValidationManager
 
     @Test
-    fun `getUnfilteredReasonsToSendValidationCode - Verify email from identity claims`() {
+    fun `getUnfilteredReasonsToSendValidationCode - Verify a collected email that is not verified`() {
         val emailClaim = mockk<Claim> {
             every { id } returns OpenIdConnectClaimId.EMAIL
             every { belongsToAudience(AUDIENCE) } returns true
         }
         val collectedClaim = mockk<CollectedClaim> {
             every { claim } returns emailClaim
+            every { value } returns "ada@example.com"
             every { verified } returns false
         }
 
@@ -68,22 +69,17 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
 
         val result = manager.getUnfilteredReasonsToSendValidationCode(
             AUDIENCE,
-            identifierClaims = listOf(collectedClaim),
-            consentedClaims = emptyList()
+            collectedClaims = listOf(collectedClaim)
         )
 
         assertTrue(result.contains(EMAIL_CLAIM))
     }
 
     @Test
-    fun `getUnfilteredReasonsToSendValidationCode - Verify email from consented claims`() {
+    fun `getUnfilteredReasonsToSendValidationCode - Ask nothing of a claim no value was collected for`() {
+        // No id is stubbed: an empty set of collected claims is not searched by it.
         val emailClaim = mockk<Claim> {
-            every { id } returns OpenIdConnectClaimId.EMAIL
             every { belongsToAudience(AUDIENCE) } returns true
-        }
-        val collectedClaim = mockk<CollectedClaim> {
-            every { claim } returns emailClaim
-            every { verified } returns false
         }
 
         every { manager.validationCodeReasons } returns listOf(EMAIL_CLAIM)
@@ -91,11 +87,32 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
 
         val result = manager.getUnfilteredReasonsToSendValidationCode(
             AUDIENCE,
-            identifierClaims = emptyList(),
-            consentedClaims = listOf(collectedClaim)
+            collectedClaims = emptyList()
         )
 
-        assertTrue(result.contains(EMAIL_CLAIM))
+        assertFalse(result.contains(EMAIL_CLAIM))
+    }
+
+    @Test
+    fun `getUnfilteredReasonsToSendValidationCode - Ask nothing of a claim whose value was cleared`() {
+        val emailClaim = mockk<Claim> {
+            every { id } returns OpenIdConnectClaimId.EMAIL
+            every { belongsToAudience(AUDIENCE) } returns true
+        }
+        val cleared = mockk<CollectedClaim> {
+            every { claim } returns emailClaim
+            every { value } returns null
+        }
+
+        every { manager.validationCodeReasons } returns listOf(EMAIL_CLAIM)
+        every { manager.getClaimValidatedBy(EMAIL_CLAIM) } returns emailClaim
+
+        val result = manager.getUnfilteredReasonsToSendValidationCode(
+            AUDIENCE,
+            collectedClaims = listOf(cleared)
+        )
+
+        assertFalse(result.contains(EMAIL_CLAIM))
     }
 
     @Test
@@ -111,8 +128,7 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
 
         val result = manager.getUnfilteredReasonsToSendValidationCode(
             AUDIENCE,
-            identifierClaims = emptyList(),
-            consentedClaims = emptyList()
+            collectedClaims = emptyList()
         )
 
         assertFalse(result.contains(EMAIL_CLAIM))
@@ -126,6 +142,7 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
         }
         val collectedClaim = mockk<CollectedClaim> {
             every { claim } returns emailClaim
+            every { value } returns "ada@example.com"
             every { verified } returns true
         }
 
@@ -134,8 +151,7 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
 
         val result = manager.getUnfilteredReasonsToSendValidationCode(
             AUDIENCE,
-            identifierClaims = listOf(collectedClaim),
-            consentedClaims = emptyList()
+            collectedClaims = listOf(collectedClaim)
         )
 
         assertFalse(result.contains(EMAIL_CLAIM))
@@ -153,29 +169,19 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
             every { this@mockk.consentedScopes } returns consentedScopes
         }
         val media = EMAIL
-        val identifierClaims = listOf(mockk<CollectedClaim> {
-            every { claim } returns mockk { every { id } returns "email" }
-        })
-        val consentedClaims = listOf(mockk<CollectedClaim> {
-            every { claim } returns mockk { every { id } returns "name" }
-        })
+        val collectedClaims = listOf(mockk<CollectedClaim>())
         val reasons = listOf(EMAIL_CLAIM)
         val validationCode = mockk<ValidationCode>()
 
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
         coEvery { oauth2Manager.getAudienceId(oauth2) } returns AUDIENCE
-        coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns identifierClaims
         coEvery {
-            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
+            consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(
                 userId, AUDIENCE, consentedScopes
             )
-        } returns consentedClaims
+        } returns collectedClaims
         every {
-            manager.getReasonsToSendValidationCode(
-                AUDIENCE,
-                identifierClaims = identifierClaims,
-                consentedClaims = consentedClaims
-            )
+            manager.getReasonsToSendValidationCode(AUDIENCE, collectedClaims)
         } returns reasons
         coEvery {
             validationCodeManager.findLatestCodeSentByMediaDuringSession(
@@ -214,29 +220,19 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
             every { this@mockk.consentedScopes } returns consentedScopes
         }
         val media = EMAIL
-        val identifierClaims = listOf(mockk<CollectedClaim> {
-            every { claim } returns mockk { every { id } returns "email" }
-        })
-        val consentedClaims = listOf(mockk<CollectedClaim> {
-            every { claim } returns mockk { every { id } returns "name" }
-        })
+        val collectedClaims = listOf(mockk<CollectedClaim>())
         val existingValidationCode = mockk<ValidationCode> {
         }
 
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
         coEvery { oauth2Manager.getAudienceId(oauth2) } returns AUDIENCE
-        coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns identifierClaims
         coEvery {
-            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
+            consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(
                 userId, AUDIENCE, consentedScopes
             )
-        } returns consentedClaims
+        } returns collectedClaims
         every {
-            manager.getReasonsToSendValidationCode(
-                AUDIENCE,
-                identifierClaims = identifierClaims,
-                consentedClaims = consentedClaims
-            )
+            manager.getReasonsToSendValidationCode(AUDIENCE, collectedClaims)
         } returns listOf(EMAIL_CLAIM)
         coEvery {
             validationCodeManager.findLatestCodeSentByMediaDuringSession(
@@ -267,26 +263,19 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
             every { this@mockk.consentedScopes } returns consentedScopes
         }
         val media = EMAIL
-        val identifierClaims = listOf(mockk<CollectedClaim> {
-        })
-        val consentedClaims = listOf(mockk<CollectedClaim> {
+        val collectedClaims = listOf(mockk<CollectedClaim> {
         })
         val reasons = listOf(PHONE_NUMBER_CLAIM)
 
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
         coEvery { oauth2Manager.getAudienceId(oauth2) } returns AUDIENCE
-        coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns identifierClaims
         coEvery {
-            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
+            consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(
                 userId, AUDIENCE, consentedScopes
             )
-        } returns consentedClaims
+        } returns collectedClaims
         every {
-            manager.getReasonsToSendValidationCode(
-                AUDIENCE,
-                identifierClaims = identifierClaims,
-                consentedClaims = consentedClaims
-            )
+            manager.getReasonsToSendValidationCode(AUDIENCE, collectedClaims)
         } returns reasons
 
         val result = manager.getOrSendValidationCode(
@@ -323,10 +312,10 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
         }
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
         coEvery { oauth2Manager.getAudienceId(oauth2) } returns AUDIENCE
-        coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns collectedClaims
         coEvery {
-            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, AUDIENCE, emptyList())
+            consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(userId, AUDIENCE, emptyList())
         } returns collectedClaims
+        every { manager.getReasonsToSendValidationCode(AUDIENCE, collectedClaims) } returns listOf(EMAIL_CLAIM)
         coEvery {
             validationCodeManager.refreshAndQueueValidationCode(
                 user = user,

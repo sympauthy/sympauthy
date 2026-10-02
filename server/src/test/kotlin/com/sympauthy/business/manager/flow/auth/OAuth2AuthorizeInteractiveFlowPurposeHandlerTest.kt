@@ -358,6 +358,39 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     }
 
     @Test
+    fun `computeStatus - Draw the required set and the validation reasons from the flow's own read`() =
+        runTest {
+            // The client's half of the ACL is left unstubbed, and both stubs below match on the exact list
+            // the flow's read answered: reaching the assertions proves that list reached both, and that the
+            // read which would have dropped a claim disclosed to no client was never made.
+            val userId = UUID.randomUUID()
+            val session = onGoingSessionMock(userId)
+            val consentedScopes = listOf("openid", "profile")
+            val oauth2 = oauth2Of(consentedScopes = consentedScopes)
+            val collectedInFlow = listOf(mockk<CollectedClaim>())
+
+            coEvery { oauth2Manager.getAudienceId(oauth2) } returns testAudience.id
+                coEvery {
+                consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(
+                    userId, testAudience.id, consentedScopes
+                )
+            } returns collectedInFlow
+            every {
+                consentAwareCollectedClaimManager.areAllIdentifierAndRequiredClaimsCollectedInFlow(
+                    collectedInFlow, testAudience.id, consentedScopes
+                )
+            } returns true
+            every {
+                claimValidationManager.getReasonsToSendValidationCode(testAudience.id, collectedInFlow)
+            } returns emptyList()
+
+            val status = handler.computeStatus(session, oauth2)
+
+            assertFalse(status.missingRequiredClaims)
+            assertTrue(status.missingMediaForClaimValidation.isEmpty())
+        }
+
+    @Test
     fun `computeStatus - Missing validation media when a claim needs validation`() = runTest {
         val userId = UUID.randomUUID()
         val session = onGoingSessionMock(userId)
@@ -502,18 +535,17 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         val consentedScopes = listOf("openid", "profile")
         val oauth2 = oauth2Of(consentedScopes = consentedScopes)
         coEvery { oauth2Manager.getAudienceId(oauth2) } returns testAudience.id
-        coEvery { collectedClaimManager.findIdentifierByUserId(userId) } returns emptyList()
         coEvery {
-            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
+            consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(
                 userId, testAudience.id, consentedScopes
             )
         } returns emptyList()
         every {
-            consentAwareCollectedClaimManager.areAllRequiredClaimsCollectedInFlow(
+            consentAwareCollectedClaimManager.areAllIdentifierAndRequiredClaimsCollectedInFlow(
                 any(), testAudience.id, consentedScopes
             )
         } returns allRequiredCollected
-        every { claimValidationManager.getReasonsToSendValidationCode(any(), any(), any()) } returns reasons
+        every { claimValidationManager.getReasonsToSendValidationCode(any(), any()) } returns reasons
         return oauth2
     }
 

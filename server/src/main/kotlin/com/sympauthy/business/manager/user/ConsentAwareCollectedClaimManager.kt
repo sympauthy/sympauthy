@@ -19,9 +19,12 @@ import java.util.*
 /**
  * Manages access to collected claims with consent-based scope filtering.
  *
- * Unlike [CollectedClaimManager] which provides unrestricted access for admin and internal use,
- * this manager filters claims based on the consented scopes and who is performing the operation
- * (the end-user themselves or a client acting on their behalf).
+ * Unlike [CollectedClaimManager] which provides unrestricted access for admin and internal use, this
+ * manager filters claims on the consented scopes and on the door the caller came through. There are three,
+ * and each has a read of its own: the interactive flow, where the person is on this server's own pages
+ * having just authenticated; the person's own access token; and a client acting on their behalf. A flag is
+ * named for one door and read by none of the others — `docs/design/claims.md` is where they are told apart,
+ * and [com.sympauthy.business.model.user.claim.ConsentAcl] is where each is a property.
  */
 @Singleton
 open class ConsentAwareCollectedClaimManager(
@@ -106,11 +109,42 @@ open class ConsentAwareCollectedClaimManager(
     }
 
     /**
+     * Return the list of [CollectedClaim] collected from the user identified by [userId] that the interactive
+     * flow collects, given the [consentedScopes].
+     *
+     * [audienceId] is the audience the answer is for: a claim restricted to another one is left out, and a
+     * claim restricted to none is answered whatever the audience. It is not optional, because
+     * [consentedScopes] are not: consent is recorded per audience, so scopes a person consented to are always
+     * some audience's and the caller holding them knows which.
+     *
+     * The flow collects a claim at one of two steps, and this answers for both. An identifier claim is
+     * collected by the sign-up, so it is answered whatever the ACL says — it is what the account signs in
+     * with, and a flow that could not see one would hold a person to a claim it cannot read. Every other
+     * claim is collected at the claims step, which is the flow's own half of the ACL: the audience's, within
+     * the consented scopes, and marked collected in the flow.
+     *
+     * No client scopes are taken, because no client is party to this: the person is on this server's own
+     * pages having just authenticated. A caller reading through a client's permission instead gets less than
+     * the flow offered, and a claim a deployment collects and discloses to no client reads back as never
+     * collected.
+     */
+    suspend fun findByUserIdAndCollectedInFlow(
+        userId: UUID,
+        audienceId: String,
+        consentedScopes: List<String>
+    ): List<CollectedClaim> {
+        val identifierClaims = claimManager.listIdentifierClaims().toSet()
+        return collectedClaimManager.findByUserId(userId).filter {
+            it.claim in identifierClaims ||
+                    (it.claim.belongsToAudience(audienceId) && it.claim.isCollectedInFlow(consentedScopes))
+        }
+    }
+
+    /**
      * Return the list of [CollectedClaim] collected from the end-user associated to the [session].
      *
-     * Only the claims that are readable according to the consented scopes of the session's OAuth2 record will
-     * be returned, and only those of the audience that authorization is for. No client scopes are passed since
-     * interactive flow sessions operate in the user consent context only.
+     * The claims the flow collects, per [findByUserIdAndCollectedInFlow], within the consented scopes of the
+     * session's OAuth2 record and of the audience that authorization is for.
      */
     suspend fun findBySession(
         session: InteractiveFlowSession
@@ -121,7 +155,7 @@ open class ConsentAwareCollectedClaimManager(
                 val userId = session.userId ?: return emptyList()
                 val oauth2 = oauth2Manager.fetchOAuth2(session)
                 val consentedScopes = oauth2.consentedScopes ?: return emptyList()
-                findByUserIdAndReadableByClient(
+                findByUserIdAndCollectedInFlow(
                     userId = userId,
                     audienceId = oauth2Manager.getAudienceId(oauth2),
                     consentedScopes = consentedScopes
@@ -131,7 +165,7 @@ open class ConsentAwareCollectedClaimManager(
             is CompletedInteractiveFlowSession -> {
                 val oauth2 = oauth2Manager.fetchOAuth2(session)
                 val consentedScopes = oauth2.consentedScopes ?: return emptyList()
-                findByUserIdAndReadableByClient(
+                findByUserIdAndCollectedInFlow(
                     userId = session.userId,
                     audienceId = oauth2Manager.getAudienceId(oauth2),
                     consentedScopes = consentedScopes
@@ -141,31 +175,49 @@ open class ConsentAwareCollectedClaimManager(
     }
 
     /**
-     * Return true if all required claims that the end-user can write given the [consentedScopes]
-     * have been collected, for the audience identified by [audienceId].
+     * Return true if every claim this flow holds the end-user to has been collected, for the audience
+     * identified by [audienceId] and given the [consentedScopes]. There are two kinds of them, and each
+     * arrives by a rule of its own.
      *
-     * A required claim is one of three things at once: it belongs to [audienceId], the end-user consented to
-     * the scope it sits under, and they may write it. Required claims outside the consented scopes are not
-     * considered, since the end-user has not consented to provide them in this authorization flow; required
-     * claims restricted to another audience are not either, because they are not this audience's claims to ask
-     * for — an audience gets its own required set, and a person signing in to one is not held to another's.
+     * **An identifier claim is held to whatever its file says.** It is what the account signs in with, so it
+     * is required of every account and is collected by the sign-up rather than by the claims step — a
+     * password sign-up refuses a value that arrives without one, and a provider sign-up refuses an account
+     * the provider asserts none for. Neither `required` nor the flow's own flag is asked of one, and the
+     * consent scope is not either: an account holding no value for a claim it is identified by holds a row no
+     * login matches, which is not something a client's consent decides.
      *
-     * [collectedClaims] is what the caller has of the end-user, and it may hold more than this answer turns
-     * on: an identifier claim is collected whatever the consent. That makes no required claim look collected
-     * that is not.
+     * **A required claim is one of three things at once**: it belongs to [audienceId], the end-user consented
+     * to the scope it sits under, and the flow collects it. Required claims outside the consented scopes are
+     * not considered, since the end-user has not consented to provide them in this authorization flow;
+     * required claims restricted to another audience are not either, because they are not this audience's
+     * claims to ask for — an audience gets its own required set, and a person signing in to one is not held
+     * to another's.
+     *
+     * [collectedClaims] holds at least the claims the flow collects, per [findByUserIdAndCollectedInFlow].
+     * A caller handing over a narrower list answers false for a claim it was never given, and the step this
+     * gates is then served again however many times the person submits the value. It may hold more than this
+     * answer turns on, which makes no claim look collected that is not.
+     *
+     * **A claim is collected where it holds a value, not where it holds a row.** A blank submission is a
+     * value being cleared and writes a row holding null — see [CollectedClaimUpdate] — so a gate reading
+     * presence alone is satisfied by a person posting an empty field, which is the opposite of what
+     * `required` asks. An identifier claim cleared is a missing one for the same reason: it holds a row no
+     * login matches.
      */
-    fun areAllRequiredClaimsCollectedInFlow(
+    fun areAllIdentifierAndRequiredClaimsCollectedInFlow(
         collectedClaims: List<CollectedClaim>,
         audienceId: String,
         consentedScopes: List<String>
     ): Boolean {
-        val requiredClaims = claimManager.listRequiredClaims()
+        val identifierClaims = claimManager.listIdentifierClaims().toSet()
+        // The required half leaves identifier claims to the first term rather than answering them twice. It
+        // does not change the answer; it is what keeps the flow's own flag unasked of an identifier claim,
+        // which is the rule ConsentAcl.collectedInFlow states.
+        val heldToClaims = identifierClaims + claimManager.listRequiredClaims()
+            .filter { it !in identifierClaims }
             .filter { it.belongsToAudience(audienceId) && it.isCollectedInFlow(consentedScopes) }
-        if (requiredClaims.isEmpty()) {
-            return true
-        }
-        val collectedClaimSet = collectedClaims.map { it.claim }.toSet()
-        return requiredClaims.all { it in collectedClaimSet }
+        val claimsHoldingAValue = collectedClaims.filter { it.value != null }.map { it.claim }.toSet()
+        return heldToClaims.all { it in claimsHoldingAValue }
     }
 
     /**
