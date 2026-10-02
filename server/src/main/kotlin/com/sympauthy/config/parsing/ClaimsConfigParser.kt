@@ -3,6 +3,7 @@ package com.sympauthy.config.parsing
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimDataType.*
 import com.sympauthy.business.model.user.claim.ClaimGroup
+import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
 import com.sympauthy.config.ConfigParser
@@ -11,7 +12,6 @@ import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.ClaimTemplate
 import com.sympauthy.config.properties.ClaimConfigurationProperties
 import com.sympauthy.config.properties.ClaimConfigurationProperties.Companion.CLAIMS_KEY
-import com.sympauthy.config.properties.ClaimTemplateConfigurationProperties.Companion.DEFAULT
 import com.sympauthy.config.properties.ClaimTemplateConfigurationProperties.Companion.TEMPLATES_CLAIMS_KEY
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -49,6 +49,7 @@ data class ParsedClaim(
     val required: Boolean,
     val generated: Boolean,
     val verifiedId: String?,
+    val kind: ClaimKind?,
     val audienceId: String?,
     val allowedValues: List<Any>?,
     val publishedIn: Set<ClaimPublicationPlace>,
@@ -96,6 +97,9 @@ class ClaimsConfigParser(
             required = false,
             generated = true,
             verifiedId = generatedClaim.verifiedId,
+            // Neither kind: a generated claim is computed rather than collected and written by nobody,
+            // so there is no writer for a kind to name.
+            kind = null,
             audienceId = null,
             allowedValues = null,
             // The channels the claim already reaches, which is a fact about this server rather than a
@@ -113,9 +117,9 @@ class ClaimsConfigParser(
         templates: Map<String, ClaimTemplate>,
         inheritedAllowedValues: MutableMap<Pair<String, ClaimDataType>, List<Any>?>
     ): ParsedClaim? {
-        val template = resolveTemplate(ctx, properties, templates)
         val claimId = properties.id.normalizeClaimId()
         val configKeyPrefix = "$CLAIMS_KEY.$claimId"
+        val template = resolveTemplate(ctx, properties, templates, configKeyPrefix, claimId)
 
         val dataType: ClaimDataType? = ctx.parse {
             parser.getEnumOrThrow(properties, "$configKeyPrefix.type") { properties.type }
@@ -129,6 +133,8 @@ class ClaimsConfigParser(
         val required = ctx.parse {
             parser.getBoolean(properties, "$configKeyPrefix.required", ClaimConfigurationProperties::required)
         } ?: template?.required ?: false
+
+        val kind = resolveKind(ctx, properties, template, configKeyPrefix, claimId)
 
         val group = ctx.parse {
             properties.group?.let {
@@ -150,8 +156,8 @@ class ClaimsConfigParser(
         } else null
 
         // No channel, for a claim and for a template that names none: a value leaves this server where a
-        // deployment said so and nowhere else. The shipped `openid` template names both, so the claims the
-        // specification defines keep reaching both without every file having to say it again.
+        // deployment said so and nowhere else. The shipped `personal` template names both, so the claims
+        // the specification defines keep reaching both without every file having to say it again.
         val publishedIn = parsePublishedIn(ctx, parser, properties.publishedIn, "$configKeyPrefix.published-in")
             ?: template?.publishedIn
             ?: emptySet()
@@ -166,11 +172,46 @@ class ClaimsConfigParser(
             required = required,
             generated = false,
             verifiedId = properties.verifiedId,
+            kind = kind,
             audienceId = audienceId,
             allowedValues = allowedValues,
             publishedIn = publishedIn,
             acl = acl
         )
+    }
+
+    /**
+     * Who the claim's value belongs to: what the claim declares, else what its [template] offers, and null
+     * where neither does — which is recorded as an error against `claims.<id>.kind` rather than answered.
+     *
+     * Nothing chains past the one template a claim names, so a silence on both is the end of the file, and
+     * no value the server could pick there would be anything but a guess at whether a person is asked to
+     * type this claim. Both shipped templates declare one, so every claim naming either is answered.
+     *
+     * A kind the claim declares and this layer cannot read answers null without reading the template,
+     * because a claim is then refused for the value it wrote rather than held to one its file does not
+     * contain. A claim naming a template that does not resolve is left alone too: that is refused where
+     * the name is, and the kind the template would have carried is unknowable until the name is
+     * corrected.
+     */
+    private fun resolveKind(
+        ctx: ConfigParsingContext,
+        properties: ClaimConfigurationProperties,
+        template: ClaimTemplate?,
+        configKeyPrefix: String,
+        claimId: String
+    ): ClaimKind? {
+        val declared = properties.kind
+        if (declared != null) {
+            return ctx.parse { parser.convertToEnum<ClaimKind>("$configKeyPrefix.kind", declared) }
+        }
+        val inherited = template?.kind
+        if (inherited != null) return inherited
+        if (properties.template != null && template == null) return null
+        ctx.addError(
+            configExceptionOf("$configKeyPrefix.kind", "config.claim.kind.missing", "claim" to claimId)
+        )
+        return null
     }
 
     /**
@@ -202,39 +243,34 @@ class ClaimsConfigParser(
         }
     }
 
+    /**
+     * The template [properties] names, or null where it names none or names one that does not exist —
+     * which is recorded as an error against `claims.<id>.template`, listing what it could have named.
+     *
+     * There is no template a claim falls back to. A claim naming none is read from its own keys alone,
+     * and the one key it cannot default that way is [ClaimKind]: nothing would say whose the value is,
+     * which is refused rather than guessed, so the templates are what a deployment names to say it.
+     */
     private fun resolveTemplate(
         ctx: ConfigParsingContext,
         properties: ClaimConfigurationProperties,
-        templates: Map<String, ClaimTemplate>
+        templates: Map<String, ClaimTemplate>,
+        configKeyPrefix: String,
+        claimId: String
     ): ClaimTemplate? {
-        val templateName = properties.template
-        if (templateName != null) {
-            if (templateName == DEFAULT) {
-                ctx.addError(
-                    configExceptionOf(
-                        "$CLAIMS_KEY.${properties.id}.template",
-                        "config.claim.template.cannot_reference_default"
-                    )
+        val templateName = properties.template ?: return null
+        val template = templates[templateName]
+        if (template == null) {
+            ctx.addError(
+                configExceptionOf(
+                    "$configKeyPrefix.template",
+                    "config.claim.template.not_found",
+                    "template" to templateName,
+                    "claim" to claimId,
+                    "availableTemplates" to templates.keys.joinToString(", ")
                 )
-                return null
-            }
-            val template = templates[templateName]
-            if (template == null) {
-                ctx.addError(
-                    configExceptionOf(
-                        "$CLAIMS_KEY.${properties.id}.template",
-                        "config.claim.template.not_found",
-                        "template" to templateName,
-                        "claim" to properties.id,
-                        "availableTemplates" to templates.keys
-                            .filter { it != DEFAULT }
-                            .joinToString(", ")
-                    )
-                )
-                return null
-            }
-            return template
+            )
         }
-        return templates[DEFAULT]
+        return template
     }
 }

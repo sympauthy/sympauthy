@@ -142,9 +142,11 @@ step in the log, behind the flag that gates them.
 
 ## The apostrophe rule
 
-**A placeholder is written bare**, as `{scope}` and never as `'{scope}'`. The message source reads a
-quoted brace expression as a literal and emits it verbatim, so interpolation silently does not
-happen.
+**A message carries no apostrophe of its own.** The message source reads one as opening a quoted
+literal and the next as closing it, so both are dropped and every placeholder between them is
+emitted verbatim instead of interpolated — *the person's* loses its `'s` and takes the `{claim}`
+three clauses later down with it. Reword the possessive rather than escaping it, and double the
+character only where a message has to print it.
 
 ## What this standard does not cover
 

@@ -39,7 +39,9 @@ class ClientUserClaimController(
 ) {
 
     @Operation(
-        description = "Retrieve claims for a user (only those the user has consented to share, plus custom claims).",
+        description = "Retrieve the claims of a user this client may read: the ones the user consented to " +
+                "share with it, and the ones a scope this client holds opens whatever the user consented to. " +
+                "Claims restricted to another audience are left out.",
         tags = ["client"],
         responses = [
             ApiResponse(responseCode = "200", description = "User claims."),
@@ -72,13 +74,18 @@ class ClientUserClaimController(
     }
 
     @Operation(
-        description = "Update custom claims for a user. Only claims prefixed with 'custom_' can be modified.",
+        description = "Update the claims of a user this client may write. Those are the application claims " +
+                "of this client's audience — the values a backend answers for rather than the ones a person " +
+                "types — and a claim of the user's own only where it is restricted to this client's " +
+                "audience. A claim this client may not write, one restricted to another audience and an " +
+                "identifier claim are each refused by name.",
         tags = ["client"],
         responses = [
             ApiResponse(responseCode = "200", description = "Updated user claims."),
             ApiResponse(
                 responseCode = "400",
-                description = "Attempted to modify a non-custom claim, or an identifier claim."
+                description = "Attempted to modify a claim this client may not write, one restricted to " +
+                        "another audience, or an identifier claim."
             ),
             ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(

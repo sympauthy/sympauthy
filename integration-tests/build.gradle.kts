@@ -166,6 +166,10 @@ tasks.register<Test>("integrationTest") {
     classpath = integrationTest.runtimeClasspath
     // Forward the image override to the test JVM so `-Dsympauthy.image=…` on the Gradle command line works.
     systemProperty("sympauthy.image", System.getProperty("sympauthy.image", ""))
+    // Never up to date: what these scenarios run against is an image tag, which is not one of this task's
+    // inputs, so a rebuilt image under an unchanged tag would otherwise be reported as already tested —
+    // BUILD SUCCESSFUL in a second, having executed nothing, which reads exactly like a suite that passed.
+    outputs.upToDateWhen { false }
     shouldRunAfter("test")
     testLogging {
         // Container logs are dumped explicitly on failure (see AbstractSympauthyIT), so keep the

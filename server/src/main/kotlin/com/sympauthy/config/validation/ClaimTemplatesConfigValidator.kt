@@ -42,6 +42,7 @@ class ClaimTemplatesConfigValidator(
             enabled = parsed.enabled,
             required = parsed.required,
             group = parsed.group,
+            kind = parsed.kind,
             audienceId = parsed.audienceId,
             allowedValues = parsed.allowedValues,
             publishedIn = parsed.publishedIn,

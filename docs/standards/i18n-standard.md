@@ -43,12 +43,12 @@ standard](collection-standard.md) owns what declares them.
 **A mail key names the template and the usage.** The template segment is the FreeMarker file's name
 without its extension.
 
-**A placeholder is written bare.** [The apostrophe
+**A message carries no apostrophe.** [The apostrophe
 rule](exception-code-standard.md#the-apostrophe-rule) holds in every bundle.
 
-**A message interpolates a value as its `toString()`.** The message source is a hand-rolled `{name}`
-substitution rather than a format, so a bundle sentence needing a formatted number, a duration or a
-plural is reworded rather than parameterised.
+**A message interpolates a value as its `toString()`.** The message source substitutes a `{name}`
+rather than formatting it, so a bundle sentence needing a formatted number, a duration or a plural
+is reworded rather than parameterised.
 
 **A name with no value is written out as the bare word.** Nothing fails and no brace survives, so a
 message naming a placeholder nobody supplies reads as a sentence with a stray identifier in it.

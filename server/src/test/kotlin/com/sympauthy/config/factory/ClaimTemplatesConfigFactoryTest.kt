@@ -1,6 +1,7 @@
 package com.sympauthy.config.factory
 
 import com.sympauthy.business.model.user.claim.ClaimGroup
+import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace.ID_TOKEN
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
@@ -41,11 +42,13 @@ class ClaimTemplatesConfigFactoryTest {
         enabled: String? = null,
         required: String? = null,
         group: String? = null,
-        publishedIn: List<String>? = null
+        publishedIn: List<String>? = null,
+        kind: String? = null
     ): ClaimTemplateConfigurationProperties {
         return ClaimTemplateConfigurationProperties(id).apply {
             this.group = group
             this.publishedIn = publishedIn
+            this.kind = kind
         }.also {
             if (enabled != null) {
                 val field = ClaimTemplateConfigurationProperties::class.java.getDeclaredField("enabled")
@@ -64,8 +67,8 @@ class ClaimTemplatesConfigFactoryTest {
     fun `provideClaimTemplates - Returns enabled config with valid templates`() {
         setUp()
         val templates = listOf(
-            templateProperties(id = "openid", enabled = "false"),
-            templateProperties(id = "default", required = "true")
+            templateProperties(id = "personal", enabled = "false"),
+            templateProperties(id = "application", required = "true")
         )
 
         val result = factory.provideClaimTemplates(templates)
@@ -74,13 +77,13 @@ class ClaimTemplatesConfigFactoryTest {
         val config = result as EnabledClaimTemplatesConfig
         assertEquals(2, config.templates.size)
 
-        val openidTemplate = config.templates["openid"]!!
-        assertEquals(false, openidTemplate.enabled)
-        assertNull(openidTemplate.required)
+        val personalTemplate = config.templates["personal"]!!
+        assertEquals(false, personalTemplate.enabled)
+        assertNull(personalTemplate.required)
 
-        val defaultTemplate = config.templates["default"]!!
-        assertNull(defaultTemplate.enabled)
-        assertEquals(true, defaultTemplate.required)
+        val applicationTemplate = config.templates["application"]!!
+        assertNull(applicationTemplate.enabled)
+        assertEquals(true, applicationTemplate.required)
     }
 
     @Test
@@ -105,6 +108,7 @@ class ClaimTemplatesConfigFactoryTest {
         assertNull(template.enabled)
         assertNull(template.required)
         assertNull(template.group)
+        assertNull(template.kind)
         assertNull(template.allowedValues)
         assertNull(template.publishedIn)
     }
@@ -144,6 +148,31 @@ class ClaimTemplatesConfigFactoryTest {
         assertInstanceOf(EnabledClaimTemplatesConfig::class.java, result)
         val template = (result as EnabledClaimTemplatesConfig).templates["with_group"]!!
         assertEquals(ClaimGroup.IDENTITY, template.group)
+    }
+
+    @Test
+    fun `provideClaimTemplates - Parses the kind it offers as a default`() {
+        setUp()
+        val templates = listOf(templateProperties(id = "crm", kind = "application"))
+
+        val result = factory.provideClaimTemplates(templates)
+
+        assertInstanceOf(EnabledClaimTemplatesConfig::class.java, result)
+        val template = (result as EnabledClaimTemplatesConfig).templates["crm"]!!
+        assertEquals(ClaimKind.APPLICATION, template.kind)
+    }
+
+    @Test
+    fun `provideClaimTemplates - Returns disabled config for a kind naming neither of the two`() {
+        setUp()
+        val templates = listOf(templateProperties(id = "bad", kind = "profile"))
+
+        val result = factory.provideClaimTemplates(templates)
+
+        assertInstanceOf(DisabledClaimTemplatesConfig::class.java, result)
+        val errors = (result as DisabledClaimTemplatesConfig).configurationErrors!!
+            .filterIsInstance<ConfigurationException>()
+        assertEquals(listOf("templates.claims.bad.kind"), errors.map { it.key })
     }
 
     @Test

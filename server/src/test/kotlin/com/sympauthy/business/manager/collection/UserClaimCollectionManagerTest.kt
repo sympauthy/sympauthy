@@ -59,6 +59,7 @@ class UserClaimCollectionManagerTest {
         enabled = true,
         verifiedId = verifiedId,
         dataType = ClaimDataType.STRING,
+        kind = ClaimKind.PERSONAL,
         group = null,
         required = required,
         generated = generated,

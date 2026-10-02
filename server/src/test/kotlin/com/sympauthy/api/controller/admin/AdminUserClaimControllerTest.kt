@@ -89,6 +89,7 @@ class AdminUserClaimControllerTest {
             enabled = true,
             verifiedId = null,
             dataType = ClaimDataType.STRING,
+            kind = ClaimKind.PERSONAL,
             group = null,
             required = false,
             generated = false,

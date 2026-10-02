@@ -16,6 +16,7 @@ import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimGroup
+import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimOrigin
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -61,6 +62,7 @@ class ClaimCollectionManager(
         field("required", BOOLEAN, sortable = true, read = Claim::required)
         field("generated", BOOLEAN, sortable = true, read = Claim::generated)
         enumeration<ClaimOrigin>("origin", key = "fields.claim_origin", sortable = true) { it.origin }
+        enumeration<ClaimKind>("kind", key = "fields.claim_kind", nullable = true, sortable = true) { it.kind }
         enumeration<ClaimDataType>("data_type", key = "fields.claim_data_type", sortable = true) { it.dataType }
         enumeration<ClaimGroup>("group", key = "fields.claim_group", nullable = true, sortable = true) { it.group }
         field(

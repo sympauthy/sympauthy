@@ -58,14 +58,8 @@ auth:
 
 templates:
   claims:
-    default:
-      acl:
-        readable-with-client-scopes-unconditionally:
-          - "users:claims:read"
-        writable-with-client-scopes-unconditionally:
-          - "users:claims:write"
-    openid:
-      enabled: "false"
+    personal:
+      kind: personal
       # The two channels where the claims OpenID Connect defines are expected, and the discovery
       # document that says they exist. Nothing is published unless a file says so — a claim naming no
       # place reaches none — so the set the specification defines names them here rather than being
@@ -77,7 +71,17 @@ templates:
         readable-by-person-when-consented: "true"
         collected-in-flow-when-consented: "true"
         readable-by-client-when-consented: "true"
+        # False because a claim of the person's restricted to no audience grants no client write at
+        # all, and this template restricts none: a deployment restricting one of its own claims to an
+        # audience turns this on there.
         writable-by-client-when-consented: "false"
+    application:
+      kind: application
+      acl:
+        readable-with-client-scopes-unconditionally:
+          - "users:claims:read"
+        writable-with-client-scopes-unconditionally:
+          - "users:claims:write"
   clients:
     default:
       audience: default
@@ -89,114 +93,137 @@ templates:
         - refresh_token
         - client_credentials
 
+# Every claim OpenID Connect defines, each disabled: a deployment turns on the ones its applications
+# ask for rather than being served the whole set, and the consent scope the specification puts each
+# under is what a person agrees to before one is disclosed.
 claims:
   name:
-    template: openid
+    template: personal
+    enabled: "false"
     type: string
     group: identity
     acl:
       consent-scope: profile
   given_name:
-    template: openid
+    template: personal
+    enabled: "false"
     type: string
     group: identity
     acl:
       consent-scope: profile
   family_name:
-    template: openid
+    template: personal
+    enabled: "false"
     type: string
     group: identity
     acl:
       consent-scope: profile
   middle_name:
-    template: openid
+    template: personal
+    enabled: "false"
     type: string
     group: identity
     acl:
       consent-scope: profile
   nickname:
-    template: openid
+    template: personal
+    enabled: "false"
     type: string
     acl:
       consent-scope: profile
   preferred_username:
-    template: openid
+    template: personal
+    enabled: "false"
     type: string
     acl:
       consent-scope: profile
   profile:
-    template: openid
+    template: personal
+    enabled: "false"
     type: string
     acl:
       consent-scope: profile
   picture:
-    template: openid
+    template: personal
+    enabled: "false"
     type: string
     acl:
       consent-scope: profile
   website:
-    template: openid
+    template: personal
+    enabled: "false"
     type: string
     acl:
       consent-scope: profile
   email:
-    template: openid
+    template: personal
+    enabled: "false"
     type: email
     verified-id: email_verified
     acl:
       consent-scope: email
   gender:
-    template: openid
+    template: personal
+    enabled: "false"
     type: string
     acl:
       consent-scope: profile
   birth_date:
-    template: openid
+    template: personal
+    enabled: "false"
     type: date
     acl:
       consent-scope: profile
   zoneinfo:
-    template: openid
+    template: personal
+    enabled: "false"
     type: timezone
     acl:
       consent-scope: profile
   locale:
-    template: openid
+    template: personal
+    enabled: "false"
     type: string
     acl:
       consent-scope: profile
   phone_number:
-    template: openid
+    template: personal
+    enabled: "false"
     type: phone-number
     verified-id: phone_number_verified
     acl:
       consent-scope: phone
   street_address:
-    template: openid
+    template: personal
+    enabled: "false"
     type: string
     group: address
     acl:
       consent-scope: address
   locality:
-    template: openid
+    template: personal
+    enabled: "false"
     type: string
     group: address
     acl:
       consent-scope: address
   region:
-    template: openid
+    template: personal
+    enabled: "false"
     type: string
     group: address
     acl:
       consent-scope: address
   postal_code:
-    template: openid
+    template: personal
+    enabled: "false"
     type: string
     group: address
     acl:
       consent-scope: address
   country:
-    template: openid
+    template: personal
+    enabled: "false"
     type: string
     group: address
     acl:

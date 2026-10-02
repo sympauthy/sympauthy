@@ -10,6 +10,7 @@ import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimGroup
+import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.UnconditionalAcl
@@ -136,6 +137,7 @@ class AccessTokenGeneratorTest {
         enabled = true,
         verifiedId = verifiedId,
         dataType = dataType,
+        kind = ClaimKind.PERSONAL,
         group = group,
         required = false,
         generated = false,

@@ -19,9 +19,8 @@ read and the write that apply the ACL to one.
 ## Kinds
 
 **A claim is the person's or an application's, and it says which.** `kind: personal` or
-`kind: application` declares it, the `openid` [template](#templates) declares the first and the
-`default` one the second, and a claim overrides its template like any other key. The kind is
-designed and not yet built; [the design
+`kind: application` declares it, the shipped [templates](#templates) are one per kind and named for
+it, and a claim overrides its template like any other key. `ClaimKind` is the set, and [the design
 FAQ](design-faq.md#is-a-persons-profile-one-value-for-every-audience-or-one-per-audience) holds the
 options that lost to it.
 
@@ -131,9 +130,9 @@ is the consent half's question whatever the value is.
 **A client reads and writes by the person's consent or by its own scopes, and the two paths are the
 ACL's two halves.** The consent path answers a client the person agreed to disclose to; the
 unconditional path answers a client holding a scope of its own, `users:claims:read` or
-`users:claims:write`, whatever the person agreed. The `default` template grants both
-unconditionally, which is what makes a claim declared in a line an application's; the `openid`
-template grants the consent path alone and no client write.
+`users:claims:write`, whatever the person agreed. The shipped `application` template grants both
+unconditionally, which is what a claim a backend answers for needs; the shipped `personal` one
+grants the consent path alone and no client write.
 
 **The places a claim is published in do not gate alike.** `/userinfo` asks whether the person may
 read the claim, which is consent alone, because that endpoint is not client-authenticated; every
@@ -155,6 +154,12 @@ the person's head and with the person never asked; restricted to one audience, t
 server to that audience alone, and the clients of an audience already trust each other with what it
 owns. A shared personal claim granting a client write is refused at startup, naming the claim and
 the key.
+
+**A claim is refused for a write it takes from its template as readily as for one it wrote.** The
+ACL the rule reads is the resolved one, so a deployment declaring `kind: personal` over the
+`application` template is told about the client scopes that came with it. The answer is the
+`personal` template, an empty list under the claim's own key, or an audience — and the refusal names
+the key each of those is written at.
 
 **Reading one is the ordinary ACL question.** A client is told a personal claim of its audience by
 consent or by its own scopes like any other, so the restriction above is about the write alone.
@@ -275,7 +280,8 @@ three for claims it knows nothing about.
 **A declaration that cannot mean anything is refused at startup, naming the claim and the key that
 cannot mean it.** A server whose configuration is wrong refuses to report itself ready, so the
 deployment is told in the file it owns rather than by a client's error log once a value fails to
-come back. `ClaimsConfigValidator` is the authority on which refusals there are.
+come back. The two authorities on which refusals there are: `ClaimsConfigParser` holds the keys it
+cannot read or resolve, and `ClaimsConfigValidator` the values the rest of the claim contradicts.
 
 ### Templates
 
@@ -284,10 +290,11 @@ whichever of them it declares for itself.** Everything a claim declares may be d
 except the three that cannot be shared: its type, the template it names, and the companion saying
 its value was verified.
 
-**A claim naming no template takes `default`, and naming that one explicitly is refused.** The
-fallback is what makes `default` the shape of every claim a deployment declares in a line or two,
-and a claim asking for it by name is asking for what it already has. A claim naming a template that
-does not exist is refused too, and told which it could have named.
+**A claim takes the template it names and no other, and a claim naming none takes none.** There is
+no template a claim falls back to: the one key a claim cannot be left to default without the server
+guessing is [the kind](#kinds), so a claim says whose its value is by naming a template that
+declares one or by declaring it itself. A claim naming a template that does not exist is refused,
+and told which it could have named.
 
 **A template takes no template of its own.** One level resolves, so reading a claim means reading
 its own keys and one template's, and nothing walks a chain to find out what a claim is.
@@ -297,13 +304,16 @@ the type belongs to the claim, so the same line admits `42` under a `number` cla
 a `string` one — which is also why the values are converted once per type rather than once per
 claim.
 
-**The server ships two.** `openid` is the one every claim the specification defines names: it
-carries the two OpenID channels, the discovery document and the consent flags a profile claim wants,
-and it holds them
-disabled, so a deployment turns on the ones its applications ask for rather than serving the whole
-set. `default` is the one a claim naming none takes, and it grants the client scopes that read and
-write a claim whatever the person consented to — which is what makes a claim declared in one line an
-application's.
+**The server ships one template per kind, named for it.** `personal` declares `kind: personal` and
+carries the consent flags a profile claim wants, the two OpenID channels and the discovery document;
+it grants no client write, because a claim of the person's restricted to no audience may not have
+one and this template names no audience. `application` declares `kind: application` and grants the
+client scopes that read and write a claim whatever the person consented to, which is what a value a
+backend answers for needs and all it needs.
+
+**Every claim the specification defines names `personal`, and ships disabled.** A deployment turns
+on the ones its applications ask for rather than being served the whole set, so the `enabled` each
+of them carries is a value a deployment overrides one claim at a time.
 
 ## A value, and what is known about it
 
@@ -430,7 +440,7 @@ an operator is owed off the administration API and what the discovery document i
 
 **A claim naming no place is published in none.** A value leaves this server through the places a
 deployment named and through no other, so a claim its file never mentions reaches none of them. The
-shipped `openid` template names the two channels and the document, which is what keeps the claims
+shipped `personal` template names the two channels and the document, which is what keeps the claims
 the specification defines travelling where a client expects them, and advertised, without every
 deployment writing it again. It names neither carrier a token holds: putting a deployment's profile
 claims into a credential presented on every request is not a decision a file shipped with the server
@@ -453,7 +463,7 @@ consent a person is asked for, and where a value goes shows up nowhere else.
 **`/userinfo` carries a claim it declares no property for.** `UserInfoResource` lists the properties
 the specification names, and a deployment's own claim is serialized beside them out of the claims
 naming `userinfo`. What it may carry is still what the person may read, consent alone, and the
-shipped `default` claim template leaves that false.
+shipped `application` claim template leaves that false.
 
 **Nothing refuses a configuration that makes a large token.** What an audience publishes is what the
 token carries, and no ceiling is imposed on that — [the design

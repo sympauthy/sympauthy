@@ -24,8 +24,15 @@ import kotlin.io.path.readText
  * whole of the sources is read for the literal — which never fails on a site the position rules do
  * not recognise.
  *
- * The other bundles are out of scope and stay out: a deployment derives their keys from the claims,
- * the templates and the fields its collections configured, so there is no fixed set to compare against.
+ * It holds one rule about the messages themselves as well, and holds it over every bundle: an apostrophe
+ * is read as opening a quoted literal, so the character is dropped and every placeholder after it in the
+ * span stops interpolating, which the reader sees as a sentence missing a word and a key printed as its
+ * own name.
+ *
+ * The other bundles are out of scope for the two set comparisons and stay out: a deployment derives
+ * their keys from the claims, the templates and the fields its collections configured, so there is no
+ * fixed set to compare against. The apostrophe rule is about a message rather than a set of keys, so it
+ * is the one check they do answer for.
  */
 class ErrorMessageBundleTest {
 
@@ -44,6 +51,16 @@ class ErrorMessageBundleTest {
             emptyList<String>(), (bundleKeys - sourceLiterals).sorted(),
             "These messages have a key that is written nowhere in the sources. Delete them, or name " +
                 "them where the failure they describe is thrown."
+        )
+    }
+
+    @Test
+    fun `No message in any bundle carries an apostrophe of its own`() {
+        assertEquals(
+            emptyList<String>(), keysOfMessagesWithALoneApostrophe,
+            "An apostrophe opens a quoted span the next one closes, so each of these messages loses " +
+                "it and stops interpolating every placeholder between the two. Reword the possessive, " +
+                "or double the character where the message has to print it."
         )
     }
 }
@@ -92,8 +109,36 @@ private val sources: List<KotlinSource> by lazy {
     }
 }
 
-private val bundleKeys: Set<String> by lazy {
-    Properties().apply { moduleRoot.resolve(BUNDLE).bufferedReader().use(::load) }.stringPropertyNames()
+private val bundle: Properties by lazy {
+    Properties().apply { moduleRoot.resolve(BUNDLE).bufferedReader().use(::load) }
+}
+
+private val bundleKeys: Set<String> by lazy { bundle.stringPropertyNames() }
+
+/** Every bundle under the server's resources, which the apostrophe rule holds over. */
+private val BUNDLES = listOf(
+    BUNDLE,
+    "src/main/resources/admin_messages.properties",
+    "src/main/resources/display_messages.properties",
+    "src/main/resources/mail_messages.properties"
+)
+
+/**
+ * A run of apostrophes the message source does not read as a pair: it closes every second one, so an odd
+ * run leaves a quoted literal open to the end of the message.
+ * `docs/standards/exception-code-standard.md` holds why no message carries one at all.
+ */
+private val APOSTROPHE_RUN = Regex("'+")
+
+private val keysOfMessagesWithALoneApostrophe: List<String> by lazy {
+    BUNDLES.flatMap { bundlePath ->
+        val bundle = Properties().apply { moduleRoot.resolve(bundlePath).bufferedReader().use(::load) }
+        bundle.stringPropertyNames()
+            .filter { key ->
+                APOSTROPHE_RUN.findAll(bundle.getProperty(key)).any { it.value.length % 2 == 1 }
+            }
+            .map { "$bundlePath: $it" }
+    }.sorted()
 }
 
 private val namedCodes: Set<String> by lazy { sources.flatMapTo(mutableSetOf(), KotlinSource::codes) }

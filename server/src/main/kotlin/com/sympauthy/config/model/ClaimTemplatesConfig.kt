@@ -1,6 +1,7 @@
 package com.sympauthy.config.model
 
 import com.sympauthy.business.model.user.claim.ClaimGroup
+import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.config.exception.ConfigurationException
 import java.time.Duration
@@ -38,6 +39,7 @@ data class ClaimTemplate(
     val enabled: Boolean?,
     val required: Boolean?,
     val group: ClaimGroup?,
+    val kind: ClaimKind?,
     val audienceId: String?,
     val allowedValues: List<Any>?,
     val publishedIn: Set<ClaimPublicationPlace>?,

@@ -17,6 +17,16 @@ data class AdminClaimResource(
     val type: String,
     @get:Schema(description = "Where the claim is defined.", allowableValues = ["openid", "custom"])
     val origin: String,
+    @get:Schema(
+        description = "Whose the claim's value is: the person's, collected from them and never set by " +
+                "a client outside its own audience, or an application's, which a backend answers for " +
+                "and the person is never asked to type. Null for a claim this server generates, which " +
+                "is nobody's to write.",
+        allowableValues = ["personal", "application"],
+        nullable = true
+    )
+    @get:JsonInclude(JsonInclude.Include.ALWAYS)
+    val kind: String?,
     @get:Schema(description = "Whether collection is enabled for this claim.")
     val enabled: Boolean,
     @get:Schema(description = "Whether the end-user must provide this claim to complete an authorization flow.")

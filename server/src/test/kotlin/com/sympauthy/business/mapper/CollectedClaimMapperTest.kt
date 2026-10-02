@@ -5,6 +5,7 @@ import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType
+import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.ClaimDataType.BOOLEAN
 import com.sympauthy.business.model.user.claim.ClaimDataType.NUMBER
@@ -113,6 +114,7 @@ class CollectedClaimMapperTest {
         enabled = true,
         verifiedId = null,
         dataType = dataType,
+        kind = ClaimKind.PERSONAL,
         group = null,
         required = false,
         generated = false,

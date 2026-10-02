@@ -24,6 +24,7 @@ import com.sympauthy.business.model.user.claim.ClaimDataType.PHONE_NUMBER
 import com.sympauthy.business.model.user.claim.ClaimDataType.STRING
 import com.sympauthy.business.model.user.claim.ClaimDataType.TIMEZONE
 import com.sympauthy.business.model.user.claim.ClaimGroup
+import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.UnconditionalAcl
@@ -309,6 +310,7 @@ class IdTokenGeneratorTest {
         enabled = true,
         verifiedId = verifiedId,
         dataType = dataType,
+        kind = ClaimKind.PERSONAL,
         group = group,
         required = false,
         generated = false,

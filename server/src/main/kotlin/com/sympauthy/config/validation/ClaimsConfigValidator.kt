@@ -3,6 +3,8 @@ package com.sympauthy.config.validation
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.ClaimAcl
+import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
 import com.sympauthy.config.ConfigParsingContext
@@ -48,6 +50,19 @@ class ClaimsConfigValidator(
                         "config.claims.identifier_claim.audience_restricted",
                         "claim" to identifierClaimId,
                         "audience" to identifierClaim.audienceId
+                    )
+                )
+            }
+            // An identifier claim is the person's: it is what the account signs in with, and nobody but
+            // the person ever types it. It is read off the resolved kind, so a claim taking `application`
+            // from a template — or from the silence every bare claim falls through to — is refused on the
+            // key where the deployment overrides it.
+            if (identifierClaim != null && identifierClaim.kind == ClaimKind.APPLICATION) {
+                ctx.addError(
+                    configExceptionOf(
+                        "$CLAIMS_KEY.$identifierClaimId.kind",
+                        "config.claim.kind.identifier_claim_not_personal",
+                        "claim" to identifierClaimId
                     )
                 )
             }
@@ -125,6 +140,75 @@ class ClaimsConfigValidator(
         )
     }
 
+    /**
+     * Record an error against every ACL key the [ParsedClaim.kind] of [parsed] cannot mean.
+     *
+     * A personal claim restricted to no audience grants no client write: a client of one audience setting
+     * `name` would be choosing what every other audience is told a person is called, over the person's head
+     * and with the person never asked. Restricted to one audience the value leaves this server to that
+     * audience alone, and the clients of an audience already trust each other with what it owns, so the
+     * grant is refused on the shared claim alone. An application claim grants neither of the person's
+     * writes, because a backend answers for its value and nobody asks a person to type their credit score.
+     * A claim of neither kind is held to nothing here: this server computes its value, or its file never
+     * said whose the value is, and the parser refused that.
+     *
+     * [acl] is the resolved ACL, and the audience and the kind are read resolved too, so a grant, a
+     * restriction or a kind reaching the claim through a template is held to this like one written on the
+     * claim — which is what makes all three settable on a template at all. Each key that grants is named,
+     * so a deployment removing one of two is told about the other rather than refused twice over, and the
+     * key named is the claim's own, which is where an operator overrides what a template offers.
+     */
+    private fun refuseAclTheKindCannotMean(
+        ctx: ConfigParsingContext,
+        parsed: ParsedClaim,
+        acl: ClaimAcl,
+        configKeyPrefix: String
+    ) {
+        fun refuse(key: String, messageId: String) = ctx.addError(
+            configExceptionOf("$configKeyPrefix.acl.$key", messageId, "claim" to parsed.id)
+        )
+        when (parsed.kind) {
+            ClaimKind.PERSONAL -> {
+                // The audience the claim resolved to, which a template may have supplied, and not the one
+                // validated against the audiences this deployment declares: a claim naming an audience
+                // that does not exist is refused for that, and reading the validated null here would
+                // refuse it a second time for being shared when its file says it is not.
+                if (parsed.audienceId != null) return
+                if (acl.consent.writableByClient) {
+                    refuse(
+                        "writable-by-client-when-consented",
+                        "config.claim.kind.shared_personal_claim_client_write"
+                    )
+                }
+                if (acl.unconditional.writableWithClientScopes.isNotEmpty()) {
+                    refuse(
+                        "writable-with-client-scopes-unconditionally",
+                        "config.claim.kind.shared_personal_claim_client_write"
+                    )
+                }
+            }
+
+            ClaimKind.APPLICATION -> {
+                if (acl.consent.collectedInFlow) {
+                    refuse(
+                        "collected-in-flow-when-consented",
+                        "config.claim.kind.application_claim_person_write"
+                    )
+                }
+                if (acl.consent.writableByPerson) {
+                    refuse(
+                        "writable-by-person-when-consented",
+                        "config.claim.kind.application_claim_person_write"
+                    )
+                }
+            }
+
+            // A generated claim, which is of neither kind and whose ACL no file spoke for — or a claim
+            // whose file says whose it is nowhere, which the parser already refused.
+            null -> Unit
+        }
+    }
+
     private fun validateClaim(
         ctx: ConfigParsingContext,
         parsed: ParsedClaim,
@@ -151,6 +235,8 @@ class ClaimsConfigValidator(
             claimAclValidator.validateAcl(ctx, parsed.acl, configKeyPrefix, scopesById)
         }
 
+        refuseAclTheKindCannotMean(ctx, parsed, acl, configKeyPrefix)
+
         if (parsed.dataType == null) return null
 
         return Claim(
@@ -158,6 +244,7 @@ class ClaimsConfigValidator(
             enabled = parsed.enabled,
             verifiedId = parsed.verifiedId,
             dataType = parsed.dataType,
+            kind = parsed.kind,
             group = parsed.group,
             required = parsed.required,
             generated = parsed.generated,
