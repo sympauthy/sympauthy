@@ -133,16 +133,24 @@ jobs:
         include:
           - platform: linux-x64
             runner: ubuntu-latest
+            small_runner: false
           - platform: linux-arm64
             runner: ubuntu-24.04-arm
+            small_runner: false
           - platform: macos-x64
             runner: macos-15-intel
+            small_runner: false
+          # The same free arm64 macOS runner the nightly builds on, and the same concession. Without
+          # it a release asks that machine for a fully optimised image, which it cannot hold: the
+          # quick build already exhausts its memory half the nights.
           - platform: macos-arm64
             runner: macos-latest
+            small_runner: true
     uses: ./.github/workflows/build-native-binary.yml
     with:
       runner: ${{ matrix.runner }}
       platform: ${{ matrix.platform }}
+      small_runner: ${{ matrix.small_runner }}
 
   # Publication gate: publish_docker and publish_release depend on this job, so a failing integration
   # run blocks the release (image, binaries and version bump). Reuses the linux-x64 binary built above.

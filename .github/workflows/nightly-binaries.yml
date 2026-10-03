@@ -143,13 +143,14 @@ jobs:
         include:
           - platform: macos-x64
             runner: macos-15-intel
-            quick_build: false
-          # The free arm64 macOS runner has 3 cores and ~7.5GB, which native-image spent over half of
-          # the parse and compile stages garbage collecting before it exhausted the heap outright.
-          # Quick build keeps it inside the runner; the binary is less optimised than its siblings.
+            small_runner: false
+          # The free arm64 macOS runner has 3 cores and ~7.5GB, which native-image spends over half of
+          # every stage garbage collecting before it exhausts the heap outright. The reusable workflow
+          # says what it trades away to fit a machine that size; the binary it produces is less
+          # optimised than its siblings.
           - platform: macos-arm64
             runner: macos-latest
-            quick_build: true
+            small_runner: true
           # Disabled: GraalVM native-image fails when project and JDK are on different drive roots.
           # Windows runners checkout to D:\ while GraalVM is installed on C:\.
           # Upstream: https://github.com/oracle/graal/issues/11795
@@ -159,7 +160,7 @@ jobs:
     with:
       runner: ${{ matrix.runner }}
       platform: ${{ matrix.platform }}
-      quick_build: ${{ matrix.quick_build }}
+      small_runner: ${{ matrix.small_runner }}
 
   publish_docker:
     needs: [ should_build, build_linux_binary, integration_test ]

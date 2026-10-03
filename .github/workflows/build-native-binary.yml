@@ -11,8 +11,10 @@ on:
         description: "Platform identifier (linux-x64, linux-arm64, macos-x64, macos-arm64, windows-x64)"
         type: string
         required: true
-      quick_build:
-        description: "Compile with -Ob, trading run-time performance of the binary for a build that fits a small runner"
+      small_runner:
+        description: >-
+          The runner cannot hold a native-image build at its defaults. Trades the binary's run-time
+          performance, and the memory the machine has to spare, for a build that fits it.
         type: boolean
         required: false
         default: false
@@ -22,8 +24,10 @@ jobs:
     name: Build native binary (${{ inputs.platform }})
     runs-on: ${{ inputs.runner }}
     # A stalled native-image build otherwise burns the job's full six hours: the run this guards
-    # thrashed in GC for eighty minutes past the last progress line before it died.
-    timeout-minutes: 60
+    # thrashed in GC for eighty minutes past the last progress line before it died. A small runner
+    # gets a longer leash, because the heap the build step hands it is paid for in swap, and swap is
+    # paid for in time.
+    timeout-minutes: ${{ inputs.small_runner && 90 || 60 }}
     steps:
       - uses: actions/checkout@v7
 
@@ -55,7 +59,19 @@ jobs:
 
       - name: Build native image
         shell: bash
-        run: ./gradlew :server:nativeCompile ${{ inputs.quick_build && '--quick-build-native' || '' }}
+        # native-image sizes its own heap at 85% of the memory free when it starts, which on the free
+        # arm64 macOS runner is 5.68GB of 7.5GB: the Gradle and Kotlin daemons that launched it are
+        # holding the rest. That is under what this build's live set needs, so every stage spends half
+        # to three quarters of its time collecting, and three nights in six ended with the builder at
+        # its ceiling making no progress until the watchdog aborted it.
+        #
+        # Name a heap larger than the machine can hold and let the surplus page out: the daemons
+        # waiting on the build are cold pages, and a collection that touches swap costs less than the
+        # collections the headroom saves. The watchdog measures progress, which swap makes slower
+        # rather than absent, so it is widened too and the job timeout above is left to bound a stall.
+        env:
+          NATIVE_IMAGE_OPTIONS: ${{ inputs.small_runner && '-J-Xmx6500m -H:DeadlockWatchdogInterval=20' || '' }}
+        run: ./gradlew :server:nativeCompile ${{ inputs.small_runner && '--quick-build-native' || '' }}
 
       - name: Prepare binary for upload
         shell: bash
