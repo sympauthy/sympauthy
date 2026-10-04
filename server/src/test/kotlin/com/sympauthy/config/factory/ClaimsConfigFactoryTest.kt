@@ -48,6 +48,7 @@ class ClaimsConfigFactoryTest {
         audienceId = null,
         allowedValues = null,
         publishedIn = null,
+        publishedInWhenRequested = null,
         acl = emptyTemplateAcl
     )
 
@@ -60,6 +61,7 @@ class ClaimsConfigFactoryTest {
         audienceId = null,
         allowedValues = null,
         publishedIn = null,
+        publishedInWhenRequested = null,
         acl = emptyTemplateAcl
     )
 

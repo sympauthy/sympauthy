@@ -1,6 +1,7 @@
 package com.sympauthy.business.model.oauth2
 
 import com.sympauthy.business.model.MaybeExpirable
+import com.sympauthy.business.model.user.claim.RequestedClaims
 import java.time.LocalDateTime
 import java.util.*
 
@@ -71,6 +72,17 @@ data class AuthenticationToken(
      * month old states a month-old `auth_time` on a token minted a minute ago.
      */
     val authenticationDate: LocalDateTime? = null,
+
+    /**
+     * The claims the `claims` request parameter of the authorization behind this token named, per OpenID
+     * channel. [RequestedClaims.NONE] where no such request is behind the token — a `client_credentials`
+     * grant, a token exchange — and where the request named nothing.
+     *
+     * A refresh carries it unchanged, which is what makes the id token a refresh mints the same shape as
+     * the one the code exchange minted. `/userinfo` reads it off the access token presented to it, for the
+     * same reason: the flow session that received the parameter is gone by then.
+     */
+    val requestedClaims: RequestedClaims = RequestedClaims.NONE,
 
     /**
      * JWK SHA-256 Thumbprint (RFC 7638) of the DPoP public key this token is bound to.

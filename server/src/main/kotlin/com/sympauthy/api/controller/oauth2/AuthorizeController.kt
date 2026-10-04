@@ -129,6 +129,14 @@ The authorization server includes this value unmodified in the ID Token.
                 schema = Schema(
                     type = "string"
                 )
+            ),
+            Parameter(
+                name = "claims",
+                `in` = QUERY,
+                description = "The claims this client asks to have delivered in the id token or in the /userinfo response, as the JSON object OpenID Connect Core 5.5 defines: an `id_token` and a `userinfo` member, each naming claims. It only ever adds to what the requested scopes already deliver, and it adds a claim to a channel only where the deployment opened that channel to a request — a claim asked for in a channel the deployment did not open is absent, with no error. The `essential`, `value` and `values` members of 5.5.1 are read past and ignored, which 5.5.1 permits. A value that is not such a JSON object is refused.",
+                schema = Schema(
+                    type = "string"
+                )
             )
         ],
         externalDocs = ExternalDocumentation(
@@ -158,7 +166,9 @@ The authorization server includes this value unmodified in the ID Token.
         @QueryValue("invitation_token")
         uncheckedInvitationToken: String?,
         @QueryValue("max_age")
-        uncheckedMaxAge: String?
+        uncheckedMaxAge: String?,
+        @QueryValue("claims")
+        uncheckedClaims: String?
     ): HttpResponse<*> {
         if (responseType.isNullOrBlank()) {
             throw oauth2ExceptionOf(UNSUPPORTED_RESPONSE_TYPE, "authorize.response_type.missing")
@@ -174,7 +184,8 @@ The authorization server includes this value unmodified in the ID Token.
                 uncheckedCodeChallenge = uncheckedCodeChallenge,
                 uncheckedCodeChallengeMethod = uncheckedCodeChallengeMethod,
                 uncheckedInvitationToken = uncheckedInvitationToken,
-                uncheckedMaxAge = uncheckedMaxAge
+                uncheckedMaxAge = uncheckedMaxAge,
+                uncheckedClaims = uncheckedClaims
             )
 
             null -> throw oauth2ExceptionOf(
@@ -194,7 +205,8 @@ The authorization server includes this value unmodified in the ID Token.
         uncheckedCodeChallenge: String?,
         uncheckedCodeChallengeMethod: String?,
         uncheckedInvitationToken: String?,
-        uncheckedMaxAge: String?
+        uncheckedMaxAge: String?,
+        uncheckedClaims: String?
     ): HttpResponse<*> {
         val (session, flow) = interactiveAuthFlowSessionManager.startAuthorizationWith(
             uncheckedClientId = uncheckedClientId,
@@ -205,7 +217,8 @@ The authorization server includes this value unmodified in the ID Token.
             uncheckedCodeChallenge = uncheckedCodeChallenge,
             uncheckedCodeChallengeMethod = uncheckedCodeChallengeMethod,
             uncheckedInvitationToken = uncheckedInvitationToken,
-            uncheckedMaxAge = uncheckedMaxAge
+            uncheckedMaxAge = uncheckedMaxAge,
+            uncheckedClaims = uncheckedClaims
         )
         interactiveAuthFlowSessionControllerUtil.observeStartedSession(session, observedRequest)
 

@@ -436,6 +436,87 @@ an operator is owed off the administration API and what the discovery document i
 `sub` reaches both channels and the document, `updated_at` `/userinfo` and the document, and
 `auth_time` the id token, the access token, the introspection response and the document.
 
+### A channel a client may ask a claim into
+
+**A claim may name a second list, `published-in-when-requested`, and a channel there carries the
+value only for a request that asked for it by name.** `Claim.publishedInWhenRequested` holds them
+and the two-argument `Claim.isPublishedIn` is the whole of the test. It is the deployment opening a
+door rather than the client forcing one: a request may add a claim to a channel this list names and
+to no other, so a deployment that named nothing here answers every request exactly as before — [the
+design FAQ](design-faq.md#how-does-a-client-get-a-say-in-where-a-claim-is-delivered) holds what was
+weighed against a second list.
+
+**The parameter is the `claims` request parameter of [OpenID Connect Core
+§5.5](https://openid.net/specs/openid-connect-core-1_0.html#ClaimsParameter), and it only ever
+adds.** §5.5 says so in as many words — the claims listed "are being requested to be added to any
+Claims that are being requested using scope values" — so it is not a way to ask for a smaller id
+token, and `claims_parameter_supported` in the discovery document says a client may send one.
+
+**Only the two OpenID channels can be asked for**, which is the set §5.5 defines a member for and
+which `ClaimPublicationPlace.nameableInAClaimsRequest` names. A claim opening the access token or
+the introspection response to a request has asked for a condition nothing will ever satisfy, so it
+is refused at startup rather than accepted and never applied.
+
+**A channel in both lists is refused at startup too, naming the claim and the channel.** Always and
+on request are two answers for one channel and only one of them can be meant.
+
+**The default stays silence**, which is the rule [the
+default](#the-default-and-where-a-deployment-reads-it-back) already states: a claim naming neither
+list is published nowhere and askable nowhere.
+
+#### The request is asked last, and it narrows nothing
+
+**Four questions are asked in order, and the request is the last and the least of them.** The ACL
+decides whether the caller may know the value at all; the audience decides whether it is this
+audience's to know; publication decides which channel carries it; and only then does the request
+decide whether an on-request channel opens. The first three narrow, and the fourth can only open a
+channel the claim's own file already named a condition for.
+
+**That ordering is the whole of the security argument.** A claim restricted to another audience, or
+one the person never consented to, must not appear because a client named it — and it does not,
+because both filters run inside `ConsentAwareCollectedClaimManager.findByUserIdAndReadableByClient`
+before either channel sees a row. The request is asked beside `Claim.isPublishedIn` and never in
+place of it.
+
+**A claim advertised in the discovery document may be carried on request alone.** A client reading
+the name out of the document can ask for it and be answered, which is all [the advertising
+rule](#advertising-and-serving-come-apart-in-both-directions) asks of a carrier.
+
+#### The request outlives the authorization that carried it
+
+**It arrives once, at `/authorize`, and is honoured in three later places**: the id token minted at
+the code exchange, the id token minted again by a refresh, and `/userinfo` read with any access
+token descended from the same grant.
+
+**So it is stored where the consented scopes are stored, and for the same reason** — on the flow
+session's OAuth2 row, and copied onto the token rows every generator writes. A request held on the
+session alone would be honoured by the first id token and silently dropped by the refresh, which is
+a shape that changes on a schedule nobody chose.
+
+**It is stored as a claim id per channel, sanitized at the endpoint**, the way
+`InteractiveFlowSessionOAuth2.requestedScopes` is. `ClaimManager.parseRequestedClaims` is that
+parse, and a name matching no enabled claim is dropped there, so nothing downstream re-reads a
+document or carries a row that can fail to read back.
+
+#### What a request is answered with, and what it is refused for
+
+**A name the deployment did not open is ignored rather than refused.** §5.5.1 forbids erroring over
+a claim that is not returned, so a client asking for a claim in a channel a deployment never opened
+gets the channels it did open.
+
+**`essential` is parsed and ignored, and so are `value` and `values`.** §5.5.1 permits exactly that:
+the server "MUST NOT generate an error when Claims are not returned, whether they are Essential or
+Voluntary". An essential claim cannot make this server disclose what a deployment withheld, so
+honouring the flag would have to mean something about collection instead — which the closing section
+leaves open.
+
+**A malformed `claims` parameter is refused.** §5.5 fixes the value as a JSON object whose
+`id_token` and `userinfo` members are objects, so a value outside that shape is a request this
+server cannot act on rather than a claim it declines to return. It is collected and reported the way
+every other unreadable parameter of that endpoint is — `max_age` and the PKCE pair are the
+neighbours — so the person lands on the flow's error page rather than being redirected to the
+client.
+
 ### The default, and where a deployment reads it back
 
 **A claim naming no place is published in none.** A value leaves this server through the places a
@@ -455,10 +536,11 @@ value to keep back, and hiding one nobody asked to hide would take it out of `sc
 upgrade.
 
 **The administration API is where it looks.** `published_in` on the claim resource lists every place
-a claim is published in, and lists none where it is published in none, so an operator reads what
-their deployment publishes off the surface built for them rather than by decoding a token.
-Publication is the part of a claim with no other reader — what the ACL permits shows up in the
-consent a person is asked for, and where a value goes shows up nowhere else.
+a claim is published in and `published_in_when_requested` every channel it opens to a request, each
+listing none where there is none, so an operator reads what their deployment publishes off the
+surface built for them rather than by decoding a token. Publication is the part of a claim with no
+other reader — what the ACL permits shows up in the consent a person is asked for, and where a value
+goes shows up nowhere else.
 
 **`/userinfo` carries a claim it declares no property for.** `UserInfoResource` lists the properties
 the specification names, and a deployment's own claim is serialized beside them out of the claims
@@ -472,13 +554,28 @@ and where the limit actually bites.
 
 ## What this document does not settle
 
-**Where a client may ask for a claim to be delivered.** OpenID Connect Core §5.5 defines the
-`claims` request parameter, which asks for a named claim in `id_token` or in `userinfo`
-specifically, and this server implements neither it nor the `claims_parameter_supported` that would
-advertise it — so the discovery document tells a client it may not ask.
-[Where a claim is published](#where-a-claim-is-published) is the deployment deciding instead, for
-clients that ask for nothing, which is every client today; whether a client should get a say is
-open.
+**Whether an essential claim should drive collection.** §5.5.1 lets a client mark a requested claim
+essential, and [the request](#a-channel-a-client-may-ask-a-claim-into) reads past the flag: it
+cannot make this server disclose what a deployment withheld, so the only thing it could mean here is
+that the flow asks the person for a value it would otherwise not have collected. That is a change to
+what the interactive flow collects, decided by a client rather than by `claims.<id>.required`, and
+whether a client should get that say is open.
+
+**The `value` and `values` members of §5.5.1.** A claim withheld because its value did not match is
+indistinguishable from one the person never provided, so a client learns nothing it can act on, and
+the specification lets a server ignore both. They are ignored.
+
+**`claims_locales` and the language tags of §5.2.** Nothing reads either, and a claim has one value
+whatever locale asks for it.
+
+**The `request` and `request_uri` JWT request objects of §6.** They are the other way a client sends
+the `claims` parameter, and this server reads it from the query alone.
+
+**Whether a client may ask a claim into a token.** The request reaches the two OpenID channels and
+no other place, so the access token and the introspection response carry what
+[`published-in`](#where-a-claim-is-published) says and nothing a client asked for. A credential
+presented on every request is the place a value travels furthest, and letting a request widen one
+is a decision nobody has argued for.
 
 **A per-client choice, and a per-place one.** `published-in` is the claim's, so every client of the
 audience is told the same thing, and a place is named for the claim rather than for the pairing of a

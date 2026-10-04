@@ -5,6 +5,7 @@ import com.sympauthy.business.model.oauth2.AuthenticationTokenType
 import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.business.model.oauth2.TokenRevokedBy
+import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.data.model.AuthenticationTokenEntity
 import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import org.junit.jupiter.api.Assertions.*
@@ -45,6 +46,26 @@ class AuthenticationTokenMapperTest {
         assertNull(token.consentedBy)
         assertNull(token.grantedBy)
         assertNull(token.revokedBy)
+    }
+
+    @Test
+    fun `toToken - maps the claims the request asked for, per channel`() {
+        val token = mapper.toToken(
+            entity(
+                requestedIdTokenClaims = arrayOf("loyalty_tier"),
+                requestedUserinfoClaims = arrayOf("shoe_size")
+            )
+        )
+
+        assertEquals(setOf("loyalty_tier"), token.requestedClaims.idTokenClaimIds)
+        assertEquals(setOf("shoe_size"), token.requestedClaims.userInfoClaimIds)
+    }
+
+    @Test
+    fun `toToken - maps a token whose request asked for nothing`() {
+        val token = mapper.toToken(entity())
+
+        assertEquals(RequestedClaims.NONE, token.requestedClaims)
     }
 
     @Test
@@ -94,6 +115,8 @@ class AuthenticationTokenMapperTest {
         consentedBy: String? = null,
         grantedBy: String? = null,
         revokedBy: String? = null,
+        requestedIdTokenClaims: Array<String> = emptyArray(),
+        requestedUserinfoClaims: Array<String> = emptyArray(),
     ): AuthenticationTokenEntity {
         return AuthenticationTokenEntity(
             type = type,
@@ -106,6 +129,8 @@ class AuthenticationTokenMapperTest {
             clientScopes = emptyArray(),
             sessionId = UUID.randomUUID(),
             grantType = "authorization_code",
+            requestedIdTokenClaims = requestedIdTokenClaims,
+            requestedUserinfoClaims = requestedUserinfoClaims,
             revokedBy = revokedBy,
             issueDate = LocalDateTime.now().minusMinutes(1),
             expirationDate = LocalDateTime.now().plusHours(1),

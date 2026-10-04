@@ -5,11 +5,13 @@ import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.client.ClientRedirectUriManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.NonInteractiveAuthorizationFlow
@@ -42,6 +44,9 @@ class InteractiveAuthFlowSessionManagerTest {
 
     @MockK
     lateinit var oauth2Manager: InteractiveFlowSessionOAuth2Manager
+
+    @MockK
+    lateinit var claimManager: ClaimManager
 
     @MockK
     lateinit var clientManager: ClientManager
@@ -223,7 +228,7 @@ class InteractiveAuthFlowSessionManagerTest {
             )
             val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
             val realManager = InteractiveAuthFlowSessionManager(
-                authorizationFlowManager, oauth2Manager, clientManager,
+                authorizationFlowManager, oauth2Manager, claimManager, clientManager,
                 invitationManager, scopeManager, clientRedirectUriManager, flowOf(templatesConfig)
             )
 
@@ -238,7 +243,7 @@ class InteractiveAuthFlowSessionManagerTest {
         every { authorizationFlowManager.defaultInteractiveFlow } returns hardcodedFlow
         val templatesConfig = EnabledClientTemplatesConfig(emptyMap())
         val realManager = InteractiveAuthFlowSessionManager(
-            authorizationFlowManager, oauth2Manager, clientManager,
+            authorizationFlowManager, oauth2Manager, claimManager, clientManager,
             invitationManager, scopeManager, clientRedirectUriManager, flowOf(templatesConfig)
         )
 
@@ -266,7 +271,7 @@ class InteractiveAuthFlowSessionManagerTest {
             )
             val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
             val realManager = InteractiveAuthFlowSessionManager(
-                authorizationFlowManager, oauth2Manager, clientManager,
+                authorizationFlowManager, oauth2Manager, claimManager, clientManager,
                 invitationManager, scopeManager, clientRedirectUriManager, flowOf(templatesConfig)
             )
 
@@ -293,7 +298,7 @@ class InteractiveAuthFlowSessionManagerTest {
             )
             val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
             val realManager = InteractiveAuthFlowSessionManager(
-                authorizationFlowManager, oauth2Manager, clientManager,
+                authorizationFlowManager, oauth2Manager, claimManager, clientManager,
                 invitationManager, scopeManager, clientRedirectUriManager, flowOf(templatesConfig)
             )
 
@@ -306,6 +311,7 @@ class InteractiveAuthFlowSessionManagerTest {
 
     private fun setupDefaultFlow() {
         coEvery { manager.getDefaultInteractiveFlow() } returns defaultFlow
+        every { claimManager.parseRequestedClaims(any()) } returns RequestedClaims.NONE
     }
 
     private fun setupValidClient(
@@ -755,6 +761,87 @@ class InteractiveAuthFlowSessionManagerTest {
         )
 
         assertEquals("my-state-value", stateSlot.captured)
+    }
+
+    @Test
+    fun `startAuthorizationWith - Passes the claims the request asked for to startOAuth2Session`() = runTest {
+        val client = mockk<Client> {
+            every { authorizationFlow } returns null
+            every { supportsGrantType(any()) } returns true
+        }
+        setupDefaultFlow()
+        setupValidClient(client)
+        val claims = """{"id_token":{"loyalty_tier":null}}"""
+        val requested = RequestedClaims(idTokenClaimIds = setOf("loyalty_tier"), userInfoClaimIds = emptySet())
+        every { claimManager.parseRequestedClaims(any()) } returns requested
+        val requestedSlot = slot<RequestedClaims>()
+        coEvery {
+            oauth2Manager.startOAuth2Session(
+                client = any(),
+                clientState = any(),
+                clientNonce = any(),
+                flow = any(),
+                scopes = any(),
+                requestedClaims = capture(requestedSlot),
+                redirectUri = any(),
+                codeChallenge = any(),
+                codeChallengeMethod = any(),
+                invitationId = any(),
+                error = any()
+            )
+        } returns mockk()
+
+        manager.startAuthorizationWith(
+            uncheckedClientId = "client",
+            uncheckedClientState = null,
+            uncheckedClientNonce = null,
+            uncheckedScopes = null,
+            uncheckedRedirectUri = "https://example.com/callback",
+            uncheckedClaims = claims
+        )
+
+        assertEquals(requested, requestedSlot.captured)
+    }
+
+    @Test
+    fun `startAuthorizationWith - Stores the refusal of a claims parameter it cannot read`() = runTest {
+        val client = mockk<Client> {
+            every { authorizationFlow } returns null
+            every { supportsGrantType(any()) } returns true
+        }
+        setupDefaultFlow()
+        setupValidClient(client)
+        every { claimManager.parseRequestedClaims(any()) } throws businessExceptionOf(
+            detailsId = "claim.parse_requested.invalid"
+        )
+        val errorSlot = slot<BusinessException?>()
+        coEvery {
+            oauth2Manager.startOAuth2Session(
+                client = any(),
+                clientState = any(),
+                clientNonce = any(),
+                flow = any(),
+                scopes = any(),
+                requestedClaims = any(),
+                redirectUri = any(),
+                codeChallenge = any(),
+                codeChallengeMethod = any(),
+                invitationId = any(),
+                error = captureNullable(errorSlot)
+            )
+        } returns mockk()
+
+        manager.startAuthorizationWith(
+            uncheckedClientId = "client",
+            uncheckedClientState = null,
+            uncheckedClientNonce = null,
+            uncheckedScopes = null,
+            uncheckedRedirectUri = "https://example.com/callback",
+            uncheckedCodeChallenge = "challenge",
+            uncheckedClaims = "not-json"
+        )
+
+        assertEquals("claim.parse_requested.invalid", errorSlot.captured?.detailsId)
     }
 
     @Test

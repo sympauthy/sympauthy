@@ -26,6 +26,7 @@ import com.sympauthy.business.model.user.claim.ClaimDataType.TIMEZONE
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
+import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.UnconditionalAcl
 import com.sympauthy.config.model.EnabledAdvancedConfig
@@ -85,6 +86,8 @@ class IdTokenGeneratorTest {
     private val savedEntity = slot<AuthenticationTokenEntity>()
 
     private val readAudienceId = slot<String>()
+
+    private val readRequestedClaims = slot<RequestedClaims>()
 
     private val valueValidator = ClaimValueValidator()
 
@@ -230,6 +233,56 @@ class IdTokenGeneratorTest {
     }
 
     @Test
+    fun `generateIdToken - Read the claims a code exchange asked for by name`() = runTest {
+        val requested = RequestedClaims(idTokenClaimIds = setOf("loyalty_tier"), userInfoClaimIds = emptySet())
+        val userId = UUID.randomUUID()
+        stubGeneration(userId)
+
+        generator.generateIdToken(
+            oauth2 = oauth2(
+                grantedScopes = listOf(BuiltInGrantableScopeId.OPENID),
+                requestedClaims = requested
+            ),
+            userId = userId,
+            audienceId = AUDIENCE,
+            accessToken = mockk { every { token } returns ACCESS_TOKEN }
+        )
+
+        assertEquals(requested, readRequestedClaims.captured)
+    }
+
+    @Test
+    fun `generateIdToken - Read the claims the authorization a refresh descends from asked for by name`() =
+        runTest {
+            val requested =
+                RequestedClaims(idTokenClaimIds = setOf("loyalty_tier"), userInfoClaimIds = emptySet())
+
+            issue(mockRefreshToken(sessionId = UUID.randomUUID(), requestedClaims = requested))
+
+            assertEquals(requested, readRequestedClaims.captured)
+        }
+
+    @Test
+    fun `generateIdToken - Record on the token the claims the request asked for`() = runTest {
+        val requested = RequestedClaims(idTokenClaimIds = setOf("loyalty_tier"), userInfoClaimIds = setOf("shoe_size"))
+        val userId = UUID.randomUUID()
+        stubGeneration(userId)
+
+        generator.generateIdToken(
+            oauth2 = oauth2(
+                grantedScopes = listOf(BuiltInGrantableScopeId.OPENID),
+                requestedClaims = requested
+            ),
+            userId = userId,
+            audienceId = AUDIENCE,
+            accessToken = mockk { every { token } returns ACCESS_TOKEN }
+        )
+
+        assertEquals(listOf("loyalty_tier"), savedEntity.captured.requestedIdTokenClaims.toList())
+        assertEquals(listOf("shoe_size"), savedEntity.captured.requestedUserinfoClaims.toList())
+    }
+
+    @Test
     fun `generateIdToken - Claim the verified companion beside the value it answers for`() = runTest {
         val claimsSet = issue(
             collected(claim("email", EMAIL, verifiedId = "email_verified"), "ada@example.com", verified = true)
@@ -318,6 +371,7 @@ class IdTokenGeneratorTest {
         allowedValues = null,
         audienceId = null,
         publishedIn = publishedIn,
+        publishedInWhenRequested = emptySet(),
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = null,
@@ -366,12 +420,14 @@ class IdTokenGeneratorTest {
 
     private fun oauth2(
         grantedScopes: List<String>,
-        authenticationDate: LocalDateTime? = AUTHENTICATION_DATE
+        authenticationDate: LocalDateTime? = AUTHENTICATION_DATE,
+        requestedClaims: RequestedClaims = RequestedClaims.NONE
     ) = InteractiveFlowSessionOAuth2(
         sessionId = UUID.randomUUID(),
         clientId = "client",
         redirectUri = "https://client.example.com/callback",
         requestedScopes = grantedScopes,
+        requestedClaims = requestedClaims,
         grantedScopes = grantedScopes,
         authenticationDate = authenticationDate
     )
@@ -379,11 +435,13 @@ class IdTokenGeneratorTest {
     private fun mockRefreshToken(
         sessionId: UUID,
         grantedScopes: List<String> = listOf(BuiltInGrantableScopeId.OPENID),
-        authenticationDate: LocalDateTime? = AUTHENTICATION_DATE
+        authenticationDate: LocalDateTime? = AUTHENTICATION_DATE,
+        requestedClaims: RequestedClaims = RequestedClaims.NONE
     ): AuthenticationToken {
         val id = UUID.randomUUID()
         val scopes = grantedScopes
         val authenticatedAt = authenticationDate
+        val requested = requestedClaims
         return mockk {
             every { userId } returns id
             every { clientId } returns "client"
@@ -391,6 +449,7 @@ class IdTokenGeneratorTest {
             every { consentedScopes } returns listOf(CONSENTED_SCOPE)
             every { this@mockk.sessionId } returns sessionId
             every { this@mockk.authenticationDate } returns authenticatedAt
+            every { this@mockk.requestedClaims } returns requested
         }
     }
 
@@ -419,7 +478,8 @@ class IdTokenGeneratorTest {
         }
         coEvery {
             consentAwareCollectedClaimManager.findByUserIdAndReadableByClientAndPublishedIn(
-                userId, capture(readAudienceId), ClaimPublicationPlace.ID_TOKEN, consentedScopes, any()
+                userId, capture(readAudienceId), ClaimPublicationPlace.ID_TOKEN, consentedScopes, any(),
+                capture(readRequestedClaims)
             )
         } returns claims
         coEvery { tokenRepository.save(capture(savedEntity)) } answers { firstArg<AuthenticationTokenEntity>() }

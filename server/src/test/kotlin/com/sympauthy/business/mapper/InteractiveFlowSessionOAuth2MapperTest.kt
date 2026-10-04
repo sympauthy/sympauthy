@@ -28,6 +28,8 @@ class InteractiveFlowSessionOAuth2MapperTest {
             clientId = "client",
             redirectUri = "https://client.test/callback",
             requestedScopes = arrayOf("openid", "profile"),
+            requestedIdTokenClaims = arrayOf("loyalty_tier"),
+            requestedUserinfoClaims = arrayOf("shoe_size"),
             state = "state",
             nonce = "nonce",
             codeChallenge = "challenge",
@@ -47,6 +49,8 @@ class InteractiveFlowSessionOAuth2MapperTest {
         assertEquals("client", oauth2.clientId)
         assertEquals("https://client.test/callback", oauth2.redirectUri)
         assertEquals(listOf("openid", "profile"), oauth2.requestedScopes)
+        assertEquals(setOf("loyalty_tier"), oauth2.requestedClaims.idTokenClaimIds)
+        assertEquals(setOf("shoe_size"), oauth2.requestedClaims.userInfoClaimIds)
         assertEquals("state", oauth2.state)
         assertEquals("nonce", oauth2.nonce)
         assertEquals("challenge", oauth2.codeChallenge)

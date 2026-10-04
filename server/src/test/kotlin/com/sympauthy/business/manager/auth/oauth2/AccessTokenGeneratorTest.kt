@@ -145,6 +145,7 @@ class AccessTokenGeneratorTest {
         allowedValues = null,
         audienceId = null,
         publishedIn = setOf(ClaimPublicationPlace.ACCESS_TOKEN),
+        publishedInWhenRequested = emptySet(),
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = null,

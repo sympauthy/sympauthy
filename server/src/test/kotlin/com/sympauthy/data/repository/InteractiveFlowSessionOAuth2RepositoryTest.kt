@@ -58,6 +58,27 @@ class InteractiveFlowSessionOAuth2RepositoryTest {
             assertNull(stored.grantedScopes)
             assertNull(stored.invitationId)
             assertArrayEquals(emptyArray<String>(), stored.requestedScopes)
+            assertArrayEquals(emptyArray<String>(), stored.requestedIdTokenClaims)
+            assertArrayEquals(emptyArray<String>(), stored.requestedUserinfoClaims)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `save - Round-trips the asked-for claim arrays`(database: Database) =
+        withFixture(database) {
+            val records = repository<InteractiveFlowSessionOAuth2Repository>()
+            val session = newSession()
+
+            saveRecord(
+                session.id!!,
+                requestedIdTokenClaims = arrayOf("loyalty_tier"),
+                requestedUserinfoClaims = arrayOf("shoe_size", "loyalty_tier")
+            )
+
+            val stored = records.findById(session.id!!)
+            assertNotNull(stored)
+            assertArrayEquals(arrayOf("loyalty_tier"), stored!!.requestedIdTokenClaims)
+            assertArrayEquals(arrayOf("shoe_size", "loyalty_tier"), stored.requestedUserinfoClaims)
         }
 
     @ParameterizedTest
@@ -156,6 +177,8 @@ class InteractiveFlowSessionOAuth2RepositoryTest {
     private suspend fun RepositoryFixture.saveRecord(
         sessionId: UUID,
         requestedScopes: Array<String> = arrayOf("openid"),
+        requestedIdTokenClaims: Array<String> = emptyArray(),
+        requestedUserinfoClaims: Array<String> = emptyArray(),
         state: String? = null
     ) {
         val records = repository<InteractiveFlowSessionOAuth2Repository>()
@@ -165,6 +188,8 @@ class InteractiveFlowSessionOAuth2RepositoryTest {
                 clientId = clientId,
                 redirectUri = "https://example.org/callback",
                 requestedScopes = requestedScopes,
+                requestedIdTokenClaims = requestedIdTokenClaims,
+                requestedUserinfoClaims = requestedUserinfoClaims,
                 state = state,
                 nonce = "nonce",
                 codeChallenge = "challenge",

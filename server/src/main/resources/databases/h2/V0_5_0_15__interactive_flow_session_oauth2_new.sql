@@ -1,26 +1,29 @@
 CREATE TABLE interactive_flow_session_oauth2
 (
-    session_id            uuid NOT NULL,
+    session_id                uuid NOT NULL,
 
-    client_id             text,
-    redirect_uri          text,
-    requested_scopes      text array,
-    state                 text,
-    nonce                 text,
-    code_challenge        text,
-    code_challenge_method text,
+    client_id                 text,
+    redirect_uri              text,
+    requested_scopes          text array,
+    state                     text,
+    nonce                     text,
+    code_challenge            text,
+    code_challenge_method     text,
 
-    invitation_id         uuid,
+    requested_id_token_claims text array NOT NULL DEFAULT ARRAY[],
+    requested_userinfo_claims text array NOT NULL DEFAULT ARRAY[],
 
-    authentication_date   timestamp,
+    invitation_id             uuid,
 
-    consented_scopes      text array,
-    consented_at          timestamp,
-    consented_by          text,
+    authentication_date       timestamp,
 
-    granted_scopes        text array,
-    granted_at            timestamp,
-    granted_by            text,
+    consented_scopes          text array,
+    consented_at              timestamp,
+    consented_by              text,
+
+    granted_scopes            text array,
+    granted_at                timestamp,
+    granted_by                text,
 
     PRIMARY KEY (session_id),
     FOREIGN KEY (session_id) REFERENCES interactive_flow_sessions (id)

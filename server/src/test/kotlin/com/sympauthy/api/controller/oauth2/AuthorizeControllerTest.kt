@@ -59,7 +59,8 @@ class AuthorizeControllerTest {
                 uncheckedCodeChallenge = null,
                 uncheckedCodeChallengeMethod = null,
                 uncheckedInvitationToken = null,
-                uncheckedMaxAge = null
+                uncheckedMaxAge = null,
+                uncheckedClaims = null
             )
         }
         assertEquals(UNSUPPORTED_RESPONSE_TYPE, exception.errorCode)
@@ -80,7 +81,8 @@ class AuthorizeControllerTest {
                 uncheckedCodeChallenge = null,
                 uncheckedCodeChallengeMethod = null,
                 uncheckedInvitationToken = null,
-                uncheckedMaxAge = null
+                uncheckedMaxAge = null,
+                uncheckedClaims = null
             )
         }
         assertEquals(UNSUPPORTED_RESPONSE_TYPE, exception.errorCode)
@@ -101,7 +103,8 @@ class AuthorizeControllerTest {
                 uncheckedCodeChallenge = null,
                 uncheckedCodeChallengeMethod = null,
                 uncheckedInvitationToken = null,
-                uncheckedMaxAge = null
+                uncheckedMaxAge = null,
+                uncheckedClaims = null
             )
         }
         assertEquals(UNSUPPORTED_RESPONSE_TYPE, exception.errorCode)
@@ -122,7 +125,8 @@ class AuthorizeControllerTest {
                 uncheckedCodeChallenge = null,
                 uncheckedCodeChallengeMethod = null,
                 uncheckedInvitationToken = null,
-                uncheckedMaxAge = null
+                uncheckedMaxAge = null,
+                uncheckedClaims = null
             )
         }
         assertEquals(UNSUPPORTED_RESPONSE_TYPE, exception.errorCode)
@@ -143,7 +147,8 @@ class AuthorizeControllerTest {
                 uncheckedCodeChallenge = null,
                 uncheckedCodeChallengeMethod = null,
                 uncheckedInvitationToken = null,
-                uncheckedMaxAge = null
+                uncheckedMaxAge = null,
+                uncheckedClaims = null
             )
         }
         assertEquals(UNSUPPORTED_RESPONSE_TYPE, exception.errorCode)
@@ -166,7 +171,8 @@ class AuthorizeControllerTest {
                 uncheckedCodeChallenge = null,
                 uncheckedCodeChallengeMethod = null,
                 uncheckedInvitationToken = null,
-                uncheckedMaxAge = null
+                uncheckedMaxAge = null,
+                uncheckedClaims = null
             )
         } returns (session to flow)
 
@@ -183,7 +189,8 @@ class AuthorizeControllerTest {
             uncheckedCodeChallenge = null,
             uncheckedCodeChallengeMethod = null,
             uncheckedInvitationToken = null,
-            uncheckedMaxAge = null
+            uncheckedMaxAge = null,
+            uncheckedClaims = null
         )
 
         assertEquals(HttpStatus.SEE_OTHER, result.status)
@@ -222,7 +229,8 @@ class AuthorizeControllerTest {
             uncheckedCodeChallenge = "challenge123",
             uncheckedCodeChallengeMethod = "S256",
             uncheckedInvitationToken = null,
-            uncheckedMaxAge = null
+            uncheckedMaxAge = null,
+            uncheckedClaims = null
         )
 
         coVerify(exactly = 1) {
@@ -254,7 +262,8 @@ class AuthorizeControllerTest {
                 uncheckedCodeChallenge = null,
                 uncheckedCodeChallengeMethod = null,
                 uncheckedInvitationToken = null,
-                uncheckedMaxAge = null
+                uncheckedMaxAge = null,
+                uncheckedClaims = null
             )
         } returns (session to flow)
 
@@ -271,7 +280,8 @@ class AuthorizeControllerTest {
             uncheckedCodeChallenge = null,
             uncheckedCodeChallengeMethod = null,
             uncheckedInvitationToken = null,
-            uncheckedMaxAge = null
+            uncheckedMaxAge = null,
+            uncheckedClaims = null
         )
 
         coVerify(exactly = 1) {
@@ -284,7 +294,8 @@ class AuthorizeControllerTest {
                 uncheckedCodeChallenge = null,
                 uncheckedCodeChallengeMethod = null,
                 uncheckedInvitationToken = null,
-                uncheckedMaxAge = null
+                uncheckedMaxAge = null,
+                uncheckedClaims = null
             )
         }
     }

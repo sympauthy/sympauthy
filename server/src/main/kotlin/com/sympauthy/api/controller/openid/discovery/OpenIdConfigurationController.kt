@@ -92,6 +92,10 @@ class OpenIdConfigurationController(
             idTokenSigningAlgValuesSupported = listOf(advancedConfig.publicJwtAlgorithm.name),
             tokenEndpointAuthMethodsSupported = listOf("client_secret_basic", "client_secret_post"),
             claimsSupported = claims,
+            // Served on every authorization and refused on none, whatever any claim's file says: a
+            // deployment that opened no channel to a request answers one by changing nothing, which is what
+            // the parameter asks for when it names a claim nobody opened. See docs/design/claims.md.
+            claimsParameterSupported = true,
             codeChallengeMethodsSupported = CodeChallengeMethod.entries.map { it.value },
             dpopSigningAlgValuesSupported = DpopManager.SUPPORTED_ALGORITHMS.toList()
         )

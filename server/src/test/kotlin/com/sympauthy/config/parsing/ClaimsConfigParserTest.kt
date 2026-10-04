@@ -29,6 +29,7 @@ class ClaimsConfigParserTest {
         id: String = APPLICATION,
         allowedValues: List<Any>? = null,
         publishedIn: Set<ClaimPublicationPlace>? = null,
+        publishedInWhenRequested: Set<ClaimPublicationPlace>? = null,
         kind: ClaimKind? = ClaimKind.APPLICATION
     ) = ClaimTemplate(
         id = id,
@@ -39,6 +40,7 @@ class ClaimsConfigParserTest {
         audienceId = null,
         allowedValues = allowedValues,
         publishedIn = publishedIn,
+        publishedInWhenRequested = publishedInWhenRequested,
         acl = ClaimTemplateAcl(null, null, null, null, null, null, null, null, null)
     )
 
@@ -47,11 +49,13 @@ class ClaimsConfigParserTest {
         dataType: String,
         templateId: String? = APPLICATION,
         publishedIn: List<String>? = null,
+        publishedInWhenRequested: List<String>? = null,
         kind: String? = null
     ) = ClaimConfigurationProperties(id).apply {
         type = dataType
         template = templateId
         this.publishedIn = publishedIn
+        this.publishedInWhenRequested = publishedInWhenRequested
         this.kind = kind
     }
 
@@ -114,6 +118,86 @@ class ClaimsConfigParserTest {
         assertEquals(setOf(ID_TOKEN), claim.publishedIn)
         assertEquals(listOf("config.invalid_enum_value"), ctx.errors.map { it.messageId })
         assertEquals(listOf("claims.loyalty_tier.published-in[1]"), ctx.errors.map { it.key })
+    }
+
+    @Test
+    fun `parse - Open no channel to a request where neither the claim nor its template names one`() {
+        val ctx = ConfigParsingContext()
+
+        val claim = parseOne(ctx, claimProperties("loyalty_tier", "string"), claimTemplate())
+
+        assertEquals(emptySet<ClaimPublicationPlace>(), claim.publishedInWhenRequested)
+        assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
+    }
+
+    @Test
+    fun `parse - Open the channels to a request the claim names`() {
+        val ctx = ConfigParsingContext()
+        val properties = claimProperties(
+            "loyalty_tier", "string",
+            publishedIn = listOf("userinfo"),
+            publishedInWhenRequested = listOf("id-token")
+        )
+
+        val claim = parseOne(ctx, properties, claimTemplate())
+
+        assertEquals(setOf(USERINFO), claim.publishedIn)
+        assertEquals(setOf(ID_TOKEN), claim.publishedInWhenRequested)
+        assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
+    }
+
+    @Test
+    fun `parse - Open the channels to a request its template names`() {
+        val ctx = ConfigParsingContext()
+        val template = claimTemplate(publishedInWhenRequested = setOf(ID_TOKEN))
+
+        val claim = parseOne(ctx, claimProperties("loyalty_tier", "string"), template)
+
+        assertEquals(setOf(ID_TOKEN), claim.publishedInWhenRequested)
+        assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
+    }
+
+    @Test
+    fun `parse - Open the channels to a request it names over the ones its template offers`() {
+        val ctx = ConfigParsingContext()
+        val template = claimTemplate(publishedInWhenRequested = setOf(USERINFO))
+        val properties = claimProperties(
+            "loyalty_tier", "string", publishedInWhenRequested = listOf("id-token")
+        )
+
+        val claim = parseOne(ctx, properties, template)
+
+        assertEquals(setOf(ID_TOKEN), claim.publishedInWhenRequested)
+        assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
+    }
+
+    @Test
+    fun `parse - Open no channel to a request where it names none over the ones its template offers`() {
+        val ctx = ConfigParsingContext()
+        val template = claimTemplate(publishedInWhenRequested = setOf(USERINFO))
+        val properties = claimProperties("loyalty_tier", "string", publishedInWhenRequested = emptyList())
+
+        val claim = parseOne(ctx, properties, template)
+
+        assertEquals(emptySet<ClaimPublicationPlace>(), claim.publishedInWhenRequested)
+        assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
+    }
+
+    @Test
+    fun `parse - Report an on-request entry naming no place against the index it was written at`() {
+        val ctx = ConfigParsingContext()
+        val properties = claimProperties(
+            "loyalty_tier", "string", publishedInWhenRequested = listOf("id-token", "nowhere")
+        )
+
+        val claim = parseOne(ctx, properties, claimTemplate())
+
+        assertEquals(setOf(ID_TOKEN), claim.publishedInWhenRequested)
+        assertEquals(listOf("config.invalid_enum_value"), ctx.errors.map { it.messageId })
+        assertEquals(
+            listOf("claims.loyalty_tier.published-in-when-requested[1]"),
+            ctx.errors.map { it.key }
+        )
     }
 
     @Test

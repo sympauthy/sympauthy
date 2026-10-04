@@ -11,6 +11,7 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
+import com.sympauthy.business.model.user.claim.RequestedClaims
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -92,20 +93,27 @@ open class ConsentAwareCollectedClaimManager(
      * token and an access token are issued to one, and an introspection response is answered to one.
      * `/userinfo` is not among them and reads [findByUserIdAndReadableByPerson] instead, because that
      * endpoint is not client-authenticated.
+     *
+     * [requestedClaims] is what the `claims` request parameter of the authorization named, and it is asked
+     * third and last: it can open a channel the claim's `published-in-when-requested` names and it can do
+     * nothing else, so a claim this caller may not read or that belongs to another audience is absent
+     * however the request named it. A caller with no request behind it passes [RequestedClaims.NONE] and
+     * gets what the deployment publishes for every request.
      */
     suspend fun findByUserIdAndReadableByClientAndPublishedIn(
         userId: UUID,
         audienceId: String,
         place: ClaimPublicationPlace,
         consentedScopes: List<String>,
-        clientScopes: List<String> = emptyList()
+        clientScopes: List<String> = emptyList(),
+        requestedClaims: RequestedClaims = RequestedClaims.NONE
     ): List<CollectedClaim> {
         return findByUserIdAndReadableByClient(
             userId = userId,
             audienceId = audienceId,
             consentedScopes = consentedScopes,
             clientScopes = clientScopes
-        ).filter { it.claim.isPublishedIn(place) }
+        ).filter { it.claim.isPublishedIn(place, requestedClaims) }
     }
 
     /**

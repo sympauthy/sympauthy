@@ -74,6 +74,27 @@ class AuthenticationTokenRepositoryTest {
         assertNull(tokens.findById(withoutOne)!!.authenticationDate)
     }
 
+    /** The claims the request behind the grant named, which every token descended from it carries. */
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `save - Round-trips the asked-for claim arrays`(database: Database) = withFixture(database) {
+        val tokens = repository<AuthenticationTokenRepository>()
+        val id = saveToken(
+            newUser(),
+            requestedIdTokenClaims = arrayOf("loyalty_tier"),
+            requestedUserinfoClaims = arrayOf("shoe_size", "loyalty_tier")
+        )
+        val withoutAny = saveToken(userId = null, sessionId = null, grantType = "client_credentials")
+
+        assertArrayEquals(arrayOf("loyalty_tier"), tokens.findById(id)!!.requestedIdTokenClaims)
+        assertArrayEquals(
+            arrayOf("shoe_size", "loyalty_tier"),
+            tokens.findById(id)!!.requestedUserinfoClaims
+        )
+        assertArrayEquals(emptyArray<String>(), tokens.findById(withoutAny)!!.requestedIdTokenClaims)
+        assertArrayEquals(emptyArray<String>(), tokens.findById(withoutAny)!!.requestedUserinfoClaims)
+    }
+
     @ParameterizedTest
     @EnumSource(Database::class)
     fun `updateRevokedAt - Revokes the token it names`(database: Database) = withFixture(database) {
@@ -174,7 +195,9 @@ class AuthenticationTokenRepositoryTest {
         authenticationDate: LocalDateTime? = null,
         grantedScopes: Array<String> = emptyArray(),
         consentedScopes: Array<String> = arrayOf("openid"),
-        clientScopes: Array<String> = emptyArray()
+        clientScopes: Array<String> = emptyArray(),
+        requestedIdTokenClaims: Array<String> = emptyArray(),
+        requestedUserinfoClaims: Array<String> = emptyArray()
     ): UUID {
         val tokens = repository<AuthenticationTokenRepository>()
         return tokens.save(
@@ -189,6 +212,8 @@ class AuthenticationTokenRepositoryTest {
                 grantType = grantType,
                 actorTokenId = actorTokenId,
                 authenticationDate = authenticationDate,
+                requestedIdTokenClaims = requestedIdTokenClaims,
+                requestedUserinfoClaims = requestedUserinfoClaims,
                 issueDate = BASE_DATE,
                 expirationDate = null
             )

@@ -8,6 +8,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
+import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.business.model.user.publishedMembers
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.AuthConfig
@@ -34,7 +35,8 @@ class IdTokenGenerator(
     /**
      * Generate a new id token containing user info accessible according to the scopes granted in the
      * session's [oauth2] request record. Only claims the end-user has consented to share with the client
-     * are included, and of those only the ones the deployment publishes in the id token.
+     * are included, and of those only the ones the deployment publishes in the id token — always, or on
+     * request where the `claims` parameter of that authorization named them.
      *
      * [audienceId] is the audience the client belongs to, and a claim restricted to another one is left out.
      * It is not the token's own `aud`, which OpenID Connect fixes at the client id.
@@ -57,6 +59,7 @@ class IdTokenGenerator(
         consentedScopes = oauth2.consentedScopes ?: emptyList(),
         nonce = oauth2.nonce,
         authenticationDate = oauth2.authenticationDate,
+        requestedClaims = oauth2.requestedClaims,
         accessToken = accessToken,
         grantType = "authorization_code"
     )
@@ -64,18 +67,21 @@ class IdTokenGenerator(
     /**
      * Generate a new id token using the information stored in a [refreshToken].
      * Only claims the end-user has consented to share with the client are included, and of those only the
-     * ones the deployment publishes in the id token.
+     * ones the deployment publishes in the id token — always, or on request where the `claims` parameter
+     * of the authorization this token descends from named them.
      *
      * [audienceId] is the audience the client belongs to, and a claim restricted to another one is left out.
      * It is not the token's own `aud`, which OpenID Connect fixes at the client id.
      *
      * [accessToken] is the one issued in the same response, and the token's `at_hash` claim names it.
      *
-     * The subject, the audience, the session and the authentication time are the ones of the
-     * authentication the [refreshToken] descends from, and only the issue date, the expiry and the claims
-     * are read again, which is what OpenID Connect Core §12.2 requires of an id token issued for a
-     * refresh. Reading the authentication time again would be this server saying the person authenticated
-     * at the moment their client asked for a new token.
+     * The subject, the audience, the session, the authentication time and the claims the request asked
+     * for are the ones of the authentication the [refreshToken] descends from, and only the issue date,
+     * the expiry and the claim values are read again, which is what OpenID Connect Core §12.2 requires of
+     * an id token issued for a refresh. Reading the authentication time again would be this server saying
+     * the person authenticated at the moment their client asked for a new token, and there is no request
+     * here to read the asked-for claims out of — a token that quietly lost one on its first renewal would
+     * change shape on a schedule nobody chose.
      *
      * No `nonce` is claimed, which §12.2 asks for in as many words: a refreshed id token "SHOULD NOT
      * have a `nonce` Claim, even when the ID Token issued at the time of the original authentication
@@ -98,6 +104,7 @@ class IdTokenGenerator(
         consentedScopes = refreshToken.consentedScopes,
         sessionId = refreshToken.sessionId,
         authenticationDate = refreshToken.authenticationDate,
+        requestedClaims = refreshToken.requestedClaims,
         accessToken = accessToken,
         grantType = "refresh_token"
     )
@@ -117,6 +124,12 @@ class IdTokenGenerator(
          * carries no `auth_time`.
          */
         authenticationDate: LocalDateTime? = null,
+        /**
+         * The claims the `claims` request parameter of the authorization named. A caller whose grant
+         * carries no such request passes [RequestedClaims.NONE], and the token then carries what the
+         * deployment publishes here for every request and nothing besides.
+         */
+        requestedClaims: RequestedClaims = RequestedClaims.NONE,
         grantType: String
     ): EncodedAuthenticationToken? {
         // ID tokens are only for user authentication, not client credentials
@@ -137,7 +150,8 @@ class IdTokenGenerator(
             userId = userId,
             audienceId = audienceId,
             place = ClaimPublicationPlace.ID_TOKEN,
-            consentedScopes = consentedScopes
+            consentedScopes = consentedScopes,
+            requestedClaims = requestedClaims
         )
 
         val issueDate = LocalDateTime.now()
@@ -152,6 +166,8 @@ class IdTokenGenerator(
             sessionId = sessionId,
             grantType = grantType,
             authenticationDate = authenticationDate,
+            requestedIdTokenClaims = requestedClaims.idTokenClaimIds.toTypedArray(),
+            requestedUserinfoClaims = requestedClaims.userInfoClaimIds.toTypedArray(),
             issueDate = issueDate,
             expirationDate = expirationDate
         ).let { tokenRepository.save(it) }

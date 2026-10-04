@@ -30,7 +30,10 @@ class AdminClaimResourceMapper(
             group = claim.group?.wireName,
             // Listed in the enum's own order rather than the file's, so the answer is the same however a
             // deployment happened to write the places.
-            publishedIn = ClaimPublicationPlace.entries.filter(claim::isPublishedIn).map { it.wireName }
+            publishedIn = ClaimPublicationPlace.entries.filter(claim::isPublishedIn).map { it.wireName },
+            publishedInWhenRequested = ClaimPublicationPlace.entries
+                .filter { it in claim.publishedInWhenRequested }
+                .map { it.wireName }
         )
     }
 }

@@ -628,6 +628,71 @@ cannot use is untouched — a generated claim names no template, so nothing a te
 one, and the template goes on serving the claims that do name it. That break reaches no
 stable release, and the deployments it does reach are correctable by hand.
 
+### How does a client get a say in where a claim is delivered?
+
+**Decision:** A claim may name a second list, `claims.<id>.published-in-when-requested`, and a
+channel there carries the value only for a request whose `claims` parameter named the claim. The
+request adds and never removes, it reaches the two OpenID channels and no other place, and a channel
+named in both lists is refused at startup. The parameter is stored as a claim id per channel on the
+flow session's OAuth2 row and copied onto every token row the grant produces.
+
+**Options considered:**
+
+- **A second list, `published-in-when-requested`** — the deployment opens a channel to a request,
+  and the request chooses among the channels it opened.
+- **Let the request publish past `published-in`** — no second list and no validator: a client asking
+  for a claim in the id token gets it there if the ACL allows it at all.
+- **Read §5.5 as a narrowing filter**, letting a client ask for a smaller id token out of what the
+  scopes already deliver.
+- **A single list with a per-entry modifier** — `published-in: [ userinfo, id-token-on-request ]`.
+- **Store the raw `claims` JSON on the row** and parse it on each read.
+- **Hold the request on the flow session only**, where the parameter arrives.
+- **Go on implementing none of it**, leaving `claims_parameter_supported` absent.
+
+**Rationale:**
+
+Letting the request publish past `published-in` is the smallest change and it hands the decision to
+the caller. A deployment that deliberately kept a claim out of the id token would find it there
+because a client asked, with nothing in its file saying so — which is the fail-open shape [the
+publication rule](claims.md#where-a-claim-is-published) was written to prevent. The second list
+costs a key and a validator and keeps the destination the deployment's, which is what makes a
+request safe to honour at all: with nothing opened, every request is answered exactly as before.
+
+Reading §5.5 as a narrowing filter is the reading this server's model makes easy and the one the
+specification forbids. §5.5 says the listed claims "are being requested to be added to any Claims
+that are being requested using scope values", so a client library written against any other provider
+would get the opposite of what it asked for. There is no half-measure available either: a parameter
+that sometimes narrows and sometimes adds is one no client can predict.
+
+The per-entry modifier saves a key at the cost of a value that is a channel and a condition glued
+together — `id-token-on-request` — which nothing else in this configuration does and which
+`ClaimPublicationPlace` would then have to carry as a second entry per channel. Two keys read as the
+rule they are: published in `userinfo`, and published in the id token when requested. It is also the
+spelling `claims.<id>.acl` already uses, with the condition last.
+
+Storing the raw JSON costs a parse per id token and per `/userinfo` call, and puts a row in the
+database that can fail to read back — which the business mapper would then have to refuse as this
+server's own failure, on a value a client sent. Sanitizing once at the endpoint is what the
+consented scopes beside it already do, and it leaves the row holding claim ids that cannot fail to
+parse.
+
+Holding the request on the session alone is the cheapest and is wrong in a way that is hard to see:
+the code exchange honours it and every refresh afterwards does not, so a client's id token changes
+shape the first time its token is renewed. That is the bug a refresh already had once for the id
+token itself, and the fix is the same one — carry it on the token rows, where the consented scopes
+live.
+
+Implementing none of it leaves the discovery document telling a client it may not ask, which was
+accurate and is the thing worth changing: a deployment with a claim too large for an id token and
+wanted in `/userinfo` had no way to offer both, and a client that knows which it wants had no way to
+say.
+
+**What a deployment sees.** Nothing, unless it writes the new key: a claim naming no
+`published-in-when-requested` is published where it always was, for every request, and a `claims`
+parameter against such a deployment changes no response. `claims_parameter_supported` becomes `true`
+in the discovery document whatever any claim's file says, which is accurate — a client may send the
+parameter, and a deployment that opened no channel answers it by changing nothing.
+
 ### Is a person's profile one value for every audience, or one per audience?
 
 **Decision:** One value, declared as the person's. A claim carries a kind, `personal` or

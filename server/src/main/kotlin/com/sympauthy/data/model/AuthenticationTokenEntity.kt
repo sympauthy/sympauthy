@@ -56,6 +56,19 @@ class AuthenticationTokenEntity(
     val authenticationDate: LocalDateTime? = null,
 
     /**
+     * The claim ids the `claims` request parameter of the authorization behind this token named for the id
+     * token, and the ones it named for `/userinfo`. Empty on a token no such request is behind — a
+     * `client_credentials` grant, a token exchange — and empty where the request named nothing.
+     *
+     * They are copied from the authorization and carried unchanged by every refresh, which is what makes
+     * them outlive the flow session that received them: the id token a refresh mints and the `/userinfo`
+     * answered with an access token descended from the grant each read them off the token row rather than
+     * off a session that is gone.
+     */
+    val requestedIdTokenClaims: Array<String> = emptyArray(),
+    val requestedUserinfoClaims: Array<String> = emptyArray(),
+
+    /**
      * JWK SHA-256 Thumbprint (RFC 7638) of the DPoP public key this token is bound to.
      * Null for bearer tokens (no DPoP binding).
      */

@@ -109,6 +109,7 @@ class IntrospectionControllerTest {
         collectedInFlow = false,
         allowedValues = null,
         publishedIn = setOf(ClaimPublicationPlace.INTROSPECTION),
+        publishedInWhenRequested = emptySet(),
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = null,

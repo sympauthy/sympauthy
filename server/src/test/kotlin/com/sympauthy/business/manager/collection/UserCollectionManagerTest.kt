@@ -97,6 +97,7 @@ class UserCollectionManagerTest {
         collectedInFlow = false,
         allowedValues = null,
         publishedIn = ClaimPublicationPlace.entries.toSet(),
+        publishedInWhenRequested = emptySet(),
         acl = acl
     )
 

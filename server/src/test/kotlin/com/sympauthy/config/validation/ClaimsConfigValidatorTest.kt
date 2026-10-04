@@ -26,6 +26,7 @@ class ClaimsConfigValidatorTest {
         audienceId: String? = null,
         verifiedId: String? = null,
         publishedIn: Set<ClaimPublicationPlace> = ClaimPublicationPlace.entries.toSet(),
+        publishedInWhenRequested: Set<ClaimPublicationPlace> = emptySet(),
         kind: ClaimKind? = ClaimKind.PERSONAL,
         collectedInFlow: Boolean? = true,
         writableByPerson: Boolean? = null,
@@ -43,6 +44,7 @@ class ClaimsConfigValidatorTest {
         audienceId = audienceId,
         allowedValues = null,
         publishedIn = publishedIn,
+        publishedInWhenRequested = publishedInWhenRequested,
         acl = ParsedClaimAcl(
             consentScope = null,
             readableByPerson = true,
@@ -106,6 +108,94 @@ class ClaimsConfigValidatorTest {
     @Test
     fun `validate - Accept a claim carried and not advertised`() {
         val ctx = validate(listOf(parsedClaim("email", publishedIn = setOf(ClaimPublicationPlace.ID_TOKEN))))
+
+        assertFalse(ctx.hasErrors)
+    }
+
+    @Test
+    fun `validate - Accept a claim advertised beside a channel it opens to a request`() {
+        val ctx = validate(
+            listOf(
+                parsedClaim(
+                    "email",
+                    publishedIn = setOf(ClaimPublicationPlace.DISCOVERY),
+                    publishedInWhenRequested = setOf(ClaimPublicationPlace.ID_TOKEN)
+                )
+            )
+        )
+
+        assertFalse(ctx.hasErrors)
+    }
+
+    @Test
+    fun `validate - Refuse a channel a claim names in both of its publication lists`() {
+        val ctx = validate(
+            listOf(
+                parsedClaim(
+                    "email",
+                    publishedIn = setOf(ClaimPublicationPlace.ID_TOKEN),
+                    publishedInWhenRequested = setOf(ClaimPublicationPlace.ID_TOKEN)
+                )
+            )
+        )
+
+        assertEquals(
+            listOf("config.claim.published_in_when_requested.already_published"),
+            ctx.errors.map { it.messageId }
+        )
+        assertEquals(listOf("claims.email.published-in-when-requested"), ctx.errors.map { it.key })
+        assertEquals(listOf("email"), ctx.errors.map { it.values["claim"] })
+        assertEquals(listOf("id-token"), ctx.errors.map { it.values["place"] })
+    }
+
+    @Test
+    fun `validate - Refuse every channel a claim names in both of its publication lists`() {
+        val ctx = validate(
+            listOf(
+                parsedClaim(
+                    "email",
+                    publishedIn = setOf(ClaimPublicationPlace.ID_TOKEN, ClaimPublicationPlace.USERINFO),
+                    publishedInWhenRequested = setOf(
+                        ClaimPublicationPlace.ID_TOKEN, ClaimPublicationPlace.USERINFO
+                    )
+                )
+            )
+        )
+
+        assertEquals(listOf("id-token", "userinfo"), ctx.errors.map { it.values["place"] })
+    }
+
+    @Test
+    fun `validate - Refuse a place a claim opens to a request that no request can name`() {
+        val ctx = validate(
+            listOf(
+                parsedClaim(
+                    "email",
+                    publishedIn = setOf(ClaimPublicationPlace.ID_TOKEN),
+                    publishedInWhenRequested = setOf(ClaimPublicationPlace.ACCESS_TOKEN)
+                )
+            )
+        )
+
+        assertEquals(
+            listOf("config.claim.published_in_when_requested.not_a_channel"),
+            ctx.errors.map { it.messageId }
+        )
+        assertEquals(listOf("claims.email.published-in-when-requested"), ctx.errors.map { it.key })
+        assertEquals(listOf("access-token"), ctx.errors.map { it.values["place"] })
+    }
+
+    @Test
+    fun `validate - Accept a claim opening an OpenID channel to a request`() {
+        val ctx = validate(
+            listOf(
+                parsedClaim(
+                    "email",
+                    publishedIn = setOf(ClaimPublicationPlace.USERINFO),
+                    publishedInWhenRequested = setOf(ClaimPublicationPlace.ID_TOKEN)
+                )
+            )
+        )
 
         assertFalse(ctx.hasErrors)
     }

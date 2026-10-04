@@ -5,6 +5,7 @@ import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.client.ClientRedirectUriManager
@@ -17,6 +18,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.*
+import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.config.model.ClientTemplatesConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.config.properties.ClientTemplateConfigurationProperties.Companion.DEFAULT
@@ -38,6 +40,7 @@ import kotlinx.coroutines.flow.Flow
 class InteractiveAuthFlowSessionManager(
     @Inject private val authorizationFlowManager: AuthorizationFlowManager,
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
+    @Inject private val claimManager: ClaimManager,
     @Inject private val clientManager: ClientManager,
     @Inject private val invitationManager: InvitationManager,
     @Inject private val scopeManager: ScopeManager,
@@ -94,6 +97,9 @@ class InteractiveAuthFlowSessionManager(
      *   belongs to the same audience as the client. The invitation ID is stored on the session's OAuth2 record.
      * - validating the [uncheckedMaxAge] if provided, which [checkMaxAge] explains is all this server has to
      *   do with it.
+     * - parsing the [uncheckedClaims] if provided, dropping every name no enabled claim answers to, so the
+     *   session records claim ids. What a name there is allowed to add is the claim's own
+     *   `published-in-when-requested`.
      * - creating the [InteractiveFlowSession].
      *
      * Parameters are expected to be non-validated as this method will perform the validation and assign default values
@@ -108,7 +114,8 @@ class InteractiveAuthFlowSessionManager(
         uncheckedCodeChallenge: String? = null,
         uncheckedCodeChallengeMethod: String? = null,
         uncheckedInvitationToken: String? = null,
-        uncheckedMaxAge: String? = null
+        uncheckedMaxAge: String? = null,
+        uncheckedClaims: String? = null
     ): Pair<InteractiveFlowSession, InteractiveFlow> {
         val (client, clientException) = try {
             val client = clientManager.parseRequestedClient(uncheckedClientId)
@@ -162,6 +169,12 @@ class InteractiveAuthFlowSessionManager(
             null to null
         }
 
+        val (requestedClaims, requestedClaimsException) = try {
+            claimManager.parseRequestedClaims(uncheckedClaims) to null
+        } catch (e: BusinessException) {
+            RequestedClaims.NONE to e
+        }
+
         val (codeChallenge, codeChallengeMethod, pkceException) = parseCodeChallenge(
             uncheckedCodeChallenge = uncheckedCodeChallenge,
             uncheckedCodeChallengeMethod = uncheckedCodeChallengeMethod
@@ -185,6 +198,7 @@ class InteractiveAuthFlowSessionManager(
             clientNonce = uncheckedClientNonce,
             flow = flow,
             scopes = scopes,
+            requestedClaims = requestedClaims,
             redirectUri = redirectUri,
             codeChallenge = codeChallenge,
             codeChallengeMethod = codeChallengeMethod,
@@ -196,7 +210,8 @@ class InteractiveAuthFlowSessionManager(
                 redirectUriException,
                 pkceException,
                 invitationException,
-                maxAgeException
+                maxAgeException,
+                requestedClaimsException
             ).firstOrNull()
         )
         return session to flow

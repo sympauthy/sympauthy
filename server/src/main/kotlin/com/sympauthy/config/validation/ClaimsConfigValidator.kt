@@ -13,6 +13,7 @@ import com.sympauthy.config.model.ClaimTemplate
 import com.sympauthy.config.parsing.ParsedClaim
 import com.sympauthy.config.parsing.normalizeClaimId
 import com.sympauthy.config.properties.ClaimConfigurationProperties.Companion.CLAIMS_KEY
+import com.sympauthy.util.configName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
@@ -119,6 +120,11 @@ class ClaimsConfigValidator(
      * value for is the one direction publication may not go: a deployment stays free to carry what it does
      * not advertise, and this is what stops it advertising what it does not carry.
      *
+     * **A channel opened to a request counts as a carrier.** A client reading the name out of the document
+     * can ask for it and be answered, which is the whole of what this rule asks of a carrier; refusing
+     * such a claim would make a deployment choose between advertising a name and only answering it on
+     * request.
+     *
      * It is checked on the resolved set rather than on the claim's own entry, so that a template naming
      * [ClaimPublicationPlace.DISCOVERY] and a claim naming a place that carries the value agree — which is what
      * makes the value settable on a template at all. The error therefore names the claim's own key, which
@@ -130,7 +136,8 @@ class ClaimsConfigValidator(
         configKeyPrefix: String
     ) {
         if (ClaimPublicationPlace.DISCOVERY !in parsed.publishedIn) return
-        if (parsed.publishedIn.any(ClaimPublicationPlace::carriesAValue)) return
+        val carriers = parsed.publishedIn + parsed.publishedInWhenRequested
+        if (carriers.any(ClaimPublicationPlace::carriesAValue)) return
         ctx.addError(
             configExceptionOf(
                 "$configKeyPrefix.published-in",
@@ -138,6 +145,69 @@ class ClaimsConfigValidator(
                 "claim" to parsed.id
             )
         )
+    }
+
+    /**
+     * Record an error against every channel a claim names in both of its publication lists.
+     *
+     * Always and on-request are two answers for one channel and only one of them can be meant: a channel
+     * in `published-in` carries the value for every request, which leaves `published-in-when-requested`
+     * saying nothing about it, so a deployment writing both has either opened a channel it meant to keep
+     * shut or asked for a condition that will never be applied.
+     *
+     * Each channel is named, so a file naming two reports both, and the error names
+     * `published-in-when-requested` because that is the list whose entry has no effect.
+     *
+     * It is checked on the resolved sets rather than on the claim's own entries, for the reason
+     * [refuseAdvertisedWithoutACarrier] gives: a claim inheriting one list from a template is held to this
+     * like a claim writing both itself.
+     */
+    private fun refuseAChannelInBothPublicationLists(
+        ctx: ConfigParsingContext,
+        parsed: ParsedClaim,
+        configKeyPrefix: String
+    ) {
+        parsed.publishedInWhenRequested
+            .filter { it in parsed.publishedIn }
+            .sortedBy(ClaimPublicationPlace::name)
+            .forEach { place ->
+                ctx.addError(
+                    configExceptionOf(
+                        "$configKeyPrefix.published-in-when-requested",
+                        "config.claim.published_in_when_requested.already_published",
+                        "claim" to parsed.id,
+                        "place" to place.configName
+                    )
+                )
+            }
+    }
+
+    /**
+     * Record an error against every place a claim opens to a request that no request can name.
+     *
+     * OpenID Connect Core §5.5 defines a member for the two OpenID channels and for no other place, so a
+     * claim opening the access token or the introspection response to a request has asked for a condition
+     * nothing will ever satisfy — the value is published there always or not at all.
+     * [ClaimPublicationPlace.nameableInAClaimsRequest] is which places a request can reach.
+     */
+    private fun refuseAPlaceNoRequestCanName(
+        ctx: ConfigParsingContext,
+        parsed: ParsedClaim,
+        configKeyPrefix: String
+    ) {
+        parsed.publishedInWhenRequested
+            .filterNot(ClaimPublicationPlace::nameableInAClaimsRequest)
+            .sortedBy(ClaimPublicationPlace::name)
+            .forEach { place ->
+                ctx.addError(
+                    configExceptionOf(
+                        "$configKeyPrefix.published-in-when-requested",
+                        "config.claim.published_in_when_requested.not_a_channel",
+                        "claim" to parsed.id,
+                        "place" to place.configName
+                    )
+                )
+            }
     }
 
     /**
@@ -221,6 +291,10 @@ class ClaimsConfigValidator(
 
         refuseAdvertisedWithoutACarrier(ctx, parsed, configKeyPrefix)
 
+        refuseAChannelInBothPublicationLists(ctx, parsed, configKeyPrefix)
+
+        refuseAPlaceNoRequestCanName(ctx, parsed, configKeyPrefix)
+
         // Validate audience cross-reference.
         val audienceId = validateAudienceId(
             ctx, parsed.audienceId, audiencesById,
@@ -252,6 +326,7 @@ class ClaimsConfigValidator(
             allowedValues = parsed.allowedValues,
             audienceId = audienceId,
             publishedIn = parsed.publishedIn,
+            publishedInWhenRequested = parsed.publishedInWhenRequested,
             acl = acl
         )
     }

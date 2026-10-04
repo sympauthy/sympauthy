@@ -76,6 +76,16 @@ data class Claim(
      */
     val publishedIn: Set<ClaimPublicationPlace>,
     /**
+     * The places this claim is published in only when a client asks for it by name, through the `claims`
+     * request parameter of OpenID Connect Core §5.5.
+     *
+     * It is the deployment opening a door rather than the client forcing one: a channel named here carries
+     * the value for the requests that ask and for no others, and a request naming a claim no channel was
+     * opened for adds nothing. A channel named here and in [publishedIn] is refused at startup — always
+     * and on-request are two answers for one channel.
+     */
+    val publishedInWhenRequested: Set<ClaimPublicationPlace>,
+    /**
      * Access control list determining who can read/write this claim and under what conditions.
      */
     val acl: ClaimAcl
@@ -110,6 +120,19 @@ data class Claim(
      * of one: a claim the ACL refuses is published in no place whatever this says.
      */
     fun isPublishedIn(place: ClaimPublicationPlace): Boolean = place in publishedIn
+
+    /**
+     * Return true if this claim is published in [place] for a grant whose `claims` request parameter named
+     * what [requestedClaims] holds: either the deployment publishes it there for every request, or it
+     * opened that channel to a request and this request named the claim.
+     *
+     * This narrows and never grants, exactly as the one-argument [isPublishedIn] does, so a caller asks it
+     * beside the permission test rather than instead of one. The request is the last of the questions and
+     * the least of them: it cannot reach a claim the ACL refuses, one of another audience, or a channel
+     * [publishedInWhenRequested] does not name — see [RequestedClaims].
+     */
+    fun isPublishedIn(place: ClaimPublicationPlace, requestedClaims: RequestedClaims): Boolean =
+        isPublishedIn(place) || (place in publishedInWhenRequested && id in requestedClaims.namesIn(place))
 
     /**
      * Return true if the person can read this claim through their own access token, given the
