@@ -176,6 +176,10 @@ held before the lock existed.
 **The mapping from a key to its row is pinned by a unit test.** A refactor that changes it silently
 splits every deployment mid-upgrade.
 
+**A job's sweep is proved by calling the manager, never by starting a context.** No context a test
+starts carries the `cron` package, and [the testing standard](testing-standard.md#unit-tests) says
+why.
+
 ## What this standard does not cover
 
 **A lock held across requests.** The interactive flow session serialises its own steps with a

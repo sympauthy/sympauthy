@@ -106,6 +106,15 @@ class ClaimCollectionManagerTest {
     }
 
     @Test
+    fun `listClaims - Keep the claims this deployment signs people in with`() = runTest {
+        knownClaims(customClaim, openIdClaim, identifiers = listOf(openIdClaim))
+
+        val result = claimCollectionManager.listClaims(criteriaOf("identifier" to "true"), firstPage)
+
+        assertEquals(listOf(openIdClaim), result.items)
+    }
+
+    @Test
     fun `listClaims - Keep the claims of the origin the criterion names`() = runTest {
         knownClaims(customClaim, openIdClaim)
 
@@ -193,8 +202,9 @@ class ClaimCollectionManagerTest {
         assertEquals(3, result.total)
     }
 
-    private fun knownClaims(vararg claims: Claim) {
+    private fun knownClaims(vararg claims: Claim, identifiers: List<Claim> = emptyList()) {
         every { claimManager.listAllClaims() } returns claims.toList()
+        every { claimManager.listIdentifierClaims() } returns identifiers
         every { audienceManager.listAudiences() } returns emptyList()
     }
 

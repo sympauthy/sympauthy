@@ -53,14 +53,16 @@ class UserClaimCollectionManagerTest {
         id: String,
         verifiedId: String? = null,
         required: Boolean = false,
-        generated: Boolean = false
+        generated: Boolean = false,
+        kind: ClaimKind? = ClaimKind.PERSONAL,
+        group: ClaimGroup? = null
     ) = Claim(
         id = id,
         enabled = true,
         verifiedId = verifiedId,
         dataType = ClaimDataType.STRING,
-        kind = ClaimKind.PERSONAL,
-        group = null,
+        kind = kind,
+        group = group,
         required = required,
         generated = generated,
         collectedInFlow = false,
@@ -74,7 +76,9 @@ class UserClaimCollectionManagerTest {
     private val emailVerifiedClaim = claim("email_verified")
     private val nameClaim = claim(OpenIdConnectClaimId.NAME)
     private val customClaim = claim("custom_field")
-    private val subClaim = claim(OpenIdConnectClaimId.SUB, generated = true)
+    private val loyaltyTierClaim = claim("loyalty_tier", kind = ClaimKind.APPLICATION)
+    private val addressLineClaim = claim("address_line", group = ClaimGroup.ADDRESS)
+    private val subClaim = claim(OpenIdConnectClaimId.SUB, generated = true, kind = null)
 
     private fun collected(claim: Claim, value: Any? = "value", verificationDate: LocalDateTime? = null) =
         CollectedClaim(
@@ -167,6 +171,33 @@ class UserClaimCollectionManagerTest {
         val result = listUserClaims("origin" to "custom")
 
         assertEquals(listOf(customClaim), result.items.map { it.claim })
+    }
+
+    @Test
+    fun `listUserClaims - Keep the claims of the kind the criterion names`() = runTest {
+        enabledClaims(nameClaim, loyaltyTierClaim)
+
+        val result = listUserClaims("kind" to "application")
+
+        assertEquals(listOf(loyaltyTierClaim), result.items.map { it.claim })
+    }
+
+    @Test
+    fun `listUserClaims - Keep the claims this server answers for itself, which are of neither kind`() = runTest {
+        enabledClaims(nameClaim, subClaim)
+
+        val result = listUserClaims("kind.is_null" to "true")
+
+        assertEquals(listOf(subClaim), result.items.map { it.claim })
+    }
+
+    @Test
+    fun `listUserClaims - Keep the claims of the group the criterion names`() = runTest {
+        enabledClaims(nameClaim, addressLineClaim)
+
+        val result = listUserClaims("group" to "address")
+
+        assertEquals(listOf(addressLineClaim), result.items.map { it.claim })
     }
 
     @Test

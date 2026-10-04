@@ -85,6 +85,11 @@ unwinds them in order.
 `test` environment carries no `r2dbc.datasources.default`, because PostgreSQL's url holds a mapped
 port and arrives programmatically; a context started without either has no repository bean at all.
 
+**No context a test starts schedules anything.** A job scheduled at startup sweeps against the live
+clock inside whichever test started the context, so `UnscheduledJobsConfigurer` leaves the `cron`
+package out of every context a test JVM builds and `application-test.yml` turns off the framework's
+own. A sweep is proved by calling the manager that does the work.
+
 **A key a test queries by names the test class**, so no other class's rows fall inside the query
 under test.
 

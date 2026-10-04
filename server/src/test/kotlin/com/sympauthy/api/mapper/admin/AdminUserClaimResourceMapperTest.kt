@@ -19,12 +19,16 @@ class AdminUserClaimResourceMapperTest {
     private val collectedAt: LocalDateTime = LocalDateTime.of(2025, 1, 1, 0, 0)
     private val verifiedAt: LocalDateTime = LocalDateTime.of(2025, 6, 1, 0, 0)
 
-    private fun claim(id: String, generated: Boolean = false) = Claim(
+    private fun claim(
+        id: String,
+        generated: Boolean = false,
+        kind: ClaimKind? = ClaimKind.PERSONAL
+    ) = Claim(
         id = id,
         enabled = true,
         verifiedId = null,
         dataType = ClaimDataType.STRING,
-        kind = ClaimKind.PERSONAL,
+        kind = kind,
         group = null,
         required = false,
         generated = generated,
@@ -104,5 +108,35 @@ class AdminUserClaimResourceMapperTest {
         assertNull(resource.value)
         assertNull(resource.collectedAt)
         assertNull(resource.verifiedAt)
+    }
+
+    @Test
+    fun `toResource - Publish whose the claim's value is`() {
+        val personal = mapper.toResource(
+            CollectedUserClaim(claim = claim(OpenIdConnectClaimId.NAME), identifier = false, collectedClaim = null)
+        )
+        val application = mapper.toResource(
+            CollectedUserClaim(
+                claim = claim("loyalty_tier", kind = ClaimKind.APPLICATION),
+                identifier = false,
+                collectedClaim = null
+            )
+        )
+
+        assertEquals("personal", personal.kind)
+        assertEquals("application", application.kind)
+    }
+
+    @Test
+    fun `toResource - Publish no kind for a claim this server answers for itself`() {
+        val resource = mapper.toResource(
+            GeneratedUserClaim(
+                claim = claim(OpenIdConnectClaimId.SUB, generated = true, kind = null),
+                identifier = false,
+                value = "value"
+            )
+        )
+
+        assertNull(resource.kind)
     }
 }

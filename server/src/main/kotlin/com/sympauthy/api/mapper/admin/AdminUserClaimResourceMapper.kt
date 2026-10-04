@@ -9,6 +9,7 @@ import com.sympauthy.business.manager.collection.UserClaimCollectionManager.User
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimGroup
+import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.util.wireName
 
 import org.mapstruct.Mapper
@@ -40,6 +41,7 @@ abstract class AdminUserClaimResourceMapper {
     @Mapping(source = "claim.id", target = "claimId")
     @Mapping(source = "claim.dataType", target = "type", qualifiedByName = ["toTypeString"])
     @Mapping(source = "claim", target = "origin", qualifiedByName = ["toOrigin"])
+    @Mapping(source = "claim.kind", target = "kind", qualifiedByName = ["toKindString"])
     @Mapping(source = "claim.required", target = "required")
     @Mapping(source = "identifier", target = "identifier")
     @Mapping(source = "claim.group", target = "group", qualifiedByName = ["toGroupString"])
@@ -55,6 +57,7 @@ abstract class AdminUserClaimResourceMapper {
     @Mapping(source = "claim.id", target = "claimId")
     @Mapping(source = "claim.dataType", target = "type", qualifiedByName = ["toTypeString"])
     @Mapping(source = "claim", target = "origin", qualifiedByName = ["toOrigin"])
+    @Mapping(source = "claim.kind", target = "kind", qualifiedByName = ["toKindString"])
     @Mapping(source = "claim.required", target = "required")
     @Mapping(source = "identifier", target = "identifier")
     @Mapping(source = "claim.group", target = "group", qualifiedByName = ["toGroupString"])
@@ -72,6 +75,9 @@ abstract class AdminUserClaimResourceMapper {
 
     @Named("toOrigin")
     fun toOrigin(claim: Claim): String = claim.origin.wireName
+
+    @Named("toKindString")
+    fun toKindString(kind: ClaimKind?): String? = kind?.wireName
 
     @Named("toGroupString")
     fun toGroupString(group: ClaimGroup?): String? = group?.wireName
