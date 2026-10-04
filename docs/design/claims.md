@@ -501,8 +501,8 @@ session alone would be honoured by the first id token and silently dropped by th
 a shape that changes on a schedule nobody chose.
 
 **It is stored as a claim id per channel, sanitized at the endpoint**, the way
-`InteractiveFlowSessionOAuth2.requestedScopes` is. `ClaimManager.parseRequestedClaims` is that
-parse, and a name matching no enabled claim is dropped there, so nothing downstream re-reads a
+`InteractiveFlowSessionOAuth2.requestedScopes` is. `RequestedClaimsManager` is the one reader of the
+parameter, and a name matching no enabled claim is dropped there, so nothing downstream re-reads a
 document or carries a row that can fail to read back.
 
 #### What a request is answered with, and what it is refused for

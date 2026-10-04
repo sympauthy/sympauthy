@@ -5,9 +5,9 @@ import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
-import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
+import com.sympauthy.business.manager.auth.oauth2.RequestedClaimsManager
 import com.sympauthy.business.manager.client.ClientRedirectUriManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.model.audience.Audience
@@ -40,7 +40,7 @@ import kotlinx.coroutines.flow.Flow
 class InteractiveAuthFlowSessionManager(
     @Inject private val authorizationFlowManager: AuthorizationFlowManager,
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
-    @Inject private val claimManager: ClaimManager,
+    @Inject private val requestedClaimsManager: RequestedClaimsManager,
     @Inject private val clientManager: ClientManager,
     @Inject private val invitationManager: InvitationManager,
     @Inject private val scopeManager: ScopeManager,
@@ -170,7 +170,7 @@ class InteractiveAuthFlowSessionManager(
         }
 
         val (requestedClaims, requestedClaimsException) = try {
-            claimManager.parseRequestedClaims(uncheckedClaims) to null
+            requestedClaimsManager.parseRequestedClaims(uncheckedClaims) to null
         } catch (e: BusinessException) {
             RequestedClaims.NONE to e
         }
