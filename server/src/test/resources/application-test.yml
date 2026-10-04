@@ -2,6 +2,12 @@ micronaut:
   server:
     port: 18080
 
+  health:
+    monitor:
+      # Off because no context a test starts schedules anything: the monitor polls every health
+      # indicator on a thread of its own, a minute into the run and every minute after.
+      enabled: false
+
 claims:
   email:
     enabled: true
