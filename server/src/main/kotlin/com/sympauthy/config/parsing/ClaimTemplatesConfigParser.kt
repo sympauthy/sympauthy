@@ -19,6 +19,7 @@ data class ParsedClaimTemplate(
     val audienceId: String?,
     val allowedValues: List<Any>?,
     val publishedIn: Set<ClaimPublicationPlace>?,
+    val publishedInWhenRequested: Set<ClaimPublicationPlace>?,
     val acl: ParsedClaimAcl
 )
 
@@ -64,6 +65,10 @@ class ClaimTemplatesConfigParser(
 
         val publishedIn = parsePublishedIn(ctx, parser, properties.publishedIn, "$configKeyPrefix.published-in")
 
+        val publishedInWhenRequested = parsePublishedIn(
+            ctx, parser, properties.publishedInWhenRequested, "$configKeyPrefix.published-in-when-requested"
+        )
+
         val acl = claimAclParser.parseTemplateAcl(ctx, properties.acl, configKeyPrefix)
 
         return ParsedClaimTemplate(
@@ -75,6 +80,7 @@ class ClaimTemplatesConfigParser(
             audienceId = properties.audience,
             allowedValues = properties.allowedValues,
             publishedIn = publishedIn,
+            publishedInWhenRequested = publishedInWhenRequested,
             acl = acl
         )
     }

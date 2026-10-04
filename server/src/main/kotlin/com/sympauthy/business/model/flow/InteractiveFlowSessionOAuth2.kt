@@ -3,6 +3,7 @@ package com.sympauthy.business.model.flow
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.GrantedBy
+import com.sympauthy.business.model.user.claim.RequestedClaims
 import java.time.LocalDateTime
 import java.util.*
 
@@ -40,6 +41,18 @@ data class InteractiveFlowSessionOAuth2(
      * @see <a href="https://datatracker.ietf.org/doc/html/rfc6749#section-3.3">Scope</a>
      */
     val requestedScopes: List<String>,
+
+    /**
+     * The claims the client named in the `claims` request parameter, per OpenID channel.
+     *
+     * Sanitized the way [requestedScopes] is: names matching no enabled claim have already been filtered
+     * out. [RequestedClaims.NONE] where the client sent no such parameter.
+     *
+     * It is held here rather than on the [InteractiveFlowSession] for the reason [consentedScopes] is: it
+     * is part of what the authorization records, and it is copied onto every token the authorization
+     * produces so that a refresh honours it too.
+     */
+    val requestedClaims: RequestedClaims = RequestedClaims.NONE,
 
     /**
      * The state passed by the client to the authorize endpoint.

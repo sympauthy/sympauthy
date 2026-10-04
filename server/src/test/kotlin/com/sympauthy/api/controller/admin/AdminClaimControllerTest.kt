@@ -93,6 +93,7 @@ class AdminClaimControllerTest {
         collectedInFlow = false,
         allowedValues = null,
         publishedIn = ClaimPublicationPlace.entries.toSet(),
+        publishedInWhenRequested = emptySet(),
         acl = acl
     )
 
@@ -106,7 +107,8 @@ class AdminClaimControllerTest {
         identifier = false,
         allowedValues = null,
         group = null,
-        publishedIn = listOf("id_token", "userinfo")
+        publishedIn = listOf("id_token", "userinfo"),
+        publishedInWhenRequested = emptyList()
     )
 
     @Test

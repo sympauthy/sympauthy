@@ -9,6 +9,7 @@ import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType
 import com.sympauthy.business.model.oauth2.TokenRevokedBy
+import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.data.model.AuthenticationTokenEntity
 import com.sympauthy.util.wireName
 import org.mapstruct.AfterMapping
@@ -24,7 +25,21 @@ abstract class AuthenticationTokenMapper {
     @Mapping(target = "allScopes", ignore = true)
     @Mapping(target = "consentedBy", expression = "java(mapConsentedBy(entity.getConsentedBy()))")
     @Mapping(target = "grantedBy", expression = "java(mapGrantedBy(entity.getGrantedBy()))")
+    @Mapping(target = "requestedClaims", expression = "java(mapRequestedClaims(entity))")
     abstract fun toToken(entity: AuthenticationTokenEntity): AuthenticationToken
+
+    /**
+     * The claims the request behind the token named, read out of the one column per OpenID channel the
+     * row carries them in.
+     *
+     * No row is refused here: a column holds the claim ids the authorize endpoint had already sanitized,
+     * so a name whose claim the configuration no longer declares reads back as itself and stops mattering
+     * where it is compared against the claims a caller may read.
+     */
+    fun mapRequestedClaims(entity: AuthenticationTokenEntity): RequestedClaims = RequestedClaims.of(
+        idTokenClaimIds = entity.requestedIdTokenClaims,
+        userInfoClaimIds = entity.requestedUserinfoClaims
+    )
 
     fun mapConsentedBy(value: String?): ConsentedBy? = value?.let {
         try {

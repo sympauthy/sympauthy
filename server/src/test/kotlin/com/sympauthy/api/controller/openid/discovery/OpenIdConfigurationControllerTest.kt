@@ -135,6 +135,11 @@ class OpenIdConfigurationControllerTest {
     }
 
     @Test
+    fun `getConfiguration - Advertises that a client may send the claims parameter`() = runTest {
+        assertEquals(true, configuration().claimsParameterSupported)
+    }
+
+    @Test
     fun `getConfiguration - Advertises a claim whose file names the discovery document`() = runTest {
         val configuration = configurationWithClaims(
             claim(OpenIdConnectClaimId.EMAIL, verifiedId = OpenIdConnectClaimId.EMAIL_VERIFIED)
@@ -186,6 +191,7 @@ class OpenIdConfigurationControllerTest {
         collectedInFlow = false,
         allowedValues = null,
         publishedIn = publishedIn,
+        publishedInWhenRequested = emptySet(),
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = null,

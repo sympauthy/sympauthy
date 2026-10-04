@@ -12,6 +12,7 @@ import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
+import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.business.model.user.publishedMembers
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
@@ -67,6 +68,7 @@ class AccessTokenGenerator(
         sessionId = oauth2.sessionId,
         grantType = "authorization_code",
         authenticationDate = oauth2.authenticationDate,
+        requestedClaims = oauth2.requestedClaims,
         dpopJkt = dpopJkt
     )
 
@@ -94,6 +96,7 @@ class AccessTokenGenerator(
         sessionId = refreshToken.sessionId,
         grantType = "refresh_token",
         authenticationDate = refreshToken.authenticationDate,
+        requestedClaims = refreshToken.requestedClaims,
         dpopJkt = dpopJkt
     )
 
@@ -187,6 +190,13 @@ class AccessTokenGenerator(
          * `auth_time`.
          */
         authenticationDate: LocalDateTime? = null,
+        /**
+         * The claims the `claims` request parameter of the authorization named, carried onto the row so
+         * that `/userinfo` read with this token honours the same request the id token did. It decides
+         * nothing about this token's own contents: the access token is not a channel a request can name —
+         * see [RequestedClaims] and [ClaimPublicationPlace.nameableInAClaimsRequest].
+         */
+        requestedClaims: RequestedClaims = RequestedClaims.NONE,
         dpopJkt: String? = null,
         /**
          * When non-null, the token records this client as the actor via the RFC 8693 `act` claim
@@ -220,6 +230,8 @@ class AccessTokenGenerator(
             sessionId = sessionId,
             grantType = grantType,
             authenticationDate = authenticationDate,
+            requestedIdTokenClaims = requestedClaims.idTokenClaimIds.toTypedArray(),
+            requestedUserinfoClaims = requestedClaims.userInfoClaimIds.toTypedArray(),
             dpopJkt = dpopJkt,
             actorTokenId = actorTokenId,
             issueDate = issueDate,

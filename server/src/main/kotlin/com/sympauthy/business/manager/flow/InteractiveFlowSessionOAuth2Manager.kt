@@ -15,6 +15,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
+import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.data.model.InteractiveFlowSessionOAuth2Entity
 import com.sympauthy.data.repository.InteractiveFlowSessionOAuth2Repository
 import jakarta.inject.Inject
@@ -55,6 +56,7 @@ open class InteractiveFlowSessionOAuth2Manager(
         clientNonce: String? = null,
         flow: AuthorizationFlow? = null,
         scopes: List<EnabledScope>? = null,
+        requestedClaims: RequestedClaims = RequestedClaims.NONE,
         redirectUri: URI? = null,
         codeChallenge: String? = null,
         codeChallengeMethod: CodeChallengeMethod? = null,
@@ -85,6 +87,8 @@ open class InteractiveFlowSessionOAuth2Manager(
             clientId = client?.id,
             redirectUri = redirectUri?.toString(),
             requestedScopes = (scopes ?: emptyList()).map(Scope::scope).toTypedArray(),
+            requestedIdTokenClaims = requestedClaims.idTokenClaimIds.toTypedArray(),
+            requestedUserinfoClaims = requestedClaims.userInfoClaimIds.toTypedArray(),
             state = clientState,
             nonce = clientNonce,
             codeChallenge = codeChallenge,

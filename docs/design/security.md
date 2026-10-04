@@ -84,9 +84,11 @@ hierarchy answers it.
 **`scopes.<id>.published-in` is where a deployment says so, and it is the word a claim uses.**
 `ScopePublicationPlace` holds the one place a scope is published in, the discovery document, and
 `EnabledScope.isPublishedIn` is the whole of the test; [a claim's
-`published-in`](claims.md#where-a-claim-is-published) names five. One question about a deployment's
-configuration has one key whichever half of it is being configured, so an operator who has read
-either has read both.
+`published-in`](claims.md#where-a-claim-is-published) names five, and [a claim alone has a second
+list](claims.md#a-channel-a-client-may-ask-a-claim-into) for the channels a client may ask it into.
+The key is spelled the same on both halves of the configuration, so an operator who has read either
+knows what the word means — a scope has no condition to attach to it, because a scope is not
+something a client asks for by name in a channel.
 
 **A scope is advertised unless the deployment says otherwise, which is the other way round from a
 claim.** A claim keeps a value back until a file says to send it; a scope has no value to keep back,

@@ -65,6 +65,23 @@ class AdminClaimResourceMapperTest {
     }
 
     @Test
+    fun `toResource - Report every channel a claim opens to a request`() {
+        val resource = mapper.toResource(
+            claim("loyalty_tier", setOf(USERINFO), publishedInWhenRequested = setOf(ID_TOKEN))
+        )
+
+        assertEquals(listOf("userinfo"), resource.publishedIn)
+        assertEquals(listOf("id_token"), resource.publishedInWhenRequested)
+    }
+
+    @Test
+    fun `toResource - Report no channel for a claim that opens none to a request`() {
+        val resource = mapper.toResource(claim("preferences", setOf(USERINFO)))
+
+        assertEquals(emptyList<String>(), resource.publishedInWhenRequested)
+    }
+
+    @Test
     fun `toResource - Report a claim the deployment signs people in with as an identifier`() {
         assertEquals(true, mapper.toResource(claim("email", setOf(ID_TOKEN))).identifier)
         assertEquals(false, mapper.toResource(claim("loyalty_tier", setOf(ID_TOKEN))).identifier)
@@ -91,6 +108,7 @@ class AdminClaimResourceMapperTest {
     private fun claim(
         id: String,
         publishedIn: Set<ClaimPublicationPlace>,
+        publishedInWhenRequested: Set<ClaimPublicationPlace> = emptySet(),
         kind: ClaimKind? = ClaimKind.PERSONAL
     ) = Claim(
         id = id,
@@ -104,6 +122,7 @@ class AdminClaimResourceMapperTest {
         collectedInFlow = false,
         allowedValues = null,
         publishedIn = publishedIn,
+        publishedInWhenRequested = publishedInWhenRequested,
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = null,

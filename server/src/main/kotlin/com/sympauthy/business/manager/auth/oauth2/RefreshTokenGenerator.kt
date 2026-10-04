@@ -6,6 +6,7 @@ import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
+import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.AuthenticationTokenEntity
@@ -47,6 +48,7 @@ class RefreshTokenGenerator(
         sessionId = oauth2.sessionId,
         grantType = "authorization_code",
         authenticationDate = oauth2.authenticationDate,
+        requestedClaims = oauth2.requestedClaims,
         dpopJkt = dpopJkt
     )
 
@@ -71,6 +73,7 @@ class RefreshTokenGenerator(
         sessionId = refreshToken.sessionId,
         grantType = "refresh_token",
         authenticationDate = refreshToken.authenticationDate,
+        requestedClaims = refreshToken.requestedClaims,
         dpopJkt = dpopJkt
     )
 
@@ -93,6 +96,12 @@ class RefreshTokenGenerator(
          * is what the next access and id token this refresh mints state as `auth_time`.
          */
         authenticationDate: LocalDateTime? = null,
+        /**
+         * The claims the `claims` request parameter of the authorization named. It is carried on the row
+         * so that the next access and id token this refresh mints answer the same request the code
+         * exchange did; nothing reads a refresh token but this server, so it is claimed in no token.
+         */
+        requestedClaims: RequestedClaims = RequestedClaims.NONE,
         dpopJkt: String? = null
     ): EncodedAuthenticationToken? {
         val enabledAuthConfig = authConfig.orThrow()
@@ -116,6 +125,8 @@ class RefreshTokenGenerator(
             sessionId = sessionId,
             grantType = grantType,
             authenticationDate = authenticationDate,
+            requestedIdTokenClaims = requestedClaims.idTokenClaimIds.toTypedArray(),
+            requestedUserinfoClaims = requestedClaims.userInfoClaimIds.toTypedArray(),
             dpopJkt = dpopJkt,
             issueDate = issueDate,
             expirationDate = expirationDate

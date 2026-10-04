@@ -55,5 +55,15 @@ data class AdminClaimResource(
     )
     @get:JsonProperty("published_in")
     @get:JsonInclude(JsonInclude.Include.ALWAYS)
-    val publishedIn: List<String>
+    val publishedIn: List<String>,
+    @get:Schema(
+        description = "OpenID channels this claim is published in only for an authorization whose " +
+                "claims request parameter named it. Empty when no channel is open to a request, which " +
+                "leaves published_in the whole of where the value goes. A channel never appears in " +
+                "both lists.",
+        allowableValues = ["id_token", "userinfo"]
+    )
+    @get:JsonProperty("published_in_when_requested")
+    @get:JsonInclude(JsonInclude.Include.ALWAYS)
+    val publishedInWhenRequested: List<String>
 )

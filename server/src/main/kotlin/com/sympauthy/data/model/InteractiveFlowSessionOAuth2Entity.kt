@@ -26,6 +26,18 @@ class InteractiveFlowSessionOAuth2Entity(
     val codeChallenge: String? = null,
     val codeChallengeMethod: String? = null,
 
+    /**
+     * The claim ids the `claims` request parameter named for the id token, and the ones it named for
+     * `/userinfo`. Empty where the client sent no such parameter, and empty where it named nothing this
+     * deployment configures: both are a request asking for no claim by name.
+     *
+     * They are sanitized before they are written, the way [requestedScopes] is, so a row holds claim ids
+     * and never a document that has to be parsed again. What a name here is allowed to add is the claim's
+     * own `published-in-when-requested` — see `docs/design/claims.md`.
+     */
+    val requestedIdTokenClaims: Array<String> = emptyArray(),
+    val requestedUserinfoClaims: Array<String> = emptyArray(),
+
     val invitationId: UUID? = null,
 
     /**

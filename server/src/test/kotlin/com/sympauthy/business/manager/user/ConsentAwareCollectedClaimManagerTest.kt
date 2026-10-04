@@ -60,7 +60,8 @@ class ConsentAwareCollectedClaimManagerTest {
         required: Boolean = false,
         collectedInFlow: Boolean = true,
         readableByClient: Boolean = true,
-        publishedIn: Set<ClaimPublicationPlace> = ClaimPublicationPlace.entries.toSet()
+        publishedIn: Set<ClaimPublicationPlace> = ClaimPublicationPlace.entries.toSet(),
+        publishedInWhenRequested: Set<ClaimPublicationPlace> = emptySet()
     ) = Claim(
         id = "claim_$scope",
 
@@ -75,6 +76,7 @@ class ConsentAwareCollectedClaimManagerTest {
         allowedValues = null,
         audienceId = audienceId,
         publishedIn = publishedIn,
+        publishedInWhenRequested = publishedInWhenRequested,
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = scope,
@@ -102,6 +104,7 @@ class ConsentAwareCollectedClaimManagerTest {
         collectedInFlow = false,
         allowedValues = null,
         publishedIn = ClaimPublicationPlace.entries.toSet(),
+        publishedInWhenRequested = emptySet(),
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = null,
@@ -256,6 +259,91 @@ class ConsentAwareCollectedClaimManagerTest {
 
         assertTrue(result.isEmpty())
     }
+
+    @Test
+    fun `findByUserIdAndReadableByClientAndPublishedIn - Carry a claim the request named in an open channel`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val scope = "scope1"
+
+            val onRequest = claimWithConsentScope(
+                scope,
+                publishedIn = emptySet(),
+                publishedInWhenRequested = setOf(ClaimPublicationPlace.ID_TOKEN)
+            )
+            val collectedOnRequest = mockk<CollectedClaim> {
+                every { claim } returns onRequest
+            }
+
+            coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedOnRequest)
+
+            val result = manager.findByUserIdAndReadableByClientAndPublishedIn(
+                userId, AUDIENCE, ClaimPublicationPlace.ID_TOKEN, listOf(scope),
+                requestedClaims = RequestedClaims(
+                    idTokenClaimIds = setOf(onRequest.id),
+                    userInfoClaimIds = emptySet()
+                )
+            )
+
+            assertEquals(1, result.count())
+            assertSame(collectedOnRequest, result[0])
+        }
+
+    @Test
+    fun `findByUserIdAndReadableByClientAndPublishedIn - Leave out a claim the ACL refuses, request or no`() =
+        runTest {
+            val userId = UUID.randomUUID()
+
+            val onRequest = claimWithConsentScope(
+                "scope1",
+                publishedIn = emptySet(),
+                publishedInWhenRequested = setOf(ClaimPublicationPlace.ID_TOKEN)
+            )
+            val collectedOnRequest = mockk<CollectedClaim> {
+                every { claim } returns onRequest
+            }
+
+            coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedOnRequest)
+
+            val result = manager.findByUserIdAndReadableByClientAndPublishedIn(
+                userId, AUDIENCE, ClaimPublicationPlace.ID_TOKEN, emptyList(),
+                requestedClaims = RequestedClaims(
+                    idTokenClaimIds = setOf(onRequest.id),
+                    userInfoClaimIds = emptySet()
+                )
+            )
+
+            assertTrue(result.isEmpty())
+        }
+
+    @Test
+    fun `findByUserIdAndReadableByClientAndPublishedIn - Leave out a claim of another audience, request or no`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val scope = "scope1"
+
+            val onRequest = claimWithConsentScope(
+                scope,
+                audienceId = "billing",
+                publishedIn = emptySet(),
+                publishedInWhenRequested = setOf(ClaimPublicationPlace.ID_TOKEN)
+            )
+            val collectedOnRequest = mockk<CollectedClaim> {
+                every { claim } returns onRequest
+            }
+
+            coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedOnRequest)
+
+            val result = manager.findByUserIdAndReadableByClientAndPublishedIn(
+                userId, AUDIENCE, ClaimPublicationPlace.ID_TOKEN, listOf(scope),
+                requestedClaims = RequestedClaims(
+                    idTokenClaimIds = setOf(onRequest.id),
+                    userInfoClaimIds = emptySet()
+                )
+            )
+
+            assertTrue(result.isEmpty())
+        }
 
     @Test
     fun `findByUserIdAndReadableByClient - Leave out a claim restricted to another audience`() = runTest {

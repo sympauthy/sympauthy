@@ -23,9 +23,10 @@ import jakarta.inject.Singleton
 internal fun String.normalizeClaimId() = replace('-', '_')
 
 /**
- * Convert each of the [values] into the OpenID channel it names, recording an error against the entry's own
- * index for every one that names none, so a file naming two unknown channels reports both. [key] is the
- * property the entries were written under, whether that is a claim's or a template's.
+ * Convert each of the [values] into the place it names, recording an error against the entry's own
+ * index for every one that names none, so a file naming two unknown places reports both. [key] is the
+ * property the entries were written under — a claim's or a template's, and either of the two lists a
+ * claim names places in.
  *
  * Returns null where [values] is null — nothing written, which falls through to whatever a template offers.
  * An entry-less list is a claim naming no channel, which does not.
@@ -53,6 +54,7 @@ data class ParsedClaim(
     val audienceId: String?,
     val allowedValues: List<Any>?,
     val publishedIn: Set<ClaimPublicationPlace>,
+    val publishedInWhenRequested: Set<ClaimPublicationPlace>,
     val acl: ParsedClaimAcl
 )
 
@@ -107,6 +109,9 @@ class ClaimsConfigParser(
             // so no `published-in` written here could move one. It is the truth rather than the withholding
             // value because the discovery document reads it to say what a channel can supply.
             publishedIn = generatedClaim.publishedIn,
+            // No channel opens on request either, for the same reason: a client naming one of these in a
+            // `claims` parameter is naming a value the channel computes rather than one it filters.
+            publishedInWhenRequested = emptySet(),
             acl = ParsedClaimAcl.NONE
         )
     }
@@ -162,6 +167,12 @@ class ClaimsConfigParser(
             ?: template?.publishedIn
             ?: emptySet()
 
+        // The same silence, and the same fall-through to a template: a claim saying nothing here is
+        // askable nowhere, which leaves `published-in` the whole of where its value goes.
+        val publishedInWhenRequested = parsePublishedIn(
+            ctx, parser, properties.publishedInWhenRequested, "$configKeyPrefix.published-in-when-requested"
+        ) ?: template?.publishedInWhenRequested ?: emptySet()
+
         val acl = claimAclParser.parseAcl(ctx, properties.acl, template, configKeyPrefix, null)
 
         return ParsedClaim(
@@ -176,6 +187,7 @@ class ClaimsConfigParser(
             audienceId = audienceId,
             allowedValues = allowedValues,
             publishedIn = publishedIn,
+            publishedInWhenRequested = publishedInWhenRequested,
             acl = acl
         )
     }

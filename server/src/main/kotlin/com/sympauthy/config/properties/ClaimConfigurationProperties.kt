@@ -19,6 +19,7 @@ class ClaimConfigurationProperties(
     var kind: String? = null
     var audience: String? = null
     var publishedIn: List<String>? = null
+    var publishedInWhenRequested: List<String>? = null
     var acl: AclConfig? = null
 
     @ConfigurationProperties("acl")

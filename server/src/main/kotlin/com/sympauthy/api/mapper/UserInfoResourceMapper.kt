@@ -7,6 +7,7 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
+import com.sympauthy.business.model.user.claim.RequestedClaims
 import jakarta.inject.Singleton
 import java.time.LocalDate
 import java.util.*
@@ -23,12 +24,23 @@ class UserInfoResourceMapper(
      * A claim the deployment does not publish in `/userinfo` is left out, whatever the ACL that let the
      * caller read it: this narrows what it is handed and permits nothing it was refused.
      *
+     * [requestedClaims] is what the `claims` request parameter of the authorization behind the access
+     * token named, and it adds a claim whose `published-in-when-requested` opened this channel to a
+     * request. It never adds one the caller was handed no row for, so the ACL and the audience are
+     * already settled by the time it is asked.
+     *
      * A `<claim>_verified` companion is answered beside the claim it answers for and is false where that
      * value is unverified, which is what the id token claims for the same account — a client reading one
      * endpoint and then the other is owed the same shape from both.
      */
-    suspend fun toResource(userId: UUID, claims: List<CollectedClaim>): UserInfoResource {
-        val publishedClaims = claims.filter { it.claim.isPublishedIn(ClaimPublicationPlace.USERINFO) }
+    suspend fun toResource(
+        userId: UUID,
+        claims: List<CollectedClaim>,
+        requestedClaims: RequestedClaims = RequestedClaims.NONE
+    ): UserInfoResource {
+        val publishedClaims = claims.filter {
+            it.claim.isPublishedIn(ClaimPublicationPlace.USERINFO, requestedClaims)
+        }
         val claimById = publishedClaims.associateBy { it.claim.id }
         val addressClaims = publishedClaims.filter { it.claim.group == ClaimGroup.ADDRESS }
 

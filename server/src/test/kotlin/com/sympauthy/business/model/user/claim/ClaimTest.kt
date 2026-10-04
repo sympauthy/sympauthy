@@ -10,6 +10,7 @@ class ClaimTest {
     private fun claim(
         id: String = "test_claim",
         publishedIn: Set<ClaimPublicationPlace> = ClaimPublicationPlace.entries.toSet(),
+        publishedInWhenRequested: Set<ClaimPublicationPlace> = emptySet(),
         consentScope: String? = null,
         readableByPerson: Boolean = false,
         collectedInFlow: Boolean = false,
@@ -31,6 +32,7 @@ class ClaimTest {
         collectedInFlow = collectedInFlow,
         allowedValues = null,
         publishedIn = publishedIn,
+        publishedInWhenRequested = publishedInWhenRequested,
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = consentScope,
@@ -76,6 +78,58 @@ class ClaimTest {
     fun `isPublishedIn - false for every place when the claim names none`() {
         val claim = claim(publishedIn = emptySet())
         ClaimPublicationPlace.entries.forEach { assertFalse(claim.isPublishedIn(it)) }
+    }
+
+    @Test
+    fun `isPublishedIn - true for a place the claim names, whatever the request named`() {
+        val claim = claim(publishedIn = setOf(ClaimPublicationPlace.USERINFO))
+        assertTrue(claim.isPublishedIn(ClaimPublicationPlace.USERINFO, RequestedClaims.NONE))
+    }
+
+    @Test
+    fun `isPublishedIn - true for an on-request place the request named`() {
+        val claim = claim(
+            publishedIn = emptySet(),
+            publishedInWhenRequested = setOf(ClaimPublicationPlace.ID_TOKEN)
+        )
+        val requested = RequestedClaims(idTokenClaimIds = setOf("test_claim"), userInfoClaimIds = emptySet())
+        assertTrue(claim.isPublishedIn(ClaimPublicationPlace.ID_TOKEN, requested))
+    }
+
+    @Test
+    fun `isPublishedIn - false for an on-request place no request named`() {
+        val claim = claim(
+            publishedIn = emptySet(),
+            publishedInWhenRequested = setOf(ClaimPublicationPlace.ID_TOKEN)
+        )
+        assertFalse(claim.isPublishedIn(ClaimPublicationPlace.ID_TOKEN, RequestedClaims.NONE))
+    }
+
+    @Test
+    fun `isPublishedIn - false for a place the request named and the claim opened to no request`() {
+        val claim = claim(publishedIn = emptySet(), publishedInWhenRequested = emptySet())
+        val requested = RequestedClaims(idTokenClaimIds = setOf("test_claim"), userInfoClaimIds = emptySet())
+        assertFalse(claim.isPublishedIn(ClaimPublicationPlace.ID_TOKEN, requested))
+    }
+
+    @Test
+    fun `isPublishedIn - false where the request named the claim in the other channel`() {
+        val claim = claim(
+            publishedIn = emptySet(),
+            publishedInWhenRequested = setOf(ClaimPublicationPlace.ID_TOKEN)
+        )
+        val requested = RequestedClaims(idTokenClaimIds = emptySet(), userInfoClaimIds = setOf("test_claim"))
+        assertFalse(claim.isPublishedIn(ClaimPublicationPlace.ID_TOKEN, requested))
+    }
+
+    @Test
+    fun `isPublishedIn - false where the request named another claim`() {
+        val claim = claim(
+            publishedIn = emptySet(),
+            publishedInWhenRequested = setOf(ClaimPublicationPlace.ID_TOKEN)
+        )
+        val requested = RequestedClaims(idTokenClaimIds = setOf("other_claim"), userInfoClaimIds = emptySet())
+        assertFalse(claim.isPublishedIn(ClaimPublicationPlace.ID_TOKEN, requested))
     }
 
     @Test

@@ -11,6 +11,7 @@ import com.sympauthy.business.model.user.claim.ClaimDataType.STRING
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
+import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.business.model.user.claim.UnconditionalAcl
@@ -86,6 +87,59 @@ class UserInfoResourceMapperTest {
         val resource = mapper.toResource(userId, listOf(collected(publishedElsewhere("loyalty_tier"), "gold")))
 
         assertEquals(emptyMap<String, Any>(), resource.additionalClaims)
+    }
+
+    @Test
+    fun `toResource - Carry a claim the request named in a channel the deployment opened to one`() = runTest {
+        stubGenerated()
+
+        val resource = mapper.toResource(
+            userId,
+            listOf(collected(publishedHereOnRequest("loyalty_tier"), "gold")),
+            requesting("loyalty_tier")
+        )
+
+        assertEquals(mapOf("loyalty_tier" to "gold"), resource.additionalClaims)
+    }
+
+    @Test
+    fun `toResource - Carry no claim opened to a request that no request named`() = runTest {
+        stubGenerated()
+
+        val resource = mapper.toResource(userId, listOf(collected(publishedHereOnRequest("loyalty_tier"), "gold")))
+
+        assertEquals(emptyMap<String, Any>(), resource.additionalClaims)
+    }
+
+    @Test
+    fun `toResource - Carry no claim the request named in a channel the deployment opened to none`() = runTest {
+        stubGenerated()
+
+        val resource = mapper.toResource(
+            userId,
+            listOf(collected(publishedElsewhere("loyalty_tier"), "gold")),
+            requesting("loyalty_tier")
+        )
+
+        assertEquals(emptyMap<String, Any>(), resource.additionalClaims)
+    }
+
+    @Test
+    fun `toResource - Carry a standard claim the request named in a channel opened to one`() = runTest {
+        stubGenerated()
+
+        val claim = claim(
+            OpenIdConnectClaimId.EMAIL, EMAIL,
+            publishedIn = emptySet(),
+            publishedInWhenRequested = setOf(ClaimPublicationPlace.USERINFO)
+        )
+        val resource = mapper.toResource(
+            userId,
+            listOf(collected(claim, "ada@example.com")),
+            requesting(OpenIdConnectClaimId.EMAIL)
+        )
+
+        assertEquals("ada@example.com", resource.email)
     }
 
     @Test
@@ -203,12 +257,23 @@ class UserInfoResourceMapperTest {
     private fun publishedElsewhere(id: String) =
         claim(id, STRING, publishedIn = setOf(ClaimPublicationPlace.ID_TOKEN))
 
+    /** A claim of the deployment's own, carried here only for a request that names it. */
+    private fun publishedHereOnRequest(id: String) = claim(
+        id, STRING,
+        publishedIn = setOf(ClaimPublicationPlace.ID_TOKEN),
+        publishedInWhenRequested = setOf(ClaimPublicationPlace.USERINFO)
+    )
+
+    private fun requesting(vararg claimIds: String) =
+        RequestedClaims(idTokenClaimIds = emptySet(), userInfoClaimIds = claimIds.toSet())
+
     private fun claim(
         id: String,
         dataType: ClaimDataType,
         group: ClaimGroup? = null,
         verifiedId: String? = null,
-        publishedIn: Set<ClaimPublicationPlace> = ClaimPublicationPlace.entries.toSet()
+        publishedIn: Set<ClaimPublicationPlace> = ClaimPublicationPlace.entries.toSet(),
+        publishedInWhenRequested: Set<ClaimPublicationPlace> = emptySet()
     ) = Claim(
         id = id,
         enabled = true,
@@ -222,6 +287,7 @@ class UserInfoResourceMapperTest {
         allowedValues = null,
         audienceId = null,
         publishedIn = publishedIn,
+        publishedInWhenRequested = publishedInWhenRequested,
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = null,

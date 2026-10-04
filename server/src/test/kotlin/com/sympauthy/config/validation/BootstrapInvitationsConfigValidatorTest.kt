@@ -39,6 +39,7 @@ class BootstrapInvitationsConfigValidatorTest {
         allowedValues = null,
         audienceId = audienceId,
         publishedIn = ClaimPublicationPlace.entries.toSet(),
+        publishedInWhenRequested = emptySet(),
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = null,

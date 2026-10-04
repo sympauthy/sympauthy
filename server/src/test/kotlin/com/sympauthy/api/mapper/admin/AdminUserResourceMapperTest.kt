@@ -36,6 +36,7 @@ class AdminUserResourceMapperTest {
         collectedInFlow = false,
         allowedValues = null,
         publishedIn = ClaimPublicationPlace.entries.toSet(),
+        publishedInWhenRequested = emptySet(),
         acl = ClaimAcl(
             consent = ConsentAcl(
                 scope = null,

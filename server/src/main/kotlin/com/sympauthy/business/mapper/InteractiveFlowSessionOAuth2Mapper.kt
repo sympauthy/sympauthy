@@ -7,6 +7,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.GrantedBy
+import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.data.model.InteractiveFlowSessionOAuth2Entity
 import org.mapstruct.Mapper
 
@@ -30,6 +31,10 @@ abstract class InteractiveFlowSessionOAuth2Mapper {
             clientId = entity.clientId ?: throw invalidBusinessException("clientId"),
             redirectUri = entity.redirectUri ?: throw invalidBusinessException("redirectUri"),
             requestedScopes = entity.requestedScopes.toList(),
+            requestedClaims = RequestedClaims.of(
+                idTokenClaimIds = entity.requestedIdTokenClaims,
+                userInfoClaimIds = entity.requestedUserinfoClaims
+            ),
             state = entity.state,
             nonce = entity.nonce,
             codeChallenge = codeChallenge,
