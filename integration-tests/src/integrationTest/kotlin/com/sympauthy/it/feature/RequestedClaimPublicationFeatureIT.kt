@@ -6,20 +6,16 @@ import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
 import com.sympauthy.testcontainers.Client
 import com.sympauthy.testcontainers.SympauthyContainer
-import com.sympauthy.testcontainers.client.TokenClient
 import com.sympauthy.testcontainers.client.TokenResponse
 import com.sympauthy.testcontainers.flow.FlowException
-import com.sympauthy.testcontainers.flow.FlowOutcome
 import com.sympauthy.testcontainers.flow.InteractiveFlowRegistry
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.assertThrows
-import org.junit.jupiter.api.fail
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
-import java.net.http.HttpClient
 
 /**
  * Feature scenario — **a client asks for a claim in a channel the deployment opened to a request.**
@@ -63,6 +59,9 @@ import java.net.http.HttpClient
  * and the `303` sends the person to the flow's error page instead of to a step, which is what the driver
  * refuses to walk.
  *
+ * The parameter reaches `/authorize` through `InteractiveFlow.withAuthorizationParam`, so the driver still
+ * owns the request — the PKCE pair, the state and the code exchange are its own.
+ *
  * Issue: [#493](https://github.com/sympauthy/sympauthy/issues/493), and `docs/design/claims.md`.
  */
 @Tag("feature")
@@ -72,7 +71,7 @@ class RequestedClaimPublicationFeatureIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun carriesARequestedClaimInTheChannelTheDeploymentOpened(database: Database) {
         withRequestableClaims(database) { sympauthy, registry ->
-            val tokens = signUpAsking(sympauthy, registry, REQUEST)
+            val tokens = signUpAsking(registry, REQUEST)
 
             val idTokenClaims = verifyIdTokenSignature(
                 sympauthy,
@@ -138,7 +137,7 @@ class RequestedClaimPublicationFeatureIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun leavesAnOnRequestChannelShutWhenNothingIsAsked(database: Database) {
         withRequestableClaims(database) { sympauthy, registry ->
-            val tokens = signUpAsking(sympauthy, registry, claims = null)
+            val tokens = signUpAsking(registry, claims = null)
 
             val idTokenClaims = verifyIdTokenSignature(
                 sympauthy,
@@ -162,14 +161,12 @@ class RequestedClaimPublicationFeatureIT : AbstractSympauthyIT() {
     @ParameterizedTest(name = "a claims parameter that is not a JSON object fails the authorization on {0}")
     @EnumSource(Database::class)
     fun refusesAClaimsParameterThatIsNotAJsonObject(database: Database) {
-        withRequestableClaims(database) { sympauthy, registry ->
-            val step = startAuthorization(sympauthy, registry, generatePkce(), claims = "not-json")
-
+        withRequestableClaims(database) { _, registry ->
             val flow = registry.newFlow()
+                .withAuthorizationParam("claims", "not-json")
                 .withSignUpHandler { mapOf("email" to EMAIL, "password" to PASSWORD) }
-                .driveFrom(step, registry.redirectUri(), registry.redirectUri())
 
-            assertThrows<FlowException>("a claims parameter this server cannot read yields no code") { flow.drive() }
+            assertThrows<FlowException>("a claims parameter this server cannot read yields no code") { flow.run() }
         }
     }
 
@@ -192,54 +189,13 @@ class RequestedClaimPublicationFeatureIT : AbstractSympauthyIT() {
      * Signs a person up through an authorization asking for [claims], and exchanges the code it yields.
      * A null [claims] sends no such parameter at all.
      */
-    private fun signUpAsking(
-        sympauthy: SympauthyContainer,
-        registry: InteractiveFlowRegistry,
-        claims: String?,
-    ): TokenResponse {
-        val pkce = generatePkce()
-        val result = registry.newFlow()
+    private fun signUpAsking(registry: InteractiveFlowRegistry, claims: String?): TokenResponse =
+        registry.newFlow()
+            .apply { claims?.let { withAuthorizationParam("claims", it) } }
             .withSignUpHandler { mapOf("email" to EMAIL, "password" to PASSWORD) }
             .withClaimsHandler { requested -> requested.associate { it.id() to COLLECTED.getValue(it.id()) } }
-            .driveFrom(
-                startAuthorization(sympauthy, registry, pkce, claims),
-                registry.redirectUri(),
-                registry.redirectUri(),
-            )
-            .drive()
-
-        assertEquals(FlowOutcome.SUCCESS, result.outcome(), "the sign-up should complete")
-        val code = result.terminalParam("code") ?: fail("completing should hand the client a code")
-
-        return TokenClient(discovery(sympauthy).tokenEndpoint, HttpClient.newHttpClient(), registry.client())
-            .exchangeAuthorizationCode(code, registry.redirectUri(), pkce.verifier)
-    }
-
-    /**
-     * Starts an authorization carrying [claims] as the `claims` parameter, where it is non-null, and
-     * answers the page the `303` sends the person to.
-     *
-     * The request is issued here rather than through the library because no builder of
-     * [com.sympauthy.testcontainers.flow.InteractiveFlow] sets that parameter, and the driver is then
-     * handed the flow page the redirect names — which is the only kind of page it will start from.
-     */
-    private fun startAuthorization(
-        sympauthy: SympauthyContainer,
-        registry: InteractiveFlowRegistry,
-        pkce: Pkce,
-        claims: String?,
-    ): String {
-        val overrides = buildMap {
-            put("scope", SCOPES.joinToString(" "))
-            put("code_challenge", pkce.challenge)
-            claims?.let { put("claims", it) }
-        }
-        val authorize = httpGet(authorizeUrl(sympauthy, registry, overrides))
-        assertEquals(303, authorize.statusCode(), "authorize should redirect, body=${authorize.body()}")
-        return authorize.headers().firstValue("Location").orElseThrow {
-            error("authorize 303 had no Location")
-        }
-    }
+            .run()
+            .exchange()
 
     /** The token endpoint's answer to presenting [refreshToken], as the parsed JSON body. */
     private fun refresh(
