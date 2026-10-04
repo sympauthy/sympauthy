@@ -16,6 +16,8 @@ import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimDataType
+import com.sympauthy.business.model.user.claim.ClaimGroup
+import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimOrigin
 import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
 import com.sympauthy.config.model.AuthConfig
@@ -119,8 +121,12 @@ class UserClaimCollectionManager(
         field("required", BOOLEAN, sortable = true) { it.claim.required }
         field("generated", BOOLEAN, sortable = true) { it.claim.generated }
         enumeration<ClaimOrigin>("origin", key = "fields.claim_origin", sortable = true) { it.claim.origin }
+        enumeration<ClaimKind>("kind", key = "fields.claim_kind", nullable = true, sortable = true) { it.claim.kind }
         enumeration<ClaimDataType>("data_type", key = "fields.claim_data_type", sortable = true) {
             it.claim.dataType
+        }
+        enumeration<ClaimGroup>("group", key = "fields.claim_group", nullable = true, sortable = true) {
+            it.claim.group
         }
         field("collected", BOOLEAN, sortable = true) { it.collectedClaim?.value != null }
         field("verified", BOOLEAN, sortable = true) { it.collectedClaim?.verificationDate != null }

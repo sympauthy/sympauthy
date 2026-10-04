@@ -107,6 +107,7 @@ class AdminUserClaimControllerTest {
         value = null,
         type = "string",
         origin = "openid",
+        kind = "personal",
         required = false,
         identifier = false,
         group = null,

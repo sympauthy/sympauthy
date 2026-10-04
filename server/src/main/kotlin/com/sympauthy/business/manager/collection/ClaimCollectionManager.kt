@@ -57,8 +57,10 @@ class ClaimCollectionManager(
     private suspend fun fields(): CollectionFields<Claim> = collectionFields(
         uniqueKey = compareBy(Claim::id)
     ) {
+        val identifierClaimIds = claimManager.listIdentifierClaims().map(Claim::id).toSet()
         field("id", STRING, key = "fields.claim_id", searchable = true, read = Claim::id)
         field("enabled", BOOLEAN, sortable = true, read = Claim::enabled)
+        field("identifier", BOOLEAN, sortable = true) { it.id in identifierClaimIds }
         field("required", BOOLEAN, sortable = true, read = Claim::required)
         field("generated", BOOLEAN, sortable = true, read = Claim::generated)
         enumeration<ClaimOrigin>("origin", key = "fields.claim_origin", sortable = true) { it.origin }
