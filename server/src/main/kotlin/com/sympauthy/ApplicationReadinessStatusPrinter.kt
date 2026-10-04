@@ -8,7 +8,7 @@ import com.sympauthy.business.manager.provider.ProviderManager
 import com.sympauthy.business.manager.rule.ScopeGrantingRuleManager
 import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ENDPOINT
 import com.sympauthy.business.model.oauth2.isAdmin
-import com.sympauthy.business.model.user.claim.ClaimOrigin
+import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.config.ConfigReadiness
 import com.sympauthy.config.model.*
 import com.sympauthy.server.ErrorMessages
@@ -143,17 +143,11 @@ class ApplicationReadinessStatusPrinter(
             scopes.count { it is com.sympauthy.business.model.oauth2.GrantableUserScope && !it.isAdmin }
         val clientScopesCount = scopes.count { it is com.sympauthy.business.model.oauth2.ClientScope }
         logger.info(
-            "- ${pluralize(scopes.size, "scope")} (${
-                pluralize(
-                    consentableScopesCount,
-                    "consentable"
-                )
-            }, ${pluralize(grantableScopesCount, "grantable")}, ${pluralize(adminScopesCount, "admin")}, ${
-                pluralize(
-                    clientScopesCount,
-                    "client"
-                )
-            })."
+            "- ${pluralize(scopes.size, "scope")} " +
+                    "(${pluralize(consentableScopesCount, "consentable", "consentable")}, " +
+                    "${pluralize(grantableScopesCount, "grantable", "grantable")}, " +
+                    "${pluralize(adminScopesCount, "admin", "admin")}, " +
+                    "${pluralize(clientScopesCount, "client", "client")})."
         )
 
         val enabledClaims = try {
@@ -161,15 +155,16 @@ class ApplicationReadinessStatusPrinter(
         } catch (_: Throwable) {
             emptyList()
         }
-        val standardClaimsCount = enabledClaims.count { it.origin == ClaimOrigin.OPENID_CONNECT }
-        val customClaimsCount = enabledClaims.count { it.origin == ClaimOrigin.CUSTOM }
+        // A claim carrying no kind is a generated one, which Claim.kind is the authority on. Reading the
+        // three counts off the same value is what makes them a partition of the total.
+        val personalClaimsCount = enabledClaims.count { it.kind == ClaimKind.PERSONAL }
+        val applicationClaimsCount = enabledClaims.count { it.kind == ClaimKind.APPLICATION }
+        val generatedClaimsCount = enabledClaims.count { it.kind == null }
         logger.info(
-            "- ${pluralize(enabledClaims.size, "claim")} (${
-                pluralize(
-                    standardClaimsCount,
-                    "standard"
-                )
-            }, ${pluralize(customClaimsCount, "custom")})."
+            "- ${pluralize(enabledClaims.size, "claim")} " +
+                    "(${pluralize(personalClaimsCount, "personal", "personal")}, " +
+                    "${pluralize(applicationClaimsCount, "application", "application")}, " +
+                    "${pluralize(generatedClaimsCount, "generated", "generated")})."
         )
 
         val userRulesCount = try {
@@ -184,12 +179,9 @@ class ApplicationReadinessStatusPrinter(
         }
         val totalRulesCount = userRulesCount + clientRulesCount
         logger.info(
-            "- ${pluralize(totalRulesCount, "rule")} (${pluralize(userRulesCount, "user")}, ${
-                pluralize(
-                    clientRulesCount,
-                    "client"
-                )
-            })."
+            "- ${pluralize(totalRulesCount, "rule")} " +
+                    "(${pluralize(userRulesCount, "user", "user")}, " +
+                    "${pluralize(clientRulesCount, "client", "client")})."
         )
 
         val clientTemplateCount = try {
@@ -209,16 +201,25 @@ class ApplicationReadinessStatusPrinter(
         }
         val totalTemplateCount = clientTemplateCount + scopeTemplateCount + claimTemplateCount
         logger.info(
-            "- ${pluralize(totalTemplateCount, "template")} (${
-                pluralize(
-                    clientTemplateCount,
-                    "client"
-                )
-            }, ${pluralize(scopeTemplateCount, "scope")}, ${pluralize(claimTemplateCount, "claim")})."
+            "- ${pluralize(totalTemplateCount, "template")} " +
+                    "(${pluralize(clientTemplateCount, "client", "client")}, " +
+                    "${pluralize(scopeTemplateCount, "scope", "scope")}, " +
+                    "${pluralize(claimTemplateCount, "claim", "claim")})."
         )
     }
 
-    private fun pluralize(count: Int, singular: String) = if (count <= 1) "$count $singular" else "$count ${singular}s"
+    /**
+     * [count] and the word counted, which takes an `s` where the count calls for one.
+     *
+     * A caller writes [plural] out where that is not the word. The breakdown a line carries in its
+     * parentheses qualifies the noun the line already named, and an adjective doing that is the same
+     * word whatever the count is — "3 generateds" is what the default produces there.
+     *
+     * One is the only count the singular answers for: none of something is plural in English, so a
+     * line reporting nothing reports "0 scopes".
+     */
+    private fun pluralize(count: Int, singular: String, plural: String = "${singular}s") =
+        if (count == 1) "$count $singular" else "$count $plural"
 
     private fun printServingBanner() {
         val urlsConfig = uncheckedUrlsConfig.getOrNull() ?: return
