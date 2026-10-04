@@ -332,6 +332,13 @@ a value.** `email_verified` beside `email` is the specification's own case, and 
 declares one the same way. The flow proves a value by sending a code to it, and a place claiming the
 companion true beside no value would be this server asserting it verified something it did not send.
 
+**A verification is the value's, and a write that changes a value drops it.** The flow proved the
+value a code reached and nothing about the next one, so a row keeping the companion true across an
+edit would have this server asserting it verified an address it never wrote to — which is the same
+assertion as a companion beside no value, made about a value somebody else chose. Every write
+answers alike whether the value was changed, cleared or set again, and the flow then asks for a code
+for the new value the way it asked for the first.
+
 **A required claim holds up the flow of an audience that has it.** A person signing in to an
 audience is asked for the required claims that audience has, and for no other audience's; what the
 flow does with them once collected is [the interactive flow](interactive-flow.md). Required is read
