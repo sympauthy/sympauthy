@@ -86,13 +86,13 @@ class AuthenticationTokenRepositoryTest {
         )
         val withoutAny = saveToken(userId = null, sessionId = null, grantType = "client_credentials")
 
-        assertArrayEquals(arrayOf("loyalty_tier"), tokens.findById(id)!!.requestedIdTokenClaims)
-        assertArrayEquals(
-            arrayOf("shoe_size", "loyalty_tier"),
-            tokens.findById(id)!!.requestedUserinfoClaims
-        )
-        assertArrayEquals(emptyArray<String>(), tokens.findById(withoutAny)!!.requestedIdTokenClaims)
-        assertArrayEquals(emptyArray<String>(), tokens.findById(withoutAny)!!.requestedUserinfoClaims)
+        val stored = tokens.findById(id)!!
+        val storedWithoutAny = tokens.findById(withoutAny)!!
+
+        assertArrayEquals(arrayOf("loyalty_tier"), stored.requestedIdTokenClaims)
+        assertArrayEquals(arrayOf("shoe_size", "loyalty_tier"), stored.requestedUserinfoClaims)
+        assertArrayEquals(emptyArray<String>(), storedWithoutAny.requestedIdTokenClaims)
+        assertArrayEquals(emptyArray<String>(), storedWithoutAny.requestedUserinfoClaims)
     }
 
     @ParameterizedTest

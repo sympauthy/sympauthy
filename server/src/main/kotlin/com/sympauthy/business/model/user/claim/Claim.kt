@@ -132,7 +132,18 @@ data class Claim(
      * [publishedInWhenRequested] does not name — see [RequestedClaims].
      */
     fun isPublishedIn(place: ClaimPublicationPlace, requestedClaims: RequestedClaims): Boolean =
-        isPublishedIn(place) || (place in publishedInWhenRequested && id in requestedClaims.namesIn(place))
+        isPublishedIn(place) || (isPublishedInWhenRequested(place) && id in requestedClaims.namesIn(place))
+
+    /**
+     * Return true if this claim opens [place] to a request, which is what
+     * [publishedInWhenRequested] names.
+     *
+     * It says that a request *could* reach [place] and never that one did, so the two-argument
+     * [isPublishedIn] is what decides whether a value is carried; a caller publishing what a claim
+     * declares — the administration API is the one — asks this instead.
+     */
+    fun isPublishedInWhenRequested(place: ClaimPublicationPlace): Boolean =
+        place in publishedInWhenRequested
 
     /**
      * Return true if the person can read this claim through their own access token, given the

@@ -171,7 +171,7 @@ class RequestedClaimPublicationFeatureIT : AbstractSympauthyIT() {
     }
 
     /**
-     * Runs [block] against a container whose four custom claims open the channels these scenarios turn on,
+     * Runs [block] against a container whose custom claims open the channels these scenarios turn on,
      * for a confidential client, so that the refresh grant can be presented with the client's own secret.
      */
     private fun withRequestableClaims(
@@ -213,7 +213,7 @@ class RequestedClaimPublicationFeatureIT : AbstractSympauthyIT() {
     }
 
     /**
-     * The four custom claims the scenarios turn on, under the `profile` scope the person consents to, and
+     * The six custom claims the scenarios turn on, under the `profile` scope the person consents to, and
      * the client allowed and defaulted to that scope — the base configuration allows `openid` alone, and a
      * flow asking for more than its client allows is refused before any step runs.
      */
@@ -278,7 +278,7 @@ class RequestedClaimPublicationFeatureIT : AbstractSympauthyIT() {
         val SCOPES = listOf("openid", "profile")
 
         /**
-         * Two claims for the id token and one for `/userinfo`, as §5.5 spells the parameter. The
+         * Three claims for the id token and two for `/userinfo`, as §5.5 spells the parameter. The
          * `essential` member against `internal_note` is read past, which is the one assertion that would
          * change if the flag ever came to mean something.
          */

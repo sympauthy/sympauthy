@@ -32,7 +32,7 @@ class AdminClaimResourceMapper(
             // deployment happened to write the places.
             publishedIn = ClaimPublicationPlace.entries.filter(claim::isPublishedIn).map { it.wireName },
             publishedInWhenRequested = ClaimPublicationPlace.entries
-                .filter { it in claim.publishedInWhenRequested }
+                .filter(claim::isPublishedInWhenRequested)
                 .map { it.wireName }
         )
     }
