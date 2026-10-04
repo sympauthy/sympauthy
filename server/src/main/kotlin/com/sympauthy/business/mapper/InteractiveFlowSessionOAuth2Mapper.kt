@@ -31,9 +31,9 @@ abstract class InteractiveFlowSessionOAuth2Mapper {
             clientId = entity.clientId ?: throw invalidBusinessException("clientId"),
             redirectUri = entity.redirectUri ?: throw invalidBusinessException("redirectUri"),
             requestedScopes = entity.requestedScopes.toList(),
-            requestedClaims = RequestedClaims(
-                idTokenClaimIds = entity.requestedIdTokenClaims.toSet(),
-                userInfoClaimIds = entity.requestedUserinfoClaims.toSet()
+            requestedClaims = RequestedClaims.of(
+                idTokenClaimIds = entity.requestedIdTokenClaims,
+                userInfoClaimIds = entity.requestedUserinfoClaims
             ),
             state = entity.state,
             nonce = entity.nonce,

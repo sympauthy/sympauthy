@@ -43,11 +43,13 @@ class ClaimTemplatesConfigFactoryTest {
         required: String? = null,
         group: String? = null,
         publishedIn: List<String>? = null,
+        publishedInWhenRequested: List<String>? = null,
         kind: String? = null
     ): ClaimTemplateConfigurationProperties {
         return ClaimTemplateConfigurationProperties(id).apply {
             this.group = group
             this.publishedIn = publishedIn
+            this.publishedInWhenRequested = publishedInWhenRequested
             this.kind = kind
         }.also {
             if (enabled != null) {
@@ -136,6 +138,55 @@ class ClaimTemplatesConfigFactoryTest {
         val errors = (result as DisabledClaimTemplatesConfig).configurationErrors!!
             .filterIsInstance<ConfigurationException>()
         assertEquals(listOf("templates.claims.bad.published-in[0]"), errors.map { it.key })
+    }
+
+    @Test
+    fun `provideClaimTemplates - Parses the channels it opens to a request as a default`() {
+        setUp()
+        val templates = listOf(
+            templateProperties(id = "askable", publishedInWhenRequested = listOf("id-token"))
+        )
+
+        val result = factory.provideClaimTemplates(templates)
+
+        val config = assertInstanceOf(EnabledClaimTemplatesConfig::class.java, result)
+        assertEquals(setOf(ID_TOKEN), config.templates["askable"]!!.publishedInWhenRequested)
+    }
+
+    @Test
+    fun `provideClaimTemplates - Returns disabled config for a place no request can name`() {
+        setUp()
+        val templates = listOf(
+            templateProperties(id = "bad", publishedInWhenRequested = listOf("access-token"))
+        )
+
+        val result = factory.provideClaimTemplates(templates)
+
+        assertInstanceOf(DisabledClaimTemplatesConfig::class.java, result)
+        val errors = (result as DisabledClaimTemplatesConfig).configurationErrors!!
+            .filterIsInstance<ConfigurationException>()
+        assertEquals(
+            listOf("config.claim.template.published_in_when_requested.not_a_channel"),
+            errors.map { it.messageId }
+        )
+        assertEquals(listOf("templates.claims.bad.published-in-when-requested"), errors.map { it.key })
+        assertEquals(listOf("access-token"), errors.map { it.values["place"] })
+    }
+
+    @Test
+    fun `provideClaimTemplates - Accepts a channel it names in both of its own lists`() {
+        setUp()
+        val templates = listOf(
+            templateProperties(
+                id = "overridable",
+                publishedIn = listOf("id-token"),
+                publishedInWhenRequested = listOf("id-token")
+            )
+        )
+
+        val result = factory.provideClaimTemplates(templates)
+
+        assertInstanceOf(EnabledClaimTemplatesConfig::class.java, result)
     }
 
     @Test

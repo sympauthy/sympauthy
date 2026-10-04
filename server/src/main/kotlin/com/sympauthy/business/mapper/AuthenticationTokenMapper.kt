@@ -36,9 +36,9 @@ abstract class AuthenticationTokenMapper {
      * so a name whose claim the configuration no longer declares reads back as itself and stops mattering
      * where it is compared against the claims a caller may read.
      */
-    fun mapRequestedClaims(entity: AuthenticationTokenEntity): RequestedClaims = RequestedClaims(
-        idTokenClaimIds = entity.requestedIdTokenClaims.toSet(),
-        userInfoClaimIds = entity.requestedUserinfoClaims.toSet()
+    fun mapRequestedClaims(entity: AuthenticationTokenEntity): RequestedClaims = RequestedClaims.of(
+        idTokenClaimIds = entity.requestedIdTokenClaims,
+        userInfoClaimIds = entity.requestedUserinfoClaims
     )
 
     fun mapConsentedBy(value: String?): ConsentedBy? = value?.let {

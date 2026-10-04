@@ -51,5 +51,21 @@ data class RequestedClaims(
          * parameter and where it sent one naming no claim this deployment configures.
          */
         val NONE = RequestedClaims(idTokenClaimIds = emptySet(), userInfoClaimIds = emptySet())
+
+        /**
+         * The request a row holds, read from the column carrying each channel's names.
+         *
+         * Every row that carries a request carries it as these two columns, and pairing a column with
+         * the channel it belongs to is the one thing a reader of one can get wrong — so it is done here
+         * rather than at each mapper. A writer cannot share this: the two entity constructors name the
+         * columns themselves, and the `data` layer may not see this model. What holds every writer to
+         * the pairing instead is `RequestedClaimPublicationFeatureIT`, whose two claims open both
+         * channels and are asked for in one each, so a channel swapped anywhere between the authorize
+         * request and `/userinfo` fails it.
+         */
+        fun of(idTokenClaimIds: Array<String>, userInfoClaimIds: Array<String>) = RequestedClaims(
+            idTokenClaimIds = idTokenClaimIds.toSet(),
+            userInfoClaimIds = userInfoClaimIds.toSet()
+        )
     }
 }

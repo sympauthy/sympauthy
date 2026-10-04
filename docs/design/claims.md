@@ -467,6 +467,12 @@ is refused at startup rather than accepted and never applied.
 **A channel in both lists is refused at startup too, naming the claim and the channel.** Always and
 on request are two answers for one channel and only one of them can be meant.
 
+**A template is held to the first of those two and not the second.** A place no request can name is
+refused on the template that writes it, because nothing a claim does afterwards could make the entry
+take effect; a channel a template names in both of its lists is left alone, because a claim
+overriding either list resolves to no collision at all, and the claim is where the resolved sets are
+checked.
+
 **The default stays silence**, which is the rule [the
 default](#the-default-and-where-a-deployment-reads-it-back) already states: a claim naming neither
 list is published nowhere and askable nowhere.
