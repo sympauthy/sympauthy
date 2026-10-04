@@ -128,6 +128,24 @@ class ClaimsConfigValidatorTest {
     }
 
     @Test
+    fun `validate - Refuse a claim advertised beside an on-request place no request can name`() {
+        val ctx = validate(
+            listOf(
+                parsedClaim(
+                    "email",
+                    publishedIn = setOf(ClaimPublicationPlace.DISCOVERY),
+                    publishedInWhenRequested = setOf(ClaimPublicationPlace.ACCESS_TOKEN)
+                )
+            )
+        )
+
+        assertTrue(
+            "config.claim.published_in.advertised_without_a_carrier" in ctx.errors.map { it.messageId },
+            "a place no request can name carries nothing, so the claim is advertised without a carrier"
+        )
+    }
+
+    @Test
     fun `validate - Refuse a channel a claim names in both of its publication lists`() {
         val ctx = validate(
             listOf(

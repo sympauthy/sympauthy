@@ -120,10 +120,12 @@ class ClaimsConfigValidator(
      * value for is the one direction publication may not go: a deployment stays free to carry what it does
      * not advertise, and this is what stops it advertising what it does not carry.
      *
-     * **A channel opened to a request counts as a carrier.** A client reading the name out of the document
-     * can ask for it and be answered, which is the whole of what this rule asks of a carrier; refusing
-     * such a claim would make a deployment choose between advertising a name and only answering it on
-     * request.
+     * **A channel opened to a request counts as a carrier, where a request can reach it.** A client
+     * reading the name out of the document can ask for it and be answered, which is the whole of what
+     * this rule asks of a carrier; refusing such a claim would make a deployment choose between
+     * advertising a name and only answering it on request. A place
+     * [refuseAPlaceNoRequestCanName] is about to refuse carries nothing, so it is not one — counting it
+     * would hide this error behind that one and report a file naming both mistakes one restart at a time.
      *
      * It is checked on the resolved set rather than on the claim's own entry, so that a template naming
      * [ClaimPublicationPlace.DISCOVERY] and a claim naming a place that carries the value agree — which is what
@@ -136,7 +138,8 @@ class ClaimsConfigValidator(
         configKeyPrefix: String
     ) {
         if (ClaimPublicationPlace.DISCOVERY !in parsed.publishedIn) return
-        val carriers = parsed.publishedIn + parsed.publishedInWhenRequested
+        val carriers = parsed.publishedIn +
+                parsed.publishedInWhenRequested.filter(ClaimPublicationPlace::nameableInAClaimsRequest)
         if (carriers.any(ClaimPublicationPlace::carriesAValue)) return
         ctx.addError(
             configExceptionOf(
