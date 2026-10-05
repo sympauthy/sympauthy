@@ -39,12 +39,9 @@ class AuthenticationTimeFeatureIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun tokensStateWhenThePersonAuthenticated(database: Database) {
         withContainer(database, REFRESH_ENABLED, confidentialClient()) { sympauthy, registry ->
-            val tokens = registry.newFlow()
-                .withSignUpHandler { mapOf("email" to "ada@example.com", "password" to "Str0ngP@ssw0rd!") }
-                .run()
-                .exchange()
+            val tokens = signUpAndExchange(registry)
 
-            val idToken = checkNotNull(tokens.idToken()) { "the openid scope should yield an id_token" }
+            val idToken = requireIdToken(tokens.idToken())
             val accessToken = checkNotNull(tokens.accessToken()) { "the exchange should yield an access token" }
 
             val idClaims = verifyIdTokenSignature(sympauthy, idToken)
@@ -72,22 +69,12 @@ class AuthenticationTimeFeatureIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun refreshReissuesTheOriginalAuthenticationTime(database: Database) {
         withContainer(database, REFRESH_ENABLED, confidentialClient()) { sympauthy, registry ->
-            val tokens = registry.newFlow()
-                .withSignUpHandler { mapOf("email" to "ada@example.com", "password" to "Str0ngP@ssw0rd!") }
-                .run()
-                .exchange()
-            val idToken = checkNotNull(tokens.idToken()) { "the openid scope should yield an id_token" }
+            val tokens = signUpAndExchange(registry)
+            val idToken = requireIdToken(tokens.idToken())
             val refreshToken = checkNotNull(tokens.refreshToken()) { "refresh-enabled should yield a refresh token" }
             val authTime = checkNotNull(verifyIdTokenSignature(sympauthy, idToken).getLongClaim(AUTH_TIME))
 
-            val response = httpPostForm(
-                discovery(sympauthy).tokenEndpoint,
-                mapOf("grant_type" to "refresh_token", "refresh_token" to refreshToken),
-                mapOf("Authorization" to basicAuth(registry.clientId(), checkNotNull(registry.clientSecret()))),
-            )
-            assertEquals(200, response.statusCode(), "the refresh grant should succeed, body=${response.body()}")
-
-            val body = JSONObjectUtils.parse(response.body())
+            val body = refresh(sympauthy, registry, refreshToken)
             val refreshedIdToken = checkNotNull(JSONObjectUtils.getString(body, "id_token"))
             val refreshedAccessToken = JSONObjectUtils.getString(body, "access_token")
 
@@ -116,7 +103,7 @@ class AuthenticationTimeFeatureIT : AbstractSympauthyIT() {
             val response = httpPostForm(
                 discovery(sympauthy).tokenEndpoint,
                 mapOf("grant_type" to "client_credentials"),
-                mapOf("Authorization" to basicAuth(BACKEND_CLIENT_ID, BACKEND_CLIENT_SECRET)),
+                basicAuth(BACKEND_CLIENT_ID, BACKEND_CLIENT_SECRET),
             )
             assertEquals(
                 200,
@@ -130,7 +117,7 @@ class AuthenticationTimeFeatureIT : AbstractSympauthyIT() {
                 "no person proved a credential behind a client_credentials token",
             )
             assertNull(
-                introspectedAuthTime(sympauthy, BACKEND_CLIENT_ID, BACKEND_CLIENT_SECRET, token),
+                introspectedAuthTime(sympauthy, basicAuth(BACKEND_CLIENT_ID, BACKEND_CLIENT_SECRET), token),
                 "introspecting one must not report an authentication that never happened",
             )
         }
@@ -147,26 +134,14 @@ class AuthenticationTimeFeatureIT : AbstractSympauthyIT() {
         sympauthy: SympauthyContainer,
         registry: InteractiveFlowRegistry,
         token: String,
-    ): Long? = introspectedAuthTime(
-        sympauthy,
-        registry.clientId(),
-        checkNotNull(registry.clientSecret()),
-        token,
-    )
+    ): Long? = introspectedAuthTime(sympauthy, basicAuth(registry), token)
 
     private fun introspectedAuthTime(
         sympauthy: SympauthyContainer,
-        clientId: String,
-        clientSecret: String,
+        auth: Map<String, String>,
         token: String,
     ): Long? {
-        val response = httpPostForm(
-            checkNotNull(discovery(sympauthy).introspectionEndpoint),
-            mapOf("token" to token),
-            mapOf("Authorization" to basicAuth(clientId, clientSecret)),
-        )
-        assertEquals(200, response.statusCode(), "introspection should answer, body=${response.body()}")
-        val body = JSONObjectUtils.parse(response.body())
+        val body = introspect(sympauthy, token, auth)
         assertTrue(JSONObjectUtils.getBoolean(body, "active"), "the token should introspect as active")
         return if (body.containsKey(AUTH_TIME)) JSONObjectUtils.getLong(body, AUTH_TIME) else null
     }

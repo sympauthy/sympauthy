@@ -41,26 +41,22 @@ class IntrospectionActiveFalseForOtherClientsTokenIT : AbstractSympauthyIT() {
         )
 
         withContainer(database, otherClient) { sympauthy, registry ->
-            val tokens = registry.newFlow()
-                .withSignUpHandler { mapOf("email" to "ada@example.com", "password" to "Str0ngP@ssw0rd!") }
-                .run()
-                .exchange()
+            val tokens = signUpAndExchange(registry)
             val foreignAccessToken = checkNotNull(tokens.accessToken()) { "expected an access token from exchange" }
 
-            val response = httpPostForm(
-                discovery(sympauthy).introspectionEndpoint!!,
-                mapOf("token" to foreignAccessToken),
-                headers = mapOf("Authorization" to basicAuth(OTHER_CLIENT_ID, OTHER_CLIENT_SECRET)),
+            val introspection = introspect(
+                sympauthy,
+                foreignAccessToken,
+                basicAuth(OTHER_CLIENT_ID, OTHER_CLIENT_SECRET),
             )
 
-            assertEquals(200, response.statusCode(), "introspection should answer, body=${response.body()}")
-            assertTrue(
-                response.body().contains("\"active\":false"),
-                "a foreign client's token must introspect as inactive, body=${response.body()}",
+            assertEquals(
+                false, introspection["active"],
+                "a foreign client's token must introspect as inactive, was: $introspection",
             )
             assertTrue(
-                !response.body().contains("\"sub\"") && !response.body().contains("\"scope\""),
-                "an inactive introspection response must not leak token metadata, body=${response.body()}",
+                !introspection.containsKey("sub") && !introspection.containsKey("scope"),
+                "an inactive introspection response must not leak token metadata, was: $introspection",
             )
         }
     }

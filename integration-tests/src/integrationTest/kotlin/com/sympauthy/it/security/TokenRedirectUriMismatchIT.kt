@@ -2,8 +2,6 @@ package com.sympauthy.it.security
 
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
@@ -30,27 +28,14 @@ class TokenRedirectUriMismatchIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun tokenEndpointRejectsMismatchedRedirectUri(database: Database) {
         withContainer(database) { sympauthy, registry ->
-            val result = registry.newFlow()
-                .withSignUpHandler { mapOf("email" to "ada@example.com", "password" to "Str0ngP@ssw0rd!") }
-                .run()
-            val code = checkNotNull(result.code()) { "expected an authorization code from sign-up" }
+            val code = signUpForCode(registry)
 
-            val response = httpPostForm(
-                discovery(sympauthy).tokenEndpoint,
-                mapOf(
-                    "grant_type" to "authorization_code",
-                    "code" to code,
-                    "redirect_uri" to "https://attacker.example/callback",
-                    "client_id" to registry.clientId(),
-                    "code_verifier" to generatePkce().verifier,
-                ),
+            val response = exchangeCode(
+                sympauthy, registry, code,
+                mapOf("redirect_uri" to "https://attacker.example/callback"),
             )
 
-            assertEquals(400, response.statusCode(), "mismatched redirect_uri must be rejected, body=${response.body()}")
-            assertTrue(
-                response.body().contains("invalid_grant"),
-                "expected an invalid_grant error, was: ${response.body()}",
-            )
+            assertOAuthError(response, 400, "invalid_grant", "a mismatched redirect_uri must be rejected")
         }
     }
 }

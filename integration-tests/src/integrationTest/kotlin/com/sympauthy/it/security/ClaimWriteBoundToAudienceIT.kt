@@ -3,7 +3,6 @@ package com.sympauthy.it.security
 import com.sympauthy.api.client.api.ClientApi
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
-import com.sympauthy.it.SympauthyImage
 import com.sympauthy.testcontainers.Client
 import com.sympauthy.testcontainers.SympauthyContainer
 import com.sympauthy.testcontainers.flow.InteractiveFlowRegistry
@@ -42,13 +41,7 @@ class ClaimWriteBoundToAudienceIT : AbstractSympauthyIT() {
         withCustomContainer(
             database,
             client = Client.confidentialClient(OWN_CLIENT_ID, CLIENT_SECRET),
-            build = { fixture, registry ->
-                fixture.applyTo(
-                    SympauthyContainer(SympauthyImage.resolve())
-                        .withConfig(twoAudienceClientConfig(registry))
-                        .withFlows(registry),
-                )
-            },
+            build = { fixture, registry -> container(fixture, twoAudienceClientConfig(registry), registry) },
         ) { sympauthy, registry ->
             val userId = signUpAndReadSubject(sympauthy, registry)
             val callerToken = clientCredentialsToken(sympauthy, registry, "users:claims:write", "users:claims:read")
@@ -84,12 +77,8 @@ class ClaimWriteBoundToAudienceIT : AbstractSympauthyIT() {
         sympauthy: SympauthyContainer,
         registry: InteractiveFlowRegistry,
     ): UUID {
-        val tokens = registry.newFlow()
-            .withSignUpHandler { mapOf("email" to EMAIL, "password" to PASSWORD) }
-            .run()
-            .exchange()
-        val idToken = requireNotNull(tokens.idToken()) { "the openid scope should yield an id_token" }
-        return UUID.fromString(verifyIdTokenSignature(sympauthy, idToken).subject)
+        val tokens = signUpAndExchange(registry, EMAIL)
+        return UUID.fromString(subjectOf(sympauthy, tokens.idToken()))
     }
 
     /**
@@ -113,57 +102,52 @@ class ClaimWriteBoundToAudienceIT : AbstractSympauthyIT() {
     /** The HTTP status and raw error body (carrying the server's `error_code`) of a rejected claim write. */
     private data class RejectedWrite(val status: Int, val body: String)
 
+    /**
+     * Password auth with an email identifier, a second audience beside the shipped `default`, and two
+     * custom claims a client may write with `users:claims:write` — `custom_tier` restricted to `billing`,
+     * `custom_region` to nothing. Both take that write permission from `templates.claims.application`, so
+     * the audience is the only thing separating them.
+     *
+     * The confidential client names no audience, so it takes `default` from `templates.clients.default`,
+     * and holds both the `authorization_code` grant (to sign the person up) and `client_credentials` (to
+     * call the client API). `features.grant-unhandled-scopes` is what lets that grant actually hand out
+     * the claim scopes, there being no granting rule for them.
+     */
+    private fun twoAudienceClientConfig(registry: InteractiveFlowRegistry): Map<String, Any> = passwordAuthConfig(
+        claims = mapOf(
+            "custom_region" to mapOf("enabled" to true, "type" to "string", "template" to "application"),
+            "custom_tier" to mapOf(
+                "enabled" to true,
+                "type" to "string",
+                "template" to "application",
+                "audience" to "billing",
+            ),
+        ),
+    ) + mapOf(
+        "audiences" to mapOf(
+            "billing" to mapOf("token-audience" to "https://billing.example.com"),
+        ),
+        "features" to mapOf("grant-unhandled-scopes" to true),
+        "clients" to mapOf(
+            registry.clientId() to mapOf(
+                "public" to false,
+                "secret" to CLIENT_SECRET,
+                "authorizationFlow" to registry.flowId(),
+                "allowed-grant-types" to listOf("authorization_code", "client_credentials"),
+                "allowed-scopes" to listOf("openid", "users:claims:read", "users:claims:write"),
+                "default-scopes" to listOf("openid"),
+                "allowed-redirect-uris" to listOf(registry.redirectUri()),
+            ),
+        ),
+    )
+
     private companion object {
 
         const val OWN_CLIENT_ID = "claim-write-app"
 
         const val CLIENT_SECRET = "s3cr3t-claims"
         const val EMAIL = "claim-write@example.com"
-        const val PASSWORD = "Str0ngP@ssw0rd!"
         const val REGION = "eu-west"
         const val TIER = "gold"
-
-        /**
-         * Password auth with an email identifier, a second audience beside the shipped `default`, and two
-         * custom claims a client may write with `users:claims:write` — `custom_tier` restricted to `billing`,
-         * `custom_region` to nothing. Both take that write permission from `templates.claims.application`, so
-         * the audience is the only thing separating them.
-         *
-         * The confidential client names no audience, so it takes `default` from `templates.clients.default`,
-         * and holds both the `authorization_code` grant (to sign the person up) and `client_credentials` (to
-         * call the client API). `features.grant-unhandled-scopes` is what lets that grant actually hand out
-         * the claim scopes, there being no granting rule for them.
-         */
-        fun twoAudienceClientConfig(registry: InteractiveFlowRegistry): Map<String, Any> = mapOf(
-            "audiences" to mapOf(
-                "billing" to mapOf("token-audience" to "https://billing.example.com"),
-            ),
-            "auth" to mapOf(
-                "by-password" to mapOf("enabled" to true),
-                "identifier-claims" to listOf("email"),
-            ),
-            "features" to mapOf("grant-unhandled-scopes" to true),
-            "claims" to mapOf(
-                "email" to mapOf("enabled" to true),
-                "custom_region" to mapOf("enabled" to true, "type" to "string", "template" to "application"),
-                "custom_tier" to mapOf(
-                    "enabled" to true,
-                    "type" to "string",
-                    "template" to "application",
-                    "audience" to "billing",
-                ),
-            ),
-            "clients" to mapOf(
-                registry.clientId() to mapOf(
-                    "public" to false,
-                    "secret" to CLIENT_SECRET,
-                    "authorizationFlow" to registry.flowId(),
-                    "allowed-grant-types" to listOf("authorization_code", "client_credentials"),
-                    "allowed-scopes" to listOf("openid", "users:claims:read", "users:claims:write"),
-                    "default-scopes" to listOf("openid"),
-                    "allowed-redirect-uris" to listOf(registry.redirectUri()),
-                ),
-            ),
-        )
     }
 }

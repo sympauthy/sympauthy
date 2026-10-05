@@ -4,7 +4,6 @@ import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
 import com.sympauthy.testcontainers.Client
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
@@ -34,34 +33,27 @@ class RefreshTokenRevocationCascadesIT : AbstractSympauthyIT() {
         val confidentialClient = Client.confidentialClient(clientId, CLIENT_SECRET)
 
         withContainer(database, refreshEnabled, confidentialClient) { sympauthy, registry ->
-            val tokens = registry.newFlow()
-                .withSignUpHandler { mapOf("email" to "ada@example.com", "password" to "Str0ngP@ssw0rd!") }
-                .run()
-                .exchange()
+            val tokens = signUpAndExchange(registry)
             val accessToken = checkNotNull(tokens.accessToken()) { "expected an access token from exchange" }
             val refreshToken = checkNotNull(tokens.refreshToken()) { "refresh-enabled should yield a refresh token" }
 
-            val discovery = discovery(sympauthy)
-            val introspectionEndpoint = discovery.introspectionEndpoint!!
-            val auth = mapOf("Authorization" to basicAuth(registry.clientId(), checkNotNull(registry.clientSecret())))
+            val auth = basicAuth(registry)
 
-            val before = httpPostForm(introspectionEndpoint, mapOf("token" to accessToken), auth)
-            assertTrue(
-                before.body().contains("\"active\":true"),
-                "the freshly issued access token should introspect as active, body=${before.body()}",
+            assertEquals(
+                true, introspect(sympauthy, accessToken, auth)["active"],
+                "the freshly issued access token should introspect as active",
             )
 
             val revoke = httpPostForm(
-                discovery.revocationEndpoint!!,
+                discovery(sympauthy).revocationEndpoint!!,
                 mapOf("token" to refreshToken, "token_type_hint" to "refresh_token"),
                 auth,
             )
             assertEquals(200, revoke.statusCode(), "revocation should return 200, body=${revoke.body()}")
 
-            val after = httpPostForm(introspectionEndpoint, mapOf("token" to accessToken), auth)
-            assertTrue(
-                after.body().contains("\"active\":false"),
-                "revoking the refresh token must also revoke the session's access token, body=${after.body()}",
+            assertEquals(
+                false, introspect(sympauthy, accessToken, auth)["active"],
+                "revoking the refresh token must also revoke the session's access token",
             )
         }
     }

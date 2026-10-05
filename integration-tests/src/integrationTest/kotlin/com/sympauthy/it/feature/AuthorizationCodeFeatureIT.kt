@@ -57,7 +57,7 @@ class AuthorizationCodeFeatureIT : AbstractSympauthyIT() {
     fun signsUpAndExchangesCodeForSignedTokens(database: Database, clientProfile: ClientProfile) {
         withContainer(database, client = clientProfile.client(clientId)) { sympauthy, registry ->
             val flow = registry.newFlow()
-                .withSignUpHandler { mapOf("email" to "ada@example.com", "password" to "Str0ngP@ssw0rd!") }
+                .withSignUpHandler { credentials() }
 
             val result = flow.run()
 

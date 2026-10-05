@@ -35,8 +35,7 @@ class CancelledFlowStateNotReplayableIT : AbstractSympauthyIT() {
         withContainer(database) { sympauthy, registry ->
             withFlowClient(sympauthy) { flow ->
                 val authorize = flow.get(authorizeUrl(sympauthy, registry))
-                val internalState = queryParam(authorize.location ?: error("authorize 303 had no Location"), "state")
-                    ?: error("authorize redirect did not carry a state: ${authorize.location}")
+                val internalState = internalState(authorize)
 
                 val cancel = flow.cancel(internalState)
                 assertEquals(200, cancel.status, "the first cancel should succeed, body=${cancel.body}")

@@ -4,10 +4,7 @@ import com.sympauthy.api.client.api.ClientApi
 import com.sympauthy.api.client.model.ClientMfaEnrollmentInputResource
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
-import com.sympauthy.it.DatabaseFixture
-import com.sympauthy.it.SympauthyImage
 import com.sympauthy.testcontainers.Client
-import com.sympauthy.testcontainers.SympauthyContainer
 import com.sympauthy.testcontainers.flow.ConfirmDecision
 import com.sympauthy.testcontainers.flow.FlowOutcome
 import com.sympauthy.testcontainers.flow.FlowStep
@@ -46,10 +43,10 @@ class ClientMfaEnrollmentFeatureIT : AbstractSympauthyIT() {
         withCustomContainer(
             database,
             client = Client.confidentialClient(clientId, CLIENT_SECRET),
-            build = { fixture, registry -> mfaEnrollmentContainer(fixture, registry) },
+            build = { fixture, registry -> container(fixture, mfaEnrollmentConfig(registry), registry) },
         ) { sympauthy, registry ->
             val callerToken = clientCredentialsToken(sympauthy, registry, "users:mfa:write")
-            val userToken = signUpAccessToken(registry, "ada@example.com")
+            val userToken = signUpAccessToken(registry, EMAIL)
 
             val returnUri = mfaEnrollmentReturnUri(registry)
             val cancelUri = mfaEnrollmentCancelUri(registry)
@@ -87,32 +84,14 @@ class ClientMfaEnrollmentFeatureIT : AbstractSympauthyIT() {
         }
     }
 
-    /** Builds the standard single-client MFA-enrollment container for [registry] (a confidential client). */
-    private fun mfaEnrollmentContainer(
-        fixture: DatabaseFixture,
-        registry: InteractiveFlowRegistry,
-    ): SympauthyContainer {
-        registry.withScopes("openid")
-        return fixture.applyTo(
-            SympauthyContainer(SympauthyImage.resolve())
-                .withConfig(mfaEnrollmentConfig(registry))
-                .withFlows(registry),
-        )
-    }
-
     /** Signs up a fresh end-user through [registry]'s flow and returns their access token. */
     private fun signUpAccessToken(registry: InteractiveFlowRegistry, email: String): String {
-        val token = registry.newFlow()
-            .withSignUpHandler { mapOf("email" to email, "password" to PASSWORD) }
-            .run()
-            .exchange()
-            .accessToken()
+        val token = signUpAndExchange(registry, email).accessToken()
         assertNotNull(token, "sign-up should yield an end-user access token")
         return token
     }
 
     private companion object {
         const val CLIENT_SECRET = "s3cr3t-mfa"
-        const val PASSWORD = "Str0ngP@ssw0rd!"
     }
 }

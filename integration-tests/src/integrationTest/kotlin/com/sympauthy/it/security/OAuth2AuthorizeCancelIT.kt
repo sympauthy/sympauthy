@@ -37,8 +37,7 @@ class OAuth2AuthorizeCancelIT : AbstractSympauthyIT() {
             withFlowClient(sympauthy) { flow ->
                 val authorize = flow.get(authorizeUrl(sympauthy, registry))
                 assertEquals(303, authorize.status, "authorize should redirect to the first flow step")
-                val internalState = queryParam(authorize.location ?: error("authorize 303 had no Location"), "state")
-                    ?: error("authorize redirect did not carry a state: ${authorize.location}")
+                val internalState = internalState(authorize)
 
                 val cancel = flow.cancel(internalState)
                 assertEquals(200, cancel.status, "cancel should succeed, body=${cancel.body}")
@@ -54,7 +53,7 @@ class OAuth2AuthorizeCancelIT : AbstractSympauthyIT() {
                     "a cancelled authorization must return error=access_denied, was: $redirect",
                 )
                 assertEquals(
-                    "integration-test-state", queryParam(redirect, "state"),
+                    CLIENT_STATE, queryParam(redirect, "state"),
                     "the client state must be echoed back, was: $redirect",
                 )
                 assertNull(

@@ -73,10 +73,7 @@ class RequestedClaimPublicationFeatureIT : AbstractSympauthyIT() {
         withRequestableClaims(database) { sympauthy, registry ->
             val tokens = signUpAsking(registry, REQUEST)
 
-            val idTokenClaims = verifyIdTokenSignature(
-                sympauthy,
-                requireNotNull(tokens.idToken()) { "the openid scope should yield an id_token" },
-            )
+            val idTokenClaims = verifyIdTokenSignature(sympauthy, requireIdToken(tokens.idToken()))
             assertEquals(GOLD, idTokenClaims.getStringClaim("loyalty_tier"), "asked for, and the channel is open")
             assertEquals(SIZE, idTokenClaims.getStringClaim("shoe_size"), "published here for every request")
             assertNull(idTokenClaims.getClaim("internal_note"), "asked for, and no channel was opened for it")
@@ -139,10 +136,7 @@ class RequestedClaimPublicationFeatureIT : AbstractSympauthyIT() {
         withRequestableClaims(database) { sympauthy, registry ->
             val tokens = signUpAsking(registry, claims = null)
 
-            val idTokenClaims = verifyIdTokenSignature(
-                sympauthy,
-                requireNotNull(tokens.idToken()) { "the openid scope should yield an id_token" },
-            )
+            val idTokenClaims = verifyIdTokenSignature(sympauthy, requireIdToken(tokens.idToken()))
             assertEquals(SIZE, idTokenClaims.getStringClaim("shoe_size"), "published here for every request")
             assertNull(idTokenClaims.getClaim("loyalty_tier"), "the channel is open and nothing asked")
             assertNull(idTokenClaims.getClaim("audit_ref"), "the channel is open and nothing asked")
@@ -164,7 +158,7 @@ class RequestedClaimPublicationFeatureIT : AbstractSympauthyIT() {
         withRequestableClaims(database) { _, registry ->
             val flow = registry.newFlow()
                 .withAuthorizationParam("claims", "not-json")
-                .withSignUpHandler { mapOf("email" to EMAIL, "password" to PASSWORD) }
+                .withSignUpHandler { credentials(EMAIL) }
 
             assertThrows<FlowException>("a claims parameter this server cannot read yields no code") { flow.run() }
         }
@@ -192,25 +186,10 @@ class RequestedClaimPublicationFeatureIT : AbstractSympauthyIT() {
     private fun signUpAsking(registry: InteractiveFlowRegistry, claims: String?): TokenResponse =
         registry.newFlow()
             .apply { claims?.let { withAuthorizationParam("claims", it) } }
-            .withSignUpHandler { mapOf("email" to EMAIL, "password" to PASSWORD) }
+            .withSignUpHandler { credentials(EMAIL) }
             .withClaimsHandler { requested -> requested.associate { it.id() to COLLECTED.getValue(it.id()) } }
             .run()
             .exchange()
-
-    /** The token endpoint's answer to presenting [refreshToken], as the parsed JSON body. */
-    private fun refresh(
-        sympauthy: SympauthyContainer,
-        registry: InteractiveFlowRegistry,
-        refreshToken: String,
-    ): Map<String, Any> {
-        val response = httpPostForm(
-            discovery(sympauthy).tokenEndpoint,
-            mapOf("grant_type" to "refresh_token", "refresh_token" to refreshToken),
-            mapOf("Authorization" to basicAuth(registry.clientId(), checkNotNull(registry.clientSecret()))),
-        )
-        assertEquals(200, response.statusCode(), "the refresh grant should succeed, body=${response.body()}")
-        return JSONObjectUtils.parse(response.body())
-    }
 
     /**
      * The six custom claims the scenarios turn on, under the `profile` scope the person consents to, and
@@ -266,7 +245,6 @@ class RequestedClaimPublicationFeatureIT : AbstractSympauthyIT() {
     private companion object {
 
         const val EMAIL = "published-in-when-requested@example.com"
-        const val PASSWORD = "Str0ngP@ssw0rd!"
         const val CLIENT_SECRET = "requested-claim-publication-client-secret"
         const val GOLD = "gold"
         const val SIZE = "43"

@@ -32,24 +32,14 @@ class RefreshGrantFeatureIT : AbstractSympauthyIT() {
         val confidentialClient = Client.confidentialClient(clientId, CLIENT_SECRET)
 
         withContainer(database, refreshEnabled, confidentialClient) { sympauthy, registry ->
-            val tokens = registry.newFlow()
-                .withSignUpHandler { mapOf("email" to "ada@example.com", "password" to "Str0ngP@ssw0rd!") }
-                .run()
-                .exchange()
-            val idToken = checkNotNull(tokens.idToken()) { "the openid scope should yield an id_token" }
+            val tokens = signUpAndExchange(registry)
+            val idToken = requireIdToken(tokens.idToken())
             val refreshToken = checkNotNull(tokens.refreshToken()) { "refresh-enabled should yield a refresh token" }
 
-            val response = httpPostForm(
-                discovery(sympauthy).tokenEndpoint,
-                mapOf("grant_type" to "refresh_token", "refresh_token" to refreshToken),
-                mapOf("Authorization" to basicAuth(registry.clientId(), checkNotNull(registry.clientSecret()))),
-            )
-            assertEquals(200, response.statusCode(), "the refresh grant should succeed, body=${response.body()}")
-
-            val body = JSONObjectUtils.parse(response.body())
+            val body = refresh(sympauthy, registry, refreshToken)
             val refreshedAccessToken = JSONObjectUtils.getString(body, "access_token")
             val refreshedIdToken = checkNotNull(JSONObjectUtils.getString(body, "id_token")) {
-                "the refresh response should carry an id_token, body=${response.body()}"
+                "the refresh response should carry an id_token, was: $body"
             }
             assertNotEquals(idToken, refreshedIdToken, "the refresh grant should issue a new id_token")
 

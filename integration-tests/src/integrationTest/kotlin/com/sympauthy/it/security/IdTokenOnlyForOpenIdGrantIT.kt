@@ -1,6 +1,5 @@
 package com.sympauthy.it.security
 
-import com.nimbusds.jose.util.JSONObjectUtils
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
 import com.sympauthy.testcontainers.Client
@@ -51,10 +50,7 @@ class IdTokenOnlyForOpenIdGrantIT : AbstractSympauthyIT() {
         val confidentialClient = Client.confidentialClient(clientId, CLIENT_SECRET)
 
         withContainer(database, plainOAuth2, confidentialClient, listOf(REPORTS_SCOPE)) { sympauthy, registry ->
-            val tokens = registry.newFlow()
-                .withSignUpHandler { mapOf("email" to "ada@example.com", "password" to "Str0ngP@ssw0rd!") }
-                .run()
-                .exchange()
+            val tokens = signUpAndExchange(registry)
 
             assertNotNull(tokens.accessToken(), "a plain OAuth 2.0 grant should still yield an access token")
             assertEquals(
@@ -65,18 +61,11 @@ class IdTokenOnlyForOpenIdGrantIT : AbstractSympauthyIT() {
             assertNull(tokens.idToken(), "a grant without openid must receive no id_token at the code exchange")
             val refreshToken = checkNotNull(tokens.refreshToken()) { "refresh-enabled should yield a refresh token" }
 
-            val response = httpPostForm(
-                discovery(sympauthy).tokenEndpoint,
-                mapOf("grant_type" to "refresh_token", "refresh_token" to refreshToken),
-                mapOf("Authorization" to basicAuth(registry.clientId(), checkNotNull(registry.clientSecret()))),
-            )
-            assertEquals(200, response.statusCode(), "the refresh grant should succeed, body=${response.body()}")
-
-            val refreshed = JSONObjectUtils.parse(response.body())
+            val refreshed = refresh(sympauthy, registry, refreshToken)
             assertNotNull(refreshed["access_token"], "the refresh should answer with a new access token")
             assertNull(
                 refreshed["id_token"],
-                "a grant without openid must receive no id_token at the refresh either, body=${response.body()}",
+                "a grant without openid must receive no id_token at the refresh either, was: $refreshed",
             )
         }
     }

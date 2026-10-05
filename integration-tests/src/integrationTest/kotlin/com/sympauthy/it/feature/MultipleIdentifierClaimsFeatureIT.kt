@@ -2,10 +2,7 @@ package com.sympauthy.it.feature
 
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
-import com.sympauthy.testcontainers.SympauthyContainer
-import com.sympauthy.testcontainers.flow.Credentials
 import com.sympauthy.testcontainers.flow.FlowException
-import com.sympauthy.testcontainers.flow.InteractiveFlowRegistry
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.assertThrows
@@ -42,7 +39,7 @@ class MultipleIdentifierClaimsFeatureIT : AbstractSympauthyIT() {
     fun signsInWithEitherIdentifierClaim(database: Database) {
         withContainer(database, extraConfig = twoIdentifierClaims(), scopes = SCOPES) { sympauthy, registry ->
             val signedUp = registry.newFlow()
-                .withSignUpHandler { mapOf("email" to EMAIL, "preferred_username" to USERNAME, "password" to PASSWORD) }
+                .withSignUpHandler { credentials() + mapOf("preferred_username" to USERNAME) }
                 .run()
             val account = subjectOf(sympauthy, signedUp.exchange().idToken())
 
@@ -62,7 +59,7 @@ class MultipleIdentifierClaimsFeatureIT : AbstractSympauthyIT() {
     fun refusesAnIdentifierAnotherAccountHoldsUnderAnotherClaim(database: Database) {
         withContainer(database, extraConfig = twoIdentifierClaims(), scopes = SCOPES) { sympauthy, registry ->
             val first = registry.newFlow()
-                .withSignUpHandler { mapOf("email" to EMAIL, "preferred_username" to USERNAME, "password" to PASSWORD) }
+                .withSignUpHandler { credentials() + mapOf("preferred_username" to USERNAME) }
                 .run()
             val account = subjectOf(sympauthy, first.exchange().idToken())
 
@@ -72,7 +69,7 @@ class MultipleIdentifierClaimsFeatureIT : AbstractSympauthyIT() {
             // come out of it could not be mistaken for the one that already exists.
             val crossing = registry.newFlow()
                 .withSignUpHandler {
-                    mapOf("email" to OTHER_EMAIL, "preferred_username" to EMAIL, "password" to OTHER_PASSWORD)
+                    credentials(OTHER_EMAIL, OTHER_PASSWORD) + mapOf("preferred_username" to EMAIL)
                 }
 
             assertThrows<FlowException>("the sign-up must not complete") { crossing.run() }
@@ -98,27 +95,12 @@ class MultipleIdentifierClaimsFeatureIT : AbstractSympauthyIT() {
         ),
     )
 
-    /** The id token of a complete sign-in with [login], as the server signed it. */
-    private fun signIn(registry: InteractiveFlowRegistry, login: String, password: String = PASSWORD): String =
-        registry.newFlow()
-            .withSignInHandler { Credentials.of(login, password) }
-            .run()
-            .exchange()
-            .idToken()
-            ?: error("the openid scope should yield an id_token for '$login'")
-
-    private fun subjectOf(sympauthy: SympauthyContainer, idToken: String?): String =
-        verifyIdTokenSignature(sympauthy, requireNotNull(idToken) { "no id_token" }).subject
-
     private companion object {
 
-        const val EMAIL = "ada@example.com"
         const val USERNAME = "ada.lovelace"
         const val OTHER_EMAIL = "grace@example.com"
         const val OTHER_PASSWORD = "0therP@ssw0rd!"
-        const val PASSWORD = "Str0ngP@ssw0rd!"
 
         val SCOPES = listOf("openid", "profile")
-
     }
 }

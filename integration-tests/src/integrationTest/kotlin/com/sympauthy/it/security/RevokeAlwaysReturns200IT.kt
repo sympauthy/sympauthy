@@ -41,7 +41,7 @@ class RevokeAlwaysReturns200IT : AbstractSympauthyIT() {
             val response = httpPostForm(
                 discovery(sympauthy).revocationEndpoint!!,
                 mapOf("token" to "this-token-does-not-exist"),
-                headers = mapOf("Authorization" to basicAuth(CLIENT_ID, CLIENT_SECRET)),
+                headers = basicAuth(CLIENT_ID, CLIENT_SECRET),
             )
 
             assertEquals(

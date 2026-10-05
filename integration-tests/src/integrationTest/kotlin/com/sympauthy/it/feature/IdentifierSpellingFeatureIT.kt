@@ -3,10 +3,7 @@ package com.sympauthy.it.feature
 import com.sympauthy.api.client.api.OpenidApi
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
-import com.sympauthy.testcontainers.SympauthyContainer
-import com.sympauthy.testcontainers.flow.Credentials
 import com.sympauthy.testcontainers.flow.FlowException
-import com.sympauthy.testcontainers.flow.InteractiveFlowRegistry
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.assertThrows
@@ -37,10 +34,7 @@ class IdentifierSpellingFeatureIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun signsInWithAnySpellingOfTheAddress(database: Database) {
         withContainer(database, extraConfig = emailScope(), scopes = SCOPES) { sympauthy, registry ->
-            val tokens = registry.newFlow()
-                .withSignUpHandler { mapOf("email" to PADDED, "password" to PASSWORD) }
-                .run()
-                .exchange()
+            val tokens = signUpAndExchange(registry, PADDED)
             val account = subjectOf(sympauthy, tokens.idToken())
 
             val stored = withApiClient(sympauthy, token = tokens.accessToken()) { ctx ->
@@ -67,15 +61,13 @@ class IdentifierSpellingFeatureIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun refusesASecondAccountOverAnotherSpelling(database: Database) {
         withContainer(database) { sympauthy, registry ->
-            val first = registry.newFlow()
-                .withSignUpHandler { mapOf("email" to PADDED, "password" to PASSWORD) }
-                .run()
+            val first = signUp(registry, PADDED)
             val account = subjectOf(sympauthy, first.exchange().idToken())
 
             // The same address in the spelling the first account did not type. Its password differs, so
             // an account that did come out of it could not be mistaken for the one that already exists.
             val second = registry.newFlow()
-                .withSignUpHandler { mapOf("email" to LOWERED, "password" to OTHER_PASSWORD) }
+                .withSignUpHandler { credentials(LOWERED, OTHER_PASSWORD) }
 
             assertThrows<FlowException>("the sign-up must not complete") { second.run() }
 
@@ -91,9 +83,7 @@ class IdentifierSpellingFeatureIT : AbstractSympauthyIT() {
     fun matchesEveryClaimOfTheIdentifierSetTheSameWay(database: Database) {
         withContainer(database, extraConfig = twoIdentifierClaims(), scopes = PROFILE_SCOPES) { sympauthy, registry ->
             val tokens = registry.newFlow()
-                .withSignUpHandler {
-                    mapOf("email" to WRITTEN, "preferred_username" to WRITTEN_USERNAME, "password" to PASSWORD)
-                }
+                .withSignUpHandler { credentials(WRITTEN) + mapOf("preferred_username" to WRITTEN_USERNAME) }
                 .run()
                 .exchange()
             val account = subjectOf(sympauthy, tokens.idToken())
@@ -117,11 +107,7 @@ class IdentifierSpellingFeatureIT : AbstractSympauthyIT() {
             // each — the crossed pair, where the owner of a value is signed in against somebody else.
             val crossing = registry.newFlow()
                 .withSignUpHandler {
-                    mapOf(
-                        "email" to OTHER_EMAIL,
-                        "preferred_username" to LOWERED_USERNAME,
-                        "password" to OTHER_PASSWORD,
-                    )
+                    credentials(OTHER_EMAIL, OTHER_PASSWORD) + mapOf("preferred_username" to LOWERED_USERNAME)
                 }
 
             assertThrows<FlowException>("the sign-up must not complete") { crossing.run() }
@@ -152,18 +138,6 @@ class IdentifierSpellingFeatureIT : AbstractSympauthyIT() {
         ),
     )
 
-    /** The id token of a complete sign-in with [login], as the server signed it. */
-    private fun signIn(registry: InteractiveFlowRegistry, login: String, password: String = PASSWORD): String =
-        registry.newFlow()
-            .withSignInHandler { Credentials.of(login, password) }
-            .run()
-            .exchange()
-            .idToken()
-            ?: error("the openid scope should yield an id_token for '$login'")
-
-    private fun subjectOf(sympauthy: SympauthyContainer, idToken: String?): String =
-        verifyIdTokenSignature(sympauthy, requireNotNull(idToken) { "no id_token" }).subject
-
     private companion object {
 
         /**
@@ -184,7 +158,6 @@ class IdentifierSpellingFeatureIT : AbstractSympauthyIT() {
         const val LOWERED_USERNAME = "ada.lovelace"
         const val SHOUTED_USERNAME = "ADA.LOVELACE"
 
-        const val PASSWORD = "Str0ngP@ssw0rd!"
         const val OTHER_PASSWORD = "0therP@ssw0rd!"
         const val OTHER_EMAIL = "grace@example.com"
 
