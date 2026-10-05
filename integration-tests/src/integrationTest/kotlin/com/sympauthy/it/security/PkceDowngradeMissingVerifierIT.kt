@@ -2,8 +2,6 @@ package com.sympauthy.it.security
 
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
@@ -30,27 +28,11 @@ class PkceDowngradeMissingVerifierIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun tokenEndpointRejectsMissingVerifier(database: Database) {
         withContainer(database) { sympauthy, registry ->
-            val result = registry.newFlow()
-                .withSignUpHandler { mapOf("email" to "ada@example.com", "password" to "Str0ngP@ssw0rd!") }
-                .run()
-            val code = checkNotNull(result.code()) { "expected an authorization code from sign-up" }
+            val code = signUpForCode(registry)
 
-            val response = httpPostForm(
-                discovery(sympauthy).tokenEndpoint,
-                mapOf(
-                    "grant_type" to "authorization_code",
-                    "code" to code,
-                    "redirect_uri" to registry.redirectUri(),
-                    "client_id" to registry.clientId(),
-                    // No code_verifier at all.
-                ),
-            )
+            val response = exchangeCode(sympauthy, registry, code, mapOf("code_verifier" to null))
 
-            assertEquals(400, response.statusCode(), "missing verifier must be rejected, body=${response.body()}")
-            assertTrue(
-                response.body().contains("invalid_grant"),
-                "expected an invalid_grant error, was: ${response.body()}",
-            )
+            assertOAuthError(response, 400, "invalid_grant", "a missing verifier must be rejected")
         }
     }
 }

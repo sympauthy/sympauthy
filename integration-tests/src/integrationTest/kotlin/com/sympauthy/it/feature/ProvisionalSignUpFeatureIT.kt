@@ -2,9 +2,7 @@ package com.sympauthy.it.feature
 
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
-import com.sympauthy.it.SympauthyImage
 import com.sympauthy.testcontainers.Client
-import com.sympauthy.testcontainers.SympauthyContainer
 import com.sympauthy.testcontainers.flow.AuthorizationResult
 import com.sympauthy.testcontainers.flow.Credentials
 import com.sympauthy.testcontainers.flow.FlowStep
@@ -48,14 +46,11 @@ class ProvisionalSignUpFeatureIT : AbstractSympauthyIT() {
     fun signUpCountsOnlyOnceItCompletes(database: Database) {
         database.createFixture().use { fixture ->
             InteractiveFlowRegistry.forClient(Client.publicClient(clientId))
-                .withScopes(*SCOPES).use { first ->
+                .withScopes(*SCOPES.toTypedArray()).use { first ->
                     InteractiveFlowRegistry.forClient(Client.publicClient(RACING_CLIENT_ID))
-                        .withFlowId("racing").withScopes(*SCOPES).use { racing ->
-                            fixture.applyTo(
-                                SympauthyContainer(SympauthyImage.resolve())
-                                    .withConfig(twoClientSignUpConfig(first, racing))
-                                    .withFlows(first)
-                                    .withFlows(racing),
+                        .withFlowId("racing").withScopes(*SCOPES.toTypedArray()).use { racing ->
+                            container(
+                                fixture, twoClientSignUpConfig(first, racing), first, racing,
                             ).use { sympauthy ->
                                 withStartedContainer(sympauthy) { raceForOneAddress(first, racing) }
                             }
@@ -68,10 +63,10 @@ class ProvisionalSignUpFeatureIT : AbstractSympauthyIT() {
         var racingSignUp: AuthorizationResult? = null
 
         val paused = registry.newFlow()
-            .withSignUpHandler { mapOf("email" to EMAIL, "password" to FIRST_PASSWORD) }
+            .withSignUpHandler { credentials(EMAIL, FIRST_PASSWORD) }
             .withClaimsHandler { requested ->
                 racingSignUp = racing.newFlow()
-                    .withSignUpHandler { mapOf("email" to EMAIL, "password" to RACING_PASSWORD) }
+                    .withSignUpHandler { credentials(EMAIL, RACING_PASSWORD) }
                     .withClaimsHandler { nested -> nested.associate { it.id() to NAME } }
                     .run()
                 requested.associate { it.id() to NAME }
@@ -96,6 +91,22 @@ class ProvisionalSignUpFeatureIT : AbstractSympauthyIT() {
         assertNotNull(signedIn.exchange().accessToken(), "signing in with the winner's password")
     }
 
+    /**
+     * Password auth with an email identifier and a required `name` claim, and the two public clients the
+     * racing sign-ups come through, each owning its own flow and allowed the `profile` scope.
+     */
+    private fun twoClientSignUpConfig(
+        first: InteractiveFlowRegistry,
+        racing: InteractiveFlowRegistry,
+    ): Map<String, Any> = passwordAuthConfig() and mapOf(
+        "claims" to mapOf("name" to mapOf("enabled" to true, "required" to true)),
+    ) and mapOf(
+        "clients" to mapOf(
+            first.clientId() to publicClientConfig(first, scopes = SCOPES),
+            racing.clientId() to publicClientConfig(racing, scopes = SCOPES),
+        ),
+    )
+
     private companion object {
 
         const val RACING_CLIENT_ID = "racing-app"
@@ -104,36 +115,6 @@ class ProvisionalSignUpFeatureIT : AbstractSympauthyIT() {
         const val RACING_PASSWORD = "S3condP@ssw0rd!"
         const val NAME = "Ada Lovelace"
 
-        val SCOPES = arrayOf("openid", "profile")
-
-        /**
-         * Password auth with an email identifier and a required `name` claim, and the two public clients the
-         * racing sign-ups come through, each owning its own flow and allowed the `profile` scope.
-         */
-        fun twoClientSignUpConfig(
-            first: InteractiveFlowRegistry,
-            racing: InteractiveFlowRegistry,
-        ): Map<String, Any> = mapOf(
-            "auth" to mapOf(
-                "by-password" to mapOf("enabled" to true),
-                "identifier-claims" to listOf("email"),
-            ),
-            "claims" to mapOf(
-                "email" to mapOf("enabled" to true),
-                "name" to mapOf("enabled" to true, "required" to true),
-            ),
-            "clients" to mapOf(
-                first.clientId() to publicClientConfig(first),
-                racing.clientId() to publicClientConfig(racing),
-            ),
-        )
-
-        fun publicClientConfig(registry: InteractiveFlowRegistry): Map<String, Any> = mapOf(
-            "public" to true,
-            "authorizationFlow" to registry.flowId(),
-            "allowed-grant-types" to listOf("authorization_code"),
-            "allowed-scopes" to SCOPES.toList(),
-            "allowed-redirect-uris" to listOf(registry.redirectUri()),
-        )
+        val SCOPES = listOf("openid", "profile")
     }
 }

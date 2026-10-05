@@ -2,9 +2,7 @@ package com.sympauthy.it.security
 
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
-import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
@@ -31,30 +29,15 @@ class AuthorizationCodeReplayIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun authorizationCodeCannotBeReplayed(database: Database) {
         withContainer(database) { sympauthy, registry ->
-            val result = registry.newFlow()
-                .withSignUpHandler { mapOf("email" to "ada@example.com", "password" to "Str0ngP@ssw0rd!") }
-                .run()
-            val code = checkNotNull(result.code()) { "expected an authorization code from sign-up" }
+            val result = signUp(registry)
+            val code = requireCode(result)
 
             val tokens = result.exchange()
             assertNotNull(tokens.accessToken(), "the first exchange should succeed and return an access token")
 
-            val replay = httpPostForm(
-                discovery(sympauthy).tokenEndpoint,
-                mapOf(
-                    "grant_type" to "authorization_code",
-                    "code" to code,
-                    "redirect_uri" to registry.redirectUri(),
-                    "client_id" to registry.clientId(),
-                    "code_verifier" to generatePkce().verifier,
-                ),
-            )
+            val replay = exchangeCode(sympauthy, registry, code)
 
-            assertEquals(400, replay.statusCode(), "a replayed code must be rejected, body=${replay.body()}")
-            assertTrue(
-                replay.body().contains("invalid_grant"),
-                "expected an invalid_grant error, was: ${replay.body()}",
-            )
+            assertOAuthError(replay, 400, "invalid_grant", "a replayed code must be rejected")
         }
     }
 }

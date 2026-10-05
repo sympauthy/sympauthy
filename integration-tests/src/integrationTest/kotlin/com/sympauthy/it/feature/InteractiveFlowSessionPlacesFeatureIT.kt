@@ -5,7 +5,6 @@ import com.sympauthy.api.client.model.AdminInteractiveFlowSessionSecurityContext
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
 import com.sympauthy.it.DatabaseFixture
-import com.sympauthy.it.SympauthyImage
 import com.sympauthy.testcontainers.SympauthyContainer
 import com.sympauthy.testcontainers.flow.Credentials
 import com.sympauthy.testcontainers.flow.FlowOutcome
@@ -65,7 +64,7 @@ class InteractiveFlowSessionPlacesFeatureIT : AbstractSympauthyIT() {
             assertNull(place.provenDate, "nothing has proven a credential on this session yet")
 
             val result = registry.newFlow()
-                .withSignInHandler { Credentials.of(ADMIN_EMAIL, PASSWORD) }
+                .withSignInHandler { Credentials.of(ADMIN_EMAIL, DEFAULT_PASSWORD) }
                 .driveFrom(signInPage, registry.redirectUri(), registry.redirectUri())
                 .drive()
             assertEquals(FlowOutcome.SUCCESS, result.outcome(), "the flow should complete")
@@ -116,7 +115,7 @@ class InteractiveFlowSessionPlacesFeatureIT : AbstractSympauthyIT() {
             )
 
             val result = registry.newFlow()
-                .withSignInHandler { Credentials.of(ADMIN_EMAIL, PASSWORD) }
+                .withSignInHandler { Credentials.of(ADMIN_EMAIL, DEFAULT_PASSWORD) }
                 .driveFrom(signInPage, registry.redirectUri(), registry.redirectUri())
                 .drive()
 
@@ -135,9 +134,7 @@ class InteractiveFlowSessionPlacesFeatureIT : AbstractSympauthyIT() {
     ): String {
         val authorize = httpGet(authorizeUrl(sympauthy, registry), headers = agent(AGENT))
         assertEquals(303, authorize.statusCode(), "authorize should redirect to the first step")
-        return authorize.headers().firstValue("Location").orElseThrow {
-            error("authorize 303 had no Location")
-        }
+        return authorize.headers().firstValue("Location").orElseGet { error("authorize 303 had no Location") }
     }
 
     /**
@@ -172,31 +169,16 @@ class InteractiveFlowSessionPlacesFeatureIT : AbstractSympauthyIT() {
     private fun adminReadingContainer(
         fixture: DatabaseFixture,
         registry: InteractiveFlowRegistry,
-    ): SympauthyContainer {
-        registry.withScopes("openid")
-        return fixture.applyTo(
-            SympauthyContainer(SympauthyImage.resolve())
-                .withAdmin()
-                .withConfig(
-                    mapOf(
-                        "auth" to mapOf(
-                            "by-password" to mapOf("enabled" to true),
-                            "identifier-claims" to listOf("email"),
-                        ),
-                        "claims" to mapOf("email" to mapOf("enabled" to true)),
-                    ),
-                )
-                .withFlows(registry)
-                .withAdminClient(registry, "openid", "admin:interactive-flow-sessions:read"),
-        )
-    }
+    ): SympauthyContainer = container(fixture, passwordAuthConfig(), registry)
+        .withAdmin()
+        .withAdminClient(registry, "openid", "admin:interactive-flow-sessions:read")
 
     /** Redeems the first-admin bootstrap invitation, signs up, and answers the admin's access token. */
     private fun signUpFirstAdmin(sympauthy: SympauthyContainer, registry: InteractiveFlowRegistry): String {
         val invitationToken = sympauthy.getBootstrapInvitationToken("first-admin")
         val tokens = registry.newFlow()
             .withInvitationToken(invitationToken)
-            .withSignUpHandler { mapOf("email" to ADMIN_EMAIL, "password" to PASSWORD) }
+            .withSignUpHandler { credentials(ADMIN_EMAIL) }
             .run()
             .exchange()
         return tokens.accessToken() ?: fail("first-admin sign-up should yield an access token")
@@ -204,8 +186,6 @@ class InteractiveFlowSessionPlacesFeatureIT : AbstractSympauthyIT() {
 
     private companion object {
         const val ADMIN_EMAIL = "admin@example.com"
-
-        const val PASSWORD = "Str0ngP@ssw0rd!"
 
         /** The agent the raw requests of the first scenario claim, so all of them are one place. */
         const val AGENT = "integration-test/1.0"

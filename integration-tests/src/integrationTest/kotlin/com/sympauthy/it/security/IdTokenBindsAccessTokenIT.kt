@@ -29,13 +29,8 @@ class IdTokenBindsAccessTokenIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun idTokenAtHashNamesTheAccessToken(database: Database) {
         withContainer(database) { sympauthy, registry ->
-            val tokens = registry.newFlow()
-                .withSignUpHandler { mapOf("email" to "ada@example.com", "password" to "Str0ngP@ssw0rd!") }
-                .run()
-                .exchange()
-
-            val idToken = checkNotNull(tokens.idToken()) { "the openid scope should yield an id_token" }
-            val claims = verifyIdTokenSignature(sympauthy, idToken)
+            val tokens = signUpAndExchange(registry)
+            val claims = verifyIdTokenSignature(sympauthy, requireIdToken(tokens.idToken()))
 
             assertEquals(
                 expectedAtHash(tokens.accessToken()),

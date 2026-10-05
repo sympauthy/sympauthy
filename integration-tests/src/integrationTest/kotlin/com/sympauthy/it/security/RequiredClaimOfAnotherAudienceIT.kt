@@ -2,9 +2,7 @@ package com.sympauthy.it.security
 
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
-import com.sympauthy.it.SympauthyImage
 import com.sympauthy.testcontainers.Client
-import com.sympauthy.testcontainers.SympauthyContainer
 import com.sympauthy.testcontainers.flow.FlowStep
 import com.sympauthy.testcontainers.flow.InteractiveFlowRegistry
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -36,23 +34,20 @@ class RequiredClaimOfAnotherAudienceIT : AbstractSympauthyIT() {
     @ParameterizedTest(name = "a required claim of another audience does not hold up a sign-in on {0}")
     @EnumSource(Database::class)
     fun requiredClaimOfAnotherAudienceDoesNotHoldUpASignUp(database: Database) {
-        database.createFixture().use { fixture ->
-            InteractiveFlowRegistry.forClient(Client.publicClient(OWN_CLIENT_ID))
-                .withFlowId(OWN_FLOW_ID).withScopes(*SCOPES).use { registry ->
-                fixture.applyTo(
-                    SympauthyContainer(SympauthyImage.resolve())
-                        .withConfig(otherAudienceRequiresAClaimConfig(registry))
-                        .withFlows(registry),
-                ).use { sympauthy ->
-                    withStartedContainer(sympauthy) { asksForNoClaimOfTheOtherAudience(registry) }
-                }
-            }
-        }
+        withCustomContainer(
+            database,
+            client = Client.publicClient(OWN_CLIENT_ID),
+            scopes = SCOPES,
+            flowId = OWN_FLOW_ID,
+            build = { fixture, registry ->
+                container(fixture, otherAudienceRequiresAClaimConfig(registry), registry)
+            },
+        ) { _, registry -> asksForNoClaimOfTheOtherAudience(registry) }
     }
 
     private fun asksForNoClaimOfTheOtherAudience(registry: InteractiveFlowRegistry) {
         val flow = registry.newFlow()
-            .withSignUpHandler { mapOf("email" to EMAIL, "password" to PASSWORD) }
+            .withSignUpHandler { credentials(EMAIL) }
 
         val tokens = flow.run().exchange()
 
@@ -64,42 +59,32 @@ class RequiredClaimOfAnotherAudienceIT : AbstractSympauthyIT() {
         assertNotNull(tokens.accessToken(), "the sign-up should have issued tokens")
     }
 
+    /**
+     * Password auth with an email identifier, a second audience beside the shipped `default`, and one
+     * required claim that belongs to it alone. The public client names no audience, so it takes `default`
+     * from `templates.clients.default`.
+     */
+    private fun otherAudienceRequiresAClaimConfig(registry: InteractiveFlowRegistry): Map<String, Any> =
+        passwordAuthConfig() and mapOf(
+            "claims" to mapOf(
+                "nickname" to mapOf("enabled" to true, "required" to true, "audience" to "billing"),
+            ),
+        ) and mapOf(
+            "audiences" to mapOf(
+                "billing" to mapOf("token-audience" to "https://billing.example.com"),
+            ),
+            "clients" to mapOf(
+                registry.clientId() to publicClientConfig(registry, scopes = SCOPES),
+            ),
+        )
+
     private companion object {
 
         const val OWN_CLIENT_ID = "required-claim-app"
         const val OWN_FLOW_ID = "required-claim-flow"
 
         const val EMAIL = "required-claim@example.com"
-        const val PASSWORD = "Str0ngP@ssw0rd!"
 
-        val SCOPES = arrayOf("openid", "profile")
-
-        /**
-         * Password auth with an email identifier, a second audience beside the shipped `default`, and one
-         * required claim that belongs to it alone. The public client names no audience, so it takes `default`
-         * from `templates.clients.default`.
-         */
-        fun otherAudienceRequiresAClaimConfig(registry: InteractiveFlowRegistry): Map<String, Any> = mapOf(
-            "audiences" to mapOf(
-                "billing" to mapOf("token-audience" to "https://billing.example.com"),
-            ),
-            "auth" to mapOf(
-                "by-password" to mapOf("enabled" to true),
-                "identifier-claims" to listOf("email"),
-            ),
-            "claims" to mapOf(
-                "email" to mapOf("enabled" to true),
-                "nickname" to mapOf("enabled" to true, "required" to true, "audience" to "billing"),
-            ),
-            "clients" to mapOf(
-                registry.clientId() to mapOf(
-                    "public" to true,
-                    "authorizationFlow" to registry.flowId(),
-                    "allowed-grant-types" to listOf("authorization_code"),
-                    "allowed-scopes" to SCOPES.toList(),
-                    "allowed-redirect-uris" to listOf(registry.redirectUri()),
-                ),
-            ),
-        )
+        val SCOPES = listOf("openid", "profile")
     }
 }

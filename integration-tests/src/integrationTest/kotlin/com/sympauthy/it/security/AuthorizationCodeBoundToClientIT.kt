@@ -2,8 +2,6 @@ package com.sympauthy.it.security
 
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
@@ -43,27 +41,11 @@ class AuthorizationCodeBoundToClientIT : AbstractSympauthyIT() {
         )
 
         withContainer(database, secondClient) { sympauthy, registry ->
-            val result = registry.newFlow()
-                .withSignUpHandler { mapOf("email" to "ada@example.com", "password" to "Str0ngP@ssw0rd!") }
-                .run()
-            val code = checkNotNull(result.code()) { "expected an authorization code from sign-up" }
+            val code = signUpForCode(registry)
 
-            val response = httpPostForm(
-                discovery(sympauthy).tokenEndpoint,
-                mapOf(
-                    "grant_type" to "authorization_code",
-                    "code" to code,
-                    "redirect_uri" to registry.redirectUri(),
-                    "client_id" to OTHER_CLIENT_ID,
-                    "code_verifier" to generatePkce().verifier,
-                ),
-            )
+            val response = exchangeCode(sympauthy, registry, code, mapOf("client_id" to OTHER_CLIENT_ID))
 
-            assertEquals(400, response.statusCode(), "a foreign client must not redeem the code, body=${response.body()}")
-            assertTrue(
-                response.body().contains("invalid_grant"),
-                "expected an invalid_grant error, was: ${response.body()}",
-            )
+            assertOAuthError(response, 400, "invalid_grant", "a foreign client must not redeem the code")
         }
     }
 

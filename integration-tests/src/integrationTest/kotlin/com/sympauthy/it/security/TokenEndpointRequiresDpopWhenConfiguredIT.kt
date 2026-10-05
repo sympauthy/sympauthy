@@ -2,8 +2,6 @@ package com.sympauthy.it.security
 
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
@@ -32,27 +30,14 @@ class TokenEndpointRequiresDpopWhenConfiguredIT : AbstractSympauthyIT() {
         val dpopRequired = mapOf("auth" to mapOf("token" to mapOf("dpop-required" to true)))
 
         withContainer(database, dpopRequired) { sympauthy, registry ->
-            val result = registry.newFlow()
-                .withSignUpHandler { mapOf("email" to "ada@example.com", "password" to "Str0ngP@ssw0rd!") }
-                .run()
-            val code = checkNotNull(result.code()) { "expected an authorization code from sign-up" }
+            val code = signUpForCode(registry)
 
-            val response = httpPostForm(
-                discovery(sympauthy).tokenEndpoint,
-                mapOf(
-                    "grant_type" to "authorization_code",
-                    "code" to code,
-                    "redirect_uri" to registry.redirectUri(),
-                    "client_id" to registry.clientId(),
-                    "code_verifier" to generatePkce().verifier,
-                    // Deliberately no DPoP header.
-                ),
-            )
+            // No DPoP header: exchangeCode sends none, which is the request under test.
+            val response = exchangeCode(sympauthy, registry, code)
 
-            assertEquals(400, response.statusCode(), "a token request without DPoP must be refused, body=${response.body()}")
-            assertTrue(
-                response.body().contains("invalid_dpop_proof"),
-                "expected an invalid_dpop_proof error, was: ${response.body()}",
+            assertOAuthError(
+                response, 400, "invalid_dpop_proof",
+                "a token request carrying no DPoP proof must be refused",
             )
         }
     }

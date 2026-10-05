@@ -4,7 +4,6 @@ import com.nimbusds.jose.util.JSONObjectUtils
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
@@ -42,28 +41,30 @@ class RevokedTokenBecomesInactiveIT : AbstractSympauthyIT() {
 
         withContainer(database, confidentialClient) { sympauthy, _ ->
             val discovery = discovery(sympauthy)
-            val tokenEndpoint = discovery.tokenEndpoint
-            val introspectionEndpoint = discovery.introspectionEndpoint!!
-            val revocationEndpoint = discovery.revocationEndpoint!!
-            val auth = mapOf("Authorization" to basicAuth(CLIENT_ID, CLIENT_SECRET))
+            val auth = basicAuth(CLIENT_ID, CLIENT_SECRET)
 
-            val tokenResponse = httpPostForm(tokenEndpoint, mapOf("grant_type" to "client_credentials"), auth)
-            assertEquals(200, tokenResponse.statusCode(), "client_credentials must issue a token, body=${tokenResponse.body()}")
+            val tokenResponse = httpPostForm(
+                discovery.tokenEndpoint,
+                mapOf("grant_type" to "client_credentials"),
+                auth,
+            )
+            assertEquals(
+                200, tokenResponse.statusCode(),
+                "client_credentials must issue a token, body=${tokenResponse.body()}",
+            )
             val accessToken = JSONObjectUtils.parse(tokenResponse.body())["access_token"] as String
 
-            val beforeRevoke = httpPostForm(introspectionEndpoint, mapOf("token" to accessToken), auth)
-            assertTrue(
-                beforeRevoke.body().contains("\"active\":true"),
-                "the freshly issued token should introspect as active, body=${beforeRevoke.body()}",
+            assertEquals(
+                true, introspect(sympauthy, accessToken, auth)["active"],
+                "the freshly issued token should introspect as active",
             )
 
-            val revoke = httpPostForm(revocationEndpoint, mapOf("token" to accessToken), auth)
+            val revoke = httpPostForm(discovery.revocationEndpoint!!, mapOf("token" to accessToken), auth)
             assertEquals(200, revoke.statusCode(), "revocation should return 200, body=${revoke.body()}")
 
-            val afterRevoke = httpPostForm(introspectionEndpoint, mapOf("token" to accessToken), auth)
-            assertTrue(
-                afterRevoke.body().contains("\"active\":false"),
-                "a revoked token must introspect as inactive, body=${afterRevoke.body()}",
+            assertEquals(
+                false, introspect(sympauthy, accessToken, auth)["active"],
+                "a revoked token must introspect as inactive",
             )
         }
     }

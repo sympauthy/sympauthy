@@ -33,12 +33,11 @@ class IdTokenCarriesNonceIT : AbstractSympauthyIT() {
 
             val tokens = registry.newFlow()
                 .withNonce(nonce)
-                .withSignUpHandler { mapOf("email" to "ada@example.com", "password" to "Str0ngP@ssw0rd!") }
+                .withSignUpHandler { credentials() }
                 .run()
                 .exchange()
 
-            val idToken = checkNotNull(tokens.idToken()) { "the openid scope should yield an id_token" }
-            val claims = verifyIdTokenSignature(sympauthy, idToken)
+            val claims = verifyIdTokenSignature(sympauthy, requireIdToken(tokens.idToken()))
 
             assertEquals(
                 nonce,

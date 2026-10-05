@@ -3,7 +3,6 @@ package com.sympauthy.it.feature
 import com.sympauthy.api.client.api.AdminApi
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
-import com.sympauthy.it.SympauthyImage
 import com.sympauthy.testcontainers.SympauthyContainer
 import com.sympauthy.testcontainers.flow.FlowStep
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -42,19 +41,15 @@ class SignUpWithAllOpenIdClaimFeatureIT : AbstractSympauthyIT() {
         withCustomContainer(
             database,
             build = { fixture, registry ->
-                fixture.applyTo(
-                    SympauthyContainer(SympauthyImage.resolve())
-                        .withAdmin()
-                        .withConfig(passwordAndAllClaimsConfig())
-                        .withFlows(registry)
-                        .withAdminClient(registry, "profile", "email", "phone", "address", "admin:users:read"),
-                )
+                container(fixture, passwordAndAllClaimsConfig(), registry)
+                    .withAdmin()
+                    .withAdminClient(registry, "profile", "email", "phone", "address", "admin:users:read")
             },
         ) { sympauthy, registry ->
             val invitationToken = sympauthy.getBootstrapInvitationToken("first-admin")
             val flow = registry.newFlow()
                 .withInvitationToken(invitationToken)
-                .withSignUpHandler { mapOf("email" to EXPECTED.getValue("email"), "password" to PASSWORD) }
+                .withSignUpHandler { credentials(EXPECTED.getValue("email")) }
                 .withClaimsHandler { requested -> requested.associate { it.id() to EXPECTED.getValue(it.id()) } }
 
             val result = flow.run()
@@ -73,8 +68,7 @@ class SignUpWithAllOpenIdClaimFeatureIT : AbstractSympauthyIT() {
             )
 
             // The id_token subject is the user id; verifying it also proves the token is genuinely signed.
-            val idToken = requireNotNull(tokens.idToken()) { "the openid scope should yield an id_token" }
-            val userId = verifyIdTokenSignature(sympauthy, idToken).subject
+            val userId = subjectOf(sympauthy, tokens.idToken())
 
             val claimList = withApiClient(sympauthy, token = tokens.accessToken()) { ctx ->
                 ctx.getBean(AdminApi::class.java)
@@ -96,9 +90,16 @@ class SignUpWithAllOpenIdClaimFeatureIT : AbstractSympauthyIT() {
         }
     }
 
-    private companion object {
+    /**
+     * Password auth with an email identifier, plus every standard OpenID claim enabled and required so
+     * the flow gathers them all. Claim keys mirror the underlying claim ids (see [EXPECTED]); the
+     * generated `sub` / `updated_at` claims are always on and need no configuration.
+     */
+    private fun passwordAndAllClaimsConfig(): Map<String, Any> = passwordAuthConfig() and mapOf(
+        "claims" to EXPECTED.keys.associateWith { mapOf("enabled" to true, "required" to true) },
+    )
 
-        const val PASSWORD = "Str0ngP@ssw0rd!"
+    private companion object {
 
         /**
          * The value signed up for each standard OpenID claim, by claim id. Each value is valid for its
@@ -128,21 +129,5 @@ class SignUpWithAllOpenIdClaimFeatureIT : AbstractSympauthyIT() {
             "postal_code" to "EC1A 1BB",
             "country" to "GB",
         )
-
-        /**
-         * Password auth with an email identifier, plus every standard OpenID claim enabled and required so
-         * the flow gathers them all. Claim keys mirror the underlying claim ids (see [EXPECTED]); the
-         * generated `sub` / `updated_at` claims are always on and need no configuration.
-         */
-        fun passwordAndAllClaimsConfig(): Map<String, Any> {
-            val enabledRequired = mapOf("enabled" to true, "required" to true)
-            return mapOf(
-                "auth" to mapOf(
-                    "by-password" to mapOf("enabled" to true),
-                    "identifier-claims" to listOf("email"),
-                ),
-                "claims" to EXPECTED.keys.associateWith { enabledRequired },
-            )
-        }
     }
 }

@@ -1,12 +1,10 @@
 package com.sympauthy.it.feature
 
-import com.nimbusds.jose.util.JSONObjectUtils
 import com.nimbusds.jwt.SignedJWT
 import com.sympauthy.api.client.api.OpenidApi
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
 import com.sympauthy.testcontainers.Client
-import com.sympauthy.testcontainers.SympauthyContainer
 import com.sympauthy.testcontainers.flow.InteractiveFlowRegistry
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -64,12 +62,9 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun publishesEachClaimInTheChannelsItNames(database: Database) {
         withContainer(database, extraConfig = claimsPublishedPerChannel(), scopes = SCOPES) { sympauthy, registry ->
-            val tokens = signUp(registry)
+            val tokens = signUpCollectingClaims(registry)
 
-            val idTokenClaims = verifyIdTokenSignature(
-                sympauthy,
-                requireNotNull(tokens.idToken()) { "the openid scope should yield an id_token" },
-            )
+            val idTokenClaims = verifyIdTokenSignature(sympauthy, requireIdToken(tokens.idToken()))
             assertEquals(FULL_NAME, idTokenClaims.getStringClaim("name"), "an OpenID claim, from the template")
             assertEquals(GOLD, idTokenClaims.getStringClaim("loyalty_tier"), "a claim naming both channels")
             assertEquals(REFERENCE, idTokenClaims.getStringClaim("internal_ref"), "a claim naming the id token")
@@ -102,7 +97,7 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
             client = confidentialClient,
             scopes = TOKEN_PLACE_SCOPES,
         ) { sympauthy, registry ->
-            val tokens = signUp(registry)
+            val tokens = signUpCollectingClaims(registry)
             val accessToken = requireNotNull(tokens.accessToken()) { "the exchange should yield an access token" }
 
             val accessTokenClaims = SignedJWT.parse(accessToken).jwtClaimsSet
@@ -110,21 +105,11 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
             assertNull(accessTokenClaims.getClaim("stored_ref"), "a claim naming introspection alone")
             assertNull(accessTokenClaims.getClaim("secret_note"), "a claim the ACL refuses the client")
 
-            val idTokenClaims = verifyIdTokenSignature(
-                sympauthy,
-                requireNotNull(tokens.idToken()) { "the openid scope should yield an id_token" },
-            )
+            val idTokenClaims = verifyIdTokenSignature(sympauthy, requireIdToken(tokens.idToken()))
             assertNull(idTokenClaims.getClaim("stored_tier"), "a claim naming the access token alone")
             assertNull(idTokenClaims.getClaim("stored_ref"), "a claim naming introspection alone")
 
-            val auth = mapOf("Authorization" to basicAuth(registry.clientId(), checkNotNull(registry.clientSecret())))
-            val response = httpPostForm(
-                discovery(sympauthy).introspectionEndpoint!!,
-                mapOf("token" to accessToken),
-                auth,
-            )
-            assertEquals(200, response.statusCode(), "introspection should answer the client, body=${response.body()}")
-            val introspection = JSONObjectUtils.parse(response.body())
+            val introspection = introspect(sympauthy, accessToken, basicAuth(registry))
 
             assertEquals(true, introspection["active"])
             assertEquals(REFERENCE, introspection["stored_ref"], "a claim naming introspection")
@@ -139,8 +124,8 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
         }
     }
 
-    private fun signUp(registry: InteractiveFlowRegistry) = registry.newFlow()
-        .withSignUpHandler { mapOf("email" to EMAIL, "password" to PASSWORD) }
+    private fun signUpCollectingClaims(registry: InteractiveFlowRegistry) = registry.newFlow()
+        .withSignUpHandler { credentials(EMAIL) }
         .withClaimsHandler { requested -> requested.associate { it.id() to COLLECTED.getValue(it.id()) } }
         .run()
         .exchange()
@@ -230,7 +215,6 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
     private companion object {
 
         const val EMAIL = "published-in@example.com"
-        const val PASSWORD = "Str0ngP@ssw0rd!"
         const val FULL_NAME = "Ada Lovelace"
         const val GOLD = "gold"
         const val DARK = "dark"

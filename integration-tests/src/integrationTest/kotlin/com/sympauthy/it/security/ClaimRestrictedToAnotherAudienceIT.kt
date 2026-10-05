@@ -3,7 +3,6 @@ package com.sympauthy.it.security
 import com.sympauthy.api.client.api.OpenidApi
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
-import com.sympauthy.it.SympauthyImage
 import com.sympauthy.testcontainers.Client
 import com.sympauthy.testcontainers.SympauthyContainer
 import com.sympauthy.testcontainers.flow.Credentials
@@ -43,11 +42,8 @@ class ClaimRestrictedToAnotherAudienceIT : AbstractSympauthyIT() {
                 .withFlowId(BILLING_FLOW_ID).withScopes(*SCOPES).use { billing ->
                     InteractiveFlowRegistry.forClient(Client.publicClient(OWN_CLIENT_ID))
                         .withFlowId(OWN_FLOW_ID).withScopes(*SCOPES).use { storefront ->
-                            fixture.applyTo(
-                                SympauthyContainer(SympauthyImage.resolve())
-                                    .withConfig(twoAudienceConfig(billing, storefront))
-                                    .withFlows(billing)
-                                    .withFlows(storefront),
+                            container(
+                                fixture, twoAudienceConfig(billing, storefront), billing, storefront,
                             ).use { sympauthy ->
                                 withStartedContainer(sympauthy) {
                                     publishesOnlyItsOwnAudiencesClaims(it, billing, storefront)
@@ -64,7 +60,7 @@ class ClaimRestrictedToAnotherAudienceIT : AbstractSympauthyIT() {
         storefront: InteractiveFlowRegistry,
     ) {
         val billingTokens = billing.newFlow()
-            .withSignUpHandler { mapOf("email" to EMAIL, "password" to PASSWORD) }
+            .withSignUpHandler { credentials(EMAIL) }
             .withClaimsHandler { requested -> requested.associate { it.id() to COLLECTED.getValue(it.id()) } }
             .run()
             .exchange()
@@ -77,7 +73,7 @@ class ClaimRestrictedToAnotherAudienceIT : AbstractSympauthyIT() {
         )
 
         val storefrontTokens = storefront.newFlow()
-            .withSignInHandler { Credentials.of(EMAIL, PASSWORD) }
+            .withSignInHandler { Credentials.of(EMAIL, DEFAULT_PASSWORD) }
             .run()
             .exchange()
 
@@ -104,8 +100,32 @@ class ClaimRestrictedToAnotherAudienceIT : AbstractSympauthyIT() {
         )
     }
 
-    private fun requireIdToken(idToken: String?): String =
-        requireNotNull(idToken) { "the openid scope should yield an id_token" }
+    /**
+     * Password auth with an email identifier, a second audience beside the shipped `default`, and the two
+     * `profile` claims the scenario turns on — `nickname` restricted to `billing`, `name` to nothing. The
+     * storefront client names no audience, so it takes `default` from `templates.clients.default`; the
+     * billing client names `billing`.
+     */
+    private fun twoAudienceConfig(
+        billing: InteractiveFlowRegistry,
+        storefront: InteractiveFlowRegistry,
+    ): Map<String, Any> = passwordAuthConfig() and mapOf(
+        "claims" to mapOf(
+            "name" to mapOf("enabled" to true, "required" to true),
+            "nickname" to mapOf("enabled" to true, "required" to true, "audience" to "billing"),
+        ),
+    ) and mapOf(
+        "audiences" to mapOf(
+            "billing" to mapOf("token-audience" to "https://billing.example.com"),
+        ),
+        "clients" to mapOf(
+            billing.clientId() to clientConfig(billing) + mapOf("audience" to "billing"),
+            storefront.clientId() to clientConfig(storefront),
+        ),
+    )
+
+    private fun clientConfig(registry: InteractiveFlowRegistry): Map<String, Any> =
+        publicClientConfig(registry, scopes = SCOPES.toList())
 
     private companion object {
 
@@ -115,7 +135,6 @@ class ClaimRestrictedToAnotherAudienceIT : AbstractSympauthyIT() {
         const val BILLING_CLIENT_ID = "billing-app"
         const val BILLING_FLOW_ID = "billing"
         const val EMAIL = "claim-restricted@example.com"
-        const val PASSWORD = "Str0ngP@ssw0rd!"
         const val NAME = "Ada Lovelace"
         const val NICKNAME = "Ada"
 
@@ -126,42 +145,6 @@ class ClaimRestrictedToAnotherAudienceIT : AbstractSympauthyIT() {
             "email" to EMAIL,
             "name" to NAME,
             "nickname" to NICKNAME,
-        )
-
-        /**
-         * Password auth with an email identifier, a second audience beside the shipped `default`, and the two
-         * `profile` claims the scenario turns on — `nickname` restricted to `billing`, `name` to nothing. The
-         * storefront client names no audience, so it takes `default` from `templates.clients.default`; the
-         * billing client names `billing`.
-         */
-        fun twoAudienceConfig(
-            billing: InteractiveFlowRegistry,
-            storefront: InteractiveFlowRegistry,
-        ): Map<String, Any> = mapOf(
-            "audiences" to mapOf(
-                "billing" to mapOf("token-audience" to "https://billing.example.com"),
-            ),
-            "auth" to mapOf(
-                "by-password" to mapOf("enabled" to true),
-                "identifier-claims" to listOf("email"),
-            ),
-            "claims" to mapOf(
-                "email" to mapOf("enabled" to true),
-                "name" to mapOf("enabled" to true, "required" to true),
-                "nickname" to mapOf("enabled" to true, "required" to true, "audience" to "billing"),
-            ),
-            "clients" to mapOf(
-                billing.clientId() to publicClientConfig(billing) + mapOf("audience" to "billing"),
-                storefront.clientId() to publicClientConfig(storefront),
-            ),
-        )
-
-        fun publicClientConfig(registry: InteractiveFlowRegistry): Map<String, Any> = mapOf(
-            "public" to true,
-            "authorizationFlow" to registry.flowId(),
-            "allowed-grant-types" to listOf("authorization_code"),
-            "allowed-scopes" to SCOPES.toList(),
-            "allowed-redirect-uris" to listOf(registry.redirectUri()),
         )
     }
 }
