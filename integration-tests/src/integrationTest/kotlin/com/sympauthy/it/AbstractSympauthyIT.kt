@@ -1,5 +1,6 @@
 package com.sympauthy.it
 
+import com.nimbusds.jose.jwk.source.JWKSource
 import com.nimbusds.jose.jwk.source.JWKSourceBuilder
 import com.nimbusds.jose.proc.JWSVerificationKeySelector
 import com.nimbusds.jose.proc.SecurityContext
@@ -29,8 +30,8 @@ import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
+import java.util.concurrent.ConcurrentHashMap
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
 
 /**
  * Shared support for the container-starting integration tests: a minimal SympAuthy configuration
@@ -47,16 +48,28 @@ abstract class AbstractSympauthyIT {
 
     /**
      * Password auth with an email identifier, which every scenario's deployment is built on: it is what
-     * makes a sign-up and a sign-in possible at all. [claims] is merged into the one claim that carries,
-     * so a scenario turning more on keeps the identifier it signs in with.
+     * makes a sign-up and a sign-in possible at all.
+     *
+     * Compose anything else onto it with [and] rather than with `+`: a scenario adding, say,
+     * `auth.token.refresh-enabled` with `plus` replaces the whole `auth` subtree and silently takes the
+     * password authentication with it.
      */
-    protected fun passwordAuthConfig(claims: Map<String, Any> = emptyMap()): Map<String, Any> = mapOf(
+    protected fun passwordAuthConfig(): Map<String, Any> = mapOf(
         "auth" to mapOf(
             "by-password" to mapOf("enabled" to true),
             "identifier-claims" to listOf("email"),
         ),
-        "claims" to mapOf("email" to mapOf("enabled" to true)) + claims,
+        "claims" to mapOf("email" to mapOf("enabled" to true)),
     )
+
+    /**
+     * This configuration with [override] merged into it subtree by subtree: a map meets the map under the
+     * same key, and any other value replaces what was there. It is what composing two configuration
+     * fragments means, since the ones here share the `auth`, `claims` and `clients` keys and each
+     * contributes different members of them.
+     */
+    protected infix fun Map<String, Any>.and(override: Map<String, Any>): Map<String, Any> =
+        deepMerge(this, override)
 
     /**
      * A public client owning [registry]'s flow — wired to the mock frontend's callback and flow id, and
@@ -95,7 +108,7 @@ abstract class AbstractSympauthyIT {
                 "allowed-redirect-uris" to listOf(registry.redirectUri()),
             )
         }
-        return passwordAuthConfig() + mapOf("clients" to mapOf(registry.clientId() to clientConfig))
+        return passwordAuthConfig() and mapOf("clients" to mapOf(registry.clientId() to clientConfig))
     }
 
     // --- On-demand MFA-enrollment support ----------------------------------------------------------
@@ -121,7 +134,7 @@ abstract class AbstractSympauthyIT {
     protected fun mfaEnrollmentConfig(registry: InteractiveFlowRegistry): Map<String, Any> {
         val secret = registry.clientSecret()
             ?: error("on-demand MFA enrollment requires a confidential client (client_credentials grant)")
-        return passwordAuthConfig() + mapOf(
+        return passwordAuthConfig() and mapOf(
             "features" to mapOf("grant-unhandled-scopes" to true),
             "templates" to mapOf(
                 "clients" to mapOf("default" to mapOf("authorization-flow" to registry.flowId())),
@@ -169,7 +182,7 @@ abstract class AbstractSympauthyIT {
      * (scalar or list) replaces the base value. Lets a scenario contribute extra config — a second
      * client, extra scopes, a feature flag — on top of the shared [config] without restating it.
      */
-    private fun deepMerge(base: Map<String, Any>, override: Map<String, Any>): Map<String, Any> {
+    protected fun deepMerge(base: Map<String, Any>, override: Map<String, Any>): Map<String, Any> {
         if (override.isEmpty()) return base
         val merged = LinkedHashMap<String, Any>(base)
         for ((key, overrideValue) in override) {
@@ -224,11 +237,15 @@ abstract class AbstractSympauthyIT {
         database: Database,
         client: Client = Client.publicClient(clientId),
         scopes: List<String> = listOf("openid"),
+        flowId: String? = null,
         build: (DatabaseFixture, InteractiveFlowRegistry) -> SympauthyContainer,
         block: (SympauthyContainer, InteractiveFlowRegistry) -> Unit,
     ) {
         database.createFixture().use { fixture ->
-            InteractiveFlowRegistry.forClient(client).withScopes(*scopes.toTypedArray()).use { registry ->
+            InteractiveFlowRegistry.forClient(client)
+                .withScopes(*scopes.toTypedArray())
+                .apply { flowId?.let { withFlowId(it) } }
+                .use { registry ->
                 build(fixture, registry).use { sympauthy ->
                     runStarted(sympauthy, registry, block)
                 }
@@ -304,14 +321,14 @@ abstract class AbstractSympauthyIT {
      * them. A scenario with nothing to prove about either takes both defaults; one proving something about
      * an address or a password names it.
      */
-    protected fun credentials(email: String = EMAIL, password: String = PASSWORD): Map<String, String> =
+    protected fun credentials(email: String = DEFAULT_EMAIL, password: String = DEFAULT_PASSWORD): Map<String, String> =
         mapOf("email" to email, "password" to password)
 
     /** Signs a person up through [registry]'s flow with [credentials], and answers the authorization. */
     protected fun signUp(
         registry: InteractiveFlowRegistry,
-        email: String = EMAIL,
-        password: String = PASSWORD,
+        email: String = DEFAULT_EMAIL,
+        password: String = DEFAULT_PASSWORD,
     ): AuthorizationResult = registry.newFlow()
         .withSignUpHandler { credentials(email, password) }
         .run()
@@ -319,8 +336,8 @@ abstract class AbstractSympauthyIT {
     /** Signs a person up as [signUp] does, and exchanges the code it yields for tokens. */
     protected fun signUpAndExchange(
         registry: InteractiveFlowRegistry,
-        email: String = EMAIL,
-        password: String = PASSWORD,
+        email: String = DEFAULT_EMAIL,
+        password: String = DEFAULT_PASSWORD,
     ): TokenResponse = signUp(registry, email, password).exchange()
 
     /**
@@ -329,8 +346,8 @@ abstract class AbstractSympauthyIT {
      */
     protected fun signUpForCode(
         registry: InteractiveFlowRegistry,
-        email: String = EMAIL,
-        password: String = PASSWORD,
+        email: String = DEFAULT_EMAIL,
+        password: String = DEFAULT_PASSWORD,
     ): String = requireCode(signUp(registry, email, password))
 
     /** The code [result] captured at the client callback, or a failure saying it carried none. */
@@ -341,14 +358,14 @@ abstract class AbstractSympauthyIT {
     protected fun signIn(
         registry: InteractiveFlowRegistry,
         login: String,
-        password: String = PASSWORD,
-    ): String = requireIdToken(
+        password: String = DEFAULT_PASSWORD,
+    ): String = requireNotNull(
         registry.newFlow()
             .withSignInHandler { Credentials.of(login, password) }
             .run()
             .exchange()
             .idToken(),
-    )
+    ) { "the openid scope should yield an id_token for '$login'" }
 
     /** [idToken], or a failure saying the grant it came from should have carried one. */
     protected fun requireIdToken(idToken: String?): String =
@@ -363,18 +380,31 @@ abstract class AbstractSympauthyIT {
      * state-secured flow endpoints are driven with. [authorize] has to be a redirect-carrying response, so
      * the client that issued it must not have followed it.
      */
-    protected fun internalState(authorize: FlowCall): String {
-        val location = authorize.location ?: error("authorize 303 had no Location")
-        return queryParam(location, "state") ?: error("authorize redirect did not carry a state: $location")
+    protected fun internalState(authorize: FlowCall): String = stateOf(authorize.location)
+
+    /** [internalState] for a response read through [httpGet], which carries its headers rather than one. */
+    protected fun internalState(authorize: HttpResponse<String>): String =
+        stateOf(authorize.headers().firstValue("Location").orElse(null))
+
+    private fun stateOf(location: String?): String {
+        val redirect = location ?: error("authorize 303 had no Location")
+        return queryParam(redirect, "state") ?: error("authorize redirect did not carry a state: $redirect")
     }
 
     // --- HTTP / JWT helpers -------------------------------------------------------------------------
 
-    /** The OpenID Connect discovery document served by [sympauthy], read through the generated client. */
+    /**
+     * The OpenID Connect discovery document served by [sympauthy], read through the generated client and
+     * then held: reading it costs an [ApplicationContext] and a round-trip, and a running container does
+     * not change what it publishes. Keyed by the container's address, so a scenario starting two of them
+     * reads each.
+     */
     protected fun discovery(sympauthy: SympauthyContainer): OpenIdConfigurationResource =
-        withApiClient(sympauthy) { ctx ->
-            ctx.getBean(OpeniddiscoveryApi::class.java).getConfiguration().block()
-        } ?: error("discovery endpoint returned an empty body")
+        discoveryDocuments.computeIfAbsent(sympauthy.baseUrl) {
+            withApiClient(sympauthy) { ctx ->
+                ctx.getBean(OpeniddiscoveryApi::class.java).getConfiguration().block()
+            } ?: error("discovery endpoint returned an empty body")
+        }
 
     /**
      * Mints a `client_credentials` access token for [registry]'s (confidential) client carrying [scopes],
@@ -393,9 +423,11 @@ abstract class AbstractSympauthyIT {
      * returning the validated claims. Throws if the signature does not verify against the JWKS.
      */
     protected fun verifyIdTokenSignature(sympauthy: SympauthyContainer, idToken: String): JWTClaimsSet {
-        val jwksUri = URI.create(discovery(sympauthy).jwksUri).toURL()
+        val jwksUri = discovery(sympauthy).jwksUri
         val signedJwt = SignedJWT.parse(idToken)
-        val jwkSource = JWKSourceBuilder.create<SecurityContext>(jwksUri).build()
+        val jwkSource = jwkSources.computeIfAbsent(jwksUri) {
+            JWKSourceBuilder.create<SecurityContext>(URI.create(it).toURL()).build()
+        }
         val processor = DefaultJWTProcessor<SecurityContext>().apply {
             jwsKeySelector = JWSVerificationKeySelector(signedJwt.header.algorithm, jwkSource)
         }
@@ -464,10 +496,18 @@ abstract class AbstractSympauthyIT {
     // --- Token endpoint -----------------------------------------------------------------------------
 
     /**
-     * Posts an `authorization_code` exchange of [code] as [registry]'s client, answering the raw response
-     * so a refusal is read rather than thrown. [overrides] replaces one form field, and a null value
-     * removes it entirely. The `code_verifier` is a freshly generated one, which cannot hash to the
-     * challenge the code carries: a caller wanting the exchange to succeed drives it through the flow.
+     * Posts an `authorization_code` exchange of [code] for [registry]'s client, answering the raw
+     * response so a refusal is read rather than thrown. Each entry of [overrides] replaces the form field
+     * it names, and a null value removes that field entirely.
+     *
+     * The request carries `client_id` and no client authentication, so [registry]'s client has to be a
+     * public one; a confidential client is answered `invalid_client` before anything else is read.
+     *
+     * The `code_verifier` is freshly generated and so cannot hash to the challenge the code carries. That
+     * is what the PKCE scenarios want and it is harmless to the others only because of an order the token
+     * endpoint owns: it resolves the code's own client, then compares `redirect_uri`, and verifies PKCE
+     * last — so a scenario forging any of those is refused before the verifier is read. A scenario whose
+     * rule is checked after PKCE cannot use this helper, because the verifier would answer first.
      */
     protected fun exchangeCode(
         sympauthy: SympauthyContainer,
@@ -527,9 +567,11 @@ abstract class AbstractSympauthyIT {
     }
 
     /**
-     * Asserts [response] refused with HTTP [status] and names the OAuth2 error [error], reporting
-     * [message] when it did not. Both halves are read: a refusal carrying another error code satisfies
-     * the status on its own, and which error was answered is what a reader of the failure needs.
+     * Asserts [response] refused with HTTP [status] and that its `error_code` is exactly [error], the
+     * RFC 6749 value a client branches on, reporting [message] when it did not. The member is compared
+     * rather than searched for in the body: `description` is a bundle message, so a body containing the
+     * code is not the same thing as a body naming it, and a rewrite of that sentence must not decide
+     * whether this passes.
      */
     protected fun assertOAuthError(
         response: HttpResponse<String>,
@@ -538,9 +580,10 @@ abstract class AbstractSympauthyIT {
         message: String,
     ) {
         assertEquals(status, response.statusCode(), "$message, body=${response.body()}")
-        assertTrue(
-            response.body().contains(error),
-            "$message — expected the $error refusal, was: ${response.body()}",
+        assertEquals(
+            error,
+            JSONObjectUtils.parse(response.body())["error_code"],
+            "$message — the refusal should name $error, body=${response.body()}",
         )
     }
 
@@ -603,13 +646,21 @@ abstract class AbstractSympauthyIT {
     /** A PKCE verifier and its S256 challenge. */
     protected data class Pkce(val verifier: String, val challenge: String, val method: String = "S256")
 
+    private val discoveryDocuments = ConcurrentHashMap<String, OpenIdConfigurationResource>()
+
+    private val jwkSources = ConcurrentHashMap<String, JWKSource<SecurityContext>>()
+
     companion object {
 
-        /** The address a scenario signs its person up with, where the address itself proves nothing. */
-        const val EMAIL = "ada@example.com"
+        /**
+         * The address a scenario signs its person up with, where the address itself proves nothing. Named
+         * apart from the `EMAIL` several scenarios declare for an address they do prove something about,
+         * so that deleting one of those does not silently move its sign-up onto this one.
+         */
+        const val DEFAULT_EMAIL = "ada@example.com"
 
         /** The password a scenario signs its person up with, valid against the shipped validation rules. */
-        const val PASSWORD = "Str0ngP@ssw0rd!"
+        const val DEFAULT_PASSWORD = "Str0ngP@ssw0rd!"
 
         /** The `state` [authorizeUrl] sends, which the server echoes back on the redirect it ends at. */
         const val CLIENT_STATE = "integration-test-state"

@@ -64,7 +64,7 @@ class InteractiveFlowSessionPlacesFeatureIT : AbstractSympauthyIT() {
             assertNull(place.provenDate, "nothing has proven a credential on this session yet")
 
             val result = registry.newFlow()
-                .withSignInHandler { Credentials.of(ADMIN_EMAIL, PASSWORD) }
+                .withSignInHandler { Credentials.of(ADMIN_EMAIL, DEFAULT_PASSWORD) }
                 .driveFrom(signInPage, registry.redirectUri(), registry.redirectUri())
                 .drive()
             assertEquals(FlowOutcome.SUCCESS, result.outcome(), "the flow should complete")
@@ -115,7 +115,7 @@ class InteractiveFlowSessionPlacesFeatureIT : AbstractSympauthyIT() {
             )
 
             val result = registry.newFlow()
-                .withSignInHandler { Credentials.of(ADMIN_EMAIL, PASSWORD) }
+                .withSignInHandler { Credentials.of(ADMIN_EMAIL, DEFAULT_PASSWORD) }
                 .driveFrom(signInPage, registry.redirectUri(), registry.redirectUri())
                 .drive()
 
@@ -134,9 +134,7 @@ class InteractiveFlowSessionPlacesFeatureIT : AbstractSympauthyIT() {
     ): String {
         val authorize = httpGet(authorizeUrl(sympauthy, registry), headers = agent(AGENT))
         assertEquals(303, authorize.statusCode(), "authorize should redirect to the first step")
-        return authorize.headers().firstValue("Location").orElseThrow {
-            error("authorize 303 had no Location")
-        }
+        return authorize.headers().firstValue("Location").orElseGet { error("authorize 303 had no Location") }
     }
 
     /**

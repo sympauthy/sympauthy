@@ -95,8 +95,9 @@ class SignUpWithAllOpenIdClaimFeatureIT : AbstractSympauthyIT() {
      * the flow gathers them all. Claim keys mirror the underlying claim ids (see [EXPECTED]); the
      * generated `sub` / `updated_at` claims are always on and need no configuration.
      */
-    private fun passwordAndAllClaimsConfig(): Map<String, Any> =
-        passwordAuthConfig(claims = EXPECTED.keys.associateWith { mapOf("enabled" to true, "required" to true) })
+    private fun passwordAndAllClaimsConfig(): Map<String, Any> = passwordAuthConfig() and mapOf(
+        "claims" to EXPECTED.keys.associateWith { mapOf("enabled" to true, "required" to true) },
+    )
 
     private companion object {
 

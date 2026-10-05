@@ -38,8 +38,8 @@ class RequiredClaimOfAnotherAudienceIT : AbstractSympauthyIT() {
             database,
             client = Client.publicClient(OWN_CLIENT_ID),
             scopes = SCOPES,
+            flowId = OWN_FLOW_ID,
             build = { fixture, registry ->
-                registry.withFlowId(OWN_FLOW_ID)
                 container(fixture, otherAudienceRequiresAClaimConfig(registry), registry)
             },
         ) { _, registry -> asksForNoClaimOfTheOtherAudience(registry) }
@@ -65,11 +65,11 @@ class RequiredClaimOfAnotherAudienceIT : AbstractSympauthyIT() {
      * from `templates.clients.default`.
      */
     private fun otherAudienceRequiresAClaimConfig(registry: InteractiveFlowRegistry): Map<String, Any> =
-        passwordAuthConfig(
-            claims = mapOf(
+        passwordAuthConfig() and mapOf(
+            "claims" to mapOf(
                 "nickname" to mapOf("enabled" to true, "required" to true, "audience" to "billing"),
             ),
-        ) + mapOf(
+        ) and mapOf(
             "audiences" to mapOf(
                 "billing" to mapOf("token-audience" to "https://billing.example.com"),
             ),

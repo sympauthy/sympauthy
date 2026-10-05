@@ -72,7 +72,7 @@ class IdentifierSpellingFeatureIT : AbstractSympauthyIT() {
             assertThrows<FlowException>("the sign-up must not complete") { second.run() }
 
             assertEquals(
-                account, subjectOf(sympauthy, signIn(registry, LOWERED, PASSWORD)),
+                account, subjectOf(sympauthy, signIn(registry, LOWERED, DEFAULT_PASSWORD)),
                 "the address still reaches the account that owns it, under its own password",
             )
         }

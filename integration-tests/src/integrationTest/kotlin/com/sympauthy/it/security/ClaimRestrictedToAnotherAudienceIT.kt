@@ -73,7 +73,7 @@ class ClaimRestrictedToAnotherAudienceIT : AbstractSympauthyIT() {
         )
 
         val storefrontTokens = storefront.newFlow()
-            .withSignInHandler { Credentials.of(EMAIL, PASSWORD) }
+            .withSignInHandler { Credentials.of(EMAIL, DEFAULT_PASSWORD) }
             .run()
             .exchange()
 
@@ -109,12 +109,12 @@ class ClaimRestrictedToAnotherAudienceIT : AbstractSympauthyIT() {
     private fun twoAudienceConfig(
         billing: InteractiveFlowRegistry,
         storefront: InteractiveFlowRegistry,
-    ): Map<String, Any> = passwordAuthConfig(
-        claims = mapOf(
+    ): Map<String, Any> = passwordAuthConfig() and mapOf(
+        "claims" to mapOf(
             "name" to mapOf("enabled" to true, "required" to true),
             "nickname" to mapOf("enabled" to true, "required" to true, "audience" to "billing"),
         ),
-    ) + mapOf(
+    ) and mapOf(
         "audiences" to mapOf(
             "billing" to mapOf("token-audience" to "https://billing.example.com"),
         ),

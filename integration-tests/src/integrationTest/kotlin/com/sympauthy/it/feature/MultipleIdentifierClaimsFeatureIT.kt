@@ -43,7 +43,7 @@ class MultipleIdentifierClaimsFeatureIT : AbstractSympauthyIT() {
                 .run()
             val account = subjectOf(sympauthy, signedUp.exchange().idToken())
 
-            val byEmail = signIn(registry, EMAIL)
+            val byEmail = signIn(registry, DEFAULT_EMAIL)
             val byUsername = signIn(registry, USERNAME)
 
             assertEquals(account, subjectOf(sympauthy, byEmail), "signing in with the email reaches the account")
@@ -69,13 +69,13 @@ class MultipleIdentifierClaimsFeatureIT : AbstractSympauthyIT() {
             // come out of it could not be mistaken for the one that already exists.
             val crossing = registry.newFlow()
                 .withSignUpHandler {
-                    credentials(OTHER_EMAIL, OTHER_PASSWORD) + mapOf("preferred_username" to EMAIL)
+                    credentials(OTHER_EMAIL, OTHER_PASSWORD) + mapOf("preferred_username" to DEFAULT_EMAIL)
                 }
 
             assertThrows<FlowException>("the sign-up must not complete") { crossing.run() }
 
             assertEquals(
-                account, subjectOf(sympauthy, signIn(registry, EMAIL, PASSWORD)),
+                account, subjectOf(sympauthy, signIn(registry, DEFAULT_EMAIL, DEFAULT_PASSWORD)),
                 "the address still reaches the account that owns it, under its own password",
             )
         }

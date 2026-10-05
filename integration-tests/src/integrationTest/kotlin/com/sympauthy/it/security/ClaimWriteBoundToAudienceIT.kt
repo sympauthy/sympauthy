@@ -113,17 +113,18 @@ class ClaimWriteBoundToAudienceIT : AbstractSympauthyIT() {
      * call the client API). `features.grant-unhandled-scopes` is what lets that grant actually hand out
      * the claim scopes, there being no granting rule for them.
      */
-    private fun twoAudienceClientConfig(registry: InteractiveFlowRegistry): Map<String, Any> = passwordAuthConfig(
-        claims = mapOf(
-            "custom_region" to mapOf("enabled" to true, "type" to "string", "template" to "application"),
-            "custom_tier" to mapOf(
-                "enabled" to true,
-                "type" to "string",
-                "template" to "application",
-                "audience" to "billing",
+    private fun twoAudienceClientConfig(registry: InteractiveFlowRegistry): Map<String, Any> =
+        passwordAuthConfig() and mapOf(
+            "claims" to mapOf(
+                "custom_region" to mapOf("enabled" to true, "type" to "string", "template" to "application"),
+                "custom_tier" to mapOf(
+                    "enabled" to true,
+                    "type" to "string",
+                    "template" to "application",
+                    "audience" to "billing",
+                ),
             ),
-        ),
-    ) + mapOf(
+        ) and mapOf(
         "audiences" to mapOf(
             "billing" to mapOf("token-audience" to "https://billing.example.com"),
         ),

@@ -46,7 +46,7 @@ class ClientMfaEnrollmentFeatureIT : AbstractSympauthyIT() {
             build = { fixture, registry -> container(fixture, mfaEnrollmentConfig(registry), registry) },
         ) { sympauthy, registry ->
             val callerToken = clientCredentialsToken(sympauthy, registry, "users:mfa:write")
-            val userToken = signUpAccessToken(registry, EMAIL)
+            val userToken = signUpAccessToken(registry, DEFAULT_EMAIL)
 
             val returnUri = mfaEnrollmentReturnUri(registry)
             val cancelUri = mfaEnrollmentCancelUri(registry)

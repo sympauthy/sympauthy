@@ -98,9 +98,9 @@ class ProvisionalSignUpFeatureIT : AbstractSympauthyIT() {
     private fun twoClientSignUpConfig(
         first: InteractiveFlowRegistry,
         racing: InteractiveFlowRegistry,
-    ): Map<String, Any> = passwordAuthConfig(
-        claims = mapOf("name" to mapOf("enabled" to true, "required" to true)),
-    ) + mapOf(
+    ): Map<String, Any> = passwordAuthConfig() and mapOf(
+        "claims" to mapOf("name" to mapOf("enabled" to true, "required" to true)),
+    ) and mapOf(
         "clients" to mapOf(
             first.clientId() to publicClientConfig(first, scopes = SCOPES),
             racing.clientId() to publicClientConfig(racing, scopes = SCOPES),
