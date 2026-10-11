@@ -1,7 +1,11 @@
 package com.sympauthy.api.controller.oauth2
 
 import com.sympauthy.api.controller.oauth2.IntrospectionController.Companion.OAUTH2_INTROSPECTION_ENDPOINT
+import com.sympauthy.api.controller.oauth2.util.CLIENT_ID_PARAMETER_DESCRIPTION
+import com.sympauthy.api.controller.oauth2.util.CLIENT_SECRET_PARAMETER_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil
+import com.sympauthy.api.controller.oauth2.util.TOKEN_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.controller.oauth2.util.TOKEN_TYPE_HINT_PARAMETER_DESCRIPTION
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.api.resource.oauth2.IntrospectionResource
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
@@ -24,11 +28,11 @@ import io.swagger.v3.oas.annotations.ExternalDocumentation
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import jakarta.inject.Inject
 import java.time.ZoneOffset
 
 @Controller(OAUTH2_INTROSPECTION_ENDPOINT)
-@Suppress("MaxLineLength")
 class IntrospectionController(
     @Inject private val tokenManager: TokenManager,
     @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
@@ -37,43 +41,43 @@ class IntrospectionController(
 ) {
 
     @Operation(
-        description = """
-Introspect a token per RFC 7662.
-
-Returns metadata about the token including whether it is currently active, its scopes, expiration, and associated client/user.
-
-If the token is invalid, expired, revoked, or not recognized, the response will contain only `{"active": false}` — no other fields are included for inactive tokens.
-
-Client authentication is supported via:
-- HTTP Basic Auth (`Authorization: Basic <base64(client_id:client_secret)>`)
-- Form body parameters (`client_id` / `client_secret`)
-""",
+        description = "Introspect a token, RFC 7662 §2. The client authenticates with HTTP Basic authentication " +
+            "or with `client_id` and `client_secret` in the body. A token that does not validate, has expired " +
+            "or been revoked, or was issued to another client is answered as inactive.",
         tags = ["oauth2"],
         parameters = [
             Parameter(
                 name = TOKEN_PARAM,
-                description = "The token to introspect.",
+                description = "Access token or refresh token to introspect, RFC 7662 §2.1.",
                 schema = Schema(type = "string"),
                 required = true
             ),
             Parameter(
                 name = TOKEN_TYPE_HINT_PARAM,
-                description = "Optional hint about the type of the submitted token. Supported values are `access_token` and `refresh_token`.",
+                description = TOKEN_TYPE_HINT_PARAMETER_DESCRIPTION,
                 schema = Schema(type = "string", allowableValues = ["access_token", "refresh_token"])
             ),
             Parameter(
                 name = "client_id",
-                description = "The client identifier. Used when client credentials are passed in the request body instead of via Basic Auth.",
+                description = CLIENT_ID_PARAMETER_DESCRIPTION,
                 schema = Schema(type = "string")
             ),
             Parameter(
                 name = "client_secret",
-                description = "The client secret. Used when client credentials are passed in the request body instead of via Basic Auth.",
+                description = CLIENT_SECRET_PARAMETER_DESCRIPTION,
                 schema = Schema(type = "string")
             )
         ],
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "Information about the token, or `active` alone when the token is inactive.",
+                useReturnTypeSchema = true
+            ),
+            ApiResponse(responseCode = "400", description = TOKEN_BAD_REQUEST_DESCRIPTION)
+        ],
         externalDocs = ExternalDocumentation(
-            description = "Token Introspection specification (RFC 7662)",
+            description = "RFC 7662",
             url = "https://datatracker.ietf.org/doc/html/rfc7662"
         )
     )

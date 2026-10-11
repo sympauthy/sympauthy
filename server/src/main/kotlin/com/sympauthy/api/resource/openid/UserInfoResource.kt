@@ -27,112 +27,126 @@ import io.micronaut.serde.annotation.Serdeable
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDate
 
+/**
+ * What the published specification says about when a claim of the userinfo response is left out, on every
+ * claim it declares.
+ */
+internal const val USERINFO_CLAIM_ABSENT_DESCRIPTION = " Absent when the user holds no value for it, the " +
+    "end-user did not consent to share it, or the configuration does not publish it in the userinfo response."
+
 @Schema(
-    description = "Claims about the logged-in subject. Beside the OpenID Connect properties declared here, " +
-            "the response carries the claims a deployment configured itself, each under the identifier it " +
-            "was configured with.",
+    description = "Claims of the end-user the access token was issued for, OpenID Connect Core 1.0 §5.1. " +
+        "Beside the properties declared here, the response carries the claims the configuration defines " +
+        "beyond these, each under its identifier.",
     additionalProperties = Schema.AdditionalPropertiesValue.TRUE
 )
 @Serdeable
 data class UserInfoResource(
     @get:Schema(
-        description = "Identifier for the end-user.",
+        description = "Identifier of the user the access token was issued for.",
     )
     @get:JsonProperty(SUB)
     val sub: String,
     @get:Schema(
-        description = "End-user's full name."
+        description = "Full name of the end-user." + USERINFO_CLAIM_ABSENT_DESCRIPTION
     )
     @get:JsonProperty(NAME)
     val name: String?,
     @get:Schema(
-        description = "Given name(s) or first name(s) of the end-user."
+        description = "Given names of the end-user." + USERINFO_CLAIM_ABSENT_DESCRIPTION
     )
     @get:JsonProperty(GIVEN_NAME)
     val givenName: String?,
     @get:Schema(
-        description = "Surname(s) or last name(s) of the end-user."
+        description = "Family names of the end-user." + USERINFO_CLAIM_ABSENT_DESCRIPTION
     )
     @get:JsonProperty(FAMILY_NAME)
     val familyName: String?,
     @get:Schema(
-        description = "Middle name(s) of the end-user."
+        description = "Middle names of the end-user." + USERINFO_CLAIM_ABSENT_DESCRIPTION
     )
     @get:JsonProperty(MIDDLE_NAME)
     val middleName: String?,
     @get:Schema(
-        description = "Casual name of the end-user."
+        description = "Casual name of the end-user." + USERINFO_CLAIM_ABSENT_DESCRIPTION
     )
     @get:JsonProperty(NICKNAME)
     val nickname: String?,
     @get:Schema(
-        description = "Shorthand name of the end-user."
+        description = "Shorthand name the end-user wishes to be referred to by." + USERINFO_CLAIM_ABSENT_DESCRIPTION
     )
     @get:JsonProperty(PREFERRED_USERNAME)
     val preferredUsername: String?,
     @get:Schema(
-        description = "URL of the end-user's profile page."
+        description = "URL of the profile page of the end-user." + USERINFO_CLAIM_ABSENT_DESCRIPTION
     )
     @get:JsonProperty(PROFILE)
     val profile: String?,
     @get:Schema(
-        description = "URL of the end-user's profile picture."
+        description = "URL of the profile picture of the end-user." + USERINFO_CLAIM_ABSENT_DESCRIPTION
     )
     @get:JsonProperty(PICTURE)
     val picture: String?,
     @get:Schema(
-        description = "URL of the end-user's Web page or blog."
+        description = "URL of the web page or blog of the end-user." + USERINFO_CLAIM_ABSENT_DESCRIPTION
     )
     @get:JsonProperty(WEBSITE)
     val website: String?,
     @get:Schema(
-        description = "End-user's preferred e-mail address."
+        description = "Preferred email address of the end-user." + USERINFO_CLAIM_ABSENT_DESCRIPTION
     )
     @get:JsonProperty(EMAIL)
     val email: String?,
     @get:Schema(
-        description = "True if the end-user's e-mail address has been verified, otherwise false."
+        description = "Whether the email address of the end-user was verified. Absent when the user never held " +
+            "one, the end-user did not consent to share it, or the configuration does not publish `email` in " +
+            "the userinfo response."
     )
     @get:JsonProperty(EMAIL_VERIFIED)
     val emailVerified: Boolean?,
     @get:Schema(
-        description = "End-user's gender."
+        description = "Gender of the end-user." + USERINFO_CLAIM_ABSENT_DESCRIPTION
     )
     @get:JsonProperty(GENDER)
     val gender: String?,
     @get:Schema(
-        description = "End-user's birthday."
+        description = "Birthday of the end-user, as an ISO 8601 date." + USERINFO_CLAIM_ABSENT_DESCRIPTION
     )
     @get:JsonProperty(BIRTH_DATE)
     val birthDate: LocalDate?,
     @get:Schema(
-        description = "String from IANA Time Zone Database representing the end-user's time zone."
+        description = "Time zone of the end-user, from the IANA time zone database, for example " +
+            "`Europe/Paris`." + USERINFO_CLAIM_ABSENT_DESCRIPTION
     )
     @get:JsonProperty(ZONE_INFO)
     val zoneInfo: String?,
     @get:Schema(
-        description = "End-user's locale, represented as a BCP47 language tag."
+        description = "Locale of the end-user, as a BCP 47 language tag, for example `fr-FR`." +
+            USERINFO_CLAIM_ABSENT_DESCRIPTION
     )
     @get:JsonProperty(LOCALE)
     val locale: String?,
     @get:Schema(
-        description = "End-user's preferred telephone number."
+        description = "Preferred telephone number of the end-user." + USERINFO_CLAIM_ABSENT_DESCRIPTION
     )
     @get:JsonProperty(PHONE_NUMBER)
     val phoneNumber: String?,
     @get:Schema(
-        description = "True if the end-user's phone number has been verified, otherwise false."
+        description = "Whether the telephone number of the end-user was verified. Absent when the user never " +
+            "held one, the end-user did not consent to share it, or the configuration does not publish " +
+            "`phone_number` in the userinfo response."
     )
     @get:JsonProperty(PHONE_NUMBER_VERIFIED)
     val phoneNumberVerified: Boolean?,
     @get:Schema(
-        description = "End-user's preferred postal address."
+        description = "Preferred postal address of the end-user. Absent when none of its members would be " +
+            "sent."
     )
     @get:JsonProperty(ADDRESS)
     val address: AddressResource?,
     @get:Schema(
-        description =
-            "Time the end-user's information was last updated. It is the number of seconds from epoch in UTC timezone."
+        description = "Time at which a claim value of the user was last collected, in seconds since the Unix " +
+            "epoch. Absent when none was ever collected."
     )
     @get:JsonProperty(UPDATED_AT)
     val updatedAt: Long?,

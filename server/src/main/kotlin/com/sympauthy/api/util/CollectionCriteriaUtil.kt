@@ -38,15 +38,14 @@ const val FILTER_PARAMETER_NAME = "filter"
  * is written once here rather than per controller. What is particular to one collection — the fields
  * it searches, where it publishes what it offers — is on that collection's own operation.
  */
-const val PAGE_PARAMETER_DESCRIPTION = "Zero-indexed page number. A page outside the bounds of this " +
-    "collection is refused rather than clamped."
+const val PAGE_PARAMETER_DESCRIPTION = "Index of the page to read, counted from zero. When absent, " +
+    "the first page."
 
 /**
  * @see PAGE_PARAMETER_DESCRIPTION
  */
-const val SIZE_PARAMETER_DESCRIPTION = "Number of results per page. Defaults to the size this server " +
-    "is configured with and may not exceed its configured maximum; a size outside those bounds is " +
-    "refused rather than clamped."
+const val SIZE_PARAMETER_DESCRIPTION = "Number of items per page, from one to " +
+    "`advanced.pagination.max-size`. When absent, `advanced.pagination.default-size`."
 
 /**
  * A criterion names a field the collection declared, so there is no parameter a specification could
@@ -55,30 +54,65 @@ const val SIZE_PARAMETER_DESCRIPTION = "Number of results per page. Defaults to 
  *
  * @see PAGE_PARAMETER_DESCRIPTION
  */
-const val FILTER_PARAMETER_DESCRIPTION = "Criteria narrowing this collection, each sent as a query " +
-    "parameter of its own — this parameter is never sent under its own name. A bare `field=value` " +
-    "is an exact match, and every other operator is a dotted suffix on the field name: `.eq` `.ne`, " +
-    "`.lt` `.lte` `.gt` `.gte`, `.in` over a comma-separated list, `.contains` `.starts_with` " +
-    "partially and ignoring case, and `.is_null=true` for a row carrying no value at all. Which of " +
-    "them a field admits follows from its type. Criteria compose with `and` — `created_at.gte` " +
-    "beside `created_at.lte` is a range — and there is no `or` and no grouping. A field this " +
-    "collection does not offer, an operator it does not admit and a value its set does not hold are " +
-    "each a 400 naming the parameter. Example: " +
-    "`status=enabled&email.contains=ana&created_at.gte=2026-01-01T00:00:00`."
+const val FILTER_PARAMETER_DESCRIPTION = "Criteria narrowing the collection, each sent as a query " +
+    "parameter of its own and never under the name `filter`. `field=value` is an exact match, and " +
+    "any other operator is a suffix on the field name: `.eq`, `.ne`, `.lt`, `.lte`, `.gt`, `.gte`, " +
+    "`.in` over a comma-separated list, `.contains` and `.starts_with` ignoring case, and " +
+    "`.is_null=true`. Which operators a field accepts depends on its type. Every criterion must " +
+    "hold. Example: `status=enabled&created_at.gte=2026-01-01T00:00:00`."
 
 /**
  * @see PAGE_PARAMETER_DESCRIPTION
  */
-const val SORT_PARAMETER_DESCRIPTION = "Comma-separated list of keys to order by, read left to " +
-    "right, each descending when prefixed with `-`: `sort=-created_at,email` reads the newest first " +
-    "and settles ties by email. A key this collection does not order on is refused, and the order " +
-    "ends on a key that is unique whichever direction is asked for."
+const val SORT_PARAMETER_DESCRIPTION = "Comma-separated keys to order by, read left to right, each " +
+    "descending when prefixed with `-`. Example: `sort=-created_at,email` reads the newest first and " +
+    "orders ties by email. The order always ends on a key no two items share."
 
 /**
  * @see PAGE_PARAMETER_DESCRIPTION
  */
-const val SEARCH_PARAMETER_DESCRIPTION = "Partial, case-insensitive match across the fields this " +
-    "collection searches. It narrows what the criteria kept rather than widening it."
+const val SEARCH_PARAMETER_DESCRIPTION = "Text matched partially and ignoring case against the " +
+    "fields the collection searches, among the items the criteria kept."
+
+/**
+ * What the published specification says about the `400` every collection answers with, whatever it
+ * offers: the refusals of [collectionCriteriaOf] and of [PaginationUtil.resolvePageParams]. A
+ * collection refusing something of its own appends a line for it.
+ */
+const val COLLECTION_BAD_REQUEST_DESCRIPTION =
+    "- `collection.page.negative`: `page` is below zero.\n" +
+        "- `collection.page.too_large`: `page` is too far into the collection to be counted.\n" +
+        "- `collection.size.too_small`: `size` is below one.\n" +
+        "- `collection.size.too_large`: `size` is above `advanced.pagination.max-size`.\n" +
+        "- `collection.filter.unknown_field`: a parameter names no field the collection filters on.\n" +
+        "- `collection.filter.unsupported_operator`: a criterion uses an operator its field does " +
+        "not accept.\n" +
+        "- `collection.filter.value.unsupported`: a criterion names a value its field does not hold.\n" +
+        "- `collection.filter.value.malformed`: a criterion's value cannot be read as its field's " +
+        "type.\n" +
+        "- `collection.sort.unknown_field`: `sort` names a key the collection does not order on."
+
+/**
+ * The line a collection searching nothing appends to [COLLECTION_BAD_REQUEST_DESCRIPTION].
+ */
+const val COLLECTION_SEARCH_UNSUPPORTED_DESCRIPTION =
+    "\n- `collection.search.unsupported`: `q` is sent, and the collection searches nothing."
+
+/**
+ * What the published specification says about each property every page of a collection carries
+ * beside its items.
+ */
+const val PAGE_PROPERTY_DESCRIPTION = "Index of this page, counted from zero."
+
+/**
+ * @see PAGE_PROPERTY_DESCRIPTION
+ */
+const val SIZE_PROPERTY_DESCRIPTION = "Number of items per page."
+
+/**
+ * @see PAGE_PROPERTY_DESCRIPTION
+ */
+const val TOTAL_PROPERTY_DESCRIPTION = "Number of items the criteria kept, across every page."
 
 /**
  * Read everything [request] asks of a collection beyond the page it wants, against the [capabilities]

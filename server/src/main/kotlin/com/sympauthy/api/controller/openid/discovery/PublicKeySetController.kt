@@ -8,6 +8,7 @@ import io.micronaut.http.annotation.Get
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.rules.SecurityRule.IS_ANONYMOUS
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import jakarta.inject.Inject
 
 @Secured(IS_ANONYMOUS)
@@ -17,10 +18,17 @@ class PublicKeySetController(
 ) {
 
     @Operation(
-        description = """
-Return a key set containing the public key to use to validate access tokens and id tokens issued by this authorization server.
-""",
-        tags = ["openiddiscovery"]
+        description = "Retrieve the public keys verifying the signatures of the id tokens and access tokens this " +
+            "server issues, as a JSON Web Key Set, RFC 7517 §5.",
+        tags = ["openiddiscovery"],
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "Key set holding two public keys: the one verifying id tokens and the one " +
+                    "verifying access tokens.",
+                useReturnTypeSchema = true
+            )
+        ]
     )
     @Get(produces = ["application/jwk-set+json", APPLICATION_JSON])
     suspend fun getPublicKey(): Map<String, Any> {

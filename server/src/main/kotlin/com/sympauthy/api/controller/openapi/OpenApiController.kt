@@ -13,6 +13,8 @@ import io.micronaut.security.annotation.Secured
 import io.micronaut.security.rules.SecurityRule.IS_ANONYMOUS
 import io.reactivex.rxjava3.core.Single
 import io.swagger.v3.oas.annotations.OpenAPIDefinition
+import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import jakarta.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.rx3.await
@@ -39,6 +41,16 @@ class OpenApiController(
         }
     }.cache()
 
+    @Operation(
+        description = "Retrieve this OpenAPI document, in YAML.",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "This OpenAPI document.",
+                useReturnTypeSchema = true
+            )
+        ]
+    )
     @Get(produces = [APPLICATION_YAML])
     suspend fun getOpenApi(): String {
         return replaceUrlInOpenApi()

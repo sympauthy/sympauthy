@@ -3,6 +3,7 @@ package com.sympauthy.api.controller.openid
 import com.sympauthy.api.controller.openid.OpenIdUserInfoController.Companion.OPENID_USERINFO_ENDPOINT
 import com.sympauthy.api.mapper.UserInfoResourceMapper
 import com.sympauthy.api.resource.openid.UserInfoResource
+import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.oauth2.Scope
@@ -16,6 +17,7 @@ import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.swagger.v3.oas.annotations.ExternalDocumentation
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import jakarta.inject.Inject
 
 @Controller(OPENID_USERINFO_ENDPOINT)
@@ -27,17 +29,35 @@ class OpenIdUserInfoController(
 ) {
 
     @Operation(
-        description = "Retrieves the claims about the logged-in subject that the end-user consented to " +
-                "share and that this deployment publishes here. A claim the deployment configured itself " +
-                "is returned under the identifier it was configured with, beside the standard " +
-                "properties.\n\n" +
-                "A claim named in the `userinfo` member of the `claims` parameter sent to /authorize is " +
-                "returned here too, where this deployment configured that claim as askable in " +
-                "/userinfo. The access token used here carries that request, so every token descended " +
-                "from the same authorization — including one obtained by a refresh — answers the same " +
-                "set.",
+        description = "Retrieve the claims of the end-user an access token was issued for, OpenID Connect Core " +
+            "1.0 §5.3. The access token is sent as `Authorization: Bearer <token>`. The response holds the " +
+            "claims the end-user consented to share that the configuration publishes in it: always " +
+            "(`claims.<id>.published-in`), or when the `userinfo` member of the `claims` parameter of the " +
+            "authorization request named them (`claims.<id>.published-in-when-requested`).",
         tags = ["openid"],
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "Claims of the end-user.",
+                useReturnTypeSchema = true
+            ),
+            ApiResponse(
+                responseCode = "400",
+                description = "- `client.invalid_client_id`: the client the access token was issued to is no " +
+                    "longer configured."
+            ),
+            ApiResponse(
+                responseCode = "401",
+                description = UNAUTHORIZED_RESPONSE_DESCRIPTION
+            ),
+            ApiResponse(
+                responseCode = "403",
+                description = "- `forbidden`: the access token was issued by the `client_credentials` grant, " +
+                    "with no end-user behind it."
+            )
+        ],
         externalDocs = ExternalDocumentation(
+            description = "OpenID Connect Core 1.0, §5.3",
             url = "https://openid.net/specs/openid-connect-core-1_0.html#UserInfo"
         )
     )

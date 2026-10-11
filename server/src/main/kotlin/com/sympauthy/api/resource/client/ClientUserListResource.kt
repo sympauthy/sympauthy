@@ -1,19 +1,22 @@
 package com.sympauthy.api.resource.client
 
+import com.sympauthy.api.util.PAGE_PROPERTY_DESCRIPTION
+import com.sympauthy.api.util.SIZE_PROPERTY_DESCRIPTION
+import com.sympauthy.api.util.TOTAL_PROPERTY_DESCRIPTION
 import io.micronaut.serde.annotation.Serdeable
 import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(
-    description = "Paginated list of users who have granted scopes to the client."
+    description = "Paginated list of users with an active consent for this client's audience."
 )
 @Serdeable
 data class ClientUserListResource(
-    @get:Schema(description = "Array of user records.")
+    @get:Schema(description = "The users on this page.")
     val users: List<ClientUserResource>,
-    @get:Schema(description = "Current page number.")
+    @get:Schema(description = PAGE_PROPERTY_DESCRIPTION)
     val page: Int,
-    @get:Schema(description = "Number of results per page.")
+    @get:Schema(description = SIZE_PROPERTY_DESCRIPTION)
     val size: Int,
-    @get:Schema(description = "Total number of users matching the query.")
+    @get:Schema(description = TOTAL_PROPERTY_DESCRIPTION)
     val total: Int
 )

@@ -11,6 +11,8 @@ import io.micronaut.http.annotation.PathVariable
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.rules.SecurityRule
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import jakarta.inject.Inject
 
 @Secured(SecurityRule.IS_ANONYMOUS)
@@ -23,22 +25,20 @@ class TimeZoneController(
 
     @Get
     @Operation(
-        summary = "List timezones",
-        description = """
-List all timezones that are allowed to be selected for the claim.
-
-The list of timezones will depends on:
-- the version of the TZ database integrated into the authorization server.
-- the allowed value declared for the claim in the configuration.
-
-> Note on pagination: The timezone database contains around 600 entries which convert to a maximum payload of around 5kb 
-once compressed with Gzip. Therefore pagination will be more hurtful to the performance than getting all the list in one go. 
-This is why it has been decided than this operation will not support pagination.
-        """,
+        description = "List the time zones the end-user can pick for a claim: those the claim allows, or every " +
+            "time zone this server knows when the claim allows any. Time zones are ordered by identifier.",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "The time zones the end-user can pick.",
+                useReturnTypeSchema = true
+            ),
+            ApiResponse(responseCode = "404", description = "- `not_found`: `claimId` names no enabled claim.")
+        ],
         tags = ["flow"]
     )
     suspend fun listTimeZones(
-        @PathVariable claimId: String
+        @PathVariable @Parameter(description = "Identifier of the claim.") claimId: String
     ): List<TimeZoneResource> {
         val claim = claimManager.findByIdOrNull(claimId).orNotFound()
         val timeZones = timeZoneProvider.listAvailableTimezones(claim)

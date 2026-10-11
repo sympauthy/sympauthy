@@ -1,6 +1,7 @@
 package com.sympauthy.api.controller.admin
 
 import com.sympauthy.api.resource.admin.AdminForceLogoutResource
+import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
@@ -30,22 +31,25 @@ class AdminUserLogoutController(
 ) {
 
     @Operation(
-        description = "Force logout a user by revoking all their tokens across all clients.",
+        description = "Revoke every token issued to a user, signing the end-user out of every client.",
         tags = ["admin"],
         responses = [
-            ApiResponse(responseCode = "200", description = "Tokens revoked successfully."),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(responseCode = "200", description = "The user and the number of tokens revoked."),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: admin:consent:write."
+                description = "- `forbidden`: the access token does not carry the scope `admin:consent:write`."
             ),
-            ApiResponse(responseCode = "404", description = "No user found with the given identifier.")
+            ApiResponse(
+                responseCode = "404",
+                description = "- `not_found`: no user has this identifier."
+            )
         ]
     )
     @Post
     @Secured(ADMIN_CONSENT_WRITE)
     suspend fun forceLogout(
-        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
+        @PathVariable @Parameter(description = "Identifier of the user.") userId: UUID,
         authentication: Authentication
     ): AdminForceLogoutResource {
         userManager.findByIdOrNull(userId).orNotFound()
@@ -62,23 +66,27 @@ class AdminUserLogoutController(
     }
 
     @Operation(
-        description = "Force logout a user from a specific client by revoking their tokens for that client.",
+        description = "Revoke every token issued to a user for one client, signing the end-user out of it.",
         tags = ["admin"],
         responses = [
-            ApiResponse(responseCode = "200", description = "Tokens revoked successfully."),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(responseCode = "200", description = "The user, the client and the number of tokens revoked."),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: admin:consent:write."
+                description = "- `forbidden`: the access token does not carry the scope `admin:consent:write`."
             ),
-            ApiResponse(responseCode = "404", description = "No user or client found with the given identifier.")
+            ApiResponse(
+                responseCode = "404",
+                description = "- `not_found`: no user has the identifier `userId`, or no client has the " +
+                        "identifier `clientId`."
+            )
         ]
     )
     @Post("/{clientId}")
     @Secured(ADMIN_CONSENT_WRITE)
     suspend fun forceClientLogout(
-        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
-        @PathVariable @Parameter(description = "Identifier of the client.") clientId: String,
+        @PathVariable @Parameter(description = "Identifier of the user.") userId: UUID,
+        @PathVariable @Parameter(description = "Identifier of the client whose tokens to revoke.") clientId: String,
         authentication: Authentication
     ): AdminForceLogoutResource {
         userManager.findByIdOrNull(userId).orNotFound()

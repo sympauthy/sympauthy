@@ -8,57 +8,88 @@ import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(
     name = "IntrospectionResource",
-    description = "Response from the token introspection endpoint per RFC 7662. When the token is inactive, only the 'active' field (set to false) is returned; all other fields are omitted. Beside the members declared here, the response carries the claims a deployment publishes in the introspection response, each under the identifier it was configured with.",
+    description = "Information about a token, as RFC 7662 §2.2 defines it. An inactive token is answered with " +
+        "`active` alone. Beside the members declared here, the answer for an active token issued for an " +
+        "end-user carries the claims the configuration publishes in the introspection response " +
+        "(`claims.<id>.published-in`), each under its identifier.",
     externalDocs = ExternalDocumentation(
         url = "https://datatracker.ietf.org/doc/html/rfc7662#section-2.2"
     ),
     additionalProperties = Schema.AdditionalPropertiesValue.TRUE
 )
 @Serdeable
-@Suppress("MaxLineLength")
 data class IntrospectionResource(
     @get:Schema(
-        description = "Whether the token is active. A token is active if it has been issued by this server, has not expired, and has not been revoked. When false, all other fields in the response will be omitted.",
+        description = "Whether the token is active: issued by this server to the calling client, not expired " +
+            "and not revoked.",
         required = true
     )
     val active: Boolean,
 
     @get:Schema(
-        description = "Space-separated list of scopes associated with the token. Only present when active is true."
+        description = "Scopes the token carries, separated by spaces. Absent when the token is inactive or " +
+            "carries no scope."
     )
     val scope: String? = null,
 
-    @get:Schema(description = "Client identifier for the OAuth 2.0 client that requested this token.")
+    @get:Schema(
+        description = "Identifier of the client the token was issued to. Absent when the token is inactive."
+    )
     @get:JsonProperty("client_id")
     val clientId: String? = null,
 
-    @get:Schema(description = "Human-readable identifier for the resource owner who authorized this token. Not returned for client_credentials tokens.")
+    @get:Schema(
+        description = "Human-readable identifier of the end-user the token was issued for. Always absent: this " +
+            "server does not send it."
+    )
     val username: String? = null,
 
-    @get:Schema(description = """Type of the token, either "Bearer" or "DPoP".""", allowableValues = ["Bearer", "DPoP"])
+    @get:Schema(
+        description = "Type of the token. `DPoP` when the token is bound to the key of a DPoP proof. Absent when " +
+            "the token is inactive.",
+        allowableValues = ["Bearer", "DPoP"]
+    )
     @get:JsonProperty("token_type")
     val tokenType: String? = null,
 
-    @get:Schema(description = "Expiration time of the token as a Unix timestamp (seconds since epoch).")
+    @get:Schema(
+        description = "Time at which the token expires, in seconds since the Unix epoch. Absent when the token " +
+            "is inactive or never expires."
+    )
     val exp: Long? = null,
 
-    @get:Schema(description = "Time at which the token was issued as a Unix timestamp (seconds since epoch).")
+    @get:Schema(
+        description = "Time at which the token was issued, in seconds since the Unix epoch. Absent when the " +
+            "token is inactive."
+    )
     val iat: Long? = null,
 
-    @get:Schema(description = "Time at which the end-user proved a credential of their account, as a Unix timestamp (seconds since epoch). Absent for a token no end-user authentication is behind: a client_credentials token, or one obtained through token exchange.")
+    @get:Schema(
+        description = "Time at which the end-user signed in for the authorization the token comes from, in " +
+            "seconds since the Unix epoch. Absent when the token is inactive, or no end-user signed in for it: " +
+            "a token from the `client_credentials` or the token exchange grant."
+    )
     @get:JsonProperty("auth_time")
     val authTime: Long? = null,
 
-    @get:Schema(description = "Subject of the token. For user tokens this is the user ID; for client_credentials tokens this is the client ID.")
+    @get:Schema(
+        description = "Subject of the token: the identifier of the user it was issued for, or of the client " +
+            "for a `client_credentials` token. Absent when the token is inactive."
+    )
     val sub: String? = null,
 
-    @get:Schema(description = "Intended audience of the token.")
+    @get:Schema(
+        description = "Audience the token is for: the token audience of the audience the client belongs to. " +
+            "Absent when the token is inactive."
+    )
     val aud: String? = null,
 
-    @get:Schema(description = "Issuer of the token (this authorization server).")
+    @get:Schema(
+        description = "Issuer of the token, as `auth.issuer` configures it. Absent when the token is inactive."
+    )
     val iss: String? = null,
 
-    @get:Schema(description = "Unique identifier of the token.")
+    @get:Schema(description = "Identifier of the token. Absent when the token is inactive.")
     val jti: String? = null,
 
     /**

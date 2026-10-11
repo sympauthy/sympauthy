@@ -5,6 +5,7 @@ import com.sympauthy.api.mapper.admin.AdminCollectionCapabilitiesResourceMapper
 import com.sympauthy.api.resource.admin.AdminClientListResource
 import com.sympauthy.api.resource.admin.AdminClientResource
 import com.sympauthy.api.resource.admin.AdminCollectionCapabilitiesResource
+import com.sympauthy.api.util.COLLECTION_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_NAME
 import com.sympauthy.api.util.PAGE_PARAMETER_DESCRIPTION
@@ -12,6 +13,7 @@ import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.SEARCH_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.SIZE_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.SORT_PARAMETER_DESCRIPTION
+import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.manager.ClientManager
@@ -35,6 +37,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
 
+private const val FORBIDDEN_DESCRIPTION =
+    "- `forbidden`: the access token does not carry the scope `admin:config:read`."
+
 @Controller("/api/v1/admin/clients")
 @Secured(ADMIN_CONFIG_READ)
 @SecurityRequirement(name = "admin", scopes = [AdminScopeId.CONFIG_READ])
@@ -47,9 +52,8 @@ class AdminClientController(
 ) {
 
     @Operation(
-        description = "Retrieve all configured clients. Since clients are defined in configuration files, " +
-                "this endpoint exposes them as read-only resources. Client secrets are never included. " +
-                "Clients are ordered by identifier unless another order is asked for. " +
+        description = "Retrieve the clients the configuration declares, without their secrets. " +
+                "Clients are ordered by identifier, unless another order is asked for. " +
                 "Which fields this collection can be filtered, ordered and searched on is published at " +
                 "/api/v1/admin/clients/capabilities.",
         tags = ["admin"],
@@ -69,16 +73,9 @@ class AdminClientController(
         ],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of clients."),
-            ApiResponse(
-                responseCode = "400",
-                description = "Invalid page or size, an unknown field, an operator the field does not " +
-                        "accept, or a value it does not hold."
-            ),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
-            ApiResponse(
-                responseCode = "403",
-                description = "The access token does not include the required scope: admin:config:read."
-            )
+            ApiResponse(responseCode = "400", description = COLLECTION_BAD_REQUEST_DESCRIPTION),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
+            ApiResponse(responseCode = "403", description = FORBIDDEN_DESCRIPTION)
         ]
     )
     @Get
@@ -87,7 +84,9 @@ class AdminClientController(
         @QueryValue @Parameter(description = PAGE_PARAMETER_DESCRIPTION) page: Int?,
         @QueryValue @Parameter(description = SIZE_PARAMETER_DESCRIPTION) size: Int?,
         @QueryValue @Parameter(description = SORT_PARAMETER_DESCRIPTION) sort: String?,
-        @QueryValue @Parameter(description = SEARCH_PARAMETER_DESCRIPTION) q: String?
+        @QueryValue @Parameter(
+            description = SEARCH_PARAMETER_DESCRIPTION + " It matches the identifier of the client."
+        ) q: String?
     ): AdminClientListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
         val criteria = collectionCriteriaOf(request, clientCollectionManager.capabilities(), sort, q)
@@ -101,19 +100,14 @@ class AdminClientController(
     }
 
     @Operation(
-        description = "Retrieve what the client collection accepts: the fields it filters on and the " +
-                "operators each admits, the fields it orders on, the fields a free-text search matches " +
-                "against, and the order it takes when none is asked for. " +
-                "The names it carries are read in the language the request asked for and may be reworded " +
-                "in any release.",
+        description = "Retrieve what the client collection accepts: the fields it filters on and the operators " +
+                "each accepts, the fields it orders on and searches, and its own order. " +
+                "Each `name` is in the language the request asks for, and may be reworded in any release.",
         tags = ["admin"],
         responses = [
-            ApiResponse(responseCode = "200", description = "What the collection accepts."),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
-            ApiResponse(
-                responseCode = "403",
-                description = "The access token does not include the required scope: admin:config:read."
-            )
+            ApiResponse(responseCode = "200", description = "What the client collection accepts."),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
+            ApiResponse(responseCode = "403", description = FORBIDDEN_DESCRIPTION)
         ]
     )
     @Get("/capabilities")
@@ -121,21 +115,18 @@ class AdminClientController(
         capabilitiesMapper.toResource(clientCollectionManager.capabilities(), request.locale.orDefault())
 
     @Operation(
-        description = "Retrieve details for a specific client by its identifier.",
+        description = "Retrieve a client, without its secret.",
         tags = ["admin"],
         responses = [
-            ApiResponse(responseCode = "200", description = "Client details."),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
-            ApiResponse(
-                responseCode = "403",
-                description = "The access token does not include the required scope: admin:config:read."
-            ),
-            ApiResponse(responseCode = "404", description = "No client found with the given identifier.")
+            ApiResponse(responseCode = "200", description = "The client."),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
+            ApiResponse(responseCode = "403", description = FORBIDDEN_DESCRIPTION),
+            ApiResponse(responseCode = "404", description = "- `not_found`: no client has this identifier.")
         ]
     )
     @Get("/{clientId}")
     suspend fun getClient(
-        @PathVariable @Parameter(description = "Unique identifier of the client.") clientId: String
+        @PathVariable @Parameter(description = "Identifier of the client.") clientId: String
     ): AdminClientResource {
         val client = clientManager.findClientByIdOrNull(clientId).orNotFound()
         return clientMapper.toResource(client)

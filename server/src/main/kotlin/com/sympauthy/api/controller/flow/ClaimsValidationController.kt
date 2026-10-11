@@ -4,6 +4,13 @@ import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControll
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.api.mapper.flow.ClaimsValidationFlowResultResourceMapper
 import com.sympauthy.api.resource.flow.*
+import com.sympauthy.api.util.FLOW_FAILURE_DESCRIPTION
+import com.sympauthy.api.util.FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION
+import com.sympauthy.api.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
+import com.sympauthy.api.util.FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.FLOW_REDIRECT_RESPONSE_DESCRIPTION
+import com.sympauthy.api.util.FLOW_SIGNED_IN_SESSION_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.FLOW_STATE_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionClaimValidationManager
 import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.security.ObservedRequest
@@ -17,6 +24,7 @@ import io.micronaut.http.annotation.RequestAttribute
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import jakarta.inject.Inject
 
@@ -29,33 +37,18 @@ class ClaimsValidationController(
 ) {
 
     @Operation(
-        method = "Get validation code expected from end-user through the media",
-        description = """
-Return information about the validation code that the end-user will receive or have received through the provided media
-to validate the claims collected earlier.
-
-If a code is required but not have been sent yet, send the code to validate the claims populated by the user earlier 
-through the media. ex. this authorization server will send an email to the email claim of the user to validate 
-it has access to the box.
-
-If there is no more validation code expected to be sent through the media by the authorization server, 
-the response will contain the redirect URL where the user must be redirected to continue the authorization flow.
-
-To avoid spamming the user, if a validation code has already been sent to the user through the media,
-the code will not be sent again but it will still be present in the output.
-
-The dedicated operation "Resend claim validation code" allows the user to ask for another code in case they did not
-receive the previous one.
-""",
+        description = "Retrieve the claims validation step for one media: the validation code the end-user is " +
+            "to enter, sent first if none was sent yet. A code already sent is not sent again; " +
+            "`POST /api/v1/flow/claims/validation/resend` sends a new one. When no claim is left to validate " +
+            "through `media`, the response carries only `redirect_url`. " + FLOW_FAILURE_DESCRIPTION,
         responses = [
             ApiResponse(
                 responseCode = "200",
-                description = """
-Result containing either:
-- information about the code expected from the end-user.
-- a redirect URL for the end-user to continue the authorization flow.
-""",
+                description = "The validation code expected, or the `redirect_url` to send the browser to instead.",
+                useReturnTypeSchema = true
             ),
+            ApiResponse(responseCode = "400", description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION),
+            ApiResponse(responseCode = "401", description = FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION)
         ],
         tags = ["flow"]
     )
@@ -63,7 +56,7 @@ Result containing either:
     suspend fun getValidationCodeToCollectForMedia(
         authentication: Authentication,
         @RequestAttribute(OBSERVED_REQUEST) observedRequest: ObservedRequest,
-        media: ValidationCodeMedia,
+        @Parameter(description = "Media to validate claims through.") media: ValidationCodeMedia,
     ): ClaimsValidationFlowResource =
         interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionWithUserThenRunAndRedirect(
             state = authentication.stateOrNull,
@@ -89,8 +82,23 @@ Result containing either:
     }
 
     @Operation(
-        method = "Validate the code sent through a media",
-        description = "Validate the code entered by the user.",
+        description = "Validate the claims a validation code was sent for, with the code the end-user entered. " +
+            FLOW_FAILURE_DESCRIPTION,
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = FLOW_REDIRECT_RESPONSE_DESCRIPTION,
+                useReturnTypeSchema = true
+            ),
+            ApiResponse(
+                responseCode = "400",
+                description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION +
+                    "\n- `flow.claim_validation.invalid_code`: `code` matches no validation code sent through " +
+                    "`media` during this interactive flow session.\n" +
+                    "- `flow.claim_validation.expired_code`: `code` matches a validation code that has expired."
+            ),
+            ApiResponse(responseCode = "401", description = FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION)
+        ],
         tags = ["flow"]
     )
     @Post
@@ -114,17 +122,22 @@ Result containing either:
         )
 
     @Operation(
-        method = "Resend code sent through a media",
-        description =
-            """
-Ask this authorization server to send through the media in the body new codes  to validates the claims populated by the 
-end-user earlier.
-
-This authorization server will not send new validation code in the following cases:
-- To avoid spamming.
-- The claims have already been validated.
-- No claim require validation through this media.
-""",
+        description = "Send a new validation code through a media, replacing the one sent through it earlier " +
+            "in this interactive flow session. Nothing is sent, and `resent` is `false`, when no code was " +
+            "sent through it yet, when the earlier code has neither expired nor reached its `resendDate`, or " +
+            "when no claim is left to validate through it.",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "Whether a new validation code was sent, and that code when it was.",
+                useReturnTypeSchema = true
+            ),
+            ApiResponse(
+                responseCode = "400",
+                description = FLOW_STATE_BAD_REQUEST_DESCRIPTION + FLOW_SIGNED_IN_SESSION_BAD_REQUEST_DESCRIPTION
+            ),
+            ApiResponse(responseCode = "401", description = FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION)
+        ],
         tags = ["flow"]
     )
     @Post("/resend")

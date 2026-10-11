@@ -10,12 +10,16 @@ import com.sympauthy.api.resource.admin.AdminCollectionCapabilitiesResource
 import com.sympauthy.api.resource.admin.AdminUserMfaEnrollmentInputResource
 import com.sympauthy.api.resource.admin.AdminUserMfaEnrollmentResource
 import com.sympauthy.api.resource.admin.AdminUserMfaMethodListResource
+import com.sympauthy.api.util.COLLECTION_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.COLLECTION_SEARCH_UNSUPPORTED_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_NAME
 import com.sympauthy.api.util.PAGE_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.PaginationUtil
+import com.sympauthy.api.util.RETURN_URI_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.SIZE_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.SORT_PARAMETER_DESCRIPTION
+import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
@@ -69,9 +73,10 @@ class AdminUserMfaController(
 ) {
 
     @Operation(
-        description = "Retrieve a paginated list of registered MFA methods for a given user. Methods are " +
-                "ordered by the date the user confirmed them, oldest first, then by identifier, unless " +
-                "another order is asked for. " +
+        description = "Retrieve the MFA methods enrolled for a user. A method the end-user has not " +
+                "confirmed yet is not listed. " +
+                "MFA methods are ordered by the date they were confirmed, oldest first, unless another " +
+                "order is asked for. " +
                 "Which fields this collection can be filtered and ordered on is published at " +
                 "/api/v1/admin/users/{userId}/mfa/capabilities.",
         tags = ["admin"],
@@ -93,15 +98,17 @@ class AdminUserMfaController(
             ApiResponse(responseCode = "200", description = "Paginated list of MFA methods."),
             ApiResponse(
                 responseCode = "400",
-                description = "Invalid page or size, an unknown field, an operator the field does not " +
-                        "accept, or a value it does not hold."
+                description = COLLECTION_BAD_REQUEST_DESCRIPTION + COLLECTION_SEARCH_UNSUPPORTED_DESCRIPTION
             ),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: admin:users:read."
+                description = "- `forbidden`: the access token does not carry the scope `admin:users:read`."
             ),
-            ApiResponse(responseCode = "404", description = "No user found with the given identifier.")
+            ApiResponse(
+                responseCode = "404",
+                description = "- `not_found`: no user has this identifier."
+            )
         ]
     )
     @Get
@@ -109,7 +116,7 @@ class AdminUserMfaController(
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.USERS_READ])
     suspend fun listMfaMethods(
         request: HttpRequest<*>,
-        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
+        @PathVariable @Parameter(description = "Identifier of the user.") userId: UUID,
         @QueryValue @Parameter(description = PAGE_PARAMETER_DESCRIPTION) page: Int?,
         @QueryValue @Parameter(description = SIZE_PARAMETER_DESCRIPTION) size: Int?,
         @QueryValue @Parameter(description = SORT_PARAMETER_DESCRIPTION) sort: String?
@@ -127,20 +134,17 @@ class AdminUserMfaController(
     }
 
     @Operation(
-        description = "Retrieve what the multi-factor method collection accepts: the fields it filters on " +
-                "and the operators each admits, the fields it orders on, and the order it takes when none " +
-                "is asked for. It names no searchable field, so this collection answers no free-text q. " +
-                "It describes the collection rather than one account, so it reads the same for every user " +
-                "identifier and looks none of them up. " +
-                "The names it carries are read in the language the request asked for and may be reworded " +
-                "in any release.",
+        description = "Retrieve what the collection of a user's MFA methods accepts: the fields it filters " +
+                "on and the operators each accepts, the fields it orders on, and its own order. It searches " +
+                "nothing. " +
+                "Each `name` is in the language the request asks for, and may be reworded in any release.",
         tags = ["admin"],
         responses = [
-            ApiResponse(responseCode = "200", description = "What the collection accepts."),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(responseCode = "200", description = "What the collection of a user's MFA methods accepts."),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: admin:users:read."
+                description = "- `forbidden`: the access token does not carry the scope `admin:users:read`."
             )
         ]
     )
@@ -149,22 +153,28 @@ class AdminUserMfaController(
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.USERS_READ])
     suspend fun getMfaCapabilities(
         request: HttpRequest<*>,
-        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID
+        @PathVariable @Parameter(
+            description = "Identifier of a user. It is not looked up: the answer is the same for every user."
+        ) userId: UUID
     ): AdminCollectionCapabilitiesResource =
         capabilitiesMapper.toResource(mfaEnrollmentCollectionManager.capabilities(), request.locale.orDefault())
 
     @Operation(
-        description = "Revoke a specific MFA method registered by a user. " +
-                "The user will need to re-enroll on their next sign-in if MFA is required.",
+        description = "Revoke an MFA method of a user. Where the configuration requires MFA, an end-user " +
+                "left with no MFA method enrolls a new one the next time they sign in.",
         tags = ["admin"],
         responses = [
-            ApiResponse(responseCode = "204", description = "MFA method revoked successfully."),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(responseCode = "204", description = "The MFA method was revoked."),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: admin:users:write."
+                description = "- `forbidden`: the access token does not carry the scope `admin:users:write`."
             ),
-            ApiResponse(responseCode = "404", description = "No MFA registration found with the given identifier.")
+            ApiResponse(
+                responseCode = "404",
+                description = "- `not_found`: no user has the identifier `userId`, or the user has no confirmed " +
+                        "MFA method with the identifier `mfaId`."
+            )
         ]
     )
     @Delete("/{mfaId}")
@@ -172,8 +182,8 @@ class AdminUserMfaController(
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.USERS_WRITE])
     @Status(HttpStatus.NO_CONTENT)
     suspend fun revokeMfaMethod(
-        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
-        @PathVariable @Parameter(description = "Unique identifier of the MFA registration to revoke.") mfaId: UUID
+        @PathVariable @Parameter(description = "Identifier of the user.") userId: UUID,
+        @PathVariable @Parameter(description = "Identifier of the MFA method to revoke.") mfaId: UUID
     ) {
         userManager.findByIdOrNull(userId).orNotFound()
         val enrollment = totpManager.findConfirmedEnrollmentOrNull(mfaId).orNotFound()
@@ -184,36 +194,38 @@ class AdminUserMfaController(
     }
 
     @Operation(
-        description = "Start an on-demand MFA enrollment for a given user, initiated by an administrator. " +
-                "Validates that the user and the named client exist and that the return (and optional cancel) " +
-                "URI are registered redirect URIs of that client, then creates an enrollment session gated by a " +
-                "confirmation the end-user must approve (shown as initiated by an administrator). Returns the " +
-                "redirect_url to hand or send to the user; once enrollment completes they are redirected to " +
-                "return_uri.",
+        description = "Start enrolling an MFA method for a user. Send the end-user's browser to " +
+                "`redirect_url`: the end-user confirms a request made by an administrator, enrolls the MFA " +
+                "method, and is sent back to `return_uri`.",
         tags = ["admin"],
         responses = [
             ApiResponse(
                 responseCode = "200",
-                description = "The enrollment session was started.",
+                description = "Where to send the end-user's browser to enroll an MFA method.",
                 useReturnTypeSchema = true
             ),
             ApiResponse(
                 responseCode = "400",
-                description = "Invalid return or cancel URI, or MFA is not enabled on this server."
+                description = "- `admin.users.mfa.enrollment.mfa_disabled`: `mfa.totp.enabled` is not `true` in " +
+                        "the configuration.\n" + RETURN_URI_BAD_REQUEST_DESCRIPTION
             ),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: admin:users:write."
+                description = "- `forbidden`: the access token does not carry the scope `admin:users:write`."
             ),
-            ApiResponse(responseCode = "404", description = "No user or client found with the given identifier.")
+            ApiResponse(
+                responseCode = "404",
+                description = "- `not_found`: no user has the identifier `userId`, or `client_id` is absent or " +
+                        "names no client."
+            )
         ]
     )
     @Post("/enrollment")
     @Secured(ADMIN_USERS_WRITE)
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.USERS_WRITE])
     suspend fun startEnrollment(
-        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
+        @PathVariable @Parameter(description = "Identifier of the user.") userId: UUID,
         @RequestAttribute(OBSERVED_REQUEST) observedRequest: ObservedRequest,
         @Body resource: AdminUserMfaEnrollmentInputResource
     ): AdminUserMfaEnrollmentResource {

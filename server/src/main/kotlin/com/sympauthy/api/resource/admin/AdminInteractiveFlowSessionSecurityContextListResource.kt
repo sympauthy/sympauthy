@@ -1,21 +1,24 @@
 package com.sympauthy.api.resource.admin
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.sympauthy.api.util.PAGE_PROPERTY_DESCRIPTION
+import com.sympauthy.api.util.SIZE_PROPERTY_DESCRIPTION
+import com.sympauthy.api.util.TOTAL_PROPERTY_DESCRIPTION
 import io.micronaut.serde.annotation.Serdeable
 import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(
-    description = "Paginated list of the places one interactive flow session was driven from."
+    description = "Paginated list of the security contexts of an interactive flow session."
 )
 @Serdeable
 data class AdminInteractiveFlowSessionSecurityContextListResource(
-    @get:Schema(description = "Array of places, the one seen most recently first.")
+    @get:Schema(description = "The security contexts on this page.")
     @get:JsonProperty("security_contexts")
     val securityContexts: List<AdminInteractiveFlowSessionSecurityContextResource>,
-    @get:Schema(description = "Current page number.")
+    @get:Schema(description = PAGE_PROPERTY_DESCRIPTION)
     val page: Int,
-    @get:Schema(description = "Number of results per page.")
+    @get:Schema(description = SIZE_PROPERTY_DESCRIPTION)
     val size: Int,
-    @get:Schema(description = "Total number of places the session holds.")
+    @get:Schema(description = TOTAL_PROPERTY_DESCRIPTION)
     val total: Int
 )

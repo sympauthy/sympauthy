@@ -1,6 +1,8 @@
 package com.sympauthy.api.controller.oauth2
 
 import com.sympauthy.api.controller.oauth2.TokenController.Companion.OAUTH2_TOKEN_ENDPOINT
+import com.sympauthy.api.controller.oauth2.util.CLIENT_ID_PARAMETER_DESCRIPTION
+import com.sympauthy.api.controller.oauth2.util.CLIENT_SECRET_PARAMETER_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.api.exception.toOAuth2Exception
@@ -38,11 +40,11 @@ import io.swagger.v3.oas.annotations.ExternalDocumentation
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import jakarta.inject.Inject
 import java.time.Duration
 
 @Controller(OAUTH2_TOKEN_ENDPOINT)
-@Suppress("MaxLineLength")
 class TokenController(
     @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
@@ -59,18 +61,14 @@ class TokenController(
 ) {
 
     @Operation(
-        description = """
-The token endpoint is used by the client to obtain an access token by presenting its authorization grant or refresh token.
-
-Client authentication is supported via:
-- HTTP Basic Auth (`Authorization: Basic <base64(client_id:client_secret)>`)
-- Form body parameters (`client_id` / `client_secret`)
-""",
+        description = "Exchange a grant for tokens, OAuth 2.1 §3.2. A confidential client authenticates with " +
+            "HTTP Basic authentication or with `client_id` and `client_secret` in the body. A request carrying " +
+            "a DPoP proof in the `DPoP` header, RFC 9449 §4, is issued tokens bound to the key of that proof.",
         tags = ["oauth2"],
         parameters = [
             Parameter(
                 name = "grant_type",
-                description = "The type of grant being requested.",
+                description = "Grant the client presents, OAuth 2.1 §3.2.2.",
                 schema = Schema(
                     type = "string",
                     allowableValues = [
@@ -83,73 +81,126 @@ Client authentication is supported via:
             ),
             Parameter(
                 name = "subject_token",
-                description = "The client's own client-credentials access token, proving it is the actor. Required for the `urn:ietf:params:oauth:grant-type:token-exchange` grant.",
+                description = "Access token the client itself obtained with the `client_credentials` grant, " +
+                    "RFC 8693 §2.1. The issued token names the client as its actor. Required for the token " +
+                    "exchange grant.",
                 schema = Schema(type = "string")
             ),
             Parameter(
                 name = "subject_token_type",
-                description = "The type of the `subject_token`. Must be `urn:ietf:params:oauth:token-type:access_token`. Required for the `urn:ietf:params:oauth:grant-type:token-exchange` grant.",
-                schema = Schema(type = "string")
+                description = "Type of `subject_token`, RFC 8693 §2.1. Required for the token exchange grant.",
+                schema = Schema(
+                    type = "string",
+                    allowableValues = ["urn:ietf:params:oauth:token-type:access_token"]
+                )
             ),
             Parameter(
                 name = "requested_subject",
-                description = "The id of the user to act on behalf of. Required for the `urn:ietf:params:oauth:grant-type:token-exchange` grant.",
+                description = "Identifier of the user the client acts for. Required for the token exchange grant.",
                 schema = Schema(type = "string")
             ),
             Parameter(
                 name = "requested_token_type",
-                description = "The type of token requested. Only `urn:ietf:params:oauth:token-type:access_token` is supported. Optional for the `urn:ietf:params:oauth:grant-type:token-exchange` grant.",
-                schema = Schema(type = "string")
+                description = "Type of the token the client asks for, RFC 8693 §2.1. Read on the token exchange " +
+                    "grant. When absent, an access token.",
+                schema = Schema(
+                    type = "string",
+                    allowableValues = ["urn:ietf:params:oauth:token-type:access_token"]
+                )
             ),
             Parameter(
                 name = "resource",
-                description = "A URI (RFC 8693 `resource`) indicating where the client intends to use the token, used by the server to apply policy. It does not set the token audience and is not supported yet: the request is rejected when it is present. Optional for the `urn:ietf:params:oauth:grant-type:token-exchange` grant.",
+                description = "URL where the client intends to use the token, RFC 8693 §2.1. Not supported: a " +
+                    "token exchange request carrying it is refused.",
                 schema = Schema(type = "string")
             ),
             Parameter(
                 name = "audience",
-                description = "The logical name (RFC 8693 `audience`) of the target service for the issued token; the only input that sets the token audience. Optional for the `urn:ietf:params:oauth:grant-type:token-exchange` grant.",
+                description = "Audience the token is for, RFC 8693 §2.1, matched against the token audience or " +
+                    "the identifier of a configured audience. Read on the token exchange grant. When absent, " +
+                    "the audience the client belongs to.",
                 schema = Schema(type = "string")
             ),
             Parameter(
                 name = "code",
-                description = "The authorization code received from the authorization endpoint. Required for the `authorization_code` grant.",
+                description = "Authorization code the browser brought back to `redirect_uri`. Required for the " +
+                    "`authorization_code` grant.",
                 schema = Schema(type = "string")
             ),
             Parameter(
                 name = "redirect_uri",
-                description = "The redirect URI used in the initial authorization request. Required for the `authorization_code` grant.",
+                description = "`redirect_uri` of the authorization request, sent again unchanged. Required for " +
+                    "the `authorization_code` grant.",
                 schema = Schema(type = "string")
             ),
             Parameter(
                 name = "refresh_token",
-                description = "The refresh token. Required for the `refresh_token` grant.",
+                description = "Refresh token to exchange. Required for the `refresh_token` grant.",
                 schema = Schema(type = "string")
             ),
             Parameter(
                 name = "scope",
-                description = "The scope of the access request. Optional for the `client_credentials` grant.",
+                description = "Scopes the client asks for, separated by spaces. Read on the `client_credentials` " +
+                    "grant. When absent, the access token carries no scope.",
                 schema = Schema(type = "string")
             ),
             Parameter(
                 name = "client_id",
-                description = "The client identifier. Used when client credentials are passed in the request body instead of via Basic Auth.",
+                description = CLIENT_ID_PARAMETER_DESCRIPTION + " A public client sends it alone, on the " +
+                    "`authorization_code` and `refresh_token` grants.",
                 schema = Schema(type = "string")
             ),
             Parameter(
                 name = "client_secret",
-                description = "The client secret. Used when client credentials are passed in the request body instead of via Basic Auth.",
+                description = CLIENT_SECRET_PARAMETER_DESCRIPTION,
                 schema = Schema(type = "string")
             ),
             Parameter(
                 name = "code_verifier",
-                description =
-                    "The PKCE code verifier (RFC 7636). Required when a code_challenge was sent during authorization.",
+                description = "PKCE code verifier the `code_challenge` of the authorization request was derived " +
+                    "from, RFC 7636 §4.5. Required for the `authorization_code` grant.",
                 schema = Schema(type = "string")
             )
         ],
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "Tokens issued to the client.",
+                useReturnTypeSchema = true
+            ),
+            ApiResponse(
+                responseCode = "400",
+                description = "- `invalid_request`: on the token exchange grant, `subject_token`, " +
+                    "`subject_token_type` or `requested_subject` is missing, or `subject_token_type` or " +
+                    "`requested_token_type` names something other than an access token.\n" +
+                    "- `invalid_grant`: the client credentials are missing or wrong; `code` or `refresh_token` " +
+                    "is missing, unknown, expired, revoked or issued to another client; `redirect_uri` or " +
+                    "`code_verifier` does not match the authorization request; the consent of the end-user " +
+                    "was revoked, or the user never finished signing up; or `subject_token` is not a valid " +
+                    "`client_credentials` access token of this client.\n" +
+                    "- `unauthorized_client`: the client is not allowed this `grant_type`.\n" +
+                    "- `unsupported_grant_type`: `grant_type` is missing or not supported.\n" +
+                    "- `invalid_target`: on the token exchange grant, `resource` is sent, `requested_subject` " +
+                    "names no user, or `audience` names no configured audience.\n" +
+                    "- `invalid_dpop_proof`: the `DPoP` header is sent more than once or does not validate, " +
+                    "is missing while `auth.token.dpop-required` is true, or is missing or signed with " +
+                    "another key on the `refresh_token` grant for a refresh token bound to a key.\n" +
+                    "- `scope.unsupported`: on the `client_credentials` grant, `scope` names no enabled scope.\n" +
+                    "- `scope.audience_mismatch`: on the `client_credentials` grant, `scope` names a scope of " +
+                    "another audience.\n" +
+                    "- `scope.not_allowed`: on the `client_credentials` grant, `scope` names a scope the " +
+                    "client is not allowed.\n" +
+                    "- `scope.not_client_scope`: on the `client_credentials` grant, `scope` names a scope " +
+                    "that is not a client scope."
+            ),
+            ApiResponse(
+                responseCode = "401",
+                description = "- `access_denied`: on the token exchange grant, the `rules.act-as` rules do not " +
+                    "let the client act for `requested_subject`."
+            )
+        ],
         externalDocs = ExternalDocumentation(
-            description = "Token Endpoint specification",
+            description = "OAuth 2.1, §3.2",
             url = "https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1#section-3.2"
         )
     )

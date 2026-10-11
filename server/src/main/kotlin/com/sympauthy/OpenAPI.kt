@@ -16,7 +16,9 @@ import jakarta.inject.Singleton
     info = Info(
         title = "SympAuthy",
         version = "1.0",
-        description = "A self-served, open-source authorization server.",
+        description = "Self-hosted, open-source OAuth 2.1 and OpenID Connect server. It holds the users a set " +
+            "of clients share, issues the tokens those clients trust, and serves the flow an end-user signs in " +
+            "through.",
         license = License(
             name = "GNU General Public License v3.0",
             url = "https://www.gnu.org/licenses/gpl-3.0.fr.html#license-text"
@@ -24,40 +26,54 @@ import jakarta.inject.Singleton
     ),
     servers = [
         Server(
-            description = "The server serving this documentation.",
+            description = "This server, at its configured root URL.",
             url = "{rootUrl}"
         )
     ],
     tags = [
         Tag(
             name = "oauth2",
-            description = "OAuth 2.1",
+            description = "OAuth 2.1 endpoints. The browser of an end-user is sent to the authorization " +
+                "endpoint, and a client calls the token, introspection and revocation endpoints, authenticating " +
+                "with its own credentials.",
             externalDocs = ExternalDocumentation(
                 url = "https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1"
             )
         ),
         Tag(
             name = "openid",
-            description = "OpenID Connect Core 1.0",
+            description = "OpenID Connect endpoints. A client calls them with an access token issued for an " +
+                "end-user.",
             externalDocs = ExternalDocumentation(
                 url = "https://openid.net/specs/openid-connect-core-1_0.html"
             )
         ),
         Tag(
             name = "openiddiscovery",
-            description = "OpenID Connect Discovery 1.0",
+            description = "OpenID Connect discovery endpoints, open to any caller: the metadata of this server " +
+                "and the keys verifying the tokens it signs.",
             externalDocs = ExternalDocumentation(
                 url = "https://openid.net/specs/openid-connect-discovery-1_0.html"
             )
         ),
         Tag(
-            name = "flow"
+            name = "flow",
+            description = "Endpoints the UI calls to take an end-user through the steps of a flow. A request is " +
+                "gated by the `state` identifying its interactive flow session: in the query string of a " +
+                "`GET`, and as `Authorization: State <state>` on a `POST`."
         ),
         Tag(
-            name = "admin"
+            name = "admin",
+            description = "Endpoints an administrator calls, from the admin console or their own tools, to manage " +
+                "the users, consents and invitations of this server and to read its configuration and " +
+                "interactive flow sessions. Each requires an access token issued to an end-user who was granted " +
+                "the admin scope the operation names."
         ),
         Tag(
-            name = "client"
+            name = "client",
+            description = "Endpoints a client calls on its own behalf, to read and manage the users of its " +
+                "audience and their invitations. Each requires an access token the client obtained with the " +
+                "`client_credentials` grant, carrying the scope the operation names."
         ),
     ]
 )
@@ -65,7 +81,9 @@ import jakarta.inject.Singleton
     value = [
         SecurityScheme(
             name = "admin",
-            description = "Authenticate to this authorization server to access admin resources.",
+            description = "Access token of an administrator: an end-user who signed in through the " +
+                "authorization code grant of a client of the admin audience, and was granted the admin scope " +
+                "the operation names.",
             type = OAUTH2,
             flows = OAuthFlows(
                 authorizationCode = OAuthFlow(
@@ -86,7 +104,8 @@ import jakarta.inject.Singleton
         ),
         SecurityScheme(
             name = "client",
-            description = "Authenticate as a client using client credentials to access client API resources.",
+            description = "Access token a client obtains on its own behalf with the `client_credentials` grant, " +
+                "carrying the scopes the operation names.",
             type = OAUTH2,
             flows = OAuthFlows(
                 clientCredentials = OAuthFlow(

@@ -7,16 +7,16 @@ import java.time.LocalDateTime
 import java.util.*
 
 @Schema(
-    description = "Information about a registered MFA method."
+    description = "An MFA method enrolled for a user."
 )
 @Serdeable
 data class AdminUserMfaMethodResource(
-    @get:Schema(description = "Unique identifier of the MFA registration.")
+    @get:Schema(description = "Identifier of the MFA method.")
     @get:JsonProperty("mfa_id")
     val mfaId: UUID,
-    @get:Schema(description = "Type of MFA method.", allowableValues = ["totp"])
+    @get:Schema(description = "Type of the MFA method.", allowableValues = ["totp"])
     val type: String,
-    @get:Schema(description = "Date and time at which the MFA method was registered.")
+    @get:Schema(description = "Date and time at which the end-user confirmed the MFA method, in UTC.")
     @get:JsonProperty("registered_at")
     val registeredAt: LocalDateTime
 )

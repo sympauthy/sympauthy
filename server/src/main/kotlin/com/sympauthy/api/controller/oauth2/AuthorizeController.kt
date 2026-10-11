@@ -22,11 +22,11 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.enums.ParameterIn.QUERY
 import io.swagger.v3.oas.annotations.media.Schema
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import jakarta.inject.Inject
 
 @Controller(OAUTH2_AUTHORIZE_ENDPOINT)
 @Secured(IS_ANONYMOUS)
-@Suppress("MaxLineLength")
 open class AuthorizeController(
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
     @Inject private val engine: InteractiveFlowEngine,
@@ -35,15 +35,16 @@ open class AuthorizeController(
 ) {
 
     @Operation(
-        description = """
-The authorization endpoint is used to interact with the resource owner and obtain an authorization grant.
-""",
+        description = "Start the flow answering an authorization request, OAuth 2.1 §4.1.1. Once the end-user " +
+            "completes the flow, the browser is sent to `redirect_uri` with `code`; when the end-user cancels " +
+            "it, with `error` set to `access_denied`. Either carries `state` when the authorization request did.",
         tags = ["oauth2"],
         parameters = [
             Parameter(
                 name = "response_type",
                 `in` = QUERY,
-                description = "",
+                description = "Kind of authorization response the client asks for, OAuth 2.1 §4.1.1. When absent, " +
+                    "this server answers `unsupported_response_type`.",
                 schema = Schema(
                     type = "string",
                     allowableValues = ["code"]
@@ -52,7 +53,8 @@ The authorization endpoint is used to interact with the resource owner and obtai
             Parameter(
                 name = "client_id",
                 `in` = QUERY,
-                description = "The identifier of the client that initiated the authentication grant.",
+                description = "Identifier of the client making the authorization request. When absent, the " +
+                    "authorization request fails.",
                 schema = Schema(
                     type = "string"
                 )
@@ -60,7 +62,9 @@ The authorization endpoint is used to interact with the resource owner and obtai
             Parameter(
                 name = "scope",
                 `in` = QUERY,
-                description = "The scope of the access request.",
+                description = "Scopes the client asks for, separated by spaces. A scope that is not enabled, " +
+                    "belongs to another audience or is not allowed to the client fails the authorization " +
+                    "request. When absent, the `default-scopes` configured for the client.",
                 schema = Schema(
                     type = "string"
                 )
@@ -68,10 +72,9 @@ The authorization endpoint is used to interact with the resource owner and obtai
             Parameter(
                 name = "state",
                 `in` = QUERY,
-                description = """
-An opaque value used by the client to maintain state between the request and callback. 
-The authorization server includes this value when redirecting the user-agent back to the client.
-                """,
+                description = "Opaque value this server returns unchanged as `state` when it sends the browser " +
+                    "back to `redirect_uri`, OAuth 2.1 §4.1.1. When absent, the browser is sent back without " +
+                    "one.",
                 schema = Schema(
                     type = "string"
                 )
@@ -79,10 +82,9 @@ The authorization server includes this value when redirecting the user-agent bac
             Parameter(
                 name = "nonce",
                 `in` = QUERY,
-                description = """
-An opaque value used to associate a Client session with an ID Token, and to mitigate replay attacks.
-The authorization server includes this value unmodified in the ID Token.
-                """,
+                description = "Value this server copies unchanged into the `nonce` claim of the id token issued " +
+                    "for the authorization code, OpenID Connect Core 1.0 §3.1.2.1. When absent, the id token " +
+                    "carries no `nonce`.",
                 schema = Schema(
                     type = "string"
                 )
@@ -90,8 +92,9 @@ The authorization server includes this value unmodified in the ID Token.
             Parameter(
                 name = "redirect_uri",
                 `in` = QUERY,
-                description =
-                    "The url where the end-user must be redirected at the end of the authorization code grant flow.",
+                description = "URL the browser is sent back to once the flow ends: one of the " +
+                    "`allowed-redirect-uris` configured for the client, matched exactly except for the port " +
+                    "of a `127.0.0.1` or `[::1]` URL. When absent, the authorization request fails.",
                 schema = Schema(
                     type = "string"
                 )
@@ -99,7 +102,7 @@ The authorization server includes this value unmodified in the ID Token.
             Parameter(
                 name = "code_challenge",
                 `in` = QUERY,
-                description = "PKCE code challenge (RFC 7636). Required for all clients per OAuth 2.1.",
+                description = "PKCE code challenge, RFC 7636 §4.3. When absent, the authorization request fails.",
                 schema = Schema(
                     type = "string"
                 )
@@ -107,7 +110,8 @@ The authorization server includes this value unmodified in the ID Token.
             Parameter(
                 name = "code_challenge_method",
                 `in` = QUERY,
-                description = "PKCE code challenge method (RFC 7636). Only 'S256' is supported. Defaults to 'S256' if code_challenge is present.",
+                description = "Method that derived `code_challenge` from the code verifier, RFC 7636 §4.3. " +
+                    "When absent, `S256`.",
                 schema = Schema(
                     type = "string",
                     allowableValues = ["S256"]
@@ -116,7 +120,10 @@ The authorization server includes this value unmodified in the ID Token.
             Parameter(
                 name = "max_age",
                 `in` = QUERY,
-                description = "Maximum number of seconds since the end-user last authenticated, per OpenID Connect Core 3.1.2.1. This server keeps no session between authorizations, so every authorization signs the end-user in anew and any non-negative value is satisfied by construction; the id token it issues states `auth_time`. A value that is not a non-negative integer is refused.",
+                description = "Maximum number of seconds since the end-user last authenticated, OpenID Connect " +
+                    "Core 1.0 §3.1.2.1. The end-user signs in on every authorization request, so any value is " +
+                    "met, and the id token states `auth_time`. A value that is not a non-negative integer fails " +
+                    "the authorization request. When absent, no maximum.",
                 schema = Schema(
                     type = "integer",
                     format = "int64"
@@ -125,7 +132,10 @@ The authorization server includes this value unmodified in the ID Token.
             Parameter(
                 name = "invitation_token",
                 `in` = QUERY,
-                description = "Invitation token to bind to this authorization flow. When provided, the invitation is validated and bound to the flow state.",
+                description = "Token of an invitation to bind to the interactive flow session, letting the " +
+                    "end-user sign up where the audience of the client takes sign-ups by invitation only. An " +
+                    "invitation that is unknown, consumed, revoked, expired or for another audience fails the " +
+                    "authorization request. When absent, no invitation is bound.",
                 schema = Schema(
                     type = "string"
                 )
@@ -133,14 +143,32 @@ The authorization server includes this value unmodified in the ID Token.
             Parameter(
                 name = "claims",
                 `in` = QUERY,
-                description = "The claims this client asks to have delivered in the id token or in the /userinfo response, as the JSON object OpenID Connect Core 5.5 defines: an `id_token` and a `userinfo` member, each naming claims. It only ever adds to what the requested scopes already deliver, and it adds a claim to a channel only where the deployment opened that channel to a request — a claim asked for in a channel the deployment did not open is absent, with no error. The `essential`, `value` and `values` members of 5.5.1 are read past and ignored, which 5.5.1 permits. A value that is not such a JSON object is refused.",
+                description = "Claims the client asks for by name in the id token or the userinfo response, as " +
+                    "the JSON object OpenID Connect Core 1.0 §5.5 defines. A claim is added only where " +
+                    "`claims.<id>.published-in-when-requested` names that response; any other name is ignored, " +
+                    "and so are the `essential`, `value` and `values` members. A value that is not such a JSON " +
+                    "object fails the authorization request. When absent, the scopes alone decide the claims.",
                 schema = Schema(
                     type = "string"
                 )
             )
         ],
+        responses = [
+            ApiResponse(
+                responseCode = "303",
+                description = "Sends the browser to the first step of the flow, with `state` identifying the " +
+                    "interactive flow session. When the authorization request fails — `client_id` is missing " +
+                    "or unknown, the client is not allowed the `authorization_code` grant, or a parameter is " +
+                    "refused as its description says — the interactive flow session fails and the browser is " +
+                    "sent to the error page of the flow instead, never to `redirect_uri`."
+            ),
+            ApiResponse(
+                responseCode = "400",
+                description = "- `unsupported_response_type`: `response_type` is missing or is not `code`."
+            )
+        ],
         externalDocs = ExternalDocumentation(
-            description = "Authorize Endpoint specification",
+            description = "OAuth 2.1, §3.1",
             url = "https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1#section-3.1"
         )
     )

@@ -7,18 +7,25 @@ import io.swagger.v3.oas.annotations.media.Schema
 import java.util.*
 
 @Schema(
-    description = "Result of a force logout operation."
+    description = "The tokens revoked for a user."
 )
 @Serdeable
 data class AdminForceLogoutResource(
     @get:Schema(description = "Identifier of the user whose tokens were revoked.")
     @get:JsonProperty("user_id")
     val userId: UUID,
-    @get:Schema(description = "Identifier of the client, or null if all clients were targeted.", nullable = true)
+    @get:Schema(
+        description = "Identifier of the client whose tokens were revoked. Null when the tokens of every " +
+                "client were revoked.",
+        nullable = true
+    )
     @get:JsonProperty("client_id")
     @get:JsonInclude(JsonInclude.Include.ALWAYS)
     val clientId: String?,
-    @get:Schema(description = "Number of tokens revoked.")
+    @get:Schema(
+        description = "Number of tokens this call marked revoked, counting any that were already revoked " +
+                "or expired."
+    )
     @get:JsonProperty("tokens_revoked")
     val tokensRevoked: Int
 )

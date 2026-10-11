@@ -105,6 +105,9 @@ style:
     active: true
   StringShouldBeRawString:
     active: true
+    # An OpenAPI description is an annotation argument, so it is a constant and cannot be trimmed; a
+    # raw string would publish its indentation, and a list of error codes is lines joined by \n.
+    ignoredCharacters: ['\n']
   TrailingWhitespace:
     active: true
   UnderscoresInNumericLiterals:

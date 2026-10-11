@@ -4,6 +4,7 @@ import com.sympauthy.api.mapper.admin.AdminCollectionCapabilitiesResourceMapper
 import com.sympauthy.api.mapper.admin.AdminUserClaimResourceMapper
 import com.sympauthy.api.resource.admin.AdminCollectionCapabilitiesResource
 import com.sympauthy.api.resource.admin.AdminUserClaimListResource
+import com.sympauthy.api.util.COLLECTION_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_NAME
 import com.sympauthy.api.util.PAGE_PARAMETER_DESCRIPTION
@@ -11,6 +12,7 @@ import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.SEARCH_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.SIZE_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.SORT_PARAMETER_DESCRIPTION
+import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.manager.collection.UserClaimCollectionManager
@@ -46,8 +48,9 @@ class AdminUserClaimController(
 ) {
 
     @Operation(
-        description = "Retrieve a paginated list of claims for a given user, with metadata. " +
-                "Claims are ordered by identifier unless another order is asked for. " +
+        description = "Retrieve the enabled claims, each with the value a user holds for it, if any. " +
+                "A claim saying whether another was verified is not listed: `verified_at` carries it. " +
+                "Claims are ordered by identifier, unless another order is asked for. " +
                 "Which fields this collection can be filtered, ordered and searched on is published at " +
                 "/api/v1/admin/users/{userId}/claims/capabilities.",
         tags = ["admin"],
@@ -66,29 +69,31 @@ class AdminUserClaimController(
             )
         ],
         responses = [
-            ApiResponse(responseCode = "200", description = "Paginated list of user claims."),
-            ApiResponse(
-                responseCode = "400",
-                description = "Invalid page or size, an unknown field, an operator the field does not " +
-                        "accept, or a value it does not hold."
-            ),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(responseCode = "200", description = "Paginated list of claims."),
+            ApiResponse(responseCode = "400", description = COLLECTION_BAD_REQUEST_DESCRIPTION),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: admin:users:read."
+                description = "- `forbidden`: the access token does not carry the scope `admin:users:read`."
             ),
-            ApiResponse(responseCode = "404", description = "No user found with the given identifier.")
+            ApiResponse(
+                responseCode = "404",
+                description = "- `not_found`: no user has this identifier."
+            )
         ]
     )
     @Get
     @Secured(ADMIN_USERS_READ)
     suspend fun listUserClaims(
         request: HttpRequest<*>,
-        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
+        @PathVariable @Parameter(description = "Identifier of the user.") userId: UUID,
         @QueryValue @Parameter(description = PAGE_PARAMETER_DESCRIPTION) page: Int?,
         @QueryValue @Parameter(description = SIZE_PARAMETER_DESCRIPTION) size: Int?,
         @QueryValue @Parameter(description = SORT_PARAMETER_DESCRIPTION) sort: String?,
-        @QueryValue @Parameter(description = SEARCH_PARAMETER_DESCRIPTION) q: String?
+        @QueryValue @Parameter(
+            description = SEARCH_PARAMETER_DESCRIPTION + " It matches the identifier of the claim and the value " +
+                    "the user holds for it."
+        ) q: String?
     ): AdminUserClaimListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
         val criteria = collectionCriteriaOf(request, userClaimCollectionManager.capabilities(), sort, q)
@@ -105,20 +110,16 @@ class AdminUserClaimController(
     }
 
     @Operation(
-        description = "Retrieve what the user claim collection accepts: the fields it filters on and the " +
-                "operators each admits, the fields it orders on, the fields a free-text search matches " +
-                "against, and the order it takes when none is asked for. " +
-                "It describes the collection rather than one account, so it reads the same for every user " +
-                "identifier and looks none of them up. " +
-                "The names it carries are read in the language the request asked for and may be reworded " +
-                "in any release.",
+        description = "Retrieve what the collection of a user's claims accepts: the fields it filters on and " +
+                "the operators each accepts, the fields it orders on and searches, and its own order. " +
+                "Each `name` is in the language the request asks for, and may be reworded in any release.",
         tags = ["admin"],
         responses = [
-            ApiResponse(responseCode = "200", description = "What the collection accepts."),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(responseCode = "200", description = "What the collection of a user's claims accepts."),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: admin:users:read."
+                description = "- `forbidden`: the access token does not carry the scope `admin:users:read`."
             )
         ]
     )
@@ -126,7 +127,9 @@ class AdminUserClaimController(
     @Secured(ADMIN_USERS_READ)
     suspend fun getUserClaimCapabilities(
         request: HttpRequest<*>,
-        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID
+        @PathVariable @Parameter(
+            description = "Identifier of a user. It is not looked up: the answer is the same for every user."
+        ) userId: UUID
     ): AdminCollectionCapabilitiesResource =
         capabilitiesMapper.toResource(userClaimCollectionManager.capabilities(), request.locale.orDefault())
 }

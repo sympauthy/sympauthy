@@ -6,6 +6,7 @@ import com.sympauthy.api.resource.admin.AdminCollectionCapabilitiesResource
 import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionDetailResource
 import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionListResource
 import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionSecurityContextListResource
+import com.sympauthy.api.util.COLLECTION_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_NAME
 import com.sympauthy.api.util.PAGE_PARAMETER_DESCRIPTION
@@ -13,6 +14,7 @@ import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.SEARCH_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.SIZE_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.SORT_PARAMETER_DESCRIPTION
+import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager
@@ -36,6 +38,12 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
 import java.util.*
 
+private const val FORBIDDEN_DESCRIPTION =
+    "- `forbidden`: the access token does not carry the scope `admin:interactive-flow-sessions:read`."
+
+private const val SESSION_NOT_FOUND_DESCRIPTION =
+    "- `not_found`: no interactive flow session has this identifier, or it expired and was deleted."
+
 @Controller("/api/v1/admin/interactive-flow-sessions")
 @Secured(ADMIN_INTERACTIVE_FLOW_SESSIONS_READ)
 @SecurityRequirement(name = "admin", scopes = [AdminScopeId.INTERACTIVE_FLOW_SESSIONS_READ])
@@ -47,12 +55,10 @@ class AdminInteractiveFlowSessionController(
 ) {
 
     @Operation(
-        description = "Retrieve a paginated list of the interactive flow sessions this server currently holds. " +
-                "This is not a history: expired sessions are collected every fifteen minutes, so the window " +
-                "is the session lifetime plus up to a quarter of an hour, and an empty result means 'nothing " +
-                "in flight' rather than 'nothing ever happened'. " +
-                "Sessions are ordered by the date they started, oldest first, then by identifier, unless " +
-                "another order is asked for; that identifier stays ascending whichever direction is asked for. " +
+        description = "Retrieve the interactive flow sessions this server holds. A session is deleted in the " +
+                "fifteen minutes or so after its `expiration_date`, so this is not a history. " +
+                "Interactive flow sessions are ordered by the date they started, oldest first, unless another " +
+                "order is asked for. " +
                 "Which fields this collection can be filtered, ordered and searched on is published at " +
                 "/api/v1/admin/interactive-flow-sessions/capabilities.",
         tags = ["admin"],
@@ -72,17 +78,9 @@ class AdminInteractiveFlowSessionController(
         ],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of interactive flow sessions."),
-            ApiResponse(
-                responseCode = "400",
-                description = "Invalid page or size, an unknown field, an operator the field does not " +
-                        "accept, or a value it does not hold."
-            ),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
-            ApiResponse(
-                responseCode = "403",
-                description = "The access token does not include the required scope: " +
-                        "admin:interactive-flow-sessions:read."
-            )
+            ApiResponse(responseCode = "400", description = COLLECTION_BAD_REQUEST_DESCRIPTION),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
+            ApiResponse(responseCode = "403", description = FORBIDDEN_DESCRIPTION)
         ]
     )
     @Get
@@ -92,8 +90,8 @@ class AdminInteractiveFlowSessionController(
         @QueryValue @Parameter(description = SIZE_PARAMETER_DESCRIPTION) size: Int?,
         @QueryValue @Parameter(description = SORT_PARAMETER_DESCRIPTION) sort: String?,
         @QueryValue @Parameter(
-            description = SEARCH_PARAMETER_DESCRIPTION + " It matches the address and user agent of " +
-                    "every place the session was driven from, and the initiating client identifier."
+            description = SEARCH_PARAMETER_DESCRIPTION + " It matches the identifier of the client, and the " +
+                    "address and user agent of every security context of the interactive flow session."
         ) q: String?
     ): AdminInteractiveFlowSessionListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
@@ -109,20 +107,14 @@ class AdminInteractiveFlowSessionController(
     }
 
     @Operation(
-        description = "Retrieve what the interactive flow session collection accepts: the fields it filters " +
-                "on and the operators each admits, the fields it orders on, the fields a free-text search " +
-                "matches against, and the order it takes when none is asked for. " +
-                "The names it carries are read in the language the request asked for and may be reworded " +
-                "in any release.",
+        description = "Retrieve what the interactive flow session collection accepts: the fields it filters on " +
+                "and the operators each accepts, the fields it orders on and searches, and its own order. " +
+                "Each `name` is in the language the request asks for, and may be reworded in any release.",
         tags = ["admin"],
         responses = [
-            ApiResponse(responseCode = "200", description = "What the collection accepts."),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
-            ApiResponse(
-                responseCode = "403",
-                description = "The access token does not include the required scope: " +
-                        "admin:interactive-flow-sessions:read."
-            )
+            ApiResponse(responseCode = "200", description = "What the interactive flow session collection accepts."),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
+            ApiResponse(responseCode = "403", description = FORBIDDEN_DESCRIPTION)
         ]
     )
     @Get("/capabilities")
@@ -132,37 +124,21 @@ class AdminInteractiveFlowSessionController(
         capabilitiesMapper.toResource(sessionCollectionManager.capabilities(), request.locale.orDefault())
 
     @Operation(
-        description = "Retrieve one interactive flow session: every purpose it carries, where each one stands, " +
-                "and what the handler that owns each purpose has to say about it. " +
-                "A session that ended in a failure — one it failed with, or the expiry that ended it — " +
-                "publishes the message identifiers and those messages read in the language the request " +
-                "asked for: the identifiers are what a caller branches on or searches for, the sentences " +
-                "are what a person reads. " +
-                "The end-user's message is the one the flow's error page showed them, so a failure naming " +
-                "none of its own carries the generic sentence and the identifier naming it, rather than " +
-                "nothing. " +
-                "The debug entries are labels written for a person: a label may be reworded in any release, " +
-                "so nothing may branch on one.",
+        description = "Retrieve an interactive flow session, with each of its purposes and how far the " +
+                "session got with it. Its security contexts are listed at " +
+                "/api/v1/admin/interactive-flow-sessions/{sessionId}/security-contexts.",
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "The interactive flow session."),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
-            ApiResponse(
-                responseCode = "403",
-                description = "The access token does not include the required scope: " +
-                        "admin:interactive-flow-sessions:read."
-            ),
-            ApiResponse(
-                responseCode = "404",
-                description = "No interactive flow session found with the given identifier, or it has " +
-                        "already been collected."
-            )
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
+            ApiResponse(responseCode = "403", description = FORBIDDEN_DESCRIPTION),
+            ApiResponse(responseCode = "404", description = SESSION_NOT_FOUND_DESCRIPTION)
         ]
     )
     @Get("/{sessionId}")
     suspend fun getInteractiveFlowSession(
         request: HttpRequest<*>,
-        @PathVariable @Parameter(description = "Unique identifier of the interactive flow session.") sessionId: UUID
+        @PathVariable @Parameter(description = "Identifier of the interactive flow session.") sessionId: UUID
     ): AdminInteractiveFlowSessionDetailResource {
         return sessionMapper.toResource(
             sessionCollectionManager.findSessionOrNull(sessionId).orNotFound(),
@@ -171,16 +147,13 @@ class AdminInteractiveFlowSessionController(
     }
 
     @Operation(
-        description = "Retrieve a paginated list of the places one interactive flow session was driven " +
-                "from: one entry per distinct address and user agent, counting the requests that came " +
-                "from it rather than repeating them. " +
-                "The list is bounded — once a session holds as many places as it may, a request from a " +
-                "new one rolls out the place seen least recently, and a place a credential was proven " +
-                "at is the last to go, so a place a reader saw earlier may be gone and a place rolled " +
-                "out and seen again returns counting from one. " +
-                "Entries are ordered by the last sighting, most recent first, then by address and user " +
-                "agent. That first key is rewritten by every request the session makes, so two calls " +
-                "agree on a snapshot while a walk in progress may see an entry twice or skip one.",
+        description = "Retrieve the security contexts an interactive flow session was used from. A session " +
+                "keeps at most ten, and none once it completes. " +
+                "Security contexts are ordered by their latest request, most recent first, unless another " +
+                "order is asked for. New requests reorder them, so a walk through the pages may skip or " +
+                "repeat one. " +
+                "Which fields this collection can be filtered, ordered and searched on is published at " +
+                "/api/v1/admin/interactive-flow-sessions/{sessionId}/security-contexts/capabilities.",
         tags = ["admin"],
         parameters = [
             Parameter(
@@ -197,29 +170,24 @@ class AdminInteractiveFlowSessionController(
             )
         ],
         responses = [
-            ApiResponse(responseCode = "200", description = "Paginated list of places."),
-            ApiResponse(responseCode = "400", description = "Invalid page or size."),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
-            ApiResponse(
-                responseCode = "403",
-                description = "The access token does not include the required scope: " +
-                        "admin:interactive-flow-sessions:read."
-            ),
-            ApiResponse(
-                responseCode = "404",
-                description = "No interactive flow session found with the given identifier, or it has " +
-                        "already been collected."
-            )
+            ApiResponse(responseCode = "200", description = "Paginated list of security contexts."),
+            ApiResponse(responseCode = "400", description = COLLECTION_BAD_REQUEST_DESCRIPTION),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
+            ApiResponse(responseCode = "403", description = FORBIDDEN_DESCRIPTION),
+            ApiResponse(responseCode = "404", description = SESSION_NOT_FOUND_DESCRIPTION)
         ]
     )
     @Get("/{sessionId}/security-contexts")
     suspend fun listInteractiveFlowSessionSecurityContexts(
         request: HttpRequest<*>,
-        @PathVariable @Parameter(description = "Unique identifier of the interactive flow session.") sessionId: UUID,
+        @PathVariable @Parameter(description = "Identifier of the interactive flow session.") sessionId: UUID,
         @QueryValue @Parameter(description = PAGE_PARAMETER_DESCRIPTION) page: Int?,
         @QueryValue @Parameter(description = SIZE_PARAMETER_DESCRIPTION) size: Int?,
         @QueryValue @Parameter(description = SORT_PARAMETER_DESCRIPTION) sort: String?,
-        @QueryValue @Parameter(description = SEARCH_PARAMETER_DESCRIPTION) q: String?
+        @QueryValue @Parameter(
+            description = SEARCH_PARAMETER_DESCRIPTION + " It matches the address, the user agent, the " +
+                    "country code, the region and the city."
+        ) q: String?
     ): AdminInteractiveFlowSessionSecurityContextListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
         val criteria = collectionCriteriaOf(request, sessionCollectionManager.securityContextCapabilities(), sort, q)
@@ -233,28 +201,27 @@ class AdminInteractiveFlowSessionController(
     }
 
     @Operation(
-        description = "Retrieve what the collection of the places one session was driven from accepts: the " +
-                "fields it filters on and the operators each admits, the fields it orders on, the fields " +
-                "a free-text search matches against, and the order it takes when none is asked for. " +
-                "It describes the collection rather than one session, so it reads the same for every session " +
-                "identifier and looks none of them up. " +
-                "The names it carries are read in the language the request asked for and may be reworded " +
-                "in any release.",
+        description = "Retrieve what the collection of an interactive flow session's security contexts " +
+                "accepts: the fields it filters on and the operators each accepts, the fields it orders on and " +
+                "searches, and its own order. " +
+                "Each `name` is in the language the request asks for, and may be reworded in any release.",
         tags = ["admin"],
         responses = [
-            ApiResponse(responseCode = "200", description = "What the collection accepts."),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
             ApiResponse(
-                responseCode = "403",
-                description = "The access token does not include the required scope: " +
-                        "admin:interactive-flow-sessions:read."
-            )
+                responseCode = "200",
+                description = "What the collection of an interactive flow session's security contexts accepts."
+            ),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
+            ApiResponse(responseCode = "403", description = FORBIDDEN_DESCRIPTION)
         ]
     )
     @Get("/{sessionId}/security-contexts/capabilities")
     suspend fun getSecurityContextCapabilities(
         request: HttpRequest<*>,
-        @PathVariable @Parameter(description = "Unique identifier of the interactive flow session.") sessionId: UUID
+        @PathVariable @Parameter(
+            description = "Identifier of an interactive flow session. It is not looked up: the answer is the same " +
+                    "for every interactive flow session."
+        ) sessionId: UUID
     ): AdminCollectionCapabilitiesResource = capabilitiesMapper.toResource(
         sessionCollectionManager.securityContextCapabilities(),
         request.locale.orDefault()

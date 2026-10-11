@@ -5,28 +5,23 @@ import io.swagger.v3.oas.annotations.media.Schema
 
 @Serdeable
 @Schema(
-    description = """
-Result of the resent operation on a claim validation code.
-"""
+    description = "Outcome of asking for a new validation code."
 )
 data class ResendClaimsValidationCodeResultResource(
 
     @get:Schema(
-        description = "The media for which a new validation code has been asked.",
+        description = "Media a new validation code was asked for.",
+        allowableValues = ["EMAIL", "SMS"]
     )
     val media: String,
 
     @get:Schema(
-        description = """
-Indicates whether this authorization server has sent a new validation code to the end-user or not.
-        """
+        description = "Whether a new validation code was sent."
     )
     val resent: Boolean,
 
     @get:Schema(
-        description = """
-Information about the new validation code that has been sent to the end-user. Empty or absent if resent is false. 
-"""
+        description = "New validation code sent to the end-user. Absent when `resent` is `false`."
     )
     val code: ValidationCodeResource? = null,
 )

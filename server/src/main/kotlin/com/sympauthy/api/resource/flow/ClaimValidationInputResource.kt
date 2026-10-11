@@ -4,16 +4,17 @@ import io.micronaut.serde.annotation.Serdeable
 import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(
-    description = "A validation code inputted by the user requiring a validation from this authorization server."
+    description = "Validation code the end-user entered."
 )
 @Serdeable
 data class ClaimValidationInputResource(
     @get:Schema(
-        description = "The media in which the user received the validation code."
+        description = "Media the end-user received the validation code through.",
+        allowableValues = ["EMAIL", "SMS"]
     )
     val media: String,
     @get:Schema(
-        description = "The validation code inputted by the user."
+        description = "Validation code the end-user entered."
     )
     val code: String,
 )

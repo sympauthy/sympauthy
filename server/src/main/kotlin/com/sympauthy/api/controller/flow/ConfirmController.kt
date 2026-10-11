@@ -4,6 +4,11 @@ import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControll
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.api.resource.flow.ConfirmFlowResource
 import com.sympauthy.api.resource.flow.SimpleFlowResource
+import com.sympauthy.api.util.FLOW_FAILURE_DESCRIPTION
+import com.sympauthy.api.util.FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION
+import com.sympauthy.api.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
+import com.sympauthy.api.util.FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.FLOW_REDIRECT_RESPONSE_DESCRIPTION
 import com.sympauthy.business.manager.flow.confirm.InteractiveFlowSessionConfirmManager
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.security.ObservedRequest
@@ -33,14 +38,19 @@ class ConfirmController(
 ) {
 
     @Operation(
-        description = """
-Return everything the custom UI needs to render the confirmation step (the action the end-user is asked to
-approve and the client that initiated it), or a redirect URL if the end-user is not expected to be on the
-confirmation step (ex. the confirmation was already given, or the flow carries no confirmation step).
-
-This configuration only contains information associated to this authorization server, the client and the
-on-going flow. All URLs it contains already include the state query param.
-        """,
+        description = "Retrieve the confirmation step: the action a client or an administrator asked for on the " +
+            "end-user's behalf, for the end-user to approve with `POST /api/v1/flow/confirm` or decline with " +
+            "`POST /api/v1/flow/cancel`. When there is no action waiting for approval, the response carries " +
+            "only `redirect_url`. " + FLOW_FAILURE_DESCRIPTION,
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "The action to approve, or the `redirect_url` to send the browser to instead.",
+                useReturnTypeSchema = true
+            ),
+            ApiResponse(responseCode = "400", description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION),
+            ApiResponse(responseCode = "401", description = FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION)
+        ],
         tags = ["flow"]
     )
     @Get
@@ -74,13 +84,16 @@ on-going flow. All URLs it contains already include the state query param.
         )
 
     @Operation(
-        description = "Approve the action the end-user was asked to confirm. The flow then continues to the next step.",
+        description = "Approve the action the confirmation step asks the end-user about. " +
+            FLOW_FAILURE_DESCRIPTION,
         responses = [
             ApiResponse(
                 responseCode = "200",
-                description = "The action was approved. Contains the redirect URL to continue the flow.",
+                description = FLOW_REDIRECT_RESPONSE_DESCRIPTION,
                 useReturnTypeSchema = true
-            )
+            ),
+            ApiResponse(responseCode = "400", description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION),
+            ApiResponse(responseCode = "401", description = FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION)
         ],
         tags = ["flow"]
     )

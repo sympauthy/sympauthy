@@ -4,6 +4,9 @@ import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControll
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.api.resource.flow.MfaFlowResource
 import com.sympauthy.api.resource.flow.MfaMethodResource
+import com.sympauthy.api.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
+import com.sympauthy.api.util.FLOW_SIGNED_IN_SESSION_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.FLOW_STATE_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaChallengeManager
 import com.sympauthy.business.manager.flow.mfa.MfaAutoRedirect
 import com.sympauthy.business.manager.flow.mfa.MfaMethodSelection
@@ -28,23 +31,20 @@ class MfaChallengeController(
 ) {
 
     @Operation(
-        description = """
-Routes the end-user to the enrolled MFA method they must challenge.
-
-Returns one of two response shapes:
-
-**Auto-redirect** — only `redirect_url` is present, the UI must follow it without showing a screen:
-- a single method is enrolled → redirects to the TOTP challenge
-
-**Method selection** — `methods` is present, the UI must render a selection screen:
-- several methods are enrolled → `methods` list (challenges cannot be skipped)
-        """,
+        description = "Retrieve the MFA challenge step: the MFA methods the end-user can prove themselves with. " +
+            "Unless the user has enrolled more than one, the response carries only `redirect_url`, leading to " +
+            "the challenge of the one they hold. The challenge cannot be skipped.",
         responses = [
             ApiResponse(
                 responseCode = "200",
-                description = "Routing decision for the MFA challenge step.",
+                description = "The MFA methods to choose between, or the `redirect_url` of the one method's step.",
                 useReturnTypeSchema = true
-            )
+            ),
+            ApiResponse(
+                responseCode = "400",
+                description = FLOW_STATE_BAD_REQUEST_DESCRIPTION + FLOW_SIGNED_IN_SESSION_BAD_REQUEST_DESCRIPTION
+            ),
+            ApiResponse(responseCode = "401", description = FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION)
         ],
         tags = ["flow"]
     )
