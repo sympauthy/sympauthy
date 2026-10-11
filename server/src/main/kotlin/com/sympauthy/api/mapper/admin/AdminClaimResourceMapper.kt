@@ -3,7 +3,6 @@ package com.sympauthy.api.mapper.admin
 import com.sympauthy.api.resource.admin.AdminClaimResource
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
-import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.isEnabled
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
@@ -32,13 +31,9 @@ class AdminClaimResourceMapper(
             group = claim.group?.wireName,
             // Listed in the enum's own order rather than the file's, so the answer is the same however a
             // deployment happened to write the places.
-            // A disabled claim is published nowhere, which is what turning it off means rather than a
-            // property it holds.
-            publishedIn = ClaimPublicationPlace.entries
-                .filter { claim is EnabledClaim && claim.isPublishedIn(it) }
-                .map { it.wireName },
+            publishedIn = ClaimPublicationPlace.entries.filter(claim::isPublishedIn).map { it.wireName },
             publishedInWhenRequested = ClaimPublicationPlace.entries
-                .filter { claim is EnabledClaim && claim.isPublishedInWhenRequested(it) }
+                .filter(claim::isPublishedInWhenRequested)
                 .map { it.wireName }
         )
     }

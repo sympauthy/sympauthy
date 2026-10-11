@@ -97,6 +97,23 @@ sealed class Claim(
     fun belongsToAudience(audienceId: String): Boolean =
         this.audienceId == null || this.audienceId == audienceId
 
+    /**
+     * Return true if this claim is published in [place].
+     *
+     * This narrows and never grants, so a caller asks it beside the permission test rather than instead
+     * of one: a claim the ACL refuses is published in no place whatever this says.
+     */
+    abstract fun isPublishedIn(place: ClaimPublicationPlace): Boolean
+
+    /**
+     * Return true if this claim opens [place] to a request.
+     *
+     * It says that a request *could* reach [place] and never that one did, so
+     * [EnabledClaim.isPublishedIn] taking the request is what decides whether a value is carried; a
+     * caller publishing what a claim declares rather than carrying a value asks this instead.
+     */
+    abstract fun isPublishedInWhenRequested(place: ClaimPublicationPlace): Boolean
+
     override fun equals(other: Any?) = other is Claim && id == other.id
     override fun hashCode() = id.hashCode()
     override fun toString() = id
@@ -150,13 +167,7 @@ sealed class EnabledClaim(
      */
     val collectedInFlow: Boolean get() = !generated && acl.consent.collectedInFlow
 
-    /**
-     * Return true if this claim is published in [place].
-     *
-     * This narrows and never grants, so a caller asks it beside the permission test rather than instead
-     * of one: a claim the ACL refuses is published in no place whatever this says.
-     */
-    fun isPublishedIn(place: ClaimPublicationPlace): Boolean = place in publishedIn
+    override fun isPublishedIn(place: ClaimPublicationPlace): Boolean = place in publishedIn
 
     /**
      * Return true if this claim is published in [place] for a grant whose `claims` request parameter named
@@ -171,15 +182,7 @@ sealed class EnabledClaim(
     fun isPublishedIn(place: ClaimPublicationPlace, requestedClaims: RequestedClaims): Boolean =
         isPublishedIn(place) || (isPublishedInWhenRequested(place) && id in requestedClaims.namesIn(place))
 
-    /**
-     * Return true if this claim opens [place] to a request, which is what
-     * [publishedInWhenRequested] names.
-     *
-     * It says that a request *could* reach [place] and never that one did, so the two-argument
-     * [isPublishedIn] is what decides whether a value is carried; a caller publishing what a claim
-     * declares — the administration API is the one — asks this instead.
-     */
-    fun isPublishedInWhenRequested(place: ClaimPublicationPlace): Boolean =
+    override fun isPublishedInWhenRequested(place: ClaimPublicationPlace): Boolean =
         place in publishedInWhenRequested
 
     /**
@@ -350,8 +353,8 @@ class GeneratedClaim(
  * It carries no reason for being off: there is exactly one, that the deployment wrote `enabled: false`
  * against it, or left a claim the specification defines at the `enabled: false` it ships with.
  *
- * It is published nowhere either, and that is not a property it holds: every place a claim is published
- * in carries or advertises a value, and a disabled claim has none to give.
+ * It is published nowhere either, whatever its file names: every place a claim is published in carries
+ * or advertises a value, and a disabled claim has none to give.
  *
  * Its [kind] is never null, because a [GeneratedClaim] is never turned off.
  */
@@ -365,7 +368,11 @@ class DisabledClaim(
     allowedValues: List<Any>?,
     audienceId: String? = null,
     acl: ClaimAcl
-) : Claim(id, verifiedId, dataType, group, required, allowedValues, audienceId, acl)
+) : Claim(id, verifiedId, dataType, group, required, allowedValues, audienceId, acl) {
+    override fun isPublishedIn(place: ClaimPublicationPlace): Boolean = false
+
+    override fun isPublishedInWhenRequested(place: ClaimPublicationPlace): Boolean = false
+}
 
 /**
  * True if this authorization server serves this claim.

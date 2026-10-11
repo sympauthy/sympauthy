@@ -46,6 +46,28 @@ class ClaimTest {
         )
     )
 
+    private fun disabledClaim() = DisabledClaim(
+        id = "test_claim",
+        verifiedId = null,
+        dataType = ClaimDataType.STRING,
+        kind = ClaimKind.PERSONAL,
+        group = null,
+        required = false,
+        allowedValues = null,
+        acl = ClaimAcl(
+            consent = ConsentAcl(
+                scope = null,
+                readableByPerson = true,
+                collectedInFlow = true,
+                writableByPerson = true,
+                readableByClient = true,
+                writableByClient = true,
+                writeMaxAuthenticationAge = null
+            ),
+            unconditional = UnconditionalAcl(emptyList(), emptyList())
+        )
+    )
+
     @Test
     fun `origin - OPENID_CONNECT for known OpenID claim id`() {
         val claim = claim(id = OpenIdConnectClaimId.EMAIL)
@@ -126,6 +148,22 @@ class ClaimTest {
         )
         val requested = RequestedClaims(idTokenClaimIds = setOf("other_claim"), userInfoClaimIds = emptySet())
         assertFalse(claim.isPublishedIn(ClaimPublicationPlace.ID_TOKEN, requested))
+    }
+
+    @Test
+    fun `isPublishedIn - false for every place on a claim the deployment turned off`() {
+        val claim = disabledClaim()
+        ClaimPublicationPlace.entries.forEach {
+            assertFalse(claim.isPublishedIn(it), "Disabled claim should not be published in $it")
+        }
+    }
+
+    @Test
+    fun `isPublishedInWhenRequested - false for every place on a claim the deployment turned off`() {
+        val claim = disabledClaim()
+        ClaimPublicationPlace.entries.forEach {
+            assertFalse(claim.isPublishedInWhenRequested(it), "Disabled claim should not open $it to a request")
+        }
     }
 
     @Test
