@@ -27,7 +27,11 @@ data class AdminClaimResource(
     )
     @get:JsonInclude(JsonInclude.Include.ALWAYS)
     val kind: String?,
-    @get:Schema(description = "Whether collection is enabled for this claim.")
+    @get:Schema(
+        description = "Whether this claim is in use. A disabled claim is listed here and nowhere else: it " +
+                "is not collected, not written, and not sent to clients. Values already stored for it are " +
+                "kept, and are sent again if the claim is enabled again."
+    )
     val enabled: Boolean,
     @get:Schema(description = "Whether the end-user must provide this claim to complete an authorization flow.")
     val required: Boolean,
@@ -47,20 +51,20 @@ data class AdminClaimResource(
     @get:JsonInclude(JsonInclude.Include.ALWAYS)
     val group: String?,
     @get:Schema(
-        description = "Places this claim is published in: the four that carry its value, and the " +
-                "discovery document, which publishes the name alone. Empty when it is published in none, " +
-                "which is always the case of a disabled claim, and otherwise leaves the claim readable " +
-                "through this API and the client API and carried by no token.",
+        description = "Where this claim's value is sent to clients, whether or not they ask for it: " +
+                "id_token, userinfo, access_token, introspection. discovery lists the claim's name in the " +
+                "discovery document, without any value. An enabled claim with an empty list is sent " +
+                "nowhere, but its value can still be read through the admin and client APIs. Always empty " +
+                "for a disabled claim.",
         allowableValues = ["id_token", "userinfo", "access_token", "introspection", "discovery"]
     )
     @get:JsonProperty("published_in")
     @get:JsonInclude(JsonInclude.Include.ALWAYS)
     val publishedIn: List<String>,
     @get:Schema(
-        description = "OpenID channels this claim is published in only for an authorization whose " +
-                "claims request parameter named it. Empty when no channel is open to a request, " +
-                "which is always the case of a disabled claim, and otherwise leaves published_in the " +
-                "whole of where the value goes. A channel never appears in both lists.",
+        description = "Where this claim's value is sent only when the client asks for it by name, with " +
+                "the claims parameter of an OpenID Connect authorization request. A place never appears " +
+                "both here and in published_in. Always empty for a disabled claim.",
         allowableValues = ["id_token", "userinfo"]
     )
     @get:JsonProperty("published_in_when_requested")
