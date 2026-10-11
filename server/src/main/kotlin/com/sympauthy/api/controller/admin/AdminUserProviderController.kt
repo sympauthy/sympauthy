@@ -9,13 +9,16 @@ import com.sympauthy.api.resource.admin.AdminCollectionCapabilitiesResource
 import com.sympauthy.api.resource.admin.AdminUserProviderLinkInputResource
 import com.sympauthy.api.resource.admin.AdminUserProviderLinkResource
 import com.sympauthy.api.resource.admin.AdminUserProviderListResource
+import com.sympauthy.api.util.COLLECTION_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_NAME
 import com.sympauthy.api.util.PAGE_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.PaginationUtil
+import com.sympauthy.api.util.RETURN_URI_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.SEARCH_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.SIZE_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.SORT_PARAMETER_DESCRIPTION
+import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.manager.ClientManager
@@ -66,9 +69,9 @@ class AdminUserProviderController(
 ) {
 
     @Operation(
-        description = "Retrieve a paginated list of external identity providers linked to a user. Providers " +
-                "are ordered by the date they were linked, oldest first, then by provider identifier, " +
-                "unless another order is asked for. " +
+        description = "Retrieve the providers linked to a user. " +
+                "Providers are ordered by the date they were linked, oldest first, unless another order is " +
+                "asked for. " +
                 "Which fields this collection can be filtered, ordered and searched on is published at " +
                 "/api/v1/admin/users/{userId}/providers/capabilities.",
         tags = ["admin"],
@@ -87,18 +90,17 @@ class AdminUserProviderController(
             )
         ],
         responses = [
-            ApiResponse(responseCode = "200", description = "Paginated list of linked providers."),
-            ApiResponse(
-                responseCode = "400",
-                description = "Invalid page or size, an unknown field, an operator the field does not " +
-                        "accept, or a value it does not hold."
-            ),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(responseCode = "200", description = "Paginated list of providers."),
+            ApiResponse(responseCode = "400", description = COLLECTION_BAD_REQUEST_DESCRIPTION),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: admin:users:read."
+                description = "- `forbidden`: the access token does not carry the scope `admin:users:read`."
             ),
-            ApiResponse(responseCode = "404", description = "No user found with the given identifier.")
+            ApiResponse(
+                responseCode = "404",
+                description = "- `not_found`: no user has this identifier."
+            )
         ]
     )
     @Get
@@ -106,11 +108,13 @@ class AdminUserProviderController(
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.USERS_READ])
     suspend fun listProviders(
         request: HttpRequest<*>,
-        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
+        @PathVariable @Parameter(description = "Identifier of the user.") userId: UUID,
         @QueryValue @Parameter(description = PAGE_PARAMETER_DESCRIPTION) page: Int?,
         @QueryValue @Parameter(description = SIZE_PARAMETER_DESCRIPTION) size: Int?,
         @QueryValue @Parameter(description = SORT_PARAMETER_DESCRIPTION) sort: String?,
-        @QueryValue @Parameter(description = SEARCH_PARAMETER_DESCRIPTION) q: String?
+        @QueryValue @Parameter(
+            description = SEARCH_PARAMETER_DESCRIPTION + " It matches the identifier of the provider."
+        ) q: String?
     ): AdminUserProviderListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
         val criteria = collectionCriteriaOf(request, userProviderCollectionManager.capabilities(), sort, q)
@@ -125,20 +129,16 @@ class AdminUserProviderController(
     }
 
     @Operation(
-        description = "Retrieve what the linked provider collection accepts: the fields it filters on and " +
-                "the operators each admits, the fields it orders on, the fields a free-text search " +
-                "matches against, and the order it takes when none is asked for. " +
-                "It describes the collection rather than one account, so it reads the same for every user " +
-                "identifier and looks none of them up. " +
-                "The names it carries are read in the language the request asked for and may be reworded " +
-                "in any release.",
+        description = "Retrieve what the collection of a user's providers accepts: the fields it filters on " +
+                "and the operators each accepts, the fields it orders on and searches, and its own order. " +
+                "Each `name` is in the language the request asks for, and may be reworded in any release.",
         tags = ["admin"],
         responses = [
-            ApiResponse(responseCode = "200", description = "What the collection accepts."),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(responseCode = "200", description = "What the collection of a user's providers accepts."),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: admin:users:read."
+                description = "- `forbidden`: the access token does not carry the scope `admin:users:read`."
             )
         ]
     )
@@ -147,23 +147,26 @@ class AdminUserProviderController(
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.USERS_READ])
     suspend fun getUserProviderCapabilities(
         request: HttpRequest<*>,
-        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID
+        @PathVariable @Parameter(
+            description = "Identifier of a user. It is not looked up: the answer is the same for every user."
+        ) userId: UUID
     ): AdminCollectionCapabilitiesResource =
         capabilitiesMapper.toResource(userProviderCollectionManager.capabilities(), request.locale.orDefault())
 
     @Operation(
-        description = "Remove the link between a user and an external identity provider.",
+        description = "Remove the link between a user and a provider.",
         tags = ["admin"],
         responses = [
-            ApiResponse(responseCode = "204", description = "Provider unlinked successfully."),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(responseCode = "204", description = "The provider was unlinked."),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: admin:users:write."
+                description = "- `forbidden`: the access token does not carry the scope `admin:users:write`."
             ),
             ApiResponse(
                 responseCode = "404",
-                description = "No user found with the given identifier, or no provider link found."
+                description = "- `not_found`: no user has the identifier `userId`, or the user is not linked to " +
+                        "the provider `providerId`."
             )
         ]
     )
@@ -172,7 +175,7 @@ class AdminUserProviderController(
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.USERS_WRITE])
     @Status(HttpStatus.NO_CONTENT)
     suspend fun unlinkProvider(
-        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
+        @PathVariable @Parameter(description = "Identifier of the user.") userId: UUID,
         @PathVariable @Parameter(description = "Identifier of the provider to unlink.") providerId: String
     ) {
         userManager.findByIdOrNull(userId).orNotFound()
@@ -181,32 +184,26 @@ class AdminUserProviderController(
     }
 
     @Operation(
-        description = "Start linking an identity provider to a given user, initiated by an administrator. " +
-                "Validates that the user, the named client and the provider exist and that the return (and " +
-                "optional cancel) URI are registered redirect URIs of that client, then creates a link session " +
-                "gated by a confirmation the end-user must approve (shown as initiated by an administrator) and " +
-                "a forced re-authentication (linking a provider mints a durable login credential). Returns the " +
-                "redirect_url to hand or send to the user; once the link completes they are redirected to " +
-                "return_uri.",
+        description = "Start linking a provider to a user. Send the end-user's browser to `redirect_url`: " +
+                "the end-user confirms a request made by an administrator, signs in again, signs in with the " +
+                "provider, and is sent back to `return_uri`.",
         tags = ["admin"],
         responses = [
             ApiResponse(
                 responseCode = "200",
-                description = "The link session was started.",
+                description = "Where to send the end-user's browser to link the provider.",
                 useReturnTypeSchema = true
             ),
-            ApiResponse(
-                responseCode = "400",
-                description = "Invalid return or cancel URI."
-            ),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(responseCode = "400", description = RETURN_URI_BAD_REQUEST_DESCRIPTION),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: admin:users:write."
+                description = "- `forbidden`: the access token does not carry the scope `admin:users:write`."
             ),
             ApiResponse(
                 responseCode = "404",
-                description = "No user, client, or enabled provider found with the given identifier."
+                description = "- `not_found`: no user has the identifier `userId`, `client_id` is absent or names " +
+                        "no client, or `providerId` names no enabled provider."
             )
         ]
     )
@@ -214,7 +211,7 @@ class AdminUserProviderController(
     @Secured(ADMIN_USERS_WRITE)
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.USERS_WRITE])
     suspend fun startLink(
-        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
+        @PathVariable @Parameter(description = "Identifier of the user.") userId: UUID,
         @PathVariable @Parameter(description = "Identifier of the provider to link.") providerId: String,
         @RequestAttribute(OBSERVED_REQUEST) observedRequest: ObservedRequest,
         @Body resource: AdminUserProviderLinkInputResource

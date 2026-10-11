@@ -80,7 +80,7 @@ enum class ValidationCodeReason(
 }
 
 /**
- * Enumeration of media used to send the validation code to the end-user.
+ * Media a validation code is sent to the end-user through.
  */
 enum class ValidationCodeMedia(
     /**

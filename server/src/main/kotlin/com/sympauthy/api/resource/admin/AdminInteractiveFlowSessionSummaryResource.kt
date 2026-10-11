@@ -7,63 +7,65 @@ import java.time.LocalDateTime
 import java.util.*
 
 @Schema(
-    description = "One interactive flow session, as the collection shows it."
+    description = "An interactive flow session, as the collection lists it."
 )
 @Serdeable
 data class AdminInteractiveFlowSessionSummaryResource(
-    @get:Schema(description = "Unique identifier of the session.")
+    @get:Schema(description = "Identifier of the interactive flow session.")
     @get:JsonProperty("id")
     val id: UUID,
     @get:Schema(
-        description = "What became of the session. 'expired' means it was still ongoing when its expiration " +
-                "passed — nobody finished it — and never relabels a session that completed, cancelled or " +
-                "failed first.",
+        description = "What became of the interactive flow session. `expired` is a session still ongoing " +
+                "when its `expiration_date` passed.",
         allowableValues = ["ongoing", "completed", "cancelled", "failed", "expired"]
     )
     @get:JsonProperty("status")
     val status: String,
-    @get:Schema(description = "The purpose that started the session and owns its terminal handoff.")
+    @get:Schema(description = "Purpose the interactive flow session was started for.")
     @get:JsonProperty("initiating_purpose")
     val initiatingPurpose: AdminInteractiveFlowPurposeResource,
     @get:Schema(
-        description = "The purpose the session is stopped at. Absent once every purpose has resolved, and " +
-                "for a session that completed, cancelled or failed."
+        description = "Purpose the end-user is at. Absent when the session completed, failed or was " +
+                "cancelled, when every purpose is completed, and when it cannot be determined."
     )
     @get:JsonProperty("current_purpose")
     val currentPurpose: AdminInteractiveFlowPurposeResource?,
     @get:Schema(
-        description = "Identifier of the client the session was started for. Absent where an administrator " +
-                "started it and where nothing named a client. It may name a client this deployment no longer " +
-                "declares, since editing the configuration does not rewrite sessions already in flight."
+        description = "Identifier of the client the interactive flow session was started for, which the " +
+                "configuration may no longer declare. Absent when an administrator started it, and when the " +
+                "authorization request that started it named no valid client."
     )
     @get:JsonProperty("client_id")
     val clientId: String?,
     @get:Schema(
-        description = "Whether the account was created during this session. A session signing an account up " +
-                "publishes no user until it completes, so this is what tells a sign-up in progress apart " +
-                "from a person who has not identified themselves at all."
+        description = "Whether the end-user signed up during this interactive flow session. While the sign-up " +
+                "is in progress, `user` is absent."
     )
     @get:JsonProperty("signed_up")
     val signedUp: Boolean,
     @get:Schema(
-        description = "The account the session identified. Absent where it identified nobody, and where the " +
-                "account it identified is one this session is still signing up."
+        description = "User the interactive flow session identified, with only its identifier claims. Absent " +
+                "when the session identified no user, while its sign-up is in progress, and when the user no " +
+                "longer exists."
     )
     @get:JsonProperty("user")
     val user: AdminUserResource?,
     @get:Schema(
-        description = "Address the session was last driven from. Absent where nothing was recorded against " +
-                "it; the places before this one are on the session's own page."
+        description = "Address the latest request of the interactive flow session came from. Absent when no " +
+                "request was recorded, which is the case once the session completed."
     )
     @get:JsonProperty("ip")
     val ip: String?,
-    @get:Schema(description = "User agent observed alongside the address. Absent for the same reason.")
+    @get:Schema(
+        description = "User agent the latest request of the interactive flow session sent. Absent when that " +
+                "request sent none, and when `ip` is absent."
+    )
     @get:JsonProperty("user_agent")
     val userAgent: String?,
-    @get:Schema(description = "Date and time (in UTC timezone) at which the session started.")
+    @get:Schema(description = "Date and time at which the interactive flow session started, in UTC.")
     @get:JsonProperty("session_date")
     val sessionDate: LocalDateTime,
-    @get:Schema(description = "Date and time (in UTC timezone) at which the session expires.")
+    @get:Schema(description = "Date and time at which the interactive flow session expires, in UTC.")
     @get:JsonProperty("expiration_date")
     val expirationDate: LocalDateTime
 )

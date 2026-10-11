@@ -3,6 +3,10 @@ package com.sympauthy.api.controller.flow
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.api.resource.flow.SimpleFlowResource
+import com.sympauthy.api.util.FLOW_FAILURE_DESCRIPTION
+import com.sympauthy.api.util.FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION
+import com.sympauthy.api.util.FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.FLOW_REDIRECT_RESPONSE_DESCRIPTION
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.security.SecurityRule.HAS_STATE
@@ -30,25 +34,23 @@ class CancelController(
 ) {
 
     @Operation(
-        description = """
-Cancels the ongoing interactive flow identified by the `state`.
-
-Marks the session as cancelled and returns the redirect URL the end-user must be sent to: for an OAuth2
-authorization this is the client `redirect_uri` with the `error=access_denied` response; for a flow started
-with a cancellation URI it is that URI. A recoverable 4xx error is returned when the flow offers no
-cancellation target.
-        """,
+        description = "Cancel the interactive flow session. `redirect_url` leads back to where the flow was " +
+            "started from: for an authorization request, the client's `redirect_uri` with the error " +
+            "`access_denied`; for a flow a client or an administrator started, the URL it gave to return to " +
+            "on cancellation. " + FLOW_FAILURE_DESCRIPTION,
         responses = [
             ApiResponse(
                 responseCode = "200",
-                description =
-                    "The flow was cancelled. Contains the redirect URL to hand the end-user back to the initiator.",
+                description = FLOW_REDIRECT_RESPONSE_DESCRIPTION,
                 useReturnTypeSchema = true
             ),
             ApiResponse(
                 responseCode = "400",
-                description = "The flow is not ongoing or offers no cancellation target."
-            )
+                description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION +
+                    "\n- `auth.interactive_flow_session.cancel.no_cancel_target`: a client or an administrator " +
+                    "started the flow without a URL to return to on cancellation."
+            ),
+            ApiResponse(responseCode = "401", description = FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION)
         ],
         tags = ["flow"]
     )

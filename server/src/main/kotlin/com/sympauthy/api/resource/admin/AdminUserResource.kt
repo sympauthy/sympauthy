@@ -8,27 +8,30 @@ import java.time.LocalDateTime
 import java.util.*
 
 @Schema(
-    description = "Information about a user."
+    description = "A user, with the values it holds for some of the claims."
 )
 @Serdeable
-@Suppress("MaxLineLength")
 data class AdminUserResource(
     @get:Schema(
-        description = "Unique identifier of the user."
+        description = "Identifier of the user."
     )
     @get:JsonProperty("user_id")
     val userId: UUID,
     @get:Schema(
-        description = "Status of the user."
+        description = "Status of the user.",
+        allowableValues = ["enabled", "disabled"]
     )
     val status: String,
     @get:Schema(
-        description = "The date and time (in UTC timezone) at which the user has been created."
+        description = "Date and time at which the user was created, in UTC."
     )
     @get:JsonProperty("created_at")
     val createdAt: LocalDateTime,
     @get:Schema(
-        description = "Claims associated to the user. Keys are claim identifiers, values are claim values. Null when claims are not requested.",
+        description = "Values the user holds, keyed by claim identifier. In the user collection, the " +
+                "claims the `claims` parameter selected, a selected claim the user holds no value for " +
+                "being null. In an interactive flow session, the identifier claims the user holds a " +
+                "value for. Null when `claims` is sent empty.",
         nullable = true
     )
     @get:JsonInclude(JsonInclude.Include.ALWAYS)

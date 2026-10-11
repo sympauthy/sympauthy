@@ -1,5 +1,8 @@
 package com.sympauthy.api.resource.admin
 
+import com.sympauthy.api.util.PAGE_PROPERTY_DESCRIPTION
+import com.sympauthy.api.util.SIZE_PROPERTY_DESCRIPTION
+import com.sympauthy.api.util.TOTAL_PROPERTY_DESCRIPTION
 import io.micronaut.serde.annotation.Serdeable
 import io.swagger.v3.oas.annotations.media.Schema
 
@@ -8,12 +11,12 @@ import io.swagger.v3.oas.annotations.media.Schema
 )
 @Serdeable
 data class AdminAudienceListResource(
-    @get:Schema(description = "Array of audience records.")
+    @get:Schema(description = "The audiences on this page.")
     val audiences: List<AdminAudienceResource>,
-    @get:Schema(description = "Current page number.")
+    @get:Schema(description = PAGE_PROPERTY_DESCRIPTION)
     val page: Int,
-    @get:Schema(description = "Number of results per page.")
+    @get:Schema(description = SIZE_PROPERTY_DESCRIPTION)
     val size: Int,
-    @get:Schema(description = "Total number of audiences.")
+    @get:Schema(description = TOTAL_PROPERTY_DESCRIPTION)
     val total: Int
 )

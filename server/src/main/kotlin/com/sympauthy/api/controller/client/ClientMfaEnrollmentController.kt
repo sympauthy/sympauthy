@@ -5,6 +5,7 @@ import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControll
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.api.resource.client.ClientMfaEnrollmentInputResource
 import com.sympauthy.api.resource.client.ClientMfaEnrollmentResource
+import com.sympauthy.api.util.RETURN_URI_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
@@ -60,29 +61,28 @@ class ClientMfaEnrollmentController(
 ) {
 
     @Operation(
-        description = """
-Starts a standalone MFA enrollment for one of the calling client's signed-in end-users.
-
-Validates the end-user `access_token` (must be a valid, unexpired user access token issued to the calling
-client) and the `return_uri` (must be one of the calling client's registered redirect URIs), creates an
-enrollment session, and returns the signed `state` and the `redirect_url` the caller must navigate the
-end-user's browser to. Once enrollment completes, the end-user is redirected to `return_uri`.
-        """,
+        description = "Start enrolling an MFA method for the user `access_token` was issued for. Send the " +
+            "end-user's browser to `redirect_url`: the end-user confirms the enrollment, enrolls the MFA method, " +
+            "and is sent back to `return_uri`.",
         tags = ["client"],
         responses = [
             ApiResponse(
                 responseCode = "200",
-                description = "The enrollment session was started.",
+                description = "Where to send the end-user's browser to enroll an MFA method.",
                 useReturnTypeSchema = true
             ),
             ApiResponse(
                 responseCode = "400",
-                description = "Invalid access token or return URI, or MFA is not enabled."
+                description = "- `client.mfa.enrollment.mfa_disabled`: `mfa.totp.enabled` is not `true` in the " +
+                    "configuration.\n" +
+                    "- `client.mfa.enrollment.invalid_access_token`: `access_token` is absent, is not an active " +
+                    "access token this server issued to this client, or was issued for no end-user.\n" +
+                    RETURN_URI_BAD_REQUEST_DESCRIPTION
             ),
-            ApiResponse(responseCode = "401", description = "Missing or invalid client access token."),
+            ApiResponse(responseCode = "401", description = CLIENT_TOKEN_UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: users:mfa:write."
+                description = "- `forbidden`: the access token does not carry the scope `users:mfa:write`."
             )
         ]
     )

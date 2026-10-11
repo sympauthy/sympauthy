@@ -1,44 +1,38 @@
 package com.sympauthy.api.resource.flow
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.sympauthy.api.util.STEP_REDIRECT_URL_DESCRIPTION
+import com.sympauthy.api.util.STEP_URL_STATE_DESCRIPTION
 import io.micronaut.serde.annotation.Serdeable
 import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(
-    description = """
-Resource indicating whether the end-user must validate its claims through a code. If a code is present, 
-the user is expected to enter a code received through the media to validate its claims. 
-
-Otherwise the user must be redirected to the redirect URL to continue the authorization flow.
-"""
+    description = "Validation code the claims validation step expects the end-user to enter, or the " +
+        "`redirect_url` to send the browser to instead. " + STEP_URL_STATE_DESCRIPTION
 )
 @Serdeable
 data class ClaimsValidationFlowResource(
 
     @get:Schema(
         name = "media",
-        description = "The media requested."
+        description = "Media the request asked about.",
+        allowableValues = ["EMAIL", "SMS"]
     )
     @get:JsonProperty("media")
     val media: String,
 
     @get:Schema(
         name = "code",
-        description = "Information about the validation code sent to the user by the authorization server.",
+        description = "Validation code sent to the end-user through `media`. Absent when `redirect_url` is " +
+            "present.",
     )
     @get:JsonProperty("code")
     val code: ValidationCodeResource? = null,
 
     @get:Schema(
         name = "redirect_url",
-        description = """
-URL where the end-user must be redirected to continue the authentication flow.
-The URL is present only if no validation is required from the user through the media.
-
-The end-user will either:
-- continue the authentication flow.
-- be redirected to the client if the authentication flow is completed.
-        """
+        description = STEP_REDIRECT_URL_DESCRIPTION + " Absent when a validation code is expected through " +
+            "`media`."
     )
     @get:JsonProperty("redirect_url")
     val redirectUrl: String? = null

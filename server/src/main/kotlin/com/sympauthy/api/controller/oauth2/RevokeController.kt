@@ -1,7 +1,11 @@
 package com.sympauthy.api.controller.oauth2
 
 import com.sympauthy.api.controller.oauth2.RevokeController.Companion.OAUTH2_REVOKE_ENDPOINT
+import com.sympauthy.api.controller.oauth2.util.CLIENT_ID_PARAMETER_DESCRIPTION
+import com.sympauthy.api.controller.oauth2.util.CLIENT_SECRET_PARAMETER_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil
+import com.sympauthy.api.controller.oauth2.util.TOKEN_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.controller.oauth2.util.TOKEN_TYPE_HINT_PARAMETER_DESCRIPTION
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
@@ -17,53 +21,54 @@ import io.swagger.v3.oas.annotations.ExternalDocumentation
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import jakarta.inject.Inject
 
 @Controller(OAUTH2_REVOKE_ENDPOINT)
-@Suppress("MaxLineLength")
 class RevokeController(
     @Inject private val tokenManager: TokenManager,
     @Inject private val clientAuthenticationUtil: ClientAuthenticationUtil
 ) {
 
     @Operation(
-        description = """
-Revoke an access or refresh token per RFC 7009.
-
-Per the specification, the endpoint always returns HTTP 200, even if the token is invalid, already revoked, or does not exist.
-
-If a refresh token is revoked, all access tokens associated with the same authorization session are also revoked (cascading revocation).
-
-Client authentication is supported via:
-- HTTP Basic Auth (`Authorization: Basic <base64(client_id:client_secret)>`)
-- Form body parameters (`client_id` / `client_secret`)
-""",
+        description = "Revoke a token issued to the client, RFC 7009 §2. The client authenticates with HTTP Basic " +
+            "authentication or with `client_id` and `client_secret` in the body. Revoking a refresh token also " +
+            "revokes every token issued for the same authorization, and revoking a token revokes every token " +
+            "a token exchange obtained from it.",
         tags = ["oauth2"],
         parameters = [
             Parameter(
                 name = TOKEN_PARAM,
-                description = "The token to revoke.",
+                description = "Access token or refresh token to revoke, RFC 7009 §2.1.",
                 schema = Schema(type = "string"),
                 required = true
             ),
             Parameter(
                 name = TOKEN_TYPE_HINT_PARAM,
-                description = "Optional hint about the type of the token submitted for revocation. Supported values are `access_token` and `refresh_token`.",
+                description = TOKEN_TYPE_HINT_PARAMETER_DESCRIPTION,
                 schema = Schema(type = "string", allowableValues = ["access_token", "refresh_token"])
             ),
             Parameter(
                 name = "client_id",
-                description = "The client identifier. Used when client credentials are passed in the request body instead of via Basic Auth.",
+                description = CLIENT_ID_PARAMETER_DESCRIPTION,
                 schema = Schema(type = "string")
             ),
             Parameter(
                 name = "client_secret",
-                description = "The client secret. Used when client credentials are passed in the request body instead of via Basic Auth.",
+                description = CLIENT_SECRET_PARAMETER_DESCRIPTION,
                 schema = Schema(type = "string")
             )
         ],
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "Empty body. Answered as well when the token does not validate, is already revoked " +
+                    "or was issued to another client, which leaves it as it is."
+            ),
+            ApiResponse(responseCode = "400", description = TOKEN_BAD_REQUEST_DESCRIPTION)
+        ],
         externalDocs = ExternalDocumentation(
-            description = "Token Revocation specification (RFC 7009)",
+            description = "RFC 7009",
             url = "https://datatracker.ietf.org/doc/html/rfc7009"
         )
     )

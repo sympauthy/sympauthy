@@ -6,13 +6,16 @@ import io.swagger.v3.oas.annotations.media.Schema
 import java.util.*
 
 @Schema(
-    description = "Claims associated with a user."
+    description = "Claims of a user this client may read."
 )
 @Serdeable
 data class ClientUserClaimResource(
-    @get:Schema(description = "Unique identifier of the user.")
+    @get:Schema(description = "Identifier of the user.")
     @get:JsonProperty("user_id")
     val userId: UUID,
-    @get:Schema(description = "Claims associated with the user. Keys are claim identifiers, values are claim values.")
+    @get:Schema(
+        description = "Values of the claims this client may read, and of the claims this server generates such " +
+            "as `sub`, keyed by claim identifier."
+    )
     val claims: Map<String, Any?>
 )

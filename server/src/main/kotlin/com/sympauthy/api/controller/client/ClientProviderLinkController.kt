@@ -5,6 +5,7 @@ import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControll
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.api.resource.client.ClientProviderLinkInputResource
 import com.sympauthy.api.resource.client.ClientProviderLinkResource
+import com.sympauthy.api.util.RETURN_URI_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClientManager
@@ -63,32 +64,32 @@ class ClientProviderLinkController(
 ) {
 
     @Operation(
-        description = """
-Starts linking an identity provider to one of the calling client's signed-in end-users.
-
-Validates the end-user `access_token` (must be a valid, unexpired user access token issued to the calling
-client), the `{providerId}` (must be a known, enabled provider) and the `return_uri` (must be one of the
-calling client's registered redirect URIs), creates a link session and returns the signed `state` and the
-`redirect_url` the caller must navigate the end-user's browser to. The end-user is asked to confirm and to
-re-authenticate before the link is created; once it completes they are redirected to `return_uri`.
-        """,
+        description = "Start linking a provider to the user `access_token` was issued for. Send the end-user's " +
+            "browser to `redirect_url`: the end-user confirms the link, signs in again, signs in with the " +
+            "provider, and is sent back to `return_uri`.",
         tags = ["client"],
         responses = [
             ApiResponse(
                 responseCode = "200",
-                description = "The link session was started.",
+                description = "Where to send the end-user's browser to link the provider.",
                 useReturnTypeSchema = true
             ),
             ApiResponse(
                 responseCode = "400",
-                description = "Invalid access token, or invalid return URI."
+                description = "- `client.providers.link.invalid_access_token`: `access_token` is absent, is not an " +
+                    "active access token this server issued to this client, or was issued for no end-user.\n" +
+                    RETURN_URI_BAD_REQUEST_DESCRIPTION
             ),
-            ApiResponse(responseCode = "401", description = "Missing or invalid client access token."),
+            ApiResponse(responseCode = "401", description = CLIENT_TOKEN_UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: users:providers:write."
+                description = "- `forbidden`: the access token does not carry the scope `users:providers:write`."
             ),
-            ApiResponse(responseCode = "404", description = "No enabled provider found with the given identifier.")
+            ApiResponse(
+                responseCode = "404",
+                description = "- `not_found`: no provider with this identifier is configured, or its configuration " +
+                    "is invalid."
+            )
         ]
     )
     @Post

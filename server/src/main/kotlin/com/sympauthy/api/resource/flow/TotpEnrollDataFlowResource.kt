@@ -5,23 +5,21 @@ import io.micronaut.serde.annotation.Serdeable
 import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(
-    description = "Data required by the end-user to enroll a TOTP authenticator app."
+    description = "Secret of a TOTP enrollment, in the two forms an authenticator takes."
 )
 @Serdeable
 data class TotpEnrollDataFlowResource(
     @get:Schema(
         name = "uri",
-        description = """
-Standard otpauth:// URI encoding the issuer, account and secret.
-Can be rendered as a QR code for scanning with an authenticator app.
-        """
+        description = "URL of the `otpauth` scheme carrying the issuer, a label naming the user and the " +
+            "secret, to render as a QR code for an authenticator to scan."
     )
     @get:JsonProperty("uri")
     val uri: String,
 
     @get:Schema(
         name = "secret",
-        description = "Base32-encoded TOTP secret for manual entry into an authenticator app."
+        description = "Secret, encoded in Base32, for an end-user typing it into an authenticator."
     )
     @get:JsonProperty("secret")
     val secret: String

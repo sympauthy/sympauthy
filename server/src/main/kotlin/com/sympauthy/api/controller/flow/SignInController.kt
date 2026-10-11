@@ -9,6 +9,11 @@ import com.sympauthy.api.resource.flow.ProviderResource
 import com.sympauthy.api.resource.flow.SignInFlowResource
 import com.sympauthy.api.resource.flow.SignInInputResource
 import com.sympauthy.api.resource.flow.SimpleFlowResource
+import com.sympauthy.api.util.FLOW_FAILURE_DESCRIPTION
+import com.sympauthy.api.util.FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION
+import com.sympauthy.api.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
+import com.sympauthy.api.util.FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.FLOW_REDIRECT_RESPONSE_DESCRIPTION
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
@@ -63,14 +68,20 @@ class SignInController(
 ) {
 
     @Operation(
-        description = """
-Return everything the custom UI needs to render the sign-in step, or a redirect URL if the end-user is not
-expected to be on the sign-in step (ex. an invitation flow redirects to sign-up, an authenticated end-user
-is redirected to the next step).
-
-This configuration only contains information associated to this authorization server, the client and the
-on-going flow. All URLs it contains already include the state query param.
-        """,
+        description = "Retrieve the sign-in step: the methods the end-user can sign in with. An end-user " +
+            "re-authenticating is offered only the methods their user holds. When the end-user is not expected " +
+            "to sign in, for example once signed in or when an invitation sends them to sign up, the response " +
+            "carries only `redirect_url`. " + FLOW_FAILURE_DESCRIPTION,
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "The configuration of the sign-in step, or the `redirect_url` to send the browser " +
+                    "to instead.",
+                useReturnTypeSchema = true
+            ),
+            ApiResponse(responseCode = "400", description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION),
+            ApiResponse(responseCode = "401", description = FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION)
+        ],
         tags = ["flow"]
     )
     @Get
@@ -194,13 +205,23 @@ on-going flow. All URLs it contains already include the state query param.
     }
 
     @Operation(
-        description = "Sign-in using a login and a password.",
+        description = "Sign the end-user in with a login and a password. An end-user re-authenticating must " +
+            "sign in as their own user. " + FLOW_FAILURE_DESCRIPTION,
         responses = [
             ApiResponse(
                 responseCode = "200",
-                description = "The credentials provided where valid. The authentication flow will continue.",
+                description = FLOW_REDIRECT_RESPONSE_DESCRIPTION,
                 useReturnTypeSchema = true
-            )
+            ),
+            ApiResponse(
+                responseCode = "400",
+                description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION +
+                    "\n- `flow.password.sign_in.invalid`: `login` or `password` is absent, or the two match no " +
+                    "enabled user.\n" +
+                    "- `flow.reauthentication.wrong_account`: the end-user is re-authenticating, and `login` and " +
+                    "`password` are another user's."
+            ),
+            ApiResponse(responseCode = "401", description = FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION)
         ],
         tags = ["flow"]
     )

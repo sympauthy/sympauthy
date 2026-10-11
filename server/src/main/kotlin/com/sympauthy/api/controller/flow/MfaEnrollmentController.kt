@@ -4,6 +4,12 @@ import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControll
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.api.resource.flow.MfaFlowResource
 import com.sympauthy.api.resource.flow.MfaMethodResource
+import com.sympauthy.api.util.FLOW_FAILURE_SEE_OTHER_DESCRIPTION
+import com.sympauthy.api.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
+import com.sympauthy.api.util.FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.FLOW_SEE_OTHER_DESCRIPTION
+import com.sympauthy.api.util.FLOW_SIGNED_IN_SESSION_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.FLOW_STATE_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaEnrollmentManager
 import com.sympauthy.business.manager.flow.mfa.MfaAutoRedirect
 import com.sympauthy.business.manager.flow.mfa.MfaMethodSelection
@@ -34,23 +40,20 @@ class MfaEnrollmentController(
 ) {
 
     @Operation(
-        description = """
-Routes the end-user to the MFA method they must enroll.
-
-Returns one of two response shapes:
-
-**Auto-redirect** — only `redirect_url` is present, the UI must follow it without showing a screen:
-- a single method to enroll and no skip (MFA required, or a standalone client-initiated enrollment) → redirects to TOTP enrollment
-
-**Method selection** — `methods` is present, the UI must render a selection screen:
-- the enrollment is optional → `methods` list plus a `skip_redirect_url`
-        """,
+        description = "Retrieve the MFA enrollment step: the MFA methods the end-user can enroll, and " +
+            "`skip_redirect_url` when the enrollment is optional. When it is not, the response carries only " +
+            "`redirect_url`, leading to the enrollment of the one MFA method to enroll.",
         responses = [
             ApiResponse(
                 responseCode = "200",
-                description = "Routing decision for the MFA enrollment step.",
+                description = "The MFA methods to choose between, or the `redirect_url` of the one method's step.",
                 useReturnTypeSchema = true
-            )
+            ),
+            ApiResponse(
+                responseCode = "400",
+                description = FLOW_STATE_BAD_REQUEST_DESCRIPTION + FLOW_SIGNED_IN_SESSION_BAD_REQUEST_DESCRIPTION
+            ),
+            ApiResponse(responseCode = "401", description = FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION)
         ],
         tags = ["flow"]
     )
@@ -83,17 +86,14 @@ Returns one of two response shapes:
         )
 
     @Operation(
-        description = """
-Skips the optional MFA enrollment offered during a flow and advances to the next step.
-
-Only meaningful when MFA is not required (`mfa.required=false`) and the enrollment is not a standalone,
-client-initiated one. The MFA step is marked as resolved so the flow does not prompt again.
-        """,
+        description = "Skip the optional MFA enrollment and continue the flow, following " +
+            "`skip_redirect_url`. Skipping an enrollment that is not optional, or one for a user already " +
+            "holding an MFA method, is a failure the end-user cannot correct. " +
+            FLOW_FAILURE_SEE_OTHER_DESCRIPTION,
         responses = [
-            ApiResponse(
-                responseCode = "303",
-                description = "Enrollment skipped. Redirects the browser to the next step of the flow."
-            )
+            ApiResponse(responseCode = "303", description = FLOW_SEE_OTHER_DESCRIPTION),
+            ApiResponse(responseCode = "400", description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION),
+            ApiResponse(responseCode = "401", description = FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION)
         ],
         tags = ["flow"]
     )

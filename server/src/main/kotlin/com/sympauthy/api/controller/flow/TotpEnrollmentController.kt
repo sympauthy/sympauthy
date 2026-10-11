@@ -5,6 +5,13 @@ import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.api.resource.flow.SimpleFlowResource
 import com.sympauthy.api.resource.flow.TotpEnrollDataFlowResource
 import com.sympauthy.api.resource.flow.TotpEnrollInputResource
+import com.sympauthy.api.util.FLOW_FAILURE_DESCRIPTION
+import com.sympauthy.api.util.FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION
+import com.sympauthy.api.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
+import com.sympauthy.api.util.FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.FLOW_REDIRECT_RESPONSE_DESCRIPTION
+import com.sympauthy.api.util.FLOW_SIGNED_IN_SESSION_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.FLOW_STATE_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionTotpEnrollmentManager
 import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.security.SecurityRule.HAS_STATE
@@ -28,18 +35,19 @@ class TotpEnrollmentController(
 ) {
 
     @Operation(
-        description = """
-Initiates TOTP enrollment for the authenticated end-user.
-
-Returns the otpauth:// URI to be rendered as a QR code and the raw base32 secret for manual entry.
-Any previously unconfirmed enrollment for the user is discarded and replaced with a fresh secret.
-        """,
+        description = "Start enrolling a TOTP MFA method: generate a new secret for the user, to load into an " +
+            "authenticator. An enrollment started earlier and not yet confirmed is replaced.",
         responses = [
             ApiResponse(
                 responseCode = "200",
-                description = "Enrollment data containing the QR code URI and the raw secret.",
+                description = "The secret, and the `otpauth` URL carrying it.",
                 useReturnTypeSchema = true
-            )
+            ),
+            ApiResponse(
+                responseCode = "400",
+                description = FLOW_STATE_BAD_REQUEST_DESCRIPTION + FLOW_SIGNED_IN_SESSION_BAD_REQUEST_DESCRIPTION
+            ),
+            ApiResponse(responseCode = "401", description = FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION)
         ],
         tags = ["flow"]
     )
@@ -58,22 +66,24 @@ Any previously unconfirmed enrollment for the user is discarded and replaced wit
         )
 
     @Operation(
-        description = """
-Confirms TOTP enrollment by validating the first code entered by the end-user from their authenticator app.
-
-On success, the end-user is redirected to the next step of the authorization flow.
-On failure, a recoverable 4xx error is returned so the end-user can retry with their next code.
-        """,
+        description = "Confirm the TOTP enrollment with the first code the end-user's authenticator shows. " +
+            "Confirming it also passes the MFA challenge of this interactive flow session. " +
+            FLOW_FAILURE_DESCRIPTION,
         responses = [
             ApiResponse(
                 responseCode = "200",
-                description = "Code was valid. Contains the redirect URL to continue the authorization flow.",
+                description = FLOW_REDIRECT_RESPONSE_DESCRIPTION,
                 useReturnTypeSchema = true
             ),
             ApiResponse(
                 responseCode = "400",
-                description = "Code was invalid. The end-user may retry with their next code."
-            )
+                description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION +
+                    "\n- `flow.mfa.totp.enroll.no_pending_enrollment`: the user has no TOTP enrollment waiting " +
+                    "for confirmation: none was started, or it is already confirmed.\n" +
+                    "- `flow.mfa.totp.enroll.invalid_code`: `code` is absent, or does not match the secret of the " +
+                    "enrollment."
+            ),
+            ApiResponse(responseCode = "401", description = FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION)
         ],
         tags = ["flow"]
     )

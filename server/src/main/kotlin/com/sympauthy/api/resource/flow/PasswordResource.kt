@@ -5,18 +5,14 @@ import io.micronaut.serde.annotation.Serdeable
 import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(
-    description = """
-If null or not present, the associated password authentication method is disabled by the authorization server.
-"""
+    description = "Configuration of signing in or signing up with a password."
 )
 @Serdeable
 data class PasswordResource(
     @get:Schema(
         name = "identifier_claims",
-        description = """
-List of claims that uniquely identify a user. Used as login during sign-in and as the required claims collected
-during sign-up.
-        """
+        description = "Identifier claims: the value of any one of them is a login at sign-in, and sign-up asks " +
+            "for all of them."
     )
     @get:JsonProperty("identifier_claims")
     val identifierClaims: List<CollectableClaimResource>,

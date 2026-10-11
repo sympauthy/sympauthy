@@ -4,6 +4,10 @@ import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControll
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.api.resource.flow.SimpleFlowResource
 import com.sympauthy.api.resource.flow.TotpChallengeInputResource
+import com.sympauthy.api.util.FLOW_FAILURE_DESCRIPTION
+import com.sympauthy.api.util.FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION
+import com.sympauthy.api.util.FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.FLOW_REDIRECT_RESPONSE_DESCRIPTION
 import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionTotpChallengeManager
 import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.security.SecurityRule.HAS_STATE
@@ -26,22 +30,21 @@ class TotpChallengeController(
 ) {
 
     @Operation(
-        description = """
-Validates the TOTP code submitted by the end-user to complete the MFA step of the authorization flow.
-
-On success, the end-user is redirected to the next step of the authorization flow.
-On failure, a recoverable 4xx error is returned so the end-user can retry with their next code.
-        """,
+        description = "Pass the MFA challenge with the TOTP code the end-user's authenticator shows. " +
+            FLOW_FAILURE_DESCRIPTION,
         responses = [
             ApiResponse(
                 responseCode = "200",
-                description = "Code was valid. Contains the redirect URL to continue the authorization flow.",
+                description = FLOW_REDIRECT_RESPONSE_DESCRIPTION,
                 useReturnTypeSchema = true
             ),
             ApiResponse(
                 responseCode = "400",
-                description = "Code was invalid. The end-user may retry with their next code."
-            )
+                description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION +
+                    "\n- `flow.mfa.totp.challenge.invalid_code`: `code` is absent, or matches none of the TOTP " +
+                    "MFA methods the user has enrolled."
+            ),
+            ApiResponse(responseCode = "401", description = FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION)
         ],
         tags = ["flow"]
     )

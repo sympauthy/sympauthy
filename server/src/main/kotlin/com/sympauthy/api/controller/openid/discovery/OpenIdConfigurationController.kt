@@ -22,6 +22,7 @@ import io.micronaut.http.annotation.Get
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.rules.SecurityRule.IS_ANONYMOUS
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import jakarta.inject.Inject
 
 /**
@@ -58,8 +59,15 @@ class OpenIdConfigurationController(
 ) {
 
     @Operation(
-        description = "Return the configuration of this OpenID provider.",
-        tags = ["openiddiscovery"]
+        description = "Retrieve the metadata a client configures itself from, OpenID Connect Discovery 1.0 §4.",
+        tags = ["openiddiscovery"],
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "Metadata of this server.",
+                useReturnTypeSchema = true
+            )
+        ]
     )
     @Get
     suspend fun getConfiguration(): OpenIdConfigurationResource {

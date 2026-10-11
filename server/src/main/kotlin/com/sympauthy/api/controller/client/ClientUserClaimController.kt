@@ -3,6 +3,7 @@ package com.sympauthy.api.controller.client
 import com.sympauthy.api.mapper.CollectedClaimUpdateMapper
 import com.sympauthy.api.mapper.client.ClientUserClaimResourceMapper
 import com.sympauthy.api.resource.client.ClientUserClaimResource
+import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
@@ -39,18 +40,18 @@ class ClientUserClaimController(
 ) {
 
     @Operation(
-        description = "Retrieve the claims of a user this client may read: the ones the user consented to " +
-                "share with it, and the ones a scope this client holds opens whatever the user consented to. " +
-                "Claims restricted to another audience are left out.",
+        description = "Retrieve the claims of a user this client may read: those not restricted to another " +
+            "audience whose `claims.<id>.acl` lets a client read them, by the end-user's consent or by a scope " +
+            "this client holds.",
         tags = ["client"],
         responses = [
-            ApiResponse(responseCode = "200", description = "User claims."),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(responseCode = "200", description = "The claims of the user this client may read."),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: users:claims:read."
+                description = "- `forbidden`: the access token does not carry the scope `users:claims:read`."
             ),
-            ApiResponse(responseCode = "404", description = "No user found with the given identifier.")
+            ApiResponse(responseCode = "404", description = CLIENT_USER_NOT_FOUND_RESPONSE_DESCRIPTION)
         ]
     )
     @Get
@@ -58,7 +59,7 @@ class ClientUserClaimController(
     @SecurityRequirement(name = "client", scopes = [BuiltInClientScopeId.USERS_CLAIMS_READ])
     suspend fun getUserClaims(
         authentication: Authentication,
-        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID
+        @PathVariable @Parameter(description = "Identifier of the user.") userId: UUID
     ): ClientUserClaimResource {
         val clientAuth = authentication.clientAuthentication
         val client = clientManager.findClientById(clientAuth.clientId)
@@ -74,25 +75,31 @@ class ClientUserClaimController(
     }
 
     @Operation(
-        description = "Update the claims of a user this client may write. Those are the application claims " +
-                "of this client's audience — the values a backend answers for rather than the ones a person " +
-                "types — and a claim of the user's own only where it is restricted to this client's " +
-                "audience. A claim this client may not write, one restricted to another audience and an " +
-                "identifier claim are each refused by name.",
+        description = "Update the claims of a user. The body maps each claim identifier to its new value, and " +
+            "`null` or a blank value clears the claim. This client may write a claim whose `claims.<id>.acl` lets " +
+            "a client write it, by the end-user's consent or by a scope this client holds: one of kind " +
+            "`application` not restricted to another audience, or one of kind `personal` restricted to this " +
+            "client's audience. Identifier claims are never written.",
         tags = ["client"],
         responses = [
-            ApiResponse(responseCode = "200", description = "Updated user claims."),
+            ApiResponse(
+                responseCode = "200",
+                description = "The claims of the user this client may read, after the update."
+            ),
             ApiResponse(
                 responseCode = "400",
-                description = "Attempted to modify a claim this client may not write, one restricted to " +
-                        "another audience, or an identifier claim."
+                description = "- `client.identifier_claim`: the body names an identifier claim.\n" +
+                    "- `client.invalid_claim`: the body names a claim that is not configured or not enabled, " +
+                    "one restricted to another audience, or one this client may not write.\n" +
+                    "- `flow.claims.invalid`: one or more values are refused. `properties` holds an entry per " +
+                    "refused claim, under its identifier, with a `user.claim_value_validator` code."
             ),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: users:claims:write."
+                description = "- `forbidden`: the access token does not carry the scope `users:claims:write`."
             ),
-            ApiResponse(responseCode = "404", description = "No user found with the given identifier.")
+            ApiResponse(responseCode = "404", description = CLIENT_USER_NOT_FOUND_RESPONSE_DESCRIPTION)
         ]
     )
     @Patch
@@ -100,7 +107,7 @@ class ClientUserClaimController(
     @SecurityRequirement(name = "client", scopes = [BuiltInClientScopeId.USERS_CLAIMS_WRITE])
     suspend fun updateUserClaims(
         authentication: Authentication,
-        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
+        @PathVariable @Parameter(description = "Identifier of the user.") userId: UUID,
         @Body body: Map<String, Any?>
     ): ClientUserClaimResource {
         val clientAuth = authentication.clientAuthentication

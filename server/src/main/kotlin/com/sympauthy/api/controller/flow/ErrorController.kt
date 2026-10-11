@@ -2,6 +2,8 @@ package com.sympauthy.api.controller.flow
 
 import com.sympauthy.api.mapper.flow.FlowErrorResourceMapper
 import com.sympauthy.api.resource.flow.FlowErrorResource
+import com.sympauthy.api.util.FLOW_COMPLETED_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.flow.FailedVerifyEncodedStateResult
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
@@ -32,16 +34,17 @@ class ErrorController(
 ) {
 
     @Operation(
-        description = "Get details about the error that caused the authentication flow to fail.",
+        description = "Retrieve why the interactive flow session failed, for the error page to show. A `state` " +
+            "that resolves to no interactive flow session is answered the same way, with the code it was " +
+            "refused with. When the session has not failed, the response carries only `redirect_url`.",
         responses = [
             ApiResponse(
                 responseCode = "200",
-                description = """
-Result containing either:
-- details about the error that caused the authentication flow to fail.
-- a redirect uri for the end-user to continue the authorization flow if there is no error.
-""",
+                description = "The failure, or the `redirect_url` to send the browser to instead.",
+                useReturnTypeSchema = true
             ),
+            ApiResponse(responseCode = "400", description = FLOW_COMPLETED_BAD_REQUEST_DESCRIPTION),
+            ApiResponse(responseCode = "401", description = FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION)
         ],
         tags = ["flow"]
     )

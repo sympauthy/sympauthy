@@ -7,45 +7,68 @@ import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 
 @Schema(
-    description = "Information about a claim collected from a user."
+    description = "A claim, with the value a user holds for it."
 )
 @Serdeable
 data class AdminUserClaimResource(
     @get:Schema(description = "Identifier of the claim.")
     @get:JsonProperty("claim_id")
     val claimId: String,
-    @get:Schema(description = "The collected value of the claim, or null if not collected.", nullable = true)
+    @get:Schema(
+        description = "Value the user holds for the claim. Null when the user holds none.",
+        nullable = true
+    )
     @get:JsonInclude(JsonInclude.Include.ALWAYS)
     val value: Any?,
-    @get:Schema(description = "Data type of the claim (e.g. string, boolean).")
+    @get:Schema(
+        description = "Data type of the claim's value.",
+        allowableValues = ["boolean", "date", "email", "number", "phone_number", "string", "timezone"]
+    )
     val type: String,
-    @get:Schema(description = "Where the claim is defined.", allowableValues = ["openid", "custom"])
+    @get:Schema(
+        description = "Where the claim is defined: by OpenID Connect for `openid`, by the configuration for " +
+                "`custom`.",
+        allowableValues = ["openid", "custom"]
+    )
     val origin: String,
     @get:Schema(
-        description = "Whose the claim's value is: the person's, collected from them and never set by " +
-                "a client outside its own audience, or an application's, which a backend answers for " +
-                "and the person is never asked to type. Null for a claim this server generates, which " +
-                "is nobody's to write.",
+        description = "Whose value the claim holds: the end-user's for `personal`, or a client's for " +
+                "`application`, which the end-user is never asked for. Null when this server computes the " +
+                "value.",
         allowableValues = ["personal", "application"],
         nullable = true
     )
     @get:JsonInclude(JsonInclude.Include.ALWAYS)
     val kind: String?,
-    @get:Schema(description = "Whether this claim is required.")
+    @get:Schema(
+        description = "Whether the end-user must provide a value for this claim before a flow completes."
+    )
     val required: Boolean,
-    @get:Schema(description = "Whether this claim is used as an identifier.")
+    @get:Schema(
+        description = "Whether `auth.identifier-claims` names this claim, so that its value identifies the " +
+                "end-user when they sign in with a password and when users are merged across providers."
+    )
     val identifier: Boolean,
     @get:Schema(
-        description = """Grouping identifier (e.g. "profile", "address"), or null if the claim belongs to no group.""",
+        description = "Group the claim is shown in when a flow collects it. Null when it belongs to none.",
+        allowableValues = ["identity", "address"],
         nullable = true
     )
     @get:JsonInclude(JsonInclude.Include.ALWAYS)
     val group: String?,
-    @get:Schema(description = "Date and time (UTC) at which the claim value was collected, or null.", nullable = true)
+    @get:Schema(
+        description = "Date and time at which the value was collected, in UTC. Null when nothing was " +
+                "collected, or when this server computes the value.",
+        nullable = true
+    )
     @get:JsonProperty("collected_at")
     @get:JsonInclude(JsonInclude.Include.ALWAYS)
     val collectedAt: LocalDateTime?,
-    @get:Schema(description = "Date and time (UTC) at which the claim value was verified, or null.", nullable = true)
+    @get:Schema(
+        description = "Date and time at which the value was verified, in UTC. Null when it is not verified, " +
+                "or when this server computes the value.",
+        nullable = true
+    )
     @get:JsonProperty("verified_at")
     @get:JsonInclude(JsonInclude.Include.ALWAYS)
     val verifiedAt: LocalDateTime?

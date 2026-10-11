@@ -5,25 +5,24 @@ import io.micronaut.serde.annotation.Serdeable
 import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(
-    description = "Configuration related to a third-party provider that can be used by the end-user to authenticate."
+    description = "A provider the end-user can sign in with."
 )
 @Serdeable
 data class ProviderResource(
     @get:Schema(
-        description = "Identifier of the third-party provider."
+        description = "Identifier of the provider."
     )
     @get:JsonProperty("id")
     val id: String,
     @get:Schema(
-        description = "Name of the third-party provider as it should be displayed to the end-user."
+        description = "Name of the provider to show the end-user."
     )
     @get:JsonProperty("name")
     val name: String,
     @get:Schema(
         name = "authorize_url",
-        description = """
-URL to redirect the end-user to to initiate a authorization grant flow with the third-party provider.
-        """
+        description = "URL that starts signing in with the provider, redirecting the browser to its " +
+            "authorization page."
     )
     @get:JsonProperty("authorize_url")
     val authorizeUrl: String

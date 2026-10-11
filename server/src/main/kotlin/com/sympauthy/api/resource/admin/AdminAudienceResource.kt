@@ -5,34 +5,30 @@ import io.micronaut.serde.annotation.Serdeable
 import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(
-    description = "Information about a configured audience."
+    description = "An audience the configuration declares."
 )
 @Serdeable
-@Suppress("MaxLineLength")
 data class AdminAudienceResource(
-    @get:Schema(
-        description = "Unique identifier of the audience, as defined in the YAML configuration key."
-    )
+    @get:Schema(description = "Identifier of the audience.")
     @get:JsonProperty("audience_id")
     val audienceId: String,
     @get:Schema(
-        description = "Value used as the aud claim in access and refresh tokens issued for clients belonging to this audience. Defaults to the audience identifier when not explicitly configured."
+        description = "Value of the `aud` claim in the access and refresh tokens issued to the audience's " +
+                "clients. The audience's identifier unless the configuration sets another."
     )
     @get:JsonProperty("token_audience")
     val tokenAudience: String,
     @get:Schema(
-        description = "Whether open registration is enabled for this audience. When true, any user can create an account through the sign-up flow."
+        description = "Whether an end-user may sign up through the audience's clients without an invitation."
     )
     @get:JsonProperty("sign_up_enabled")
     val signUpEnabled: Boolean,
     @get:Schema(
-        description = "Whether invitation-based registration is enabled for this audience. When true, invitations can be created and used to register."
+        description = "Whether invitations can be created for the audience and used to sign up."
     )
     @get:JsonProperty("invitation_enabled")
     val invitationEnabled: Boolean,
-    @get:Schema(
-        description = "Number of clients configured for this audience."
-    )
+    @get:Schema(description = "Number of clients the audience groups.")
     @get:JsonProperty("clients_count")
     val clientsCount: Int
 )

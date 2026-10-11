@@ -7,6 +7,8 @@ import com.sympauthy.api.resource.admin.AdminCreateInvitationInputResource
 import com.sympauthy.api.resource.admin.AdminCreatedInvitationResource
 import com.sympauthy.api.resource.admin.AdminInvitationListResource
 import com.sympauthy.api.resource.admin.AdminInvitationResource
+import com.sympauthy.api.util.CLAIM_VALUE_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.COLLECTION_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_NAME
 import com.sympauthy.api.util.PAGE_PARAMETER_DESCRIPTION
@@ -14,6 +16,7 @@ import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.SEARCH_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.SIZE_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.SORT_PARAMETER_DESCRIPTION
+import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.manager.invitation.InvitationManager
@@ -49,20 +52,23 @@ class AdminInvitationController(
 ) {
 
     @Operation(
-        description =
-            "Create a new invitation for the given audience. The raw token is returned only in this response.",
+        description = "Create an invitation to an audience. This response is the only one carrying the " +
+                "invitation's token.",
         tags = ["admin"],
         responses = [
-            ApiResponse(responseCode = "201", description = "Invitation created."),
+            ApiResponse(responseCode = "201", description = "The invitation, with its token."),
             ApiResponse(
                 responseCode = "400",
-                description = "A pre-assigned claim was refused. Only claims the named audience has " +
-                        "may be pre-assigned."
+                description = "- `invitation.unknown_claim`: `claims` names a claim that is not configured or " +
+                        "not enabled.\n" +
+                        "- `invitation.claim_of_another_audience`: `claims` names a claim restricted to another " +
+                        "audience.\n" +
+                        CLAIM_VALUE_BAD_REQUEST_DESCRIPTION
             ),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: admin:invitations:write."
+                description = "- `forbidden`: the access token does not carry the scope `admin:invitations:write`."
             )
         ]
     )
@@ -85,8 +91,8 @@ class AdminInvitationController(
     }
 
     @Operation(
-        description = "Retrieve a paginated list of invitations. Invitations are ordered by creation " +
-                "date, oldest first, then by identifier, unless another order is asked for. " +
+        description = "Retrieve the invitations, whoever created them. " +
+                "Invitations are ordered by creation date, oldest first, unless another order is asked for. " +
                 "Which fields this collection can be filtered, ordered and searched on is published at " +
                 "/api/v1/admin/invitations/capabilities.",
         tags = ["admin"],
@@ -106,15 +112,11 @@ class AdminInvitationController(
         ],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of invitations."),
-            ApiResponse(
-                responseCode = "400",
-                description = "Invalid page or size, an unknown field, an operator the field does not " +
-                        "accept, or a value it does not hold."
-            ),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(responseCode = "400", description = COLLECTION_BAD_REQUEST_DESCRIPTION),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: admin:invitations:read."
+                description = "- `forbidden`: the access token does not carry the scope `admin:invitations:read`."
             )
         ]
     )
@@ -126,7 +128,10 @@ class AdminInvitationController(
         @QueryValue @Parameter(description = PAGE_PARAMETER_DESCRIPTION) page: Int?,
         @QueryValue @Parameter(description = SIZE_PARAMETER_DESCRIPTION) size: Int?,
         @QueryValue @Parameter(description = SORT_PARAMETER_DESCRIPTION) sort: String?,
-        @QueryValue @Parameter(description = SEARCH_PARAMETER_DESCRIPTION) q: String?
+        @QueryValue @Parameter(
+            description = SEARCH_PARAMETER_DESCRIPTION + " It matches the token prefix and the note of the " +
+                    "invitation."
+        ) q: String?
     ): AdminInvitationListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
         val criteria = collectionCriteriaOf(request, invitationCollectionManager.capabilities(), sort, q)
@@ -141,17 +146,15 @@ class AdminInvitationController(
 
     @Operation(
         description = "Retrieve what the invitation collection accepts: the fields it filters on and the " +
-                "operators each admits, the fields it orders on, the fields a free-text search matches " +
-                "against, and the order it takes when none is asked for. " +
-                "The names it carries are read in the language the request asked for and may be reworded " +
-                "in any release.",
+                "operators each accepts, the fields it orders on and searches, and its own order. " +
+                "Each `name` is in the language the request asks for, and may be reworded in any release.",
         tags = ["admin"],
         responses = [
-            ApiResponse(responseCode = "200", description = "What the collection accepts."),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(responseCode = "200", description = "What the invitation collection accepts."),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: admin:invitations:read."
+                description = "- `forbidden`: the access token does not carry the scope `admin:invitations:read`."
             )
         ]
     )
@@ -162,46 +165,53 @@ class AdminInvitationController(
         capabilitiesMapper.toResource(invitationCollectionManager.capabilities(), request.locale.orDefault())
 
     @Operation(
-        description = "Retrieve a single invitation by its identifier.",
+        description = "Retrieve an invitation.",
         tags = ["admin"],
         responses = [
-            ApiResponse(responseCode = "200", description = "Invitation details."),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(responseCode = "200", description = "The invitation."),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: admin:invitations:read."
+                description = "- `forbidden`: the access token does not carry the scope `admin:invitations:read`."
             ),
-            ApiResponse(responseCode = "404", description = "Invitation not found.")
+            ApiResponse(
+                responseCode = "404",
+                description = "- `not_found`: no invitation has this identifier."
+            )
         ]
     )
     @Get("/{invitationId}")
     @Secured(ADMIN_INVITATIONS_READ)
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.INVITATIONS_READ])
     suspend fun getInvitation(
-        @PathVariable @Parameter(description = "Unique identifier of the invitation.") invitationId: UUID
+        @PathVariable @Parameter(description = "Identifier of the invitation.") invitationId: UUID
     ): AdminInvitationResource {
         val invitation = invitationManager.findByIdOrNull(invitationId).orNotFound()
         return invitationMapper.toResource(invitation)
     }
 
     @Operation(
-        description = "Revoke a pending invitation.",
+        description = "Revoke a pending invitation. Its token can no longer be used.",
         tags = ["admin"],
         responses = [
-            ApiResponse(responseCode = "200", description = "Invitation revoked."),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(responseCode = "200", description = "The invitation, now `revoked`."),
+            ApiResponse(
+                responseCode = "400",
+                description = "- `invitation.not_found`: no invitation has this identifier.\n" +
+                        "- `invitation.cannot_revoke`: the invitation is not `pending`."
+            ),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: admin:invitations:write."
-            ),
-            ApiResponse(responseCode = "404", description = "Invitation not found.")
+                description = "- `forbidden`: the access token does not carry the scope `admin:invitations:write`."
+            )
         ]
     )
     @Post("/{invitationId}/revoke")
     @Secured(ADMIN_INVITATIONS_WRITE)
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.INVITATIONS_WRITE])
     suspend fun revokeInvitation(
-        @PathVariable @Parameter(description = "Unique identifier of the invitation to revoke.") invitationId: UUID
+        @PathVariable @Parameter(description = "Identifier of the invitation to revoke.") invitationId: UUID
     ): AdminInvitationResource {
         val invitation = invitationManager.revokeInvitation(invitationId)
         return invitationMapper.toResource(invitation)

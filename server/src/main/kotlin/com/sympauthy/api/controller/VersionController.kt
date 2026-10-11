@@ -10,6 +10,8 @@ import io.micronaut.security.annotation.Secured
 import io.micronaut.security.rules.SecurityRule.IS_ANONYMOUS
 import io.reactivex.rxjava3.core.Single
 import io.swagger.v3.oas.annotations.OpenAPIDefinition
+import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import kotlinx.coroutines.rx3.await
 
 @Controller("/version")
@@ -29,6 +31,16 @@ class VersionController(
         }
     }.cache()
 
+    @Operation(
+        description = "Retrieve the version of this server and the versions of the API it serves.",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "Versions of this server and of its API.",
+                useReturnTypeSchema = true
+            )
+        ]
+    )
     @Get
     suspend fun get(): VersionResource {
         val apiVersion = apiVersion.await()

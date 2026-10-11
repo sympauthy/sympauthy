@@ -4,18 +4,12 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import io.micronaut.serde.annotation.Serdeable
 import io.swagger.v3.oas.annotations.media.Schema
 
-@Schema(
-    description = "Response from starting a standalone MFA enrollment: where to drive the end-user next."
-)
+@Schema(description = "Interactive flow session started to enroll an MFA method, and where to send the end-user.")
 @Serdeable
 data class ClientMfaEnrollmentResource(
-    @get:Schema(
-        description = "Signed state identifying the enrollment session, echoed by the flow endpoints."
-    )
+    @get:Schema(description = "State of the interactive flow session, which `redirect_url` already carries.")
     val state: String,
-    @get:Schema(
-        description = "URL to navigate the end-user to in order to enroll their authenticator (state included)."
-    )
+    @get:Schema(description = "URL of the first step of the flow, to send the end-user's browser to.")
     @get:JsonProperty("redirect_url")
     val redirectUrl: String
 )

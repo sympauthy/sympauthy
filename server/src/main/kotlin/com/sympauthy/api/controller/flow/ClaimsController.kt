@@ -7,6 +7,11 @@ import com.sympauthy.api.mapper.flow.ClaimsResourceMapper
 import com.sympauthy.api.resource.flow.ClaimInputResource
 import com.sympauthy.api.resource.flow.ClaimsFlowResource
 import com.sympauthy.api.resource.flow.SimpleFlowResource
+import com.sympauthy.api.util.FLOW_FAILURE_DESCRIPTION
+import com.sympauthy.api.util.FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION
+import com.sympauthy.api.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
+import com.sympauthy.api.util.FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.FLOW_REDIRECT_RESPONSE_DESCRIPTION
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.user.ConsentAwareClaimManager
@@ -40,17 +45,19 @@ class ClaimsController(
 ) {
 
     @Operation(
-        description = """
-List all collectable claims for the end-user signing-in/up through the authorization flow,
-along with their metadata (name, type, required, group), any already-collected values,
-and suggested values from external providers.
-
-Identifier claims are excluded as they require separate validation.
-Only claims within the end-user's consented scopes are returned.
-
-If there are no collectable claims, the response will contain the redirect URL where the user
-must be redirected to continue the authorization flow.
-        """,
+        description = "Retrieve the claims step: the claims the flow collects from the end-user, each with the " +
+            "value the user holds and one a provider suggests. It leaves out identifier claims, and claims " +
+            "outside the scopes the end-user consented to. When there is no claim to collect, the response " +
+            "carries only `redirect_url`. " + FLOW_FAILURE_DESCRIPTION,
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "The claims to collect, or the `redirect_url` to send the browser to instead.",
+                useReturnTypeSchema = true
+            ),
+            ApiResponse(responseCode = "400", description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION),
+            ApiResponse(responseCode = "401", description = FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION)
+        ],
         tags = ["flow"]
     )
     @Get
@@ -83,23 +90,22 @@ must be redirected to continue the authorization flow.
     }
 
     @Operation(
-        description = """
-Save claims collected from the end-user signing-in/up through the authorization flow then redirect the end-user to the
-next step of the flow.
-
-A claim will be saved if:
-- it is collectable.
-- it is not part of the sign-up claims.
-
-A null or empty value can be assigned to a claim to indicate that the claim was presented to the end-user,
-but they chose not to provide a value.
-        """,
+        description = "Save the claim values the end-user entered on the claims step. A value for a claim the " +
+            "step does not collect is not saved. A `null` or empty value records that the end-user was asked " +
+            "for the claim and gave none. " + FLOW_FAILURE_DESCRIPTION,
         responses = [
             ApiResponse(
-                description =
-                    "Claims have been collected. The end-user may be redirected to the next step of the flow.",
-                responseCode = "200"
-            )
+                responseCode = "200",
+                description = FLOW_REDIRECT_RESPONSE_DESCRIPTION,
+                useReturnTypeSchema = true
+            ),
+            ApiResponse(
+                responseCode = "400",
+                description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION +
+                    "\n- `flow.claims.invalid`: one or more values are refused, and `properties` holds the " +
+                    "failure of each by claim identifier."
+            ),
+            ApiResponse(responseCode = "401", description = FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION)
         ],
         tags = ["flow"]
     )

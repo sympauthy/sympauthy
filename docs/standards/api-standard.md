@@ -154,6 +154,9 @@ deployment's decision.
 
 **The document is generated from the annotations and the KDoc, and it is not committed.**
 
+**How a description reads is [the API description standard](api-description-standard.md).** This
+section says where each one is written.
+
 **The document names no address at build time.** It carries a placeholder, and the controller
 serving it substitutes the configured public URL on the way out.
 

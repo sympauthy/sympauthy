@@ -7,6 +7,11 @@ import com.sympauthy.api.resource.flow.PasswordResource
 import com.sympauthy.api.resource.flow.SignUpFlowResource
 import com.sympauthy.api.resource.flow.SignUpInputResource
 import com.sympauthy.api.resource.flow.SimpleFlowResource
+import com.sympauthy.api.util.FLOW_FAILURE_DESCRIPTION
+import com.sympauthy.api.util.FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION
+import com.sympauthy.api.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
+import com.sympauthy.api.util.FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.FLOW_REDIRECT_RESPONSE_DESCRIPTION
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
@@ -27,6 +32,7 @@ import io.micronaut.http.annotation.Post
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import jakarta.inject.Inject
 import java.util.Locale
 
@@ -44,14 +50,19 @@ class SignUpController(
 ) {
 
     @Operation(
-        description = """
-Return everything the custom UI needs to render the sign-up step, or a redirect URL if the end-user is not
-expected to be on the sign-up step (ex. sign-up disabled for the audience redirects to sign-in, an
-authenticated end-user is redirected to the next step).
-
-This configuration only contains information associated to this authorization server, the client and the
-on-going flow. All URLs it contains already include the state query param.
-        """,
+        description = "Retrieve the sign-up step: how the end-user can create a user. When the end-user is not " +
+            "expected to sign up, for example once signed in or when the client's audience does not allow " +
+            "signing up, the response carries only `redirect_url`. " + FLOW_FAILURE_DESCRIPTION,
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "The configuration of the sign-up step, or the `redirect_url` to send the browser " +
+                    "to instead.",
+                useReturnTypeSchema = true
+            ),
+            ApiResponse(responseCode = "400", description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION),
+            ApiResponse(responseCode = "401", description = FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION)
+        ],
         tags = ["flow"]
     )
     @Get
@@ -112,11 +123,29 @@ on-going flow. All URLs it contains already include the state query param.
     }
 
     @Operation(
-        description = """
-Initiate the creation of an account of a end-user with a password.
-
-Only identifier claims are saved on the created account. Any other claim present in the request is discarded.
-        """,
+        description = "Create a user with the password and the identifier claims the end-user entered, and " +
+            "sign the end-user in as that user. Any other claim in the request is not saved. Once the " +
+            "end-user is signed in, a repeated sign-up creates nothing. " + FLOW_FAILURE_DESCRIPTION,
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = FLOW_REDIRECT_RESPONSE_DESCRIPTION,
+                useReturnTypeSchema = true
+            ),
+            ApiResponse(
+                responseCode = "400",
+                description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION +
+                    "\n- `flow.claims.invalid`: one or more claim values are refused, and `properties` holds the " +
+                    "failure of each by claim identifier.\n" +
+                    "- `flow.sign_up.disabled`: the client's audience allows neither signing up nor invitations.\n" +
+                    "- `flow.sign_up.invitation_required`: the client's audience allows signing up only with an " +
+                    "invitation, and the flow was started without one.\n" +
+                    "- `flow.password.sign_up.missing_claim`: an identifier claim has no value.\n" +
+                    "- `flow.password.sign_up.existing`: another user already holds one of the identifier claim " +
+                    "values."
+            ),
+            ApiResponse(responseCode = "401", description = FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION)
+        ],
         tags = ["flow"]
     )
     @Post

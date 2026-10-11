@@ -3,9 +3,12 @@ package com.sympauthy.api.controller.client
 import com.sympauthy.api.mapper.client.ClientUserResourceMapper
 import com.sympauthy.api.resource.client.ClientUserListResource
 import com.sympauthy.api.resource.client.ClientUserResource
+import com.sympauthy.api.util.COLLECTION_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.COLLECTION_SEARCH_UNSUPPORTED_DESCRIPTION
 import com.sympauthy.api.util.PAGE_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.SIZE_PARAMETER_DESCRIPTION
+import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.manager.ClientManager
@@ -40,26 +43,24 @@ class ClientUserController(
 ) {
 
     @Operation(
-        description = "Retrieve a paginated list of end-users who have granted scopes to the requesting client. " +
-                "Users are ordered by the date of their current consent, oldest first. That date is rewritten " +
-                "each time a user authorizes again, which moves them to the end of the list, so a client " +
-                "walking every page while users are signing in may miss one or see one twice. " +
-                "They can be filtered on provider_id, and on subject together with it; each is an exact " +
-                "match and accepts no other operator. This collection is not ordered or searched by a " +
-                "caller.",
+        description = "Retrieve the users with an active consent for this client's audience. Users are ordered " +
+            "by the date of their current consent, oldest first, and no other order can be asked for. An " +
+            "end-user consenting again moves to the end, so a walk through the pages can skip a user or see " +
+            "one twice.",
         tags = ["client"],
         parameters = [
             Parameter(
                 name = "provider_id",
                 `in` = ParameterIn.QUERY,
-                description = "Keep the users linked to the provider this names.",
+                description = "Keep the users linked to the provider with this identifier. When absent, any " +
+                    "provider, or none.",
                 schema = Schema(type = "string")
             ),
             Parameter(
                 name = "subject",
                 `in` = ParameterIn.QUERY,
-                description = "Keep the user the provider named by provider_id knows under this " +
-                        "subject. It identifies nobody on its own, so it is refused without one.",
+                description = "Keep the user whose subject at the provider named by `provider_id` is this " +
+                    "value. It is refused without `provider_id`. When absent, any subject.",
                 schema = Schema(type = "string")
             )
         ],
@@ -67,13 +68,13 @@ class ClientUserController(
             ApiResponse(responseCode = "200", description = "Paginated list of users."),
             ApiResponse(
                 responseCode = "400",
-                description = "Invalid page or size, an unknown field, an operator the field does not " +
-                        "accept, or a subject sent without a provider_id."
+                description = COLLECTION_BAD_REQUEST_DESCRIPTION + COLLECTION_SEARCH_UNSUPPORTED_DESCRIPTION +
+                    "\n- `client.subject_without_provider`: `subject` is sent without `provider_id`."
             ),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: users:read."
+                description = "- `forbidden`: the access token does not carry the scope `users:read`."
             )
         ]
     )
@@ -103,22 +104,22 @@ class ClientUserController(
     }
 
     @Operation(
-        description = "Retrieve basic information about a specific user's authorization status.",
+        description = "Retrieve a user with an active consent for this client's audience.",
         tags = ["client"],
         responses = [
-            ApiResponse(responseCode = "200", description = "User information."),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(responseCode = "200", description = "The user."),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: users:read."
+                description = "- `forbidden`: the access token does not carry the scope `users:read`."
             ),
-            ApiResponse(responseCode = "404", description = "No user found with the given identifier.")
+            ApiResponse(responseCode = "404", description = CLIENT_USER_NOT_FOUND_RESPONSE_DESCRIPTION)
         ]
     )
     @Get("/{userId}")
     suspend fun getUser(
         authentication: Authentication,
-        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID
+        @PathVariable @Parameter(description = "Identifier of the user.") userId: UUID
     ): ClientUserResource {
         val clientAuth = authentication.clientAuthentication
         val client = clientManager.findClientById(clientAuth.clientId)

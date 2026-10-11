@@ -4,6 +4,7 @@ import com.sympauthy.api.mapper.admin.AdminCollectionCapabilitiesResourceMapper
 import com.sympauthy.api.mapper.admin.AdminConsentResourceMapper
 import com.sympauthy.api.resource.admin.AdminCollectionCapabilitiesResource
 import com.sympauthy.api.resource.admin.AdminConsentListResource
+import com.sympauthy.api.util.COLLECTION_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_NAME
 import com.sympauthy.api.util.PAGE_PARAMETER_DESCRIPTION
@@ -11,6 +12,7 @@ import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.SEARCH_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.SIZE_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.SORT_PARAMETER_DESCRIPTION
+import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.manager.consent.ConsentManager
@@ -49,8 +51,8 @@ class AdminConsentController(
 ) {
 
     @Operation(
-        description = "Retrieve a paginated list of active consents for a given user. Consents are ordered " +
-                "by the date they were granted, oldest first, then by identifier, unless another order is " +
+        description = "Retrieve the active consents of a user. " +
+                "Consents are ordered by the date they were given, oldest first, unless another order is " +
                 "asked for. " +
                 "Which fields this collection can be filtered, ordered and searched on is published at " +
                 "/api/v1/admin/users/{userId}/consents/capabilities.",
@@ -71,17 +73,16 @@ class AdminConsentController(
         ],
         responses = [
             ApiResponse(responseCode = "200", description = "Paginated list of consents."),
-            ApiResponse(
-                responseCode = "400",
-                description = "Invalid page or size, an unknown field, an operator the field does not " +
-                        "accept, or a value it does not hold."
-            ),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(responseCode = "400", description = COLLECTION_BAD_REQUEST_DESCRIPTION),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: admin:consent:read."
+                description = "- `forbidden`: the access token does not carry the scope `admin:consent:read`."
             ),
-            ApiResponse(responseCode = "404", description = "No user found with the given identifier.")
+            ApiResponse(
+                responseCode = "404",
+                description = "- `not_found`: no user has this identifier."
+            )
         ]
     )
     @Get
@@ -89,11 +90,13 @@ class AdminConsentController(
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.CONSENT_READ])
     suspend fun listConsents(
         request: HttpRequest<*>,
-        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
+        @PathVariable @Parameter(description = "Identifier of the user.") userId: UUID,
         @QueryValue @Parameter(description = PAGE_PARAMETER_DESCRIPTION) page: Int?,
         @QueryValue @Parameter(description = SIZE_PARAMETER_DESCRIPTION) size: Int?,
         @QueryValue @Parameter(description = SORT_PARAMETER_DESCRIPTION) sort: String?,
-        @QueryValue @Parameter(description = SEARCH_PARAMETER_DESCRIPTION) q: String?
+        @QueryValue @Parameter(
+            description = SEARCH_PARAMETER_DESCRIPTION + " It matches the scopes of the consent."
+        ) q: String?
     ): AdminConsentListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
         val criteria = collectionCriteriaOf(request, consentCollectionManager.capabilities(), sort, q)
@@ -108,20 +111,16 @@ class AdminConsentController(
     }
 
     @Operation(
-        description = "Retrieve what the consent collection accepts: the fields it filters on and the " +
-                "operators each admits, the fields it orders on, the fields a free-text search matches " +
-                "against, and the order it takes when none is asked for. " +
-                "It describes the collection rather than one account, so it reads the same for every user " +
-                "identifier and looks none of them up. " +
-                "The names it carries are read in the language the request asked for and may be reworded " +
-                "in any release.",
+        description = "Retrieve what the collection of a user's consents accepts: the fields it filters on " +
+                "and the operators each accepts, the fields it orders on and searches, and its own order. " +
+                "Each `name` is in the language the request asks for, and may be reworded in any release.",
         tags = ["admin"],
         responses = [
-            ApiResponse(responseCode = "200", description = "What the collection accepts."),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(responseCode = "200", description = "What the collection of a user's consents accepts."),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: admin:consent:read."
+                description = "- `forbidden`: the access token does not carry the scope `admin:consent:read`."
             )
         ]
     )
@@ -130,22 +129,28 @@ class AdminConsentController(
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.CONSENT_READ])
     suspend fun getConsentCapabilities(
         request: HttpRequest<*>,
-        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID
+        @PathVariable @Parameter(
+            description = "Identifier of a user. It is not looked up: the answer is the same for every user."
+        ) userId: UUID
     ): AdminCollectionCapabilitiesResource =
         capabilitiesMapper.toResource(consentCollectionManager.capabilities(), request.locale.orDefault())
 
     @Operation(
-        description = "Revoke the active consent for a given user and audience. " +
-                "This also revokes all refresh tokens issued for this user+audience pair.",
+        description = "Revoke the active consent of a user for an audience. Every token issued to the user " +
+                "for the client that last updated the consent is revoked with it.",
         tags = ["admin"],
         responses = [
-            ApiResponse(responseCode = "204", description = "Consent revoked successfully."),
-            ApiResponse(responseCode = "401", description = "Missing or invalid access token."),
+            ApiResponse(responseCode = "204", description = "The consent was revoked."),
+            ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
-                description = "The access token does not include the required scope: admin:consent:write."
+                description = "- `forbidden`: the access token does not carry the scope `admin:consent:write`."
             ),
-            ApiResponse(responseCode = "404", description = "No active consent found for this user and audience.")
+            ApiResponse(
+                responseCode = "404",
+                description = "- `not_found`: no user has the identifier `userId`, or the user has no active " +
+                        "consent for `audienceId`."
+            )
         ]
     )
     @Delete("/{audienceId}")
@@ -153,8 +158,8 @@ class AdminConsentController(
     @SecurityRequirement(name = "admin", scopes = [AdminScopeId.CONSENT_WRITE])
     @Status(HttpStatus.NO_CONTENT)
     suspend fun revokeConsent(
-        @PathVariable @Parameter(description = "Unique identifier of the user.") userId: UUID,
-        @PathVariable @Parameter(description = "Identifier of the audience.") audienceId: String,
+        @PathVariable @Parameter(description = "Identifier of the user.") userId: UUID,
+        @PathVariable @Parameter(description = "Identifier of the audience the consent applies to.") audienceId: String,
         authentication: Authentication
     ) {
         val consent = consentManager.findActiveConsentByAudienceOrNull(userId, audienceId).orNotFound()
