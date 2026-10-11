@@ -10,7 +10,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.data.model.ValidationCodeEntity
 import com.sympauthy.data.repository.ValidationCodeRepository
 import io.mockk.coEvery
@@ -74,7 +74,7 @@ class ValidationCodeManagerTest {
             every { media } returns EMAIL
             every { enabled } returns true
         }
-        val emailClaim = mockk<Claim> {
+        val emailClaim = mockk<EnabledClaim> {
             every { id } returns EMAIL.claim
         }
         val collectedEmailClaim = mockk<CollectedClaim> {

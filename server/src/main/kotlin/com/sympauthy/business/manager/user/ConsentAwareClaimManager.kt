@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.user
 
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.model.flow.CancelledInteractiveFlowSession
@@ -38,7 +39,7 @@ class ConsentAwareClaimManager(
      * - Claims outside the end-user's consented scopes.
      * - Claims restricted to an audience other than the one the session's authorization is for.
      */
-    suspend fun listClaimsCollectedInFlowBySession(session: InteractiveFlowSession): List<Claim> {
+    suspend fun listClaimsCollectedInFlowBySession(session: InteractiveFlowSession): List<EnabledClaim> {
         return when (session) {
             is FailedInteractiveFlowSession, is CancelledInteractiveFlowSession -> emptyList()
             is OnGoingInteractiveFlowSession, is CompletedInteractiveFlowSession -> {
@@ -59,7 +60,7 @@ class ConsentAwareClaimManager(
      * - Claims outside the provided [consentedScopes].
      * - Claims restricted to another audience, which this one has no business asking a person for.
      */
-    fun listClaimsCollectedInFlowWithScopes(audienceId: String, consentedScopes: List<String>): List<Claim> {
+    fun listClaimsCollectedInFlowWithScopes(audienceId: String, consentedScopes: List<String>): List<EnabledClaim> {
         val identifierClaims = claimManager.listIdentifierClaims()
         return claimManager.listClaimsCollectedInFlow()
             .filter { it !in identifierClaims }

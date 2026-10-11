@@ -12,7 +12,7 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.RawProviderClaims
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import io.mockk.coEvery
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
@@ -67,7 +67,7 @@ class ClientUserManagerTest {
 
     private fun mockCollectedClaim(userId: UUID) = CollectedClaim(
         userId = userId,
-        claim = mockk<Claim>(),
+        claim = mockk<EnabledClaim>(),
         value = "user@test.com",
         verified = true,
         collectionDate = LocalDateTime.now(),

@@ -1,10 +1,10 @@
 package com.sympauthy.api.mapper.admin
 
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.api.resource.admin.AdminUserResource
 import com.sympauthy.business.manager.collection.UserCollectionManager.UserWithClaims
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.util.wireName
 import jakarta.inject.Singleton
 
@@ -16,7 +16,7 @@ class AdminUserResourceMapper {
      */
     fun toResource(
         userWithClaims: UserWithClaims,
-        selectedClaims: List<Claim>?
+        selectedClaims: List<EnabledClaim>?
     ): AdminUserResource {
         return AdminUserResource(
             userId = userWithClaims.user.id,
@@ -55,7 +55,7 @@ class AdminUserResourceMapper {
      */
     private fun buildClaimsMap(
         userWithClaims: UserWithClaims,
-        selectedClaims: List<Claim>?
+        selectedClaims: List<EnabledClaim>?
     ): Map<String, Any?>? {
         if (selectedClaims == null) return null
         val selectedIds = selectedClaims.map { it.id }.toSet()

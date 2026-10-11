@@ -18,7 +18,7 @@ import com.sympauthy.business.model.provider.config.ProviderUserInfoConfig
 import com.sympauthy.business.model.user.RawProviderClaims
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.data.repository.ObjectLockRepository
@@ -127,7 +127,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
                 email = "user@example.com"
             )
             val existingUser = createUser()
-            val emailClaim = mockk<Claim>()
+            val emailClaim = mockk<EnabledClaim>()
 
             every { uncheckedAuthConfig.userMergingEnabled } returns true
             coEvery { providerClaimsManager.findByProviderAndSubject(provider, "sub-123") } returns null
@@ -153,7 +153,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
                 email = "new@example.com"
             )
             val newUser = createUser(sessionId = sessionId)
-            val emailClaim = mockk<Claim>()
+            val emailClaim = mockk<EnabledClaim>()
 
             every { uncheckedAuthConfig.userMergingEnabled } returns true
             coEvery { providerClaimsManager.findByProviderAndSubject(provider, "sub-123") } returns null
@@ -188,8 +188,8 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
             phoneNumber = "+33612345678"
         )
         val existingUser = createUser()
-        val emailClaim = mockk<Claim>()
-        val phoneClaim = mockk<Claim>()
+        val emailClaim = mockk<EnabledClaim>()
+        val phoneClaim = mockk<EnabledClaim>()
 
         every { uncheckedAuthConfig.userMergingEnabled } returns true
         coEvery { providerClaimsManager.findByProviderAndSubject(provider, "sub-123") } returns null
@@ -221,8 +221,8 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
                 phoneNumber = "+33612345678"
             )
             val newUser = createUser(sessionId = sessionId)
-            val emailClaim = mockk<Claim>()
-            val phoneClaim = mockk<Claim>()
+            val emailClaim = mockk<EnabledClaim>()
+            val phoneClaim = mockk<EnabledClaim>()
 
             every { uncheckedAuthConfig.userMergingEnabled } returns true
             coEvery { providerClaimsManager.findByProviderAndSubject(provider, "sub-123") } returns null
@@ -270,7 +270,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
             )
 
             every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
-            every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns mockk<Claim>()
+            every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns mockk<EnabledClaim>()
 
             val exception = assertThrows<BusinessException> {
                 establisher.createOrAssociateUserWithProviderUserInfo(sessionId, provider, providerUserInfo)
@@ -285,7 +285,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
         runTest {
             val provider = createProvider()
             val providerUserInfo = RawProviderClaims(subject = "sub-123", email = "   ")
-            val emailClaim = mockk<Claim>()
+            val emailClaim = mockk<EnabledClaim>()
 
             every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
             every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns emailClaim
@@ -306,7 +306,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
             val provider = createProvider()
             val providerUserInfo = RawProviderClaims(subject = "sub-123", email = " New@Example.COM ")
             val newUser = createUser(sessionId = sessionId)
-            val emailClaim = mockk<Claim>()
+            val emailClaim = mockk<EnabledClaim>()
 
             every { uncheckedAuthConfig.userMergingEnabled } returns true
             coEvery { providerClaimsManager.findByProviderAndSubject(provider, "sub-123") } returns null
@@ -362,7 +362,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
                 email = "new@example.com"
             )
             val newUser = createUser(sessionId = sessionId)
-            val emailClaim = mockk<Claim>()
+            val emailClaim = mockk<EnabledClaim>()
 
             every { uncheckedAuthConfig.userMergingEnabled } returns false
             coEvery { providerClaimsManager.findByProviderAndSubject(provider, "sub-123") } returns null
@@ -396,7 +396,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
             email = "existing@example.com"
         )
         val existingUser = createUser()
-        val emailClaim = mockk<Claim>()
+        val emailClaim = mockk<EnabledClaim>()
 
         every { uncheckedAuthConfig.userMergingEnabled } returns false
         coEvery { providerClaimsManager.findByProviderAndSubject(provider, "sub-123") } returns null
@@ -424,8 +424,8 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
                 email = "taken@example.com",
                 phoneNumber = "+33612345678"
             )
-            val emailClaim = mockk<Claim>()
-            val phoneClaim = mockk<Claim>()
+            val emailClaim = mockk<EnabledClaim>()
+            val phoneClaim = mockk<EnabledClaim>()
 
             every { uncheckedAuthConfig.userMergingEnabled } returns true
             coEvery { providerClaimsManager.findByProviderAndSubject(provider, "sub-123") } returns null
@@ -476,7 +476,7 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
             )
 
             every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
-            every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns mockk<Claim>()
+            every { claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) } returns mockk<EnabledClaim>()
             cleansAsSubmitted()
             coEvery {
                 providerClaimsManager.findByProviderAndSubject(provider, "sub-123")

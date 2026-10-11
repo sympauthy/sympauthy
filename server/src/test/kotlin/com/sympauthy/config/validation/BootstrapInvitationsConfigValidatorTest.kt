@@ -1,10 +1,10 @@
 package com.sympauthy.config.validation
 
 import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
+import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.UnconditionalAcl
@@ -26,16 +26,12 @@ class BootstrapInvitationsConfigValidatorTest {
         "billing" to Audience(id = "billing", tokenAudience = "billing")
     )
 
-    private fun claim(id: String, audienceId: String? = null) = Claim(
+    private fun claim(id: String, audienceId: String? = null) = PersonalClaim(
         id = id,
-        enabled = true,
         verifiedId = null,
         dataType = ClaimDataType.STRING,
-        kind = ClaimKind.PERSONAL,
         group = null,
         required = false,
-        generated = false,
-        collectedInFlow = true,
         allowedValues = null,
         audienceId = audienceId,
         publishedIn = ClaimPublicationPlace.entries.toSet(),
@@ -66,7 +62,7 @@ class BootstrapInvitationsConfigValidatorTest {
     private fun validate(
         audience: String?,
         claims: Map<String, String>?,
-        enabledClaims: List<Claim>
+        enabledClaims: List<EnabledClaim>
     ): Pair<ConfigParsingContext, List<BootstrapInvitation>> {
         val ctx = ConfigParsingContext()
         val result = validator.validate(ctx, listOf(properties(audience, claims)), audiencesById, enabledClaims)

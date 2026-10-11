@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.user
 
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
@@ -53,7 +54,7 @@ open class CollectedClaimManager(
     /**
      * Return the list of [CollectedClaim] for the given [claims] collected from the user identified by [userId].
      */
-    suspend fun findByUserIdAndClaims(userId: UUID, claims: List<Claim>): List<CollectedClaim> {
+    suspend fun findByUserIdAndClaims(userId: UUID, claims: List<EnabledClaim>): List<CollectedClaim> {
         val claimIds = claims.map { it.id }
         return collectedClaimRepository.findByUserIdAndClaimInList(userId, claimIds)
             .mapNotNull(collectedClaimMapper::toCollectedClaim)
@@ -70,7 +71,7 @@ open class CollectedClaimManager(
     suspend fun findByUserIdAndAudience(userId: UUID, audienceId: String): List<CollectedClaim> {
         return findByUserIdAndClaims(
             userId = userId,
-            claims = claimManager.listAllClaims().filter { it.belongsToAudience(audienceId) }
+            claims = claimManager.listEnabledClaims().filter { it.belongsToAudience(audienceId) }
         )
     }
 
@@ -194,7 +195,7 @@ open class CollectedClaimManager(
      * It agrees with what the write folds before hashing it into
      * [CollectedClaimEntity.foldedEqualityHash]; the two spell one rule and change together.
      */
-    fun getFoldedValueOf(claim: Claim, value: Any): String? {
+    fun getFoldedValueOf(claim: EnabledClaim, value: Any): String? {
         return claimValueValidator.cleanValueForClaimOrNull(claim, value)
             ?.let(claimValueMapper::toFoldedValue)
     }
@@ -307,7 +308,7 @@ open class CollectedClaimManager(
      */
     suspend fun validateClaims(
         userId: UUID,
-        claims: List<Claim>
+        claims: List<EnabledClaim>
     ) {
         claims.map(Claim::id).forEach {
             collectedClaimRepository.updateClaimsToVerified(

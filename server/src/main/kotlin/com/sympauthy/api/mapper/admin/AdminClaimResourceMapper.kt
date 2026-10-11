@@ -3,6 +3,7 @@ package com.sympauthy.api.mapper.admin
 import com.sympauthy.api.resource.admin.AdminClaimResource
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
+import com.sympauthy.business.model.user.claim.isEnabled
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.util.wireName
@@ -23,7 +24,7 @@ class AdminClaimResourceMapper(
             type = claim.dataType.wireName,
             origin = claim.origin.wireName,
             kind = claim.kind?.wireName,
-            enabled = claim.enabled,
+            enabled = claim.isEnabled,
             required = claim.required,
             identifier = claim.id in identifierClaimIds,
             allowedValues = claim.allowedValues,

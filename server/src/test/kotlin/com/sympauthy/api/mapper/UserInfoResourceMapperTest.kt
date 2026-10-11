@@ -2,14 +2,14 @@ package com.sympauthy.api.mapper
 
 import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
+import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimDataType.EMAIL
 import com.sympauthy.business.model.user.claim.ClaimDataType.NUMBER
 import com.sympauthy.business.model.user.claim.ClaimDataType.STRING
 import com.sympauthy.business.model.user.claim.ClaimGroup
-import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.business.model.user.claim.ConsentAcl
@@ -237,7 +237,7 @@ class UserInfoResourceMapperTest {
         coEvery { generatedClaimsManager.computeUpdatedAt(userId) } returns null
     }
 
-    private fun collected(claim: Claim, value: Any?, verified: Boolean? = null) = CollectedClaim(
+    private fun collected(claim: EnabledClaim, value: Any?, verified: Boolean? = null) = CollectedClaim(
         userId = userId,
         claim = claim,
         value = value,
@@ -274,16 +274,12 @@ class UserInfoResourceMapperTest {
         verifiedId: String? = null,
         publishedIn: Set<ClaimPublicationPlace> = ClaimPublicationPlace.entries.toSet(),
         publishedInWhenRequested: Set<ClaimPublicationPlace> = emptySet()
-    ) = Claim(
+    ) = PersonalClaim(
         id = id,
-        enabled = true,
         verifiedId = verifiedId,
         dataType = dataType,
-        kind = ClaimKind.PERSONAL,
         group = group,
         required = false,
-        generated = false,
-        collectedInFlow = true,
         allowedValues = null,
         audienceId = null,
         publishedIn = publishedIn,

@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.collection
 
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.GeneratedClaimsManager
@@ -157,7 +158,7 @@ class UserCollectionManager(
      * of [claimIds] must name an enabled claim, and one that does not throws
      * `user.claims.unknown`.
      */
-    suspend fun listSelectedClaims(claimIds: List<String>?): List<Claim>? = when {
+    suspend fun listSelectedClaims(claimIds: List<String>?): List<EnabledClaim>? = when {
         claimIds == null -> claimManager.listEnabledClaims()
         claimIds.isEmpty() -> null
         else -> validateAndResolveClaimIds(claimIds)
@@ -165,9 +166,9 @@ class UserCollectionManager(
 
     /**
      * Validate that the given claim IDs reference valid enabled claims.
-     * Returns the list of matching [Claim] objects.
+     * Returns the list of matching [EnabledClaim] objects.
      */
-    internal fun validateAndResolveClaimIds(claimIds: List<String>): List<Claim> {
+    internal fun validateAndResolveClaimIds(claimIds: List<String>): List<EnabledClaim> {
         val enabledClaims = claimManager.listEnabledClaims()
         val enabledClaimMap = enabledClaims.associateBy { it.id }
         return claimIds.map { id ->

@@ -1,5 +1,6 @@
 package com.sympauthy.config.validation
 
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.*
@@ -21,7 +22,7 @@ class AuthConfigValidator {
         val enabledClaimsConfig = uncheckedClaimsConfig as? EnabledClaimsConfig
         if (enabledClaimsConfig != null) {
             val enabledClaims = enabledClaimsConfig.claims
-                .filter { it.enabled }
+                .filterIsInstance<EnabledClaim>()
                 .associateBy { it.id }
             parsed.identifierClaims.forEach { identifierClaimId ->
                 val claim = enabledClaims[identifierClaimId]

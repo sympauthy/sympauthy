@@ -1,10 +1,10 @@
 package com.sympauthy.api.mapper.flow
 
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.api.resource.flow.ClaimValueResource
 import com.sympauthy.api.resource.flow.ClaimsFlowResource
 import com.sympauthy.business.model.provider.ProviderUserInfo
 import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.server.DisplayMessages
 import com.sympauthy.util.wireName
 import io.micronaut.context.MessageSource
@@ -19,7 +19,7 @@ class ClaimsResourceMapper(
 ) {
 
     fun toResource(
-        collectableClaims: List<Claim>,
+        collectableClaims: List<EnabledClaim>,
         collectedClaims: List<CollectedClaim>,
         providerUserInfoList: List<ProviderUserInfo>,
         locale: Locale
@@ -40,7 +40,7 @@ class ClaimsResourceMapper(
     }
 
     private fun toResource(
-        claim: Claim,
+        claim: EnabledClaim,
         collectedClaim: CollectedClaim?,
         sortedProviderUserInfoList: List<ProviderUserInfo>,
         locale: Locale

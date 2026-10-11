@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.flow.auth
 
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
@@ -256,7 +257,7 @@ open class InteractiveAuthFlowSessionPasswordManager(
      * claim is not optional, whatever [Claim.required] says of it, and `docs/design/identifier-claims.md` is
      * where that rule lives.
      */
-    internal fun checkForMissingClaims(signUpClaimUpdateMap: Map<Claim, CollectedClaimUpdate?>) {
+    internal fun checkForMissingClaims(signUpClaimUpdateMap: Map<EnabledClaim, CollectedClaimUpdate?>) {
         val missingClaim = signUpClaimUpdateMap.filterValues { it?.value?.isPresent != true }
             .keys
             .firstOrNull()

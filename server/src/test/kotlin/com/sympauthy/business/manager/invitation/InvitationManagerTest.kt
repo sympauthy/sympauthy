@@ -9,7 +9,7 @@ import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.invitation.InvitationStatus
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.data.model.InvitationEntity
 import com.sympauthy.data.repository.InvitationRepository
@@ -65,11 +65,10 @@ class InvitationManagerTest {
     }
 
     /**
-     * A claim as [InvitationManager.validateAndCleanClaims] asks after it: whether it is enabled and which
-     * audience it is for. Its value is the validator's business. [audienceId] null is every audience's claim.
+     * A claim as [InvitationManager.validateAndCleanClaims] asks after it: which audience it is for. Its value
+     * is the validator's business. [audienceId] null is every audience's claim.
      */
-    private fun createClaim(audienceId: String? = null): Claim = mockk {
-        every { enabled } returns true
+    private fun createClaim(audienceId: String? = null): EnabledClaim = mockk {
         every { belongsToAudience(any()) } answers { audienceId == null || audienceId == firstArg() }
     }
 
@@ -78,7 +77,7 @@ class InvitationManagerTest {
      * stored back under it — which is how a value recovers the type it was cleaned to when the invitation
      * was written.
      */
-    private fun createStoredClaim(audienceId: String? = null): Claim = mockk {
+    private fun createStoredClaim(audienceId: String? = null): EnabledClaim = mockk {
         every { belongsToAudience(any()) } answers { audienceId == null || audienceId == firstArg() }
     }
 
@@ -86,7 +85,7 @@ class InvitationManagerTest {
      * The claim reading the text an invitation stored back as the value it was cleaned to, which is how a
      * value recovers the type it lost to the invitation's own column.
      */
-    private fun cleansStoredTextOf(claim: Claim) {
+    private fun cleansStoredTextOf(claim: EnabledClaim) {
         every { claimValueValidator.cleanValueForClaimOrNull(claim, any()) } answers { secondArg() }
     }
 
@@ -101,7 +100,7 @@ class InvitationManagerTest {
     }
 
     /** An identifier claim as [InvitationManager.applyInvitationClaims] asks after it, its id read to log it. */
-    private fun identifierClaim(): Claim = mockk {
+    private fun identifierClaim(): EnabledClaim = mockk {
         every { id } returns "email"
         every { belongsToAudience(any()) } returns true
     }
@@ -150,17 +149,6 @@ class InvitationManagerTest {
         }
         assertEquals("invitation.unknown_claim", exception.detailsId)
         assertTrue(exception.recoverable)
-    }
-
-    @Test
-    fun `validateAndCleanClaims - Throws when claim is disabled`() {
-        val claim = mockk<Claim> { every { enabled } returns false }
-        every { claimManager.findByIdOrNull("disabled_claim") } returns claim
-
-        val exception = assertThrows<BusinessException> {
-            manager.validateAndCleanClaims(mapOf("disabled_claim" to "value"), AUDIENCE, null)
-        }
-        assertEquals("invitation.unknown_claim", exception.detailsId)
     }
 
     @Test

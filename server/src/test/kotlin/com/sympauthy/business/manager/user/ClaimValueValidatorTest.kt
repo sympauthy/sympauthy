@@ -1,7 +1,7 @@
 package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.manager.util.assertThrowsLocalizedException
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimDataType.BOOLEAN
 import com.sympauthy.business.model.user.claim.ClaimDataType.DATE
@@ -27,22 +27,22 @@ class ClaimValueValidatorTest {
     lateinit var validator: ClaimValueValidator
 
     /** A claim of the type the validator checks a value against; the rest is read per path. */
-    private fun mockClaimOfType(type: ClaimDataType): Claim = mockk {
+    private fun mockClaimOfType(type: ClaimDataType): EnabledClaim = mockk {
         every { dataType } returns type
     }
 
-    private fun mockStringClaim(): Claim = mockClaimOfType(STRING)
+    private fun mockStringClaim(): EnabledClaim = mockClaimOfType(STRING)
 
     /** A number claim — one of the two types whose value is not exchanged as a string. */
-    private fun mockNumberClaim(): Claim = mockClaimOfType(NUMBER)
+    private fun mockNumberClaim(): EnabledClaim = mockClaimOfType(NUMBER)
 
     /** A boolean claim — the other. */
-    private fun mockBooleanClaim(): Claim = mockClaimOfType(BOOLEAN)
+    private fun mockBooleanClaim(): EnabledClaim = mockClaimOfType(BOOLEAN)
 
     @Test
     fun `validateAndCleanValueForClaim - Returns empty Optional for null value`() {
         // A null value is never type-checked, but the allowed values are still consulted.
-        val claim = mockk<Claim> { every { allowedValues } returns null }
+        val claim = mockk<EnabledClaim> { every { allowedValues } returns null }
         val result = validator.validateAndCleanValueForClaim(claim, null)
         assertTrue(result.isEmpty)
     }
@@ -59,7 +59,7 @@ class ClaimValueValidatorTest {
     @Test
     fun `validateAndCleanValueForClaim - Names the refused type the way the API publishes it`() {
         // phone-number in the configuration file, PHONE_NUMBER in Kotlin, phone_number to whoever reads this.
-        val claim = mockk<Claim> {
+        val claim = mockk<EnabledClaim> {
             every { dataType } returns PHONE_NUMBER
             every { id } returns "phone_number"
         }
@@ -177,14 +177,14 @@ class ClaimValueValidatorTest {
     fun `validateAndCleanValueForClaim - Clears a claim carrying allowed values on a blank value`() {
         // A blank value clears the claim, and what is not being stored has nothing to be allowed against.
         // It is cleared before the claim's type is looked at, which is why none is stubbed here.
-        val claim = mockk<Claim> { every { allowedValues } returns listOf("allowed") }
+        val claim = mockk<EnabledClaim> { every { allowedValues } returns listOf("allowed") }
         assertTrue(validator.validateAndCleanValueForClaim(claim, "   ").isEmpty)
     }
 
     @Test
     fun `validateAndCleanStringForClaim - Returns empty Optional for blank string`() {
         // A blank string is refused before the claim is looked at at all.
-        val claim = mockk<Claim>()
+        val claim = mockk<EnabledClaim>()
         val result = validator.validateAndCleanStringForClaim(claim, "   ")
         assertTrue(result.isEmpty)
     }
@@ -472,7 +472,7 @@ class ClaimValueValidatorTest {
 
     @Test
     fun `cleanValueForClaimOrNull - Answers none where the value is no value at all`() {
-        val claim = mockk<Claim> { every { allowedValues } returns null }
+        val claim = mockk<EnabledClaim> { every { allowedValues } returns null }
         assertNull(validator.cleanValueForClaimOrNull(claim, "   "))
         assertNull(validator.cleanValueForClaimOrNull(claim, null))
     }

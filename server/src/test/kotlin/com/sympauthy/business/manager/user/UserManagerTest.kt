@@ -6,7 +6,7 @@ import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.data.model.CollectedClaimEntity
@@ -369,7 +369,7 @@ class UserManagerTest {
     }
 
     private fun committedRows(vararg rows: CollectedClaimEntity) {
-        every { claimManager.findByIdOrNull(any()) } returns mockk<Claim> {
+        every { claimManager.findByIdOrNull(any()) } returns mockk<EnabledClaim> {
             every { dataType } returns ClaimDataType.STRING
         }
         every {

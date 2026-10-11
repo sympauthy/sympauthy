@@ -84,16 +84,12 @@ class AdminUserClaimControllerTest {
     )
 
     private fun userClaim(claimId: String): UserClaim = CollectedUserClaim(
-        claim = Claim(
+        claim = PersonalClaim(
             id = claimId,
-            enabled = true,
             verifiedId = null,
             dataType = ClaimDataType.STRING,
-            kind = ClaimKind.PERSONAL,
             group = null,
             required = false,
-            generated = false,
-            collectedInFlow = false,
             allowedValues = null,
             publishedIn = ClaimPublicationPlace.entries.toSet(),
             publishedInWhenRequested = emptySet(),

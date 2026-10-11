@@ -125,7 +125,7 @@ open class InvitationManager(
         if (claims.isNullOrEmpty()) return claims
         return claims.mapValues { (claimId, value) ->
             val claim = claimManager.findByIdOrNull(claimId)
-            if (claim == null || !claim.enabled) {
+            if (claim == null) {
                 throw recoverableBusinessExceptionOf(
                     detailsId = "invitation.unknown_claim",
                     descriptionId = "description.invitation.unknown_claim",

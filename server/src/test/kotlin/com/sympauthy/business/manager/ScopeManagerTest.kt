@@ -9,7 +9,7 @@ import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.oauth2.GrantableUserScope
 import com.sympauthy.business.model.oauth2.ScopePublicationPlace.DISCOVERY
 import com.sympauthy.business.model.oauth2.ScopeType
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.config.model.*
 import io.mockk.coEvery
 import io.mockk.every
@@ -258,7 +258,7 @@ class ScopeManagerTest {
     @Test
     fun `listClaimsProtectedByScope - Report the claims a scope the deployment turned off would protect`() =
         runTest {
-            val gatedClaim = mockk<Claim> { every { belongsToScope(disabledScope.scope) } returns true }
+            val gatedClaim = mockk<EnabledClaim> { every { belongsToScope(disabledScope.scope) } returns true }
             every { claimManager.listAllClaims() } returns listOf(gatedClaim)
 
             val result = scopeManager.listClaimsProtectedByScope(disabledScope)

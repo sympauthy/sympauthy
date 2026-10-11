@@ -4,7 +4,7 @@ import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.user.ClaimValueValidator
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import io.micronaut.http.HttpStatus.BAD_REQUEST
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -31,7 +31,7 @@ class CollectedClaimUpdateMapperTest {
     lateinit var mapper: CollectedClaimUpdateMapper
 
     /** A claim this deployment declares under [id], whose value the validator accepts. */
-    private fun accept(id: String, value: Any?, cleaned: Any): Claim = declare(id).also {
+    private fun accept(id: String, value: Any?, cleaned: Any): EnabledClaim = declare(id).also {
         every { claimValueValidator.validateAndCleanValueForClaim(it, value) } returns Optional.of(cleaned)
     }
 
@@ -43,18 +43,18 @@ class CollectedClaimUpdateMapperTest {
      * Its id is stubbed here rather than in [declare] because the mapper only reads the id of a claim
      * it refuses, and a stub nothing reads fails the run.
      */
-    private fun refuse(id: String, value: Any?, detailsId: String): Claim = declare(id).also {
+    private fun refuse(id: String, value: Any?, detailsId: String): EnabledClaim = declare(id).also {
         every { it.id } returns id
         every { claimValueValidator.validateAndCleanValueForClaim(it, value) } throws
             recoverableBusinessExceptionOf(detailsId, "description.$detailsId", "claim" to id)
     }
 
     /** A claim this deployment declares under [id], whose blank [value] the validator clears. */
-    private fun clear(id: String, value: Any?): Claim = declare(id).also {
+    private fun clear(id: String, value: Any?): EnabledClaim = declare(id).also {
         every { claimValueValidator.validateAndCleanValueForClaim(it, value) } returns Optional.empty()
     }
 
-    private fun declare(id: String): Claim = mockk<Claim>().also {
+    private fun declare(id: String): EnabledClaim = mockk<EnabledClaim>().also {
         every { claimManager.findByIdOrNull(id) } returns it
     }
 

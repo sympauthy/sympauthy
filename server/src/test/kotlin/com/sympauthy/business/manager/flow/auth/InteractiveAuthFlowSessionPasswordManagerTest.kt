@@ -19,7 +19,7 @@ import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.UserRepository
@@ -336,7 +336,7 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
 
     @Test
     fun `checkForMissingClaims - Names the claim missing a value rather than one carrying it`() {
-        val email = mockk<Claim>()
+        val email = mockk<EnabledClaim>()
         val username = claimOf("preferred_username")
 
         val exception = assertThrows<BusinessException> {
@@ -353,8 +353,8 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
 
     @Test
     fun `checkForMissingClaims - Accepts every claim carrying a value`() {
-        val email = mockk<Claim>()
-        val username = mockk<Claim>()
+        val email = mockk<EnabledClaim>()
+        val username = mockk<EnabledClaim>()
 
         assertDoesNotThrow {
             manager.checkForMissingClaims(
@@ -393,7 +393,7 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
         value = Optional.of(value)
     )
 
-    private fun claimOf(claimId: String) = mockk<Claim> { every { id } returns claimId }
+    private fun claimOf(claimId: String) = mockk<EnabledClaim> { every { id } returns claimId }
 
     @Test
     fun `signInWithPassword - Records where a normal sign-in established identity`() = runTest {

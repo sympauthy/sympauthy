@@ -1,6 +1,6 @@
 package com.sympauthy.business.model.user
 
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimDataType.*
 import com.sympauthy.business.model.user.claim.ClaimGroup
@@ -17,7 +17,7 @@ import java.util.*
  */
 data class CollectedClaim(
     val userId: UUID,
-    val claim: Claim,
+    val claim: EnabledClaim,
     /**
      * The value of the claim.
      * It may be null if the end-user has deliberately deleted the user info.
@@ -42,7 +42,7 @@ data class CollectedClaim(
  * [ClaimGroup.ADDRESS] assembled into the single `address` object OpenID Connect Core §5.1.1 defines.
  *
  * Which claims reach a place is settled before this is asked — the ACL permitted them and
- * [Claim.isPublishedIn] placed them — so what is left here is the wire form alone, written once because a
+ * [EnabledClaim.isPublishedIn] placed them — so what is left here is the wire form alone, written once because a
  * claim looks the same in every place that carries it.
  *
  * [reserved] is what the place already says about the authorization it belongs to — a token's subject,

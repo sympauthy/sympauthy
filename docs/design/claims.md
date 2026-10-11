@@ -11,10 +11,10 @@ deployment identifies a person *by* is [the identifier claims](identifier-claims
 written by a sign-up that has not finished is [the provisional user](provisional-user.md); the
 authentications, scopes and gates every rule here is enforced through are [security](security.md).
 
-`Claim`, with the `ClaimAcl` it carries, is what a declaration is parsed into and the model every
-rule below is a method of; its KDoc is the authority on how the two halves of the ACL combine. A
-value collected for an account is a `CollectedClaim`, and `ConsentAwareCollectedClaimManager` is the
-read and the write that apply the ACL to one.
+`Claim`, with the `ClaimAcl` it carries, is what a declaration is parsed into. Every rule below is a
+method of `EnabledClaim`, the half of it this server serves, whose KDoc is the authority on how the
+two halves of the ACL combine. A value collected for an account is a `CollectedClaim`, and
+`ConsentAwareCollectedClaimManager` is the read and the write that apply the ACL to one.
 
 ## Kinds
 
@@ -23,6 +23,12 @@ read and the write that apply the ACL to one.
 it, and a claim overrides its template like any other key. `ClaimKind` is the set, and [the design
 FAQ](design-faq.md#is-a-persons-profile-one-value-for-every-audience-or-one-per-audience) holds the
 options that lost to it.
+
+**Each kind is a type, and so is the claim that is neither.** `PersonalClaim`, `ApplicationClaim`
+and `GeneratedClaim` are the three shapes of an `EnabledClaim`, so a claim carries no kind it could
+contradict: a generated claim has none by being one, rather than by a null the validator promises
+to keep. What a generated claim cannot be — required, restricted to an audience, opened to a request
+— its constructor does not take.
 
 **The kind is not the origin.** `ClaimOrigin` says whether a claim's name is the specification's or
 the deployment's own, and the administration API publishes it as `openid` or `custom`. A
@@ -282,6 +288,25 @@ cannot mean it.** A server whose configuration is wrong refuses to report itself
 deployment is told in the file it owns rather than by a client's error log once a value fails to
 come back. The two authorities on which refusals there are: `ClaimsConfigParser` holds the keys it
 cannot read or resolve, and `ClaimsConfigValidator` the values the rest of the claim contradicts.
+
+**A claim the deployment turned off is a shape of its own, not an absence.** It is a
+`DisabledClaim`: a claim this server knows about and does not serve, exactly as a disabled scope is
+in [security](security.md). Everything that collects, writes, reads or publishes a value takes an
+`EnabledClaim`, and `ClaimManager` hands out no other kind except to the one caller listing them all,
+so a claim that is off cannot reach any of those paths — the compiler refuses it, rather than each
+path remembering to filter it out. A path that once forgot is how a client came to write a claim
+the deployment had turned off, and how a value stored before a claim was turned off kept travelling
+in tokens afterwards.
+
+**A value stored for a claim that is now off is kept and not read.** The row is not deleted, because
+turning the claim back on is a configuration change and should not cost every account its value;
+the mapper answers it as a row nothing is asking for, the way it answers one for a claim no longer
+declared at all.
+
+**The administration API lists a disabled claim, and publishes it nowhere.** An operator has to see
+what they turned off, and what it would be — its type, its kind, whether it is required — is kept
+for that. Where it is published is not: a place carries or advertises a value, and a claim that is
+off has none to give, so both of its publication lists are empty however its file names them.
 
 ### Templates
 

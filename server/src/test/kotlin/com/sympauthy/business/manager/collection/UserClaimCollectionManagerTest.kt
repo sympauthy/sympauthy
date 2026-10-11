@@ -56,21 +56,38 @@ class UserClaimCollectionManagerTest {
         generated: Boolean = false,
         kind: ClaimKind? = ClaimKind.PERSONAL,
         group: ClaimGroup? = null
-    ) = Claim(
-        id = id,
-        enabled = true,
-        verifiedId = verifiedId,
-        dataType = ClaimDataType.STRING,
-        kind = kind,
-        group = group,
-        required = required,
-        generated = generated,
-        collectedInFlow = false,
-        allowedValues = null,
-        publishedIn = ClaimPublicationPlace.entries.toSet(),
-        publishedInWhenRequested = emptySet(),
-        acl = acl
-    )
+    ): EnabledClaim = when {
+        generated -> GeneratedClaim(
+            id = id,
+            verifiedId = verifiedId,
+            dataType = ClaimDataType.STRING,
+            group = group,
+            publishedIn = ClaimPublicationPlace.entries.toSet(),
+            acl = acl
+        )
+        kind == ClaimKind.APPLICATION -> ApplicationClaim(
+            id = id,
+            verifiedId = verifiedId,
+            dataType = ClaimDataType.STRING,
+            group = group,
+            required = required,
+            allowedValues = null,
+            publishedIn = ClaimPublicationPlace.entries.toSet(),
+            publishedInWhenRequested = emptySet(),
+            acl = acl
+        )
+        else -> PersonalClaim(
+            id = id,
+            verifiedId = verifiedId,
+            dataType = ClaimDataType.STRING,
+            group = group,
+            required = required,
+            allowedValues = null,
+            publishedIn = ClaimPublicationPlace.entries.toSet(),
+            publishedInWhenRequested = emptySet(),
+            acl = acl
+        )
+    }
 
     private val emailClaim = claim(OpenIdConnectClaimId.EMAIL, verifiedId = "email_verified", required = true)
     private val emailVerifiedClaim = claim("email_verified")
@@ -80,7 +97,7 @@ class UserClaimCollectionManagerTest {
     private val addressLineClaim = claim("address_line", group = ClaimGroup.ADDRESS)
     private val subClaim = claim(OpenIdConnectClaimId.SUB, generated = true, kind = null)
 
-    private fun collected(claim: Claim, value: Any? = "value", verificationDate: LocalDateTime? = null) =
+    private fun collected(claim: EnabledClaim, value: Any? = "value", verificationDate: LocalDateTime? = null) =
         CollectedClaim(
             userId = userId,
             claim = claim,
@@ -104,7 +121,7 @@ class UserClaimCollectionManagerTest {
         )
     )
 
-    private fun enabledClaims(vararg claims: Claim, collected: List<CollectedClaim> = emptyList()) {
+    private fun enabledClaims(vararg claims: EnabledClaim, collected: List<CollectedClaim> = emptyList()) {
         every { claimManager.listEnabledClaims() } returns claims.toList()
         coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns collected
         coEvery { generatedClaimsManager.computeValues(userId) } returns emptyMap()

@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.flow.auth
 
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
@@ -16,7 +17,6 @@ import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.claim.Claim
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import io.micronaut.transaction.annotation.Transactional
@@ -43,7 +43,7 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
     /**
      * Return the claim validated by the [reason], null if the [reason] actually does not validate a claim.
      */
-    fun getClaimValidatedBy(reason: ValidationCodeReason): Claim? {
+    fun getClaimValidatedBy(reason: ValidationCodeReason): EnabledClaim? {
         val claimId = when (reason) {
             EMAIL_CLAIM -> EMAIL_CLAIM.media.claim
             PHONE_NUMBER_CLAIM -> PHONE_NUMBER_CLAIM.media.claim

@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.flow.auth
 
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
@@ -19,7 +20,6 @@ import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.RawProviderClaims
 import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.config.model.orThrow
@@ -137,7 +137,7 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
     @Transactional
     internal open suspend fun createOrAssociateUserByIdentifierClaimsWithProviderUserInfo(
         sessionId: UUID,
-        identifierClaims: Map<String, Pair<Claim, Any>>,
+        identifierClaims: Map<String, Pair<EnabledClaim, Any>>,
         provider: EnabledProvider,
         providerUserInfo: RawProviderClaims
     ): CreateOrAssociateResult {
@@ -170,7 +170,7 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
     @Transactional
     internal open suspend fun createUserWithProviderUserInfo(
         sessionId: UUID,
-        identifierClaims: Map<String, Pair<Claim, Any>>,
+        identifierClaims: Map<String, Pair<EnabledClaim, Any>>,
         provider: EnabledProvider,
         providerUserInfo: RawProviderClaims
     ): CreateOrAssociateResult {
@@ -208,7 +208,7 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
      */
     private suspend fun createUserWithIdentifierClaims(
         sessionId: UUID,
-        identifierClaims: Map<String, Pair<Claim, Any>>
+        identifierClaims: Map<String, Pair<EnabledClaim, Any>>
     ): User {
         val updates = identifierClaims.values.map { (claim, value) ->
             CollectedClaimUpdate(claim = claim, value = Optional.of(value))
@@ -249,7 +249,7 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
         authConfig: EnabledAuthConfig,
         provider: EnabledProvider,
         providerUserInfo: RawProviderClaims
-    ): Map<String, Pair<Claim, Any>> {
+    ): Map<String, Pair<EnabledClaim, Any>> {
         return authConfig.identifierClaims.associateWith { claimId ->
             val claim = claimManager.findByIdOrNull(claimId)
                 ?: throw businessExceptionOf(

@@ -2,10 +2,10 @@ package com.sympauthy.business.mapper
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
+import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.ClaimDataType.BOOLEAN
 import com.sympauthy.business.model.user.claim.ClaimDataType.NUMBER
@@ -94,7 +94,7 @@ class CollectedClaimMapperTest {
         assertEquals("mapper.collected_claim.invalid_property", exception.detailsId)
     }
 
-    private fun stubClaim(claim: Claim) {
+    private fun stubClaim(claim: EnabledClaim) {
         every { claimManager.findByIdOrNull(claim.id) } returns claim
     }
 
@@ -109,16 +109,12 @@ class CollectedClaimMapperTest {
         sessionId = null
     )
 
-    private fun claim(id: String, dataType: ClaimDataType) = Claim(
+    private fun claim(id: String, dataType: ClaimDataType) = PersonalClaim(
         id = id,
-        enabled = true,
         verifiedId = null,
         dataType = dataType,
-        kind = ClaimKind.PERSONAL,
         group = null,
         required = false,
-        generated = false,
-        collectedInFlow = true,
         allowedValues = null,
         audienceId = null,
         publishedIn = ClaimPublicationPlace.entries.toSet(),

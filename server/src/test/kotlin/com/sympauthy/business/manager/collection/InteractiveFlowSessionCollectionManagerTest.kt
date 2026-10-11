@@ -23,7 +23,7 @@ import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.model.InteractiveFlowSessionSecurityContextEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
@@ -611,7 +611,7 @@ class InteractiveFlowSessionCollectionManagerTest {
         coEvery { collectedClaimManager.listIdentifierByUserIds(listOf(userId)) } returns listOf(
             CollectedClaim(
                 userId = userId,
-                claim = mockk<Claim>(),
+                claim = mockk<EnabledClaim>(),
                 value = email,
                 verified = true,
                 collectionDate = NOW,

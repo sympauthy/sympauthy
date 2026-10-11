@@ -15,7 +15,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import io.mockk.coEvery
 import io.mockk.every
@@ -54,7 +54,7 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
 
     @Test
     fun `getUnfilteredReasonsToSendValidationCode - Verify a collected email that is not verified`() {
-        val emailClaim = mockk<Claim> {
+        val emailClaim = mockk<EnabledClaim> {
             every { id } returns OpenIdConnectClaimId.EMAIL
             every { belongsToAudience(AUDIENCE) } returns true
         }
@@ -78,7 +78,7 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
     @Test
     fun `getUnfilteredReasonsToSendValidationCode - Ask nothing of a claim no value was collected for`() {
         // No id is stubbed: an empty set of collected claims is not searched by it.
-        val emailClaim = mockk<Claim> {
+        val emailClaim = mockk<EnabledClaim> {
             every { belongsToAudience(AUDIENCE) } returns true
         }
 
@@ -95,7 +95,7 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
 
     @Test
     fun `getUnfilteredReasonsToSendValidationCode - Ask nothing of a claim whose value was cleared`() {
-        val emailClaim = mockk<Claim> {
+        val emailClaim = mockk<EnabledClaim> {
             every { id } returns OpenIdConnectClaimId.EMAIL
             every { belongsToAudience(AUDIENCE) } returns true
         }
@@ -119,7 +119,7 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
     fun `getUnfilteredReasonsToSendValidationCode - Ask nothing of a claim restricted to another audience`() {
         // No collected claim is handed in: the reason must be refused on the audience alone, before the claim
         // it validates is ever looked for — an absent one is what reads as unverified.
-        val emailClaim = mockk<Claim> {
+        val emailClaim = mockk<EnabledClaim> {
             every { belongsToAudience(AUDIENCE) } returns false
         }
 
@@ -136,7 +136,7 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
 
     @Test
     fun `getUnfilteredReasonsToSendValidationCode - Do not verify email if claim already verified`() {
-        val emailClaim = mockk<Claim> {
+        val emailClaim = mockk<EnabledClaim> {
             every { id } returns OpenIdConnectClaimId.EMAIL
             every { belongsToAudience(AUDIENCE) } returns true
         }
@@ -402,7 +402,7 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
             every { reasons } returns listOf(reason)
             every { expired } returns false
         }
-        val emailClaim = mockk<Claim>()
+        val emailClaim = mockk<EnabledClaim>()
 
         coEvery {
             manager.findCodesSentDuringSession(session = session, media = media)

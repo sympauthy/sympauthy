@@ -1,6 +1,6 @@
 package com.sympauthy.business.model.user
 
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -51,7 +51,7 @@ data class RawProviderClaims(
      * Return the value of the given [claim] as a string, or null if not available.
      * Returns null for custom claims that have no OpenID Connect equivalent.
      */
-    fun getClaimValueOrNull(claim: Claim): String? = getClaimValueOrNull(claim.id)
+    fun getClaimValueOrNull(claim: EnabledClaim): String? = getClaimValueOrNull(claim.id)
 
     /**
      * Return the value of the claim identified by [claimId] as a string, or null if not available.

@@ -13,7 +13,7 @@ import com.sympauthy.business.manager.provider.ProviderManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.TakenIdentifier
 import com.sympauthy.business.manager.user.UserManager
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
@@ -196,7 +196,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
     private fun assertedIdentifierClaims(vararg claimIds: String) {
         every { uncheckedAuthConfig.identifierClaims } returns claimIds.toList()
         every { claimManager.listIdentifierClaims() } returns claimIds.map { claimId ->
-            mockk<Claim> { every { id } returns claimId }
+            mockk<EnabledClaim> { every { id } returns claimId }
         }
         every { collectedClaimManager.getFoldedValueOf(any(), email) } returns foldedEmail
     }
@@ -405,7 +405,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             stubProviderCallbackChain(
                 session, provider, "sub-123", existingUserInfo = null, assertedEmail = "User@Example.COM"
             )
-            val emailClaim = mockk<Claim> { every { id } returns OpenIdConnectClaimId.EMAIL }
+            val emailClaim = mockk<EnabledClaim> { every { id } returns OpenIdConnectClaimId.EMAIL }
             coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
             every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
             every { claimManager.listIdentifierClaims() } returns listOf(emailClaim)

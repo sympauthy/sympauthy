@@ -62,17 +62,12 @@ class ConsentAwareCollectedClaimManagerTest {
         readableByClient: Boolean = true,
         publishedIn: Set<ClaimPublicationPlace> = ClaimPublicationPlace.entries.toSet(),
         publishedInWhenRequested: Set<ClaimPublicationPlace> = emptySet()
-    ) = Claim(
+    ) = PersonalClaim(
         id = "claim_$scope",
-
-        enabled = true,
         verifiedId = null,
         dataType = ClaimDataType.STRING,
-        kind = ClaimKind.PERSONAL,
         group = null,
         required = required,
-        generated = false,
-        collectedInFlow = collectedInFlow,
         allowedValues = null,
         audienceId = audienceId,
         publishedIn = publishedIn,
@@ -91,17 +86,12 @@ class ConsentAwareCollectedClaimManagerTest {
         )
     )
 
-    private fun customClaimNotReadableByUser() = Claim(
+    private fun customClaimNotReadableByUser() = PersonalClaim(
         id = "custom_field",
-
-        enabled = true,
         verifiedId = null,
         dataType = ClaimDataType.STRING,
-        kind = ClaimKind.PERSONAL,
         group = null,
         required = false,
-        generated = false,
-        collectedInFlow = false,
         allowedValues = null,
         publishedIn = ClaimPublicationPlace.entries.toSet(),
         publishedInWhenRequested = emptySet(),

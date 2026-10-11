@@ -3,7 +3,10 @@ package com.sympauthy.config.factory
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimOrigin
+import com.sympauthy.business.model.user.claim.EnabledClaim
+import com.sympauthy.business.model.user.claim.GeneratedClaim
 import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
+import com.sympauthy.business.model.user.claim.isEnabled
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.WrittenConfigurationKeys
 import com.sympauthy.config.exception.ConfigurationException
@@ -173,7 +176,7 @@ class ClaimsConfigFactoryTest {
         assertInstanceOf(EnabledClaimsConfig::class.java, result)
         val claims = (result as EnabledClaimsConfig).claims
         val emailClaim = claims.first { it.id == "email" }
-        assertFalse(emailClaim.enabled)
+        assertFalse(emailClaim.isEnabled)
     }
 
     @Test
@@ -250,7 +253,9 @@ class ClaimsConfigFactoryTest {
         val result = factory.provideClaims(properties)
 
         assertInstanceOf(EnabledClaimsConfig::class.java, result)
-        val claim = (result as EnabledClaimsConfig).claims.first { it.id == "discord_id" }
+        val claim = (result as EnabledClaimsConfig).claims
+            .filterIsInstance<EnabledClaim>()
+            .first { it.id == "discord_id" }
         assertEquals(ClaimKind.PERSONAL, claim.kind)
         assertTrue(claim.collectedInFlow)
     }
@@ -276,7 +281,7 @@ class ClaimsConfigFactoryTest {
 
         assertInstanceOf(EnabledClaimsConfig::class.java, result)
         val emailClaim = (result as EnabledClaimsConfig).claims.first { it.id == "email" }
-        assertTrue(emailClaim.enabled)
+        assertTrue(emailClaim.isEnabled)
     }
 
     @Test
@@ -299,7 +304,9 @@ class ClaimsConfigFactoryTest {
         val result = factory.provideClaims(properties)
 
         assertInstanceOf(EnabledClaimsConfig::class.java, result)
-        val claim = (result as EnabledClaimsConfig).claims.first { it.id == "department" }
+        val claim = (result as EnabledClaimsConfig).claims
+            .filterIsInstance<EnabledClaim>()
+            .first { it.id == "department" }
         assertEquals(ClaimGroup.IDENTITY, claim.group)
     }
 
@@ -325,10 +332,11 @@ class ClaimsConfigFactoryTest {
 
         GeneratedOpenIdConnectClaim.entries.forEach { generated ->
             val claim = claims.firstOrNull { it.id == generated.id }
-            assertNotNull(claim, "Generated claim ${generated.id} should be present")
-            assertTrue(claim!!.enabled, "Generated claim ${generated.id} should be enabled")
-            assertTrue(claim.generated, "Generated claim ${generated.id} should be marked as generated")
-            assertFalse(claim.collectedInFlow, "Generated claim ${generated.id} should not be user-inputted")
+            assertInstanceOf(GeneratedClaim::class.java, claim, "Generated claim ${generated.id} should be served")
+            assertFalse(
+                (claim as GeneratedClaim).collectedInFlow,
+                "Generated claim ${generated.id} should not be user-inputted"
+            )
         }
     }
 
@@ -438,7 +446,9 @@ class ClaimsConfigFactoryTest {
         val result = factoryGrantingTheClientWrite.provideClaims(properties)
 
         assertInstanceOf(EnabledClaimsConfig::class.java, result)
-        val claim = (result as EnabledClaimsConfig).claims.first { it.id == "discord_id" }
+        val claim = (result as EnabledClaimsConfig).claims
+            .filterIsInstance<EnabledClaim>()
+            .first { it.id == "discord_id" }
         assertEquals(ClaimKind.PERSONAL, claim.kind)
         assertEquals(emptyList<String>(), claim.acl.unconditional.writableWithClientScopes)
     }
@@ -459,7 +469,9 @@ class ClaimsConfigFactoryTest {
         val result = writableFactory.provideClaims(properties)
 
         assertInstanceOf(EnabledClaimsConfig::class.java, result)
-        val claim = (result as EnabledClaimsConfig).claims.first { it.id == "department" }
+        val claim = (result as EnabledClaimsConfig).claims
+            .filterIsInstance<EnabledClaim>()
+            .first { it.id == "department" }
         assertTrue(claim.collectedInFlow)
     }
 
@@ -472,7 +484,9 @@ class ClaimsConfigFactoryTest {
         val result = factory.provideClaims(properties)
 
         assertInstanceOf(EnabledClaimsConfig::class.java, result)
-        val claim = (result as EnabledClaimsConfig).claims.first { it.id == "department" }
+        val claim = (result as EnabledClaimsConfig).claims
+            .filterIsInstance<EnabledClaim>()
+            .first { it.id == "department" }
         assertFalse(claim.collectedInFlow)
     }
 
@@ -498,7 +512,9 @@ class ClaimsConfigFactoryTest {
         val result = factory.provideClaims(properties)
 
         assertInstanceOf(EnabledClaimsConfig::class.java, result)
-        val claim = (result as EnabledClaimsConfig).claims.first { it.id == "department" }
+        val claim = (result as EnabledClaimsConfig).claims
+            .filterIsInstance<EnabledClaim>()
+            .first { it.id == "department" }
         assertEquals(ClaimOrigin.CUSTOM, claim.origin)
     }
 }

@@ -18,7 +18,7 @@ import com.sympauthy.business.model.user.ClientUser
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.security.ClientAuthentication
 import io.mockk.coEvery
 import io.mockk.every
@@ -120,7 +120,7 @@ class ClientUserClaimControllerTest {
 
     @Test
     fun `updateUserClaims - Write a claim that is not an identifier`() = runTest {
-        val regionClaim = mockk<Claim> {
+        val regionClaim = mockk<EnabledClaim> {
             every { belongsToAudience(AUDIENCE) } returns true
             every { canBeWrittenByClient(listOf(CONSENTED_SCOPE), emptyList()) } returns true
         }
@@ -161,7 +161,7 @@ class ClientUserClaimControllerTest {
         return ClientAuthentication(authenticationToken, emptyList())
     }
 
-    private fun identifierClaim(): Claim = mockk {
+    private fun identifierClaim(): EnabledClaim = mockk {
         every { id } returns EMAIL_CLAIM
     }
 

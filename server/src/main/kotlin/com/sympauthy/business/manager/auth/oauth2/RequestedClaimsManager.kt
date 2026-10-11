@@ -63,7 +63,7 @@ class RequestedClaimsManager(
         if (!requested.isObject) throw invalidRequestedClaims()
         return requested.entries().asSequence()
             .map { it.key }
-            .filter { claimManager.findByIdOrNull(it)?.enabled == true }
+            .filter { claimManager.findByIdOrNull(it) != null }
             .toSet()
     }
 

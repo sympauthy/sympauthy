@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.user
 
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.model.user.claim.Claim
@@ -53,7 +54,7 @@ class ClaimValueValidator {
      * what the configuration holds. Where cleaning changes a value at all — a string trimmed, a boolean
      * read out of its text — that comparison also stops it being refused over what was about to be removed.
      */
-    fun validateAndCleanValueForClaim(claim: Claim, value: Any?): Optional<Any> {
+    fun validateAndCleanValueForClaim(claim: EnabledClaim, value: Any?): Optional<Any> {
         val cleanedValue = when {
             value == null -> Optional.empty()
             value is String -> validateAndCleanStringForClaim(claim, value)
@@ -90,7 +91,7 @@ class ClaimValueValidator {
      * It answers a business value; the text a comparison is actually made on is
      * [CollectedClaimManager.getFoldedValueOf], which takes this one the rest of the way.
      */
-    fun cleanValueForClaimOrNull(claim: Claim, value: Any?): Any? = try {
+    fun cleanValueForClaimOrNull(claim: EnabledClaim, value: Any?): Any? = try {
         validateAndCleanValueForClaim(claim, value).getOrNull()
     } catch (_: BusinessException) {
         null
@@ -106,7 +107,7 @@ class ClaimValueValidator {
      * settles that a `string` claim cannot hold a deliberately padded value, which nothing asks for and which
      * would want a type saying so rather than this one keeping the padding by omission.
      */
-    internal fun validateAndCleanStringForClaim(claim: Claim, value: String): Optional<Any> {
+    internal fun validateAndCleanStringForClaim(claim: EnabledClaim, value: String): Optional<Any> {
         val trimmedValue = value.trim()
         if (trimmedValue.isEmpty()) {
             return Optional.empty()
