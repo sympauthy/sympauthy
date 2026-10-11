@@ -44,21 +44,48 @@ class ClaimCollectionManagerTest {
         enabled: Boolean = true,
         required: Boolean = false,
         kind: ClaimKind? = ClaimKind.PERSONAL
-    ) = Claim(
-        id = id,
-        enabled = enabled,
-        verifiedId = null,
-        dataType = ClaimDataType.STRING,
-        kind = kind,
-        group = null,
-        required = required,
-        generated = false,
-        collectedInFlow = false,
-        allowedValues = null,
-        publishedIn = ClaimPublicationPlace.entries.toSet(),
-        publishedInWhenRequested = emptySet(),
-        acl = acl
-    )
+    ): Claim = when {
+        !enabled -> DisabledClaim(
+            id = id,
+            verifiedId = null,
+            dataType = ClaimDataType.STRING,
+            kind = kind ?: ClaimKind.PERSONAL,
+            group = null,
+            required = required,
+            allowedValues = null,
+            acl = acl
+        )
+        kind == null -> GeneratedClaim(
+            id = id,
+            verifiedId = null,
+            dataType = ClaimDataType.STRING,
+            group = null,
+            publishedIn = ClaimPublicationPlace.entries.toSet(),
+            acl = acl
+        )
+        kind == ClaimKind.APPLICATION -> ApplicationClaim(
+            id = id,
+            verifiedId = null,
+            dataType = ClaimDataType.STRING,
+            group = null,
+            required = required,
+            allowedValues = null,
+            publishedIn = ClaimPublicationPlace.entries.toSet(),
+            publishedInWhenRequested = emptySet(),
+            acl = acl
+        )
+        else -> PersonalClaim(
+            id = id,
+            verifiedId = null,
+            dataType = ClaimDataType.STRING,
+            group = null,
+            required = required,
+            allowedValues = null,
+            publishedIn = ClaimPublicationPlace.entries.toSet(),
+            publishedInWhenRequested = emptySet(),
+            acl = acl
+        )
+    }
 
     private val customClaim = claim("custom")
     private val disabledClaim = claim("custom_disabled", enabled = false)
@@ -107,7 +134,7 @@ class ClaimCollectionManagerTest {
 
     @Test
     fun `listClaims - Keep the claims this deployment signs people in with`() = runTest {
-        knownClaims(customClaim, openIdClaim, identifiers = listOf(openIdClaim))
+        knownClaims(customClaim, openIdClaim, identifiers = listOf(openIdClaim as EnabledClaim))
 
         val result = claimCollectionManager.listClaims(criteriaOf("identifier" to "true"), firstPage)
 
@@ -202,7 +229,7 @@ class ClaimCollectionManagerTest {
         assertEquals(3, result.total)
     }
 
-    private fun knownClaims(vararg claims: Claim, identifiers: List<Claim> = emptyList()) {
+    private fun knownClaims(vararg claims: Claim, identifiers: List<EnabledClaim> = emptyList()) {
         every { claimManager.listAllClaims() } returns claims.toList()
         every { claimManager.listIdentifierClaims() } returns identifiers
         every { audienceManager.listAudiences() } returns emptyList()

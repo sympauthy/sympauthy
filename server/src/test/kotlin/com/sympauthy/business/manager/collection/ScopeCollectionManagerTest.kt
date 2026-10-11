@@ -11,7 +11,7 @@ import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.oauth2.ScopePublicationPlace.DISCOVERY
 import com.sympauthy.business.model.oauth2.ScopeType
 import com.sympauthy.business.model.page.PageParams
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -90,7 +90,7 @@ class ScopeCollectionManagerTest {
 
     @Test
     fun `listScopes - Answer each scope with the claims it protects`() = runTest {
-        val gatedClaim = mockk<Claim>()
+        val gatedClaim = mockk<EnabledClaim>()
         coEvery { scopeManager.listAllScopes() } returns listOf(enabledScope, grantableScope)
         coEvery { scopeManager.listClaimsProtectedByScope(enabledScope) } returns listOf(gatedClaim)
         coEvery { scopeManager.listClaimsProtectedByScope(grantableScope) } returns emptyList()

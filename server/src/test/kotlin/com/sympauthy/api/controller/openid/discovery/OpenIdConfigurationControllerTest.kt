@@ -7,10 +7,10 @@ import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.jwt.JwtAlgorithm
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.ResponseType
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
+import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
@@ -168,7 +168,7 @@ class OpenIdConfigurationControllerTest {
         assertEquals(listOf(OpenIdConnectClaimId.NAME), configuration.claimsSupported)
     }
 
-    private suspend fun configurationWithClaims(vararg claims: Claim): OpenIdConfigurationResource {
+    private suspend fun configurationWithClaims(vararg claims: EnabledClaim): OpenIdConfigurationResource {
         coEvery { scopeManager.listEnabledScopes() } returns emptyList()
         every { claimManager.listEnabledClaims() } returns claims.toList()
         every { uncheckedAdvancedConfig.publicJwtAlgorithm } returns JwtAlgorithm.ES256
@@ -179,16 +179,12 @@ class OpenIdConfigurationControllerTest {
         id: String,
         verifiedId: String? = null,
         publishedIn: Set<ClaimPublicationPlace> = ClaimPublicationPlace.entries.toSet()
-    ) = Claim(
+    ) = PersonalClaim(
         id = id,
-        enabled = true,
         verifiedId = verifiedId,
         dataType = ClaimDataType.STRING,
-        kind = ClaimKind.PERSONAL,
         group = null,
         required = false,
-        generated = false,
-        collectedInFlow = false,
         allowedValues = null,
         publishedIn = publishedIn,
         publishedInWhenRequested = emptySet(),

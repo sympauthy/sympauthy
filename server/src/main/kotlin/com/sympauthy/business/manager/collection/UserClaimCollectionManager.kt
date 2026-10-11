@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.collection
 
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
@@ -85,7 +86,7 @@ class UserClaimCollectionManager(
      * this server knows about somebody, and an authentication time is not known about a person —
      * see [GeneratedOpenIdConnectClaim.computedPerAccount].
      */
-    private fun listableClaims(): List<Claim> {
+    private fun listableClaims(): List<EnabledClaim> {
         val enabledClaims = claimManager.listEnabledClaims()
         val verifiedClaimIds = enabledClaims.mapNotNull(Claim::verifiedId).toSet()
         return enabledClaims
@@ -107,7 +108,7 @@ class UserClaimCollectionManager(
      * The fields this collection offers over [claims], which the caller has already read: one pass
      * over the configured set answers both what the collection accepts and what it reads.
      */
-    private suspend fun fieldsOf(claims: List<Claim>): CollectionFields<UserClaim> = collectionFields(
+    private suspend fun fieldsOf(claims: List<EnabledClaim>): CollectionFields<UserClaim> = collectionFields(
         uniqueKey = compareBy { it.claim.id }
     ) {
         field(
@@ -140,7 +141,7 @@ class UserClaimCollectionManager(
      * computes for the user, or a value collected from them.
      */
     sealed interface UserClaim {
-        val claim: Claim
+        val claim: EnabledClaim
 
         /**
          * Whether this claim is one of the claims a user is identified by.
@@ -164,7 +165,7 @@ class UserClaimCollectionManager(
      * A claim whose value this server computes for the user rather than collecting it.
      */
     data class GeneratedUserClaim(
-        override val claim: Claim,
+        override val claim: EnabledClaim,
         override val identifier: Boolean,
         override val value: Any?
     ) : UserClaim {
@@ -176,7 +177,7 @@ class UserClaimCollectionManager(
      * null [collectedClaim] says.
      */
     data class CollectedUserClaim(
-        override val claim: Claim,
+        override val claim: EnabledClaim,
         override val identifier: Boolean,
         override val collectedClaim: CollectedClaim?
     ) : UserClaim {

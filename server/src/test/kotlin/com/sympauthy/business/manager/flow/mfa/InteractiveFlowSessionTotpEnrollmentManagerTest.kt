@@ -9,7 +9,7 @@ import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.mfa.TotpEnrollment
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.config.model.EnabledAuthConfig
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -202,7 +202,7 @@ class InteractiveFlowSessionTotpEnrollmentManagerTest {
      * runs it, and returns the account label passed to [TotpManager.buildOtpauthUri].
      */
     private suspend fun accountLabelFor(
-        identifierClaims: List<Claim>,
+        identifierClaims: List<EnabledClaim>,
         collected: List<CollectedClaim>
     ): String {
         val enrollment = enrollment()
@@ -227,7 +227,7 @@ class InteractiveFlowSessionTotpEnrollmentManagerTest {
         confirmedDate = null
     )
 
-    private fun claim(id: String): Claim = mockk {
+    private fun claim(id: String): EnabledClaim = mockk {
         every { this@mockk.id } returns id
     }
 

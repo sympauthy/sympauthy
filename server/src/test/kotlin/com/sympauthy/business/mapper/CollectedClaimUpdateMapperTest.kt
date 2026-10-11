@@ -1,10 +1,9 @@
 package com.sympauthy.business.mapper
 
 import com.sympauthy.business.model.user.CollectedClaimUpdate
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType.EMAIL
-import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.UnconditionalAcl
@@ -63,16 +62,12 @@ class CollectedClaimUpdateMapperTest {
         sessionId = null
     )
 
-    private val emailClaim = Claim(
+    private val emailClaim = PersonalClaim(
         id = "email",
-        enabled = true,
         verifiedId = "email_verified",
         dataType = EMAIL,
-        kind = ClaimKind.PERSONAL,
         group = null,
         required = false,
-        generated = false,
-        collectedInFlow = true,
         allowedValues = null,
         audienceId = null,
         publishedIn = ClaimPublicationPlace.entries.toSet(),

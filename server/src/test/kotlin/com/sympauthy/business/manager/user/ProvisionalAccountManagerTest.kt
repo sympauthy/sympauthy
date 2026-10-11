@@ -17,7 +17,7 @@ import com.sympauthy.data.repository.PasswordRepository
 import com.sympauthy.data.repository.ProviderUserInfoRepository
 import com.sympauthy.data.repository.TotpEnrollmentRepository
 import com.sympauthy.data.repository.UserRepository
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
@@ -292,7 +292,7 @@ class ProvisionalAccountManagerTest {
 
     private fun identifierClaims(vararg ids: String) {
         every { claimManager.listIdentifierClaims() } returns ids.map { id ->
-            mockk<Claim> { every { this@mockk.id } returns id }
+            mockk<EnabledClaim> { every { this@mockk.id } returns id }
         }
     }
 

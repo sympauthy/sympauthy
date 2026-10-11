@@ -81,21 +81,30 @@ class AdminClaimControllerTest {
         unconditional = UnconditionalAcl(emptyList(), emptyList())
     )
 
-    private fun claim(id: String, enabled: Boolean) = Claim(
-        id = id,
-        enabled = enabled,
-        verifiedId = null,
-        dataType = ClaimDataType.STRING,
-        kind = ClaimKind.PERSONAL,
-        group = null,
-        required = false,
-        generated = false,
-        collectedInFlow = false,
-        allowedValues = null,
-        publishedIn = ClaimPublicationPlace.entries.toSet(),
-        publishedInWhenRequested = emptySet(),
-        acl = acl
-    )
+    private fun claim(id: String, enabled: Boolean): Claim = if (enabled) {
+        PersonalClaim(
+            id = id,
+            verifiedId = null,
+            dataType = ClaimDataType.STRING,
+            group = null,
+            required = false,
+            allowedValues = null,
+            publishedIn = ClaimPublicationPlace.entries.toSet(),
+            publishedInWhenRequested = emptySet(),
+            acl = acl
+        )
+    } else {
+        DisabledClaim(
+            id = id,
+            verifiedId = null,
+            dataType = ClaimDataType.STRING,
+            kind = ClaimKind.PERSONAL,
+            group = null,
+            required = false,
+            allowedValues = null,
+            acl = acl
+        )
+    }
 
     private fun mockResource(claimId: String, enabled: Boolean) = AdminClaimResource(
         id = claimId,
@@ -119,7 +128,7 @@ class AdminClaimControllerTest {
         coEvery { claimCollectionManager.capabilities() } returns capabilities
         coEvery { claimCollectionManager.listClaims(any(), defaultPage) } returns pageOf(enabled, disabled)
         listOf(enabled, disabled).forEach {
-            every { claimMapper.toResource(it) } returns mockResource(it.id, it.enabled)
+            every { claimMapper.toResource(it) } returns mockResource(it.id, it.isEnabled)
         }
 
         val result = controller.listClaims(collectionRequest(), null, null, null, null)
@@ -130,7 +139,7 @@ class AdminClaimControllerTest {
     @Test
     fun `listClaims - Hand the manager the criteria the request carries, on the page it names`() = runTest {
         val email = claim(OpenIdConnectClaimId.EMAIL, enabled = true)
-        val resource = mockResource(email.id, email.enabled)
+        val resource = mockResource(email.id, email.isEnabled)
         val criteria = slot<CollectionCriteria>()
 
         coEvery { claimCollectionManager.capabilities() } returns capabilities

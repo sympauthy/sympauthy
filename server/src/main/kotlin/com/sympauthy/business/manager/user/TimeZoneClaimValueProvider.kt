@@ -1,6 +1,6 @@
 package com.sympauthy.business.manager.user
 
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.TimeZone
 import com.sympauthy.util.loggerForClass
 import io.reactivex.rxjava3.core.Observable
@@ -46,7 +46,7 @@ class TimeZoneClaimValueProvider {
     /**
      * Return the list of allowed [TimeZone] that can be used by the user for the provided [claim].
      */
-    suspend fun listAvailableTimezones(claim: Claim): List<TimeZone> {
+    suspend fun listAvailableTimezones(claim: EnabledClaim): List<TimeZone> {
         val availableTimeZoneMap = cachedAvailableTimeZoneMap.await()
         return claim.allowedValues?.mapNotNull {
             availableTimeZoneMap[it]

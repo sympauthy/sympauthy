@@ -1,7 +1,7 @@
 package com.sympauthy.business.mapper
 
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.CollectedClaimUpdate
-import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.data.model.CollectedClaimEntity
 import org.mapstruct.Mapper
 import org.mapstruct.Mapping
@@ -56,7 +56,7 @@ abstract class CollectedClaimUpdateMapper {
         update: CollectedClaimUpdate
     ): CollectedClaimEntity
 
-    fun toClaim(claim: Claim): String = claim.id
+    fun toClaim(claim: EnabledClaim): String = claim.id
 
     fun toValue(value: Optional<Any>?): String? {
         return value?.getOrNull()?.let { claimValueMapper.toEntity(it) }

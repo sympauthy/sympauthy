@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager
 
 import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.ClaimsConfig
 import com.sympauthy.config.model.orThrow
@@ -26,19 +27,20 @@ class ClaimManager(
     }
 
     /**
-     * Return the [Claim] identified by [id] or null.
+     * Return the [EnabledClaim] identified by [id], or null where there is none or the deployment turned it
+     * off.
      *
      * Backed by a map built once, so looking up many ids in a row costs no more than the lookups.
      */
-    fun findByIdOrNull(id: String): Claim? {
-        return cachedClaimsMap[id]
+    fun findByIdOrNull(id: String): EnabledClaim? {
+        return cachedClaimsMap[id] as? EnabledClaim
     }
 
     /**
-     * Return all [Claim] enabled on this authorization server.
+     * Return all [EnabledClaim] this authorization server serves.
      */
-    fun listEnabledClaims(): List<Claim> {
-        return cachedClaimsMap.values.filter { it.enabled }
+    fun listEnabledClaims(): List<EnabledClaim> {
+        return cachedClaimsMap.values.filterIsInstance<EnabledClaim>()
     }
 
     /**
@@ -51,21 +53,21 @@ class ClaimManager(
     /**
      * List all [Claim] that we want to present to the end-user during the authentication flow.
      */
-    fun listClaimsCollectedInFlow(): List<Claim> {
-        return listEnabledClaims().filter(Claim::collectedInFlow)
+    fun listClaimsCollectedInFlow(): List<EnabledClaim> {
+        return listEnabledClaims().filter(EnabledClaim::collectedInFlow)
     }
 
     /**
      * Return all [Claim] required to be provided by the end-user during its authorization flow.
      */
-    fun listRequiredClaims(): List<Claim> {
-        return listEnabledClaims().filter(Claim::required)
+    fun listRequiredClaims(): List<EnabledClaim> {
+        return listEnabledClaims().filter(EnabledClaim::required)
     }
 
     /**
      * Return all [Claim] configured as identifier claims.
      */
-    fun listIdentifierClaims(): List<Claim> {
+    fun listIdentifierClaims(): List<EnabledClaim> {
         return uncheckedAuthConfig.orThrow()
             .identifierClaims
             .mapNotNull { findByIdOrNull(it) }

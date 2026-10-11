@@ -20,16 +20,12 @@ class ClaimTest {
         writableWithClientScopes: List<String> = emptyList(),
         writableByPerson: Boolean = false,
         writeMaxAuthenticationAge: Duration? = null
-    ) = Claim(
+    ) = PersonalClaim(
         id = id,
-        enabled = true,
         verifiedId = null,
         dataType = ClaimDataType.STRING,
-        kind = ClaimKind.PERSONAL,
         group = null,
         required = false,
-        generated = false,
-        collectedInFlow = collectedInFlow,
         allowedValues = null,
         publishedIn = publishedIn,
         publishedInWhenRequested = publishedInWhenRequested,

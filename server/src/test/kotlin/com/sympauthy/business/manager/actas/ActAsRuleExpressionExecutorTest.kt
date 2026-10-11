@@ -2,7 +2,7 @@ package com.sympauthy.business.manager.actas
 
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import io.mockk.every
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
@@ -45,7 +45,7 @@ class ActAsRuleExpressionExecutorTest {
     }
 
     private fun collectedClaim(claimId: String, value: String?, verified: Boolean?): CollectedClaim {
-        val claim = mockk<Claim>()
+        val claim = mockk<EnabledClaim>()
         every { claim.id } returns claimId
         return CollectedClaim(
             userId = UUID.randomUUID(),

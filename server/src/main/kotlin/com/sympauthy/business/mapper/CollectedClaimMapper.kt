@@ -20,7 +20,7 @@ abstract class CollectedClaimMapper {
 
     /**
      * Convert a collected claim entity into a business object, or null where the configuration no longer
-     * declares the claim the row was collected for.
+     * declares the claim the row was collected for, or turned it off.
      *
      * Those two are different answers to different questions. A claim a deployment has disabled or removed
      * is a value nothing is asking for any more, and the row is left where it is rather than failing every

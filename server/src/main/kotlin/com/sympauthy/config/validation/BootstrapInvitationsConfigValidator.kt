@@ -1,7 +1,7 @@
 package com.sympauthy.config.validation
 
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.BootstrapInvitation
@@ -16,7 +16,7 @@ class BootstrapInvitationsConfigValidator {
         ctx: ConfigParsingContext,
         propertiesList: List<BootstrapInvitationConfigurationProperties>,
         audiencesById: Map<String, Audience>,
-        enabledClaims: List<Claim>
+        enabledClaims: List<EnabledClaim>
     ): List<BootstrapInvitation> {
         return propertiesList.mapNotNull { properties ->
             validateInvitation(ctx, properties, audiencesById, enabledClaims)
@@ -27,7 +27,7 @@ class BootstrapInvitationsConfigValidator {
         ctx: ConfigParsingContext,
         properties: BootstrapInvitationConfigurationProperties,
         audiencesById: Map<String, Audience>,
-        enabledClaims: List<Claim>
+        enabledClaims: List<EnabledClaim>
     ): BootstrapInvitation? {
         val subCtx = ctx.child()
         val configKeyPrefix = "$INVITATIONS_KEY.${properties.id}"
@@ -82,7 +82,7 @@ class BootstrapInvitationsConfigValidator {
         ctx: ConfigParsingContext,
         configKeyPrefix: String,
         configClaims: Map<String, String>?,
-        enabledClaims: List<Claim>,
+        enabledClaims: List<EnabledClaim>,
         audienceId: String?
     ): Map<String, String>? {
         if (configClaims.isNullOrEmpty()) return configClaims

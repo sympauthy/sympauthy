@@ -49,8 +49,8 @@ data class AdminClaimResource(
     @get:Schema(
         description = "Places this claim is published in: the four that carry its value, and the " +
                 "discovery document, which publishes the name alone. Empty when it is published in none, " +
-                "which leaves the claim readable through this API and the client API and carried by no " +
-                "token.",
+                "which is always the case of a disabled claim, and otherwise leaves the claim readable " +
+                "through this API and the client API and carried by no token.",
         allowableValues = ["id_token", "userinfo", "access_token", "introspection", "discovery"]
     )
     @get:JsonProperty("published_in")
@@ -58,9 +58,9 @@ data class AdminClaimResource(
     val publishedIn: List<String>,
     @get:Schema(
         description = "OpenID channels this claim is published in only for an authorization whose " +
-                "claims request parameter named it. Empty when no channel is open to a request, which " +
-                "leaves published_in the whole of where the value goes. A channel never appears in " +
-                "both lists.",
+                "claims request parameter named it. Empty when no channel is open to a request, " +
+                "which is always the case of a disabled claim, and otherwise leaves published_in the " +
+                "whole of where the value goes. A channel never appears in both lists.",
         allowableValues = ["id_token", "userinfo"]
     )
     @get:JsonProperty("published_in_when_requested")

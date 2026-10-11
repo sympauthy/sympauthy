@@ -6,7 +6,7 @@ import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -50,11 +50,11 @@ class ConsentAwareClaimManagerTest {
         val scope1 = "scope1"
         val scope2 = "scope2"
 
-        val claim1 = mockk<Claim> {
+        val claim1 = mockk<EnabledClaim> {
             every { belongsToAudience(AUDIENCE) } returns true
             every { isCollectedInFlow(any()) } answers { (firstArg<List<String>>()).contains(scope1) }
         }
-        val claim2 = mockk<Claim> {
+        val claim2 = mockk<EnabledClaim> {
             every { belongsToAudience(AUDIENCE) } returns true
             every { isCollectedInFlow(any()) } answers { (firstArg<List<String>>()).contains(scope2) }
         }
@@ -74,8 +74,8 @@ class ConsentAwareClaimManagerTest {
 
         // An identifier claim is dropped before anything asks which audience it is for or whether the user
         // could write it.
-        val identifierClaim = mockk<Claim>()
-        val regularClaim = mockk<Claim> {
+        val identifierClaim = mockk<EnabledClaim>()
+        val regularClaim = mockk<EnabledClaim> {
             every { belongsToAudience(AUDIENCE) } returns true
             every { isCollectedInFlow(any()) } returns true
         }
@@ -91,7 +91,7 @@ class ConsentAwareClaimManagerTest {
 
     @Test
     fun `listClaimsCollectedInFlowWithScopes - Return empty when no claims match scopes`() {
-        val claim1 = mockk<Claim> {
+        val claim1 = mockk<EnabledClaim> {
             every { belongsToAudience(AUDIENCE) } returns true
             every { isCollectedInFlow(any()) } returns false
         }
@@ -129,7 +129,7 @@ class ConsentAwareClaimManagerTest {
     fun `listClaimsCollectedInFlowBySession - Return claims for OnGoingInteractiveFlowSession with consentedScopes`() =
         runTest {
             val consentedScopes = listOf("scope1")
-            val claim1 = mockk<Claim>()
+            val claim1 = mockk<EnabledClaim>()
 
             val session = mockk<OnGoingInteractiveFlowSession>()
             val oauth2 = oauth2(consentedScopes = consentedScopes)
@@ -147,7 +147,7 @@ class ConsentAwareClaimManagerTest {
     @Test
     fun `listClaimsCollectedInFlowBySession - Return claims for CompletedInteractiveFlowSession`() = runTest {
         val consentedScopes = listOf("scope1")
-        val claim1 = mockk<Claim>()
+        val claim1 = mockk<EnabledClaim>()
 
         val session = mockk<CompletedInteractiveFlowSession>()
         val oauth2 = oauth2(consentedScopes = consentedScopes)

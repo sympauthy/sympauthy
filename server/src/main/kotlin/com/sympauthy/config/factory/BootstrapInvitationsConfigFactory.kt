@@ -1,5 +1,6 @@
 package com.sympauthy.config.factory
 
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.*
 import com.sympauthy.config.properties.BootstrapInvitationConfigurationProperties
@@ -33,7 +34,7 @@ class BootstrapInvitationsConfigFactory(
             .associateBy { it.id }
         val enabledClaims = (uncheckedClaimsConfig as EnabledClaimsConfig)
             .claims
-            .filter { it.enabled }
+            .filterIsInstance<EnabledClaim>()
 
         val ctx = ConfigParsingContext()
         val invitations = validator.validate(ctx, propertiesList, audiencesById, enabledClaims)

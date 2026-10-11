@@ -1,7 +1,7 @@
 package com.sympauthy.expression
 
 import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -80,7 +80,7 @@ class ScopeGrantingRuleExpressionsTest {
     }
 
     private fun collectedClaim(claimId: String, value: String): CollectedClaim {
-        val claim = mockk<Claim> { every { id } returns claimId }
+        val claim = mockk<EnabledClaim> { every { id } returns claimId }
         return CollectedClaim(
             userId = UUID.randomUUID(),
             claim = claim,

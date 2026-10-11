@@ -11,13 +11,7 @@ import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
-import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.business.model.user.claim.ClaimAcl
-import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.ClaimKind
-import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
-import com.sympauthy.business.model.user.claim.ConsentAcl
-import com.sympauthy.business.model.user.claim.UnconditionalAcl
+import com.sympauthy.business.model.user.claim.*
 import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
@@ -85,21 +79,27 @@ class UserCollectionManagerTest {
         id: String,
         dataType: ClaimDataType = ClaimDataType.STRING,
         generated: Boolean = false
-    ) = Claim(
-        id = id,
-        enabled = true,
-        verifiedId = null,
-        dataType = dataType,
-        kind = ClaimKind.PERSONAL,
-        group = null,
-        required = false,
-        generated = generated,
-        collectedInFlow = false,
-        allowedValues = null,
-        publishedIn = ClaimPublicationPlace.entries.toSet(),
-        publishedInWhenRequested = emptySet(),
-        acl = acl
-    )
+    ): EnabledClaim = when {
+        generated -> GeneratedClaim(
+            id = id,
+            verifiedId = null,
+            dataType = dataType,
+            group = null,
+            publishedIn = ClaimPublicationPlace.entries.toSet(),
+            acl = acl
+        )
+        else -> PersonalClaim(
+            id = id,
+            verifiedId = null,
+            dataType = dataType,
+            group = null,
+            required = false,
+            allowedValues = null,
+            publishedIn = ClaimPublicationPlace.entries.toSet(),
+            publishedInWhenRequested = emptySet(),
+            acl = acl
+        )
+    }
 
     private val emailClaim = claim("email", dataType = ClaimDataType.EMAIL)
 
@@ -131,7 +131,7 @@ class UserCollectionManagerTest {
             sessionId = null
         )
 
-    private fun mockCollectedClaim(userId: UUID, claim: Claim, value: Any?) = CollectedClaim(
+    private fun mockCollectedClaim(userId: UUID, claim: EnabledClaim, value: Any?) = CollectedClaim(
         userId = userId,
         claim = claim,
         value = value,

@@ -11,7 +11,7 @@ import com.sympauthy.business.mapper.CollectedClaimUpdateMapper
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.ObjectLockRepository
@@ -368,7 +368,7 @@ class CollectedClaimManagerTest {
     fun `applyUpdates - Offer the value under the claim being written, and search every identifier claim`() =
         runTest {
         val user = committedUser()
-        val phoneClaim = mockk<Claim> {
+        val phoneClaim = mockk<EnabledClaim> {
             every { id } returns PHONE_CLAIM
         }
         val update = mockUpdateOfClaim(phoneClaim, Optional.of(EMAIL))
@@ -438,7 +438,7 @@ class CollectedClaimManagerTest {
             every { sessionId } returns null
         }
         // The claim's id is never read: the update carries no value, so it is dropped before the check.
-        val identifierClaim = mockk<Claim>()
+        val identifierClaim = mockk<EnabledClaim>()
         val update = mockUpdateOfClaim(identifierClaim, null)
         val collectedClaim = mockk<CollectedClaim>()
 
@@ -457,7 +457,7 @@ class CollectedClaimManagerTest {
     fun `getFoldedValueOf - Cleans the value under the claim, then folds it to plain text`() {
         // The claim is never named here: spelling a value is a question about the value, not about which
         // claim is asking. The quoting `value` carries is not part of it either.
-        val emailClaim = mockk<Claim>()
+        val emailClaim = mockk<EnabledClaim>()
         every {
             claimValueValidator.cleanValueForClaimOrNull(emailClaim, " Someone@Example.COM ")
         } returns "Someone@Example.COM"
@@ -468,7 +468,7 @@ class CollectedClaimManagerTest {
 
     @Test
     fun `getFoldedValueOf - Answers none where the claim could hold no such value`() {
-        val emailClaim = mockk<Claim>()
+        val emailClaim = mockk<EnabledClaim>()
         every { claimValueValidator.cleanValueForClaimOrNull(emailClaim, "not-an-address") } returns null
 
         // The mapper is never reached: a value the claim would refuse matches no row of it either.
@@ -478,7 +478,7 @@ class CollectedClaimManagerTest {
     @Test
     fun `getIdentifierFoldedValuesOf - Spells one value under every identifier claim, by the claim holding it`() {
         val emailClaim = mockEmailClaim()
-        val usernameClaim = mockk<Claim> { every { id } returns "preferred_username" }
+        val usernameClaim = mockk<EnabledClaim> { every { id } returns "preferred_username" }
         every { claimManager.listIdentifierClaims() } returns listOf(emailClaim, usernameClaim)
         every { claimValueValidator.cleanValueForClaimOrNull(emailClaim, EMAIL) } returns EMAIL
         every { claimValueValidator.cleanValueForClaimOrNull(usernameClaim, EMAIL) } returns EMAIL
@@ -493,7 +493,7 @@ class CollectedClaimManagerTest {
     @Test
     fun `getIdentifierFoldedValuesOf - Drops a claim that could hold no such value`() {
         val emailClaim = mockEmailClaim()
-        val numberClaim = mockk<Claim>()
+        val numberClaim = mockk<EnabledClaim>()
         every { claimManager.listIdentifierClaims() } returns listOf(emailClaim, numberClaim)
         every { claimValueValidator.cleanValueForClaimOrNull(emailClaim, EMAIL) } returns EMAIL
         every { claimValueValidator.cleanValueForClaimOrNull(numberClaim, EMAIL) } returns null
@@ -524,7 +524,7 @@ class CollectedClaimManagerTest {
 
     @Test
     fun `getIdentifierFoldedValuesIn - Drops an update clearing a claim, which takes no value from anybody`() {
-        val emailClaim = mockk<Claim>()
+        val emailClaim = mockk<EnabledClaim>()
         every { claimManager.listIdentifierClaims() } returns listOf(emailClaim)
         every { collectedClaimUpdateMapper.toFoldedValue(null) } returns null
 
@@ -548,12 +548,12 @@ class CollectedClaimManagerTest {
         every { sessionId } returns null
     }
 
-    private fun mockEmailClaim(): Claim = mockk {
+    private fun mockEmailClaim(): EnabledClaim = mockk {
         every { id } returns EMAIL_CLAIM
     }
 
     private fun mockUpdateOfClaim(
-        updateClaim: Claim,
+        updateClaim: EnabledClaim,
         updateValue: Optional<Any>?
     ): CollectedClaimUpdate = mockUpdateOfValue(updateValue).also { update ->
         every { update.claim } returns updateClaim

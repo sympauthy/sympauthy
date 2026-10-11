@@ -22,7 +22,7 @@ import com.sympauthy.business.model.collection.CollectionOperator
 import com.sympauthy.business.model.collection.enumFieldValues
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import io.micronaut.http.HttpStatus
 import io.mockk.coEvery
 import io.mockk.every
@@ -93,7 +93,7 @@ class AdminScopeControllerTest {
         val profile = ConsentableUserScope("profile")
         val openid = GrantableUserScope("openid", publishedIn = setOf(DISCOVERY))
 
-        val profileClaims = listOf(mockk<Claim>(), mockk<Claim>())
+        val profileClaims = listOf(mockk<EnabledClaim>(), mockk<EnabledClaim>())
         val profileResource = mockResource("profile", "consentable", listOf("name", "family_name"))
         val openidResource = mockResource("openid", "grantable")
 

@@ -24,16 +24,12 @@ class AdminUserResourceMapperTest {
         sessionId = null
     )
 
-    private fun claim(id: String) = Claim(
+    private fun claim(id: String) = PersonalClaim(
         id = id,
-        enabled = true,
         verifiedId = null,
         dataType = ClaimDataType.STRING,
-        kind = ClaimKind.PERSONAL,
         group = null,
         required = false,
-        generated = false,
-        collectedInFlow = false,
         allowedValues = null,
         publishedIn = ClaimPublicationPlace.entries.toSet(),
         publishedInWhenRequested = emptySet(),
@@ -51,7 +47,7 @@ class AdminUserResourceMapperTest {
         )
     )
 
-    private fun collected(claim: Claim, value: Any?) = CollectedClaim(
+    private fun collected(claim: EnabledClaim, value: Any?) = CollectedClaim(
         userId = user.id,
         claim = claim,
         value = value,

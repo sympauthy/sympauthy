@@ -6,10 +6,9 @@ import com.sympauthy.business.model.oauth2.DisabledScope
 import com.sympauthy.business.model.oauth2.GrantableUserScope
 import com.sympauthy.business.model.oauth2.ScopePublicationPlace.DISCOVERY
 import com.sympauthy.business.model.oauth2.ScopeType
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.UnconditionalAcl
@@ -23,16 +22,12 @@ class AdminScopeResourceMapperTest {
 
     private val mapper = AdminScopeResourceMapper()
 
-    private val nameClaim = Claim(
+    private val nameClaim = PersonalClaim(
         id = "name",
-        enabled = true,
         verifiedId = null,
         dataType = ClaimDataType.STRING,
-        kind = ClaimKind.PERSONAL,
         group = null,
         required = false,
-        generated = false,
-        collectedInFlow = false,
         allowedValues = null,
         publishedIn = ClaimPublicationPlace.entries.toSet(),
         publishedInWhenRequested = emptySet(),

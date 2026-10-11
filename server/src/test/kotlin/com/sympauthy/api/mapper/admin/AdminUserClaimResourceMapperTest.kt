@@ -23,20 +23,8 @@ class AdminUserClaimResourceMapperTest {
         id: String,
         generated: Boolean = false,
         kind: ClaimKind? = ClaimKind.PERSONAL
-    ) = Claim(
-        id = id,
-        enabled = true,
-        verifiedId = null,
-        dataType = ClaimDataType.STRING,
-        kind = kind,
-        group = null,
-        required = false,
-        generated = generated,
-        collectedInFlow = false,
-        allowedValues = null,
-        publishedIn = ClaimPublicationPlace.entries.toSet(),
-        publishedInWhenRequested = emptySet(),
-        acl = ClaimAcl(
+    ): EnabledClaim {
+        val claimAcl = ClaimAcl(
             consent = ConsentAcl(
                 scope = null,
                 readableByPerson = false,
@@ -48,7 +36,39 @@ class AdminUserClaimResourceMapperTest {
             ),
             unconditional = UnconditionalAcl(emptyList(), emptyList())
         )
-    )
+        return when {
+            generated -> GeneratedClaim(
+                id = id,
+                verifiedId = null,
+                dataType = ClaimDataType.STRING,
+                group = null,
+                publishedIn = ClaimPublicationPlace.entries.toSet(),
+                acl = claimAcl
+            )
+            kind == ClaimKind.APPLICATION -> ApplicationClaim(
+                id = id,
+                verifiedId = null,
+                dataType = ClaimDataType.STRING,
+                group = null,
+                required = false,
+                allowedValues = null,
+                publishedIn = ClaimPublicationPlace.entries.toSet(),
+                publishedInWhenRequested = emptySet(),
+                acl = claimAcl
+            )
+            else -> PersonalClaim(
+                id = id,
+                verifiedId = null,
+                dataType = ClaimDataType.STRING,
+                group = null,
+                required = false,
+                allowedValues = null,
+                publishedIn = ClaimPublicationPlace.entries.toSet(),
+                publishedInWhenRequested = emptySet(),
+                acl = claimAcl
+            )
+        }
+    }
 
     @Test
     fun `toResource - Publish a collected claim with the dates it was collected and verified on`() {

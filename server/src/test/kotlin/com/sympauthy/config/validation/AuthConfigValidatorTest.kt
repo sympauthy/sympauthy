@@ -6,6 +6,8 @@ import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.ConsentAcl
+import com.sympauthy.business.model.user.claim.DisabledClaim
+import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.business.model.user.claim.UnconditionalAcl
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.EnabledClaimsConfig
@@ -19,33 +21,45 @@ class AuthConfigValidatorTest {
 
     private val validator = AuthConfigValidator()
 
-    private fun claim(id: String, dataType: ClaimDataType, enabled: Boolean = true) = Claim(
-        id = id,
-        enabled = enabled,
-        verifiedId = null,
-        dataType = dataType,
-        kind = ClaimKind.PERSONAL,
-        group = null,
-        required = false,
-        generated = false,
-        collectedInFlow = true,
-        allowedValues = null,
-        publishedIn = ClaimPublicationPlace.entries.toSet(),
-        publishedInWhenRequested = emptySet(),
-        acl = ClaimAcl(
-            consent = ConsentAcl(
-                scope = null,
-                readableByPerson = true,
-                collectedInFlow = true,
-                writableByPerson = false,
-                readableByClient = true,
-                writableByClient = false,
-                writeMaxAuthenticationAge = null
-            ),
-            unconditional = UnconditionalAcl(
-                readableWithClientScopes = emptyList(),
-                writableWithClientScopes = emptyList()
+    private fun claim(id: String, dataType: ClaimDataType, enabled: Boolean = true): Claim =
+        if (enabled) {
+            PersonalClaim(
+                id = id,
+                verifiedId = null,
+                dataType = dataType,
+                group = null,
+                required = false,
+                allowedValues = null,
+                publishedIn = ClaimPublicationPlace.entries.toSet(),
+                publishedInWhenRequested = emptySet(),
+                acl = acl
             )
+        } else {
+            DisabledClaim(
+                id = id,
+                verifiedId = null,
+                dataType = dataType,
+                kind = ClaimKind.PERSONAL,
+                group = null,
+                required = false,
+                allowedValues = null,
+                acl = acl
+            )
+        }
+
+    private val acl = ClaimAcl(
+        consent = ConsentAcl(
+            scope = null,
+            readableByPerson = true,
+            collectedInFlow = true,
+            writableByPerson = false,
+            readableByClient = true,
+            writableByClient = false,
+            writeMaxAuthenticationAge = null
+        ),
+        unconditional = UnconditionalAcl(
+            readableWithClientScopes = emptyList(),
+            writableWithClientScopes = emptyList()
         )
     )
 

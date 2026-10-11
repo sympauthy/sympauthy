@@ -6,11 +6,11 @@ import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
+import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimGroup
-import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.UnconditionalAcl
@@ -59,7 +59,7 @@ class AccessTokenGeneratorTest {
     private val readAudienceId = slot<String>()
 
     @Test
-    fun `generateAccessToken - Claim the values the deployment publishes in the access token`() = runTest {
+    fun `generateAccessToken - EnabledClaim the values the deployment publishes in the access token`() = runTest {
         val claimsSet = issue(
             collected(claim("loyalty_tier", ClaimDataType.STRING), "gold"),
             collected(claim("age", ClaimDataType.NUMBER), 42L)
@@ -70,7 +70,7 @@ class AccessTokenGeneratorTest {
     }
 
     @Test
-    fun `generateAccessToken - Claim the verified companion beside the value it answers for`() = runTest {
+    fun `generateAccessToken - EnabledClaim the verified companion beside the value it answers for`() = runTest {
         val claimsSet = issue(
             collected(
                 claim("email", ClaimDataType.EMAIL, verifiedId = "email_verified"),
@@ -83,7 +83,7 @@ class AccessTokenGeneratorTest {
     }
 
     @Test
-    fun `generateAccessToken - Claim the address object OpenID Connect defines`() = runTest {
+    fun `generateAccessToken - EnabledClaim the address object OpenID Connect defines`() = runTest {
         val claimsSet = issue(
             collected(claim("locality", ClaimDataType.STRING, ClaimGroup.ADDRESS), "Brussels"),
             collected(claim("country", ClaimDataType.STRING, ClaimGroup.ADDRESS), "Belgium")
@@ -95,7 +95,7 @@ class AccessTokenGeneratorTest {
     }
 
     @Test
-    fun `generateAccessToken - Claim nothing over a member the token states about its authorization`() =
+    fun `generateAccessToken - EnabledClaim nothing over a member the token states about its authorization`() =
         runTest {
             val claimsSet = issue(collected(claim("scope", ClaimDataType.STRING), "everything"))
 
@@ -110,7 +110,7 @@ class AccessTokenGeneratorTest {
     }
 
     @Test
-    fun `generateAccessTokenForClient - Claim nothing about a person`() = runTest {
+    fun `generateAccessTokenForClient - EnabledClaim nothing about a person`() = runTest {
         val builder = stubGeneration()
 
         generator.generateAccessTokenForClient(
@@ -132,16 +132,12 @@ class AccessTokenGeneratorTest {
         dataType: ClaimDataType,
         group: ClaimGroup? = null,
         verifiedId: String? = null
-    ) = Claim(
+    ) = PersonalClaim(
         id = id,
-        enabled = true,
         verifiedId = verifiedId,
         dataType = dataType,
-        kind = ClaimKind.PERSONAL,
         group = group,
         required = false,
-        generated = false,
-        collectedInFlow = true,
         allowedValues = null,
         audienceId = null,
         publishedIn = setOf(ClaimPublicationPlace.ACCESS_TOKEN),
@@ -163,7 +159,7 @@ class AccessTokenGeneratorTest {
         )
     )
 
-    private fun collected(claim: Claim, value: Any?, verified: Boolean? = null) = CollectedClaim(
+    private fun collected(claim: EnabledClaim, value: Any?, verified: Boolean? = null) = CollectedClaim(
         userId = UUID.randomUUID(),
         claim = claim,
         value = value,

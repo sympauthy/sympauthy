@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.collection
 
+import com.sympauthy.business.model.user.claim.isEnabled
 import com.sympauthy.business.manager.AudienceManager
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.model.audience.Audience
@@ -59,7 +60,7 @@ class ClaimCollectionManager(
     ) {
         val identifierClaimIds = claimManager.listIdentifierClaims().map(Claim::id).toSet()
         field("id", STRING, key = "fields.claim_id", searchable = true, read = Claim::id)
-        field("enabled", BOOLEAN, sortable = true, read = Claim::enabled)
+        field("enabled", BOOLEAN, sortable = true) { it.isEnabled }
         field("identifier", BOOLEAN, sortable = true) { it.id in identifierClaimIds }
         field("required", BOOLEAN, sortable = true, read = Claim::required)
         field("generated", BOOLEAN, sortable = true, read = Claim::generated)

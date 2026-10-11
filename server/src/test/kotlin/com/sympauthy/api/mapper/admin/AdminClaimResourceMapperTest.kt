@@ -1,14 +1,8 @@
 package com.sympauthy.api.mapper.admin
 
-import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.business.model.user.claim.ClaimAcl
-import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.ClaimKind
-import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
+import com.sympauthy.business.model.user.claim.*
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace.ID_TOKEN
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace.USERINFO
-import com.sympauthy.business.model.user.claim.ConsentAcl
-import com.sympauthy.business.model.user.claim.UnconditionalAcl
 import com.sympauthy.config.model.EnabledAuthConfig
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -110,20 +104,8 @@ class AdminClaimResourceMapperTest {
         publishedIn: Set<ClaimPublicationPlace>,
         publishedInWhenRequested: Set<ClaimPublicationPlace> = emptySet(),
         kind: ClaimKind? = ClaimKind.PERSONAL
-    ) = Claim(
-        id = id,
-        enabled = true,
-        verifiedId = null,
-        dataType = ClaimDataType.STRING,
-        kind = kind,
-        group = null,
-        required = false,
-        generated = false,
-        collectedInFlow = false,
-        allowedValues = null,
-        publishedIn = publishedIn,
-        publishedInWhenRequested = publishedInWhenRequested,
-        acl = ClaimAcl(
+    ): EnabledClaim {
+        val claimAcl = ClaimAcl(
             consent = ConsentAcl(
                 scope = null,
                 readableByPerson = true,
@@ -138,5 +120,37 @@ class AdminClaimResourceMapperTest {
                 writableWithClientScopes = emptyList()
             )
         )
-    )
+        return when {
+            kind == null -> GeneratedClaim(
+                id = id,
+                verifiedId = null,
+                dataType = ClaimDataType.STRING,
+                group = null,
+                publishedIn = publishedIn,
+                acl = claimAcl
+            )
+            kind == ClaimKind.APPLICATION -> ApplicationClaim(
+                id = id,
+                verifiedId = null,
+                dataType = ClaimDataType.STRING,
+                group = null,
+                required = false,
+                allowedValues = null,
+                publishedIn = publishedIn,
+                publishedInWhenRequested = publishedInWhenRequested,
+                acl = claimAcl
+            )
+            else -> PersonalClaim(
+                id = id,
+                verifiedId = null,
+                dataType = ClaimDataType.STRING,
+                group = null,
+                required = false,
+                allowedValues = null,
+                publishedIn = publishedIn,
+                publishedInWhenRequested = publishedInWhenRequested,
+                acl = claimAcl
+            )
+        }
+    }
 }

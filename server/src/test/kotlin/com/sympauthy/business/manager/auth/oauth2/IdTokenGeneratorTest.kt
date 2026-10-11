@@ -13,7 +13,8 @@ import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.BuiltInGrantableScopeId
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
+import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimDataType.BOOLEAN
@@ -24,7 +25,6 @@ import com.sympauthy.business.model.user.claim.ClaimDataType.PHONE_NUMBER
 import com.sympauthy.business.model.user.claim.ClaimDataType.STRING
 import com.sympauthy.business.model.user.claim.ClaimDataType.TIMEZONE
 import com.sympauthy.business.model.user.claim.ClaimGroup
-import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.business.model.user.claim.ConsentAcl
@@ -94,7 +94,7 @@ class IdTokenGeneratorTest {
     private val valueMapper = ClaimValueMapper(ObjectMapper.getDefault())
 
     @Test
-    fun `generateIdToken - Claim the hash of the access token it was issued beside`() = runTest {
+    fun `generateIdToken - EnabledClaim the hash of the access token it was issued beside`() = runTest {
         val userId = UUID.randomUUID()
         val accessToken = mockk<EncodedAuthenticationToken> {
             every { token } returns ACCESS_TOKEN
@@ -121,7 +121,7 @@ class IdTokenGeneratorTest {
     }
 
     @Test
-    fun `generateIdToken - Claim the moment the authorization proved a credential`() = runTest {
+    fun `generateIdToken - EnabledClaim the moment the authorization proved a credential`() = runTest {
         val userId = UUID.randomUUID()
         val builder = stubGeneration(userId)
 
@@ -139,7 +139,7 @@ class IdTokenGeneratorTest {
     }
 
     @Test
-    fun `generateIdToken - Claim no auth_time where the authorization recorded none`() = runTest {
+    fun `generateIdToken - EnabledClaim no auth_time where the authorization recorded none`() = runTest {
         val userId = UUID.randomUUID()
         val builder = stubGeneration(userId)
 
@@ -157,7 +157,7 @@ class IdTokenGeneratorTest {
     }
 
     @Test
-    fun `generateIdToken - Claim the original auth_time on a refresh`() = runTest {
+    fun `generateIdToken - EnabledClaim the original auth_time on a refresh`() = runTest {
         val claimsSet = issue(mockRefreshToken(sessionId = UUID.randomUUID()))
 
         assertEquals(
@@ -167,7 +167,7 @@ class IdTokenGeneratorTest {
     }
 
     @Test
-    fun `generateIdToken - Claim no nonce on a refresh`() = runTest {
+    fun `generateIdToken - EnabledClaim no nonce on a refresh`() = runTest {
         val claimsSet = issue(mockRefreshToken(sessionId = UUID.randomUUID()))
 
         assertNull(claimsSet.getClaim("nonce"))
@@ -283,7 +283,7 @@ class IdTokenGeneratorTest {
     }
 
     @Test
-    fun `generateIdToken - Claim the verified companion beside the value it answers for`() = runTest {
+    fun `generateIdToken - EnabledClaim the verified companion beside the value it answers for`() = runTest {
         val claimsSet = issue(
             collected(claim("email", EMAIL, verifiedId = "email_verified"), "ada@example.com", verified = true)
         )
@@ -293,7 +293,7 @@ class IdTokenGeneratorTest {
     }
 
     @Test
-    fun `generateIdToken - Claim the verified companion as false where the value is unverified`() = runTest {
+    fun `generateIdToken - EnabledClaim the verified companion as false where the value is unverified`() = runTest {
         val claimsSet = issue(
             collected(claim("email", EMAIL, verifiedId = "email_verified"), "ada@example.com", verified = null)
         )
@@ -302,7 +302,7 @@ class IdTokenGeneratorTest {
     }
 
     @Test
-    fun `generateIdToken - Claim no verified companion where the value was not published`() = runTest {
+    fun `generateIdToken - EnabledClaim no verified companion where the value was not published`() = runTest {
         val claimsSet = issue(
             collected(claim("email", EMAIL, verifiedId = "email_verified"), value = null, verified = true)
         )
@@ -313,7 +313,7 @@ class IdTokenGeneratorTest {
 
     @ParameterizedTest
     @EnumSource(ClaimDataType::class)
-    fun `generateIdToken - Claim a value of every type as the type its claim declares`(
+    fun `generateIdToken - EnabledClaim a value of every type as the type its claim declares`(
         dataType: ClaimDataType
     ) = runTest {
         val (submitted, published) = VALUES.getValue(dataType)
@@ -325,14 +325,14 @@ class IdTokenGeneratorTest {
     }
 
     @Test
-    fun `generateIdToken - Claim no value disagreeing with the type its claim declares`() = runTest {
+    fun `generateIdToken - EnabledClaim no value disagreeing with the type its claim declares`() = runTest {
         val claimsSet = issue(collected(claim("age", NUMBER), "forty-two"))
 
         assertFalse(claimsSet.claims.containsKey("age"))
     }
 
     @Test
-    fun `generateIdToken - Claim every address component as a string whatever its type`() = runTest {
+    fun `generateIdToken - EnabledClaim every address component as a string whatever its type`() = runTest {
         val claimsSet = issue(
             collected(claim("street_address", STRING, ClaimGroup.ADDRESS), "5 Rue Ada"),
             collected(claim("locality", STRING, ClaimGroup.ADDRESS), "Brussels"),
@@ -346,7 +346,7 @@ class IdTokenGeneratorTest {
     }
 
     @Test
-    fun `generateIdToken - Claim no address where no component carries a value`() = runTest {
+    fun `generateIdToken - EnabledClaim no address where no component carries a value`() = runTest {
         val claimsSet = issue(collected(claim("locality", STRING, ClaimGroup.ADDRESS), value = null))
 
         assertFalse(claimsSet.claims.containsKey("address"))
@@ -358,16 +358,12 @@ class IdTokenGeneratorTest {
         group: ClaimGroup? = null,
         verifiedId: String? = null,
         publishedIn: Set<ClaimPublicationPlace> = ClaimPublicationPlace.entries.toSet()
-    ) = Claim(
+    ) = PersonalClaim(
         id = id,
-        enabled = true,
         verifiedId = verifiedId,
         dataType = dataType,
-        kind = ClaimKind.PERSONAL,
         group = group,
         required = false,
-        generated = false,
-        collectedInFlow = true,
         allowedValues = null,
         audienceId = null,
         publishedIn = publishedIn,
@@ -398,12 +394,12 @@ class IdTokenGeneratorTest {
      * been through both — and a double here would return whichever type the test imagined, which is the
      * assumption that let a whole claim type go missing from every id token.
      */
-    private fun storedValueOf(claim: Claim, submitted: String): Any? {
+    private fun storedValueOf(claim: EnabledClaim, submitted: String): Any? {
         val validated = valueValidator.validateAndCleanValueForClaim(claim, submitted).get()
         return valueMapper.toBusiness(checkNotNull(valueMapper.toEntity(validated)), claim.dataType)
     }
 
-    private fun collected(claim: Claim, value: Any?, verified: Boolean? = null) = CollectedClaim(
+    private fun collected(claim: EnabledClaim, value: Any?, verified: Boolean? = null) = CollectedClaim(
         userId = UUID.randomUUID(),
         claim = claim,
         value = value,

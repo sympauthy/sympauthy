@@ -1,12 +1,12 @@
 package com.sympauthy.api.mapper.admin
 
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.api.mapper.config.OutputResourceMapperConfig
 import com.sympauthy.api.resource.admin.AdminUserClaimResource
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.manager.collection.UserClaimCollectionManager.CollectedUserClaim
 import com.sympauthy.business.manager.collection.UserClaimCollectionManager.GeneratedUserClaim
 import com.sympauthy.business.manager.collection.UserClaimCollectionManager.UserClaim
-import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.ClaimKind
@@ -49,7 +49,7 @@ abstract class AdminUserClaimResourceMapper {
     @Mapping(source = "collectedClaim.collectionDate", target = "collectedAt")
     @Mapping(source = "collectedClaim.verificationDate", target = "verifiedAt")
     protected abstract fun toResourceFromCollectedClaim(
-        claim: Claim,
+        claim: EnabledClaim,
         collectedClaim: CollectedClaim?,
         identifier: Boolean
     ): AdminUserClaimResource
@@ -65,7 +65,7 @@ abstract class AdminUserClaimResourceMapper {
     @Mapping(target = "collectedAt", ignore = true)
     @Mapping(target = "verifiedAt", ignore = true)
     protected abstract fun toResourceFromGeneratedClaim(
-        claim: Claim,
+        claim: EnabledClaim,
         identifier: Boolean,
         generatedClaimValue: Any?
     ): AdminUserClaimResource
@@ -74,7 +74,7 @@ abstract class AdminUserClaimResourceMapper {
     fun toTypeString(dataType: ClaimDataType): String = dataType.wireName
 
     @Named("toOrigin")
-    fun toOrigin(claim: Claim): String = claim.origin.wireName
+    fun toOrigin(claim: EnabledClaim): String = claim.origin.wireName
 
     @Named("toKindString")
     fun toKindString(kind: ClaimKind?): String? = kind?.wireName

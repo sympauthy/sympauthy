@@ -3,7 +3,7 @@ package com.sympauthy.config.validation
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.business.model.user.claim.ClaimAcl
+import com.sympauthy.business.model.user.claim.*
 import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
@@ -71,7 +71,7 @@ class ClaimsConfigValidator(
 
         // Validate identifier claims are enabled.
         if (userMergingEnabled == true) {
-            val enabledClaimIds = claims.filter { it.enabled }.map { it.id }.toSet()
+            val enabledClaimIds = claims.filter { it.isEnabled }.map { it.id }.toSet()
             identifierClaims?.forEach { identifierClaimId ->
                 if (identifierClaimId !in enabledClaimIds) {
                     ctx.addError(
@@ -314,23 +314,59 @@ class ClaimsConfigValidator(
 
         refuseAclTheKindCannotMean(ctx, parsed, acl, configKeyPrefix)
 
-        if (parsed.dataType == null) return null
+        val dataType = parsed.dataType ?: return null
 
-        return Claim(
-            id = parsed.id,
-            enabled = parsed.enabled,
-            verifiedId = parsed.verifiedId,
-            dataType = parsed.dataType,
-            kind = parsed.kind,
-            group = parsed.group,
-            required = parsed.required,
-            generated = parsed.generated,
-            collectedInFlow = if (!parsed.generated) acl.consent.collectedInFlow else false,
-            allowedValues = parsed.allowedValues,
-            audienceId = audienceId,
-            publishedIn = parsed.publishedIn,
-            publishedInWhenRequested = parsed.publishedInWhenRequested,
-            acl = acl
-        )
+        if (parsed.generated) {
+            return GeneratedClaim(
+                id = parsed.id,
+                verifiedId = parsed.verifiedId,
+                dataType = dataType,
+                group = parsed.group,
+                publishedIn = parsed.publishedIn,
+                acl = acl
+            )
+        }
+        // A claim whose file says whose it is nowhere, which the parser already refused.
+        val kind = parsed.kind ?: return null
+        if (!parsed.enabled) {
+            return DisabledClaim(
+                id = parsed.id,
+                verifiedId = parsed.verifiedId,
+                dataType = dataType,
+                kind = kind,
+                group = parsed.group,
+                required = parsed.required,
+                allowedValues = parsed.allowedValues,
+                audienceId = audienceId,
+                acl = acl
+            )
+        }
+        return when (kind) {
+            ClaimKind.PERSONAL -> PersonalClaim(
+                id = parsed.id,
+                verifiedId = parsed.verifiedId,
+                dataType = dataType,
+                group = parsed.group,
+                required = parsed.required,
+                allowedValues = parsed.allowedValues,
+                audienceId = audienceId,
+                publishedIn = parsed.publishedIn,
+                publishedInWhenRequested = parsed.publishedInWhenRequested,
+                acl = acl
+            )
+
+            ClaimKind.APPLICATION -> ApplicationClaim(
+                id = parsed.id,
+                verifiedId = parsed.verifiedId,
+                dataType = dataType,
+                group = parsed.group,
+                required = parsed.required,
+                allowedValues = parsed.allowedValues,
+                audienceId = audienceId,
+                publishedIn = parsed.publishedIn,
+                publishedInWhenRequested = parsed.publishedInWhenRequested,
+                acl = acl
+            )
+        }
     }
 }

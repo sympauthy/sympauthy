@@ -1,6 +1,6 @@
 package com.sympauthy.business.model.user
 
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import java.util.*
 
 /**
@@ -10,7 +10,7 @@ data class CollectedClaimUpdate(
     /**
      * Claim to update.
      */
-    val claim: Claim,
+    val claim: EnabledClaim,
     /**
      * New value for the [claim].
      *
