@@ -53,8 +53,9 @@ open class TokenManager(
     }
 
     /**
-     * Revoke all tokens issued to [userId], regardless of client.
-     * Returns the number of tokens revoked.
+     * Revoke every token issued to [userId] that is still live, regardless of client, and return how many
+     * there were. A token already revoked keeps who revoked it and when, and an expired one is left as it
+     * lapsed; neither is counted.
      */
     @Transactional
     open suspend fun revokeTokensByUser(userId: UUID, revokedBy: TokenRevokedBy, revokedById: UUID?): Int {
@@ -67,8 +68,9 @@ open class TokenManager(
     }
 
     /**
-     * Revoke all tokens issued to [userId] for [clientId].
-     * Returns the number of tokens revoked.
+     * Revoke every token issued to [userId] for [clientId] that is still live, and return how many there
+     * were. A token already revoked keeps who revoked it and when, and an expired one is left as it lapsed;
+     * neither is counted.
      */
     @Transactional
     open suspend fun revokeTokensByUserAndClient(

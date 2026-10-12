@@ -177,6 +177,12 @@ being usable on its own.
 expiry. This is the deliberate cost of not being purely stateless: every request presenting a token
 asks the database about it.
 
+**A token is revoked once, and keeps the revocation that came first.** Every revocation reaches only
+the tokens still live — neither revoked yet nor expired — so a row goes on saying who revoked it and
+when, and a token that lapsed on its own is not recorded as revoked afterwards. A revocation reaching
+many tokens, a force logout among them, therefore counts the ones it took out of service, and
+repeating it finds none.
+
 **A token does not outlive its client.** A token naming a client the configuration no longer
 declares is a credential that does not validate, and it is refused with a `401` on every surface it
 is presented to. Removing a client is how a deployment withdraws it, and a client withdrawn can no

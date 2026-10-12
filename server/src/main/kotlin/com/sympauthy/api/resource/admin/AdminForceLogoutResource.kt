@@ -23,8 +23,8 @@ data class AdminForceLogoutResource(
     @get:JsonInclude(JsonInclude.Include.ALWAYS)
     val clientId: String?,
     @get:Schema(
-        description = "Number of tokens this call marked revoked, counting any that were already revoked " +
-                "or expired."
+        description = "Number of tokens this call revoked. A token already revoked or expired is left as " +
+                "it was and not counted, so a second call answers `0`."
     )
     @get:JsonProperty("tokens_revoked")
     val tokensRevoked: Int
