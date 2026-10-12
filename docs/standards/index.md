@@ -15,9 +15,10 @@ the other half — [how the system works](../design/index.md).
   specification overrides the rule.
 - **[API standard](api-standard.md)** — what a client sees: how a route is spelled, what the JSON
   looks like, the body a failure returns, and why no redirect is a 307.
-- **[API description standard](api-description-standard.md)** — how the published OpenAPI document
-  reads: the one word each thing goes by, what a property of each shape and an operation say, how a
-  failure names its code, and what a description leaves out.
+- **[API description standard](api-description-standard.md)** — the published OpenAPI document:
+  how it is produced and what its security schemes offer, the one word each thing goes by, what a
+  property of each shape and an operation say, how a failure names its code, and what a description
+  leaves out.
 - **[Collection standard](collection-standard.md)** — what a paged collection answers with and what
   a caller may ask of one: the response, the paging, the filter, order and search grammar, and the
   document a collection publishes saying which of its fields it accepts.

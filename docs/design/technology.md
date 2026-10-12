@@ -90,8 +90,8 @@ Unit testing, with [Testcontainers](https://testcontainers.com) driving the cont
 
 **Two annotation processors run over this source, and that is deliberate rather than accidental.**
 Most processing is done by the newer one; one generator still requires the older. The cost shows up
-in the [API standard](../standards/api-standard.md#openapi): both produce an OpenAPI document, and
-the two do not agree.
+in the [API description standard](../standards/api-description-standard.md#the-document): both
+produce an OpenAPI document, and the two do not agree.
 
 **The build pins its own tooling for reasons that are written down where they are pinned.** A build
 tool version this project cannot move past, a dependency excluded to avoid a clash: each carries its

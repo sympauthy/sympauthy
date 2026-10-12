@@ -1,6 +1,6 @@
 ---
-description: How a description in the published OpenAPI document reads — the words it uses, what
-  each shape of property and each operation says, and what it leaves out.
+description: The published OpenAPI document — how it is produced, the words its descriptions use,
+  what each shape of property and each operation says, and what it leaves out.
 paths:
   - "server/src/main/kotlin/com/sympauthy/api/**"
   - "server/src/main/kotlin/com/sympauthy/OpenAPI.kt"
@@ -8,11 +8,24 @@ paths:
 
 # API description standard
 
-How the text of the published OpenAPI document reads: an operation's description, a parameter's, a
-response's, a schema's and a property's. Where each of them is written, and that the document is
-generated rather than committed, is [the API standard](api-standard.md#openapi). That a resource is
-documented on the class and on every property is [the `api` layer
-standard](api-layer-code-standard.md#the-resource).
+How the published OpenAPI document is produced, and how its text reads: an operation's description,
+a parameter's, a response's, a schema's and a property's. That a resource is documented on the class
+and on every property is [the `api` layer standard](api-layer-code-standard.md#the-resource).
+
+## The document
+
+**The document is generated from the annotations and the KDoc, and it is not committed.**
+
+**The document names no address at build time.** It carries a placeholder, and the controller
+serving it substitutes the configured public URL on the way out.
+
+**A client is generated from the published document.** Two annotation processors produce a
+specification here and they do not agree; the published one is what an integrator gets.
+
+**A security scheme offers every scope its surface defines.** Swagger UI and a generated client ask
+only for the scopes a scheme lists, so a scope left out is one neither can obtain. An annotation
+takes a constant, so the list is written by hand, and a test holds it to the enum the scopes are
+declared in.
 
 ## Who a description is for
 
@@ -121,6 +134,10 @@ list itself, they constrain the whole array to equal one of them.
 **An operation opens with one sentence saying what it does, as an imperative:** *Retrieve*,
 *Create*, *Revoke*, *Start*. What follows is only what the caller needs and the parameters and the
 response do not already say.
+
+**A rule a caller needs while writing a request is on the parameter it governs.** An operation's own
+description says what the operation is for, and a tag's sits above every operation of the surface at
+once, so neither is where a reader looks for what one parameter accepts.
 
 **A list operation ends with the order it takes:** *<Things> are ordered by …, unless another order
 is asked for.* An admin collection then says where its capabilities are published.
