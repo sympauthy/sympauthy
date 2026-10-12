@@ -4,6 +4,8 @@ import com.sympauthy.api.controller.oauth2.TokenController.Companion.OAUTH2_TOKE
 import com.sympauthy.api.controller.oauth2.util.CLIENT_ID_PARAMETER_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.CLIENT_SECRET_PARAMETER_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil
+import com.sympauthy.api.controller.oauth2.util.INVALID_CLIENT_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.controller.oauth2.util.INVALID_CLIENT_UNAUTHORIZED_DESCRIPTION
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.api.exception.toOAuth2Exception
 import com.sympauthy.api.resource.oauth2.TokenResource
@@ -171,32 +173,31 @@ class TokenController(
             ),
             ApiResponse(
                 responseCode = "400",
-                description = "- `invalid_request`: on the token exchange grant, `subject_token`, " +
-                    "`subject_token_type` or `requested_subject` is missing, or `subject_token_type` or " +
-                    "`requested_token_type` names something other than an access token.\n" +
-                    "- `invalid_grant`: the client credentials are missing or wrong; `code` or `refresh_token` " +
-                    "is missing, unknown, expired, revoked or issued to another client; `redirect_uri` or " +
-                    "`code_verifier` does not match the authorization request; the consent of the end-user " +
-                    "was revoked, or the user never finished signing up; or `subject_token` is not a valid " +
-                    "`client_credentials` access token of this client.\n" +
+                description = "- `invalid_request`: `grant_type` is missing; `code` is missing on the " +
+                    "`authorization_code` grant, or `refresh_token` on the `refresh_token` grant; on the token " +
+                    "exchange grant, `subject_token`, `subject_token_type` or `requested_subject` is missing, " +
+                    "or `subject_token_type` or `requested_token_type` names something other than an access " +
+                    "token.\n" +
+                    INVALID_CLIENT_BAD_REQUEST_DESCRIPTION + "\n" +
+                    "- `invalid_grant`: `code` or `refresh_token` is unknown, expired, revoked or issued to " +
+                    "another client; `redirect_uri` or `code_verifier` does not match the authorization " +
+                    "request; the consent of the end-user was revoked, or the user never finished signing up; " +
+                    "or `subject_token` is not a valid `client_credentials` access token of this client.\n" +
                     "- `unauthorized_client`: the client is not allowed this `grant_type`.\n" +
-                    "- `unsupported_grant_type`: `grant_type` is missing or not supported.\n" +
+                    "- `unsupported_grant_type`: `grant_type` is not supported.\n" +
+                    "- `invalid_scope`: on the `client_credentials` grant, `scope` names a scope that is not " +
+                    "enabled, belongs to another audience, is not a client scope, or is not allowed to the " +
+                    "client.\n" +
                     "- `invalid_target`: on the token exchange grant, `resource` is sent, `requested_subject` " +
                     "names no user, or `audience` names no configured audience.\n" +
                     "- `invalid_dpop_proof`: the `DPoP` header is sent more than once or does not validate, " +
                     "is missing while `auth.token.dpop-required` is true, or is missing or signed with " +
-                    "another key on the `refresh_token` grant for a refresh token bound to a key.\n" +
-                    "- `scope.unsupported`: on the `client_credentials` grant, `scope` names no enabled scope.\n" +
-                    "- `scope.audience_mismatch`: on the `client_credentials` grant, `scope` names a scope of " +
-                    "another audience.\n" +
-                    "- `scope.not_allowed`: on the `client_credentials` grant, `scope` names a scope the " +
-                    "client is not allowed.\n" +
-                    "- `scope.not_client_scope`: on the `client_credentials` grant, `scope` names a scope " +
-                    "that is not a client scope."
+                    "another key on the `refresh_token` grant for a refresh token bound to a key."
             ),
             ApiResponse(
                 responseCode = "401",
-                description = "- `access_denied`: on the token exchange grant, the `rules.act-as` rules do not " +
+                description = INVALID_CLIENT_UNAUTHORIZED_DESCRIPTION + "\n" +
+                    "- `access_denied`: on the token exchange grant, the `rules.act-as` rules do not " +
                     "let the client act for `requested_subject`."
             ),
             ApiResponse(responseCode = "413", description = BODY_TOO_LARGE_RESPONSE_DESCRIPTION)
@@ -210,7 +211,7 @@ class TokenController(
     @Post(consumes = [APPLICATION_FORM_URLENCODED])
     suspend fun getTokens(
         request: HttpRequest<*>,
-        @Part("grant_type") grantType: String?,
+        @Part(GRANT_TYPE_PARAM) grantType: String?,
         @Part(CODE_PARAM) code: String?,
         @Part("redirect_uri") redirectUri: String?,
         @Part(REFRESH_TOKEN_PARAM) refreshToken: String?,
@@ -290,10 +291,11 @@ class TokenController(
                 )
             }
 
-            null -> throw oauth2ExceptionOf(
-                UNSUPPORTED_GRANT_TYPE, "token.unsupported_grant_type",
-                "grantType" to (grantType ?: "")
-            )
+            null -> throw if (grantType.isNullOrBlank()) {
+                oauth2ExceptionOf(INVALID_REQUEST, "token.missing_param", "param" to GRANT_TYPE_PARAM)
+            } else {
+                oauth2ExceptionOf(UNSUPPORTED_GRANT_TYPE, "token.unsupported_grant_type", "grantType" to grantType)
+            }
         }
     }
 
@@ -305,7 +307,7 @@ class TokenController(
         dpopProof: DpopProof?
     ): TokenResource {
         if (code.isNullOrBlank()) {
-            throw oauth2ExceptionOf(INVALID_GRANT, "token.missing_param", "param" to CODE_PARAM)
+            throw oauth2ExceptionOf(INVALID_REQUEST, "token.missing_param", "param" to CODE_PARAM)
         }
 
         val session = sessionManager.findByCodeOrNull(code)
@@ -349,7 +351,7 @@ class TokenController(
         dpopProof: DpopProof?
     ): TokenResource {
         if (encodedRefreshToken.isNullOrBlank()) {
-            throw oauth2ExceptionOf(INVALID_GRANT, "token.missing_param", "param" to REFRESH_TOKEN_PARAM)
+            throw oauth2ExceptionOf(INVALID_REQUEST, "token.missing_param", "param" to REFRESH_TOKEN_PARAM)
         }
         val tokens = tokenManager.refreshToken(client, encodedRefreshToken, dpopJkt = dpopProof?.jkt)
         val accessToken = tokens.accessToken
@@ -369,7 +371,11 @@ class TokenController(
         scope: String?,
         dpopProof: DpopProof?
     ): TokenResource {
-        val requestedScopes = scopeManager.parseRequestedClientScopes(client, scope)
+        val requestedScopes = try {
+            scopeManager.parseRequestedClientScopes(client, scope)
+        } catch (e: BusinessException) {
+            throw e.toOAuth2Exception(INVALID_SCOPE)
+        }
         val grantResult = clientScopeGrantingManager.grantClientScopes(client, requestedScopes)
         val scopeStrings = grantResult.grantedScopes.map { it.scope }
 
@@ -471,6 +477,7 @@ class TokenController(
 
     companion object {
         const val OAUTH2_TOKEN_ENDPOINT = "/api/oauth2/token"
+        const val GRANT_TYPE_PARAM = "grant_type"
         const val CODE_PARAM = "code"
         const val REFRESH_TOKEN_PARAM = "refresh_token"
         const val SUBJECT_TOKEN_PARAM = "subject_token"

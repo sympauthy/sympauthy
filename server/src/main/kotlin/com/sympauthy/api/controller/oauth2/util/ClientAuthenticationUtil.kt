@@ -1,9 +1,10 @@
 package com.sympauthy.api.controller.oauth2.util
 
+import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_CLIENT
 import io.micronaut.http.HttpRequest
 import io.micronaut.security.authentication.BasicAuthUtils
 import jakarta.inject.Inject
@@ -15,6 +16,9 @@ import jakarta.inject.Singleton
  * It resolves and authenticates the client from the request, supporting two credential transmission methods:
  * - HTTP Basic Auth header (`Authorization: Basic <base64(client_id:client_secret)>`)
  * - Form body parameters (`client_id` / `client_secret`)
+ *
+ * Every refusal is `invalid_client`, RFC 6749 §5.2, and the one of credentials sent in the header also
+ * carries the challenge §5.2 requires — see [OAuth2Exception.challenge].
  *
  * This logic lives in a controller-layer utility rather than in a Micronaut
  * [io.micronaut.security.filters.AuthenticationFetcher] because [io.micronaut.security.filters.AuthenticationFetcher]
@@ -39,19 +43,13 @@ class ClientAuthenticationUtil(
         clientId: String?,
         clientSecret: String?
     ): Client {
-        val headerCredentials = request.headers.authorization
-            ?.flatMap(BasicAuthUtils::parseCredentials)
-            ?.orElse(null)
-        if (headerCredentials != null) {
-            return clientManager.authenticateClientOrNull(headerCredentials.username, headerCredentials.password)
-                ?: throw oauth2ExceptionOf(INVALID_GRANT, "authentication.wrong", "description.authentication.wrong")
-        }
+        authenticateWithHeaderOrNull(request)?.let { return it }
         if (clientId != null) {
             return clientManager.authenticateClientOrNull(clientId, clientSecret)
-                ?: throw oauth2ExceptionOf(INVALID_GRANT, "authentication.wrong", "description.authentication.wrong")
+                ?: throw oauth2ExceptionOf(INVALID_CLIENT, "authentication.wrong", "description.authentication.wrong")
         }
         throw oauth2ExceptionOf(
-            INVALID_GRANT,
+            INVALID_CLIENT,
             "authentication.missing_credentials",
             "description.authentication.missing_credentials"
         )
@@ -68,31 +66,57 @@ class ClientAuthenticationUtil(
         clientId: String?,
         clientSecret: String?
     ): Client {
-        val headerCredentials = request.headers.authorization
-            ?.flatMap(BasicAuthUtils::parseCredentials)
-            ?.orElse(null)
-        if (headerCredentials != null) {
-            return clientManager.authenticateClientOrNull(headerCredentials.username, headerCredentials.password)
-                ?: throw oauth2ExceptionOf(INVALID_GRANT, "authentication.wrong", "description.authentication.wrong")
-        }
+        authenticateWithHeaderOrNull(request)?.let { return it }
         if (clientId != null) {
             // If a secret is provided, authenticate normally
             if (!clientSecret.isNullOrBlank()) {
                 return clientManager.authenticateClientOrNull(clientId, clientSecret)
                     ?: throw oauth2ExceptionOf(
-                        INVALID_GRANT,
+                        INVALID_CLIENT,
                         "authentication.wrong",
                         "description.authentication.wrong"
                     )
             }
             // No secret: only allow if the client is public
             return clientManager.findPublicClientByIdOrNull(clientId)
-                ?: throw oauth2ExceptionOf(INVALID_GRANT, "authentication.wrong", "description.authentication.wrong")
+                ?: throw oauth2ExceptionOf(INVALID_CLIENT, "authentication.wrong", "description.authentication.wrong")
         }
         throw oauth2ExceptionOf(
-            INVALID_GRANT,
+            INVALID_CLIENT,
             "authentication.missing_credentials",
             "description.authentication.missing_credentials"
         )
+    }
+
+    /**
+     * The client the Basic credentials of the `Authorization` header authenticate, or null where the
+     * request carries none, in which case the body is read instead.
+     *
+     * Credentials there that do not authenticate are refused with [BASIC_CHALLENGE].
+     */
+    private suspend fun authenticateWithHeaderOrNull(request: HttpRequest<*>): Client? {
+        val credentials = request.headers.authorization
+            ?.flatMap(BasicAuthUtils::parseCredentials)
+            ?.orElse(null)
+            ?: return null
+        return clientManager.authenticateClientOrNull(credentials.username, credentials.password)
+            ?: throw OAuth2Exception(
+                errorCode = INVALID_CLIENT,
+                detailsId = "authentication.wrong",
+                descriptionId = "description.authentication.wrong",
+                challenge = BASIC_CHALLENGE
+            )
+    }
+
+    companion object {
+        /**
+         * The challenge a client refused for the Basic credentials of its `Authorization` header is
+         * answered with: the scheme it used, as RFC 6749 §5.2 requires.
+         *
+         * RFC 7617 §2 requires the realm, and the realm names the protection space within this server
+         * the credentials belong to. Client credentials are accepted on the OAuth2 surface and nowhere
+         * else, so the realm is that surface.
+         */
+        const val BASIC_CHALLENGE = """Basic realm="oauth2""""
     }
 }

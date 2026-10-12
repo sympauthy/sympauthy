@@ -4,6 +4,7 @@ import com.sympauthy.api.controller.oauth2.IntrospectionController.Companion.OAU
 import com.sympauthy.api.controller.oauth2.util.CLIENT_ID_PARAMETER_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.CLIENT_SECRET_PARAMETER_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil
+import com.sympauthy.api.controller.oauth2.util.INVALID_CLIENT_UNAUTHORIZED_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.TOKEN_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.TOKEN_TYPE_HINT_PARAMETER_DESCRIPTION
 import com.sympauthy.api.exception.oauth2ExceptionOf
@@ -13,7 +14,7 @@ import com.sympauthy.business.manager.auth.oauth2.TokenManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.AuthenticationToken
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.publishedMembers
 import com.sympauthy.config.model.AuthConfig
@@ -76,6 +77,7 @@ class IntrospectionController(
                 useReturnTypeSchema = true
             ),
             ApiResponse(responseCode = "400", description = TOKEN_BAD_REQUEST_DESCRIPTION),
+            ApiResponse(responseCode = "401", description = INVALID_CLIENT_UNAUTHORIZED_DESCRIPTION),
             ApiResponse(responseCode = "413", description = BODY_TOO_LARGE_RESPONSE_DESCRIPTION)
         ],
         externalDocs = ExternalDocumentation(
@@ -94,7 +96,7 @@ class IntrospectionController(
     ): IntrospectionResource {
         val client = clientAuthenticationUtil.resolveClient(request, clientId, clientSecret)
         if (token.isNullOrBlank()) {
-            throw oauth2ExceptionOf(INVALID_GRANT, "token.missing_param", "param" to TOKEN_PARAM)
+            throw oauth2ExceptionOf(INVALID_REQUEST, "token.missing_param", "param" to TOKEN_PARAM)
         }
 
         val authConfig = uncheckedAuthConfig.orThrow()

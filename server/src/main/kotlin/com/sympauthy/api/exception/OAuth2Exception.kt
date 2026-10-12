@@ -3,15 +3,25 @@ package com.sympauthy.api.exception
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode
 import com.sympauthy.exception.LocalizedException
 import io.micronaut.http.HttpStatus
+import io.micronaut.http.HttpStatus.UNAUTHORIZED
 
 class OAuth2Exception(
     val errorCode: OAuth2ErrorCode,
     val detailsId: String,
     val descriptionId: String? = null,
     val values: Map<String, String> = emptyMap(),
+    /**
+     * The `WWW-Authenticate` value this error answers with, or null where it carries none — which is
+     * every error but a client authentication refused after the client sent its credentials in the
+     * `Authorization` header, the one case RFC 6749 §5.2 requires a challenge for.
+     *
+     * An error carrying one answers `401` whatever [errorCode] says, because that is the status §5.2
+     * pairs the challenge with.
+     */
+    val challenge: String? = null
 ) : Exception(formatMessage(errorCode, detailsId)) {
 
-    val status: HttpStatus = errorCode.status
+    val status: HttpStatus = if (challenge != null) UNAUTHORIZED else errorCode.status
 
     companion object {
         private fun formatMessage(errorCode: OAuth2ErrorCode, detailsId: String?): String {

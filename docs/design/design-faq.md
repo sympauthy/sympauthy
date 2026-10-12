@@ -388,6 +388,34 @@ checked.
 
 ---
 
+### Is a client that fails to authenticate answered `400` or `401`?
+
+**Decision:** Both, by where it sent its credentials. A client refused for the Basic credentials of
+its `Authorization` header is answered `401` with `WWW-Authenticate: Basic realm="oauth2"`; one
+refused for credentials in the body, or for sending none, is answered `400`. The `error` is
+`invalid_client` either way.
+
+**Options considered:**
+
+- **By where the credentials were sent** — what RFC 6749 §5.2 requires for the header and allows
+  otherwise.
+- **A `401` with the `Basic` challenge, always** — §5.2 allows it on every `invalid_client`, to
+  name the schemes a server accepts.
+- **A `401` with no challenge, always** — what many servers answer.
+
+**Rationale:**
+
+The third is not available: RFC 9110 §15.5.2 requires a challenge on every `401`.
+
+The second sends a request for a username and password to clients that never offered one, and every
+public client is among them. A public client is usually a page in a browser, and the Fetch standard
+lets a browser answer a `Basic` challenge to a request from its own origin by prompting the person —
+who can do nothing with it when the cause is a client identifier the deployment mistyped. A client
+branching on the failure loses nothing to the split, because RFC 6749 tells it to read `error`,
+which does not change.
+
+---
+
 ## Claims
 
 ### Is an administrator held to an invitation's audience?

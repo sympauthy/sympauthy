@@ -3,8 +3,11 @@ package com.sympauthy.api.controller.oauth2.util
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_CLIENT
 import io.micronaut.http.HttpHeaders
 import io.micronaut.http.HttpRequest
+import io.micronaut.http.HttpStatus.BAD_REQUEST
+import io.micronaut.http.HttpStatus.UNAUTHORIZED
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -13,6 +16,7 @@ import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
@@ -61,7 +65,10 @@ class ClientAuthenticationUtilTest {
         val exception = assertThrows<OAuth2Exception> {
             util.resolveClient(mockRequestWithoutAuth(), null, null)
         }
+        assertEquals(INVALID_CLIENT, exception.errorCode)
         assertEquals("authentication.missing_credentials", exception.detailsId)
+        assertEquals(BAD_REQUEST, exception.status)
+        assertNull(exception.challenge)
     }
 
     @Test
@@ -71,7 +78,23 @@ class ClientAuthenticationUtilTest {
         val exception = assertThrows<OAuth2Exception> {
             util.resolveClient(mockRequestWithoutAuth(), "client1", "wrong")
         }
+        assertEquals(INVALID_CLIENT, exception.errorCode)
         assertEquals("authentication.wrong", exception.detailsId)
+        assertEquals(BAD_REQUEST, exception.status)
+        assertNull(exception.challenge)
+    }
+
+    @Test
+    fun `resolveClient - Throws with a Basic challenge when Basic Auth credentials are wrong`() = runTest {
+        coEvery { clientManager.authenticateClientOrNull("client1", "wrong") } returns null
+
+        val exception = assertThrows<OAuth2Exception> {
+            util.resolveClient(mockRequestWithBasicAuth("client1", "wrong"), null, null)
+        }
+        assertEquals(INVALID_CLIENT, exception.errorCode)
+        assertEquals("authentication.wrong", exception.detailsId)
+        assertEquals(UNAUTHORIZED, exception.status)
+        assertEquals("""Basic realm="oauth2"""", exception.challenge)
     }
 
     @Test
@@ -107,7 +130,9 @@ class ClientAuthenticationUtilTest {
                 mockRequestWithoutAuth(), "unknown", null
             )
         }
+        assertEquals(INVALID_CLIENT, exception.errorCode)
         assertEquals("authentication.wrong", exception.detailsId)
+        assertNull(exception.challenge)
     }
 
     @Test
@@ -119,7 +144,9 @@ class ClientAuthenticationUtilTest {
                 mockRequestWithoutAuth(), "confidential", ""
             )
         }
+        assertEquals(INVALID_CLIENT, exception.errorCode)
         assertEquals("authentication.wrong", exception.detailsId)
+        assertNull(exception.challenge)
     }
 
     @Test
@@ -135,12 +162,28 @@ class ClientAuthenticationUtilTest {
     }
 
     @Test
+    fun `resolveClientAllowingPublic - Throws with a Basic challenge when Basic Auth credentials are wrong`() =
+        runTest {
+            coEvery { clientManager.authenticateClientOrNull("client1", "wrong") } returns null
+
+            val exception = assertThrows<OAuth2Exception> {
+                util.resolveClientAllowingPublic(
+                    mockRequestWithBasicAuth("client1", "wrong"), "public-app", null
+                )
+            }
+            assertEquals(INVALID_CLIENT, exception.errorCode)
+            assertEquals(UNAUTHORIZED, exception.status)
+            assertEquals("""Basic realm="oauth2"""", exception.challenge)
+        }
+
+    @Test
     fun `resolveClientAllowingPublic - Throws when no credentials provided`() = runTest {
         val exception = assertThrows<OAuth2Exception> {
             util.resolveClientAllowingPublic(
                 mockRequestWithoutAuth(), null, null
             )
         }
+        assertEquals(INVALID_CLIENT, exception.errorCode)
         assertEquals("authentication.missing_credentials", exception.detailsId)
     }
 }
