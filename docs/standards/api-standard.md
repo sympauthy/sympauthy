@@ -164,6 +164,11 @@ serving it substitutes the configured public URL on the way out.
 description says what the operation is for, and a tag's sits above every operation of the surface at
 once, so neither is where a reader looks for what one parameter accepts.
 
+**A security scheme offers every scope its surface defines.** Swagger UI and a generated client ask
+only for the scopes a scheme lists, so a scope left out is one neither can obtain. An annotation
+takes a constant, so the list is written by hand, and a test holds it to the enum the scopes are
+declared in.
+
 **A client is generated from the published document.** Two annotation processors produce a
 specification here and they do not agree; the published one is what an integrator gets.
 
