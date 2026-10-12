@@ -34,6 +34,20 @@ issue.
 **File nothing the compiler, detekt or a test already catches.** Those have a signal of their own,
 and an issue duplicating it goes stale the moment the build does its job.
 
+## Already filed
+
+**Search for the finding before anything else, and stop there if it is already filed.** Open and
+closed both, by the symbol it names and by the symptom it describes:
+
+```sh
+gh issue list --state all --search "<symbol or symptom>"
+```
+
+A match ends the work on that finding: no agent checks it and nothing is drafted. Tell the user the
+number, and for a closed one whether it was fixed or refused — a refusal is a decision already
+taken, and a fixed one is the next thing to read if the finding still looks real. The findings with
+no match go on to be checked.
+
 ## Checking a finding
 
 **One Opus agent per finding, and they all go out together.** Each gets its own `Agent` call with
@@ -41,8 +55,8 @@ and an issue duplicating it goes stale the moment the build does its job.
 review hands over several findings, and checking them in sequence spends wall-clock on work that
 does not interact.
 
-**The agent verifies and searches; it files nothing.** Hand it the finding, the PR or branch the
-review ran on, and this:
+**The agent verifies; it files nothing.** Hand it the finding, the PR or branch the review ran on,
+and this:
 
 ```
 Verify one code-review finding against `main` in this repository, and answer about it alone.
@@ -53,19 +67,16 @@ Verify one code-review finding against `main` in this repository, and answer abo
    file and line behind every claim you keep, and say which claims you could not substantiate.
 2. Has later work already answered it? A finding can be true of the diff and stale against the
    tree. Read `git log` over the paths it names for a commit that changed the mechanism.
-3. Is it already filed? `gh issue list --state all --search "<symbol or symptom>"`, open and
-   closed both. A closed one may mean it was fixed, or that it was refused — say which.
 
 Answer with: a verdict of REAL, PARTLY REAL, STALE or NOT REAL; the evidence as `file:line`;
-the number of any existing issue; and, for PARTLY REAL, which claims survive and which do not.
+and, for PARTLY REAL, which claims survive and which do not.
 Do not edit a file and do not open an issue.
 ```
 
-**Draft only what survives, and say what did not.** A REAL finding with no issue of its own is
-written up below. A PARTLY REAL one is written up as the part that survived, never as it was
-reported — #480 is the shape this catches, where two of three claims had been answered by #488 four
-weeks after it was filed. A STALE or NOT REAL one is reported to the user and dropped. One already
-filed gets a comment on that issue carrying what this review added, not a second issue.
+**Draft only what survives, and say what did not.** A REAL finding is written up below. A PARTLY
+REAL one is written up as the part that survived, never as it was reported — #480 is the shape this
+catches, where two of three claims had been answered by #488 four weeks after it was filed. A STALE
+or NOT REAL one is reported to the user and dropped.
 
 ## The body
 
