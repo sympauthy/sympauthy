@@ -571,11 +571,11 @@ abstract class AbstractSympauthyIT {
     }
 
     /**
-     * Asserts [response] refused with HTTP [status] and that its `error_code` is exactly [error], the
+     * Asserts [response] refused with HTTP [status] and that its `error` is exactly [error], the
      * RFC 6749 value a client branches on, reporting [message] when it did not. The member is compared
-     * rather than searched for in the body: `description` is a bundle message, so a body containing the
-     * code is not the same thing as a body naming it, and a rewrite of that sentence must not decide
-     * whether this passes.
+     * rather than searched for in the body: `error_description` is a bundle message, so a body
+     * containing the code is not the same thing as a body naming it, and a rewrite of that sentence
+     * must not decide whether this passes.
      */
     protected fun assertOAuthError(
         response: HttpResponse<String>,
@@ -586,7 +586,7 @@ abstract class AbstractSympauthyIT {
         assertEquals(status, response.statusCode(), "$message, body=${response.body()}")
         assertEquals(
             error,
-            JSONObjectUtils.parse(response.body())["error_code"],
+            JSONObjectUtils.parse(response.body())["error"],
             "$message — the refusal should name $error, body=${response.body()}",
         )
     }
