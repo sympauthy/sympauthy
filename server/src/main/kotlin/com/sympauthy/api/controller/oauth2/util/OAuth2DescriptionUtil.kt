@@ -21,23 +21,14 @@ const val TOKEN_TYPE_HINT_PARAMETER_DESCRIPTION = "Type of `token`. A token of t
     "recognized. When absent, this server reads the type off the token."
 
 /**
- * What the published specification says about the `invalid_client` a `400` answers with, on every endpoint
- * of `/api/oauth2` that authenticates the client: credentials missing, or sent in the body and refused.
+ * What the published specification says about the `401` the introspection and the revocation endpoints
+ * answer with: both admit only a confidential client, and challenge every refusal of one.
  */
-const val INVALID_CLIENT_BAD_REQUEST_DESCRIPTION = "- `invalid_client`: no client credentials are sent, or " +
-    "the ones sent in the body do not authenticate a client."
-
-/**
- * What the published specification says about the `invalid_client` a `401` answers with, on every endpoint
- * of `/api/oauth2` that authenticates the client: credentials sent with HTTP Basic authentication and refused.
- */
-const val INVALID_CLIENT_UNAUTHORIZED_DESCRIPTION = "- `invalid_client`: the client credentials sent with " +
-    "HTTP Basic authentication do not authenticate a client. The `WWW-Authenticate` header names the `Basic` " +
-    "scheme."
+const val INVALID_CLIENT_UNAUTHORIZED_DESCRIPTION = "- `invalid_client`: no client credentials are sent, " +
+    "or the ones sent do not authenticate a client. The `WWW-Authenticate` header names the `Basic` scheme."
 
 /**
  * What the published specification says about the `400` the introspection and the revocation endpoints
  * answer with: both authenticate the client, then read `token`, and refuse nothing else.
  */
-const val TOKEN_BAD_REQUEST_DESCRIPTION = "- `invalid_request`: `token` is missing.\n" +
-    INVALID_CLIENT_BAD_REQUEST_DESCRIPTION
+const val TOKEN_BAD_REQUEST_DESCRIPTION = "- `invalid_request`: `token` is missing."

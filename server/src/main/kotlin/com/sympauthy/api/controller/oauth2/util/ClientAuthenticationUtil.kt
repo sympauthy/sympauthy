@@ -1,7 +1,6 @@
 package com.sympauthy.api.controller.oauth2.util
 
 import com.sympauthy.api.exception.OAuth2Exception
-import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_CLIENT
@@ -17,8 +16,9 @@ import jakarta.inject.Singleton
  * - HTTP Basic Auth header (`Authorization: Basic <base64(client_id:client_secret)>`)
  * - Form body parameters (`client_id` / `client_secret`)
  *
- * Every refusal is `invalid_client`, RFC 6749 §5.2, and the one of credentials sent in the header also
- * carries the challenge §5.2 requires — see [OAuth2Exception.challenge].
+ * Every refusal is `invalid_client`, RFC 6749 §5.2. It carries [BASIC_CHALLENGE], and so answers `401`, wherever
+ * no public client can be the one refused: on credentials sent in the header, and on every refusal of a client
+ * that must be confidential. `docs/design/security.md` says why the rest are answered `400`.
  *
  * This logic lives in a controller-layer utility rather than in a Micronaut
  * [io.micronaut.security.filters.AuthenticationFetcher] because [io.micronaut.security.filters.AuthenticationFetcher]
@@ -34,9 +34,10 @@ class ClientAuthenticationUtil(
 ) {
 
     /**
-     * Resolve and authenticate the client for grants that always require client credentials
-     * (`client_credentials`).
-     * Public clients are rejected by this method since they cannot authenticate.
+     * Resolve and authenticate a client that must be confidential, from the Basic credentials of the
+     * `Authorization` header or else from [clientId] and [clientSecret].
+     *
+     * A public client is refused, since it cannot authenticate. Every refusal carries [BASIC_CHALLENGE].
      */
     suspend fun resolveClient(
         request: HttpRequest<*>,
@@ -44,22 +45,19 @@ class ClientAuthenticationUtil(
         clientSecret: String?
     ): Client {
         authenticateWithHeaderOrNull(request)?.let { return it }
-        if (clientId != null) {
-            return clientManager.authenticateClientOrNull(clientId, clientSecret)
-                ?: throw oauth2ExceptionOf(INVALID_CLIENT, "authentication.wrong", "description.authentication.wrong")
+        if (clientId == null) {
+            throw missingCredentialsException(challenged = true)
         }
-        throw oauth2ExceptionOf(
-            INVALID_CLIENT,
-            "authentication.missing_credentials",
-            "description.authentication.missing_credentials"
-        )
+        return clientManager.authenticateClientOrNull(clientId, clientSecret)
+            ?: throw wrongCredentialsException(challenged = true)
     }
 
     /**
-     * Resolve the client for grants that support public clients (`authorization_code`, `refresh_token`).
+     * Resolve a client that may be public, from the Basic credentials of the `Authorization` header or else
+     * from [clientId] and [clientSecret].
      *
-     * - Confidential clients must authenticate with credentials (Basic Auth or form params).
-     * - Public clients only need to provide `client_id` (no secret required).
+     * A confidential client authenticates with its secret, and a public client sends [clientId] alone. A
+     * refusal carries [BASIC_CHALLENGE] only where the client sent the header.
      */
     suspend fun resolveClientAllowingPublic(
         request: HttpRequest<*>,
@@ -67,55 +65,67 @@ class ClientAuthenticationUtil(
         clientSecret: String?
     ): Client {
         authenticateWithHeaderOrNull(request)?.let { return it }
-        if (clientId != null) {
-            // If a secret is provided, authenticate normally
-            if (!clientSecret.isNullOrBlank()) {
-                return clientManager.authenticateClientOrNull(clientId, clientSecret)
-                    ?: throw oauth2ExceptionOf(
-                        INVALID_CLIENT,
-                        "authentication.wrong",
-                        "description.authentication.wrong"
-                    )
-            }
-            // No secret: only allow if the client is public
-            return clientManager.findPublicClientByIdOrNull(clientId)
-                ?: throw oauth2ExceptionOf(INVALID_CLIENT, "authentication.wrong", "description.authentication.wrong")
+        if (clientId == null) {
+            throw missingCredentialsException(challenged = false)
         }
-        throw oauth2ExceptionOf(
-            INVALID_CLIENT,
-            "authentication.missing_credentials",
-            "description.authentication.missing_credentials"
-        )
+        val client = if (clientSecret.isNullOrBlank()) {
+            clientManager.findPublicClientByIdOrNull(clientId)
+        } else {
+            clientManager.authenticateClientOrNull(clientId, clientSecret)
+        }
+        return client ?: throw wrongCredentialsException(challenged = false)
     }
 
     /**
-     * The client the Basic credentials of the `Authorization` header authenticate, or null where the
-     * request carries none, in which case the body is read instead.
+     * The client the `Authorization` header authenticates, or null where it does not use the `Basic` scheme, in
+     * which case the body is read instead.
      *
-     * Credentials there that do not authenticate are refused with [BASIC_CHALLENGE].
+     * Credentials that do not decode, or do not authenticate, are refused with [BASIC_CHALLENGE].
+     *
+     * The scheme is matched regardless of case, as RFC 9110 §11.1 has it. The framework's parser matches it
+     * exactly, so it is handed the header with the scheme spelled its way.
      */
     private suspend fun authenticateWithHeaderOrNull(request: HttpRequest<*>): Client? {
-        val credentials = request.headers.authorization
-            ?.flatMap(BasicAuthUtils::parseCredentials)
-            ?.orElse(null)
+        val authorization = request.headers.authorization
+            .orElse(null)
+            ?.takeIf { it.startsWith(BASIC_SCHEME_PREFIX, ignoreCase = true) }
             ?: return null
+        val credentials = BasicAuthUtils
+            .parseCredentials(BASIC_SCHEME_PREFIX + authorization.substring(BASIC_SCHEME_PREFIX.length))
+            .orElse(null)
+            ?: throw wrongCredentialsException(challenged = true)
         return clientManager.authenticateClientOrNull(credentials.username, credentials.password)
-            ?: throw OAuth2Exception(
-                errorCode = INVALID_CLIENT,
-                detailsId = "authentication.wrong",
-                descriptionId = "description.authentication.wrong",
-                challenge = BASIC_CHALLENGE
-            )
+            ?: throw wrongCredentialsException(challenged = true)
     }
+
+    private fun wrongCredentialsException(challenged: Boolean) = OAuth2Exception(
+        errorCode = INVALID_CLIENT,
+        detailsId = "authentication.wrong",
+        descriptionId = "description.authentication.wrong",
+        challenge = if (challenged) BASIC_CHALLENGE else null
+    )
+
+    private fun missingCredentialsException(challenged: Boolean) = OAuth2Exception(
+        errorCode = INVALID_CLIENT,
+        detailsId = "authentication.missing_credentials",
+        descriptionId = "description.authentication.missing_credentials",
+        challenge = if (challenged) BASIC_CHALLENGE else null
+    )
 
     companion object {
         /**
-         * The challenge a client refused for the Basic credentials of its `Authorization` header is
-         * answered with: the scheme it used, as RFC 6749 §5.2 requires.
+         * The `Basic` scheme and the space separating it from the credentials, as the framework's parser spells
+         * them.
+         */
+        private const val BASIC_SCHEME_PREFIX = "Basic "
+
+        /**
+         * The challenge a refused client is answered with: the `Basic` scheme, the only one this server accepts
+         * client credentials in, as RFC 6749 §5.2 requires.
          *
-         * RFC 7617 §2 requires the realm, and the realm names the protection space within this server
-         * the credentials belong to. Client credentials are accepted on the OAuth2 surface and nowhere
-         * else, so the realm is that surface.
+         * RFC 7617 §2 requires the realm, and the realm names the protection space within this server the
+         * credentials belong to. Client credentials are accepted on the OAuth2 surface and nowhere else, so the
+         * realm is that surface.
          */
         const val BASIC_CHALLENGE = """Basic realm="oauth2""""
     }

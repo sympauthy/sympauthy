@@ -4,8 +4,6 @@ import com.sympauthy.api.controller.oauth2.TokenController.Companion.OAUTH2_TOKE
 import com.sympauthy.api.controller.oauth2.util.CLIENT_ID_PARAMETER_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.CLIENT_SECRET_PARAMETER_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil
-import com.sympauthy.api.controller.oauth2.util.INVALID_CLIENT_BAD_REQUEST_DESCRIPTION
-import com.sympauthy.api.controller.oauth2.util.INVALID_CLIENT_UNAUTHORIZED_DESCRIPTION
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.api.exception.toOAuth2Exception
 import com.sympauthy.api.resource.oauth2.TokenResource
@@ -173,12 +171,13 @@ class TokenController(
             ),
             ApiResponse(
                 responseCode = "400",
-                description = "- `invalid_request`: `grant_type` is missing; `code` is missing on the " +
-                    "`authorization_code` grant, or `refresh_token` on the `refresh_token` grant; on the token " +
-                    "exchange grant, `subject_token`, `subject_token_type` or `requested_subject` is missing, " +
-                    "or `subject_token_type` or `requested_token_type` names something other than an access " +
-                    "token.\n" +
-                    INVALID_CLIENT_BAD_REQUEST_DESCRIPTION + "\n" +
+                description = "- `invalid_request`: `grant_type` is missing; `code` or `redirect_uri` is missing " +
+                    "on the `authorization_code` grant, or `refresh_token` on the `refresh_token` grant; on the " +
+                    "token exchange grant, `subject_token`, `subject_token_type` or `requested_subject` is " +
+                    "missing, or `subject_token_type` or `requested_token_type` names something other than an " +
+                    "access token.\n" +
+                    "- `invalid_client`: on the `authorization_code` and `refresh_token` grants, no client " +
+                    "credentials are sent, or the ones sent in the body do not authenticate a client.\n" +
                     "- `invalid_grant`: `code` or `refresh_token` is unknown, expired, revoked or issued to " +
                     "another client; `redirect_uri` or `code_verifier` does not match the authorization " +
                     "request; the consent of the end-user was revoked, or the user never finished signing up; " +
@@ -196,7 +195,10 @@ class TokenController(
             ),
             ApiResponse(
                 responseCode = "401",
-                description = INVALID_CLIENT_UNAUTHORIZED_DESCRIPTION + "\n" +
+                description = "- `invalid_client`: the client credentials sent with HTTP Basic authentication " +
+                    "do not authenticate a client, or, on the `client_credentials` and token exchange grants, " +
+                    "none are sent or the ones sent in the body do not. The `WWW-Authenticate` header names " +
+                    "the `Basic` scheme.\n" +
                     "- `access_denied`: on the token exchange grant, the `rules.act-as` rules do not " +
                     "let the client act for `requested_subject`."
             ),
@@ -213,7 +215,7 @@ class TokenController(
         request: HttpRequest<*>,
         @Part(GRANT_TYPE_PARAM) grantType: String?,
         @Part(CODE_PARAM) code: String?,
-        @Part("redirect_uri") redirectUri: String?,
+        @Part(REDIRECT_URI_PARAM) redirectUri: String?,
         @Part(REFRESH_TOKEN_PARAM) refreshToken: String?,
         @Part("scope") scope: String?,
         @Part("client_id") clientId: String?,
@@ -308,6 +310,9 @@ class TokenController(
     ): TokenResource {
         if (code.isNullOrBlank()) {
             throw oauth2ExceptionOf(INVALID_REQUEST, "token.missing_param", "param" to CODE_PARAM)
+        }
+        if (redirectUri.isNullOrBlank()) {
+            throw oauth2ExceptionOf(INVALID_REQUEST, "token.missing_param", "param" to REDIRECT_URI_PARAM)
         }
 
         val session = sessionManager.findByCodeOrNull(code)
@@ -479,6 +484,7 @@ class TokenController(
         const val OAUTH2_TOKEN_ENDPOINT = "/api/oauth2/token"
         const val GRANT_TYPE_PARAM = "grant_type"
         const val CODE_PARAM = "code"
+        const val REDIRECT_URI_PARAM = "redirect_uri"
         const val REFRESH_TOKEN_PARAM = "refresh_token"
         const val SUBJECT_TOKEN_PARAM = "subject_token"
         const val SUBJECT_TOKEN_TYPE_PARAM = "subject_token_type"

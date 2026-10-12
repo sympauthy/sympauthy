@@ -360,6 +360,31 @@ class TokenControllerTest {
     }
 
     @Test
+    fun `getTokensUsingAuthorizationCode - Throws invalid_request when redirect_uri is missing`() = runTest {
+        val request = mockRequest()
+        coEvery {
+            clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
+        } returns mockClient()
+
+        val exception = assertThrows<OAuth2Exception> {
+            controller.getTokens(
+                request = request,
+                grantType = "authorization_code",
+                code = "the-code",
+                redirectUri = null,
+                refreshToken = null,
+                scope = null,
+                clientId = "client",
+                clientSecret = "secret",
+                codeVerifier = null
+            )
+        }
+        assertEquals(INVALID_REQUEST, exception.errorCode)
+        assertEquals(mapOf("param" to "redirect_uri"), exception.values)
+        coVerify(exactly = 0) { sessionManager.findByCodeOrNull(any()) }
+    }
+
+    @Test
     fun `getTokensUsingAuthorizationCode - Throws when redirect_uri does not match`() = runTest {
         val request = mockRequest()
         val session = mockk<CompletedInteractiveFlowSession>()

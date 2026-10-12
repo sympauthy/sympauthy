@@ -107,9 +107,8 @@ enum class OAuth2ErrorCode(
      * Client authentication failed (e.g., unknown client, no client authentication included, or unsupported
      * authentication method).
      *
-     * It answers `400`, the status RFC 6749 §5.2 answers every error with, unless the client sent its
-     * credentials in the `Authorization` header: §5.2 then requires a `401` and a challenge, which the
-     * exception raising it carries.
+     * It answers `400`, the status RFC 6749 §5.2 answers every error with, unless the exception raising
+     * it carries a challenge, which makes it a `401`.
      */
     INVALID_CLIENT(
         BAD_REQUEST,

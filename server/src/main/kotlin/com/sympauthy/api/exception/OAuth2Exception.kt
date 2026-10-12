@@ -11,12 +11,11 @@ class OAuth2Exception(
     val descriptionId: String? = null,
     val values: Map<String, String> = emptyMap(),
     /**
-     * The `WWW-Authenticate` value this error answers with, or null where it carries none — which is
-     * every error but a client authentication refused after the client sent its credentials in the
-     * `Authorization` header, the one case RFC 6749 §5.2 requires a challenge for.
+     * The `WWW-Authenticate` value this error answers with, or null where it asks the client for no
+     * credential.
      *
-     * An error carrying one answers `401` whatever [errorCode] says, because that is the status §5.2
-     * pairs the challenge with.
+     * An error carrying one answers `401` whatever [errorCode] says, because that is the status a
+     * challenge is sent with, RFC 9110 §15.5.2.
      */
     val challenge: String? = null
 ) : Exception(formatMessage(errorCode, detailsId)) {
