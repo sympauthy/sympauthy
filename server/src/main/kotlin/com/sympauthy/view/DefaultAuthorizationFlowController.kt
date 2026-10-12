@@ -1,5 +1,6 @@
 package com.sympauthy.view
 
+import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ENDPOINT
 import io.micronaut.core.io.ResourceResolver
 import io.micronaut.http.MediaType.TEXT_HTML
@@ -11,7 +12,8 @@ import jakarta.inject.Inject
 import kotlin.jvm.optionals.getOrNull
 
 /**
- * Serve the index.html of sympauthy-flow that have been added in the resources by the CI.
+ * Serve the index.html of sympauthy-flow that have been added in the resources by the CI, or answer
+ * `not_found` from a build it was not added to.
  */
 @Hidden
 @Controller(DEFAULT_WEB_AUTHORIZATION_FLOW_ENDPOINT)
@@ -20,9 +22,10 @@ class DefaultAuthorizationFlowController(
 ) {
 
     @Get(value = "/{path:[^\\.]*}", produces = [TEXT_HTML])
-    fun forward(path: String?): StreamedFile? {
+    fun forward(path: String?): StreamedFile {
         return resourceResolver.getResource("classpath:sympauthy-flow/index.html")
             ?.map(::StreamedFile)
             ?.getOrNull()
+            .orNotFound()
     }
 }
