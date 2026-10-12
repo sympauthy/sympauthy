@@ -53,6 +53,8 @@ a client changes one field, so two concurrent edits of different fields both sur
 | no credential, or one that does not validate | `401` |
 | a valid credential without the scope for this surface or this row | `403` |
 | no such row, or one the caller may not know exists | `404` |
+| a method, a `Content-Type` or an `Accept` the route does not answer | `405`, `415`, `406` |
+| a body larger than the server accepts | `413` |
 | the server could not complete the operation | `500` |
 
 **Choose between `403` and `404` per endpoint.** Answer `404` where the caller may not know the row

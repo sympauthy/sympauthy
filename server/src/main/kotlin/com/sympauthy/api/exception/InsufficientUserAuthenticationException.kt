@@ -1,5 +1,6 @@
 package com.sympauthy.api.exception
 
+import io.micronaut.http.HttpHeaders.WWW_AUTHENTICATE
 import io.micronaut.http.HttpStatus.UNAUTHORIZED
 import java.time.Duration
 
@@ -9,8 +10,8 @@ import java.time.Duration
  *
  * It is a [LocalizedHttpException] like any other refusal of the `api` layer, so the body a client reads
  * is [the API standard's](https://github.com/sympauthy/sympauthy/blob/main/docs/standards/api-standard.md#errors)
- * under `authentication.insufficient_user_authentication`; what makes it its own type is the
- * [challenge] beside that body, which is how a client reading headers learns the same thing.
+ * under `authentication.insufficient_user_authentication`; what makes it its own type is the challenge
+ * among its [headers], which is how a client reading headers learns the same thing.
  *
  * The client's answer is to re-authorize with `max_age` and retry with the token it is issued. A public
  * client can do that — authorizing is a redirect, and nothing in the challenge needs a secret.
@@ -36,13 +37,16 @@ class InsufficientUserAuthenticationException(
 ) {
 
     /**
-     * The `WWW-Authenticate` value this refusal answers with.
+     * The `WWW-Authenticate` challenge this refusal answers with.
      *
      * It names `max_age` alone of the two parameters RFC 9470 defines: this server publishes no
      * vocabulary of authentication strengths, so it has no `acr_values` to ask for.
      */
-    override val challenge: String
-        get() = """Bearer error="$ERROR", error_description="$ERROR_DESCRIPTION", max_age="${maxAge.seconds}""""
+    override val headers: Map<String, String>
+        get() = mapOf(
+            WWW_AUTHENTICATE to
+                """Bearer error="$ERROR", error_description="$ERROR_DESCRIPTION", max_age="${maxAge.seconds}""""
+        )
 
     companion object {
         /**

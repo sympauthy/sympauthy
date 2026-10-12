@@ -85,6 +85,8 @@ dependencies {
     // Serialization/Deserialization
     ksp("io.micronaut.serde:micronaut-serde-processor")
     implementation("io.micronaut.serde:micronaut-serde-jackson")
+    // The type the HTTP server registers a handler for, so that ExceptionHandlerFactory can replace it.
+    compileOnly("tools.jackson.core:jackson-core")
 
     // Logging
     runtimeOnly("ch.qos.logback:logback-classic")
