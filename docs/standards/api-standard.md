@@ -150,12 +150,6 @@ deployment's decision.
 
 **A new flow step served from a new origin is a configuration change as well as a controller.**
 
-## OpenAPI
-
-**The published document is [the API description standard](api-description-standard.md)'s,
-whole.** How it is produced, what its security schemes offer, and how every description in it reads
-are written there.
-
 ## Breaking a contract
 
 **A contract is reshaped rather than versioned until a release ships it.** The surface prefix in the
