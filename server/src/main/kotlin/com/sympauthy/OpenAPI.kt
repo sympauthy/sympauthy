@@ -97,6 +97,8 @@ import jakarta.inject.Singleton
                         OAuthScope(name = AdminScopeId.USERS_DELETE),
                         OAuthScope(name = AdminScopeId.CONSENT_READ),
                         OAuthScope(name = AdminScopeId.CONSENT_WRITE),
+                        OAuthScope(name = AdminScopeId.INVITATIONS_READ),
+                        OAuthScope(name = AdminScopeId.INVITATIONS_WRITE),
                         OAuthScope(name = AdminScopeId.INTERACTIVE_FLOW_SESSIONS_READ)
                     ]
                 )
@@ -116,7 +118,9 @@ import jakarta.inject.Singleton
                         OAuthScope(name = BuiltInClientScopeId.USERS_CLAIMS_WRITE),
                         OAuthScope(name = BuiltInClientScopeId.USERS_MFA_READ),
                         OAuthScope(name = BuiltInClientScopeId.USERS_MFA_WRITE),
-                        OAuthScope(name = BuiltInClientScopeId.USERS_PROVIDERS_WRITE)
+                        OAuthScope(name = BuiltInClientScopeId.USERS_PROVIDERS_WRITE),
+                        OAuthScope(name = BuiltInClientScopeId.INVITATIONS_READ),
+                        OAuthScope(name = BuiltInClientScopeId.INVITATIONS_WRITE)
                     ]
                 )
             )

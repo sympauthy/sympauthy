@@ -150,23 +150,6 @@ deployment's decision.
 
 **A new flow step served from a new origin is a configuration change as well as a controller.**
 
-## OpenAPI
-
-**The document is generated from the annotations and the KDoc, and it is not committed.**
-
-**How a description reads is [the API description standard](api-description-standard.md).** This
-section says where each one is written.
-
-**The document names no address at build time.** It carries a placeholder, and the controller
-serving it substitutes the configured public URL on the way out.
-
-**A rule a caller needs while writing a request is on the parameter it governs.** An operation's own
-description says what the operation is for, and a tag's sits above every operation of the surface at
-once, so neither is where a reader looks for what one parameter accepts.
-
-**A client is generated from the published document.** Two annotation processors produce a
-specification here and they do not agree; the published one is what an integrator gets.
-
 ## Breaking a contract
 
 **A contract is reshaped rather than versioned until a release ships it.** The surface prefix in the
