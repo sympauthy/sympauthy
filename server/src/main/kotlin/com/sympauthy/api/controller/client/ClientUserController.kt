@@ -11,7 +11,6 @@ import com.sympauthy.api.util.SIZE_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.user.ClientUserManager
 import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
 import com.sympauthy.security.SecurityRule.CLIENT_USERS_READ
@@ -36,7 +35,6 @@ import java.util.*
 @Secured(CLIENT_USERS_READ)
 @SecurityRequirement(name = "client", scopes = [BuiltInClientScopeId.USERS_READ])
 class ClientUserController(
-    @Inject private val clientManager: ClientManager,
     @Inject private val clientUserManager: ClientUserManager,
     @Inject private val userMapper: ClientUserResourceMapper,
     @Inject private val paginationUtil: PaginationUtil
@@ -86,7 +84,7 @@ class ClientUserController(
         @QueryValue @Parameter(description = SIZE_PARAMETER_DESCRIPTION) size: Int?
     ): ClientUserListResource {
         val clientAuth = authentication.clientAuthentication
-        val client = clientManager.findClientById(clientAuth.clientId)
+        val client = clientAuth.client
         val pageParams = paginationUtil.resolvePageParams(page, size)
         val criteria = collectionCriteriaOf(request, clientUserManager.capabilities())
         val users = clientUserManager.listUsersForAudience(
@@ -122,7 +120,7 @@ class ClientUserController(
         @PathVariable @Parameter(description = "Identifier of the user.") userId: UUID
     ): ClientUserResource {
         val clientAuth = authentication.clientAuthentication
-        val client = clientManager.findClientById(clientAuth.clientId)
+        val client = clientAuth.client
         val clientUser = clientUserManager.findUserForAudienceOrNull(client.audience.id, userId).orNotFound()
         return userMapper.toResource(clientUser)
     }

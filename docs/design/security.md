@@ -133,6 +133,11 @@ An access token issued to a person grants a user role and that token's scopes; c
 grant a client role and the client's own scopes; the signed state of an interactive flow grants a
 role that says only which flow is asking. The package is the source of truth for which exist.
 
+**An authentication made from an access token carries the client the token was issued to**, looked
+up once where the token is validated. A handler reads the client there rather than asking the
+configuration again, so a client the configuration no longer declares is refused in one place and
+with one status, because [a token does not outlive its client](#tokens).
+
 **The user authentication carries the consented and granted scopes separately**, because they answer
 different questions: what the person agreed to share, and what the deployment's rules decided they
 may do. Merging them at the moment of authentication would lose the distinction everywhere
@@ -171,6 +176,18 @@ being usable on its own.
 **A revoked token stops working immediately**, because revocation is a row rather than a shorter
 expiry. This is the deliberate cost of not being purely stateless: every request presenting a token
 asks the database about it.
+
+**A token does not outlive its client.** A token naming a client the configuration no longer
+declares is a credential that does not validate, and it is refused with a `401` on every surface it
+is presented to. Removing a client is how a deployment withdraws it, and a client withdrawn can no
+longer authenticate to refresh, introspect or revoke what it holds — so a token surviving it would
+be one nothing could withdraw before it expired. The token's scopes are already read this way, each
+looked up among the scopes the deployment serves now; a client cannot be dropped from a token and
+leave a token behind.
+
+**It is refused, not revoked.** Nothing is written to the token's row, so a client declared again
+under the same identifier finds its unexpired tokens served again. [The design
+FAQ](design-faq.md#does-a-token-outlive-its-client) argues the alternatives.
 
 ### When the person authenticated
 

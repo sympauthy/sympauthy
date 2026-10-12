@@ -7,7 +7,6 @@ import com.sympauthy.api.resource.client.ClientMfaEnrollmentInputResource
 import com.sympauthy.api.resource.client.ClientMfaEnrollmentResource
 import com.sympauthy.api.util.RETURN_URI_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
-import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
 import com.sympauthy.business.manager.client.ClientRedirectUriManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
@@ -50,7 +49,6 @@ import jakarta.inject.Inject
 class ClientMfaEnrollmentController(
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
     @Inject private val clientRedirectUriManager: ClientRedirectUriManager,
-    @Inject private val clientManager: ClientManager,
     @Inject private val tokenManager: TokenManager,
     @Inject private val mfaEnrollmentManager: InteractiveFlowSessionMfaEnrollmentManager,
     @Inject private val engine: InteractiveFlowEngine,
@@ -102,7 +100,7 @@ class ClientMfaEnrollmentController(
             )
         }
 
-        val client = clientManager.findClientById(authentication.clientAuthentication.clientId)
+        val client = authentication.clientAuthentication.client
 
         // Validate the end-user access token: signature, expiry, not revoked, issued to the calling client
         // (enforced by introspectToken), and associated with an end-user (not a client-credentials token).

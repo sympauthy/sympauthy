@@ -7,7 +7,6 @@ import com.sympauthy.api.resource.client.ClientInvitationResource
 import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.api.util.collectionRequest
 import com.sympauthy.api.util.noCapabilities
-import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.collection.InvitationCollectionManager
 import com.sympauthy.business.model.page.Page
@@ -37,9 +36,6 @@ import java.util.*
 class ClientInvitationControllerTest {
 
     @MockK
-    lateinit var clientManager: ClientManager
-
-    @MockK
     lateinit var invitationManager: InvitationManager
 
     @MockK
@@ -56,11 +52,14 @@ class ClientInvitationControllerTest {
 
     private val createdAt: LocalDateTime = LocalDateTime.of(2025, 1, 1, 0, 0)
 
-    private fun clientAuthentication(clientId: String, vararg scopes: String): ClientAuthentication {
+    private fun clientAuthentication(client: Client, vararg scopes: String): ClientAuthentication =
+        ClientAuthentication(mockk(), client, scopes.map(::ClientScope))
+
+    private fun clientAuthentication(clientId: String): ClientAuthentication {
         val authenticationToken = mockk<AuthenticationToken> {
             every { this@mockk.clientId } returns clientId
         }
-        return ClientAuthentication(authenticationToken, scopes.map(::ClientScope))
+        return ClientAuthentication(authenticationToken, mockk(), emptyList())
     }
 
     private fun id(last: Int): UUID = UUID.fromString("00000000-0000-0000-0000-00000000000$last")
@@ -114,7 +113,7 @@ class ClientInvitationControllerTest {
         val resource = createdResource(invitation.id)
         val claims = mapOf("custom_region" to "eu-west")
 
-        coEvery { clientManager.findClientById("client") } returns mockk<Client> {
+        val client = mockk<Client> {
             every { id } returns "client"
             every { audience } returns Audience(id = "default", tokenAudience = "https://default.example.com")
         }
@@ -132,7 +131,7 @@ class ClientInvitationControllerTest {
         every { invitationMapper.toCreatedResource(invitation, "raw-token") } returns resource
 
         val result = controller.createInvitation(
-            clientAuthentication("client", "invitations:write", "users:claims:write"),
+            clientAuthentication(client, "invitations:write", "users:claims:write"),
             ClientCreateInvitationInputResource(expiresAt = null, claims = claims, note = "welcome"),
         )
 

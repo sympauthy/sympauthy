@@ -17,13 +17,13 @@ class ClientAuthenticationTest {
 
     /** The roles are derived from the scopes alone; only the name is read off the token. */
     private fun createAuthentication(scopes: List<EnabledScope>): ClientAuthentication =
-        ClientAuthentication(authenticationToken = mockk(), scopes = scopes)
+        ClientAuthentication(authenticationToken = mockk(), client = mockk(), scopes = scopes)
 
     @Test
     fun `getName - Returns clientId`() {
         val token = mockk<AuthenticationToken> { every { clientId } returns "test-client" }
 
-        val auth = ClientAuthentication(authenticationToken = token, scopes = emptyList())
+        val auth = ClientAuthentication(authenticationToken = token, client = mockk(), scopes = emptyList())
 
         assertEquals("test-client", auth.name)
     }

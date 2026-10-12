@@ -7,7 +7,6 @@ import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.user.ClientUserManager
@@ -29,7 +28,6 @@ import java.util.*
 
 @Controller("/api/v1/client/users/{userId}/claims")
 class ClientUserClaimController(
-    @Inject private val clientManager: ClientManager,
     @Inject private val clientUserManager: ClientUserManager,
     @Inject private val claimManager: ClaimManager,
     @Inject private val generatedClaimsManager: GeneratedClaimsManager,
@@ -62,7 +60,7 @@ class ClientUserClaimController(
         @PathVariable @Parameter(description = "Identifier of the user.") userId: UUID
     ): ClientUserClaimResource {
         val clientAuth = authentication.clientAuthentication
-        val client = clientManager.findClientById(clientAuth.clientId)
+        val client = clientAuth.client
         val audienceId = client.audience.id
         val clientScopeIds = clientAuth.scopes.map { it.scope }
         clientUserManager.findUserForAudienceOrNull(audienceId, userId).orNotFound()
@@ -111,7 +109,7 @@ class ClientUserClaimController(
         @Body body: Map<String, Any?>
     ): ClientUserClaimResource {
         val clientAuth = authentication.clientAuthentication
-        val client = clientManager.findClientById(clientAuth.clientId)
+        val client = clientAuth.client
         val audienceId = client.audience.id
         val clientScopeIds = clientAuth.scopes.map { it.scope }
 

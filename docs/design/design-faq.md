@@ -305,6 +305,37 @@ a deployment writing `published-in` on claim after claim deliberately.
 
 ---
 
+### Does a token outlive its client?
+
+**Decision:** No. A token naming a client the configuration no longer declares is refused with a
+`401` whenever it is presented, and its row is left as it is.
+
+**Options considered:**
+
+- **Honour it until it expires** — the token was valid when it was issued, and removing the client
+  already stops it obtaining another.
+- **Refuse it when it is presented** — the client is looked up on every request, beside the row.
+- **Revoke it** — write the revocation to every row naming the client, once the client is found
+  missing.
+
+**Rationale:**
+
+Honouring it leaves a token nothing can withdraw. Revocation under RFC 7009 is the client's own and
+needs it to authenticate, which a client the configuration no longer declares cannot do; an
+administrator revokes by person, and a `client_credentials` token has none. The token would serve
+until it expired, and the operator who removed the client would have no way to say otherwise.
+
+Revoking writes rows because a file changed, which nothing in this server does at startup, and it
+cannot be taken back: an identifier mistyped in an edit would sign every person of that client out
+for good, where refusing costs them only until the edit is corrected. Revocation also records who
+revoked, and no person and no client did.
+
+What refusing costs is that a client declared again under the same identifier finds its unexpired
+tokens served again. A refresh is the client's own and needs it to authenticate, so what returns is
+what the client still holds, for as long as it has left to run.
+
+---
+
 ## Clients
 
 ### May a client's default scopes fall outside its allowed scopes?
