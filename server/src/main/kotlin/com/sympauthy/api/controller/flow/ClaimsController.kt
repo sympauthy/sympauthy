@@ -7,6 +7,8 @@ import com.sympauthy.api.mapper.flow.ClaimsResourceMapper
 import com.sympauthy.api.resource.flow.ClaimInputResource
 import com.sympauthy.api.resource.flow.ClaimsFlowResource
 import com.sympauthy.api.resource.flow.SimpleFlowResource
+import com.sympauthy.api.util.BODY_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.FLOW_FAILURE_DESCRIPTION
 import com.sympauthy.api.util.FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION
 import com.sympauthy.api.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
@@ -103,9 +105,11 @@ class ClaimsController(
                 responseCode = "400",
                 description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION +
                     "\n- `flow.claims.invalid`: one or more values are refused, and `properties` holds the " +
-                    "failure of each by claim identifier."
+                    "failure of each by claim identifier.\n" +
+                    BODY_BAD_REQUEST_DESCRIPTION
             ),
-            ApiResponse(responseCode = "401", description = FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION)
+            ApiResponse(responseCode = "401", description = FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION),
+            ApiResponse(responseCode = "413", description = BODY_TOO_LARGE_RESPONSE_DESCRIPTION)
         ],
         tags = ["flow"]
     )

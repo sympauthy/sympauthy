@@ -5,6 +5,8 @@ import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControll
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.api.resource.client.ClientProviderLinkInputResource
 import com.sympauthy.api.resource.client.ClientProviderLinkResource
+import com.sympauthy.api.util.BODY_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.RETURN_URI_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
@@ -78,7 +80,8 @@ class ClientProviderLinkController(
                 responseCode = "400",
                 description = "- `client.providers.link.invalid_access_token`: `access_token` is absent, is not an " +
                     "active access token this server issued to this client, or was issued for no end-user.\n" +
-                    RETURN_URI_BAD_REQUEST_DESCRIPTION
+                    RETURN_URI_BAD_REQUEST_DESCRIPTION + "\n" +
+                    BODY_BAD_REQUEST_DESCRIPTION
             ),
             ApiResponse(responseCode = "401", description = CLIENT_TOKEN_UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
@@ -89,7 +92,8 @@ class ClientProviderLinkController(
                 responseCode = "404",
                 description = "- `not_found`: no provider with this identifier is configured, or its configuration " +
                     "is invalid."
-            )
+            ),
+            ApiResponse(responseCode = "413", description = BODY_TOO_LARGE_RESPONSE_DESCRIPTION)
         ]
     )
     @Post

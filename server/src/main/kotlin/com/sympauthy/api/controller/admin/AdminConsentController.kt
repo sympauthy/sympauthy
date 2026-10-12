@@ -8,6 +8,7 @@ import com.sympauthy.api.util.COLLECTION_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_NAME
 import com.sympauthy.api.util.PAGE_PARAMETER_DESCRIPTION
+import com.sympauthy.api.util.PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.SEARCH_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.SIZE_PARAMETER_DESCRIPTION
@@ -117,6 +118,7 @@ class AdminConsentController(
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "What the collection of a user's consents accepts."),
+            ApiResponse(responseCode = "400", description = PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION),
             ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
@@ -141,6 +143,7 @@ class AdminConsentController(
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "204", description = "The consent was revoked."),
+            ApiResponse(responseCode = "400", description = PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION),
             ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",

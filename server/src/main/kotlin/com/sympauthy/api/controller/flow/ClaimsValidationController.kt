@@ -4,6 +4,8 @@ import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControll
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.api.mapper.flow.ClaimsValidationFlowResultResourceMapper
 import com.sympauthy.api.resource.flow.*
+import com.sympauthy.api.util.BODY_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.FLOW_FAILURE_DESCRIPTION
 import com.sympauthy.api.util.FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION
 import com.sympauthy.api.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
@@ -11,6 +13,7 @@ import com.sympauthy.api.util.FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.FLOW_REDIRECT_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.FLOW_SIGNED_IN_SESSION_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.FLOW_STATE_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionClaimValidationManager
 import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.security.ObservedRequest
@@ -47,7 +50,11 @@ class ClaimsValidationController(
                 description = "The validation code expected, or the `redirect_url` to send the browser to instead.",
                 useReturnTypeSchema = true
             ),
-            ApiResponse(responseCode = "400", description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION),
+            ApiResponse(
+                responseCode = "400",
+                description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION + "\n" +
+                    PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION
+            ),
             ApiResponse(responseCode = "401", description = FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION)
         ],
         tags = ["flow"]
@@ -95,9 +102,11 @@ class ClaimsValidationController(
                 description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION +
                     "\n- `flow.claim_validation.invalid_code`: `code` matches no validation code sent through " +
                     "`media` during this interactive flow session.\n" +
-                    "- `flow.claim_validation.expired_code`: `code` matches a validation code that has expired."
+                    "- `flow.claim_validation.expired_code`: `code` matches a validation code that has expired.\n" +
+                    BODY_BAD_REQUEST_DESCRIPTION
             ),
-            ApiResponse(responseCode = "401", description = FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION)
+            ApiResponse(responseCode = "401", description = FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION),
+            ApiResponse(responseCode = "413", description = BODY_TOO_LARGE_RESPONSE_DESCRIPTION)
         ],
         tags = ["flow"]
     )
@@ -134,9 +143,11 @@ class ClaimsValidationController(
             ),
             ApiResponse(
                 responseCode = "400",
-                description = FLOW_STATE_BAD_REQUEST_DESCRIPTION + FLOW_SIGNED_IN_SESSION_BAD_REQUEST_DESCRIPTION
+                description = FLOW_STATE_BAD_REQUEST_DESCRIPTION + FLOW_SIGNED_IN_SESSION_BAD_REQUEST_DESCRIPTION +
+                    "\n" + BODY_BAD_REQUEST_DESCRIPTION
             ),
-            ApiResponse(responseCode = "401", description = FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION)
+            ApiResponse(responseCode = "401", description = FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION),
+            ApiResponse(responseCode = "413", description = BODY_TOO_LARGE_RESPONSE_DESCRIPTION)
         ],
         tags = ["flow"]
     )

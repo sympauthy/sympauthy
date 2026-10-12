@@ -3,6 +3,9 @@ package com.sympauthy.api.controller.client
 import com.sympauthy.api.mapper.CollectedClaimUpdateMapper
 import com.sympauthy.api.mapper.client.ClientUserClaimResourceMapper
 import com.sympauthy.api.resource.client.ClientUserClaimResource
+import com.sympauthy.api.util.BODY_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
+import com.sympauthy.api.util.PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
@@ -46,6 +49,7 @@ class ClientUserClaimController(
         tags = ["client"],
         responses = [
             ApiResponse(responseCode = "200", description = "The claims of the user this client may read."),
+            ApiResponse(responseCode = "400", description = PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION),
             ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
@@ -92,14 +96,17 @@ class ClientUserClaimController(
                     "- `client.invalid_claim`: the body names a claim that is not configured or not enabled, " +
                     "one restricted to another audience, or one this client may not write.\n" +
                     "- `flow.claims.invalid`: one or more values are refused. `properties` holds an entry per " +
-                    "refused claim, under its identifier, with a `user.claim_value_validator` code."
+                    "refused claim, under its identifier, with a `user.claim_value_validator` code.\n" +
+                    PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION + "\n" +
+                    BODY_BAD_REQUEST_DESCRIPTION
             ),
             ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
                 description = "- `forbidden`: the access token does not carry the scope `users:claims:write`."
             ),
-            ApiResponse(responseCode = "404", description = CLIENT_USER_NOT_FOUND_RESPONSE_DESCRIPTION)
+            ApiResponse(responseCode = "404", description = CLIENT_USER_NOT_FOUND_RESPONSE_DESCRIPTION),
+            ApiResponse(responseCode = "413", description = BODY_TOO_LARGE_RESPONSE_DESCRIPTION)
         ]
     )
     @Patch

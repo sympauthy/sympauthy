@@ -21,6 +21,26 @@ const val UNAUTHORIZED_RESPONSE_DESCRIPTION =
         "presented in that exchange has expired."
 
 /**
+ * The line of the `400` an operation answers with when a value sent for one of its parameters cannot be
+ * read as the parameter's type.
+ */
+const val PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION =
+    "- `parameter.malformed`: a parameter cannot be read as its type."
+
+/**
+ * The lines of the `400` an operation taking a JSON body answers with when the body cannot be read.
+ */
+const val BODY_BAD_REQUEST_DESCRIPTION =
+    "- `body.malformed`: the body is not JSON, or a property in it is missing or holds a value of the " +
+        "wrong type.\n" +
+        "- `body.missing`: no body is sent."
+
+/**
+ * What the published specification says about the `413` every operation taking a body answers with.
+ */
+const val BODY_TOO_LARGE_RESPONSE_DESCRIPTION = "- `body.too_large`: the body is larger than this server accepts."
+
+/**
  * The lines of the `400` an operation answers with when it refuses the `return_uri` or the `cancel_uri`
  * of its body, each checked against the client the interactive flow session returns into.
  */

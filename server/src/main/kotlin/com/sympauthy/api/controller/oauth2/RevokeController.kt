@@ -7,6 +7,7 @@ import com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil
 import com.sympauthy.api.controller.oauth2.util.TOKEN_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.TOKEN_TYPE_HINT_PARAMETER_DESCRIPTION
 import com.sympauthy.api.exception.oauth2ExceptionOf
+import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import io.micronaut.http.HttpRequest
@@ -65,7 +66,8 @@ class RevokeController(
                 description = "Empty body. Answered as well when the token does not validate, is already revoked " +
                     "or was issued to another client, which leaves it as it is."
             ),
-            ApiResponse(responseCode = "400", description = TOKEN_BAD_REQUEST_DESCRIPTION)
+            ApiResponse(responseCode = "400", description = TOKEN_BAD_REQUEST_DESCRIPTION),
+            ApiResponse(responseCode = "413", description = BODY_TOO_LARGE_RESPONSE_DESCRIPTION)
         ],
         externalDocs = ExternalDocumentation(
             description = "RFC 7009",

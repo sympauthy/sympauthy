@@ -5,11 +5,14 @@ import com.sympauthy.api.resource.client.ClientCreateInvitationInputResource
 import com.sympauthy.api.resource.client.ClientCreatedInvitationResource
 import com.sympauthy.api.resource.client.ClientInvitationListResource
 import com.sympauthy.api.resource.client.ClientInvitationResource
+import com.sympauthy.api.util.BODY_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.CLAIM_VALUE_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.COLLECTION_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_NAME
 import com.sympauthy.api.util.PAGE_PARAMETER_DESCRIPTION
+import com.sympauthy.api.util.PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.SEARCH_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.SIZE_PARAMETER_DESCRIPTION
@@ -85,13 +88,15 @@ class ClientInvitationController(
                     "- `invitation.claim_of_another_audience`: `claims` names a claim restricted to another " +
                     "audience.\n" +
                     "- `invitation.claim_not_writable`: `claims` names a claim this client may not write.\n" +
-                    CLAIM_VALUE_BAD_REQUEST_DESCRIPTION
+                    CLAIM_VALUE_BAD_REQUEST_DESCRIPTION + "\n" +
+                    BODY_BAD_REQUEST_DESCRIPTION
             ),
             ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
                 description = "- `forbidden`: the access token does not carry the scope `invitations:write`."
-            )
+            ),
+            ApiResponse(responseCode = "413", description = BODY_TOO_LARGE_RESPONSE_DESCRIPTION)
         ]
     )
     @Post
@@ -207,6 +212,7 @@ class ClientInvitationController(
         tags = ["client"],
         responses = [
             ApiResponse(responseCode = "200", description = "The invitation."),
+            ApiResponse(responseCode = "400", description = PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION),
             ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
@@ -236,7 +242,8 @@ class ClientInvitationController(
             ApiResponse(responseCode = "200", description = "The invitation, now `revoked`."),
             ApiResponse(
                 responseCode = "400",
-                description = "- `invitation.cannot_revoke`: the invitation is not `pending`."
+                description = "- `invitation.cannot_revoke`: the invitation is not `pending`.\n" +
+                    PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION
             ),
             ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(

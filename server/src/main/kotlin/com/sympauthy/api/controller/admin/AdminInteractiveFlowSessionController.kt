@@ -10,6 +10,7 @@ import com.sympauthy.api.util.COLLECTION_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_NAME
 import com.sympauthy.api.util.PAGE_PARAMETER_DESCRIPTION
+import com.sympauthy.api.util.PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.SEARCH_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.SIZE_PARAMETER_DESCRIPTION
@@ -130,6 +131,7 @@ class AdminInteractiveFlowSessionController(
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "The interactive flow session."),
+            ApiResponse(responseCode = "400", description = PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION),
             ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(responseCode = "403", description = FORBIDDEN_DESCRIPTION),
             ApiResponse(responseCode = "404", description = SESSION_NOT_FOUND_DESCRIPTION)
@@ -211,6 +213,7 @@ class AdminInteractiveFlowSessionController(
                 responseCode = "200",
                 description = "What the collection of an interactive flow session's security contexts accepts."
             ),
+            ApiResponse(responseCode = "400", description = PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION),
             ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(responseCode = "403", description = FORBIDDEN_DESCRIPTION)
         ]

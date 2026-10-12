@@ -9,10 +9,13 @@ import com.sympauthy.api.resource.admin.AdminCollectionCapabilitiesResource
 import com.sympauthy.api.resource.admin.AdminUserProviderLinkInputResource
 import com.sympauthy.api.resource.admin.AdminUserProviderLinkResource
 import com.sympauthy.api.resource.admin.AdminUserProviderListResource
+import com.sympauthy.api.util.BODY_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.COLLECTION_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_NAME
 import com.sympauthy.api.util.PAGE_PARAMETER_DESCRIPTION
+import com.sympauthy.api.util.PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.RETURN_URI_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.SEARCH_PARAMETER_DESCRIPTION
@@ -135,6 +138,7 @@ class AdminUserProviderController(
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "What the collection of a user's providers accepts."),
+            ApiResponse(responseCode = "400", description = PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION),
             ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
@@ -158,6 +162,7 @@ class AdminUserProviderController(
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "204", description = "The provider was unlinked."),
+            ApiResponse(responseCode = "400", description = PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION),
             ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
@@ -194,7 +199,12 @@ class AdminUserProviderController(
                 description = "Where to send the end-user's browser to link the provider.",
                 useReturnTypeSchema = true
             ),
-            ApiResponse(responseCode = "400", description = RETURN_URI_BAD_REQUEST_DESCRIPTION),
+            ApiResponse(
+                responseCode = "400",
+                description = RETURN_URI_BAD_REQUEST_DESCRIPTION + "\n" +
+                    PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION + "\n" +
+                    BODY_BAD_REQUEST_DESCRIPTION
+            ),
             ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
@@ -204,7 +214,8 @@ class AdminUserProviderController(
                 responseCode = "404",
                 description = "- `not_found`: no user has the identifier `userId`, `client_id` is absent or names " +
                         "no client, or `providerId` names no enabled provider."
-            )
+            ),
+            ApiResponse(responseCode = "413", description = BODY_TOO_LARGE_RESPONSE_DESCRIPTION)
         ]
     )
     @Post("/{providerId}/link")

@@ -9,6 +9,8 @@ import com.sympauthy.api.resource.flow.ProviderResource
 import com.sympauthy.api.resource.flow.SignInFlowResource
 import com.sympauthy.api.resource.flow.SignInInputResource
 import com.sympauthy.api.resource.flow.SimpleFlowResource
+import com.sympauthy.api.util.BODY_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.FLOW_FAILURE_DESCRIPTION
 import com.sympauthy.api.util.FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION
 import com.sympauthy.api.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
@@ -219,9 +221,11 @@ class SignInController(
                     "\n- `flow.password.sign_in.invalid`: `login` or `password` is absent, or the two match no " +
                     "enabled user.\n" +
                     "- `flow.reauthentication.wrong_account`: the end-user is re-authenticating, and `login` and " +
-                    "`password` are another user's."
+                    "`password` are another user's.\n" +
+                    BODY_BAD_REQUEST_DESCRIPTION
             ),
-            ApiResponse(responseCode = "401", description = FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION)
+            ApiResponse(responseCode = "401", description = FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION),
+            ApiResponse(responseCode = "413", description = BODY_TOO_LARGE_RESPONSE_DESCRIPTION)
         ],
         tags = ["flow"]
     )
