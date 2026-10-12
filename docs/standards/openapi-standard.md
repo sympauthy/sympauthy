@@ -6,7 +6,7 @@ paths:
   - "server/src/main/kotlin/com/sympauthy/OpenAPI.kt"
 ---
 
-# API description standard
+# OpenAPI standard
 
 How the published OpenAPI document is produced, and how its text reads: an operation's description,
 a parameter's, a response's, a schema's and a property's. That a resource is documented on the class
