@@ -4,7 +4,6 @@ import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.resource.client.ClientMfaEnrollmentInputResource
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
 import com.sympauthy.business.manager.client.ClientRedirectUriManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
@@ -46,9 +45,6 @@ class ClientMfaEnrollmentControllerTest {
     lateinit var clientRedirectUriManager: ClientRedirectUriManager
 
     @MockK
-    lateinit var clientManager: ClientManager
-
-    @MockK
     lateinit var tokenManager: TokenManager
 
     @MockK
@@ -71,7 +67,6 @@ class ClientMfaEnrollmentControllerTest {
     private fun controller(mfaConfig: MfaConfig) = ClientMfaEnrollmentController(
         interactiveAuthFlowSessionManager = interactiveAuthFlowSessionManager,
         clientRedirectUriManager = clientRedirectUriManager,
-        clientManager = clientManager,
         tokenManager = tokenManager,
         mfaEnrollmentManager = mfaEnrollmentManager,
         engine = engine,
@@ -82,22 +77,18 @@ class ClientMfaEnrollmentControllerTest {
     )
 
     /** An authentication for the paths refused before they ask which client is calling. */
-    private fun clientAuthentication(): ClientAuthentication = ClientAuthentication(mockk(), emptyList())
+    private fun clientAuthentication(): ClientAuthentication = ClientAuthentication(mockk(), mockk(), emptyList())
 
-    private fun clientAuthentication(clientId: String): ClientAuthentication {
-        val authenticationToken = mockk<AuthenticationToken> {
-            every { this@mockk.clientId } returns clientId
-        }
-        return ClientAuthentication(authenticationToken, emptyList())
-    }
+    private fun clientAuthentication(client: Client): ClientAuthentication =
+        ClientAuthentication(mockk(), client, emptyList())
 
     @Test
     @Suppress("MaxLineLength")
     fun `startEnrollment - Validates the token and return URI, starts the session, and returns state and redirect URL`() =
         runTest {
             val userId = UUID.randomUUID()
-            val authentication = clientAuthentication("client-id")
             val client = mockk<Client>()
+            val authentication = clientAuthentication(client)
             val userToken = mockk<AuthenticationToken> {
                 every { this@mockk.userId } returns userId
             }
@@ -107,7 +98,6 @@ class ClientMfaEnrollmentControllerTest {
             val steppedSession = mockk<OnGoingInteractiveFlowSession>()
             val enrollUri = URI.create("https://auth.example.com/flow/mfa/enrollment?state=abc")
 
-            coEvery { clientManager.findClientById("client-id") } returns client
             every { client.id } returns "client-id"
             coEvery { tokenManager.introspectToken(client, "user-access-token", "access_token") } returns userToken
             every {
@@ -145,8 +135,8 @@ class ClientMfaEnrollmentControllerTest {
     @Test
     fun `startEnrollment - Validates and forwards the optional cancel URI`() = runTest {
         val userId = UUID.randomUUID()
-        val authentication = clientAuthentication("client-id")
         val client = mockk<Client>()
+        val authentication = clientAuthentication(client)
         val userToken = mockk<AuthenticationToken> {
             every { this@mockk.userId } returns userId
         }
@@ -157,7 +147,6 @@ class ClientMfaEnrollmentControllerTest {
         val steppedSession = mockk<OnGoingInteractiveFlowSession>()
         val enrollUri = URI.create("https://auth.example.com/flow/mfa/enrollment?state=abc")
 
-        coEvery { clientManager.findClientById("client-id") } returns client
         every { client.id } returns "client-id"
         coEvery { tokenManager.introspectToken(client, "user-access-token", "access_token") } returns userToken
         every {
@@ -220,10 +209,9 @@ class ClientMfaEnrollmentControllerTest {
 
     @Test
     fun `startEnrollment - Fails with invalid_access_token when the token cannot be introspected`() = runTest {
-        val authentication = clientAuthentication("client-id")
         val client = mockk<Client>()
+        val authentication = clientAuthentication(client)
 
-        coEvery { clientManager.findClientById("client-id") } returns client
         coEvery { tokenManager.introspectToken(client, "bad-token", "access_token") } returns null
 
         val exception = assertThrows<BusinessException> {
@@ -244,13 +232,12 @@ class ClientMfaEnrollmentControllerTest {
     @Test
     fun `startEnrollment - Fails with invalid_access_token when the token is not associated with an end-user`() =
         runTest {
-            val authentication = clientAuthentication("client-id")
             val client = mockk<Client>()
+            val authentication = clientAuthentication(client)
             val clientOnlyToken = mockk<AuthenticationToken> {
                 every { userId } returns null
             }
 
-            coEvery { clientManager.findClientById("client-id") } returns client
             coEvery { tokenManager.introspectToken(client, "client-token", "access_token") } returns clientOnlyToken
 
             val exception = assertThrows<BusinessException> {

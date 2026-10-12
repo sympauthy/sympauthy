@@ -17,7 +17,6 @@ import com.sympauthy.api.util.SORT_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.collection.InvitationCollectionManager
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
@@ -44,7 +43,6 @@ import java.util.*
 
 @Controller("/api/v1/client/invitations")
 class ClientInvitationController(
-    @Inject private val clientManager: ClientManager,
     @Inject private val invitationManager: InvitationManager,
     @Inject private val invitationCollectionManager: InvitationCollectionManager,
     @Inject private val invitationMapper: ClientInvitationResourceMapper,
@@ -103,7 +101,7 @@ class ClientInvitationController(
         @Body input: ClientCreateInvitationInputResource
     ): ClientCreatedInvitationResource {
         val clientAuth = authentication.clientAuthentication
-        val client = clientManager.findClientById(clientAuth.clientId)
+        val client = clientAuth.client
         val expiresAt = input.expiresAt?.let { LocalDateTime.parse(it) }
         val clientScopeIds = clientAuth.scopes.map { it.scope }
         val (invitation, rawToken) = invitationManager.createInvitation(

@@ -1,6 +1,7 @@
 package com.sympauthy.security
 
 import com.sympauthy.api.exception.httpExceptionOf
+import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.business.model.oauth2.isAdmin
@@ -18,6 +19,10 @@ class UserAuthentication(
      * The token used by the end-user to authorize its request.
      */
     val authenticationToken: AuthenticationToken,
+    /**
+     * The client the [authenticationToken] was issued to, as the configuration declares it now.
+     */
+    val client: Client,
     /**
      * Scopes obtained through user consent (e.g., profile, email).
      */

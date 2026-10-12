@@ -5,7 +5,6 @@ import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControll
 import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.resource.client.ClientProviderLinkInputResource
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
 import com.sympauthy.business.manager.client.ClientRedirectUriManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
@@ -48,9 +47,6 @@ class ClientProviderLinkControllerTest {
     lateinit var clientRedirectUriManager: ClientRedirectUriManager
 
     @MockK
-    lateinit var clientManager: ClientManager
-
-    @MockK
     lateinit var tokenManager: TokenManager
 
     @MockK
@@ -76,19 +72,15 @@ class ClientProviderLinkControllerTest {
 
     private val observed = observedRequestOf()
 
-    private fun clientAuthentication(clientId: String): ClientAuthentication {
-        val authenticationToken = mockk<AuthenticationToken> {
-            every { this@mockk.clientId } returns clientId
-        }
-        return ClientAuthentication(authenticationToken, emptyList())
-    }
+    private fun clientAuthentication(client: Client): ClientAuthentication =
+        ClientAuthentication(mockk(), client, emptyList())
 
     @Test
     fun `startLink - Validates token, provider and return URI, starts the session, returns state and redirect URL`() =
         runTest {
             val userId = UUID.randomUUID()
-            val authentication = clientAuthentication("client-id")
             val client = mockk<Client> { every { id } returns "client-id" }
+            val authentication = clientAuthentication(client)
             val userToken = mockk<AuthenticationToken> { every { this@mockk.userId } returns userId }
             val returnUri = URI.create("https://client.example.com/linked")
             val flow = mockk<InteractiveFlow>()
@@ -96,7 +88,6 @@ class ClientProviderLinkControllerTest {
             val steppedSession = mockk<OnGoingInteractiveFlowSession>()
             val nextUri = URI.create("https://auth.example.com/flow/confirm?state=abc")
 
-            coEvery { clientManager.findClientById("client-id") } returns client
             coEvery { tokenManager.introspectToken(client, "user-access-token", "access_token") } returns userToken
             coEvery { providerManager.listEnabledProviders() } returns
                 listOf(mockk<EnabledProvider> { every { id } returns "discord" })
@@ -135,10 +126,9 @@ class ClientProviderLinkControllerTest {
 
     @Test
     fun `startLink - Fails with invalid_access_token when the token is not bound to an end-user`() = runTest {
-        val authentication = clientAuthentication("client-id")
         val client = mockk<Client>()
+        val authentication = clientAuthentication(client)
         val clientOnlyToken = mockk<AuthenticationToken> { every { userId } returns null }
-        coEvery { clientManager.findClientById("client-id") } returns client
         coEvery { tokenManager.introspectToken(client, "client-token", "access_token") } returns clientOnlyToken
 
         val exception = assertThrows<BusinessException> {
@@ -162,10 +152,9 @@ class ClientProviderLinkControllerTest {
     @Test
     fun `startLink - Returns 404 and starts no session for an unknown provider`() = runTest {
         val userId = UUID.randomUUID()
-        val authentication = clientAuthentication("client-id")
         val client = mockk<Client>()
+        val authentication = clientAuthentication(client)
         val userToken = mockk<AuthenticationToken> { every { this@mockk.userId } returns userId }
-        coEvery { clientManager.findClientById("client-id") } returns client
         coEvery { tokenManager.introspectToken(client, "user-access-token", "access_token") } returns userToken
         // No enabled provider matches the path id -> orNotFound() -> 404, coherent with unknown user/client.
         coEvery { providerManager.listEnabledProviders() } returns emptyList()

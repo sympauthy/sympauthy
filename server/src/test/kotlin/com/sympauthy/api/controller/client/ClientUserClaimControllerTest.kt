@@ -5,14 +5,12 @@ import com.sympauthy.api.mapper.client.ClientUserClaimResourceMapper
 import com.sympauthy.api.resource.client.ClientUserClaimResource
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.user.ClientUserManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.user.ClientUser
 import com.sympauthy.business.model.user.CollectedClaim
@@ -36,9 +34,6 @@ import java.util.*
 
 @ExtendWith(MockKExtension::class)
 class ClientUserClaimControllerTest {
-
-    @MockK
-    lateinit var clientManager: ClientManager
 
     @MockK
     lateinit var clientUserManager: ClientUserManager
@@ -155,10 +150,10 @@ class ClientUserClaimControllerTest {
     }
 
     private fun authentication(): ClientAuthentication {
-        val authenticationToken = mockk<AuthenticationToken> {
-            every { clientId } returns CLIENT_ID
+        val client = mockk<Client> {
+            every { audience } returns mockk<Audience> { every { id } returns AUDIENCE }
         }
-        return ClientAuthentication(authenticationToken, emptyList())
+        return ClientAuthentication(mockk(), client, emptyList())
     }
 
     private fun identifierClaim(): EnabledClaim = mockk {
@@ -166,21 +161,16 @@ class ClientUserClaimControllerTest {
     }
 
     /**
-     * The reads every call makes before it looks at the body: the client, its audience, the account, the
-     * consent. What each of those records carries is stubbed by the tests that get far enough to read it.
+     * The reads every call makes before it looks at the body: the account and the consent, both under the
+     * audience of the client [authentication] carries. What each of those records carries is stubbed by the
+     * tests that get far enough to read it.
      */
     private suspend fun stubResolvedUser() {
-        val client = mockk<Client> {
-            every { audience } returns mockk<Audience> { every { id } returns AUDIENCE }
-        }
-
-        coEvery { clientManager.findClientById(CLIENT_ID) } returns client
         coEvery { clientUserManager.findUserForAudienceOrNull(AUDIENCE, userId) } returns clientUser
         coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, AUDIENCE) } returns consent
     }
 
     private companion object {
-        const val CLIENT_ID = "claim-write-app"
         const val AUDIENCE = "default"
         const val CONSENTED_SCOPE = "profile"
         const val EMAIL_CLAIM = "email"

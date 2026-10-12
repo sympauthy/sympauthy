@@ -13,6 +13,8 @@ const val UNAUTHORIZED_RESPONSE_DESCRIPTION =
         "- `jwt.expired`: the access token has expired.\n" +
         "- `token.invalid_token_id`: this server issued no such access token.\n" +
         "- `token.revoked`: the access token was revoked.\n" +
+        "- `token.client_disabled`: the client the access token was issued to is no longer in the " +
+        "configuration.\n" +
         "- `token.actor_invalid`: the access token was obtained by token exchange, and the token " +
         "presented in that exchange no longer exists.\n" +
         "- `token.actor_revoked`: the access token was obtained by token exchange, and the token " +

@@ -28,6 +28,7 @@ class UserAuthenticationTest {
         return UserAuthentication(
             // Only the name of an authentication is read off its token, and nothing here asks for it.
             authenticationToken = mockk(),
+            client = mockk(),
             consentedScopes = consentedScopes,
             grantedScopes = grantedScopes
         )
@@ -38,7 +39,12 @@ class UserAuthenticationTest {
         val id = UUID.randomUUID()
         val token = mockk<AuthenticationToken> { every { userId } returns id }
 
-        val auth = UserAuthentication(token, consentedScopes = emptyList(), grantedScopes = emptyList())
+        val auth = UserAuthentication(
+            token,
+            client = mockk(),
+            consentedScopes = emptyList(),
+            grantedScopes = emptyList()
+        )
 
         assertEquals(id.toString(), auth.name)
     }
@@ -47,7 +53,12 @@ class UserAuthenticationTest {
     fun `getName - Throws 403 when the token is bound to no user`() {
         val token = mockk<AuthenticationToken> { every { userId } returns null }
 
-        val auth = UserAuthentication(token, consentedScopes = emptyList(), grantedScopes = emptyList())
+        val auth = UserAuthentication(
+            token,
+            client = mockk(),
+            consentedScopes = emptyList(),
+            grantedScopes = emptyList()
+        )
 
         val exception = assertThrows<LocalizedHttpException> { auth.name }
 

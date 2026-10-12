@@ -4,7 +4,6 @@ import com.sympauthy.api.controller.openid.OpenIdUserInfoController.Companion.OP
 import com.sympauthy.api.mapper.UserInfoResourceMapper
 import com.sympauthy.api.resource.openid.UserInfoResource
 import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
-import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.security.SecurityRule.IS_USER
@@ -23,7 +22,6 @@ import jakarta.inject.Inject
 @Controller(OPENID_USERINFO_ENDPOINT)
 @Secured(IS_USER)
 class OpenIdUserInfoController(
-    @Inject private val clientManager: ClientManager,
     @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
     @Inject private val userInfoMapper: UserInfoResourceMapper
 ) {
@@ -40,11 +38,6 @@ class OpenIdUserInfoController(
                 responseCode = "200",
                 description = "Claims of the end-user.",
                 useReturnTypeSchema = true
-            ),
-            ApiResponse(
-                responseCode = "400",
-                description = "- `client.invalid_client_id`: the client the access token was issued to is no " +
-                    "longer configured."
             ),
             ApiResponse(
                 responseCode = "401",
@@ -66,7 +59,7 @@ class OpenIdUserInfoController(
         authentication: Authentication
     ): UserInfoResource {
         val token = authentication.userAuthentication.authenticationToken
-        val client = clientManager.findClientById(token.clientId)
+        val client = authentication.userAuthentication.client
         // The person's own read rather than the client's: this endpoint is protected by a bearer token
         // alone, with no client authentication, so consent is the whole of what it may go on.
         val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByPerson(
