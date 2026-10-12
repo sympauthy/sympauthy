@@ -1,6 +1,7 @@
 package com.sympauthy.api.errorhandler
 
 import com.sympauthy.api.exception.InsufficientUserAuthenticationException
+import com.sympauthy.api.exception.UnsupportedMethodException
 import com.sympauthy.api.exception.httpExceptionOf
 import com.sympauthy.api.mapper.ErrorResourceMapper
 import com.sympauthy.api.resource.error.ErrorResource
@@ -44,6 +45,16 @@ class LocalizedExceptionHandlerTest {
                 """error_description="A more recent authentication is required", max_age="300"""",
             response.header(HttpHeaders.WWW_AUTHENTICATE)
         )
+    }
+
+    @Test
+    fun `handle - Answer a refused method with the Allow header`() {
+        stubResource(HttpStatus.METHOD_NOT_ALLOWED)
+
+        val response = handler.handle(request(), UnsupportedMethodException("PUT", listOf("GET", "POST")))
+
+        assertEquals(HttpStatus.METHOD_NOT_ALLOWED, response.status)
+        assertEquals("GET, POST", response.header(HttpHeaders.ALLOW))
     }
 
     @Test

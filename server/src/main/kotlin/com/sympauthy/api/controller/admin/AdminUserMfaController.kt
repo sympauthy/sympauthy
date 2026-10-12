@@ -10,11 +10,14 @@ import com.sympauthy.api.resource.admin.AdminCollectionCapabilitiesResource
 import com.sympauthy.api.resource.admin.AdminUserMfaEnrollmentInputResource
 import com.sympauthy.api.resource.admin.AdminUserMfaEnrollmentResource
 import com.sympauthy.api.resource.admin.AdminUserMfaMethodListResource
+import com.sympauthy.api.util.BODY_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.COLLECTION_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.COLLECTION_SEARCH_UNSUPPORTED_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_NAME
 import com.sympauthy.api.util.PAGE_PARAMETER_DESCRIPTION
+import com.sympauthy.api.util.PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.RETURN_URI_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.SIZE_PARAMETER_DESCRIPTION
@@ -141,6 +144,7 @@ class AdminUserMfaController(
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "What the collection of a user's MFA methods accepts."),
+            ApiResponse(responseCode = "400", description = PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION),
             ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
@@ -165,6 +169,7 @@ class AdminUserMfaController(
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "204", description = "The MFA method was revoked."),
+            ApiResponse(responseCode = "400", description = PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION),
             ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
@@ -207,7 +212,9 @@ class AdminUserMfaController(
             ApiResponse(
                 responseCode = "400",
                 description = "- `admin.users.mfa.enrollment.mfa_disabled`: `mfa.totp.enabled` is not `true` in " +
-                        "the configuration.\n" + RETURN_URI_BAD_REQUEST_DESCRIPTION
+                        "the configuration.\n" + RETURN_URI_BAD_REQUEST_DESCRIPTION + "\n" +
+                        PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION + "\n" +
+                        BODY_BAD_REQUEST_DESCRIPTION
             ),
             ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
@@ -218,7 +225,8 @@ class AdminUserMfaController(
                 responseCode = "404",
                 description = "- `not_found`: no user has the identifier `userId`, or `client_id` is absent or " +
                         "names no client."
-            )
+            ),
+            ApiResponse(responseCode = "413", description = BODY_TOO_LARGE_RESPONSE_DESCRIPTION)
         ]
     )
     @Post("/enrollment")

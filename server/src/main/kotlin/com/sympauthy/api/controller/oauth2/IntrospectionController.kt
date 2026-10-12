@@ -8,6 +8,7 @@ import com.sympauthy.api.controller.oauth2.util.TOKEN_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.TOKEN_TYPE_HINT_PARAMETER_DESCRIPTION
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.api.resource.oauth2.IntrospectionResource
+import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.client.Client
@@ -74,7 +75,8 @@ class IntrospectionController(
                 description = "Information about the token, or `active` alone when the token is inactive.",
                 useReturnTypeSchema = true
             ),
-            ApiResponse(responseCode = "400", description = TOKEN_BAD_REQUEST_DESCRIPTION)
+            ApiResponse(responseCode = "400", description = TOKEN_BAD_REQUEST_DESCRIPTION),
+            ApiResponse(responseCode = "413", description = BODY_TOO_LARGE_RESPONSE_DESCRIPTION)
         ],
         externalDocs = ExternalDocumentation(
             description = "RFC 7662",

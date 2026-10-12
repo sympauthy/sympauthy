@@ -133,7 +133,8 @@ exempts](api-standard.md#errors) from that flag is read by whoever holds the sco
 can already read the account the message names.
 
 **A code reads `<domain>.<thing>.<condition>`**, most general first. A code with no domain is one
-the framework refused rather than a rule of ours.
+the framework refused rather than a rule of ours, and where it refused one part of the request, that
+part is the thing: `method.unsupported`, `parameter.malformed`.
 
 **The condition names what failed.** The status is already in the response and in the handler table.
 

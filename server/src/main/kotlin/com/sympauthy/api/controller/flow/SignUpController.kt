@@ -7,6 +7,8 @@ import com.sympauthy.api.resource.flow.PasswordResource
 import com.sympauthy.api.resource.flow.SignUpFlowResource
 import com.sympauthy.api.resource.flow.SignUpInputResource
 import com.sympauthy.api.resource.flow.SimpleFlowResource
+import com.sympauthy.api.util.BODY_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.FLOW_FAILURE_DESCRIPTION
 import com.sympauthy.api.util.FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION
 import com.sympauthy.api.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
@@ -142,9 +144,11 @@ class SignUpController(
                     "invitation, and the flow was started without one.\n" +
                     "- `flow.password.sign_up.missing_claim`: an identifier claim has no value.\n" +
                     "- `flow.password.sign_up.existing`: another user already holds one of the identifier claim " +
-                    "values."
+                    "values.\n" +
+                    BODY_BAD_REQUEST_DESCRIPTION
             ),
-            ApiResponse(responseCode = "401", description = FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION)
+            ApiResponse(responseCode = "401", description = FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION),
+            ApiResponse(responseCode = "413", description = BODY_TOO_LARGE_RESPONSE_DESCRIPTION)
         ],
         tags = ["flow"]
     )

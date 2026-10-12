@@ -5,6 +5,8 @@ import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControll
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.api.resource.client.ClientMfaEnrollmentInputResource
 import com.sympauthy.api.resource.client.ClientMfaEnrollmentResource
+import com.sympauthy.api.util.BODY_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.RETURN_URI_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
@@ -75,13 +77,15 @@ class ClientMfaEnrollmentController(
                     "configuration.\n" +
                     "- `client.mfa.enrollment.invalid_access_token`: `access_token` is absent, is not an active " +
                     "access token this server issued to this client, or was issued for no end-user.\n" +
-                    RETURN_URI_BAD_REQUEST_DESCRIPTION
+                    RETURN_URI_BAD_REQUEST_DESCRIPTION + "\n" +
+                    BODY_BAD_REQUEST_DESCRIPTION
             ),
             ApiResponse(responseCode = "401", description = CLIENT_TOKEN_UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
                 description = "- `forbidden`: the access token does not carry the scope `users:mfa:write`."
-            )
+            ),
+            ApiResponse(responseCode = "413", description = BODY_TOO_LARGE_RESPONSE_DESCRIPTION)
         ]
     )
     @Post

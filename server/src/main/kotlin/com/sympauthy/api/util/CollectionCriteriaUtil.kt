@@ -76,8 +76,9 @@ const val SEARCH_PARAMETER_DESCRIPTION = "Text matched partially and ignoring ca
 
 /**
  * What the published specification says about the `400` every collection answers with, whatever it
- * offers: the refusals of [collectionCriteriaOf] and of [PaginationUtil.resolvePageParams]. A
- * collection refusing something of its own appends a line for it.
+ * offers: the refusals of [collectionCriteriaOf] and of [PaginationUtil.resolvePageParams], and the
+ * framework's of a `page` or a `size` that is not a number. A collection refusing something of its own
+ * appends a line for it.
  */
 const val COLLECTION_BAD_REQUEST_DESCRIPTION =
     "- `collection.page.negative`: `page` is below zero.\n" +
@@ -90,7 +91,8 @@ const val COLLECTION_BAD_REQUEST_DESCRIPTION =
         "- `collection.filter.value.unsupported`: a criterion names a value its field does not hold.\n" +
         "- `collection.filter.value.malformed`: a criterion's value cannot be read as its field's " +
         "type.\n" +
-        "- `collection.sort.unknown_field`: `sort` names a key the collection does not order on."
+        "- `collection.sort.unknown_field`: `sort` names a key the collection does not order on.\n" +
+        PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION
 
 /**
  * The line a collection searching nothing appends to [COLLECTION_BAD_REQUEST_DESCRIPTION].

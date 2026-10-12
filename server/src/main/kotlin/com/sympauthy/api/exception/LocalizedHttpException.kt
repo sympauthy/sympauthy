@@ -43,14 +43,15 @@ open class LocalizedHttpException(
 ) {
 
     /**
-     * The `WWW-Authenticate` value this refusal answers with, or null where it carries none — which is
-     * every refusal but the handful that tell a client what credential would have been accepted.
+     * The headers this refusal answers with beside its body, by name, which is none for most of them:
+     * a `WWW-Authenticate` challenge telling a client what credential would have been accepted, or the
+     * `Allow` list of the methods a route answers.
      *
-     * It is a property of the failure rather than something the handler assembles, because what a
-     * challenge says is particular to the rule that refused: the age [InsufficientUserAuthenticationException]
+     * They are a property of the failure rather than something the handler assembles, because what a
+     * header says is particular to the rule that refused: the age [InsufficientUserAuthenticationException]
      * demands is read off the claim being written, and no handler holds it.
      */
-    open val challenge: String? get() = null
+    open val headers: Map<String, String> get() = emptyMap()
 }
 
 /**
