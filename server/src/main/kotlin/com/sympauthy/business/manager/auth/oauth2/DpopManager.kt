@@ -6,8 +6,10 @@ import com.nimbusds.jose.crypto.RSASSAVerifier
 import com.nimbusds.jose.jwk.ECKey
 import com.nimbusds.jose.jwk.JWK
 import com.nimbusds.jose.jwk.RSAKey
+import com.nimbusds.jose.util.Base64URL
 import com.nimbusds.jwt.SignedJWT
 import com.sympauthy.api.exception.oauth2ExceptionOf
+import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.DpopBoundRequest
 import com.sympauthy.business.model.oauth2.DpopProof
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
@@ -17,13 +19,16 @@ import com.sympauthy.config.model.getUri
 import com.sympauthy.config.model.orThrow
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import java.nio.charset.StandardCharsets.US_ASCII
+import java.security.MessageDigest
 import java.text.ParseException
 import java.time.Duration
 import java.time.Instant
 
 /**
- * Handles DPoP (Demonstrating Proof of Possession, RFC 9449) proof validation
- * at the token endpoint.
+ * Handles DPoP (Demonstrating Proof of Possession, RFC 9449): the proof a client presents at the token
+ * endpoint to have its tokens bound to its key, and the proof it presents with a bound access token on every
+ * request that token authorizes.
  *
  * @see <a href="https://datatracker.ietf.org/doc/html/rfc9449">RFC 9449</a>
  */
@@ -36,8 +41,8 @@ class DpopManager(
      * Validate the DPoP proof presented on a request and return it as a [DpopProof] carrying the thumbprint
      * of the key it was signed with, or null when the caller presented none.
      *
-     * [proofs] is every value sent under the [DPOP_HEADER] header, and [boundRequest] the method and uri the
-     * proof has to be bound to. Presenting more than one proof, or one that does not validate against
+     * [proofs] is every value sent under the [DPOP_HEADER] header, and [boundRequest] the request the proof
+     * has to be bound to. Presenting more than one proof, or one that does not validate against
      * [boundRequest], raises an [com.sympauthy.api.exception.OAuth2Exception] carrying [INVALID_DPOP_PROOF].
      */
     suspend fun validateDpopProof(proofs: List<String>, boundRequest: DpopBoundRequest): DpopProof? {
@@ -49,6 +54,62 @@ class DpopManager(
         }
 
         return validateProof(proofs.first(), boundRequest)
+    }
+
+    /**
+     * Validate that the access token [token] is presented the way its binding requires, which is the whole of
+     * what stops a token bound to a key being used without that key.
+     *
+     * [presentedWithDpopScheme] says whether the request carried [token] under the `DPoP` authentication
+     * scheme rather than as a bearer token. [proofs] is every value sent under the [DPOP_HEADER] header, and
+     * [boundRequest] the request they have to be bound to, naming [token] as the access token it presents.
+     *
+     * A token bound to no key and presented as a bearer token is accepted whatever [proofs] holds. Otherwise
+     * an [com.sympauthy.api.exception.OAuth2Exception] carrying [INVALID_DPOP_PROOF] is raised:
+     * - `dpop.bound_token_as_bearer`, where a token bound to a key is presented as a bearer token.
+     * - `dpop.unbound_token`, where a token bound to no key is presented under the `DPoP` scheme.
+     * - any refusal of [validateDpopProof], and `dpop.missing_header` or `dpop.mismatching_key` as
+     *   [checkProofMatchesBinding] raises them, where a token bound to a key is presented under it.
+     */
+    suspend fun validateAccessTokenBinding(
+        token: AuthenticationToken,
+        presentedWithDpopScheme: Boolean,
+        proofs: List<String>,
+        boundRequest: DpopBoundRequest
+    ) {
+        // RFC 9449 §7.2: a token bound to a key is refused as a bearer token even beside a valid proof, or
+        // the binding would be optional to whoever holds the token.
+        if (!presentedWithDpopScheme) {
+            if (token.dpopJkt != null) {
+                throw oauth2ExceptionOf(INVALID_DPOP_PROOF, "dpop.bound_token_as_bearer")
+            }
+            return
+        }
+        if (token.dpopJkt == null) {
+            throw oauth2ExceptionOf(INVALID_DPOP_PROOF, "dpop.unbound_token")
+        }
+        val proof = validateDpopProof(proofs, boundRequest)
+        checkProofMatchesBinding(token, proof?.jkt)
+    }
+
+    /**
+     * Check that a proof whose key has the thumbprint [proofJkt] — or no proof, where null — is one [token]
+     * may be used with.
+     *
+     * A token bound to no key accepts any proof, and the absence of one. A token bound to a key raises an
+     * [com.sympauthy.api.exception.OAuth2Exception] carrying [INVALID_DPOP_PROOF]: `dpop.missing_header`
+     * where [proofJkt] is null, and `dpop.mismatching_key` where it names another key.
+     */
+    fun checkProofMatchesBinding(token: AuthenticationToken, proofJkt: String?) {
+        if (token.dpopJkt == null) {
+            return
+        }
+        if (proofJkt == null) {
+            throw oauth2ExceptionOf(INVALID_DPOP_PROOF, "dpop.missing_header")
+        }
+        if (token.dpopJkt != proofJkt) {
+            throw oauth2ExceptionOf(INVALID_DPOP_PROOF, "dpop.mismatching_key")
+        }
     }
 
     internal suspend fun validateProof(encodedProof: String, boundRequest: DpopBoundRequest): DpopProof {
@@ -120,6 +181,15 @@ class DpopManager(
             throw oauth2ExceptionOf(INVALID_DPOP_PROOF, "dpop.expired")
         }
 
+        // Validate ath binds the proof to the access token presented beside it. Read as an untyped claim
+        // because one that is not a string is a proof failing this check, not a request this server fails.
+        if (boundRequest.accessToken != null) {
+            val ath = claims.getClaim("ath") as? String
+            if (ath != getAccessTokenHash(boundRequest.accessToken)) {
+                throw oauth2ExceptionOf(INVALID_DPOP_PROOF, "dpop.invalid_ath")
+            }
+        }
+
         // Compute JWK SHA-256 Thumbprint (RFC 7638)
         val thumbprint = jwk.computeThumbprint()
         val jkt = thumbprint.toString()
@@ -156,6 +226,15 @@ class DpopManager(
      */
     internal suspend fun getRequestUri(boundRequest: DpopBoundRequest): String {
         return uncheckedUrlsConfig.orThrow().getUri(boundRequest.uri.path).toString()
+    }
+
+    /**
+     * Returns the value the `ath` claim of a proof presented with [accessToken] must carry: the
+     * base64url-encoded SHA-256 hash of its ASCII encoding, as RFC 9449 §4.2 defines it.
+     */
+    internal fun getAccessTokenHash(accessToken: String): String {
+        val digest = MessageDigest.getInstance("SHA-256").digest(accessToken.toByteArray(US_ASCII))
+        return Base64URL.encode(digest).toString()
     }
 
     companion object {

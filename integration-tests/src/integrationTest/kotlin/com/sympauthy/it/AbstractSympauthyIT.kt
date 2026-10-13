@@ -446,12 +446,15 @@ abstract class AbstractSympauthyIT {
     }
 
     /**
-     * A valid authorization request URL for the mock frontend's public client, with a fresh PKCE
-     * challenge. It echoes [CLIENT_STATE] back on the redirect it ends at.
+     * A valid authorization request URL for the mock frontend's public client, carrying the challenge of
+     * [pkce]. It echoes [CLIENT_STATE] back on the redirect it ends at. A scenario that will exchange the
+     * code it yields passes the pair it will present the verifier of; the default is a fresh one nobody
+     * holds.
      */
     protected fun authorizeUrl(
         sympauthy: SympauthyContainer,
         registry: InteractiveFlowRegistry,
+        pkce: Pkce = generatePkce(),
     ): String {
         val params = linkedMapOf(
             "response_type" to "code",
@@ -459,7 +462,7 @@ abstract class AbstractSympauthyIT {
             "redirect_uri" to registry.redirectUri(),
             "scope" to "openid",
             "state" to CLIENT_STATE,
-            "code_challenge" to generatePkce().challenge,
+            "code_challenge" to pkce.challenge,
             "code_challenge_method" to "S256",
         )
         val query = params.entries.joinToString("&") { (key, value) -> "${encode(key)}=${encode(value)}" }
@@ -498,7 +501,7 @@ abstract class AbstractSympauthyIT {
     /**
      * Posts an `authorization_code` exchange of [code] for [registry]'s client, answering the raw
      * response so a refusal is read rather than thrown. Each entry of [overrides] replaces the form field
-     * it names, and a null value removes that field entirely.
+     * it names, and a null value removes that field entirely; [headers] are sent beside the form.
      *
      * The request carries `client_id` and no client authentication, so [registry]'s client has to be a
      * public one; a confidential client is answered `invalid_client` before anything else is read.
@@ -507,13 +510,15 @@ abstract class AbstractSympauthyIT {
      * is what the PKCE scenarios want and it is harmless to the others only because of an order the token
      * endpoint owns: it resolves the code's own client and verifies PKCE last — so a scenario forging the
      * code or its client is refused before the verifier is read. A scenario whose rule is checked after
-     * PKCE cannot use this helper, because the verifier would answer first.
+     * PKCE overrides `code_verifier` with the verifier of the pair it authorized with through
+     * [authorizeUrl].
      */
     protected fun exchangeCode(
         sympauthy: SympauthyContainer,
         registry: InteractiveFlowRegistry,
         code: String,
         overrides: Map<String, String?> = emptyMap(),
+        headers: Map<String, String> = emptyMap(),
     ): HttpResponse<String> {
         val form = linkedMapOf(
             "grant_type" to "authorization_code",
@@ -522,7 +527,7 @@ abstract class AbstractSympauthyIT {
             "code_verifier" to generatePkce().verifier,
         )
         overrides.forEach { (key, value) -> if (value == null) form.remove(key) else form[key] = value }
-        return httpPostForm(discovery(sympauthy).tokenEndpoint, form)
+        return httpPostForm(discovery(sympauthy).tokenEndpoint, form, headers)
     }
 
     /**

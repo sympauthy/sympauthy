@@ -3,8 +3,8 @@ package com.sympauthy.business.model.oauth2
 import java.net.URI
 
 /**
- * The two values of an incoming HTTP request that a DPoP proof is bound to (RFC 9449). Carrying them as a
- * value object is what keeps the proof validation callable without an HTTP request.
+ * The values of an incoming HTTP request that a DPoP proof is bound to (RFC 9449). Carrying them as a value
+ * object is what keeps the proof validation callable without an HTTP request.
  */
 data class DpopBoundRequest(
     /**
@@ -16,5 +16,10 @@ data class DpopBoundRequest(
      * neither query nor fragment, and the path is resolved against the server's own configured root, so a
      * proof minted for another host is refused whatever the request says it was sent to.
      */
-    val uri: URI
+    val uri: URI,
+    /**
+     * The access token the request presents beside the proof, whose hash the proof must carry in its `ath`
+     * claim, or null where the request presents none — a token request, which is asking for one.
+     */
+    val accessToken: String?
 )

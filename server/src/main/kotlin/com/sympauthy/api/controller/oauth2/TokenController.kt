@@ -228,7 +228,8 @@ class TokenController(
             proofs = request.headers.getAll(DpopManager.DPOP_HEADER) ?: emptyList(),
             boundRequest = DpopBoundRequest(
                 method = request.method.name,
-                uri = request.uri
+                uri = request.uri,
+                accessToken = null
             )
         )
         val authConfig = uncheckedAuthConfig.orThrow()

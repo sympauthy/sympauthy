@@ -282,7 +282,7 @@ class TokenControllerTest {
         coVerify {
             dpopManager.validateDpopProof(
                 listOf("a-proof"),
-                DpopBoundRequest(method = "POST", uri = URI.create("/api/oauth2/token"))
+                DpopBoundRequest(method = "POST", uri = URI.create("/api/oauth2/token"), accessToken = null)
             )
         }
     }
