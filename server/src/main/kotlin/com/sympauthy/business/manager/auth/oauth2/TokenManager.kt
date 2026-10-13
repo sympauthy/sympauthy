@@ -17,6 +17,7 @@ import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.business.model.oauth2.AuthenticationToken
+import com.sympauthy.business.model.oauth2.AuthenticationTokenType
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
@@ -268,18 +269,9 @@ open class TokenManager(
     @Transactional
     open suspend fun revokeTokenByEncodedToken(
         client: Client,
-        encodedToken: String,
-        tokenTypeHint: String?
+        encodedToken: String
     ) {
-        val decodedToken = when (tokenTypeHint) {
-            "access_token" -> jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, encodedToken)
-            "refresh_token" -> jwtManager.decodeAndVerifyOrNull(REFRESH_KEY, encodedToken)
-            else -> when (jwtManager.getKeyIdOrNull(encodedToken)) {
-                ACCESS_KEY -> jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, encodedToken)
-                REFRESH_KEY -> jwtManager.decodeAndVerifyOrNull(REFRESH_KEY, encodedToken)
-                else -> null
-            }
-        } ?: return
+        val decodedToken = decodeAndVerifyAccessOrRefreshTokenOrNull(encodedToken) ?: return
 
         val tokenId = try {
             UUID.fromString(decodedToken.id)
@@ -318,25 +310,16 @@ open class TokenManager(
 
     /**
      * Introspect the [encodedToken] and return the stored [AuthenticationToken] if the token is active,
-     * or `null` if the token is invalid, expired, revoked, or not owned by [client].
+     * or `null` if the token is invalid, expired, revoked, not owned by [client], or not of [type].
      *
-     * The [tokenTypeHint] is an optional hint about the token type (`access_token` or `refresh_token`)
-     * used to select the correct signing key for verification.
+     * A null [type] accepts an access token and a refresh token alike.
      */
     suspend fun introspectToken(
         client: Client,
         encodedToken: String,
-        tokenTypeHint: String?
+        type: AuthenticationTokenType?
     ): AuthenticationToken? {
-        val decodedToken = when (tokenTypeHint) {
-            "access_token" -> jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, encodedToken)
-            "refresh_token" -> jwtManager.decodeAndVerifyOrNull(REFRESH_KEY, encodedToken)
-            else -> when (jwtManager.getKeyIdOrNull(encodedToken)) {
-                ACCESS_KEY -> jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, encodedToken)
-                REFRESH_KEY -> jwtManager.decodeAndVerifyOrNull(REFRESH_KEY, encodedToken)
-                else -> null
-            }
-        } ?: return null
+        val decodedToken = decodeAndVerifyAccessOrRefreshTokenOrNull(encodedToken) ?: return null
 
         val tokenId = try {
             UUID.fromString(decodedToken.id)
@@ -345,6 +328,7 @@ open class TokenManager(
         }
 
         val token = findById(tokenId) ?: return null
+        if (type != null && token.type != type) return null
         if (token.revoked) return null
         if (token.clientId != client.id) return null
         return try {
@@ -352,6 +336,21 @@ open class TokenManager(
             token
         } catch (_: OAuth2Exception) {
             null
+        }
+    }
+
+    /**
+     * Decode and verify the [encodedToken] against the key its header names, provided that key is the one
+     * access tokens or the one refresh tokens are signed with. Null otherwise, or where it does not verify.
+     *
+     * The type is read off the token and never off the `token_type_hint` a client sends beside it: RFC 7009
+     * §2.1 and RFC 7662 §2.1 let a server able to detect the type ignore the hint, and a hint naming the
+     * wrong type would otherwise leave a live token unrecognized.
+     */
+    internal suspend fun decodeAndVerifyAccessOrRefreshTokenOrNull(encodedToken: String): DecodedJwt? {
+        return when (val keyId = jwtManager.getKeyIdOrNull(encodedToken)) {
+            ACCESS_KEY, REFRESH_KEY -> jwtManager.decodeAndVerifyOrNull(keyId, encodedToken)
+            else -> null
         }
     }
 

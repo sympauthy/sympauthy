@@ -17,6 +17,7 @@ import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
 import com.sympauthy.business.manager.flow.link.InteractiveFlowSessionLinkProviderManager
 import com.sympauthy.business.manager.provider.ProviderManager
+import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
 import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.security.SecurityRule.CLIENT_USERS_PROVIDERS_WRITE
@@ -108,7 +109,7 @@ class ClientProviderLinkController(
         // Validate the end-user access token: signature, expiry, not revoked, issued to the calling client
         // (enforced by introspectToken), and associated with an end-user (not a client-credentials token).
         val userToken = resource.accessToken
-            ?.let { tokenManager.introspectToken(client, it, "access_token") }
+            ?.let { tokenManager.introspectToken(client, it, ACCESS) }
         val userId = userToken?.userId
             ?: throw recoverableBusinessExceptionOf(
                 "client.providers.link.invalid_access_token",

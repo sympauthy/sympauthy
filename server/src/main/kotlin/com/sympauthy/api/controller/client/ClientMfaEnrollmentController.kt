@@ -15,6 +15,7 @@ import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
 import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaEnrollmentManager
+import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
 import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.config.model.EnabledMfaConfig
@@ -109,7 +110,7 @@ class ClientMfaEnrollmentController(
         // Validate the end-user access token: signature, expiry, not revoked, issued to the calling client
         // (enforced by introspectToken), and associated with an end-user (not a client-credentials token).
         val userToken = resource.accessToken
-            ?.let { tokenManager.introspectToken(client, it, "access_token") }
+            ?.let { tokenManager.introspectToken(client, it, ACCESS) }
         val userId = userToken?.userId
             ?: throw recoverableBusinessExceptionOf(
                 "client.mfa.enrollment.invalid_access_token",
