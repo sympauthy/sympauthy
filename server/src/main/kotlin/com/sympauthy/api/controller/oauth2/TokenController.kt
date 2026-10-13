@@ -124,14 +124,8 @@ class TokenController(
             ),
             Parameter(
                 name = "code",
-                description = "Authorization code the browser brought back to `redirect_uri`. Required for the " +
-                    "`authorization_code` grant.",
-                schema = Schema(type = "string")
-            ),
-            Parameter(
-                name = "redirect_uri",
-                description = "`redirect_uri` of the authorization request, sent again unchanged. Required for " +
-                    "the `authorization_code` grant.",
+                description = "Authorization code the browser brought back to the `redirect_uri` of the " +
+                    "authorization request. Required for the `authorization_code` grant.",
                 schema = Schema(type = "string")
             ),
             Parameter(
@@ -171,17 +165,17 @@ class TokenController(
             ),
             ApiResponse(
                 responseCode = "400",
-                description = "- `invalid_request`: `grant_type` is missing; `code` or `redirect_uri` is missing " +
-                    "on the `authorization_code` grant, or `refresh_token` on the `refresh_token` grant; on the " +
-                    "token exchange grant, `subject_token`, `subject_token_type` or `requested_subject` is " +
-                    "missing, or `subject_token_type` or `requested_token_type` names something other than an " +
-                    "access token.\n" +
+                description = "- `invalid_request`: `grant_type` is missing; `code` is missing on the " +
+                    "`authorization_code` grant, or `refresh_token` on the `refresh_token` grant; on the token " +
+                    "exchange grant, `subject_token`, `subject_token_type` or `requested_subject` is missing, " +
+                    "or `subject_token_type` or `requested_token_type` names something other than an access " +
+                    "token.\n" +
                     "- `invalid_client`: on the `authorization_code` and `refresh_token` grants, no client " +
                     "credentials are sent, or the ones sent in the body do not authenticate a client.\n" +
                     "- `invalid_grant`: `code` or `refresh_token` is unknown, expired, revoked or issued to " +
-                    "another client; `redirect_uri` or `code_verifier` does not match the authorization " +
-                    "request; the consent of the end-user was revoked, or the user never finished signing up; " +
-                    "or `subject_token` is not a valid `client_credentials` access token of this client.\n" +
+                    "another client; `code_verifier` does not match the authorization request; the consent of " +
+                    "the end-user was revoked, or the user never finished signing up; or `subject_token` is not " +
+                    "a valid `client_credentials` access token of this client.\n" +
                     "- `unauthorized_client`: the client is not allowed this `grant_type`.\n" +
                     "- `unsupported_grant_type`: `grant_type` is not supported.\n" +
                     "- `invalid_scope`: on the `client_credentials` grant, `scope` names a scope that is not " +
@@ -215,7 +209,6 @@ class TokenController(
         request: HttpRequest<*>,
         @Part(GRANT_TYPE_PARAM) grantType: String?,
         @Part(CODE_PARAM) code: String?,
-        @Part(REDIRECT_URI_PARAM) redirectUri: String?,
         @Part(REFRESH_TOKEN_PARAM) refreshToken: String?,
         @Part("scope") scope: String?,
         @Part("client_id") clientId: String?,
@@ -252,7 +245,6 @@ class TokenController(
                 getTokensUsingAuthorizationCode(
                     client = client,
                     code = code,
-                    redirectUri = redirectUri,
                     codeVerifier = codeVerifier,
                     dpopProof = dpopProof
                 )
@@ -304,15 +296,11 @@ class TokenController(
     private suspend fun getTokensUsingAuthorizationCode(
         client: Client,
         code: String?,
-        redirectUri: String?,
         codeVerifier: String?,
         dpopProof: DpopProof?
     ): TokenResource {
         if (code.isNullOrBlank()) {
             throw oauth2ExceptionOf(INVALID_REQUEST, "token.missing_param", "param" to CODE_PARAM)
-        }
-        if (redirectUri.isNullOrBlank()) {
-            throw oauth2ExceptionOf(INVALID_REQUEST, "token.missing_param", "param" to REDIRECT_URI_PARAM)
         }
 
         val session = sessionManager.findByCodeOrNull(code)
@@ -321,9 +309,6 @@ class TokenController(
             authorizeFlowManager.checkCanIssueToken(session, oauth2, client)
         } catch (e: BusinessException) {
             throw e.toOAuth2Exception(INVALID_GRANT)
-        }
-        if (completedOAuth2.redirectUri != redirectUri) {
-            throw oauth2ExceptionOf(INVALID_GRANT, "token.non_matching_redirect_uri")
         }
 
         // Verify PKCE before issuing tokens
@@ -484,7 +469,6 @@ class TokenController(
         const val OAUTH2_TOKEN_ENDPOINT = "/api/oauth2/token"
         const val GRANT_TYPE_PARAM = "grant_type"
         const val CODE_PARAM = "code"
-        const val REDIRECT_URI_PARAM = "redirect_uri"
         const val REFRESH_TOKEN_PARAM = "refresh_token"
         const val SUBJECT_TOKEN_PARAM = "subject_token"
         const val SUBJECT_TOKEN_TYPE_PARAM = "subject_token_type"

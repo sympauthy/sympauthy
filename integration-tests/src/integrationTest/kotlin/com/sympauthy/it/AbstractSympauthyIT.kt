@@ -505,9 +505,9 @@ abstract class AbstractSympauthyIT {
      *
      * The `code_verifier` is freshly generated and so cannot hash to the challenge the code carries. That
      * is what the PKCE scenarios want and it is harmless to the others only because of an order the token
-     * endpoint owns: it resolves the code's own client, then compares `redirect_uri`, and verifies PKCE
-     * last — so a scenario forging any of those is refused before the verifier is read. A scenario whose
-     * rule is checked after PKCE cannot use this helper, because the verifier would answer first.
+     * endpoint owns: it resolves the code's own client and verifies PKCE last — so a scenario forging the
+     * code or its client is refused before the verifier is read. A scenario whose rule is checked after
+     * PKCE cannot use this helper, because the verifier would answer first.
      */
     protected fun exchangeCode(
         sympauthy: SympauthyContainer,
@@ -518,7 +518,6 @@ abstract class AbstractSympauthyIT {
         val form = linkedMapOf(
             "grant_type" to "authorization_code",
             "code" to code,
-            "redirect_uri" to registry.redirectUri(),
             "client_id" to registry.clientId(),
             "code_verifier" to generatePkce().verifier,
         )

@@ -120,10 +120,6 @@ class TokenControllerTest {
         every { it.audience } returns mockk()
     }
 
-    private fun mockOAuth2(redirectUri: String): InteractiveFlowSessionOAuth2 = mockk {
-        every { this@mockk.redirectUri } returns redirectUri
-    }
-
     /** A token the response only carries the encoded form of. */
     private fun mockEncodedToken(token: String): EncodedAuthenticationToken = mockk {
         every { this@mockk.token } returns token
@@ -161,7 +157,6 @@ class TokenControllerTest {
                 request = request,
                 grantType = "client_credentials",
                 code = null,
-                redirectUri = null,
                 refreshToken = null,
                 scope = null,
                 clientId = "any-client",
@@ -185,7 +180,6 @@ class TokenControllerTest {
                 request = request,
                 grantType = "urn:ietf:params:oauth:grant-type:token-exchange",
                 code = null,
-                redirectUri = null,
                 refreshToken = null,
                 scope = null,
                 clientId = "any-client",
@@ -208,7 +202,6 @@ class TokenControllerTest {
                 request = request,
                 grantType = "urn:ietf:params:oauth:grant-type:token-exchange",
                 code = null,
-                redirectUri = null,
                 refreshToken = null,
                 scope = null,
                 clientId = "any-client",
@@ -235,7 +228,6 @@ class TokenControllerTest {
                 request = request,
                 grantType = "refresh_token",
                 code = null,
-                redirectUri = null,
                 refreshToken = "some-token",
                 scope = null,
                 clientId = "any-client",
@@ -259,7 +251,6 @@ class TokenControllerTest {
                 request = request,
                 grantType = "authorization_code",
                 code = "some-code",
-                redirectUri = null,
                 refreshToken = null,
                 scope = null,
                 clientId = "any-client",
@@ -280,7 +271,6 @@ class TokenControllerTest {
                 request = request,
                 grantType = "unknown",
                 code = null,
-                redirectUri = null,
                 refreshToken = null,
                 scope = null,
                 clientId = null,
@@ -304,7 +294,6 @@ class TokenControllerTest {
                 request = mockRequest(),
                 grantType = "unknown",
                 code = null,
-                redirectUri = null,
                 refreshToken = null,
                 scope = null,
                 clientId = null,
@@ -322,7 +311,6 @@ class TokenControllerTest {
                 request = mockRequest(),
                 grantType = null,
                 code = null,
-                redirectUri = null,
                 refreshToken = null,
                 scope = null,
                 clientId = null,
@@ -347,7 +335,6 @@ class TokenControllerTest {
                 request = request,
                 grantType = "authorization_code",
                 code = null,
-                redirectUri = null,
                 refreshToken = null,
                 scope = null,
                 clientId = "client",
@@ -357,59 +344,6 @@ class TokenControllerTest {
         }
         assertEquals(INVALID_REQUEST, exception.errorCode)
         assertEquals("token.missing_param", exception.detailsId)
-    }
-
-    @Test
-    fun `getTokensUsingAuthorizationCode - Throws invalid_request when redirect_uri is missing`() = runTest {
-        val request = mockRequest()
-        coEvery {
-            clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
-        } returns mockClient()
-
-        val exception = assertThrows<OAuth2Exception> {
-            controller.getTokens(
-                request = request,
-                grantType = "authorization_code",
-                code = "the-code",
-                redirectUri = null,
-                refreshToken = null,
-                scope = null,
-                clientId = "client",
-                clientSecret = "secret",
-                codeVerifier = null
-            )
-        }
-        assertEquals(INVALID_REQUEST, exception.errorCode)
-        assertEquals(mapOf("param" to "redirect_uri"), exception.values)
-        coVerify(exactly = 0) { sessionManager.findByCodeOrNull(any()) }
-    }
-
-    @Test
-    fun `getTokensUsingAuthorizationCode - Throws when redirect_uri does not match`() = runTest {
-        val request = mockRequest()
-        val session = mockk<CompletedInteractiveFlowSession>()
-        val oauth2 = mockOAuth2("https://example.com/callback")
-        coEvery {
-            clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
-        } returns mockClient()
-        coEvery { sessionManager.findByCodeOrNull("the-code") } returns session
-        coEvery { authorizeFlowManager.checkCanIssueToken(session, oauth2, any()) } returns (session to oauth2)
-        coEvery { oauth2Manager.fetchOAuth2OrNull(session) } returns oauth2
-
-        val exception = assertThrows<OAuth2Exception> {
-            controller.getTokens(
-                request = request,
-                grantType = "authorization_code",
-                code = "the-code",
-                redirectUri = "https://other.com/callback",
-                refreshToken = null,
-                scope = null,
-                clientId = "client",
-                clientSecret = "secret",
-                codeVerifier = null
-            )
-        }
-        assertEquals("token.non_matching_redirect_uri", exception.detailsId)
     }
 
     @Test
@@ -429,7 +363,6 @@ class TokenControllerTest {
                 request = request,
                 grantType = "authorization_code",
                 code = "the-code",
-                redirectUri = "https://example.com/callback",
                 refreshToken = null,
                 scope = null,
                 clientId = "client",
@@ -459,7 +392,6 @@ class TokenControllerTest {
                 request = request,
                 grantType = "authorization_code",
                 code = "the-code",
-                redirectUri = "https://example.com/callback",
                 refreshToken = null,
                 scope = null,
                 clientId = "client",
@@ -475,7 +407,7 @@ class TokenControllerTest {
     fun `getTokensUsingAuthorizationCode - Throws when PKCE verification fails`() = runTest {
         val request = mockRequest()
         val session = mockk<CompletedInteractiveFlowSession>()
-        val oauth2 = mockOAuth2("https://example.com/callback")
+        val oauth2 = mockk<InteractiveFlowSessionOAuth2>()
         every { oauth2.codeChallenge } returns "stored-challenge"
         every { oauth2.codeChallengeMethod } returns CodeChallengeMethod.S256
         coEvery {
@@ -493,7 +425,6 @@ class TokenControllerTest {
                 request = request,
                 grantType = "authorization_code",
                 code = "the-code",
-                redirectUri = "https://example.com/callback",
                 refreshToken = null,
                 scope = null,
                 clientId = "client",
@@ -512,7 +443,7 @@ class TokenControllerTest {
         val refreshToken = mockEncodedToken("refresh-jwt")
         val idToken = mockEncodedToken("id-jwt")
         val session = mockk<CompletedInteractiveFlowSession>()
-        val oauth2 = mockOAuth2("https://example.com/callback")
+        val oauth2 = mockk<InteractiveFlowSessionOAuth2>()
         every { oauth2.codeChallenge } returns null
         every { oauth2.codeChallengeMethod } returns null
         coEvery {
@@ -532,7 +463,6 @@ class TokenControllerTest {
             request = request,
             grantType = "authorization_code",
             code = "the-code",
-            redirectUri = "https://example.com/callback",
             refreshToken = null,
             scope = null,
             clientId = "client",
@@ -557,7 +487,6 @@ class TokenControllerTest {
                 request = request,
                 grantType = "refresh_token",
                 code = null,
-                redirectUri = null,
                 refreshToken = null,
                 scope = null,
                 clientId = "client",
@@ -588,7 +517,6 @@ class TokenControllerTest {
             request = request,
             grantType = "refresh_token",
             code = null,
-            redirectUri = null,
             refreshToken = "old-refresh",
             scope = null,
             clientId = "client",
@@ -618,7 +546,6 @@ class TokenControllerTest {
             request = request,
             grantType = "refresh_token",
             code = null,
-            redirectUri = null,
             refreshToken = "old-refresh",
             scope = null,
             clientId = "client",
@@ -657,7 +584,6 @@ class TokenControllerTest {
             request = request,
             grantType = "client_credentials",
             code = null,
-            redirectUri = null,
             refreshToken = null,
             scope = "read",
             clientId = "my-client",
@@ -686,7 +612,6 @@ class TokenControllerTest {
                 request = request,
                 grantType = "client_credentials",
                 code = null,
-                redirectUri = null,
                 refreshToken = null,
                 scope = "doesnotexist",
                 clientId = "my-client",
@@ -730,7 +655,6 @@ class TokenControllerTest {
             request = request,
             grantType = "client_credentials",
             code = null,
-            redirectUri = null,
             refreshToken = null,
             scope = null,
             clientId = "my-client",

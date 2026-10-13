@@ -16,6 +16,12 @@ word — is [the security context](security-context.md).
 
 ### The protocol surfaces
 
+**This server speaks OAuth 2.1.** Where 2.1 departs from RFC 6749, what 2.1 says is what this server
+does, and a client relying on something 2.1 removed is not served for it. Every authorization
+request carries PKCE, a redirect URI is compared as the exact string the client registered, the port
+of a loopback address aside, and the implicit and password grants are not offered: `ResponseType`
+and `GrantType` are the authority on what is.
+
 **The OAuth2 surface is protected by the protocol, not by a role.** Client authentication, PKCE,
 redirect-URI matching, the signed state, one-time authorization codes: the endpoints are anonymous
 because a specification says they are, and every check they do is one the specification names.
