@@ -89,7 +89,6 @@ class RevokeController(
     suspend fun revokeToken(
         request: HttpRequest<*>,
         @Part(TOKEN_PARAM) token: String?,
-        @Part(TOKEN_TYPE_HINT_PARAM) tokenTypeHint: String?,
         @Part("client_id") clientId: String?,
         @Part("client_secret") clientSecret: String?,
     ): HttpResponse<Unit> {
@@ -97,7 +96,7 @@ class RevokeController(
         if (token.isNullOrBlank()) {
             throw oauth2ExceptionOf(INVALID_REQUEST, "token.missing_param", "param" to TOKEN_PARAM)
         }
-        tokenManager.revokeTokenByEncodedToken(client, token, tokenTypeHint)
+        tokenManager.revokeTokenByEncodedToken(client, token)
         return HttpResponse.ok()
     }
 

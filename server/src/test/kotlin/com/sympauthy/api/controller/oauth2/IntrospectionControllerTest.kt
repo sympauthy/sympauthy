@@ -142,7 +142,6 @@ class IntrospectionControllerTest {
         val result = controller.introspectToken(
             request = request,
             token = "the-token",
-            tokenTypeHint = null,
             clientId = "test-client",
             clientSecret = "secret"
         )
@@ -196,7 +195,6 @@ class IntrospectionControllerTest {
             val result = controller.introspectToken(
                 request = request,
                 token = "the-token",
-                tokenTypeHint = null,
                 clientId = "test-client",
                 clientSecret = "secret"
             )
@@ -220,7 +218,6 @@ class IntrospectionControllerTest {
         val result = controller.introspectToken(
             request = request,
             token = "the-token",
-            tokenTypeHint = null,
             clientId = "test-client",
             clientSecret = "secret"
         )
@@ -240,7 +237,6 @@ class IntrospectionControllerTest {
         val result = controller.introspectToken(
             request = request,
             token = "bad-token",
-            tokenTypeHint = null,
             clientId = "test-client",
             clientSecret = "secret"
         )
@@ -263,7 +259,6 @@ class IntrospectionControllerTest {
             controller.introspectToken(
                 request = request,
                 token = null,
-                tokenTypeHint = null,
                 clientId = "test-client",
                 clientSecret = "secret"
             )
@@ -284,7 +279,6 @@ class IntrospectionControllerTest {
             controller.introspectToken(
                 request = request,
                 token = "some-token",
-                tokenTypeHint = null,
                 clientId = "bad-client",
                 clientSecret = "wrong"
             )
@@ -312,7 +306,6 @@ class IntrospectionControllerTest {
         val result = controller.introspectToken(
             request = request,
             token = "the-token",
-            tokenTypeHint = null,
             clientId = "test-client",
             clientSecret = "secret"
         )
@@ -342,7 +335,6 @@ class IntrospectionControllerTest {
         val result = controller.introspectToken(
             request = request,
             token = "the-token",
-            tokenTypeHint = null,
             clientId = "test-client",
             clientSecret = "secret"
         )
@@ -350,25 +342,6 @@ class IntrospectionControllerTest {
         assertTrue(result.active)
         assertEquals("test-client", result.sub)
         assertNull(result.authTime)
-    }
-
-    @Test
-    fun `introspectToken - Passes token_type_hint to manager`() = runTest {
-        val request = mockk<HttpRequest<*>>()
-        val client = mockk<Client>()
-
-        coEvery { clientAuthenticationUtil.resolveClient(request, "test-client", "secret") } returns client
-        coEvery { tokenManager.introspectToken(client, "the-token", "refresh_token") } returns null
-
-        val result = controller.introspectToken(
-            request = request,
-            token = "the-token",
-            tokenTypeHint = "refresh_token",
-            clientId = "test-client",
-            clientSecret = "secret"
-        )
-
-        assertFalse(result.active)
     }
 
     private companion object {

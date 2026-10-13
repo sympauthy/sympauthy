@@ -44,7 +44,6 @@ class RevokeControllerTest {
             controller.revokeToken(
                 request = request,
                 token = null,
-                tokenTypeHint = null,
                 clientId = "test-client",
                 clientSecret = "secret"
             )
@@ -52,7 +51,7 @@ class RevokeControllerTest {
 
         assertEquals(INVALID_REQUEST, exception.errorCode)
         assertEquals("token.missing_param", exception.detailsId)
-        coVerify(exactly = 0) { tokenManager.revokeTokenByEncodedToken(any(), any(), any()) }
+        coVerify(exactly = 0) { tokenManager.revokeTokenByEncodedToken(any(), any()) }
     }
 
     @Test
@@ -62,12 +61,11 @@ class RevokeControllerTest {
         coEvery {
             clientAuthenticationUtil.resolveClientAllowingPublic(request, "public-app", null)
         } returns publicClient
-        coEvery { tokenManager.revokeTokenByEncodedToken(publicClient, "some-token", null) } just runs
+        coEvery { tokenManager.revokeTokenByEncodedToken(publicClient, "some-token") } just runs
 
         val response = controller.revokeToken(
             request = request,
             token = "some-token",
-            tokenTypeHint = null,
             clientId = "public-app",
             clientSecret = null
         )

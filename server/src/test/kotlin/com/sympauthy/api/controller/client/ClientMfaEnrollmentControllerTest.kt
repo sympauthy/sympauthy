@@ -16,6 +16,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.InteractiveFlowStepResult
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.AuthenticationToken
+import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.security.observedRequestOf
 import com.sympauthy.config.model.DisabledMfaConfig
 import com.sympauthy.config.model.EnabledMfaConfig
@@ -99,7 +100,7 @@ class ClientMfaEnrollmentControllerTest {
             val enrollUri = URI.create("https://auth.example.com/flow/mfa/enrollment?state=abc")
 
             every { client.id } returns "client-id"
-            coEvery { tokenManager.introspectToken(client, "user-access-token", "access_token") } returns userToken
+            coEvery { tokenManager.introspectToken(client, "user-access-token", ACCESS) } returns userToken
             every {
                 clientRedirectUriManager.parseRequestedRedirectUri(
                     client,
@@ -148,7 +149,7 @@ class ClientMfaEnrollmentControllerTest {
         val enrollUri = URI.create("https://auth.example.com/flow/mfa/enrollment?state=abc")
 
         every { client.id } returns "client-id"
-        coEvery { tokenManager.introspectToken(client, "user-access-token", "access_token") } returns userToken
+        coEvery { tokenManager.introspectToken(client, "user-access-token", ACCESS) } returns userToken
         every {
             clientRedirectUriManager.parseRequestedRedirectUri(
                 client,
@@ -212,7 +213,7 @@ class ClientMfaEnrollmentControllerTest {
         val client = mockk<Client>()
         val authentication = clientAuthentication(client)
 
-        coEvery { tokenManager.introspectToken(client, "bad-token", "access_token") } returns null
+        coEvery { tokenManager.introspectToken(client, "bad-token", ACCESS) } returns null
 
         val exception = assertThrows<BusinessException> {
             controller(EnabledMfaConfig(totp = true, required = false)).startEnrollment(
@@ -238,7 +239,7 @@ class ClientMfaEnrollmentControllerTest {
                 every { userId } returns null
             }
 
-            coEvery { tokenManager.introspectToken(client, "client-token", "access_token") } returns clientOnlyToken
+            coEvery { tokenManager.introspectToken(client, "client-token", ACCESS) } returns clientOnlyToken
 
             val exception = assertThrows<BusinessException> {
                 controller(EnabledMfaConfig(totp = true, required = false)).startEnrollment(

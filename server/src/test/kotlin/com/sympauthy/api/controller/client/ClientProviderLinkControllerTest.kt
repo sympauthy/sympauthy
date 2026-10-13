@@ -18,6 +18,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.InteractiveFlowStepResult
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.AuthenticationToken
+import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.business.model.security.observedRequestOf
 import com.sympauthy.security.ClientAuthentication
@@ -88,7 +89,7 @@ class ClientProviderLinkControllerTest {
             val steppedSession = mockk<OnGoingInteractiveFlowSession>()
             val nextUri = URI.create("https://auth.example.com/flow/confirm?state=abc")
 
-            coEvery { tokenManager.introspectToken(client, "user-access-token", "access_token") } returns userToken
+            coEvery { tokenManager.introspectToken(client, "user-access-token", ACCESS) } returns userToken
             coEvery { providerManager.listEnabledProviders() } returns
                 listOf(mockk<EnabledProvider> { every { id } returns "discord" })
             every {
@@ -129,7 +130,7 @@ class ClientProviderLinkControllerTest {
         val client = mockk<Client>()
         val authentication = clientAuthentication(client)
         val clientOnlyToken = mockk<AuthenticationToken> { every { userId } returns null }
-        coEvery { tokenManager.introspectToken(client, "client-token", "access_token") } returns clientOnlyToken
+        coEvery { tokenManager.introspectToken(client, "client-token", ACCESS) } returns clientOnlyToken
 
         val exception = assertThrows<BusinessException> {
             controller.startLink(
@@ -155,7 +156,7 @@ class ClientProviderLinkControllerTest {
         val client = mockk<Client>()
         val authentication = clientAuthentication(client)
         val userToken = mockk<AuthenticationToken> { every { this@mockk.userId } returns userId }
-        coEvery { tokenManager.introspectToken(client, "user-access-token", "access_token") } returns userToken
+        coEvery { tokenManager.introspectToken(client, "user-access-token", ACCESS) } returns userToken
         // No enabled provider matches the path id -> orNotFound() -> 404, coherent with unknown user/client.
         coEvery { providerManager.listEnabledProviders() } returns emptyList()
 

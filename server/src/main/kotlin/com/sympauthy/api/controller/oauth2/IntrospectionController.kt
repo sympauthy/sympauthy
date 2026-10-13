@@ -90,7 +90,6 @@ class IntrospectionController(
     suspend fun introspectToken(
         request: HttpRequest<*>,
         @Part(TOKEN_PARAM) token: String?,
-        @Part(TOKEN_TYPE_HINT_PARAM) tokenTypeHint: String?,
         @Part("client_id") clientId: String?,
         @Part("client_secret") clientSecret: String?,
     ): IntrospectionResource {
@@ -100,7 +99,7 @@ class IntrospectionController(
         }
 
         val authConfig = uncheckedAuthConfig.orThrow()
-        val authenticationToken = tokenManager.introspectToken(client, token, tokenTypeHint)
+        val authenticationToken = tokenManager.introspectToken(client, token, type = null)
             ?: return IntrospectionResource(active = false)
 
         val scopes = authenticationToken.allScopes

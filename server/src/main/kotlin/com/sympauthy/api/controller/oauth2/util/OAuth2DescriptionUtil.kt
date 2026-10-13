@@ -15,10 +15,10 @@ const val CLIENT_SECRET_PARAMETER_DESCRIPTION = "Secret of the client, when it s
 
 /**
  * What the published specification says about `token_type_hint`, on the introspection and the revocation
- * endpoints, which both read it to pick the key the token is verified with.
+ * endpoints, which both accept it and read the type off the token instead.
  */
-const val TOKEN_TYPE_HINT_PARAMETER_DESCRIPTION = "Type of `token`. A token of the other type is then not " +
-    "recognized. When absent, this server reads the type off the token."
+const val TOKEN_TYPE_HINT_PARAMETER_DESCRIPTION = "Type of `token`. Ignored: this server reads the type off " +
+    "the token itself."
 
 /**
  * What the published specification says about the `401` of an endpoint that admits only a confidential
