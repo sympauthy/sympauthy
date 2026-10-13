@@ -20,6 +20,7 @@ import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
+import com.sympauthy.config.model.EnabledUrlsConfig
 import com.sympauthy.data.repository.AuthenticationTokenRepository
 import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import io.mockk.coEvery
@@ -36,6 +37,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
+import java.net.URI
 import java.time.LocalDateTime.now
 import java.util.*
 
@@ -63,6 +65,13 @@ class TokenManagerTest {
 
     @MockK
     lateinit var actorTokenValidator: ActorTokenValidator
+
+    /**
+     * The real manager behind a spy rather than a mock: the binding rule a refresh asks it is a function of the
+     * token alone, so every refresh scenario runs it instead of stubbing an answer to it.
+     */
+    @SpyK
+    var dpopManager = DpopManager(EnabledUrlsConfig(root = URI.create("https://auth.example.com")))
 
     @MockK
     lateinit var tokenRepository: AuthenticationTokenRepository

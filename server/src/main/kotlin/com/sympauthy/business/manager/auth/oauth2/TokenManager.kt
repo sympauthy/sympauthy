@@ -19,7 +19,6 @@ import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.oauth2.TokenRevokedBy
 import com.sympauthy.data.repository.AuthenticationTokenRepository
@@ -41,6 +40,7 @@ open class TokenManager(
     @Inject private val consentManager: ConsentManager,
     @Inject private val userManager: UserManager,
     @Inject private val actorTokenValidator: ActorTokenValidator,
+    @Inject private val dpopManager: DpopManager,
     @Inject private val tokenRepository: AuthenticationTokenRepository,
     @Inject private val tokenMapper: AuthenticationTokenMapper
 ) {
@@ -188,15 +188,7 @@ open class TokenManager(
             throw oauth2ExceptionOf(INVALID_GRANT, "token.mismatching_client", "description.token.mismatching_client")
         }
 
-        // If the refresh token was DPoP-bound, the new proof must use the same key
-        if (refreshToken.dpopJkt != null) {
-            if (dpopJkt == null) {
-                throw oauth2ExceptionOf(INVALID_DPOP_PROOF, "dpop.missing_header")
-            }
-            if (refreshToken.dpopJkt != dpopJkt) {
-                throw oauth2ExceptionOf(INVALID_DPOP_PROOF, "dpop.mismatching_key")
-            }
-        }
+        dpopManager.checkProofMatchesBinding(refreshToken, dpopJkt)
 
         // For user tokens, verify the account is one this server finished creating and the consent has not
         // been revoked (checked at audience level). A client-credentials token carries no user.

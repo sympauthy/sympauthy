@@ -20,7 +20,27 @@ const val UNAUTHORIZED_RESPONSE_DESCRIPTION =
         "- `token.actor_revoked`: the access token was obtained by token exchange, and the token " +
         "presented in that exchange was revoked.\n" +
         "- `token.actor_expired`: the access token was obtained by token exchange, and the token " +
-        "presented in that exchange has expired."
+        "presented in that exchange has expired.\n" +
+        "- `dpop.bound_token_as_bearer`: the access token is bound to a DPoP key and is sent as " +
+        "`Authorization: Bearer`.\n" +
+        "- `dpop.unbound_token`: the access token is sent as `Authorization: DPoP` and is bound to no DPoP " +
+        "key.\n" +
+        "- `dpop.missing_header`: the access token is sent as `Authorization: DPoP` with no `DPoP` header.\n" +
+        "- `dpop.multiple_headers`: the `DPoP` header is sent more than once.\n" +
+        "- `dpop.malformed`: the `DPoP` header is not a signed JWT.\n" +
+        "- `dpop.invalid_type`: the `typ` of the DPoP proof is not `dpop+jwt`.\n" +
+        "- `dpop.unsupported_algorithm`: the DPoP proof is signed with an algorithm " +
+        "`dpop_signing_alg_values_supported` does not list.\n" +
+        "- `dpop.private_key_in_header`: the `jwk` of the DPoP proof holds a private key.\n" +
+        "- `dpop.invalid_signature`: the DPoP proof does not verify against its `jwk`.\n" +
+        "- `dpop.missing_claims`: the DPoP proof has no `jwk`, `jti`, `htm`, `htu` or `iat`.\n" +
+        "- `dpop.invalid_htm`: the `htm` of the DPoP proof is not the method of the request.\n" +
+        "- `dpop.invalid_htu`: the `htu` of the DPoP proof is not the URL of the request.\n" +
+        "- `dpop.expired`: the `iat` of the DPoP proof is more than 60 seconds away from the time of the " +
+        "request.\n" +
+        "- `dpop.invalid_ath`: the `ath` of the DPoP proof is missing or is not the hash of the access token.\n" +
+        "- `dpop.mismatching_key`: the DPoP proof is signed with another key than the one the access token " +
+        "is bound to."
 
 /**
  * The line of the `400` an operation answers with when a value sent for one of its parameters cannot be
