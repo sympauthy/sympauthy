@@ -82,8 +82,9 @@ class ClientAuthenticationUtil(
      *
      * Credentials that do not decode, or do not authenticate, are refused with [BASIC_CHALLENGE].
      *
-     * The scheme is matched regardless of case, as RFC 9110 §11.1 has it. The framework's parser matches it
-     * exactly, so it is handed the header with the scheme spelled its way.
+     * The scheme is matched regardless of case, and the credentials may follow it after more than one space, as
+     * RFC 9110 §11.1 and §11.4 have it. The framework's parser accepts the scheme spelled one way and one space
+     * after it, so it is handed the header written that way.
      */
     private suspend fun authenticateWithHeaderOrNull(request: HttpRequest<*>): Client? {
         val authorization = request.headers.authorization
@@ -91,7 +92,7 @@ class ClientAuthenticationUtil(
             ?.takeIf { it.startsWith(BASIC_SCHEME_PREFIX, ignoreCase = true) }
             ?: return null
         val credentials = BasicAuthUtils
-            .parseCredentials(BASIC_SCHEME_PREFIX + authorization.substring(BASIC_SCHEME_PREFIX.length))
+            .parseCredentials(BASIC_SCHEME_PREFIX + authorization.substring(BASIC_SCHEME_PREFIX.length).trimStart(' '))
             .orElse(null)
             ?: throw wrongCredentialsException(challenged = true)
         return clientManager.authenticateClientOrNull(credentials.username, credentials.password)
@@ -123,9 +124,15 @@ class ClientAuthenticationUtil(
          * The challenge a refused client is answered with: the `Basic` scheme, the only one this server accepts
          * client credentials in, as RFC 6749 §5.2 requires.
          *
-         * RFC 7617 §2 requires the realm, and the realm names the protection space within this server the
-         * credentials belong to. Client credentials are accepted on the OAuth2 surface and nowhere else, so the
-         * realm is that surface.
+         * RFC 7617 §2 requires the realm: a `Basic` challenge without one is malformed. RFC 9110 §11.5 makes
+         * the realm, together with the root URL of the server, a protection space — the resources one set of
+         * credentials is good for. The root URL already says which server this is, so the realm only has to
+         * tell the spaces within it apart, and naming the server again, by its issuer or by its product name,
+         * would add nothing. Client credentials are accepted on the OAuth2 surface and nowhere else, so the
+         * realm names that surface.
+         *
+         * Nothing branches on the value: no OAuth2 client reads it, and a browser only keys the credentials it
+         * remembers on it and shows it in the prompt it may put up. Renaming it breaks no client.
          */
         const val BASIC_CHALLENGE = """Basic realm="oauth2""""
     }

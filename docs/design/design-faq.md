@@ -391,9 +391,9 @@ checked.
 ### Is a client that fails to authenticate answered `400` or `401`?
 
 **Decision:** `401`, with `WWW-Authenticate: Basic realm="oauth2"`, wherever no public client can be
-the one refused: for Basic credentials anywhere, and for any refusal on introspection, on revocation,
-and on the `client_credentials` and token exchange grants. On the `authorization_code` and
-`refresh_token` grants, a client refused for credentials in the body, or for sending none, is
+the one refused: for Basic credentials anywhere, and for any refusal on introspection, on
+revocation, and on the `client_credentials` and token exchange grants. On the `authorization_code`
+and `refresh_token` grants, a client refused for credentials in the body, or for sending none, is
 answered `400`. The `error` is `invalid_client` either way.
 
 **Options considered:**
@@ -412,11 +412,11 @@ RFC 7662 §2.3, which answers invalid credentials at introspection with a `401` 
 sent.
 
 The third sends a request for a username and password to every public client, and a public client is
-usually a page in a browser. The Fetch standard lets a browser answer a `Basic` challenge to a request
-from its own origin by prompting the person, who can do nothing with it when the cause is a client
-identifier the deployment mistyped. Only the grants a public client may use are exposed to that, so
-only they are spared the challenge. A client branching on the failure loses nothing to the split,
-because RFC 6749 tells it to read `error`, which does not change.
+usually a page in a browser. The Fetch standard lets a browser answer a `Basic` challenge to a
+request from its own origin by prompting the person, who can do nothing with it when the cause is a
+client identifier the deployment mistyped. Only the grants a public client may use are exposed to
+that, so only they are spared the challenge. A client branching on the failure loses nothing to the
+split, because the code it branches on is `invalid_client` either way.
 
 ---
 

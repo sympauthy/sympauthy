@@ -112,6 +112,16 @@ class ClientAuthenticationUtilTest {
     }
 
     @Test
+    fun `resolveClient - Authenticates with more than one space after the Basic scheme`() = runTest {
+        val client = mockk<Client>()
+        coEvery { clientManager.authenticateClientOrNull("client1", "secret1") } returns client
+
+        val result = util.resolveClient(mockRequestWithBasicAuth("client1", "secret1", scheme = "Basic  "), null, null)
+
+        assertEquals(client, result)
+    }
+
+    @Test
     fun `resolveClientAllowingPublic - Authenticates confidential client`() = runTest {
         val client = mockk<Client>()
         coEvery { clientManager.authenticateClientOrNull("client1", "secret1") } returns client
@@ -213,7 +223,7 @@ class ClientAuthenticationUtilTest {
     @Test
     fun `resolveClientAllowingPublic - Throws with a challenge when Basic Auth credentials do not decode`() =
         runTest {
-            // The body names a public client that would resolve: the malformed header is refused before it is read.
+            // No stub answers for the client the body names: the malformed header is refused before the body is read.
             val exception = assertThrows<OAuth2Exception> {
                 util.resolveClientAllowingPublic(
                     mockRequestWithAuthorization("Basic not-base64!"), "public-app", null
