@@ -30,10 +30,10 @@ because a specification says they are, and every check they do is one the specif
 public client can be the one refused.** RFC 6749 §5.2 requires a `401` and a `Basic` challenge where
 the client sent its credentials in the `Authorization` header, and RFC 7662 §2.3 requires the `401`
 at introspection whatever it sent. An endpoint or a grant only a confidential client may use
-challenges every refusal. The grants a public client may use — the authorization code and the
-refresh — challenge only a client that used the header, and answer the rest `400` like every other
-protocol error: a challenge asks for a password, and a public client is often a page in a browser
-that would put the prompt in front of the person. [The design
+challenges every refusal. Where a public client may call — the authorization code and the refresh
+grants, and revocation — only a client that used the header is challenged, and the rest are answered
+`400` like every other protocol error: a challenge asks for a password, and a public client is often
+a page in a browser that would put the prompt in front of the person. [The design
 FAQ](design-faq.md#is-a-client-that-fails-to-authenticate-answered-400-or-401) holds the rules that
 lost to it.
 
