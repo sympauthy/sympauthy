@@ -28,10 +28,9 @@ class OpenIdUserInfoController(
 
     @Operation(
         description = "Retrieve the claims of the end-user an access token was issued for, OpenID Connect Core " +
-            "1.0 §5.3. The access token is sent as `Authorization: Bearer <token>`. The response holds the " +
-            "claims the end-user consented to share that the configuration publishes in it: always " +
-            "(`claims.<id>.published-in`), or when the `userinfo` member of the `claims` parameter of the " +
-            "authorization request named them (`claims.<id>.published-in-when-requested`).",
+            "1.0 §5.3. The response holds the claims the end-user consented to share that the configuration " +
+            "publishes in it: always (`claims.<id>.published-in`), or when the `userinfo` member of the `claims` " +
+            "parameter of the authorization request named them (`claims.<id>.published-in-when-requested`).",
         tags = ["openid"],
         responses = [
             ApiResponse(

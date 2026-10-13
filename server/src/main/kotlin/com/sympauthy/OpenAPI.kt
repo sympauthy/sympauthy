@@ -12,6 +12,14 @@ import io.swagger.v3.oas.annotations.servers.Server
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.inject.Singleton
 
+/**
+ * How an operation behind an access token is sent that token: as a bearer token, or under the DPoP scheme
+ * where the token is bound to a key. It holds of every such operation, whatever surface it is on.
+ */
+private const val ACCESS_TOKEN_PRESENTATION_DESCRIPTION = "The access token is sent as " +
+    "`Authorization: Bearer <token>`, or, where it is bound to a DPoP key, as `Authorization: DPoP <token>` " +
+    "with a proof in the `DPoP` header."
+
 @OpenAPIDefinition(
     info = Info(
         title = "SympAuthy",
@@ -43,7 +51,7 @@ import jakarta.inject.Singleton
         Tag(
             name = "openid",
             description = "OpenID Connect endpoints. A client calls them with an access token issued for an " +
-                "end-user.",
+                "end-user. " + ACCESS_TOKEN_PRESENTATION_DESCRIPTION,
             externalDocs = ExternalDocumentation(
                 url = "https://openid.net/specs/openid-connect-core-1_0.html"
             )
@@ -83,7 +91,7 @@ import jakarta.inject.Singleton
             name = "admin",
             description = "Access token of an administrator: an end-user who signed in through the " +
                 "authorization code grant of a client of the admin audience, and was granted the admin scope " +
-                "the operation names.",
+                "the operation names. " + ACCESS_TOKEN_PRESENTATION_DESCRIPTION,
             type = OAUTH2,
             flows = OAuthFlows(
                 authorizationCode = OAuthFlow(
@@ -107,7 +115,7 @@ import jakarta.inject.Singleton
         SecurityScheme(
             name = "client",
             description = "Access token a client obtains on its own behalf with the `client_credentials` grant, " +
-                "carrying the scopes the operation names.",
+                "carrying the scopes the operation names. " + ACCESS_TOKEN_PRESENTATION_DESCRIPTION,
             type = OAUTH2,
             flows = OAuthFlows(
                 clientCredentials = OAuthFlow(
