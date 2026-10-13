@@ -9,7 +9,7 @@ import com.sympauthy.api.controller.oauth2.util.TOKEN_TYPE_HINT_PARAMETER_DESCRI
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.MediaType.APPLICATION_FORM_URLENCODED
@@ -32,10 +32,10 @@ class RevokeController(
 ) {
 
     @Operation(
-        description = "Revoke a token issued to the client, RFC 7009 §2. The client authenticates with HTTP Basic " +
-            "authentication or with `client_id` and `client_secret` in the body. Revoking a refresh token also " +
-            "revokes every token issued for the same authorization, and revoking a token revokes every token " +
-            "a token exchange obtained from it.",
+        description = "Revoke a token issued to the client, RFC 7009 §2. A confidential client authenticates with " +
+            "HTTP Basic authentication or with `client_id` and `client_secret` in the body, and a public client " +
+            "sends `client_id` alone. Revoking a refresh token also revokes every token issued for the same " +
+            "authorization, and revoking a token revokes every token a token exchange obtained from it.",
         tags = ["oauth2"],
         parameters = [
             Parameter(
@@ -51,7 +51,7 @@ class RevokeController(
             ),
             Parameter(
                 name = "client_id",
-                description = CLIENT_ID_PARAMETER_DESCRIPTION,
+                description = CLIENT_ID_PARAMETER_DESCRIPTION + " A public client sends it alone.",
                 schema = Schema(type = "string")
             ),
             Parameter(
@@ -66,7 +66,17 @@ class RevokeController(
                 description = "Empty body. Answered as well when the token does not validate, is already revoked " +
                     "or was issued to another client, which leaves it as it is."
             ),
-            ApiResponse(responseCode = "400", description = TOKEN_BAD_REQUEST_DESCRIPTION),
+            ApiResponse(
+                responseCode = "400",
+                description = TOKEN_BAD_REQUEST_DESCRIPTION + "\n" +
+                    "- `invalid_client`: no client credentials are sent, or the ones sent in the body do not " +
+                    "authenticate a client."
+            ),
+            ApiResponse(
+                responseCode = "401",
+                description = "- `invalid_client`: the client credentials sent with HTTP Basic authentication do " +
+                    "not authenticate a client. The `WWW-Authenticate` header names the `Basic` scheme."
+            ),
             ApiResponse(responseCode = "413", description = BODY_TOO_LARGE_RESPONSE_DESCRIPTION)
         ],
         externalDocs = ExternalDocumentation(
@@ -83,9 +93,9 @@ class RevokeController(
         @Part("client_id") clientId: String?,
         @Part("client_secret") clientSecret: String?,
     ): HttpResponse<Unit> {
-        val client = clientAuthenticationUtil.resolveClient(request, clientId, clientSecret)
+        val client = clientAuthenticationUtil.resolveClientAllowingPublic(request, clientId, clientSecret)
         if (token.isNullOrBlank()) {
-            throw oauth2ExceptionOf(INVALID_GRANT, "token.missing_param", "param" to TOKEN_PARAM)
+            throw oauth2ExceptionOf(INVALID_REQUEST, "token.missing_param", "param" to TOKEN_PARAM)
         }
         tokenManager.revokeTokenByEncodedToken(client, token, tokenTypeHint)
         return HttpResponse.ok()

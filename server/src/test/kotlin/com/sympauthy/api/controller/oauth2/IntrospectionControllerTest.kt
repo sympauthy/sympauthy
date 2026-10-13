@@ -7,7 +7,8 @@ import com.sympauthy.business.manager.auth.oauth2.TokenManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.AuthenticationToken
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_CLIENT
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.business.model.user.claim.ClaimAcl
@@ -267,7 +268,7 @@ class IntrospectionControllerTest {
                 clientSecret = "secret"
             )
         }
-        assertEquals(INVALID_GRANT, exception.errorCode)
+        assertEquals(INVALID_REQUEST, exception.errorCode)
         assertEquals("token.missing_param", exception.detailsId)
     }
 
@@ -277,7 +278,7 @@ class IntrospectionControllerTest {
 
         coEvery {
             clientAuthenticationUtil.resolveClient(request, "bad-client", "wrong")
-        } throws oauth2ExceptionOf(INVALID_GRANT, "authentication.wrong")
+        } throws oauth2ExceptionOf(INVALID_CLIENT, "authentication.wrong")
 
         assertThrows<OAuth2Exception> {
             controller.introspectToken(
