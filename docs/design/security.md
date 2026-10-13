@@ -186,9 +186,10 @@ once that session ends.
 **An access token is validated on every request**, as a signature over this server's own keys, with
 its issuer, audience and expiry checked. Nothing is trusted because it parsed.
 
-**A token may be bound to a key the client holds**, in which case the proof accompanying the request
-is verified against the method and URI it was made for. That binding is what stops a stolen token
-being usable on its own.
+**A token may be bound to a key the client holds**, in which case it is presented under the `DPoP`
+scheme beside a proof signed by that key, and the proof is verified against the method and URI it
+was made for and against the token it accompanies. That binding is what stops a stolen token being
+usable on its own.
 
 **A revoked token stops working immediately**, because revocation is a row rather than a shorter
 expiry. This is the deliberate cost of not being purely stateless: every request presenting a token
@@ -211,6 +212,30 @@ leave a token behind.
 **It is refused, not revoked.** Nothing is written to the token's row, so a client declared again
 under the same identifier finds its unexpired tokens served again. [The design
 FAQ](design-faq.md#does-a-token-outlive-its-client) argues the alternatives.
+
+### A token bound to a key
+
+**A client that sends a DPoP proof when it asks for tokens is issued tokens bound to the key that
+signed it**, as RFC 9449 defines. From then on the access token is presented as
+`Authorization: DPoP`, with a fresh proof in the `DPoP` header on every request, and a refresh
+token is refreshed only beside a proof signed by the same key.
+
+**A bound token presented as a bearer token is refused, even beside a valid proof.** RFC 9449 §7.2
+asks it of every resource that understands the scheme, and a binding the holder of the token could
+decline would bind nothing: whoever stole the token would present it the old way. Accepting the
+`DPoP` scheme only adds a way in, so this refusal is the whole of the protection.
+
+**A token bound to no key presented under the `DPoP` scheme is refused too.** There is no key for
+its proof to be matched against, and accepting it would let a proof stand for a binding nobody made.
+
+**The binding is checked by whatever accepts an access token, not by the surface it reaches.** The
+userinfo endpoint and the client and admin surfaces are resource servers inside this one, and every
+one of them takes its token through `AccessTokenValidator`, which hands the token, the scheme it
+came under and the proof beside it to `DpopManager`. A surface added behind an access token is
+therefore checked without asking to be, and the refresh grant asks `DpopManager` the same question
+of a bound refresh token, so the token endpoint and the resource surfaces cannot disagree about
+which key a proof must be signed with. The framework reads the `Bearer` scheme alone, and
+`DpopTokenReader` is what reads the other.
 
 ### When the person authenticated
 
@@ -313,6 +338,13 @@ built.
 
 **It does not encrypt tokens at rest beyond hashing what must be hashed.** What the storage layer
 does underneath is the deployment's.
+
+**It does not remember a DPoP proof, and hands out no nonce.** RFC 9449 §11.1 asks only that a
+proof be accepted for a short while — here a minute either side of the time it names — and leaves
+recording its `jti` optional, so a proof captured with the token it accompanies can be replayed
+against the same method and URI until it ages out. Without the nonce of §8, nothing stops a client,
+or the person using it, signing proofs ahead for a future `iat` and carrying them away from the key;
+the `ath` they carry bounds that to the access token's lifetime.
 
 **It does not change the identifier an account signs in with.** An account takes its identifier
 claims at sign-up and keeps them. No surface writes one afterwards — not the client claim endpoint,
