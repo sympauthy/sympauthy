@@ -65,7 +65,7 @@ class DpopBoundAccessTokenRefusedAsBearerIT : AbstractSympauthyIT() {
             )
 
             val asBearer = httpGet(userInfoEndpoint, headers = mapOf("Authorization" to "Bearer $accessToken"))
-            assertOAuthError(
+            assertError(
                 asBearer, 401, "dpop.bound_token_as_bearer",
                 "userinfo must refuse a bound token presented as a bearer token",
             )

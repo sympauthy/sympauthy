@@ -591,6 +591,26 @@ abstract class AbstractSympauthyIT {
         )
     }
 
+    /**
+     * Asserts [response] refused with HTTP [status] in the ordinary error body, and that its
+     * `error_code` is exactly [errorCode], reporting [message] when it did not. A refusal naming one of
+     * this server's own codes is answered in that body, whatever surface answers it; a code RFC 6749
+     * names is [assertOAuthError]'s.
+     */
+    protected fun assertError(
+        response: HttpResponse<String>,
+        status: Int,
+        errorCode: String,
+        message: String,
+    ) {
+        assertEquals(status, response.statusCode(), "$message, body=${response.body()}")
+        assertEquals(
+            errorCode,
+            JSONObjectUtils.parse(response.body())["error_code"],
+            "$message — the refusal should name $errorCode, body=${response.body()}",
+        )
+    }
+
     /** The `Authorization: Basic` header authenticating the confidential client [clientId] with [secret]. */
     protected fun basicAuth(clientId: String, secret: String): Map<String, String> = mapOf(
         "Authorization" to "Basic " + Base64.getEncoder()
