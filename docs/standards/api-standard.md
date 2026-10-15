@@ -141,10 +141,10 @@ correcting a form needs to know which field carries which failure, not only that
 the response as a whole, and printed against a single field it says less than the path and the code
 already do.
 
-**An OAuth2 error is the body RFC 6749 defines, under the rules above.** It names its members as
-the specification does and carries the codes the specification names: `error` is the code a client
-branches on, `error_description` is the description written for a person, and `details` is the same
-technical message behind the same flag.
+**An OAuth2 error is the body RFC 6749 defines, with the members and the codes the specification
+names.** `error` is the code a client branches on. `error_description` is the description, written
+for a person like any other and reworded in any release. `details` is the technical message, behind
+the same flag. Nothing else of the body above carries over: no `status`, no `error_code`.
 
 ## CORS
 

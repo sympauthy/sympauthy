@@ -21,6 +21,16 @@ class OAuth2ErrorResourceTest {
         assertEquals(setOf("error", "error_description", "details"), serialized.keys)
         assertEquals("invalid_grant", serialized["error"])
         assertEquals("Please go back to your application and start again.", serialized["error_description"])
+        assertEquals("The authorization code has expired.", serialized["details"])
+    }
+
+    @Test
+    fun `A null description or details is absent from the body`() {
+        val resource = OAuth2ErrorResource(errorCode = "invalid_grant")
+
+        val serialized = serialize(resource)
+
+        assertEquals(setOf("error"), serialized.keys)
     }
 
     @Suppress("UNCHECKED_CAST")

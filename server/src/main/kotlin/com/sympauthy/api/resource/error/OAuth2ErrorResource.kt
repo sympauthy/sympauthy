@@ -15,6 +15,7 @@ data class OAuth2ErrorResource(
         description = "Technical message explaining the error, for troubleshooting. Absent unless " +
             "`features.print-details-in-error` is enabled."
     )
+    @get:JsonProperty("details")
     val details: String? = null,
 
     @get:Schema(
