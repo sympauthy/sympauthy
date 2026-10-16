@@ -37,11 +37,20 @@ import jakarta.inject.Inject
  * not served puts the failure on a correct client doing what it was told, and one served and not
  * listed cannot be found by a client that reads capabilities rather than documentation.
  *
- * The client authentication methods and the subject type are written out because nothing dispatches
- * on a closed set of either — [com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil]
- * tries the header and then the body rather than branching on a named method. An enum whose one
- * reader is this document would relocate those literals rather than derive them, so they are held
- * by their test instead.
+ * Leaving a member out is not saying no. OpenID Connect Discovery 1.0 §3 and RFC 8414 §2 give some
+ * members a value an absent one takes, and a client reads that value exactly as if it had been
+ * written: `request_uri_parameter_supported` is then true, `response_modes_supported` is `query` and
+ * `fragment`, and the token and revocation endpoints accept `client_secret_basic` alone. So a member
+ * is left out only where it has no default or its default is true of this server, and written out
+ * wherever the default would claim a capability this server lacks or hide one it has.
+ *
+ * The client authentication methods, the response mode and the subject type are written out because
+ * nothing dispatches on a closed set of any of them —
+ * [com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil] tries the header, then the
+ * body, then a public client's `client_id` alone rather than branching on a named method, and the
+ * authorization response is always written into the query string of `redirect_uri`. An enum whose one
+ * reader is this document would relocate those literals rather than derive them, so they are held by
+ * their test instead.
  *
  * `scopes_supported` and `claims_supported` are the exception to all of it, and deliberately: each says
  * what a client could ask for, and each names what the deployment wrote `published-in: [ discovery ]`
@@ -91,19 +100,22 @@ class OpenIdConfigurationController(
             userInfoEndpoint = urlsConfig.getUri(OPENID_USERINFO_ENDPOINT).toString(),
             jwksUri = urlsConfig.getUri(OPENID_JWKS_ENDPOINT).toString(),
             revocationEndpoint = urlsConfig.getUri(OAUTH2_REVOKE_ENDPOINT).toString(),
+            revocationEndpointAuthMethodsSupported = listOf("client_secret_basic", "client_secret_post"),
             introspectionEndpoint = urlsConfig.getUri(OAUTH2_INTROSPECTION_ENDPOINT).toString(),
             introspectionEndpointAuthMethodsSupported = listOf("client_secret_basic", "client_secret_post"),
             scopesSupported = scopes,
             responseTypesSupported = ResponseType.entries.map { it.wireName },
+            responseModesSupported = listOf("query"),
             grantTypesSupported = GrantType.entries.map { it.wireName },
             subjectTypesSupported = listOf("public"),
             idTokenSigningAlgValuesSupported = listOf(advancedConfig.publicJwtAlgorithm.name),
-            tokenEndpointAuthMethodsSupported = listOf("client_secret_basic", "client_secret_post"),
+            tokenEndpointAuthMethodsSupported = listOf("client_secret_basic", "client_secret_post", "none"),
             claimsSupported = claims,
             // Served on every authorization and refused on none, whatever any claim's file says: a
             // deployment that opened no channel to a request answers one by changing nothing, which is what
             // the parameter asks for when it names a claim nobody opened. See docs/design/claims.md.
             claimsParameterSupported = true,
+            requestUriParameterSupported = false,
             codeChallengeMethodsSupported = CodeChallengeMethod.entries.map { it.value },
             dpopSigningAlgValuesSupported = DpopManager.SUPPORTED_ALGORITHMS.toList()
         )

@@ -42,10 +42,13 @@ import java.net.URI
  * do this?* gets asked. The comparison against the enum is the other direction, and catches a
  * document hand-written again even where the literal was updated to agree with it.
  *
- * The client authentication methods and the subject type have only the literal, because nothing
- * dispatches on a closed set of either — an enum there would have this document as its one reader,
- * which relocates the literal rather than deriving it. Naming them here is the only guard they can
- * have.
+ * The client authentication methods, the response mode and the subject type have only the literal,
+ * because nothing dispatches on a closed set of any of them — an enum there would have this document
+ * as its one reader, which relocates the literal rather than deriving it. Naming them here is the only
+ * guard they can have.
+ *
+ * A member the specifications give a default is held to its value, never to its absence. Left out, it
+ * is read as that default, so a member this server answers "no" to is asserted to say so.
  */
 @ExtendWith(MockKExtension::class)
 class OpenIdConfigurationControllerTest {
@@ -116,18 +119,37 @@ class OpenIdConfigurationControllerTest {
     }
 
     @Test
-    fun `getConfiguration - Advertises the client authentication methods both endpoints accept`() = runTest {
-        val configuration = configuration()
+    fun `getConfiguration - Advertises the one response mode the authorization endpoint answers with`() = runTest {
+        assertEquals(listOf("query"), configuration().responseModesSupported)
+    }
 
+    @Test
+    fun `getConfiguration - Advertises that a client may not send a request_uri`() = runTest {
+        assertEquals(false, configuration().requestUriParameterSupported)
+    }
+
+    @Test
+    fun `getConfiguration - Advertises the client authentication methods the token endpoint accepts`() = runTest {
         assertEquals(
-            listOf("client_secret_basic", "client_secret_post"),
-            configuration.tokenEndpointAuthMethodsSupported
-        )
-        assertEquals(
-            listOf("client_secret_basic", "client_secret_post"),
-            configuration.introspectionEndpointAuthMethodsSupported
+            listOf("client_secret_basic", "client_secret_post", "none"),
+            configuration().tokenEndpointAuthMethodsSupported
         )
     }
+
+    @Test
+    fun `getConfiguration - Advertises the client authentication methods revocation and introspection accept`() =
+        runTest {
+            val configuration = configuration()
+
+            assertEquals(
+                listOf("client_secret_basic", "client_secret_post"),
+                configuration.revocationEndpointAuthMethodsSupported
+            )
+            assertEquals(
+                listOf("client_secret_basic", "client_secret_post"),
+                configuration.introspectionEndpointAuthMethodsSupported
+            )
+        }
 
     @Test
     fun `getConfiguration - Advertises the one subject type this server issues`() = runTest {

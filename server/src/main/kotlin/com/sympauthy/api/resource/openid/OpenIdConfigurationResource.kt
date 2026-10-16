@@ -8,7 +8,8 @@ import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(
     description = "Metadata of this server, as OpenID Connect Discovery 1.0 §3 defines it. A member naming a " +
-        "feature this server does not support is absent.",
+        "feature this server does not support is absent, unless its default when absent would say the feature " +
+        "is supported.",
     externalDocs = ExternalDocumentation(
         description = "OpenID Connect Discovery 1.0, §3",
         url = "https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata"
@@ -46,6 +47,14 @@ data class OpenIdConfigurationResource(
     @get:Schema(description = "URL of the revocation endpoint, RFC 8414 §2.")
     @get:JsonProperty("revocation_endpoint")
     val revocationEndpoint: String? = null,
+    @get:ArraySchema(
+        arraySchema = Schema(
+            description = "Client authentication methods the revocation endpoint accepts, RFC 8414 §2."
+        ),
+        schema = Schema(allowableValues = ["client_secret_basic", "client_secret_post"])
+    )
+    @get:JsonProperty("revocation_endpoint_auth_methods_supported")
+    val revocationEndpointAuthMethodsSupported: List<String>? = null,
     @get:Schema(description = "URL of the introspection endpoint, RFC 8414 §2.")
     @get:JsonProperty("introspection_endpoint")
     val introspectionEndpoint: String? = null,
@@ -71,9 +80,13 @@ data class OpenIdConfigurationResource(
     )
     @get:JsonProperty("response_types_supported")
     val responseTypesSupported: List<String>,
-    @get:Schema(
-        description = "`response_mode` values this server supports. Always absent: the authorization response " +
-            "is always sent in the query string of `redirect_uri`."
+    @get:ArraySchema(
+        arraySchema = Schema(
+            description = "`response_mode` values the authorization endpoint answers with. A `response_mode` in " +
+                "the authorization request is ignored, and the authorization response is sent in the query " +
+                "string of `redirect_uri`."
+        ),
+        schema = Schema(allowableValues = ["query"])
     )
     @get:JsonProperty("response_modes_supported")
     val responseModesSupported: List<String>? = null,
@@ -158,10 +171,10 @@ data class OpenIdConfigurationResource(
     val requestObjectEncryptionAlgValuesSupported: List<String>? = null,
     @get:ArraySchema(
         arraySchema = Schema(
-            description = "Client authentication methods the token endpoint accepts. A public client sends its " +
-                "`client_id` alone."
+            description = "Client authentication methods the token endpoint accepts. `none` is a public client " +
+                "sending its `client_id` alone, which the `authorization_code` and `refresh_token` grants accept."
         ),
-        schema = Schema(allowableValues = ["client_secret_basic", "client_secret_post"])
+        schema = Schema(allowableValues = ["client_secret_basic", "client_secret_post", "none"])
     )
     @get:JsonProperty("token_endpoint_auth_methods_supported")
     val tokenEndpointAuthMethodsSupported: List<String>? = null,
@@ -216,8 +229,7 @@ data class OpenIdConfigurationResource(
     @get:JsonProperty("request_parameter_supported")
     val requestParameterSupported: Boolean? = null,
     @get:Schema(
-        description = "Whether the authorization endpoint accepts the `request_uri` parameter. Always absent: " +
-            "the endpoint does not accept it."
+        description = "Whether the authorization endpoint accepts the `request_uri` parameter. Always false."
     )
     @get:JsonProperty("request_uri_parameter_supported")
     val requestUriParameterSupported: Boolean? = null,
