@@ -7,9 +7,8 @@ import io.swagger.v3.oas.annotations.media.ArraySchema
 import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(
-    description = "Metadata of this server, as OpenID Connect Discovery 1.0 §3 defines it. A member naming a " +
-        "feature this server does not support is absent, unless its default when absent would say the feature " +
-        "is supported.",
+    description = "Metadata of this server, as OpenID Connect Discovery 1.0 §3 defines it. A member with a default " +
+        "value is always present, and any other member naming a feature this server does not support is absent.",
     externalDocs = ExternalDocumentation(
         description = "OpenID Connect Discovery 1.0, §3",
         url = "https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata"
@@ -55,7 +54,7 @@ data class OpenIdConfigurationResource(
         schema = Schema(allowableValues = ["client_secret_basic", "client_secret_post", "none"])
     )
     @get:JsonProperty("revocation_endpoint_auth_methods_supported")
-    val revocationEndpointAuthMethodsSupported: List<String>? = null,
+    val revocationEndpointAuthMethodsSupported: List<String>,
     @get:Schema(description = "URL of the introspection endpoint, RFC 8414 §2.")
     @get:JsonProperty("introspection_endpoint")
     val introspectionEndpoint: String? = null,
@@ -90,7 +89,7 @@ data class OpenIdConfigurationResource(
         schema = Schema(allowableValues = ["query"])
     )
     @get:JsonProperty("response_modes_supported")
-    val responseModesSupported: List<String>? = null,
+    val responseModesSupported: List<String>,
     @get:ArraySchema(
         arraySchema = Schema(
             description = "`grant_type` values the token endpoint accepts."
@@ -105,7 +104,7 @@ data class OpenIdConfigurationResource(
         )
     )
     @get:JsonProperty("grant_types_supported")
-    val grantTypesSupported: List<String>? = null,
+    val grantTypesSupported: List<String>,
     @get:Schema(
         description = "Authentication context class references this server supports. Always absent: this " +
             "server states none."
@@ -178,7 +177,7 @@ data class OpenIdConfigurationResource(
         schema = Schema(allowableValues = ["client_secret_basic", "client_secret_post", "none"])
     )
     @get:JsonProperty("token_endpoint_auth_methods_supported")
-    val tokenEndpointAuthMethodsSupported: List<String>? = null,
+    val tokenEndpointAuthMethodsSupported: List<String>,
     @get:Schema(
         description = "Algorithms a client may sign a JWT authenticating it at the token endpoint with. Always " +
             "absent: this server does not accept such a JWT."
@@ -191,11 +190,15 @@ data class OpenIdConfigurationResource(
     )
     @get:JsonProperty("display_values_supported")
     val displayValuesSupported: List<String>? = null,
-    @get:Schema(
-        description = "Claim types this server supports. Always absent: every claim is a normal claim."
+    @get:ArraySchema(
+        arraySchema = Schema(
+            description = "Claim types this server returns. Every claim is a normal claim, which this server " +
+                "asserts itself."
+        ),
+        schema = Schema(allowableValues = ["normal"])
     )
     @get:JsonProperty("claim_types_supported")
-    val claimTypesSupported: List<String>? = null,
+    val claimTypesSupported: List<String>,
     @get:Schema(
         description = "Claims the configuration publishes in discovery (`claims.<id>.published-in`), each with " +
             "its `_verified` companion where it has one. A claim left out of this list is still served."
@@ -222,24 +225,25 @@ data class OpenIdConfigurationResource(
         description = "Whether the authorization endpoint accepts the `claims` parameter. Always true."
     )
     @get:JsonProperty("claims_parameter_supported")
-    val claimsParameterSupported: Boolean? = null,
+    val claimsParameterSupported: Boolean,
     @get:Schema(
-        description = "Whether the authorization endpoint accepts the `request` parameter. Always absent: it " +
-            "does not."
+        description = "Whether the authorization endpoint accepts the `request` parameter. Always false: an " +
+            "authorization request carrying it fails."
     )
     @get:JsonProperty("request_parameter_supported")
-    val requestParameterSupported: Boolean? = null,
+    val requestParameterSupported: Boolean,
     @get:Schema(
-        description = "Whether the authorization endpoint accepts the `request_uri` parameter. Always false."
+        description = "Whether the authorization endpoint accepts the `request_uri` parameter. Always false: an " +
+            "authorization request carrying it fails."
     )
     @get:JsonProperty("request_uri_parameter_supported")
-    val requestUriParameterSupported: Boolean? = null,
+    val requestUriParameterSupported: Boolean,
     @get:Schema(
-        description = "Whether a client must register its `request_uri` values. Always absent: this server " +
+        description = "Whether a client must register its `request_uri` values. Always false: this server " +
             "accepts no `request_uri`."
     )
     @get:JsonProperty("require_request_uri_registration")
-    val requireRequestUriRegistration: Boolean? = null,
+    val requireRequestUriRegistration: Boolean,
     @get:Schema(
         description = "URL of the policy on how a client may use the data this server provides. Always absent: " +
             "this server publishes none."
@@ -258,7 +262,7 @@ data class OpenIdConfigurationResource(
         schema = Schema(allowableValues = ["S256"])
     )
     @get:JsonProperty("code_challenge_methods_supported")
-    val codeChallengeMethodsSupported: List<String>? = null,
+    val codeChallengeMethodsSupported: List<String>,
     @get:ArraySchema(
         arraySchema = Schema(
             description = "Algorithms a DPoP proof sent to the token endpoint may be signed with, RFC 9449 §5.1."

@@ -121,8 +121,17 @@ class OpenIdConfigurationControllerTest {
     }
 
     @Test
-    fun `getConfiguration - Advertises that a client may not send a request_uri`() = runTest {
-        assertEquals(false, configuration().requestUriParameterSupported)
+    fun `getConfiguration - Advertises that a client may send no request object`() = runTest {
+        val configuration = configuration()
+
+        assertEquals(false, configuration.requestParameterSupported)
+        assertEquals(false, configuration.requestUriParameterSupported)
+        assertEquals(false, configuration.requireRequestUriRegistration)
+    }
+
+    @Test
+    fun `getConfiguration - Advertises the one claim type this server returns`() = runTest {
+        assertEquals(listOf("normal"), configuration().claimTypesSupported)
     }
 
     @Test

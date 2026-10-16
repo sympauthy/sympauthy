@@ -40,9 +40,9 @@ import jakarta.inject.Inject
  * Leaving a member out is not saying no. OpenID Connect Discovery 1.0 §3 and RFC 8414 §2 give some
  * members a value an absent one takes, and a client reads that value exactly as if it had been
  * written: `request_uri_parameter_supported` is then true, `response_modes_supported` is `query` and
- * `fragment`, and the token and revocation endpoints accept `client_secret_basic` alone. So a member
- * is left out only where it has no default or its default is true of this server, and written out
- * wherever the default would claim a capability this server lacks or hide one it has.
+ * `fragment`, and the token and revocation endpoints accept `client_secret_basic` alone. So every
+ * member with a default is written out, whether or not its default happens to be true of this server,
+ * and [OpenIdConfigurationResource] declares each of them non-null so that none can be left out.
  *
  * The client authentication methods, the response mode and the subject type are written out because
  * nothing dispatches on a closed set of any of them —
@@ -107,14 +107,19 @@ class OpenIdConfigurationController(
             responseModesSupported = listOf("query"),
             grantTypesSupported = GrantType.entries.map { it.wireName },
             subjectTypesSupported = listOf("public"),
+            // Only the algorithm id tokens are signed with, without the RS256 OpenID Connect Discovery 1.0 §3
+            // asks for: see docs/design/security.md.
             idTokenSigningAlgValuesSupported = listOf(advancedConfig.publicJwtAlgorithm.name),
             tokenEndpointAuthMethodsSupported = listOf("client_secret_basic", "client_secret_post", "none"),
+            claimTypesSupported = listOf("normal"),
             claimsSupported = claims,
             // Served on every authorization and refused on none, whatever any claim's file says: a
             // deployment that opened no channel to a request answers one by changing nothing, which is what
             // the parameter asks for when it names a claim nobody opened. See docs/design/claims.md.
             claimsParameterSupported = true,
+            requestParameterSupported = false,
             requestUriParameterSupported = false,
+            requireRequestUriRegistration = false,
             codeChallengeMethodsSupported = CodeChallengeMethod.entries.map { it.value },
             dpopSigningAlgValuesSupported = DpopManager.SUPPORTED_ALGORITHMS.toList()
         )
