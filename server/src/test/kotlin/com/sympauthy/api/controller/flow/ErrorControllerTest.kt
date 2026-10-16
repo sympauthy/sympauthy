@@ -24,6 +24,7 @@ import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -117,12 +118,9 @@ class ErrorControllerTest {
         val request = mockk<HttpRequest<*>> {
             every { locale } returns Optional.of(Locale.US)
         }
-        val session = mockk<CompletedInteractiveFlowSession> {
-            every { flowId } returns "flow-id"
-        }
+        val session = mockk<CompletedInteractiveFlowSession>()
         coEvery { sessionManager.verifyEncodedInternalState("encoded-state") } returns
             SuccessVerifyEncodedStateResult(session)
-        every { interactiveAuthFlowSessionManager.findById("flow-id") } returns mockk()
         coEvery { engine.advance(session) } returns
             InteractiveFlowStepResult(session, InteractiveFlowStep.AlreadyCompleted)
         every {
@@ -140,6 +138,8 @@ class ErrorControllerTest {
         assertEquals("auth.interactive_flow_session.already_completed", result.errorCode)
         assertNull(result.redirectUrl)
         coVerify(exactly = 0) { stepUriMapper.toRedirectUri(any(), any(), any()) }
+        // Telling a session it is over needs no flow, so one no longer configured does not stop it.
+        verify(exactly = 0) { interactiveAuthFlowSessionManager.findById(any()) }
     }
 
     @Test

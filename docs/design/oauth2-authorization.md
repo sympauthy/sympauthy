@@ -47,11 +47,12 @@ with everything else, and a session never completes without one. Where no scope 
 deployment does not allow access to a client without one, the session fails there instead.
 
 **The code is handed out once.** It goes to the client's redirect, answered to the request that
-completed the session. A later request with the same state — the other half of a double submit, a
-reload, the back button — is sent to the error page, which says the authorization has already
-completed, and the session is left completed. Handing the code out again would give it to whoever
-holds the state, which outlives the flow and travels in URLs, and would send the client a code it
-has already exchanged.
+completed the session. A later request with the same state to a step that answers with where the
+flow goes — a reload, the back button, a form submitted twice — is sent to the error page, which
+says the authorization has already completed, and the session is left completed; a step answering
+with a body of its own refuses it as over, as it refuses every session that has ended. Handing the
+code out again would give it to whoever holds the state, which outlives the flow and travels in
+URLs, and would send the client a code it has already exchanged.
 
 **Cancelling answers the client with `access_denied`.** A person declining is the client's to know,
 so the session hands them back to the redirect URI with the error RFC 6749 §4.1.2.1 names and the
@@ -83,6 +84,11 @@ concurrent modification it is, to be routed by where the winner left the session
 **It does not keep a session between authorizations.** Every authorization signs the person in
 anew, which is what makes `max_age` satisfied by construction —
 [security](security.md#when-the-person-authenticated) argues it.
+
+**It does not serve two submissions racing to complete it.** One that loses the version check while
+the other is still completing fails the session, as [any conflict
+does](interactive-flow.md#the-session), so neither is handed a code and the person starts again from
+the client. One arriving after the other finished is a later request like any other.
 
 **It does not resend a hand-off that never arrived.** A request that completed the session and
 failed before answering leaves a code nobody was given; a later request is told the authorization

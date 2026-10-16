@@ -9,7 +9,10 @@ import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.SuccessVerifyEncodedStateResult
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
+import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlow
+import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.interactiveFlowSessionAlreadyCompletedExceptionOf
 import com.sympauthy.security.SecurityRule.HAS_STATE
@@ -47,6 +50,19 @@ class ErrorController(
                 description = "The failure, or the `redirect_url` to send the browser to instead.",
                 useReturnTypeSchema = true
             ),
+            ApiResponse(
+                responseCode = "400",
+                description = "- `flow.web.invalid_flow`: the flow the interactive flow session was started in " +
+                    "is no longer configured.\n" +
+                    "- `client.invalid_client_id`: the client the authorization request named is no longer " +
+                    "configured.\n" +
+                    "- `auth.interactive_flow_session.concurrent_modification`: another request moved the " +
+                    "interactive flow session forward at the same time.\n" +
+                    "- `user.promote.identifier_taken`: completing the sign-up found another user holding one " +
+                    "of its identifier claim values.\n" +
+                    "- `user.promote.provider_subject_taken`: completing the sign-up found another user linked " +
+                    "to its third-party identity."
+            ),
             ApiResponse(responseCode = "401", description = FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION)
         ],
         tags = ["flow"]
@@ -68,28 +84,24 @@ class ErrorController(
                         values = session.errorValues.orEmpty()
                     )
 
-                    else -> {
-                        val flow = interactiveAuthFlowSessionManager.findById(
-                            session.flowId
-                        )
-                        val (steppedSession, step) = engine.advance(session)
+                    // Asking the engine about a completed session changes nothing, and telling one it is over
+                    // needs no flow, so the flow is resolved only to redirect.
+                    is CompletedInteractiveFlowSession -> {
+                        val (_, step) = engine.advance(session)
                         if (step == InteractiveFlowStep.AlreadyCompleted) {
                             // The step leads to this page, so it is answered here rather than redirected to.
-                            val alreadyCompleted = interactiveFlowSessionAlreadyCompletedExceptionOf()
-                            toErrorResource(
-                                request = request,
-                                detailsId = alreadyCompleted.detailsId,
-                                descriptionId = alreadyCompleted.descriptionId,
-                                values = alreadyCompleted.values
-                            )
+                            toErrorResource(request, interactiveFlowSessionAlreadyCompletedExceptionOf())
                         } else {
-                            val redirectUri = stepUriMapper.toRedirectUri(
-                                session = steppedSession,
-                                flow = flow,
-                                step = step
-                            )
-                            flowErrorResourceMapper.toResource(redirectUri)
+                            val flow = interactiveAuthFlowSessionManager.findById(session.flowId)
+                            toRedirectResource(session, flow, step)
                         }
+                    }
+
+                    else -> {
+                        // Resolved before the engine is asked, since asking may complete the session.
+                        val flow = interactiveAuthFlowSessionManager.findById(session.flowId)
+                        val (steppedSession, step) = engine.advance(session)
+                        toRedirectResource(steppedSession, flow, step)
                     }
                 }
             }
@@ -123,6 +135,21 @@ class ErrorController(
             descriptionId = descriptionId,
             values = values
         )
-        return flowErrorResourceMapper.toResource(exception, request.locale.orDefault())
+        return toErrorResource(request, exception)
     }
+
+    /**
+     * Render [failure] against the locale [request] asks for.
+     */
+    private fun toErrorResource(request: HttpRequest<*>, failure: BusinessException): FlowErrorResource =
+        flowErrorResourceMapper.toResource(failure, request.locale.orDefault())
+
+    /**
+     * Answer with only the `redirect_url` that [step] of [session] leads to in [flow].
+     */
+    private suspend fun toRedirectResource(
+        session: InteractiveFlowSession,
+        flow: InteractiveFlow,
+        step: InteractiveFlowStep
+    ): FlowErrorResource = flowErrorResourceMapper.toResource(stepUriMapper.toRedirectUri(session, flow, step))
 }

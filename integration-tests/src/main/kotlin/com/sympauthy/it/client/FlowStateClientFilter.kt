@@ -38,8 +38,9 @@ class FlowStateClientFilter(private val holder: FlowStateHolder) {
         val state = holder.state ?: return
         if (!request.path.startsWith("/api/v1/flow/")) return
         if (request.method == HttpMethod.POST) {
-            request.header(HttpHeaders.AUTHORIZATION, "State $state")
-        } else {
+            // Set rather than added, so the state replaces whatever a filter that ran before this one put there.
+            request.headers.set(HttpHeaders.AUTHORIZATION, "State $state")
+        } else if (!request.parameters.contains("state")) {
             request.uri(UriBuilder.of(request.uri).queryParam("state", state).build())
         }
     }
