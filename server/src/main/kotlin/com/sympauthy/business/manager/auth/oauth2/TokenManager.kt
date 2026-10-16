@@ -10,6 +10,8 @@ import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.REFRESH_KEY
+import com.sympauthy.business.manager.lock.LockKey
+import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.mapper.AuthenticationTokenMapper
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
@@ -42,6 +44,8 @@ open class TokenManager(
     @Inject private val userManager: UserManager,
     @Inject private val actorTokenValidator: ActorTokenValidator,
     @Inject private val dpopManager: DpopManager,
+    @Inject private val authorizationCodeManager: AuthorizationCodeManager,
+    @Inject private val lockManager: LockManager,
     @Inject private val tokenRepository: AuthenticationTokenRepository,
     @Inject private val tokenMapper: AuthenticationTokenMapper
 ) {
@@ -60,12 +64,14 @@ open class TokenManager(
      */
     @Transactional
     open suspend fun revokeTokensByUser(userId: UUID, revokedBy: TokenRevokedBy, revokedById: UUID?): Int {
-        return tokenRepository.updateRevokedAtByUserId(
-            userId = userId,
-            revokedAt = LocalDateTime.now(),
-            revokedBy = revokedBy.name,
-            revokedById = revokedById
-        )
+        return lockManager.withLock(LockKey.User(userId)) {
+            tokenRepository.updateRevokedAtByUserId(
+                userId = userId,
+                revokedAt = LocalDateTime.now(),
+                revokedBy = revokedBy.name,
+                revokedById = revokedById
+            )
+        }
     }
 
     /**
@@ -80,30 +86,57 @@ open class TokenManager(
         revokedBy: TokenRevokedBy,
         revokedById: UUID?
     ): Int {
-        return tokenRepository.updateRevokedAtByUserIdAndClientId(
-            userId = userId,
-            clientId = clientId,
-            revokedAt = LocalDateTime.now(),
-            revokedBy = revokedBy.name,
-            revokedById = revokedById
-        )
+        return lockManager.withLock(LockKey.User(userId)) {
+            tokenRepository.updateRevokedAtByUserIdAndClientId(
+                userId = userId,
+                clientId = clientId,
+                revokedAt = LocalDateTime.now(),
+                revokedBy = revokedBy.name,
+                revokedById = revokedById
+            )
+        }
     }
 
     /**
-     * Generate tokens for a completed authorization code flow.
+     * Exchange the authorization code [session] was handed for tokens, as [generateTokensOrNull] does.
+     *
+     * Throws an `OAuth2Exception` carrying `invalid_grant` and `code.already_exchanged` where a client
+     * already exchanged that code, once every token issued under [session] is revoked.
+     */
+    suspend fun generateTokens(
+        session: CompletedInteractiveFlowSession,
+        oauth2: InteractiveFlowSessionOAuth2,
+        client: Client,
+        dpopJkt: String? = null
+    ): GenerateTokenResult {
+        return generateTokensOrNull(session, oauth2, client, dpopJkt)
+            ?: throw oauth2ExceptionOf(INVALID_GRANT, "code.already_exchanged", "description.oauth2.replay")
+    }
+
+    /**
+     * Mark the authorization code [session] was handed as exchanged, and generate the tokens it is
+     * exchanged for.
      *
      * Always generates an access token. An id token is generated where the grant [oauth2] records carries
      * the `openid` scope, and a refresh token where the [client] supports the [GrantType.REFRESH_TOKEN]
      * grant type. A [session] that has expired issues nothing and throws an `OAuth2Exception` carrying
      * `token.expired`.
+     *
+     * Answers null where a client already exchanged the code, having issued nothing and revoked every
+     * token issued under [session] — the earlier exchange's, and every refresh descended from them — as
+     * RFC 6749 §4.1.2 recommends.
+     *
+     * The replay is answered rather than thrown so that the revocation commits with the transaction. The
+     * code is marked before anything is issued, and in the transaction issuing it: an exchange racing this
+     * one waits on the row until these tokens are committed, and then finds them to revoke.
      */
     @Transactional
-    open suspend fun generateTokens(
+    internal open suspend fun generateTokensOrNull(
         session: CompletedInteractiveFlowSession,
         oauth2: InteractiveFlowSessionOAuth2,
         client: Client,
         dpopJkt: String? = null
-    ): GenerateTokenResult = coroutineScope {
+    ): GenerateTokenResult? = coroutineScope {
         if (session.expired) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token.expired", "description.oauth2.expired")
         }
@@ -112,6 +145,18 @@ open class TokenManager(
         // grant being invalid rather than as a business failure — this surface owes its caller an RFC 6749
         // error object, the same reason TokenExchangeManager.resolveTargetUser refuses its own way.
         checkPromotedOrInvalidGrant(session.userId)
+
+        if (!authorizationCodeManager.markExchanged(session)) {
+            lockManager.withLock(LockKey.User(session.userId)) {
+                tokenRepository.updateRevokedAtBySessionId(
+                    sessionId = session.id,
+                    revokedAt = LocalDateTime.now(),
+                    revokedBy = TokenRevokedBy.AUTHORIZATION_CODE_REPLAYED.name,
+                    revokedById = null
+                )
+            }
+            return@coroutineScope null
+        }
 
         val tokenAudience = client.audience.tokenAudience
         val deferredAccessToken = async {
@@ -171,6 +216,11 @@ open class TokenManager(
      *
      * A failure of this server rather than of the token — a signing key that will not load — travels out as
      * itself, so that it is answered as the `5xx` it is.
+     *
+     * Every check is made, and every token issued, holding the lock over the account the token belongs to,
+     * which every revocation of that account's tokens takes too. A revocation racing this refresh either
+     * commits first, and is read here as the refusal it is, or waits for these tokens to be committed and
+     * revokes them with the rest.
      */
     @Transactional
     open suspend fun refreshToken(
@@ -183,7 +233,24 @@ open class TokenManager(
         } catch (e: InvalidJwtException) {
             throw e.toOAuth2Exception(INVALID_GRANT)
         }
+        val lockKeys = listOfNotNull(getAuthenticationToken(decodedToken).userId?.let(LockKey::User))
 
+        lockManager.withLock(*lockKeys.toTypedArray()) {
+            refreshHeldToken(client, decodedToken, dpopJkt)
+        }
+    }
+
+    /**
+     * The body of [refreshToken], run once the lock over the account [decodedToken] belongs to is held.
+     *
+     * The token is read again here rather than handed in, because the read made to find the account came
+     * before the wait: a revocation committed during it is only seen by a read made after.
+     */
+    internal suspend fun refreshHeldToken(
+        client: Client,
+        decodedToken: DecodedJwt,
+        dpopJkt: String?
+    ): GenerateTokenResult {
         val refreshToken = getAuthenticationToken(decodedToken)
         if (refreshToken.clientId != client.id) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token.mismatching_client", "description.token.mismatching_client")
@@ -214,7 +281,7 @@ open class TokenManager(
         // answer it differently.
         val idToken = idTokenGenerator.generateIdToken(refreshToken, client.audience.id, accessToken)
 
-        GenerateTokenResult(
+        return GenerateTokenResult(
             accessToken = accessToken,
             refreshToken = refreshedRefreshToken,
             idToken = idToken
@@ -275,29 +342,31 @@ open class TokenManager(
         if (token.clientId != client.id) return
 
         val now = LocalDateTime.now()
-        if (token.type == REFRESH && token.sessionId != null) {
-            tokenRepository.updateRevokedAtBySessionId(
-                sessionId = token.sessionId,
-                revokedAt = now,
-                revokedBy = TokenRevokedBy.CLIENT.name,
-                revokedById = null
-            )
-        } else {
-            tokenRepository.updateRevokedAt(
-                id = token.id,
+        lockManager.withLock(*listOfNotNull(token.userId?.let(LockKey::User)).toTypedArray()) {
+            if (token.type == REFRESH && token.sessionId != null) {
+                tokenRepository.updateRevokedAtBySessionId(
+                    sessionId = token.sessionId,
+                    revokedAt = now,
+                    revokedBy = TokenRevokedBy.CLIENT.name,
+                    revokedById = null
+                )
+            } else {
+                tokenRepository.updateRevokedAt(
+                    id = token.id,
+                    revokedAt = now,
+                    revokedBy = TokenRevokedBy.CLIENT.name,
+                    revokedById = null
+                )
+            }
+
+            // RFC 8693: revoking a token also revokes every act-as token derived from it (subject_token provenance).
+            tokenRepository.updateRevokedAtByActorTokenId(
+                actorTokenId = token.id,
                 revokedAt = now,
                 revokedBy = TokenRevokedBy.CLIENT.name,
                 revokedById = null
             )
         }
-
-        // RFC 8693: revoking a token also revokes every act-as token derived from it (subject_token provenance).
-        tokenRepository.updateRevokedAtByActorTokenId(
-            actorTokenId = token.id,
-            revokedAt = now,
-            revokedBy = TokenRevokedBy.CLIENT.name,
-            revokedById = null
-        )
     }
 
     /**

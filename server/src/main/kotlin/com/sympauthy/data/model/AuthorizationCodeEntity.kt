@@ -12,5 +12,10 @@ data class AuthorizationCodeEntity(
     @get:Id val sessionId: UUID,
     val code: String,
     val creationDate: LocalDateTime,
-    val expirationDate: LocalDateTime
+    val expirationDate: LocalDateTime,
+    /**
+     * Date and time at which a client exchanged this code for tokens, null until one has. An exchanged
+     * code is kept until its session is collected — see `docs/design/security.md`.
+     */
+    val exchangeDate: LocalDateTime? = null
 )

@@ -434,6 +434,7 @@ class TokenControllerTest {
         }
         assertEquals(INVALID_GRANT, exception.errorCode)
         assertEquals("token.pkce.invalid_code_verifier", exception.detailsId)
+        coVerify(exactly = 0) { tokenManager.generateTokens(any(), any(), any(), any()) }
     }
 
     @Test

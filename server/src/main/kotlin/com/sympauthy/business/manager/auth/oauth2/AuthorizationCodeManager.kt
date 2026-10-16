@@ -69,7 +69,18 @@ class AuthorizationCodeManager(
             ?: throw internalBusinessExceptionOf("code.missing", "sessionId" to session.id.toString())
     }
 
-    suspend fun deleteCode(code: String) {
-        authorizeCodeRepository.deleteByCode(code)
+    /**
+     * Mark the authorization code [session] was handed as exchanged, and answer whether this call is the
+     * one that marked it: false where a client already exchanged it, or where [session] holds no code.
+     *
+     * Of two calls racing over one code, exactly one answers true. The second waits on the row the first
+     * wrote until the transaction holding it ends, so a caller marking the code inside the transaction
+     * that issues its tokens has the second caller find those tokens committed.
+     */
+    suspend fun markExchanged(session: InteractiveFlowSession): Boolean {
+        return authorizeCodeRepository.updateExchangeDate(
+            sessionId = session.id,
+            exchangeDate = LocalDateTime.now()
+        ) == 1
     }
 }

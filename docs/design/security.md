@@ -23,8 +23,9 @@ of a loopback address aside, and the implicit and password grants are not offere
 and `GrantType` are the authority on what is.
 
 **The OAuth2 surface is protected by the protocol, not by a role.** Client authentication, PKCE,
-redirect-URI matching, the signed state, one-time authorization codes: the endpoints are anonymous
-because a specification says they are, and every check they do is one the specification names.
+redirect-URI matching, the signed state, [one-time authorization codes](#the-authorization-code):
+the endpoints are anonymous because a specification says they are, and every check they do is one
+the specification names.
 
 **A client that fails to authenticate is refused with `invalid_client`, and challenged wherever no
 public client can be the one refused.** RFC 6749 §5.2 requires a `401` and a `Basic` challenge where
@@ -201,6 +202,14 @@ when, and a token that lapsed on its own is not recorded as revoked afterwards. 
 many tokens, a force logout among them, therefore counts the ones it took out of service, and
 repeating it finds none.
 
+**A refresh and a revocation of the same person's tokens take turns.** A refresh checks that its
+token, the consent behind it and the account still stand, then issues new tokens; a revocation
+already running when those are written would not see them, and tokens issued from a token being
+revoked would outlive it. Both therefore take the lock over the account first, as [the locking
+standard](../standards/locking-standard.md#the-named-lock) describes. Whichever goes second sees what
+the first committed: a refresh reads its token revoked and is refused, or a revocation finds the
+refresh's tokens and revokes them with the rest.
+
 **A token does not outlive its client.** A token naming a client the configuration no longer
 declares is a credential that does not validate, and it is refused with a `401` on every surface it
 is presented to. Removing a client is how a deployment withdraws it, and a client withdrawn can no
@@ -236,6 +245,32 @@ therefore checked without asking to be, and the refresh grant asks `DpopManager`
 of a bound refresh token, so the token endpoint and the resource surfaces cannot disagree about
 which key a proof must be signed with. The framework reads the `Bearer` scheme alone, and
 `DpopTokenReader` is what reads the other.
+
+### The authorization code
+
+**An authorization code is exchanged once**, as RFC 6749 §10.5 requires. The exchange that is
+issued tokens is the one that spends it: the code is marked in the transaction that writes those
+tokens, so two exchanges racing over one code are issued one set between them, and an exchange that
+fails while issuing leaves the code unspent.
+
+**A second exchange is refused, and revokes what the first was issued.** RFC 6749 §4.1.2 recommends
+it. A code presented twice is either a client that lost track of its own exchange or a code somebody
+else is using, and the two cannot be told apart; revoking every token filed under the
+authorization's session — the first exchange's and every refresh descended from them — is what takes
+back the tokens of whichever of them came first. A client that retries an exchange whose answer it
+lost pays for that: the person signs in again.
+
+**Only an exchange that passes every other check is a second one.** Client authentication and the
+PKCE verifier are checked before the code is spent, and a request failing either is refused for that
+reason and revokes nothing. A code alone is what leaks — into a log, a
+browser's history, a `Referer` — and a party holding only that is not handed a way to sign a person
+out of the client that exchanged it. [The design
+FAQ](design-faq.md#does-any-presentation-of-a-spent-authorization-code-revoke-what-it-was-exchanged-for)
+argues the alternative.
+
+**A spent code is kept until its session is collected, not deleted when it is exchanged.** A
+replay is recognised by the code it presents: a row deleted on exchange would make the second
+exchange read as a code nobody issued, refused like any unknown one and revoking nothing.
 
 ### When the person authenticated
 

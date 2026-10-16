@@ -4,6 +4,7 @@ CREATE TABLE authorization_codes
     code            text      NOT NULL,
     creation_date   timestamp NOT NULL,
     expiration_date timestamp NOT NULL,
+    exchange_date   timestamp,
 
     PRIMARY KEY (session_id),
     FOREIGN KEY (session_id) REFERENCES interactive_flow_sessions (id)

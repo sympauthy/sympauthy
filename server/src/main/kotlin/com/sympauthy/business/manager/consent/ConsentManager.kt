@@ -1,5 +1,7 @@
 package com.sympauthy.business.manager.consent
 
+import com.sympauthy.business.manager.lock.LockKey
+import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.ConsentMapper
 import com.sympauthy.business.model.oauth2.Consent
@@ -31,7 +33,8 @@ open class ConsentManager(
     @Inject private val consentRepository: ConsentRepository,
     @Inject private val tokenRepository: AuthenticationTokenRepository,
     @Inject private val consentMapper: ConsentMapper,
-    @Inject private val userManager: UserManager
+    @Inject private val userManager: UserManager,
+    @Inject private val lockManager: LockManager
 ) {
 
     /**
@@ -162,6 +165,9 @@ open class ConsentManager(
 
     /**
      * Revoke the given [consent] and all associated refresh tokens for this user+client pair.
+     *
+     * Both are written holding the lock over the account a refresh of those tokens takes, so a refresh
+     * racing this either reads the consent revoked or has the tokens it issued revoked with the rest.
      */
     @Transactional
     open suspend fun revokeConsent(
@@ -169,20 +175,22 @@ open class ConsentManager(
         revokedBy: ConsentRevokedBy,
         revokedById: UUID
     ) {
-        val updatedCount = consentRepository.updateRevokedAt(
-            id = consent.id,
-            revokedAt = LocalDateTime.now(),
-            revokedBy = revokedBy.name,
-            revokedById = revokedById
-        )
-        if (updatedCount > 0) {
-            tokenRepository.updateRevokedAtByUserIdAndClientId(
-                userId = consent.userId,
-                clientId = consent.promptedByClientId,
+        lockManager.withLock(LockKey.User(consent.userId)) {
+            val updatedCount = consentRepository.updateRevokedAt(
+                id = consent.id,
                 revokedAt = LocalDateTime.now(),
-                revokedBy = TokenRevokedBy.CONSENT_REVOKED.name,
+                revokedBy = revokedBy.name,
                 revokedById = revokedById
             )
+            if (updatedCount > 0) {
+                tokenRepository.updateRevokedAtByUserIdAndClientId(
+                    userId = consent.userId,
+                    clientId = consent.promptedByClientId,
+                    revokedAt = LocalDateTime.now(),
+                    revokedBy = TokenRevokedBy.CONSENT_REVOKED.name,
+                    revokedById = revokedById
+                )
+            }
         }
     }
 }

@@ -2,9 +2,19 @@ package com.sympauthy.data.repository
 
 import com.sympauthy.data.BASE_DATE
 import com.sympauthy.data.Database
+import com.sympauthy.data.bean
 import com.sympauthy.data.model.AuthorizationCodeEntity
 import com.sympauthy.data.withFixture
 import com.sympauthy.util.isRowAlreadyThere
+import io.r2dbc.spi.Connection
+import io.r2dbc.spi.ConnectionFactory
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.reactive.awaitFirst
+import kotlinx.coroutines.reactive.awaitFirstOrNull
+import kotlinx.coroutines.withContext
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -18,11 +28,20 @@ import java.util.*
 /**
  * The code handed back from an authorize request, keyed by the session it belongs to rather than by an
  * identifier of its own, so the insert has to carry the key it was given.
+ *
+ * The exchange is the one write here two requests race over, so the case proving it holds its first
+ * writer over a connection of its own, with the transaction left open while the second tries.
  */
 class AuthorizationCodeRepositoryTest {
 
     private val code = "authorization-code-repository-test-code"
     private val otherCode = "authorization-code-repository-test-other-code"
+
+    /**
+     * Long enough that an update returning inside it never waited, and well under the two seconds H2
+     * waits for a row before giving up.
+     */
+    private val hold = 400L
 
     @ParameterizedTest
     @EnumSource(Database::class)
@@ -38,21 +57,55 @@ class AuthorizationCodeRepositoryTest {
         assertEquals(code, stored.code)
         assertEquals(BASE_DATE, stored.creationDate)
         assertEquals(BASE_DATE.plusMinutes(10), stored.expirationDate)
+        assertNull(stored.exchangeDate)
     }
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `deleteByCode - Removes the code it names`(database: Database) = withFixture(database) {
+    fun `updateExchangeDate - Writes the date once, and on the code of that session alone`(database: Database) =
+        withFixture(database) {
+            val codes = repository<AuthorizationCodeRepository>()
+            val session = newSession()
+            val other = newSession()
+            newCode(session.id!!, code)
+            newCode(other.id!!, otherCode)
+
+            assertEquals(1, codes.updateExchangeDate(session.id!!, BASE_DATE))
+            assertEquals(0, codes.updateExchangeDate(session.id!!, BASE_DATE.plusMinutes(1)))
+
+            assertEquals(BASE_DATE, codes.findById(session.id!!)!!.exchangeDate)
+            assertNull(codes.findById(other.id!!)!!.exchangeDate)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `updateExchangeDate - Waits for the exchange holding the code, and reads the date it committed`(
+        database: Database
+    ) = withFixture(database) {
         val codes = repository<AuthorizationCodeRepository>()
         val session = newSession()
         val other = newSession()
         newCode(session.id!!, code)
         newCode(other.id!!, otherCode)
+        val holder = database.bean<ConnectionFactory>().create().awaitFirst()
 
-        codes.deleteByCode(code)
+        try {
+            holder.exchange(session.id!!)
 
-        assertNull(codes.findById(session.id!!))
-        assertNotNull(codes.findById(other.id!!))
+            coroutineScope {
+                val waiting = async(Dispatchers.IO) { codes.updateExchangeDate(session.id!!, BASE_DATE) }
+                val elsewhere = async(Dispatchers.IO) { codes.updateExchangeDate(other.id!!, BASE_DATE) }
+                withContext(Dispatchers.IO) { delay(hold) }
+
+                assertFalse(waiting.isCompleted, "The code was written while another exchange held it.")
+                assertTrue(elsewhere.isCompleted, "A free code waited, so the wait was not about the code.")
+
+                holder.commitTransaction().awaitFirstOrNull()
+                assertEquals(0, waiting.await(), "The code was exchanged a second time.")
+            }
+        } finally {
+            holder.close().awaitFirstOrNull()
+        }
     }
 
     @ParameterizedTest
@@ -112,4 +165,16 @@ class AuthorizationCodeRepositoryTest {
 
             assertFalse(refusal.isRowAlreadyThere(), "A session that is gone reads as the key being taken.")
         }
+
+    /** Opens a transaction on this connection and exchanges the code of [sessionId] in it, leaving both open. */
+    private suspend fun Connection.exchange(sessionId: UUID) {
+        beginTransaction().awaitFirstOrNull()
+        createStatement(
+            "UPDATE authorization_codes SET exchange_date = LOCALTIMESTAMP WHERE session_id = '$sessionId'"
+        )
+            .execute()
+            .awaitFirst()
+            .rowsUpdated
+            .awaitFirst()
+    }
 }

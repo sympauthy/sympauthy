@@ -18,7 +18,9 @@ import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import io.r2dbc.spi.R2dbcDataIntegrityViolationException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertSame
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
@@ -26,7 +28,8 @@ import java.time.LocalDateTime
 import java.util.*
 
 /**
- * The one code a session completes with, and the completion that lost the race to write it.
+ * The one code a session completes with, the completion that lost the race to write it, and the
+ * one exchange that spends it.
  *
  * The primary key over `session_id` is what refuses the second code, and the refusal reaches the manager
  * through layers free to wrap it — so the cases here drive it both wrapped and bare, and drive the other
@@ -131,6 +134,20 @@ class AuthorizationCodeManagerTest {
 
         assertEquals("code.missing", exception.detailsId)
         assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
+    }
+
+    @Test
+    fun `markExchanged - Answers true for the call that marked the code`() = runTest {
+        coEvery { codeRepository.updateExchangeDate(SESSION_ID, any()) } returns 1
+
+        assertTrue(manager.markExchanged(sessionById()))
+    }
+
+    @Test
+    fun `markExchanged - Answers false for a code a client already exchanged`() = runTest {
+        coEvery { codeRepository.updateExchangeDate(SESSION_ID, any()) } returns 0
+
+        assertFalse(manager.markExchanged(sessionById()))
     }
 
     private companion object {
