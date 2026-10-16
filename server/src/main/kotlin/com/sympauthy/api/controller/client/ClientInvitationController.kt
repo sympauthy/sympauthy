@@ -11,6 +11,7 @@ import com.sympauthy.api.util.CLAIM_VALUE_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.COLLECTION_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_NAME
+import com.sympauthy.api.util.INVITATION_EXPIRES_AT_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.PAGE_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.PaginationUtil
@@ -20,6 +21,7 @@ import com.sympauthy.api.util.SORT_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
+import com.sympauthy.api.util.parseInvitationExpiresAt
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.collection.InvitationCollectionManager
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
@@ -41,7 +43,6 @@ import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
-import java.time.LocalDateTime
 import java.util.*
 
 @Controller("/api/v1/client/invitations")
@@ -81,7 +82,8 @@ class ClientInvitationController(
             ApiResponse(responseCode = "201", description = "The invitation, with its token."),
             ApiResponse(
                 responseCode = "400",
-                description = "- `invitation.unknown_claim`: `claims` names a claim that is not configured or " +
+                description = INVITATION_EXPIRES_AT_BAD_REQUEST_DESCRIPTION + "\n" +
+                    "- `invitation.unknown_claim`: `claims` names a claim that is not configured or " +
                     "not enabled.\n" +
                     "- `invitation.claim_of_another_audience`: `claims` names a claim restricted to another " +
                     "audience.\n" +
@@ -105,12 +107,12 @@ class ClientInvitationController(
         authentication: Authentication,
         @Body input: ClientCreateInvitationInputResource
     ): ClientCreatedInvitationResource {
+        val expiresAt = parseInvitationExpiresAt(input.expiresAt)
         val clientAuth = authentication.clientAuthentication
         val client = clientAuth.client
-        val expiresAt = input.expiresAt?.let { LocalDateTime.parse(it) }
         val clientScopeIds = clientAuth.scopes.map { it.scope }
         val (invitation, rawToken) = invitationManager.createInvitation(
-            audienceId = client.audience.id,
+            audience = client.audience,
             claims = input.claims,
             note = input.note,
             expiresAt = expiresAt,

@@ -8,9 +8,9 @@ import io.swagger.v3.oas.annotations.media.Schema
 @Serdeable
 data class ClientCreateInvitationInputResource(
     @get:Schema(
-        description = "Date and time at which the invitation expires, in UTC and with no zone. One later than " +
-            "`advanced.invitation.max-expiration` from now is brought back to it. When absent, " +
-            "`advanced.invitation.default-expiration` from now.",
+        description = "Date and time at which the invitation expires, in UTC and with no zone. It must be in the " +
+            "future, and one later than `advanced.invitation.max-expiration` from now is brought back to it. " +
+            "When absent, `advanced.invitation.default-expiration` from now.",
         nullable = true
     )
     @get:JsonProperty("expires_at")

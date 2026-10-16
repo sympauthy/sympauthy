@@ -33,15 +33,16 @@ class BootstrapInvitationsConfigValidator {
         val configKeyPrefix = "$INVITATIONS_KEY.${properties.id}"
 
         val audienceId = properties.audience
-        if (audienceId.isNullOrBlank()) {
+        val audience = if (audienceId.isNullOrBlank()) {
             subCtx.addError(
                 configExceptionOf(
                     "$configKeyPrefix.audience",
                     "config.missing"
                 )
             )
+            null
         } else {
-            validateAudienceId(
+            resolveAudience(
                 subCtx, audienceId, audiencesById,
                 "$configKeyPrefix.audience",
                 "config.bootstrap_invitation.audience.not_found"
@@ -51,11 +52,11 @@ class BootstrapInvitationsConfigValidator {
         val resolvedClaims = resolveClaimKeys(subCtx, configKeyPrefix, properties.claims, enabledClaims, audienceId)
 
         ctx.merge(subCtx)
-        if (subCtx.hasErrors || audienceId == null) return null
+        if (subCtx.hasErrors || audience == null) return null
 
         return BootstrapInvitation(
             id = properties.id,
-            audienceId = audienceId,
+            audience = audience,
             urlTemplate = properties.urlTemplate,
             claims = resolvedClaims,
             note = properties.note

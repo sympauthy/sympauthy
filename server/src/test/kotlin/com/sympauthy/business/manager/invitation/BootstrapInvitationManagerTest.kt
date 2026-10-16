@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager.invitation
 
 import com.sympauthy.business.manager.consent.ConsentManager
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.invitation.InvitationStatus
@@ -35,7 +36,7 @@ class BootstrapInvitationManagerTest {
 
     private val bootstrapInvitation = BootstrapInvitation(
         id = "first-admin",
-        audienceId = "default",
+        audience = Audience(id = "default", tokenAudience = "https://default.example.com"),
         urlTemplate = null,
         claims = null,
         note = null
@@ -88,7 +89,7 @@ class BootstrapInvitationManagerTest {
 
         coVerify {
             invitationManager.createInvitation(
-                audienceId = "default",
+                audience = bootstrapInvitation.audience,
                 claims = null,
                 note = "Bootstrap invitation 'first-admin'",
                 expiresAt = null,

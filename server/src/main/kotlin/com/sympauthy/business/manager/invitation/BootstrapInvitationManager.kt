@@ -74,20 +74,21 @@ class BootstrapInvitationManager(
 
     @Suppress("MaxLineLength")
     private suspend fun processBootstrapInvitation(bootstrapInvitation: BootstrapInvitation) {
-        val existingConsents = consentManager.findActiveConsentsByAudience(bootstrapInvitation.audienceId)
+        val audience = bootstrapInvitation.audience
+        val existingConsents = consentManager.findActiveConsentsByAudience(audience.id)
         if (existingConsents.isNotEmpty()) {
             logger.info(
                 "Bootstrap invitation '${bootstrapInvitation.id}': skipping — " +
-                        "${existingConsents.size} user(s) already consented for audience '${bootstrapInvitation.audienceId}'."
+                        "${existingConsents.size} user(s) already consented for audience '${audience.id}'."
             )
             return
         }
 
         // Revoke previous bootstrap invitations for this audience
-        revokePreviousBootstrapInvitations(bootstrapInvitation.audienceId)
+        revokePreviousBootstrapInvitations(audience.id)
 
         val (_, rawToken) = invitationManager.createInvitation(
-            audienceId = bootstrapInvitation.audienceId,
+            audience = audience,
             claims = bootstrapInvitation.claims,
             note = bootstrapInvitation.note ?: "Bootstrap invitation '${bootstrapInvitation.id}'",
             expiresAt = null,
@@ -101,12 +102,12 @@ class BootstrapInvitationManager(
         if (urlTemplate != null) {
             val url = urlTemplate.replace("{token}", rawToken)
             logger.info(
-                "Bootstrap invitation '${bootstrapInvitation.id}' created for audience '${bootstrapInvitation.audienceId}'. " +
+                "Bootstrap invitation '${bootstrapInvitation.id}' created for audience '${audience.id}'. " +
                         "Registration URL: $url"
             )
         } else {
             logger.info(
-                "Bootstrap invitation '${bootstrapInvitation.id}' created for audience '${bootstrapInvitation.audienceId}'. " +
+                "Bootstrap invitation '${bootstrapInvitation.id}' created for audience '${audience.id}'. " +
                         "Token: $rawToken"
             )
         }

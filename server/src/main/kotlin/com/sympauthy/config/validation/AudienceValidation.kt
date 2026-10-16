@@ -5,18 +5,19 @@ import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 
 /**
- * Validate that an audience ID references an existing audience.
- * Returns the audience ID if valid, null otherwise.
+ * The audience [audienceId] names, or null where it names none — reported to [ctx] under [configKey] with
+ * [notFoundMessageId] — or where [audienceId] is null.
  */
-fun validateAudienceId(
+fun resolveAudience(
     ctx: ConfigParsingContext,
     audienceId: String?,
     audiencesById: Map<String, Audience>,
     configKey: String,
     notFoundMessageId: String
-): String? {
+): Audience? {
     if (audienceId == null) return null
-    if (audienceId !in audiencesById) {
+    val audience = audiencesById[audienceId]
+    if (audience == null) {
         ctx.addError(
             configExceptionOf(
                 configKey,
@@ -25,7 +26,6 @@ fun validateAudienceId(
                 "availableAudiences" to audiencesById.keys.joinToString(", ")
             )
         )
-        return null
     }
-    return audienceId
+    return audience
 }

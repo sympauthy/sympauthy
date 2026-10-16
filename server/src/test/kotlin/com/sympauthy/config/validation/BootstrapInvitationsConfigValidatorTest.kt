@@ -14,6 +14,7 @@ import com.sympauthy.config.properties.BootstrapInvitationConfigurationPropertie
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -145,6 +146,22 @@ class BootstrapInvitationsConfigValidatorTest {
 
         assertFalse(ctx.hasErrors)
         assertEquals(mapOf("is_sympauthy_admin" to "true"), result.single().claims)
+    }
+
+    @Test
+    fun `validate - Carry the audience the invitation names, as the configuration declares it`() {
+        val (ctx, result) = validate(audience = "billing", claims = null, enabledClaims = emptyList())
+
+        assertFalse(ctx.hasErrors)
+        assertSame(audiencesById.getValue("billing"), result.single().audience)
+    }
+
+    @Test
+    fun `validate - Refuse an audience the configuration does not declare`() {
+        val (ctx, result) = validate(audience = "no-such-audience", claims = null, enabledClaims = emptyList())
+
+        assertEquals(listOf("config.bootstrap_invitation.audience.not_found"), ctx.errors.map { it.messageId })
+        assertTrue(result.isEmpty())
     }
 
     @Test

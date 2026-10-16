@@ -171,10 +171,10 @@ class ScopeConfigValidator {
     ): Scope? {
         val configKeyPrefix = "$SCOPES_KEY.${parsed.id}"
 
-        val audienceId = validateAudienceId(
+        val audienceId = resolveAudience(
             ctx, parsed.audience?.value, audiencesById,
             audienceKey(parsed), "config.scope.audience.not_found"
-        )
+        )?.id
 
         val type = parsed.type?.value
         val scopeType = when (type) {

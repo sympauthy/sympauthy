@@ -7,6 +7,7 @@ import com.sympauthy.business.manager.user.ClaimValueValidator
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.InvitationMapper
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.invitation.InvitationStatus
@@ -23,6 +24,7 @@ import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.flow.toList
 import java.time.LocalDateTime
+import java.time.temporal.ChronoUnit
 import java.util.*
 
 /**
@@ -57,12 +59,13 @@ open class InvitationManager(
      * is what the pre-assigned [claims] are checked against through the unconditional ACL. The admin API and
      * the bootstrap pass null, which means no ACL check at all rather than a client holding no scope.
      *
-     * [audienceId] is the audience the invitation is for, and the pre-assigned [claims] are held to it whoever
-     * is creating it — see [validateAndCleanClaims].
+     * [audience] is the audience the invitation is for, and the pre-assigned [claims] are held to it whoever
+     * is creating it — see [validateAndCleanClaims]. [expiresAt] is resolved by [resolveExpiresAt], which
+     * refuses one that is not in the future.
      */
     @Transactional
     open suspend fun createInvitation(
-        audienceId: String,
+        audience: Audience,
         claims: Map<String, String>?,
         note: String?,
         expiresAt: LocalDateTime?,
@@ -70,10 +73,11 @@ open class InvitationManager(
         createdById: String? = null,
         clientScopeIds: List<String>? = null
     ): Pair<Invitation, String> {
-        val validatedClaims = validateAndCleanClaims(claims, audienceId, clientScopeIds)
+        val validatedClaims = validateAndCleanClaims(claims, audience.id, clientScopeIds)
 
         val config = invitationConfig
-        val now = LocalDateTime.now()
+        // Truncated to what the column stores, so the invitation this answers is the one a later read answers.
+        val now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS)
 
         val resolvedExpiresAt = resolveExpiresAt(now, expiresAt, config)
 
@@ -85,7 +89,7 @@ open class InvitationManager(
         val hashedToken = invitationHashGenerator.hash(tokenBytes, salt)
 
         val entity = InvitationEntity(
-            audienceId = audienceId,
+            audienceId = audience.id,
             tokenLookupHash = lookupHash,
             hashedToken = hashedToken,
             salt = salt,
@@ -152,16 +156,31 @@ open class InvitationManager(
         }
     }
 
-    private fun resolveExpiresAt(
+    /**
+     * The date and time an invitation created at [now] expires at: `default-expiration` from [now] where
+     * [requestedExpiresAt] is null, and otherwise [requestedExpiresAt], brought back to `max-expiration` from
+     * [now] where it is later. A requested one is truncated to microseconds, the precision the column stores.
+     *
+     * Throws a recoverable `invitation.expires_at.past` where [requestedExpiresAt] is not after [now]. Such an
+     * invitation would be created already expired, its token refused by every flow it is sent to.
+     */
+    internal fun resolveExpiresAt(
         now: LocalDateTime,
         requestedExpiresAt: LocalDateTime?,
         config: InvitationAdvancedConfig
     ): LocalDateTime {
-        val maxExpiresAt = now.plus(config.maxExpiration)
         if (requestedExpiresAt == null) {
             return now.plus(config.defaultExpiration)
         }
-        return if (requestedExpiresAt.isAfter(maxExpiresAt)) maxExpiresAt else requestedExpiresAt
+        if (!requestedExpiresAt.isAfter(now)) {
+            throw recoverableBusinessExceptionOf(
+                detailsId = "invitation.expires_at.past",
+                descriptionId = "description.invitation.expires_at.past",
+                "expiresAt" to requestedExpiresAt.toString()
+            )
+        }
+        val maxExpiresAt = now.plus(config.maxExpiration)
+        return minOf(requestedExpiresAt, maxExpiresAt).truncatedTo(ChronoUnit.MICROS)
     }
 
     suspend fun findByIdOrNull(id: UUID): Invitation? {

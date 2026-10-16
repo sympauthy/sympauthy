@@ -299,10 +299,10 @@ class ClaimsConfigValidator(
         refuseAPlaceNoRequestCanName(ctx, parsed, configKeyPrefix)
 
         // Validate audience cross-reference.
-        val audienceId = validateAudienceId(
+        val audienceId = resolveAudience(
             ctx, parsed.audienceId, audiencesById,
             "$configKeyPrefix.audience", "config.claim.audience.not_found"
-        )
+        )?.id
 
         // Validate ACL scope references.
         val acl = if (parsed.generated) {

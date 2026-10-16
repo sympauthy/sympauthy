@@ -18,7 +18,7 @@ class AdminConfigValidator {
         if (parsed.audience == null) {
             ctx.addError(configExceptionOf("admin.audience", "config.admin.audience.missing"))
         } else {
-            validateAudienceId(
+            resolveAudience(
                 ctx, parsed.audience, audiencesById,
                 "admin.audience", "config.admin.audience.not_found"
             )

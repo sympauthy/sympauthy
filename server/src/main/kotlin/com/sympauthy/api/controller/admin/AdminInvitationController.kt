@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.admin
 
+import com.sympauthy.api.exception.recoverableHttpExceptionOf
 import com.sympauthy.api.mapper.admin.AdminCollectionCapabilitiesResourceMapper
 import com.sympauthy.api.mapper.admin.AdminInvitationResourceMapper
 import com.sympauthy.api.resource.admin.AdminCollectionCapabilitiesResource
@@ -13,6 +14,7 @@ import com.sympauthy.api.util.CLAIM_VALUE_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.COLLECTION_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_NAME
+import com.sympauthy.api.util.INVITATION_EXPIRES_AT_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.PAGE_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.PaginationUtil
@@ -22,6 +24,8 @@ import com.sympauthy.api.util.SORT_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
+import com.sympauthy.api.util.parseInvitationExpiresAt
+import com.sympauthy.business.manager.AudienceManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.collection.InvitationCollectionManager
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
@@ -42,11 +46,11 @@ import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
-import java.time.LocalDateTime
 import java.util.*
 
 @Controller("/api/v1/admin/invitations")
 class AdminInvitationController(
+    @Inject private val audienceManager: AudienceManager,
     @Inject private val invitationManager: InvitationManager,
     @Inject private val invitationCollectionManager: InvitationCollectionManager,
     @Inject private val invitationMapper: AdminInvitationResourceMapper,
@@ -62,7 +66,10 @@ class AdminInvitationController(
             ApiResponse(responseCode = "201", description = "The invitation, with its token."),
             ApiResponse(
                 responseCode = "400",
-                description = "- `invitation.unknown_claim`: `claims` names a claim that is not configured or " +
+                description = INVITATION_EXPIRES_AT_BAD_REQUEST_DESCRIPTION + "\n" +
+                        "- `invitation.unknown_audience`: `audience_id` names an audience that is not " +
+                        "configured.\n" +
+                        "- `invitation.unknown_claim`: `claims` names a claim that is not configured or " +
                         "not enabled.\n" +
                         "- `invitation.claim_of_another_audience`: `claims` names a claim restricted to another " +
                         "audience.\n" +
@@ -84,9 +91,13 @@ class AdminInvitationController(
     suspend fun createInvitation(
         @Body input: AdminCreateInvitationInputResource
     ): AdminCreatedInvitationResource {
-        val expiresAt = input.expiresAt?.let { LocalDateTime.parse(it) }
+        val expiresAt = parseInvitationExpiresAt(input.expiresAt)
+        val audience = audienceManager.findAudienceByIdOrNull(input.audienceId) ?: throw recoverableHttpExceptionOf(
+            HttpStatus.BAD_REQUEST, "invitation.unknown_audience", "description.invitation.unknown_audience",
+            "audience" to input.audienceId
+        )
         val (invitation, rawToken) = invitationManager.createInvitation(
-            audienceId = input.audienceId,
+            audience = audience,
             claims = input.claims,
             note = input.note,
             expiresAt = expiresAt,

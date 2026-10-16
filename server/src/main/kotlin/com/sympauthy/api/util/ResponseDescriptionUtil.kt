@@ -58,6 +58,15 @@ const val BODY_BAD_REQUEST_DESCRIPTION =
         "- `body.missing`: no body is sent."
 
 /**
+ * The lines of the `400` an operation creating an invitation answers with when it refuses the
+ * `expires_at` of its body.
+ */
+const val INVITATION_EXPIRES_AT_BAD_REQUEST_DESCRIPTION =
+    "- `invitation.expires_at.malformed`: `expires_at` is not a date and time with no zone, such as " +
+        "`2026-12-01T00:00:00`.\n" +
+        "- `invitation.expires_at.past`: `expires_at` is not in the future."
+
+/**
  * What the published specification says about the `413` every operation taking a body answers with.
  */
 const val BODY_TOO_LARGE_RESPONSE_DESCRIPTION = "- `body.too_large`: the body is larger than this server accepts."
