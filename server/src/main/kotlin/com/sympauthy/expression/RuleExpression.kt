@@ -56,8 +56,8 @@ internal fun defaultExpressionConfiguration(): ExpressionConfiguration =
  * Evaluate [expressionString] against [configuration] and return what it answers.
  *
  * An expression that does not parse throws an [InvalidRuleExpressionException] carrying
- * `config.rule.expression.invalid`, and one that parses but answers something other than a boolean
- * throws the same exception carrying `config.rule.expression.invalid_return`.
+ * `config.expression.invalid`, and one that parses but answers something other than a boolean
+ * throws the same exception carrying `config.expression.invalid_return`.
  */
 fun evaluateRuleExpression(
     expressionString: String,
@@ -68,16 +68,16 @@ fun evaluateRuleExpression(
     } catch (e: ParseException) {
         throw InvalidRuleExpressionException(
             expressionString = expressionString,
-            configMessageId = "config.rule.expression.invalid",
-            businessErrorDetailsId = "rule.evaluate.failed",
+            configMessageId = "config.expression.invalid",
+            businessErrorDetailsId = "expression.evaluate.failed",
             parseError = e.message,
         )
     }
     if (value.dataType != BOOLEAN) {
         throw InvalidRuleExpressionException(
             expressionString = expressionString,
-            configMessageId = "config.rule.expression.invalid_return",
-            businessErrorDetailsId = "rule.evaluate.invalid_return",
+            configMessageId = "config.expression.invalid_return",
+            businessErrorDetailsId = "expression.evaluate.invalid_return",
         )
     }
     return value.booleanValue
