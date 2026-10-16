@@ -12,6 +12,9 @@ to change it, and why it was settled that way. The rules a change is held to are
   was picked.
 - **[The interactive flow](interactive-flow.md)** — the purposes a person is put through, the
   session an engine sequences them over, and how a purpose or a step is added.
+- **[The OAuth2 authorization](oauth2-authorization.md)** — the session a client's authorization
+  request starts: what the request becomes, what a person goes through for it, how it hands them
+  back with a code given out once, and what that code is good for.
 - **[The provisional user](provisional-user.md)** — the account a sign-up has not finished creating:
   the rows it owns, what makes them count, and what collects them when nothing ever does.
 - **[The claims](claims.md)** — what this server knows about a person: whose a claim is, who may
