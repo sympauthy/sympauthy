@@ -11,6 +11,7 @@ import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.config.model.AdvancedConfig
+import com.sympauthy.config.model.InvitationAdvancedConfig
 import com.sympauthy.data.model.InvitationEntity
 import com.sympauthy.data.repository.InvitationRepository
 import io.mockk.*
@@ -22,6 +23,9 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
+import java.time.Duration
 import java.time.LocalDateTime
 import java.util.*
 
@@ -62,7 +66,15 @@ class InvitationManagerTest {
     private companion object {
         const val AUDIENCE = "default"
         const val OTHER_AUDIENCE = "billing"
+        val NOW: LocalDateTime = LocalDateTime.parse("2026-10-16T12:00:00")
     }
+
+    private val expirationConfig = InvitationAdvancedConfig(
+        tokenLengthInBytes = 32,
+        defaultExpiration = Duration.ofDays(7),
+        maxExpiration = Duration.ofDays(30),
+        hashConfig = mockk()
+    )
 
     /**
      * A claim as [InvitationManager.validateAndCleanClaims] asks after it: which audience it is for. Its value
@@ -125,6 +137,46 @@ class InvitationManagerTest {
             expiresAt = LocalDateTime.now().plusDays(7),
             consumedAt = null,
             revokedAt = null,
+        )
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["2026-10-16T12:00:00", "2026-10-16T11:59:59", "-5000-01-01T00:00:00"])
+    fun `resolveExpiresAt - Refuse a date that is not after the creation`(requested: String) {
+        val requestedExpiresAt = LocalDateTime.parse(requested)
+
+        val exception = assertThrows<BusinessException> {
+            manager.resolveExpiresAt(NOW, requestedExpiresAt, expirationConfig)
+        }
+        assertEquals("invitation.expires_at.past", exception.detailsId)
+        assertEquals(requestedExpiresAt.toString(), exception.values["expiresAt"])
+        assertTrue(exception.recoverable)
+    }
+
+    @Test
+    fun `resolveExpiresAt - Keep a date within the maximum`() {
+        val requested = NOW.plusDays(3)
+
+        assertEquals(requested, manager.resolveExpiresAt(NOW, requested, expirationConfig))
+    }
+
+    @Test
+    fun `resolveExpiresAt - Bring a date beyond the maximum back to it`() {
+        assertEquals(NOW.plusDays(30), manager.resolveExpiresAt(NOW, NOW.plusDays(31), expirationConfig))
+    }
+
+    @Test
+    fun `resolveExpiresAt - Expire after the default when no date is asked for`() {
+        assertEquals(NOW.plusDays(7), manager.resolveExpiresAt(NOW, null, expirationConfig))
+    }
+
+    @Test
+    fun `resolveExpiresAt - Truncate a requested date to microseconds`() {
+        val requested = LocalDateTime.parse("2026-10-20T00:00:00.123456789")
+
+        assertEquals(
+            LocalDateTime.parse("2026-10-20T00:00:00.123456"),
+            manager.resolveExpiresAt(NOW, requested, expirationConfig)
         )
     }
 

@@ -42,11 +42,11 @@ class BootstrapInvitationsConfigValidator {
             )
             null
         } else {
-            validateAudienceId(
+            resolveAudience(
                 subCtx, audienceId, audiencesById,
                 "$configKeyPrefix.audience",
                 "config.bootstrap_invitation.audience.not_found"
-            )?.let(audiencesById::get)
+            )
         }
 
         val resolvedClaims = resolveClaimKeys(subCtx, configKeyPrefix, properties.claims, enabledClaims, audienceId)

@@ -14,6 +14,7 @@ import com.sympauthy.api.util.CLAIM_VALUE_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.COLLECTION_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.FILTER_PARAMETER_NAME
+import com.sympauthy.api.util.INVITATION_EXPIRES_AT_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.PAGE_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.PaginationUtil
@@ -65,8 +66,7 @@ class AdminInvitationController(
             ApiResponse(responseCode = "201", description = "The invitation, with its token."),
             ApiResponse(
                 responseCode = "400",
-                description = "- `invitation.expires_at.malformed`: `expires_at` is not a date and time with no " +
-                        "zone, such as `2026-12-01T00:00:00`.\n" +
+                description = INVITATION_EXPIRES_AT_BAD_REQUEST_DESCRIPTION + "\n" +
                         "- `invitation.unknown_audience`: `audience_id` names an audience that is not " +
                         "configured.\n" +
                         "- `invitation.unknown_claim`: `claims` names a claim that is not configured or " +
