@@ -210,6 +210,15 @@ standard](../standards/locking-standard.md#the-named-lock) describes. Whichever 
 the first committed: a refresh reads its token revoked and is refused, or a revocation finds the
 refresh's tokens and revokes them with the rest.
 
+**Revoking a consent revokes every token issued for the account to a client of its audience.** A
+consent is the audience's rather than one client's, so each client of the audience acts under it,
+and a revocation reaching only the client that last asked would leave the others acting for a person
+who withdrew: their access tokens served until they expire, and their refresh tokens waiting only
+for the person to consent again through any client of the audience. Which clients those are is read
+from the configuration as it stands — the same reading a refresh makes of the audience whose consent
+it checks — so the two agree on which tokens a consent stands behind, and a client the configuration
+no longer declares has no token left to reach.
+
 **A token does not outlive its client.** A token naming a client the configuration no longer
 declares is a credential that does not validate, and it is refused with a `401` on every surface it
 is presented to. Removing a client is how a deployment withdraws it, and a client withdrawn can no

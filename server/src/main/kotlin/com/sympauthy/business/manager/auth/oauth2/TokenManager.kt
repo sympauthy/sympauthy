@@ -87,9 +87,9 @@ open class TokenManager(
         revokedById: UUID?
     ): Int {
         return lockManager.withLock(LockKey.User(userId)) {
-            tokenRepository.updateRevokedAtByUserIdAndClientId(
+            tokenRepository.updateRevokedAtByUserIdAndClientIdIn(
                 userId = userId,
-                clientId = clientId,
+                clientIds = listOf(clientId),
                 revokedAt = LocalDateTime.now(),
                 revokedBy = revokedBy.name,
                 revokedById = revokedById

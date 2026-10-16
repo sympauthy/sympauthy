@@ -125,14 +125,14 @@ class TokenManagerTest {
     fun `revokeTokensByUserAndClient - Revokes holding the lock over the account`() = runTest {
         val userId = UUID.randomUUID()
         coEvery {
-            tokenRepository.updateRevokedAtByUserIdAndClientId(userId, "client", any(), "ADMIN", null)
+            tokenRepository.updateRevokedAtByUserIdAndClientIdIn(userId, listOf("client"), any(), "ADMIN", null)
         } returns 1
 
         assertEquals(1, tokenManager.revokeTokensByUserAndClient(userId, "client", TokenRevokedBy.ADMIN, null))
 
         coVerifyOrder {
             objectLockRepository.lock(LockKey.User(userId).stripe)
-            tokenRepository.updateRevokedAtByUserIdAndClientId(userId, "client", any(), "ADMIN", null)
+            tokenRepository.updateRevokedAtByUserIdAndClientIdIn(userId, listOf("client"), any(), "ADMIN", null)
         }
     }
 

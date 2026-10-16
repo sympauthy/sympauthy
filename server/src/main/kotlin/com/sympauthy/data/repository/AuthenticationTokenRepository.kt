@@ -67,17 +67,21 @@ interface AuthenticationTokenRepository : CoroutineCrudRepository<Authentication
         revokedById: UUID?
     ): Int
 
+    /**
+     * Revoke the tokens of [userId] issued to any of [clientIds], which must not be empty.
+     * Returns the number of tokens revoked.
+     */
     @Query(
         """
         UPDATE authentication_tokens
         SET revoked_at = :revokedAt, revoked_by = :revokedBy, revoked_by_id = :revokedById
-        WHERE user_id = :userId AND client_id = :clientId
+        WHERE user_id = :userId AND client_id IN (:clientIds)
           AND revoked_at IS NULL AND (expiration_date IS NULL OR expiration_date >= :revokedAt)
         """
     )
-    suspend fun updateRevokedAtByUserIdAndClientId(
+    suspend fun updateRevokedAtByUserIdAndClientIdIn(
         userId: UUID,
-        clientId: String,
+        clientIds: List<String>,
         revokedAt: LocalDateTime,
         revokedBy: String,
         revokedById: UUID?

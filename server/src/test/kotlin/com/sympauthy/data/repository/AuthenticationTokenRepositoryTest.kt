@@ -22,6 +22,7 @@ class AuthenticationTokenRepositoryTest {
 
     private val clientId = "authentication-token-repository-test-client"
     private val otherClientId = "authentication-token-repository-test-other-client"
+    private val unlistedClientId = "authentication-token-repository-test-unlisted-client"
     private val earlierRevokedAt = BASE_DATE.plusMinutes(30)
     private val revokedAt = BASE_DATE.plusHours(1)
     private val liveUntil = revokedAt.plusHours(1)
@@ -172,24 +173,26 @@ class AuthenticationTokenRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `updateRevokedAtByUserIdAndClientId - Revokes the live tokens on both keys at once`(database: Database) =
+    fun `updateRevokedAtByUserIdAndClientIdIn - Revokes the live tokens on the user and clients`(database: Database) =
         withFixture(database) {
             val tokens = repository<AuthenticationTokenRepository>()
             val userId = newUser()
             val otherUserId = newUser()
             val revoked = saveToken(userId, clientId = clientId, expirationDate = liveUntil)
+            val otherRevoked = saveToken(userId, clientId = otherClientId)
             val revokedEarlier = saveRevokedEarlierToken(userId, clientId = clientId)
             val expired = saveExpiredToken(userId, clientId = clientId)
-            val otherClient = saveToken(userId, clientId = otherClientId)
+            val unlistedClient = saveToken(userId, clientId = unlistedClientId)
             val otherUser = saveToken(otherUserId, clientId = clientId)
 
-            val count = tokens.updateRevokedAtByUserIdAndClientId(
-                userId, clientId, revokedAt, "administrator", userId
+            val count = tokens.updateRevokedAtByUserIdAndClientIdIn(
+                userId, listOf(clientId, otherClientId), revokedAt, "administrator", userId
             )
 
-            assertEquals(1, count)
+            assertEquals(2, count)
             assertEquals(revokedAt, tokens.findById(revoked)?.revokedAt)
-            assertNull(tokens.findById(otherClient)!!.revokedAt)
+            assertEquals(revokedAt, tokens.findById(otherRevoked)?.revokedAt)
+            assertNull(tokens.findById(unlistedClient)!!.revokedAt)
             assertNull(tokens.findById(otherUser)!!.revokedAt)
             tokens.assertLeftAsTheyWere(revokedEarlier, expired)
         }

@@ -27,9 +27,12 @@ data class Consent(
     val userId: UUID,
     /** Identifier of the audience the consent applies to. */
     val audienceId: String,
-    /** Identifier of the client that originally prompted the consent. */
+    /**
+     * Identifier of the client whose authorization last updated the consent. It records who asked, and decides
+     * nothing about which of the audience's clients act under the consent: all of them do.
+     */
     val promptedByClientId: String,
-    /** List of scope identifiers the user authorized for this client. */
+    /** List of scope identifiers the user authorized for this audience. */
     val scopes: List<String>,
     /** Date and time at which the user granted the consent. */
     val consentedAt: LocalDateTime,
