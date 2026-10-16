@@ -175,6 +175,30 @@ class InteractiveAuthFlowSessionManagerTest {
     }
 
     @Test
+    fun `checkRequestObject - Accept a request carrying no request object`() {
+        assertNull(manager.checkRequestObject(null, null))
+    }
+
+    @Test
+    fun `checkRequestObject - Treat a value sent empty as not sent`() {
+        assertNull(manager.checkRequestObject("", ""))
+    }
+
+    @Test
+    fun `checkRequestObject - Refuse a request object sent in request`() {
+        val error = manager.checkRequestObject("eyJhbGciOiJub25lIn0.e30.", null)
+
+        assertEquals("authorize.request.unsupported", error?.detailsId)
+    }
+
+    @Test
+    fun `checkRequestObject - Refuse a request object referred to by request_uri`() {
+        val error = manager.checkRequestObject(null, "https://client.example.com/request.jwt")
+
+        assertEquals("authorize.request_uri.unsupported", error?.detailsId)
+    }
+
+    @Test
     fun `checkMaxAge - Accept a non-negative number of seconds`() {
         assertNull(manager.checkMaxAge("300"))
     }
@@ -545,6 +569,47 @@ class InteractiveAuthFlowSessionManagerTest {
 
         assertEquals("client.redirect_uri.missing", errorSlot.captured?.detailsId)
     }
+
+    @Test
+    fun `startAuthorizationWith - Stores the request object refusal ahead of a redirect_uri it may have carried`() =
+        runTest {
+            val client = mockk<Client> {
+                every { authorizationFlow } returns null
+                every { supportsGrantType(any()) } returns true
+            }
+            setupDefaultFlow()
+            coEvery { clientManager.parseRequestedClient(any()) } returns client
+            coEvery { scopeManager.parseRequestedScopes(client, any()) } returns emptyList()
+            every {
+                clientRedirectUriManager.parseRequestedRedirectUri(client, any(), any())
+            } throws businessExceptionOf(detailsId = "client.redirect_uri.missing")
+            val errorSlot = slot<BusinessException?>()
+            coEvery {
+                oauth2Manager.startOAuth2Session(
+                    client = any(),
+                    clientState = any(),
+                    clientNonce = any(),
+                    flow = any(),
+                    scopes = any(),
+                    redirectUri = any(),
+                    codeChallenge = any(),
+                    codeChallengeMethod = any(),
+                    invitationId = any(),
+                    error = captureNullable(errorSlot)
+                )
+            } returns mockk()
+
+            manager.startAuthorizationWith(
+                uncheckedClientId = "client",
+                uncheckedClientState = null,
+                uncheckedClientNonce = null,
+                uncheckedScopes = null,
+                uncheckedRedirectUri = null,
+                uncheckedRequestUri = "https://client.example.com/request.jwt"
+            )
+
+            assertEquals("authorize.request_uri.unsupported", errorSlot.captured?.detailsId)
+        }
 
     @Test
     fun `startAuthorizationWith - Skips redirect_uri validation when client is null`() = runTest {

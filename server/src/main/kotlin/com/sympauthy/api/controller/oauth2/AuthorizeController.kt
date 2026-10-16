@@ -151,6 +151,26 @@ open class AuthorizeController(
                 schema = Schema(
                     type = "string"
                 )
+            ),
+            Parameter(
+                name = "request",
+                `in` = QUERY,
+                description = "Request object carrying the authorization request as a JWT, OpenID Connect Core 1.0 " +
+                    "§6.1. This server does not support request objects, and an authorization request carrying " +
+                    "one fails.",
+                schema = Schema(
+                    type = "string"
+                )
+            ),
+            Parameter(
+                name = "request_uri",
+                `in` = QUERY,
+                description = "URL of a request object carrying the authorization request, OpenID Connect Core " +
+                    "1.0 §6.2. This server does not support request objects, and an authorization request " +
+                    "carrying one fails.",
+                schema = Schema(
+                    type = "string"
+                )
             )
         ],
         responses = [
@@ -196,7 +216,11 @@ open class AuthorizeController(
         @QueryValue("max_age")
         uncheckedMaxAge: String?,
         @QueryValue("claims")
-        uncheckedClaims: String?
+        uncheckedClaims: String?,
+        @QueryValue("request")
+        uncheckedRequest: String? = null,
+        @QueryValue("request_uri")
+        uncheckedRequestUri: String? = null
     ): HttpResponse<*> {
         if (responseType.isNullOrBlank()) {
             throw oauth2ExceptionOf(UNSUPPORTED_RESPONSE_TYPE, "authorize.response_type.missing")
@@ -213,7 +237,9 @@ open class AuthorizeController(
                 uncheckedCodeChallengeMethod = uncheckedCodeChallengeMethod,
                 uncheckedInvitationToken = uncheckedInvitationToken,
                 uncheckedMaxAge = uncheckedMaxAge,
-                uncheckedClaims = uncheckedClaims
+                uncheckedClaims = uncheckedClaims,
+                uncheckedRequest = uncheckedRequest,
+                uncheckedRequestUri = uncheckedRequestUri
             )
 
             null -> throw oauth2ExceptionOf(
@@ -234,7 +260,9 @@ open class AuthorizeController(
         uncheckedCodeChallengeMethod: String?,
         uncheckedInvitationToken: String?,
         uncheckedMaxAge: String?,
-        uncheckedClaims: String?
+        uncheckedClaims: String?,
+        uncheckedRequest: String?,
+        uncheckedRequestUri: String?
     ): HttpResponse<*> {
         val (session, flow) = interactiveAuthFlowSessionManager.startAuthorizationWith(
             uncheckedClientId = uncheckedClientId,
@@ -246,7 +274,9 @@ open class AuthorizeController(
             uncheckedCodeChallengeMethod = uncheckedCodeChallengeMethod,
             uncheckedInvitationToken = uncheckedInvitationToken,
             uncheckedMaxAge = uncheckedMaxAge,
-            uncheckedClaims = uncheckedClaims
+            uncheckedClaims = uncheckedClaims,
+            uncheckedRequest = uncheckedRequest,
+            uncheckedRequestUri = uncheckedRequestUri
         )
         interactiveAuthFlowSessionControllerUtil.observeStartedSession(session, observedRequest)
 
