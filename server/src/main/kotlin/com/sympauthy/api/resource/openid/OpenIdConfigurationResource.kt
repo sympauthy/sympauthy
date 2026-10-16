@@ -49,9 +49,10 @@ data class OpenIdConfigurationResource(
     val revocationEndpoint: String? = null,
     @get:ArraySchema(
         arraySchema = Schema(
-            description = "Client authentication methods the revocation endpoint accepts, RFC 8414 §2."
+            description = "Client authentication methods the revocation endpoint accepts, RFC 8414 §2. `none` " +
+                "is a public client sending its `client_id` alone."
         ),
-        schema = Schema(allowableValues = ["client_secret_basic", "client_secret_post"])
+        schema = Schema(allowableValues = ["client_secret_basic", "client_secret_post", "none"])
     )
     @get:JsonProperty("revocation_endpoint_auth_methods_supported")
     val revocationEndpointAuthMethodsSupported: List<String>? = null,

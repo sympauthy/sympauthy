@@ -46,11 +46,10 @@ import jakarta.inject.Inject
  *
  * The client authentication methods, the response mode and the subject type are written out because
  * nothing dispatches on a closed set of any of them —
- * [com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil] tries the header, then the
- * body, then a public client's `client_id` alone rather than branching on a named method, and the
- * authorization response is always written into the query string of `redirect_uri`. An enum whose one
- * reader is this document would relocate those literals rather than derive them, so they are held by
- * their test instead.
+ * [com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil] tries the header and then the
+ * body rather than branching on a named method, and the authorization response is always written into
+ * the query string of `redirect_uri`. An enum whose one reader is this document would relocate those
+ * literals rather than derive them, so they are held by their test instead.
  *
  * `scopes_supported` and `claims_supported` are the exception to all of it, and deliberately: each says
  * what a client could ask for, and each names what the deployment wrote `published-in: [ discovery ]`
@@ -100,7 +99,7 @@ class OpenIdConfigurationController(
             userInfoEndpoint = urlsConfig.getUri(OPENID_USERINFO_ENDPOINT).toString(),
             jwksUri = urlsConfig.getUri(OPENID_JWKS_ENDPOINT).toString(),
             revocationEndpoint = urlsConfig.getUri(OAUTH2_REVOKE_ENDPOINT).toString(),
-            revocationEndpointAuthMethodsSupported = listOf("client_secret_basic", "client_secret_post"),
+            revocationEndpointAuthMethodsSupported = listOf("client_secret_basic", "client_secret_post", "none"),
             introspectionEndpoint = urlsConfig.getUri(OAUTH2_INTROSPECTION_ENDPOINT).toString(),
             introspectionEndpointAuthMethodsSupported = listOf("client_secret_basic", "client_secret_post"),
             scopesSupported = scopes,

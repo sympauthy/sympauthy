@@ -46,9 +46,6 @@ import java.net.URI
  * because nothing dispatches on a closed set of any of them — an enum there would have this document
  * as its one reader, which relocates the literal rather than deriving it. Naming them here is the only
  * guard they can have.
- *
- * A member the specifications give a default is held to its value, never to its absence. Left out, it
- * is read as that default, so a member this server answers "no" to is asserted to say so.
  */
 @ExtendWith(MockKExtension::class)
 class OpenIdConfigurationControllerTest {
@@ -137,17 +134,20 @@ class OpenIdConfigurationControllerTest {
     }
 
     @Test
-    fun `getConfiguration - Advertises the client authentication methods revocation and introspection accept`() =
+    fun `getConfiguration - Advertises the client authentication methods the revocation endpoint accepts`() =
         runTest {
-            val configuration = configuration()
-
             assertEquals(
-                listOf("client_secret_basic", "client_secret_post"),
-                configuration.revocationEndpointAuthMethodsSupported
+                listOf("client_secret_basic", "client_secret_post", "none"),
+                configuration().revocationEndpointAuthMethodsSupported
             )
+        }
+
+    @Test
+    fun `getConfiguration - Advertises the client authentication methods the introspection endpoint accepts`() =
+        runTest {
             assertEquals(
                 listOf("client_secret_basic", "client_secret_post"),
-                configuration.introspectionEndpointAuthMethodsSupported
+                configuration().introspectionEndpointAuthMethodsSupported
             )
         }
 
