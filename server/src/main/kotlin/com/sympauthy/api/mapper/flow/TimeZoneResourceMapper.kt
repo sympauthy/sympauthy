@@ -1,18 +1,13 @@
 package com.sympauthy.api.mapper.flow
 
-import com.sympauthy.api.mapper.config.OutputResourceMapperConfig
 import com.sympauthy.api.resource.provider.TimeZoneResource
 import com.sympauthy.business.model.user.claim.TimeZone
-import org.mapstruct.Mapper
-import org.mapstruct.Mapping
-import org.mapstruct.Mappings
+import jakarta.inject.Singleton
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-@Mapper(
-    config = OutputResourceMapperConfig::class
-)
-abstract class TimeZoneResourceMapper {
+@Singleton
+class TimeZoneResourceMapper {
 
     private val offsetFormatter = DateTimeFormatter.ofPattern("xxx")
 
@@ -28,14 +23,15 @@ abstract class TimeZoneResourceMapper {
             .sortedBy(TimeZoneResource::id)
     }
 
-    @Mappings(
-        Mapping(target = "id", source = "timeZone.zone.id"),
-        Mapping(target = "offset", expression = "java(toOffset(timeZone, now))"),
-    )
-    abstract fun toResource(
+    fun toResource(
         timeZone: TimeZone,
         now: LocalDateTime
-    ): TimeZoneResource
+    ): TimeZoneResource {
+        return TimeZoneResource(
+            id = timeZone.zone.id,
+            offset = toOffset(timeZone, now),
+        )
+    }
 
     fun toOffset(
         timeZone: TimeZone,

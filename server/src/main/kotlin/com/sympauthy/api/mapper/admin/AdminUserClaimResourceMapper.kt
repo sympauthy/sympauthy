@@ -1,25 +1,19 @@
 package com.sympauthy.api.mapper.admin
 
-import com.sympauthy.business.model.user.claim.EnabledClaim
-import com.sympauthy.api.mapper.config.OutputResourceMapperConfig
 import com.sympauthy.api.resource.admin.AdminUserClaimResource
-import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.manager.collection.UserClaimCollectionManager.CollectedUserClaim
 import com.sympauthy.business.manager.collection.UserClaimCollectionManager.GeneratedUserClaim
 import com.sympauthy.business.manager.collection.UserClaimCollectionManager.UserClaim
+import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.ClaimKind
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.util.wireName
+import jakarta.inject.Singleton
 
-import org.mapstruct.Mapper
-import org.mapstruct.Mapping
-import org.mapstruct.Named
-
-@Mapper(
-    config = OutputResourceMapperConfig::class
-)
-abstract class AdminUserClaimResourceMapper {
+@Singleton
+class AdminUserClaimResourceMapper {
 
     /**
      * Publish [userClaim], reading its value from where its shape holds it.
@@ -38,47 +32,49 @@ abstract class AdminUserClaimResourceMapper {
         )
     }
 
-    @Mapping(source = "claim.id", target = "claimId")
-    @Mapping(source = "claim.dataType", target = "type", qualifiedByName = ["toTypeString"])
-    @Mapping(source = "claim", target = "origin", qualifiedByName = ["toOrigin"])
-    @Mapping(source = "claim.kind", target = "kind", qualifiedByName = ["toKindString"])
-    @Mapping(source = "claim.required", target = "required")
-    @Mapping(source = "identifier", target = "identifier")
-    @Mapping(source = "claim.group", target = "group", qualifiedByName = ["toGroupString"])
-    @Mapping(source = "collectedClaim.value", target = "value")
-    @Mapping(source = "collectedClaim.collectionDate", target = "collectedAt")
-    @Mapping(source = "collectedClaim.verificationDate", target = "verifiedAt")
-    protected abstract fun toResourceFromCollectedClaim(
+    private fun toResourceFromCollectedClaim(
         claim: EnabledClaim,
         collectedClaim: CollectedClaim?,
         identifier: Boolean
-    ): AdminUserClaimResource
+    ): AdminUserClaimResource {
+        return AdminUserClaimResource(
+            claimId = claim.id,
+            value = collectedClaim?.value,
+            type = toTypeString(claim.dataType),
+            origin = toOrigin(claim),
+            kind = toKindString(claim.kind),
+            required = claim.required,
+            identifier = identifier,
+            group = toGroupString(claim.group),
+            collectedAt = collectedClaim?.collectionDate,
+            verifiedAt = collectedClaim?.verificationDate,
+        )
+    }
 
-    @Mapping(source = "claim.id", target = "claimId")
-    @Mapping(source = "claim.dataType", target = "type", qualifiedByName = ["toTypeString"])
-    @Mapping(source = "claim", target = "origin", qualifiedByName = ["toOrigin"])
-    @Mapping(source = "claim.kind", target = "kind", qualifiedByName = ["toKindString"])
-    @Mapping(source = "claim.required", target = "required")
-    @Mapping(source = "identifier", target = "identifier")
-    @Mapping(source = "claim.group", target = "group", qualifiedByName = ["toGroupString"])
-    @Mapping(source = "generatedClaimValue", target = "value")
-    @Mapping(target = "collectedAt", ignore = true)
-    @Mapping(target = "verifiedAt", ignore = true)
-    protected abstract fun toResourceFromGeneratedClaim(
+    private fun toResourceFromGeneratedClaim(
         claim: EnabledClaim,
         identifier: Boolean,
         generatedClaimValue: Any?
-    ): AdminUserClaimResource
+    ): AdminUserClaimResource {
+        return AdminUserClaimResource(
+            claimId = claim.id,
+            value = generatedClaimValue,
+            type = toTypeString(claim.dataType),
+            origin = toOrigin(claim),
+            kind = toKindString(claim.kind),
+            required = claim.required,
+            identifier = identifier,
+            group = toGroupString(claim.group),
+            collectedAt = null,
+            verifiedAt = null,
+        )
+    }
 
-    @Named("toTypeString")
     fun toTypeString(dataType: ClaimDataType): String = dataType.wireName
 
-    @Named("toOrigin")
     fun toOrigin(claim: EnabledClaim): String = claim.origin.wireName
 
-    @Named("toKindString")
     fun toKindString(kind: ClaimKind?): String? = kind?.wireName
 
-    @Named("toGroupString")
     fun toGroupString(group: ClaimGroup?): String? = group?.wireName
 }

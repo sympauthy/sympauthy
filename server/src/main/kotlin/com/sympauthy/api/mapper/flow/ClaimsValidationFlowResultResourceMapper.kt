@@ -1,23 +1,21 @@
 package com.sympauthy.api.mapper.flow
 
-import com.sympauthy.api.mapper.config.OutputResourceMapperConfig
 import com.sympauthy.api.resource.flow.ClaimsValidationFlowResource
 import com.sympauthy.api.resource.flow.ResendClaimsValidationCodeResultResource
 import com.sympauthy.api.resource.flow.ValidationCodeResource
 import com.sympauthy.business.model.code.ValidationCode
 import com.sympauthy.business.model.code.ValidationCodeMedia
-import org.mapstruct.Mapper
+import jakarta.inject.Singleton
 import java.net.URI
 
-@Mapper(
-    config = OutputResourceMapperConfig::class
-)
-abstract class ClaimsValidationFlowResultResourceMapper {
+@Singleton
+class ClaimsValidationFlowResultResourceMapper {
 
     fun toFlowResource(validationCode: ValidationCode): ClaimsValidationFlowResource {
         return ClaimsValidationFlowResource(
             media = validationCode.media.name,
-            code = toResource(validationCode)
+            code = toResource(validationCode),
+            redirectUrl = null,
         )
     }
 
@@ -27,6 +25,7 @@ abstract class ClaimsValidationFlowResultResourceMapper {
     ): ClaimsValidationFlowResource {
         return ClaimsValidationFlowResource(
             media = media.name,
+            code = null,
             redirectUrl = redirectUri.toString(),
         )
     }
@@ -43,5 +42,12 @@ abstract class ClaimsValidationFlowResultResourceMapper {
         )
     }
 
-    abstract fun toResource(validationCode: ValidationCode): ValidationCodeResource
+    fun toResource(validationCode: ValidationCode): ValidationCodeResource {
+        return ValidationCodeResource(
+            id = validationCode.id.toString(),
+            media = validationCode.media.name,
+            reasons = validationCode.reasons.map { it.name },
+            resendDate = validationCode.resendDate,
+        )
+    }
 }

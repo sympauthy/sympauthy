@@ -1,37 +1,41 @@
 package com.sympauthy.api.mapper.admin
 
-import com.sympauthy.api.mapper.config.OutputResourceMapperConfig
 import com.sympauthy.api.resource.admin.AdminAuthorizationWebhookResource
 import com.sympauthy.api.resource.admin.AdminClientResource
 import com.sympauthy.api.resource.admin.AdminClientSummaryResource
 import com.sympauthy.business.model.client.AuthorizationWebhook
-import com.sympauthy.business.model.client.AuthorizationWebhookOnFailure
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.util.wireName
-import org.mapstruct.Mapper
-import org.mapstruct.Mapping
-import org.mapstruct.NullValueMappingStrategy
+import jakarta.inject.Singleton
 
-@Mapper(
-    config = OutputResourceMapperConfig::class,
-    nullValueIterableMappingStrategy = NullValueMappingStrategy.RETURN_DEFAULT
-)
-abstract class AdminClientResourceMapper {
+@Singleton
+class AdminClientResourceMapper {
 
-    @Mapping(source = "id", target = "clientId")
-    @Mapping(source = "public", target = "type", qualifiedByName = ["toClientType"])
-    @Mapping(source = "audience.id", target = "audienceId")
-    abstract fun toSummaryResource(client: Client): AdminClientSummaryResource
+    fun toSummaryResource(client: Client): AdminClientSummaryResource {
+        return AdminClientSummaryResource(
+            clientId = client.id,
+            type = toClientType(client.public),
+            audienceId = client.audience.id,
+            allowedRedirectUris = client.allowedRedirectUris,
+        )
+    }
 
-    @Mapping(source = "id", target = "clientId")
-    @Mapping(source = "public", target = "type", qualifiedByName = ["toClientType"])
-    @Mapping(source = "audience.id", target = "audienceId")
-    @Mapping(source = "authorizationFlow.id", target = "authorizationFlowId")
-    abstract fun toResource(client: Client): AdminClientResource
+    fun toResource(client: Client): AdminClientResource {
+        return AdminClientResource(
+            clientId = client.id,
+            type = toClientType(client.public),
+            audienceId = client.audience.id,
+            allowedGrantTypes = client.allowedGrantTypes.map(::toGrantType),
+            authorizationFlowId = client.authorizationFlow?.id,
+            allowedScopes = client.allowedScopes?.map(::toScope) ?: emptyList(),
+            defaultScopes = client.defaultScopes?.map(::toScope) ?: emptyList(),
+            allowedRedirectUris = client.allowedRedirectUris,
+            authorizationWebhook = toWebhookResource(client.authorizationWebhook),
+        )
+    }
 
-    @org.mapstruct.Named("toClientType")
     fun toClientType(public: Boolean): String = if (public) "public" else "confidential"
 
     fun toScope(scope: Scope): String = scope.scope
@@ -42,13 +46,8 @@ abstract class AdminClientResourceMapper {
         return webhook?.let {
             AdminAuthorizationWebhookResource(
                 url = it.url.toString(),
-                onFailure = toOnFailure(it.onFailure)
+                onFailure = it.onFailure.wireName,
             )
         }
-    }
-
-    private fun toOnFailure(onFailure: AuthorizationWebhookOnFailure): String = when (onFailure) {
-        AuthorizationWebhookOnFailure.DENY_ALL -> "deny_all"
-        AuthorizationWebhookOnFailure.FALLBACK_TO_RULES -> "fallback_to_rules"
     }
 }

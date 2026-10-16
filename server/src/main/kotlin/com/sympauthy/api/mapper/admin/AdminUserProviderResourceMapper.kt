@@ -1,17 +1,17 @@
 package com.sympauthy.api.mapper.admin
 
-import com.sympauthy.api.mapper.config.OutputResourceMapperConfig
 import com.sympauthy.api.resource.admin.AdminUserProviderResource
 import com.sympauthy.business.model.provider.ProviderUserInfo
-import org.mapstruct.Mapper
-import org.mapstruct.Mapping
+import jakarta.inject.Singleton
 
-@Mapper(
-    config = OutputResourceMapperConfig::class
-)
-abstract class AdminUserProviderResourceMapper {
+@Singleton
+class AdminUserProviderResourceMapper {
 
-    @Mapping(source = "userInfo.subject", target = "subject")
-    @Mapping(source = "linkDate", target = "linkedAt")
-    abstract fun toResource(providerUserInfo: ProviderUserInfo): AdminUserProviderResource
+    fun toResource(providerUserInfo: ProviderUserInfo): AdminUserProviderResource {
+        return AdminUserProviderResource(
+            providerId = providerUserInfo.providerId,
+            subject = providerUserInfo.userInfo.subject,
+            linkedAt = providerUserInfo.linkDate,
+        )
+    }
 }
