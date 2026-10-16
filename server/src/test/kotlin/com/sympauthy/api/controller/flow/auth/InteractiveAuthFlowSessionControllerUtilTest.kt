@@ -12,8 +12,12 @@ import com.sympauthy.business.manager.flow.SuccessVerifyEncodedStateResult
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
 import com.sympauthy.business.manager.security.UserSecurityContextManager
 import com.sympauthy.business.manager.user.UserManager
+import com.sympauthy.business.model.flow.CONCURRENT_MODIFICATION_DETAILS_ID
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlow
+import com.sympauthy.business.model.flow.InteractiveFlowStep
+import com.sympauthy.business.model.flow.InteractiveFlowStepResult
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.security.observedRequestOf
 import io.mockk.coEvery
@@ -24,10 +28,12 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
+import java.net.URI
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
@@ -54,7 +60,7 @@ class InteractiveAuthFlowSessionControllerUtilTest {
     @InjectMockKs
     lateinit var util: InteractiveAuthFlowSessionControllerUtil
 
-    private val concurrentModification = InteractiveFlowSessionManager.CONCURRENT_MODIFICATION_DETAILS_ID
+    private val concurrentModification = CONCURRENT_MODIFICATION_DETAILS_ID
 
     private fun ongoing(sessionId: UUID) = mockk<OnGoingInteractiveFlowSession> {
         every { id } returns sessionId
@@ -131,6 +137,72 @@ class InteractiveAuthFlowSessionControllerUtilTest {
             coVerify { userSecurityContextManager.observe(sessionId, observed) }
         }
 
+    /** A promotion finding an identifier taken refuses the completion, which the step's work left to here. */
+    @Test
+    fun `fetchOnGoingSessionThenUpdateAndRedirect - Fails the session where completing it is refused`() =
+        runTest {
+            val errorUri = URI.create("https://flow.example.com/error?state=encoded-state")
+            val session = ongoingInFlow(UUID.randomUUID())
+            val updated = mockk<OnGoingInteractiveFlowSession>()
+            val failed = mockk<FailedInteractiveFlowSession>()
+            val flow = mockk<InteractiveFlow>()
+            val refusal = businessExceptionOf("user.promote.identifier_taken")
+            stubFlowOf(session, flow)
+            coEvery { engine.advance(updated) } throws refusal
+            coEvery { sessionManager.markAsFailedIfNotRecoverable(updated, refusal) } returns failed
+            coEvery { engine.advance(failed) } returns InteractiveFlowStepResult(failed, InteractiveFlowStep.Error)
+            coEvery { stepUriMapper.toRedirectUri(failed, flow, InteractiveFlowStep.Error) } returns errorUri
+
+            val result = util.fetchOnGoingSessionThenUpdateAndRedirect(
+                state = "encoded-state",
+                observedRequest = observed,
+                update = { _, _ -> updated },
+                mapRedirectUriToResource = { it }
+            )
+
+            assertEquals(errorUri, result)
+        }
+
+    @Test
+    fun `fetchOnGoingSessionThenUpdateAndRedirect - Routes a lost completion by where the winner left it`() =
+        runTest {
+            val errorUri = URI.create("https://flow.example.com/error?state=encoded-state")
+            val session = ongoingInFlow(UUID.randomUUID())
+            val updated = mockk<OnGoingInteractiveFlowSession> { every { id } returns UUID.randomUUID() }
+            val completed = mockk<CompletedInteractiveFlowSession>()
+            val flow = mockk<InteractiveFlow>()
+            stubFlowOf(session, flow)
+            coEvery { engine.advance(updated) } throws businessExceptionOf(concurrentModification)
+            coEvery { sessionManager.fetchByIdOrNull(updated.id) } returns completed
+            coEvery { engine.advance(completed) } returns
+                InteractiveFlowStepResult(completed, InteractiveFlowStep.AlreadyCompleted)
+            coEvery {
+                stepUriMapper.toRedirectUri(completed, flow, InteractiveFlowStep.AlreadyCompleted)
+            } returns errorUri
+
+            val result = util.fetchOnGoingSessionThenUpdateAndRedirect(
+                state = "encoded-state",
+                observedRequest = observed,
+                update = { _, _ -> updated },
+                mapRedirectUriToResource = { it }
+            )
+
+            assertEquals(errorUri, result)
+            coVerify(exactly = 0) { sessionManager.markAsFailedIfNotRecoverable(any(), any()) }
+        }
+
+    private fun ongoingInFlow(sessionId: UUID) = mockk<OnGoingInteractiveFlowSession> {
+        every { id } returns sessionId
+        every { expired } returns false
+        every { flowId } returns "flow-id"
+    }
+
+    private fun stubFlowOf(session: OnGoingInteractiveFlowSession, flow: InteractiveFlow) {
+        coEvery { sessionManager.verifyEncodedInternalState("encoded-state") } returns
+            SuccessVerifyEncodedStateResult(session)
+        every { interactiveAuthFlowSessionManager.findById("flow-id") } returns flow
+    }
+
     @Test
     fun `handleException - Returns the session unchanged when there is no exception`() = runTest {
         val session = mockk<OnGoingInteractiveFlowSession>()
@@ -157,8 +229,8 @@ class InteractiveAuthFlowSessionControllerUtilTest {
 
         val result = util.handleException(session, businessExceptionOf(concurrentModification))
 
-        // The concurrent winner completed the shared session, so this request is routed to that completed
-        // session (→ success redirect), never failed.
+        // The concurrent winner completed the shared session, so this request is routed by that completed
+        // session, never failed.
         assertSame(completed, result)
         coVerify(exactly = 0) { sessionManager.markAsFailedIfNotRecoverable(any(), any()) }
     }

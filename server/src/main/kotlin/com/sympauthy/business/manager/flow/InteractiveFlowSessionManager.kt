@@ -155,7 +155,7 @@ open class InteractiveFlowSessionManager(
             signedUp = signedUp,
             expectedVersion = session.version
         )
-        if (updated == 0) throw concurrentModificationOf(session)
+        if (updated == 0) throw interactiveFlowSessionConcurrentModificationExceptionOf(session)
         return session.copy(
             userId = userId,
             signedUp = signedUp,
@@ -176,7 +176,7 @@ open class InteractiveFlowSessionManager(
             mfaPassedDate = mfaPassedDate,
             expectedVersion = session.version
         )
-        if (updated == 0) throw concurrentModificationOf(session)
+        if (updated == 0) throw interactiveFlowSessionConcurrentModificationExceptionOf(session)
         return session.copy(mfaPassedDate = mfaPassedDate, version = session.version + 1)
     }
 
@@ -203,7 +203,7 @@ open class InteractiveFlowSessionManager(
             purposes = purposes.map(InteractiveFlowPurpose::name).toTypedArray(),
             expectedVersion = session.version
         )
-        if (updated == 0) throw concurrentModificationOf(session)
+        if (updated == 0) throw interactiveFlowSessionConcurrentModificationExceptionOf(session)
         return session.copy(purposes = purposes, version = session.version + 1)
     }
 
@@ -281,7 +281,7 @@ open class InteractiveFlowSessionManager(
             cancelDate = cancelDate,
             expectedVersion = session.version
         )
-        if (updated == 0) throw concurrentModificationOf(session)
+        if (updated == 0) throw interactiveFlowSessionConcurrentModificationExceptionOf(session)
         return CancelledInteractiveFlowSession(
             id = session.id,
             purposes = session.purposes,
@@ -303,19 +303,23 @@ open class InteractiveFlowSessionManager(
      *
      * This is pure progress bookkeeping: it never transitions the session to completed — that is
      * [markAsCompleted], run by the engine once every purpose has resolved and its terminal effect applied.
-     * Marking an already-completed [purpose] is a no-op on the list.
+     *
+     * Marking an already-completed [purpose] writes nothing and answers [session] as it is. The engine marks
+     * every resolved purpose on every advance, so a write there would be one two requests on the same session
+     * always race for, and the one losing it would fail the session over a list neither of them changed.
      */
     suspend fun markPurposeAsCompleted(
         session: OnGoingInteractiveFlowSession,
         purpose: InteractiveFlowPurpose
     ): OnGoingInteractiveFlowSession {
-        val completedPurposes = (session.completedPurposes + purpose).distinct()
+        if (purpose in session.completedPurposes) return session
+        val completedPurposes = session.completedPurposes + purpose
         val updated = sessionRepository.updateCompletedPurposes(
             id = session.id,
             completedPurposes = completedPurposes.map(InteractiveFlowPurpose::name).toTypedArray(),
             expectedVersion = session.version
         )
-        if (updated == 0) throw concurrentModificationOf(session)
+        if (updated == 0) throw interactiveFlowSessionConcurrentModificationExceptionOf(session)
         return session.copy(completedPurposes = completedPurposes, version = session.version + 1)
     }
 
@@ -340,7 +344,7 @@ open class InteractiveFlowSessionManager(
             completeDate = completeDate,
             expectedVersion = session.version
         )
-        if (updated == 0) throw concurrentModificationOf(session)
+        if (updated == 0) throw interactiveFlowSessionConcurrentModificationExceptionOf(session)
         return CompletedInteractiveFlowSession(
             id = session.id,
             purposes = session.purposes,
@@ -416,28 +420,7 @@ open class InteractiveFlowSessionManager(
         return sessionRepository.findById(id)?.let(sessionMapper::toInteractiveFlowSession)
     }
 
-    /**
-     * Build the non-recoverable [BusinessException] thrown when a version-guarded update affects no
-     * rows: the [session] snapshot the caller holds is stale because another request advanced the
-     * session since it was read. Being non-recoverable, it is routed by the interactive-flow error
-     * handling (see
-     * [com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil.handleException]),
-     * which reflects the session's current terminal status where possible and otherwise fails it.
-     */
-    private fun concurrentModificationOf(session: InteractiveFlowSession): BusinessException =
-        businessExceptionOf(
-            CONCURRENT_MODIFICATION_DETAILS_ID,
-            "sessionId" to session.id.toString()
-        )
-
     companion object {
-        /**
-         * Detail id of the non-recoverable exception raised when a version-guarded update loses its
-         * compare-and-swap. The controller special-cases it (see
-         * [com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil]).
-         */
-        const val CONCURRENT_MODIFICATION_DETAILS_ID = "auth.interactive_flow_session.concurrent_modification"
-
         /**
          * Name of the cryptographic key used to sign the state.
          */

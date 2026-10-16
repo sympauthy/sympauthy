@@ -6,7 +6,6 @@ import com.sympauthy.api.resource.flow.MfaFlowResource
 import com.sympauthy.api.resource.flow.MfaMethodResource
 import com.sympauthy.api.util.FLOW_FAILURE_SEE_OTHER_DESCRIPTION
 import com.sympauthy.api.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
-import com.sympauthy.api.util.FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.FLOW_SEE_OTHER_DESCRIPTION
 import com.sympauthy.api.util.FLOW_SIGNED_IN_SESSION_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.FLOW_STATE_BAD_REQUEST_DESCRIPTION
@@ -92,7 +91,7 @@ class MfaEnrollmentController(
             FLOW_FAILURE_SEE_OTHER_DESCRIPTION,
         responses = [
             ApiResponse(responseCode = "303", description = FLOW_SEE_OTHER_DESCRIPTION),
-            ApiResponse(responseCode = "400", description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION),
+            ApiResponse(responseCode = "400", description = FLOW_STATE_BAD_REQUEST_DESCRIPTION),
             ApiResponse(responseCode = "401", description = FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION)
         ],
         tags = ["flow"]

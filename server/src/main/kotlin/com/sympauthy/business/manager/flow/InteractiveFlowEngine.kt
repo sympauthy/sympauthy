@@ -47,26 +47,29 @@ open class InteractiveFlowEngine(
      * Advance [session] to the next [InteractiveFlowStep] the end-user must go through, running any append /
      * completion mutation it entails, and return it together with the possibly-transitioned session.
      *
-     * The call is idempotent for a session that is already terminal: a failed session maps to
-     * [InteractiveFlowStep.Error], a completed one to [InteractiveFlowStep.Complete] and a cancelled one to
-     * [InteractiveFlowStep.Cancel], without re-running any effect.
+     * **[InteractiveFlowStep.Complete] is answered to the call that completes the session**, and that call is
+     * the one handing the end-user back. A session that was already completed when passed here is a later
+     * request on it, and its initiating purpose decides what it gets: handed back again, or
+     * [InteractiveFlowStep.AlreadyCompleted] where that purpose
+     * [hands off once][InteractiveFlowPurposeHandler.handsOffOnce]. So a caller asks here once per request,
+     * after the work that may have moved the flow forward, and maps that answer.
+     *
+     * A failed session maps to [InteractiveFlowStep.Error] and a cancelled one to [InteractiveFlowStep.Cancel].
+     * No terminal session re-runs any effect.
      */
     suspend fun advance(session: InteractiveFlowSession): InteractiveFlowStepResult = when (session) {
         is FailedInteractiveFlowSession -> InteractiveFlowStepResult(session, InteractiveFlowStep.Error)
-        is CompletedInteractiveFlowSession -> InteractiveFlowStepResult(session, InteractiveFlowStep.Complete)
+        is CompletedInteractiveFlowSession -> InteractiveFlowStepResult(session, stepAfterCompletion(session))
         is CancelledInteractiveFlowSession -> InteractiveFlowStepResult(session, InteractiveFlowStep.Cancel)
         is OnGoingInteractiveFlowSession -> advanceOnGoing(session)
     }
 
-    /**
-     * Advance [session] as far as it can go and return the resulting session — completed when it just
-     * finished, ongoing when a step still remains, failed on a failed terminal effect.
-     *
-     * Convenience over [advance] for callers that only need to move the flow forward and do not care about the
-     * next step (e.g. after authenticating the user).
-     */
-    suspend fun completeIfNecessary(session: InteractiveFlowSession): InteractiveFlowSession {
-        return advance(session).session
+    private fun stepAfterCompletion(session: CompletedInteractiveFlowSession): InteractiveFlowStep {
+        return if (purposeRegistry.getForPurpose(session.initiatingPurpose).handsOffOnce) {
+            InteractiveFlowStep.AlreadyCompleted
+        } else {
+            InteractiveFlowStep.Complete
+        }
     }
 
     /**

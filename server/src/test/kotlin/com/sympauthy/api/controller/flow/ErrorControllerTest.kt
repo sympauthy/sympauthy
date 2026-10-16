@@ -8,6 +8,7 @@ import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.SuccessVerifyEncodedStateResult
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
+import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
@@ -17,11 +18,13 @@ import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.security.StateAuthentication
 import io.micronaut.http.HttpRequest
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -107,6 +110,36 @@ class ErrorControllerTest {
         val result = controller.getError(request, StateAuthentication("encoded-state"))
 
         assertEquals("auth.interactive_flow_session.validate.missing_session", result.errorCode)
+    }
+
+    /** The step leads to this page, so a redirect would send the browser back to it. */
+    @Test
+    fun `getError - Answers a session already completed and handed off with that failure`() = runTest {
+        val request = mockk<HttpRequest<*>> {
+            every { locale } returns Optional.of(Locale.US)
+        }
+        val session = mockk<CompletedInteractiveFlowSession>()
+        coEvery { sessionManager.verifyEncodedInternalState("encoded-state") } returns
+            SuccessVerifyEncodedStateResult(session)
+        coEvery { engine.advance(session) } returns
+            InteractiveFlowStepResult(session, InteractiveFlowStep.AlreadyCompleted)
+        every {
+            flowErrorResourceMapper.toResource(
+                match<BusinessException> {
+                    it.detailsId == "auth.interactive_flow_session.already_completed" &&
+                        it.descriptionId == "description.auth.interactive_flow_session.already_completed"
+                },
+                Locale.US
+            )
+        } returns FlowErrorResource(errorCode = "auth.interactive_flow_session.already_completed")
+
+        val result = controller.getError(request, StateAuthentication("encoded-state"))
+
+        assertEquals("auth.interactive_flow_session.already_completed", result.errorCode)
+        assertNull(result.redirectUrl)
+        coVerify(exactly = 0) { stepUriMapper.toRedirectUri(any(), any(), any()) }
+        // Telling a session it is over needs no flow, so one no longer configured does not stop it.
+        verify(exactly = 0) { interactiveAuthFlowSessionManager.findById(any()) }
     }
 
     @Test

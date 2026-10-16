@@ -1,11 +1,11 @@
 package com.sympauthy.business.manager.auth.oauth2
 
-import com.sympauthy.api.exception.oauth2ExceptionOf
+import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.RandomGenerator
 import com.sympauthy.business.mapper.AuthorizationCodeMapper
 import com.sympauthy.business.model.oauth2.AuthorizationCode
 import com.sympauthy.business.model.flow.InteractiveFlowSession
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
+import com.sympauthy.business.model.flow.interactiveFlowSessionConcurrentModificationExceptionOf
 import com.sympauthy.data.model.AuthorizationCodeEntity
 import com.sympauthy.data.repository.AuthorizationCodeRepository
 import com.sympauthy.util.isRowAlreadyThere
@@ -25,12 +25,14 @@ class AuthorizationCodeManager(
 ) {
 
     /**
-     * Generate the authorization code a client exchanges for [session]'s tokens.
+     * Generate the authorization code a client exchanges for [session]'s tokens, in the transaction completing
+     * [session].
      *
-     * Throws `code.already_generated` where the session already holds one: the primary key over
-     * `session_id` is what refuses the second, so an authorization request replayed against a session
-     * that already answered one is told so rather than handed a second code. Every other way the write
-     * can be refused — the foreign key over a session that is gone — travels on as this server's own
+     * A session holds one code: the primary key over `session_id` refuses a second, and with the code written
+     * as the session completes, the request refused is one whose completion lost to a concurrent one. It
+     * throws `auth.interactive_flow_session.concurrent_modification`, as the version check the loser would
+     * otherwise have reached next does, so it is routed by where the winner left the session. Every other way
+     * the write can be refused — the foreign key over a session that is gone — travels on as this server's own
      * failure, because nothing the client sent would have prevented it.
      */
     suspend fun generateCode(
@@ -51,8 +53,20 @@ class AuthorizationCodeManager(
             if (!failure.isRowAlreadyThere()) {
                 throw failure
             }
-            throw oauth2ExceptionOf(INVALID_REQUEST, "code.already_generated", "description.oauth2.replay")
+            throw interactiveFlowSessionConcurrentModificationExceptionOf(session)
         }
+    }
+
+    /**
+     * The authorization code [session] completed with.
+     *
+     * Throws `code.missing`, internal, where it holds none: a session completing an authorization request is
+     * given its code in the transaction completing it, so one without is this server's failure.
+     */
+    suspend fun fetchCode(session: InteractiveFlowSession): AuthorizationCode {
+        return authorizeCodeRepository.findById(session.id)
+            ?.let(authorizationCodeMapper::toAuthorizationCode)
+            ?: throw internalBusinessExceptionOf("code.missing", "sessionId" to session.id.toString())
     }
 
     suspend fun deleteCode(code: String) {

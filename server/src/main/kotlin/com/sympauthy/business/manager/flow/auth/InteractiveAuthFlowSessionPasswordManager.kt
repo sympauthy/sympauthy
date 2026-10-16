@@ -142,7 +142,7 @@ open class InteractiveAuthFlowSessionPasswordManager(
                 // Stamped once the session's user is this person's, which is the condition the
                 // authentication date is written under.
                 oauth2Manager.setAuthenticationDate(authenticated)
-                engine.completeIfNecessary(authenticated)
+                authenticated
             }
 
             engine.currentPurposeOrNull(session) == InteractiveFlowPurpose.REAUTHENTICATION ->
@@ -159,8 +159,8 @@ open class InteractiveAuthFlowSessionPasswordManager(
      * Re-authentication path: the [user] just authenticated with a password must be the session's
      * already-fixed [OnGoingInteractiveFlowSession.userId] — **confirm, never establish**. On a match, record
      * the primary credential as proven on the re-authentication record **without** touching the session's user
-     * id, then advance. A mismatch (someone proving a *different* account) is a recoverable error so the
-     * end-user retries on the same sign-in step; the session user is never switched.
+     * id. A mismatch (someone proving a *different* account) is a recoverable error so the end-user retries on
+     * the same sign-in step; the session user is never switched.
      */
     private suspend fun confirmReauthenticatedUser(
         session: OnGoingInteractiveFlowSession,
@@ -176,7 +176,7 @@ open class InteractiveAuthFlowSessionPasswordManager(
         // After the match above and not before it: until then the credential proves an account, not this one.
         userSecurityContextManager.markProven(session.id, observedRequest)
         reauthenticationManager.markPrimaryCredentialProven(session)
-        return engine.completeIfNecessary(session)
+        return session
     }
 
     /**
@@ -202,11 +202,7 @@ open class InteractiveAuthFlowSessionPasswordManager(
         // Creating the account is proving a credential of it: the password written above is the one this
         // person will sign in with, so the authorization carries this moment rather than none at all.
         oauth2Manager.setAuthenticationDate(updatedSession)
-
-        // Outside the transaction above, deliberately. Completing runs the terminal effects, the promotion
-        // and the completion write in a transaction of its own, and a refusal there has to roll that back
-        // while leaving the failure recorded — which it cannot do from inside this one.
-        return engine.completeIfNecessary(updatedSession)
+        return updatedSession
     }
 
     /**

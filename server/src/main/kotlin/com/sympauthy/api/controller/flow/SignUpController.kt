@@ -12,8 +12,8 @@ import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.FLOW_FAILURE_DESCRIPTION
 import com.sympauthy.api.util.FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION
 import com.sympauthy.api.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
-import com.sympauthy.api.util.FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.FLOW_REDIRECT_RESPONSE_DESCRIPTION
+import com.sympauthy.api.util.FLOW_STATE_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
@@ -62,7 +62,7 @@ class SignUpController(
                     "to instead.",
                 useReturnTypeSchema = true
             ),
-            ApiResponse(responseCode = "400", description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION),
+            ApiResponse(responseCode = "400", description = FLOW_STATE_BAD_REQUEST_DESCRIPTION),
             ApiResponse(responseCode = "401", description = FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION)
         ],
         tags = ["flow"]
@@ -136,7 +136,7 @@ class SignUpController(
             ),
             ApiResponse(
                 responseCode = "400",
-                description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION +
+                description = FLOW_STATE_BAD_REQUEST_DESCRIPTION +
                     "\n- `flow.claims.invalid`: one or more claim values are refused, and `properties` holds the " +
                     "failure of each by claim identifier.\n" +
                     "- `flow.sign_up.disabled`: the client's audience allows neither signing up nor invitations.\n" +

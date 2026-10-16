@@ -12,8 +12,8 @@ import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.FLOW_FAILURE_DESCRIPTION
 import com.sympauthy.api.util.FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION
 import com.sympauthy.api.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
-import com.sympauthy.api.util.FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.FLOW_REDIRECT_RESPONSE_DESCRIPTION
+import com.sympauthy.api.util.FLOW_STATE_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.user.ConsentAwareClaimManager
@@ -57,7 +57,7 @@ class ClaimsController(
                 description = "The claims to collect, or the `redirect_url` to send the browser to instead.",
                 useReturnTypeSchema = true
             ),
-            ApiResponse(responseCode = "400", description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION),
+            ApiResponse(responseCode = "400", description = FLOW_STATE_BAD_REQUEST_DESCRIPTION),
             ApiResponse(responseCode = "401", description = FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION)
         ],
         tags = ["flow"]
@@ -103,7 +103,7 @@ class ClaimsController(
             ),
             ApiResponse(
                 responseCode = "400",
-                description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION +
+                description = FLOW_STATE_BAD_REQUEST_DESCRIPTION +
                     "\n- `flow.claims.invalid`: one or more values are refused, and `properties` holds the " +
                     "failure of each by claim identifier.\n" +
                     BODY_BAD_REQUEST_DESCRIPTION

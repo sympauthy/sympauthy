@@ -4,6 +4,7 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.auth.UserScopeGrantingManager
+import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.flow.InteractiveFlowPurposeHandler
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
@@ -33,9 +34,9 @@ import jakarta.inject.Singleton
  *
  * Owns the step logic (which page the end-user must go through next, expressed as an abstract
  * [InteractiveFlowStep]), the MFA purpose it requires before the flow can complete, and the completion effect
- * (grant the requested scopes and record the consent — or fail when no scope can be granted and the client may
- * not be accessed without one). Producing the concrete redirect URL from a [InteractiveFlowStep] is left to the
- * API boundary; every session mutation is left to the engine.
+ * (grant the requested scopes, record the consent and generate the authorization code — or fail when no scope
+ * can be granted and the client may not be accessed without one). Producing the concrete redirect URL from a
+ * [InteractiveFlowStep] is left to the API boundary; every session mutation is left to the engine.
  */
 @Singleton
 class OAuth2AuthorizeInteractiveFlowPurposeHandler(
@@ -46,6 +47,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
     @Inject private val scopeGrantingManager: UserScopeGrantingManager,
     @Inject private val consentManager: ConsentManager,
     @Inject private val invitationManager: InvitationManager,
+    @Inject private val authorizationCodeManager: AuthorizationCodeManager,
     @Inject private val uncheckedMfaConfig: MfaConfig,
     @Inject private val totpManager: TotpManager,
     @Inject private val uncheckedFeaturesConfig: FeaturesConfig,
@@ -58,6 +60,13 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
     }
 
     override val purpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE
+
+    /**
+     * The hand-off carries the authorization code, which goes to the request that completed the session and
+     * to no other. Answering a later one with it would give the code to whoever holds the state, which
+     * outlives the flow and travels in URLs, and send the client a code it may have already exchanged.
+     */
+    override val handsOffOnce = true
 
     override suspend fun nextStepOrNull(session: OnGoingInteractiveFlowSession): InteractiveFlowStep? {
         // Fetch the OAuth2 record once and thread it into the status computation and the sign-in/up branch.
@@ -225,6 +234,9 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
      * authorized for the client. If an active consent already exists for this user+client pair, it is revoked
      * and replaced.
      *
+     * The authorization code is generated here, last, so the session completes holding the one code its
+     * hand-off carries, and a flow refused by a later purpose rolls it back with everything else.
+     *
      * The invitation, if one brought the end-user here, is consumed here too rather than at sign-up. An
      * invitation is spent on an account that comes to exist, so a flow that is abandoned leaves it pending
      * and the invitee's link still works. It is also what settles two sign-ups holding one invitation: this
@@ -279,6 +291,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
             scopes = oauth2.consentedScopes ?: emptyList()
         )
         oauth2.invitationId?.let { invitationManager.consumeInvitation(it, userId) }
+        authorizationCodeManager.generateCode(session)
         return TerminalEffectResult.Proceed
     }
 }

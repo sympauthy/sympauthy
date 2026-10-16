@@ -118,7 +118,7 @@ class InteractiveFlowStepUriMapperTest {
 
     @Test
     @Suppress("MaxLineLength")
-    fun `toRedirectUri - Complete for AUTHORIZATION_CODE generates a code and redirects to the client without internal state`() = runTest {
+    fun `toRedirectUri - Complete for AUTHORIZATION_CODE hands its code to the client without internal state`() = runTest {
         val session = mockk<CompletedInteractiveFlowSession> {
             every { redirectType } returns InteractiveFlowRedirectType.AUTHORIZATION_CODE
             every { successRedirectUri } returns URI.create("https://www.example.com")
@@ -132,7 +132,7 @@ class InteractiveFlowStepUriMapperTest {
         )
         val authorizationCode = mockk<AuthorizationCode> { every { code } returns "authorizationCode" }
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
-        coEvery { authorizationCodeManager.generateCode(session) } returns authorizationCode
+        coEvery { authorizationCodeManager.fetchCode(session) } returns authorizationCode
 
         val result = mapper.toRedirectUri(session, mockk(), InteractiveFlowStep.Complete)
 
@@ -149,7 +149,20 @@ class InteractiveFlowStepUriMapperTest {
         val result = mapper.toRedirectUri(session, mockk(), InteractiveFlowStep.Complete)
 
         assertEquals("https://client.example.com/enrolled", result.toString())
-        coVerify(exactly = 0) { authorizationCodeManager.generateCode(any()) }
+        coVerify(exactly = 0) { authorizationCodeManager.fetchCode(any()) }
+    }
+
+    @Test
+    fun `toRedirectUri - AlreadyCompleted maps to errorUri with state appended`() = runTest {
+        val uri = URI.create("https://www.example.com/error")
+        val session = mockk<CompletedInteractiveFlowSession>()
+        val flow = mockk<InteractiveFlow> { every { errorUri } returns uri }
+        coEvery { mapper.appendState(session, uri) } returns uri
+
+        val result = mapper.toRedirectUri(session, flow, InteractiveFlowStep.AlreadyCompleted)
+
+        assertEquals(uri, result)
+        coVerify(exactly = 0) { authorizationCodeManager.fetchCode(any()) }
     }
 
     @Test
@@ -181,7 +194,7 @@ class InteractiveFlowStepUriMapperTest {
         val result = mapper.toRedirectUri(session, mockk(), InteractiveFlowStep.Cancel)
 
         assertEquals("https://www.example.com?error=access_denied&state=clientState", result.toString())
-        coVerify(exactly = 0) { authorizationCodeManager.generateCode(any()) }
+        coVerify(exactly = 0) { authorizationCodeManager.fetchCode(any()) }
     }
 
     @Test

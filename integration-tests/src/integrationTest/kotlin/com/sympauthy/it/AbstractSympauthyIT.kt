@@ -12,6 +12,7 @@ import com.nimbusds.jwt.proc.DefaultJWTProcessor
 import com.sympauthy.api.client.api.OpeniddiscoveryApi
 import com.sympauthy.api.client.model.OpenIdConfigurationResource
 import com.sympauthy.it.client.BearerTokenHolder
+import com.sympauthy.it.client.FlowStateHolder
 import com.sympauthy.it.client.FlowCall
 import com.sympauthy.it.client.FlowHttpClient
 import com.sympauthy.testcontainers.Client
@@ -283,7 +284,9 @@ abstract class AbstractSympauthyIT {
      * Runs [block] with a Micronaut [ApplicationContext] hosting the OpenAPI client generated from the
      * server's contract, wired to the running [sympauthy] container (the `@Client("sympauthy")` service
      * URL is bound to the container's mapped address). When [token] is non-null it is attached as a bearer
-     * token to every client request (see `BearerTokenClientFilter`). The context is closed on exit.
+     * token to every client request (see `BearerTokenClientFilter`), and when [state] is non-null it is
+     * attached to every flow-surface request where the server reads it (see `FlowStateClientFilter`). The
+     * context is closed on exit.
      *
      * Obtain the typed API beans inside the block, e.g. `ctx.getBean(AdminApi::class.java)`; their methods
      * return `reactor.core.publisher.Mono`, so call `.block()` to get the deserialized resource.
@@ -291,11 +294,13 @@ abstract class AbstractSympauthyIT {
     protected fun <T> withApiClient(
         sympauthy: SympauthyContainer,
         token: String? = null,
+        state: String? = null,
         block: (ApplicationContext) -> T,
     ): T = ApplicationContext.run(
         mapOf("micronaut.http.services.sympauthy.url" to sympauthy.baseUrl),
     ).use { ctx ->
         ctx.getBean(BearerTokenHolder::class.java).token = token
+        ctx.getBean(FlowStateHolder::class.java).state = state
         block(ctx)
     }
 

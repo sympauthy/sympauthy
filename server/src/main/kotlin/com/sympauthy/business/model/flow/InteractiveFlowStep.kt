@@ -79,6 +79,13 @@ sealed interface InteractiveFlowStep {
     data object Complete : InteractiveFlowStep
 
     /**
+     * Terminal step: the flow has already completed, its initiator hands the end-user back once, and that
+     * hand-off went to the request that completed it. The end-user must be told the flow is over, which
+     * [interactiveFlowSessionAlreadyCompletedExceptionOf] names.
+     */
+    data object AlreadyCompleted : InteractiveFlowStep
+
+    /**
      * Terminal step: the end-user cancelled the flow and must be handed back to the flow's initiator on the
      * cancellation redirect (e.g. the OAuth2 `error=access_denied` response, or a caller-provided cancel URL).
      */

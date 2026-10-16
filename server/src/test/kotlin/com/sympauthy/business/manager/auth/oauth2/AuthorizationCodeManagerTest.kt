@@ -1,11 +1,10 @@
 package com.sympauthy.business.manager.auth.oauth2
 
-import com.sympauthy.api.exception.OAuth2Exception
+import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.RandomGenerator
 import com.sympauthy.business.mapper.AuthorizationCodeMapper
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.oauth2.AuthorizationCode
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.data.model.AuthorizationCodeEntity
 import com.sympauthy.data.repository.AuthorizationCodeRepository
 import io.mockk.coEvery
@@ -15,6 +14,7 @@ import io.mockk.mockk
 import io.mockk.slot
 import io.micronaut.data.exceptions.DataIntegrityViolationException
 import io.micronaut.data.exceptions.EntityExistsException
+import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import io.r2dbc.spi.R2dbcDataIntegrityViolationException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -26,11 +26,11 @@ import java.time.LocalDateTime
 import java.util.*
 
 /**
- * The one code a session may hand out, and the replay of the request that already took it.
+ * The one code a session completes with, and the completion that lost the race to write it.
  *
  * The primary key over `session_id` is what refuses the second code, and the refusal reaches the manager
  * through layers free to wrap it — so the cases here drive it both wrapped and bare, and drive the other
- * way the write can be refused to prove it is not answered as a replay.
+ * way the write can be refused to prove it is not answered as a lost race.
  */
 @ExtendWith(MockKExtension::class)
 class AuthorizationCodeManagerTest {
@@ -46,6 +46,8 @@ class AuthorizationCodeManagerTest {
         every { id } returns SESSION_ID
         every { this@mockk.expirationDate } returns this@AuthorizationCodeManagerTest.expirationDate
     }
+
+    private fun sessionById(): InteractiveFlowSession = mockk { every { id } returns SESSION_ID }
 
     @Test
     fun `generateCode - Writes the code against the session and answers what the row became`() = runTest {
@@ -63,30 +65,29 @@ class AuthorizationCodeManagerTest {
     }
 
     @Test
-    fun `generateCode - Answers a session that already took its code with a replay`() = runTest {
+    fun `generateCode - Answers a session that already holds its code as a lost completion`() = runTest {
         every { randomGenerator.generateAndEncodeToHex(any()) } returns "0123456789abcdef"
         coEvery { codeRepository.save(any()) } throws EntityExistsException(
             "duplicate key", R2dbcDataIntegrityViolationException("23505")
         )
 
-        val exception = assertThrows<OAuth2Exception> { manager.generateCode(session()) }
+        val exception = assertThrows<BusinessException> { manager.generateCode(session()) }
 
-        assertEquals(INVALID_REQUEST, exception.errorCode)
-        assertEquals("code.already_generated", exception.detailsId)
-        assertEquals("description.oauth2.replay", exception.descriptionId)
+        assertEquals("auth.interactive_flow_session.concurrent_modification", exception.detailsId)
+        assertEquals(mapOf("sessionId" to SESSION_ID.toString()), exception.values)
     }
 
     /** The shape a transaction interceptor or a coroutine bridge wrapping the refusal leaves it in. */
     @Test
-    fun `generateCode - Answers a replay for a refusal that reached it wrapped`() = runTest {
+    fun `generateCode - Answers a lost completion for a refusal that reached it wrapped`() = runTest {
         every { randomGenerator.generateAndEncodeToHex(any()) } returns "0123456789abcdef"
         coEvery { codeRepository.save(any()) } throws IllegalStateException(
             "transaction failed", EntityExistsException("duplicate key")
         )
 
-        val exception = assertThrows<OAuth2Exception> { manager.generateCode(session()) }
+        val exception = assertThrows<BusinessException> { manager.generateCode(session()) }
 
-        assertEquals("code.already_generated", exception.detailsId)
+        assertEquals("auth.interactive_flow_session.concurrent_modification", exception.detailsId)
     }
 
     /**
@@ -110,6 +111,26 @@ class AuthorizationCodeManagerTest {
         coEvery { codeRepository.save(any()) } throws IllegalStateException("connection closed")
 
         assertThrows<IllegalStateException> { manager.generateCode(session()) }
+    }
+
+    @Test
+    fun `fetchCode - Answers the code the session completed with`() = runTest {
+        val entity = mockk<AuthorizationCodeEntity>()
+        val code = mockk<AuthorizationCode>()
+        coEvery { codeRepository.findById(SESSION_ID) } returns entity
+        every { codeMapper.toAuthorizationCode(entity) } returns code
+
+        assertSame(code, manager.fetchCode(sessionById()))
+    }
+
+    @Test
+    fun `fetchCode - Refuses a session holding no code as the server failing`() = runTest {
+        coEvery { codeRepository.findById(SESSION_ID) } returns null
+
+        val exception = assertThrows<BusinessException> { manager.fetchCode(sessionById()) }
+
+        assertEquals("code.missing", exception.detailsId)
+        assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
     }
 
     private companion object {

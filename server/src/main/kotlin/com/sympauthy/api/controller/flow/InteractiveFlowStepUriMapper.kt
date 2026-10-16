@@ -25,8 +25,8 @@ import java.net.URI
  * handler to the concrete [URI] where the end-user must be redirected, using the flow's configured page
  * URIs ([InteractiveFlow]).
  *
- * This is the only place that turns steps into URIs and the only place an authorization code is minted; a
- * different transport (e.g. a native client not relying on URLs) would provide its own mapper.
+ * This is the only place that turns steps into URIs; a different transport (e.g. a native client not relying
+ * on URLs) would provide its own mapper.
  */
 @Singleton
 class InteractiveFlowStepUriMapper(
@@ -81,7 +81,7 @@ class InteractiveFlowStepUriMapper(
         )
         InteractiveFlowStep.CollectClaims -> appendState(session, flow.collectClaimsUri)
         is InteractiveFlowStep.ValidateClaims -> appendState(session, buildValidateClaimsUri(flow, step.media))
-        InteractiveFlowStep.Error -> appendState(session, flow.errorUri)
+        InteractiveFlowStep.Error, InteractiveFlowStep.AlreadyCompleted -> appendState(session, flow.errorUri)
         InteractiveFlowStep.Complete -> buildCompletionRedirectUri(
             session as? CompletedInteractiveFlowSession
                 ?: throw internalBusinessExceptionOf("flow.redirect.unhandled_status")
@@ -94,9 +94,9 @@ class InteractiveFlowStepUriMapper(
 
     /**
      * Route a completed [session] to the URI where the end-user must be handed back, based on the session's
-     * [InteractiveFlowSession] redirect type — issuing an authorization code to the client for an
-     * [InteractiveFlowRedirectType.AUTHORIZATION_CODE] session, or returning to the caller-provided URI
-     * verbatim for an [InteractiveFlowRedirectType.PLAIN] session.
+     * [InteractiveFlowSession] redirect type — handing the client the authorization code the session completed
+     * with for an [InteractiveFlowRedirectType.AUTHORIZATION_CODE] session, or returning to the caller-provided
+     * URI verbatim for an [InteractiveFlowRedirectType.PLAIN] session.
      */
     private suspend fun buildCompletionRedirectUri(session: CompletedInteractiveFlowSession): URI =
         when (session.redirectType) {
@@ -138,18 +138,24 @@ class InteractiveFlowStepUriMapper(
     }
 
     /**
-     * Return a [URI] redirecting the end-user to the client with an authorization code. The code may be
-     * exchanged for tokens by the client using the token endpoint.
+     * Return a [URI] redirecting the end-user to the client with the authorization code [session] completed
+     * with. The code may be exchanged for tokens by the client using the token endpoint.
      *
      * The base URI is the session's success redirect URI (== the client `redirect_uri`); the OAuth2 record is
      * read only to echo the client's own `state`. Note the internal state is intentionally NOT appended here:
      * only the client's own `state` is echoed back, as required by OAuth2.
+     *
+     * **The code is read back, although the request building this redirect is the one that just wrote it.**
+     * It is written by the completion, inside its transaction, and nothing carries it out: a terminal effect
+     * answers only whether the flow proceeds, and putting the code on the session or the step would hand a
+     * credential to every caller of the engine. Writing it here instead is what let a repeated request mint
+     * a second one. One read per authorization is the accepted price.
      */
     private suspend fun buildClientRedirectUri(session: CompletedInteractiveFlowSession): URI {
         val builder = UriBuilder.of(session.successRedirectUri)
         oauth2Manager.fetchOAuth2(session).state
             ?.let { builder.queryParam("state", it) }
-        authorizationCodeManager.generateCode(session)
+        authorizationCodeManager.fetchCode(session)
             .let { builder.queryParam("code", it.code) }
         return builder.build()
     }

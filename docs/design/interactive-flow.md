@@ -60,7 +60,9 @@ that is missing.
 
 **The session carries a version, and every lifecycle mutation checks it.** Two tabs, a double
 submit, or a replayed callback all become one write that succeeds and one that finds the version
-moved and routes to the error page, rather than two writes that both look fine.
+moved, rather than two writes that both look fine. The one that lost is sent where the session now
+stands: where its sibling ended it, or to the error page when the session was still running, since a
+conflict fails it.
 
 ## The engine
 
@@ -77,6 +79,15 @@ handler, whether it still needs a step:
 
 It returns an `InteractiveFlowStepResult`: the session as it now stands, and the step to send the
 person to.
+
+**The hand-off goes to the request that completed the session.** The engine answers `Complete` to
+the call that completes it, so a request asks the engine once, after its work, and that work never
+completes the session itself — a manager that did would leave its own request finding a session
+already completed, which is what every later request looks like. A session already completed when
+the engine is asked — a reload, a second tab, the request that lost the version check — gets what
+its initiating purpose says of a repeat: handed back again, or `AlreadyCompleted` where that purpose
+hands off once, which sends the person to the error page to be told the flow is over. Whether a
+purpose does, and why, is said on its handler.
 
 **A step is abstract and carries no URI.** `InteractiveFlowStep` is a sealed set of what has to
 happen — sign in, confirm, enrol a factor, collect claims, validate them, authorize with a provider

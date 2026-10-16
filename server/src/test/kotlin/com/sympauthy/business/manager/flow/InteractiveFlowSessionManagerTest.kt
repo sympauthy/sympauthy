@@ -314,23 +314,18 @@ class InteractiveFlowSessionManagerTest {
         coVerify(exactly = 0) { sessionRepository.updateCompleteDate(any(), any(), any()) }
     }
 
+    /** The engine marks every resolved purpose on every advance; a write here is a race between two requests. */
     @Test
-    fun `markPurposeAsCompleted - Recording an already-completed purpose is a no-op on the list`() = runTest {
+    fun `markPurposeAsCompleted - Writes nothing for a purpose already recorded`() = runTest {
         val session = ongoingSession(
             purposes = listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.MFA_ENROLLMENT),
             completedPurposes = listOf(InteractiveFlowPurpose.CONFIRM),
         )
-        coEvery {
-            sessionRepository.updateCompletedPurposes(
-                session.id,
-                match { it.contentEquals(arrayOf(InteractiveFlowPurpose.CONFIRM.name)) },
-                STARTING_VERSION
-            )
-        } returns 1
 
         val result = interactiveFlowSessionManager.markPurposeAsCompleted(session, InteractiveFlowPurpose.CONFIRM)
 
-        assertEquals(listOf(InteractiveFlowPurpose.CONFIRM), result.completedPurposes)
+        assertSame(session, result)
+        coVerify(exactly = 0) { sessionRepository.updateCompletedPurposes(any(), any(), any()) }
     }
 
     @Test
