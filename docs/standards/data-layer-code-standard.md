@@ -80,6 +80,12 @@ that source from the statement alone, so cast each one to its column's type.
 raw-query parameter is stored as its `toString()` and fails on the next read; where a raw statement
 is also needed, pair it with the derived write inside one transaction.
 
+**A value of a closed set that a raw query writes or compares is a literal in the statement**,
+spelled as the column stores it: the name of the enum the mapper narrows it to. Bind only what the
+caller decides, so the signature never takes a status the method's name already states. The
+repository test writes and asserts that value through the enum's `name`, so renaming a constant
+fails there rather than leaving a statement that matches nothing.
+
 **Anything raw is covered by a repository test against a real database of every dialect.** A green
 run against one of them proves half the query. See [the testing standard](testing-standard.md).
 
