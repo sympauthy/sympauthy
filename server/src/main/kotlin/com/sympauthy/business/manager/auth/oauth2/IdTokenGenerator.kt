@@ -160,6 +160,7 @@ class IdTokenGenerator(
             userId = userId,
             type = AuthenticationTokenType.ID.name,
             clientId = clientId,
+            audienceId = audienceId,
             grantedScopes = grantedScopes.toTypedArray(),
             consentedScopes = consentedScopes.toTypedArray(),
             clientScopes = emptyArray(),

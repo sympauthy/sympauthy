@@ -220,6 +220,7 @@ class AccessTokenGenerator(
             userId = userId,
             type = ACCESS.name,
             clientId = clientId,
+            audienceId = audience.id,
             grantedScopes = grantedScopes.toTypedArray(),
             grantedAt = grantedAt,
             grantedBy = grantedBy,

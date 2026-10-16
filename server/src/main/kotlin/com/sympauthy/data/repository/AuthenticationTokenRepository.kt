@@ -67,21 +67,37 @@ interface AuthenticationTokenRepository : CoroutineCrudRepository<Authentication
         revokedById: UUID?
     ): Int
 
+    @Query(
+        """
+        UPDATE authentication_tokens
+        SET revoked_at = :revokedAt, revoked_by = :revokedBy, revoked_by_id = :revokedById
+        WHERE user_id = :userId AND client_id = :clientId
+          AND revoked_at IS NULL AND (expiration_date IS NULL OR expiration_date >= :revokedAt)
+        """
+    )
+    suspend fun updateRevokedAtByUserIdAndClientId(
+        userId: UUID,
+        clientId: String,
+        revokedAt: LocalDateTime,
+        revokedBy: String,
+        revokedById: UUID?
+    ): Int
+
     /**
-     * Revoke the tokens of [userId] issued to any of [clientIds], which must not be empty.
-     * Returns the number of tokens revoked.
+     * Revoke every token of [userId] issued for the audience identified by [audienceId], except the act-as
+     * tokens issued for it. Returns the number of tokens revoked.
      */
     @Query(
         """
         UPDATE authentication_tokens
         SET revoked_at = :revokedAt, revoked_by = :revokedBy, revoked_by_id = :revokedById
-        WHERE user_id = :userId AND client_id IN (:clientIds)
+        WHERE user_id = :userId AND audience_id = :audienceId AND actor_token_id IS NULL
           AND revoked_at IS NULL AND (expiration_date IS NULL OR expiration_date >= :revokedAt)
         """
     )
-    suspend fun updateRevokedAtByUserIdAndClientIdIn(
+    suspend fun updateRevokedAtByUserIdAndAudienceIdAndActorTokenIdIsNull(
         userId: UUID,
-        clientIds: List<String>,
+        audienceId: String,
         revokedAt: LocalDateTime,
         revokedBy: String,
         revokedById: UUID?

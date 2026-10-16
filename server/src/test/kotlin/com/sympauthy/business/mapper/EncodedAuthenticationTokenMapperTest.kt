@@ -74,6 +74,7 @@ class EncodedAuthenticationTokenMapperTest {
             type = type,
             userId = UUID.randomUUID(),
             clientId = "client",
+            audienceId = "audience",
             grantedScopes = grantedScopes,
             consentedScopes = consentedScopes,
             clientScopes = clientScopes,

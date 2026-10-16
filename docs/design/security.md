@@ -139,9 +139,8 @@ decide from those two.
 
 **Acting as a person rests on the act-as rules, not on a consent.** A client may act as a person who
 has never signed in to the audience the exchange names, so the exchange reads no consent, and
-revoking the person's consent leaves a client free to exchange again. An act-as token filed under a
-client of the audience is revoked with the rest, and the next exchange issues another. [The design
-FAQ](design-faq.md#does-acting-as-a-person-need-their-consent) argues the alternative.
+revoking the person's consent revokes no act-as token and leaves a client free to exchange again.
+[The design FAQ](design-faq.md#does-acting-as-a-person-need-their-consent) argues the alternative.
 
 **The rules read the claims of the audience the token is issued for**, which is the one the exchange
 names and may be neither the acting client's nor its default. That is where the decision lands, so
@@ -249,14 +248,14 @@ standard](../standards/locking-standard.md#the-named-lock) describes. Whichever 
 the first committed: a refresh reads its token revoked and is refused, or a revocation finds the
 refresh's tokens and revokes them with the rest.
 
-**Revoking a consent revokes every token issued for the account to a client of its audience.** A
-consent is the audience's rather than one client's, so each client of the audience acts under it,
-and a revocation reaching only the client that last asked would leave the others acting for a person
-who withdrew: their access tokens served until they expire, and their refresh tokens waiting only
-for the person to consent again through any client of the audience. Which clients those are is read
-from the configuration as it stands — the same reading a refresh makes of the audience whose consent
-it checks — so the two agree on which tokens a consent stands behind, and a client the configuration
-no longer declares has no token left to reach.
+**Revoking a consent revokes every token issued to the account for its audience, act-as tokens
+aside.** A consent is the audience's rather than one client's, so each client of the audience acts
+under it, and a revocation reaching only the client that last asked would leave the others acting
+for a person who withdrew: their access tokens served until they expire, and their refresh tokens
+waiting only for the person to consent again through any client of the audience. A token records the
+audience it was issued for, because which clients belong to an audience is configuration: a client
+moved to another audience or removed and declared again would otherwise take its tokens out of reach
+of the consent they were issued under.
 
 **A token does not outlive its client.** A token naming a client the configuration no longer
 declares is a credential that does not validate, and it is refused with a `401` on every surface it

@@ -393,9 +393,8 @@ has no consent to give: a consent is recorded by a flow, and they have been thro
 one would refuse exactly that case.
 
 What it costs is that revoking a consent does not stop a client acting as the person. Nothing an
-act-as token carries rests on the consent — it holds no scope the person consented to — so the
-cascade reaches the act-as tokens filed under the audience's clients only because they are filed
-there, and the next exchange issues another.
+act-as token carries rests on the consent — it holds no scope the person consented to — so revoking
+one leaves every act-as token in service, and a client free to exchange for another.
 
 ---
 

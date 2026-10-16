@@ -1,13 +1,10 @@
 package com.sympauthy.business.manager.consent
 
-import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.lock.HeldStripes
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.ConsentMapper
-import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.oauth2.ConsentRevokedBy
 import com.sympauthy.data.model.ConsentEntity
@@ -23,6 +20,7 @@ import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import io.mockk.slot
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
@@ -45,9 +43,6 @@ class ConsentManagerTest {
 
     @MockK
     lateinit var userManager: UserManager
-
-    @MockK
-    lateinit var clientManager: ClientManager
 
     private val objectLockRepository = mockk<ObjectLockRepository>(relaxed = true)
 
@@ -130,50 +125,38 @@ class ConsentManagerTest {
     }
 
     @Test
-    fun `revokeConsent - Revokes the tokens of every client of the audience`() = runTest {
-        coEvery { consentRepository.updateRevokedAt(consentId, any(), "ADMIN", adminId) } returns 1
-        coEvery { clientManager.listClients() } returns listOf(
-            mockClient("first-client", audienceId),
-            mockClient("other-audience"),
-            mockClient(clientId, audienceId)
-        )
+    fun `revokeConsent - Revokes the tokens of the audience at the moment it revokes the consent`() = runTest {
+        val consentRevokedAt = slot<LocalDateTime>()
+        val tokensRevokedAt = slot<LocalDateTime>()
         coEvery {
-            tokenRepository.updateRevokedAtByUserIdAndClientIdIn(
-                userId, listOf("first-client", clientId), any(), "CONSENT_REVOKED", adminId
+            consentRepository.updateRevokedAt(consentId, capture(consentRevokedAt), "ADMIN", adminId)
+        } returns 1
+        coEvery {
+            tokenRepository.updateRevokedAtByUserIdAndAudienceIdAndActorTokenIdIsNull(
+                userId, audienceId, capture(tokensRevokedAt), "CONSENT_REVOKED", adminId
             )
         } returns 2
 
         consentManager.revokeConsent(consent(), ConsentRevokedBy.ADMIN, adminId)
 
+        assertEquals(consentRevokedAt.captured, tokensRevokedAt.captured)
         coVerifyOrder {
             objectLockRepository.lock(LockKey.User(userId).stripe)
             consentRepository.updateRevokedAt(consentId, any(), "ADMIN", adminId)
-            tokenRepository.updateRevokedAtByUserIdAndClientIdIn(
-                userId, listOf("first-client", clientId), any(), "CONSENT_REVOKED", adminId
+            tokenRepository.updateRevokedAtByUserIdAndAudienceIdAndActorTokenIdIsNull(
+                userId, audienceId, any(), "CONSENT_REVOKED", adminId
             )
         }
     }
 
     @Test
-    fun `revokeConsent - Revokes no token where the consent was already revoked`() = runTest {
+    fun `revokeConsent - Revokes no token where updating the consent reaches no row`() = runTest {
         coEvery { consentRepository.updateRevokedAt(consentId, any(), "ADMIN", adminId) } returns 0
 
         consentManager.revokeConsent(consent(), ConsentRevokedBy.ADMIN, adminId)
 
         coVerify(exactly = 0) {
-            tokenRepository.updateRevokedAtByUserIdAndClientIdIn(any(), any(), any(), any(), any())
-        }
-    }
-
-    @Test
-    fun `revokeConsent - Revokes no token where the audience has no client left`() = runTest {
-        coEvery { consentRepository.updateRevokedAt(consentId, any(), "ADMIN", adminId) } returns 1
-        coEvery { clientManager.listClients() } returns listOf(mockClient("other-audience"))
-
-        consentManager.revokeConsent(consent(), ConsentRevokedBy.ADMIN, adminId)
-
-        coVerify(exactly = 0) {
-            tokenRepository.updateRevokedAtByUserIdAndClientIdIn(any(), any(), any(), any(), any())
+            tokenRepository.updateRevokedAtByUserIdAndAudienceIdAndActorTokenIdIsNull(any(), any(), any(), any(), any())
         }
     }
 
@@ -188,13 +171,4 @@ class ConsentManagerTest {
         revokedBy = null,
         revokedById = null
     )
-
-    /** A client whose id is never read, because its audience is not the one revoked. */
-    private fun mockClient(audienceId: String): Client = mockk {
-        every { audience } returns Audience(id = audienceId, tokenAudience = audienceId)
-    }
-
-    private fun mockClient(id: String, audienceId: String): Client = mockClient(audienceId).also {
-        every { it.id } returns id
-    }
 }

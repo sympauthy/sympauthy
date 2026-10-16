@@ -18,6 +18,15 @@ class AuthenticationTokenEntity(
     val userId: UUID?,
     val clientId: String,
     /**
+     * Identifier of the audience this token was issued for, whose token audience is the `aud` it states.
+     * For an act-as token it is the audience the exchange named, which need not be the acting client's.
+     *
+     * Recorded rather than read off the client because a client's audience is configuration, and moves or
+     * disappears with it: revoking a consent reaches the tokens issued for that audience, whatever has
+     * become of the clients they were issued to since.
+     */
+    val audienceId: String,
+    /**
      * Scopes granted through granting rules (grantable scopes only).
      */
     val grantedScopes: Array<String>,

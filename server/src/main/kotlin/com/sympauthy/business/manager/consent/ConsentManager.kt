@@ -1,11 +1,9 @@
 package com.sympauthy.business.manager.consent
 
-import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.ConsentMapper
-import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.oauth2.ConsentRevokedBy
 import com.sympauthy.business.model.oauth2.TokenRevokedBy
@@ -25,8 +23,8 @@ import java.util.*
  * may exist per user+audience pair at any time. When a new consent is granted for an existing pair, the previous
  * consent is automatically revoked and replaced.
  *
- * Revoking a consent also revokes every token issued to the user for a client of the audience, so none of the
- * audience's clients goes on acting for the user.
+ * Revoking a consent also revokes every token issued to the user for the audience, so no client goes on acting for
+ * the user under it. An act-as token rests on no consent, and is left to the act-as rules.
  *
  * Consents only apply to user-facing flows (not client_credentials).
  */
@@ -34,7 +32,6 @@ import java.util.*
 open class ConsentManager(
     @Inject private val consentRepository: ConsentRepository,
     @Inject private val tokenRepository: AuthenticationTokenRepository,
-    @Inject private val clientManager: ClientManager,
     @Inject private val consentMapper: ConsentMapper,
     @Inject private val userManager: UserManager,
     @Inject private val lockManager: LockManager
@@ -167,12 +164,12 @@ open class ConsentManager(
     }
 
     /**
-     * Revoke the given [consent], and every token issued to its user for a client of its audience.
+     * Revoke the given [consent], and every token issued to its user for its audience except the act-as ones.
      *
-     * Each of the audience's clients acts under the one consent, so a token the user holds through any of them
-     * rests on it — not only one issued to the client that last updated it, which [Consent.promptedByClientId]
-     * records and nothing more. The clients are the audience's as configured now, which is how a refresh reads
-     * the audience whose consent it checks.
+     * Each of the audience's clients acts under the one consent, so a token issued for the audience rests on it
+     * whichever client holds it — not only one issued to the client that last updated it, which
+     * [Consent.promptedByClientId] records and nothing more. An act-as token rests on the act-as rules instead,
+     * and is left in service.
      *
      * Both are written holding the lock over the account a refresh of those tokens takes, so a refresh
      * racing this either reads the consent revoked or has the tokens it issued revoked with the rest.
@@ -184,27 +181,22 @@ open class ConsentManager(
         revokedById: UUID
     ) {
         lockManager.withLock(LockKey.User(consent.userId)) {
+            val now = LocalDateTime.now()
             val updatedCount = consentRepository.updateRevokedAt(
                 id = consent.id,
-                revokedAt = LocalDateTime.now(),
+                revokedAt = now,
                 revokedBy = revokedBy.name,
                 revokedById = revokedById
             )
-            if (updatedCount == 0) return@withLock
-
-            val clientIds = clientManager.listClients()
-                .filter { it.audience.id == consent.audienceId }
-                .map(Client::id)
-            // No configured client is left in the audience, and an IN-list of nothing is not a query worth sending.
-            if (clientIds.isEmpty()) return@withLock
-
-            tokenRepository.updateRevokedAtByUserIdAndClientIdIn(
-                userId = consent.userId,
-                clientIds = clientIds,
-                revokedAt = LocalDateTime.now(),
-                revokedBy = TokenRevokedBy.CONSENT_REVOKED.name,
-                revokedById = revokedById
-            )
+            if (updatedCount > 0) {
+                tokenRepository.updateRevokedAtByUserIdAndAudienceIdAndActorTokenIdIsNull(
+                    userId = consent.userId,
+                    audienceId = consent.audienceId,
+                    revokedAt = now,
+                    revokedBy = TokenRevokedBy.CONSENT_REVOKED.name,
+                    revokedById = revokedById
+                )
+            }
         }
     }
 }
