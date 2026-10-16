@@ -117,7 +117,7 @@ class BootstrapInvitationManager(
         val existingInvitations = invitationManager.findByAudienceId(audienceId)
             .filter { it.createdBy == InvitationCreatedBy.BOOTSTRAP && it.status == InvitationStatus.PENDING }
         for (invitation in existingInvitations) {
-            invitationManager.revokeInvitation(invitation.id)
+            invitationManager.revokeInvitation(invitation)
         }
     }
 }
