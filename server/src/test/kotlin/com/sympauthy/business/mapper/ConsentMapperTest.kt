@@ -7,13 +7,12 @@ import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import org.mapstruct.factory.Mappers
 import java.time.LocalDateTime
 import java.util.*
 
 class ConsentMapperTest {
 
-    private val mapper = Mappers.getMapper(ConsentMapper::class.java)
+    private val mapper = ConsentMapper()
 
     @Test
     fun `toConsent - maps all fields`() {

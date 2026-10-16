@@ -1,9 +1,8 @@
 package com.sympauthy.business.mapper
 
-import com.sympauthy.business.mapper.config.ToBusinessMapperConfig
 import com.sympauthy.business.model.flow.InteractiveFlowSessionSecurityContext
 import com.sympauthy.data.model.InteractiveFlowSessionSecurityContextEntity
-import org.mapstruct.Mapper
+import jakarta.inject.Singleton
 
 /**
  * Handle the mapping from the [InteractiveFlowSessionSecurityContextEntity] to the
@@ -12,10 +11,8 @@ import org.mapstruct.Mapper
  * The row's `fingerprint` is deliberately left behind: it is the key a place is deduplicated on and it
  * belongs to that write path, not to anything reading the observation back.
  */
-@Mapper(
-    config = ToBusinessMapperConfig::class
-)
-abstract class InteractiveFlowSessionSecurityContextMapper {
+@Singleton
+class InteractiveFlowSessionSecurityContextMapper {
 
     fun toInteractiveFlowSessionSecurityContext(
         entity: InteractiveFlowSessionSecurityContextEntity

@@ -1,24 +1,33 @@
 package com.sympauthy.business.mapper
 
-import com.sympauthy.business.mapper.config.ToBusinessMapperConfig
 import com.sympauthy.business.model.key.CryptoKeys
 import com.sympauthy.data.model.IndexedCryptoKeysEntity
-import org.mapstruct.Mapper
-import org.mapstruct.Mapping
-import org.mapstruct.Mappings
+import jakarta.inject.Singleton
+import java.time.LocalDateTime
 
-@Mapper(
-    config = ToBusinessMapperConfig::class
-)
-abstract class IndexedCryptoKeysMapper : StoredPublicKeyMapper() {
+@Singleton
+class IndexedCryptoKeysMapper : StoredPublicKeyMapper() {
 
-    @Mapping(source = "publicKey", target = "publicKey", qualifiedByName = ["toPublicKey"])
-    abstract fun toCryptoKeys(entity: IndexedCryptoKeysEntity): CryptoKeys
+    fun toCryptoKeys(entity: IndexedCryptoKeysEntity): CryptoKeys {
+        return CryptoKeys(
+            name = entity.name,
+            algorithm = entity.algorithm,
+            publicKey = toPublicKey(entity.publicKey),
+            publicKeyFormat = entity.publicKeyFormat,
+            privateKey = entity.privateKey.copyOf(),
+            privateKeyFormat = entity.privateKeyFormat,
+        )
+    }
 
-    @Mappings(
-        Mapping(source = "publicKey", target = "publicKey", qualifiedByName = ["toStoredPublicKey"]),
-        Mapping(target = "index", ignore = true),
-        Mapping(target = "creationDate", expression = "java(java.time.LocalDateTime.now())")
-    )
-    abstract fun toEntity(keys: CryptoKeys): IndexedCryptoKeysEntity
+    fun toEntity(keys: CryptoKeys): IndexedCryptoKeysEntity {
+        return IndexedCryptoKeysEntity(
+            name = keys.name,
+            algorithm = keys.algorithm,
+            publicKey = toStoredPublicKey(keys.publicKey),
+            publicKeyFormat = keys.publicKeyFormat,
+            privateKey = keys.privateKey.copyOf(),
+            privateKeyFormat = keys.privateKeyFormat,
+            creationDate = LocalDateTime.now(),
+        )
+    }
 }

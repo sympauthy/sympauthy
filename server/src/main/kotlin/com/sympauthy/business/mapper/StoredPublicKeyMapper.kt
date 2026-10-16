@@ -1,7 +1,5 @@
 package com.sympauthy.business.mapper
 
-import org.mapstruct.Named
-
 /**
  * The two spellings of the public half of a key, and the translation between them.
  *
@@ -15,13 +13,11 @@ abstract class StoredPublicKeyMapper {
      * The public key the domain reads for the one [publicKey] the row holds: the key itself, or
      * null where the row holds the empty array of an algorithm without a public half.
      */
-    @Named("toPublicKey")
     fun toPublicKey(publicKey: ByteArray): ByteArray? = publicKey.takeIf(ByteArray::isNotEmpty)
 
     /**
      * The array the row holds for the [publicKey] the domain carries: the key itself, or the empty
      * array where the algorithm has no public half.
      */
-    @Named("toStoredPublicKey")
     fun toStoredPublicKey(publicKey: ByteArray?): ByteArray = publicKey ?: ByteArray(0)
 }

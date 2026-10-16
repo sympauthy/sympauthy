@@ -2,7 +2,6 @@ package com.sympauthy.business.mapper
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.internalBusinessExceptionOf
-import com.sympauthy.business.mapper.config.ToBusinessMapperConfig
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.ConsentedBy
@@ -12,21 +11,39 @@ import com.sympauthy.business.model.oauth2.TokenRevokedBy
 import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.data.model.AuthenticationTokenEntity
 import com.sympauthy.util.wireName
-import org.mapstruct.AfterMapping
-import org.mapstruct.Mapper
-import org.mapstruct.Mapping
-import org.mapstruct.MappingTarget
+import jakarta.inject.Singleton
 
-@Mapper(
-    config = ToBusinessMapperConfig::class
-)
-abstract class AuthenticationTokenMapper {
+@Singleton
+class AuthenticationTokenMapper {
 
-    @Mapping(target = "allScopes", ignore = true)
-    @Mapping(target = "consentedBy", expression = "java(mapConsentedBy(entity.getConsentedBy()))")
-    @Mapping(target = "grantedBy", expression = "java(mapGrantedBy(entity.getGrantedBy()))")
-    @Mapping(target = "requestedClaims", expression = "java(mapRequestedClaims(entity))")
-    abstract fun toToken(entity: AuthenticationTokenEntity): AuthenticationToken
+    fun toToken(entity: AuthenticationTokenEntity): AuthenticationToken {
+        val token = AuthenticationToken(
+            id = entity.id ?: throw invalidProperty("id"),
+            type = mapType(entity.type),
+            userId = entity.userId,
+            clientId = entity.clientId,
+            grantedScopes = entity.grantedScopes.toList(),
+            grantedAt = entity.grantedAt,
+            grantedBy = mapGrantedBy(entity.grantedBy),
+            consentedScopes = entity.consentedScopes.toList(),
+            consentedAt = entity.consentedAt,
+            consentedBy = mapConsentedBy(entity.consentedBy),
+            clientScopes = entity.clientScopes.toList(),
+            sessionId = entity.sessionId,
+            grantType = entity.grantType,
+            authenticationDate = entity.authenticationDate,
+            requestedClaims = mapRequestedClaims(entity),
+            dpopJkt = entity.dpopJkt,
+            actorTokenId = entity.actorTokenId,
+            revokedAt = entity.revokedAt,
+            revokedBy = mapRevokedBy(entity.revokedBy),
+            revokedById = entity.revokedById,
+            issueDate = entity.issueDate,
+            expirationDate = entity.expirationDate,
+        )
+        validateTokenCoherence(token)
+        return token
+    }
 
     /**
      * The claims the request behind the token named, read out of the one column per OpenID channel the
@@ -80,12 +97,13 @@ abstract class AuthenticationTokenMapper {
     }
 
     /**
-     * The failure thrown when the column [invalidProperty] holds a value no enum of the model names.
+     * The failure thrown when the column [invalidProperty] is missing or holds a value no enum of the
+     * model names.
      *
      * It is separate from the coherence codes below, which name a row whose columns each read back but
      * contradict each other; this one names a column that does not read back at all.
      */
-    private fun invalidProperty(invalidProperty: String, cause: Throwable): BusinessException {
+    private fun invalidProperty(invalidProperty: String, cause: Throwable? = null): BusinessException {
         return internalBusinessExceptionOf(
             detailsId = "mapper.authentication_token.invalid_property",
             throwable = cause,
@@ -93,8 +111,7 @@ abstract class AuthenticationTokenMapper {
         )
     }
 
-    @AfterMapping
-    protected fun validateTokenCoherence(@MappingTarget token: AuthenticationToken) {
+    private fun validateTokenCoherence(token: AuthenticationToken) {
         when (token.grantType) {
             GrantType.CLIENT_CREDENTIALS.wireName -> {
                 if (token.userId != null) {

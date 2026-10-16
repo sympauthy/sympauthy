@@ -2,11 +2,10 @@ package com.sympauthy.business.mapper
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.internalBusinessExceptionOf
-import com.sympauthy.business.mapper.config.ToBusinessMapperConfig
 import com.sympauthy.business.model.flow.ConfirmActionType
 import com.sympauthy.business.model.flow.InteractiveFlowSessionConfirm
 import com.sympauthy.data.model.InteractiveFlowSessionConfirmEntity
-import org.mapstruct.Mapper
+import jakarta.inject.Singleton
 
 /**
  * Handle the mapping from the [InteractiveFlowSessionConfirmEntity] to the
@@ -16,10 +15,8 @@ import org.mapstruct.Mapper
  * "mapper.interactive_flow_session_confirm.invalid_property" is thrown: a row this server wrote and
  * cannot read back is its own failure rather than the caller's.
  */
-@Mapper(
-    config = ToBusinessMapperConfig::class
-)
-abstract class InteractiveFlowSessionConfirmMapper {
+@Singleton
+class InteractiveFlowSessionConfirmMapper {
 
     fun toInteractiveFlowSessionConfirm(
         entity: InteractiveFlowSessionConfirmEntity

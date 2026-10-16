@@ -11,20 +11,15 @@ import com.sympauthy.data.model.CollectedClaimEntity
 import io.micronaut.serde.ObjectMapper
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.mapstruct.factory.Mappers
 import java.time.LocalDateTime
 import java.util.*
 
 class CollectedClaimUpdateMapperTest {
 
-    private val mapper = Mappers.getMapper(CollectedClaimUpdateMapper::class.java)
+    private val claimValueMapper = ClaimValueMapper(ObjectMapper.getDefault())
 
-    @BeforeEach
-    fun wire() {
-        mapper.claimValueMapper = ClaimValueMapper(ObjectMapper.getDefault())
-    }
+    private val mapper = CollectedClaimUpdateMapper(claimValueMapper)
 
     @Test
     fun `toEntity - Collect a value this server has verified nothing about`() {
@@ -54,8 +49,8 @@ class CollectedClaimUpdateMapperTest {
     private fun verifiedEntity(value: String) = CollectedClaimEntity(
         userId = UUID.randomUUID(),
         claim = emailClaim.id,
-        value = mapper.claimValueMapper.toEntity(value),
-        foldedEqualityHash = mapper.claimValueMapper.toFoldedEqualityHash(value),
+        value = claimValueMapper.toEntity(value),
+        foldedEqualityHash = claimValueMapper.toFoldedEqualityHash(value),
         verified = true,
         collectionDate = LocalDateTime.now().minusDays(1),
         verificationDate = LocalDateTime.now().minusDays(1),

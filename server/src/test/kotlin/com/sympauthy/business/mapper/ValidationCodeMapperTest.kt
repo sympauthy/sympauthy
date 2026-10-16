@@ -8,13 +8,12 @@ import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import org.mapstruct.factory.Mappers
 import java.time.LocalDateTime
 import java.util.*
 
 class ValidationCodeMapperTest {
 
-    private val mapper = Mappers.getMapper(ValidationCodeMapper::class.java)
+    private val mapper = ValidationCodeMapper()
 
     @Test
     fun `toValidationCode - maps all fields`() {

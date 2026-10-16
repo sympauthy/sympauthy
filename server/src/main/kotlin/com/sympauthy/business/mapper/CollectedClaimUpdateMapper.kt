@@ -1,60 +1,58 @@
 package com.sympauthy.business.mapper
 
-import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.CollectedClaimUpdate
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.data.model.CollectedClaimEntity
-import org.mapstruct.Mapper
-import org.mapstruct.Mapping
-import org.mapstruct.MappingTarget
-import org.mapstruct.Mappings
+import jakarta.inject.Singleton
+import java.time.LocalDateTime
 import java.util.*
 import kotlin.jvm.optionals.getOrNull
 
 /**
- * We do not apply the ToEntityMapperConfig for this mapper because of weird behaviour with the userId.
- *
- * The value and its folded-equality hash are mapped by an expression rather than left to the generator:
- * more than one method turning an `Optional<Any>` into a column is more than one candidate for the same
- * property, and the generator refuses to choose between them.
+ * Handle the mapping from a [CollectedClaimUpdate] to the [CollectedClaimEntity] it writes.
  *
  * **A verification is the value's and not the row's**, so both mappings write `verified` and
  * `verificationDate` as null: a write through this door records what somebody asserted, and nothing in
  * one sends a code to the value it stores. A row carried over a verification would claim this server
  * proved an address it never wrote to. See `docs/design/claims.md`.
  */
-@Mapper
-abstract class CollectedClaimUpdateMapper {
+@Singleton
+class CollectedClaimUpdateMapper(
+    private val claimValueMapper: ClaimValueMapper
+) {
 
-    lateinit var claimValueMapper: ClaimValueMapper
-
-    @Mappings(
-        Mapping(target = "id", ignore = true),
-        Mapping(target = "value", expression = "java(toValue(update.getValue()))"),
-        Mapping(target = "foldedEqualityHash", expression = "java(toFoldedEqualityHash(update.getValue()))"),
-        Mapping(target = "verified", expression = "java(null)"),
-        Mapping(target = "verificationDate", expression = "java(null)"),
-        Mapping(target = "collectionDate", expression = "java(java.time.LocalDateTime.now())")
-    )
-    abstract fun toEntity(
+    fun toEntity(
         userId: UUID,
         sessionId: UUID?,
         update: CollectedClaimUpdate
-    ): CollectedClaimEntity
+    ): CollectedClaimEntity {
+        return CollectedClaimEntity(
+            userId = userId,
+            claim = toClaim(update.claim),
+            value = toValue(update.value),
+            foldedEqualityHash = toFoldedEqualityHash(update.value),
+            verified = null,
+            collectionDate = LocalDateTime.now(),
+            verificationDate = null,
+            sessionId = sessionId,
+        )
+    }
 
-    @Mappings(
-        Mapping(target = "id", ignore = true),
-        Mapping(target = "userId", ignore = true),
-        Mapping(target = "sessionId", ignore = true),
-        Mapping(target = "value", expression = "java(toValue(update.getValue()))"),
-        Mapping(target = "foldedEqualityHash", expression = "java(toFoldedEqualityHash(update.getValue()))"),
-        Mapping(target = "verified", expression = "java(null)"),
-        Mapping(target = "verificationDate", expression = "java(null)"),
-        Mapping(target = "collectionDate", expression = "java(java.time.LocalDateTime.now())")
-    )
-    abstract fun updateEntity(
-        @MappingTarget entity: CollectedClaimEntity,
+    /**
+     * Write [update] onto the row [entity] and return it, keeping the row's identifier, user and session.
+     */
+    fun updateEntity(
+        entity: CollectedClaimEntity,
         update: CollectedClaimUpdate
-    ): CollectedClaimEntity
+    ): CollectedClaimEntity {
+        entity.claim = toClaim(update.claim)
+        entity.value = toValue(update.value)
+        entity.foldedEqualityHash = toFoldedEqualityHash(update.value)
+        entity.verified = null
+        entity.verificationDate = null
+        entity.collectionDate = LocalDateTime.now()
+        return entity
+    }
 
     fun toClaim(claim: EnabledClaim): String = claim.id
 

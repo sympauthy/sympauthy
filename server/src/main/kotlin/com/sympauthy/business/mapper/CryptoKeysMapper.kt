@@ -1,23 +1,45 @@
 package com.sympauthy.business.mapper
 
-import com.sympauthy.business.mapper.config.ToBusinessMapperConfig
+import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.model.key.CryptoKeys
 import com.sympauthy.data.model.CryptoKeysEntity
-import org.mapstruct.Mapper
-import org.mapstruct.Mapping
-import org.mapstruct.Mappings
+import jakarta.inject.Singleton
+import java.time.LocalDateTime
 
-@Mapper(
-    config = ToBusinessMapperConfig::class
-)
-abstract class CryptoKeysMapper : StoredPublicKeyMapper() {
+/**
+ * Handle the mapping between the [CryptoKeysEntity] and the [CryptoKeys] business model.
+ *
+ * If the row holds no name, an internal [BusinessException] "mapper.crypto_keys.invalid_property" is
+ * thrown: a row this server wrote and cannot read back is its own failure rather than the caller's.
+ */
+@Singleton
+class CryptoKeysMapper : StoredPublicKeyMapper() {
 
-    @Mapping(source = "publicKey", target = "publicKey", qualifiedByName = ["toPublicKey"])
-    abstract fun toCryptoKeys(entity: CryptoKeysEntity): CryptoKeys
+    fun toCryptoKeys(entity: CryptoKeysEntity): CryptoKeys {
+        return CryptoKeys(
+            name = entity.name ?: throw internalBusinessExceptionOf(
+                detailsId = "mapper.crypto_keys.invalid_property",
+                values = arrayOf("property" to "name")
+            ),
+            algorithm = entity.algorithm,
+            publicKey = toPublicKey(entity.publicKey),
+            publicKeyFormat = entity.publicKeyFormat,
+            privateKey = entity.privateKey.copyOf(),
+            privateKeyFormat = entity.privateKeyFormat,
+        )
+    }
 
-    @Mappings(
-        Mapping(source = "publicKey", target = "publicKey", qualifiedByName = ["toStoredPublicKey"]),
-        Mapping(target = "creationDate", expression = "java(java.time.LocalDateTime.now())")
-    )
-    abstract fun toEntity(key: CryptoKeys): CryptoKeysEntity
+    fun toEntity(key: CryptoKeys): CryptoKeysEntity {
+        return CryptoKeysEntity(
+            algorithm = key.algorithm,
+            publicKey = toStoredPublicKey(key.publicKey),
+            publicKeyFormat = key.publicKeyFormat,
+            privateKey = key.privateKey.copyOf(),
+            privateKeyFormat = key.privateKeyFormat,
+            creationDate = LocalDateTime.now(),
+        ).apply {
+            name = key.name
+        }
+    }
 }

@@ -2,10 +2,9 @@ package com.sympauthy.business.mapper
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.internalBusinessExceptionOf
-import com.sympauthy.business.mapper.config.ToBusinessMapperConfig
 import com.sympauthy.business.model.flow.*
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
-import org.mapstruct.Mapper
+import jakarta.inject.Singleton
 import java.net.URI
 import java.time.LocalDateTime
 import java.util.UUID
@@ -24,10 +23,8 @@ import java.util.UUID
  * session, an internal [BusinessException] "mapper.interactive_flow_session.invalid_property" is thrown:
  * a row this server wrote and cannot read back is its own failure rather than the caller's.
  */
-@Mapper(
-    config = ToBusinessMapperConfig::class
-)
-abstract class InteractiveFlowSessionMapper {
+@Singleton
+class InteractiveFlowSessionMapper {
 
     fun toOnGoingInteractiveFlowSession(entity: InteractiveFlowSessionEntity): OnGoingInteractiveFlowSession {
         return OnGoingInteractiveFlowSession(
