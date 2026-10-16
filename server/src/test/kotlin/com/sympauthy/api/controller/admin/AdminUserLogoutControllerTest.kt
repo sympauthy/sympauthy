@@ -44,8 +44,8 @@ class AdminUserLogoutControllerTest {
     private val clientId: String = "my-app"
 
     private fun mockAdminAuthentication(): UserAuthentication = mockk {
-        every { authenticationToken } returns mockk<AuthenticationToken> {
-            every { this@mockk.userId } returns adminId
+        every { authenticationToken } returns mockk<AuthenticationToken> token@{
+            every { this@token.userId } returns adminId
         }
     }
 

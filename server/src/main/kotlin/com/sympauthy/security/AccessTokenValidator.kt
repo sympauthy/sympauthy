@@ -64,9 +64,7 @@ class AccessTokenValidator(
             dpopManager.validateAccessTokenBinding(
                 token = authenticationToken,
                 presentedWithDpopScheme = dpopTokenReader.isPresentedWith(request, token),
-                // The header lookup carries no nullability annotation, so a request carrying no proof is not
-                // trusted to answer an empty list.
-                proofs = request.headers.getAll(DPOP_HEADER) ?: emptyList(),
+                proofs = request.headers.getAll(DPOP_HEADER),
                 boundRequest = DpopBoundRequest(
                     method = request.method.name,
                     uri = request.uri,

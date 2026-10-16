@@ -109,7 +109,7 @@ class ProvisionalAccountPromotionRaceTest {
 
                     assertInstanceOf(BusinessException::class.java, refusal)
                     assertEquals("user.promote.provider_subject_taken", (refusal as BusinessException).detailsId)
-                    assertEquals(providerId, (refusal as BusinessException).values["providerId"])
+                    assertEquals(providerId, refusal.values["providerId"])
                 }
             } finally {
                 winner.close().awaitFirstOrNull()

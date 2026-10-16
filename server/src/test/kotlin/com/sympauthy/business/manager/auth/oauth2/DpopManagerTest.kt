@@ -350,7 +350,7 @@ class DpopManagerTest {
         val result1 = dpopManager.validateProof(proof1, request)
         val result2 = dpopManager.validateProof(proof2, request)
 
-        assertEquals(result1!!.jkt, result2!!.jkt)
+        assertEquals(result1.jkt, result2.jkt)
     }
 
     @Test
@@ -365,7 +365,7 @@ class DpopManagerTest {
         val result1 = dpopManager.validateProof(proof1, request)
         val result2 = dpopManager.validateProof(proof2, request)
 
-        assertNotEquals(result1!!.jkt, result2!!.jkt)
+        assertNotEquals(result1.jkt, result2.jkt)
     }
 
     @Test

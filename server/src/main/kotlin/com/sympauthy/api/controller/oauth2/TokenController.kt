@@ -226,9 +226,7 @@ class TokenController(
     ): TokenResource {
         // Validate DPoP proof if present, enforce if required by config
         val dpopProof = dpopManager.validateDpopProof(
-            // The header lookup carries no nullability annotation, and a null reaching the non-null
-            // parameter would fail the commonest request there is: one carrying no proof at all.
-            proofs = request.headers.getAll(DpopManager.DPOP_HEADER) ?: emptyList(),
+            proofs = request.headers.getAll(DpopManager.DPOP_HEADER),
             boundRequest = DpopBoundRequest(
                 method = request.method.name,
                 uri = request.uri,

@@ -25,7 +25,7 @@ class StateAuthenticationFetcher : AuthenticationFetcher<HttpRequest<*>> {
 
             val state = if (request.method == HttpMethod.POST) {
                 request.headers.authorization
-                    ?.orElse(null)
+                    .orElse(null)
                     ?.takeIf { it.startsWith("State ") }
                     ?.removePrefix("State ")
                     ?.takeIf { it.isNotBlank() }

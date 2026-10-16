@@ -24,7 +24,7 @@ class DefaultAuthorizationFlowController(
     @Get(value = "/{path:[^\\.]*}", produces = [TEXT_HTML])
     fun forward(path: String?): StreamedFile {
         return resourceResolver.getResource("classpath:sympauthy-flow/index.html")
-            ?.map(::StreamedFile)
+            .map(::StreamedFile)
             ?.getOrNull()
             .orNotFound()
     }

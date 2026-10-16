@@ -205,8 +205,11 @@ tasks {
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     }
     processResources {
+        // Read at configuration time: reaching `project` while the task runs is deprecated.
+        val expandedProperties = mapOf("version" to project.version.toString())
+        inputs.properties(expandedProperties)
         filesMatching("application.yml") {
-            expand(project.properties)
+            expand(expandedProperties)
         }
     }
 }
@@ -218,7 +221,7 @@ tasks {
 // path (build/openapi/openapi.yml) and expose it as a consumable Gradle artifact so a downstream module
 // — the integration-tests OpenAPI client generator — consumes a single source of truth and regenerates
 // whenever the contract changes.
-val syncOpenApiSpec by tasks.registering(Sync::class) {
+val syncOpenApiSpec = tasks.register<Sync>("syncOpenApiSpec") {
     description = "Publishes the generated OpenAPI spec to build/openapi/openapi.yml for downstream consumers."
     group = "openapi"
     dependsOn(tasks.named("kspKotlin"))
@@ -232,7 +235,7 @@ val syncOpenApiSpec by tasks.registering(Sync::class) {
 // A consumable-only configuration carrying the published spec, wired to build via syncOpenApiSpec. The
 // integration-tests module depends on `project(":server", configuration = "openApiSpec")` to obtain the
 // contract with a proper task dependency (no reaching into another project's build directory by path).
-val openApiSpec: Configuration by configurations.creating {
+val openApiSpec: Configuration = configurations.create("openApiSpec") {
     isCanBeConsumed = true
     isCanBeResolved = false
 }

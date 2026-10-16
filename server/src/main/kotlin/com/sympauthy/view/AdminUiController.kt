@@ -35,7 +35,7 @@ class AdminUiController(
 
     private fun serveIndex(): StreamedFile {
         return resourceResolver.getResource("classpath:sympauthy-admin/index.html")
-            ?.map(::StreamedFile)
+            .map(::StreamedFile)
             ?.getOrNull()
             .orNotFound()
     }

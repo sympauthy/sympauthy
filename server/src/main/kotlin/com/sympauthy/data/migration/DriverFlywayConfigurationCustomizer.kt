@@ -2,6 +2,7 @@ package com.sympauthy.data.migration
 
 import com.sympauthy.util.loggerForClass
 import io.micronaut.flyway.FlywayConfigurationCustomizer
+import org.flywaydb.core.api.CoreLocationPrefix
 import org.flywaydb.core.api.Location
 import org.flywaydb.core.api.ResourceProvider
 import org.flywaydb.core.api.configuration.FluentConfiguration
@@ -76,7 +77,7 @@ open class DriverFlywayConfigurationCustomizer(
      */
     private fun getClassPathLocationsForDriver(fluentConfiguration: FluentConfiguration): List<Location> {
         return fluentConfiguration.locations
-            .filter { it.isClassPath }
+            .filter(CoreLocationPrefix::isClassPath)
             .filter { isMigrationForDriver(it) }
     }
 
