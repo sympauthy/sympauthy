@@ -394,6 +394,15 @@ at the refresh alike. A grant that never asked for OpenID Connect is a plain OAu
 [the design FAQ](design-faq.md#is-a-grant-that-did-not-ask-for-openid-owed-an-id-token) argues the
 alternative.
 
+**An id token is signed with the one algorithm `advanced.jwt.public-alg` names, and the discovery
+document lists that algorithm alone.** It is ES256 unless a deployment chooses otherwise. OpenID
+Connect Discovery 1.0 §3 has every server list RS256, and FAPI 2.0 §5.4.1 allows PS256, ES256 and
+EdDSA and nothing else; where the two disagree this server takes the newer text, as it takes OAuth
+2.1 over RFC 6749. Listing RS256 without signing with it would send a client configuring itself from
+the document after a signature it never receives. [The design
+FAQ](design-faq.md#does-the-discovery-document-list-rs256-as-openid-connect-discovery-requires)
+holds the options that lost.
+
 **A refresh reissues the identity, not only the access**: the subject and the audience are the
 original authentication's, the claims, the expiry and the `at_hash` are this response's, and the
 token is filed under the session it descends from, so revoking that session reaches it. What is read

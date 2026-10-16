@@ -398,6 +398,41 @@ one leaves every act-as token in service, and a client free to exchange for anot
 
 ---
 
+### Does the discovery document list RS256, as OpenID Connect Discovery requires?
+
+**Decision:** No. `id_token_signing_alg_values_supported` lists the one algorithm id tokens are
+signed with, `advanced.jwt.public-alg`, which is ES256 unless a deployment chooses otherwise.
+
+**Options considered:**
+
+- **List RS256 anyway** — meet the letter of §3 while signing with something else.
+- **Ship RS256 as the default** — conform out of the box, and leave ES256 and PS256 to a deployment
+  that departs knowingly.
+- **Hold an RS256 key beside the configured one** — list both, and sign with whichever a client's
+  configuration names.
+- **Always sign with RS256** — and drop `public-alg`.
+
+**Rationale:**
+
+OpenID Connect Discovery 1.0 §3 has every server include RS256, and FAPI 2.0 §5.4.1 allows PS256,
+ES256 and EdDSA and nothing else, retiring the PKCS#1 v1.5 signature RS256 is. The two cannot both
+be met, and where this server's specifications disagree it takes the newer, stricter text, as it
+takes OAuth 2.1 over RFC 6749.
+
+Listing RS256 without signing with it is the failure the discovery document exists to prevent: a
+client configuring itself from the document would expect a signature it never receives. Shipping
+RS256 as the default meets §3 by stepping back from the profile the server otherwise follows, and
+always signing with it does so with no way back. A key per client meets both, at the cost of a
+second id-token key in the key set, a choice in every client's configuration and an `at_hash`
+computed per algorithm — machinery bought for a client that cannot verify ES256.
+
+**What a deployment sees.** A client verifying an id token with the key the key set publishes under
+its `kid` is unaffected. A client registering no algorithm and holding to the RS256 default OpenID
+Connect Core §3.1.3.7 gives it rejects the id token, and a deployment serving one sets
+`advanced.jwt.public-alg: rs256`, which the document then lists.
+
+---
+
 ## Clients
 
 ### May a client's default scopes fall outside its allowed scopes?
