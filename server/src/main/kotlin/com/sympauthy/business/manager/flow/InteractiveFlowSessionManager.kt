@@ -303,13 +303,17 @@ open class InteractiveFlowSessionManager(
      *
      * This is pure progress bookkeeping: it never transitions the session to completed — that is
      * [markAsCompleted], run by the engine once every purpose has resolved and its terminal effect applied.
-     * Marking an already-completed [purpose] is a no-op on the list.
+     *
+     * Marking an already-completed [purpose] writes nothing and answers [session] as it is. The engine marks
+     * every resolved purpose on every advance, so a write there would be one two requests on the same session
+     * always race for, and the one losing it would fail the session over a list neither of them changed.
      */
     suspend fun markPurposeAsCompleted(
         session: OnGoingInteractiveFlowSession,
         purpose: InteractiveFlowPurpose
     ): OnGoingInteractiveFlowSession {
-        val completedPurposes = (session.completedPurposes + purpose).distinct()
+        if (purpose in session.completedPurposes) return session
+        val completedPurposes = session.completedPurposes + purpose
         val updated = sessionRepository.updateCompletedPurposes(
             id = session.id,
             completedPurposes = completedPurposes.map(InteractiveFlowPurpose::name).toTypedArray(),
