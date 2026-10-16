@@ -344,7 +344,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
         val asserted = getAssertedIdentifiersOrNull(rawUserInfo)
         val keys = listOf(LockKey.ProviderSubject(provider.id, rawUserInfo.subject)) + asserted?.lockKeys.orEmpty()
 
-        lockManager.withLock(*keys.toTypedArray()) {
+        lockManager.withLock(keys) {
             val committed = providerClaimsManager.findByProviderAndSubject(provider, rawUserInfo.subject)
             if (committed != null) {
                 if (committed.userId == userId) {

@@ -29,6 +29,12 @@ silence.
 **Every value the YAML offers arrives as a nullable string-shaped property**, including what looks
 like a boolean, a number or a duration. The parser converts it, and names the key when it cannot.
 
+**A nullable property of a properties interface is annotated `@get:Nullable`.** The interface's
+implementation is generated, and the generator does not read Kotlin's `?` there: a key the YAML
+leaves out fails the bean instead of reaching the parser as null, so the server never starts and no
+key is named. `NullableGetterTest` holds every interface in the package to it; a properties class
+bound through its setters needs nothing.
+
 **A value that cannot apply where it was written is refused, not ignored.** The validator records an
 error naming the key, so a setting that will not take effect is never accepted in silence. It is
 refused against the key and not against the value, so a value equal to the one the server would have

@@ -3,6 +3,7 @@ package com.sympauthy.config.properties
 import com.sympauthy.config.properties.SecurityContextConfigurationProperties.Companion.SECURITY_CONTEXT_KEY
 import com.sympauthy.config.properties.SecurityContextIpConfigurationProperties.Companion.SECURITY_CONTEXT_IP_KEY
 import io.micronaut.context.annotation.ConfigurationProperties
+import io.micronaut.core.annotation.Nullable
 
 /**
  * Which proxy is believed about the address a request came from.
@@ -21,11 +22,13 @@ interface SecurityContextIpConfigurationProperties {
      * handed, and because two proxies reading the same forwarded header at different positions would
      * disagree in the caller's favour.
      */
+    @get:Nullable
     val provider: String?
 
     /**
      * A header holding the address, read as it stands, which wins over [provider].
      */
+    @get:Nullable
     val header: String?
 
     companion object {

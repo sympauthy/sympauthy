@@ -70,13 +70,13 @@ open class LockAndSettle(
     /** Takes both keys and answers what the record held once the block had returned. */
     @Transactional
     open suspend fun committing(key: LockKey, otherKey: LockKey): List<Int> {
-        lockManager.withLock(key, otherKey) { }
+        lockManager.withLock(listOf(key, otherKey)) { }
         return heldStripes.held()
     }
 
     @Transactional
     open suspend fun rollingBack(key: LockKey) {
-        lockManager.withLock(key) { }
+        lockManager.withLock(listOf(key)) { }
         error("the transaction failed")
     }
 }

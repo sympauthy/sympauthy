@@ -180,7 +180,7 @@ open class ConsentManager(
         revokedBy: ConsentRevokedBy,
         revokedById: UUID
     ) {
-        lockManager.withLock(LockKey.User(consent.userId)) {
+        lockManager.withLock(listOf(LockKey.User(consent.userId))) {
             val now = LocalDateTime.now()
             val updatedCount = consentRepository.updateRevokedAt(
                 id = consent.id,

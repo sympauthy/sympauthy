@@ -3,6 +3,7 @@ package com.sympauthy.config.properties
 import com.sympauthy.config.properties.AdvancedConfigurationProperties.Companion.ADVANCED_KEY
 import com.sympauthy.config.properties.SecurityContextConfigurationProperties.Companion.SECURITY_CONTEXT_KEY
 import io.micronaut.context.annotation.ConfigurationProperties
+import io.micronaut.core.annotation.Nullable
 
 /**
  * What this server does about where a request came from: how it reads it, under
@@ -22,6 +23,7 @@ interface SecurityContextConfigurationProperties {
      * no person yet is attached to the interactive flow session that made it, and is collected with it —
      * so there is no second population to name a second number for.
      */
+    @get:Nullable
     val knownUserRetention: String?
 
     companion object {

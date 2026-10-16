@@ -1,5 +1,7 @@
 package com.sympauthy.config.properties
 
+import io.micronaut.core.annotation.Nullable
+
 /**
  * Shared interface for the authorization webhook a client, or the template it takes its defaults from,
  * configures.
@@ -12,7 +14,10 @@ package com.sympauthy.config.properties
  * of them repeating the other.
  */
 interface ClientAuthorizationWebhookProperties {
+    @get:Nullable
     val url: String?
+    @get:Nullable
     val secret: String?
+    @get:Nullable
     val onFailure: String?
 }

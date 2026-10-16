@@ -2,6 +2,7 @@ package com.sympauthy.config.properties
 
 import com.sympauthy.config.properties.CorsConfigurationProperties.Companion.CORS_KEY
 import io.micronaut.context.annotation.ConfigurationProperties
+import io.micronaut.core.annotation.Nullable
 
 @ConfigurationProperties(CORS_KEY)
 interface CorsConfigurationProperties {
@@ -12,6 +13,7 @@ interface CorsConfigurationProperties {
      * See com.sympauthy.api.filter.CorsPreflightHeaders.MANDATORY_ALLOWED_HEADERS for the headers that are
      * always allowed, whatever this list contains.
      */
+    @get:Nullable
     val allowedHeaders: List<String>?
 
     companion object {

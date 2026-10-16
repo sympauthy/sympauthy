@@ -150,8 +150,8 @@ open class CollectedClaimManager(
         if (identifierValues.isEmpty()) {
             return writeUpdates(user, applicableUpdates)
         }
-        val keys = identifierValues.values.map(LockKey::IdentifierValue).toTypedArray()
-        return lockManager.withLock(*keys) {
+        val keys = identifierValues.values.map(LockKey::IdentifierValue)
+        return lockManager.withLock(keys) {
             checkIdentifierValuesFree(user, identifierValues)
             writeUpdates(user, applicableUpdates)
         }

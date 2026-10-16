@@ -64,7 +64,7 @@ open class TokenManager(
      */
     @Transactional
     open suspend fun revokeTokensByUser(userId: UUID, revokedBy: TokenRevokedBy, revokedById: UUID?): Int {
-        return lockManager.withLock(LockKey.User(userId)) {
+        return lockManager.withLock(listOf(LockKey.User(userId))) {
             tokenRepository.updateRevokedAtByUserId(
                 userId = userId,
                 revokedAt = LocalDateTime.now(),
@@ -86,7 +86,7 @@ open class TokenManager(
         revokedBy: TokenRevokedBy,
         revokedById: UUID?
     ): Int {
-        return lockManager.withLock(LockKey.User(userId)) {
+        return lockManager.withLock(listOf(LockKey.User(userId))) {
             tokenRepository.updateRevokedAtByUserIdAndClientId(
                 userId = userId,
                 clientId = clientId,
@@ -147,7 +147,7 @@ open class TokenManager(
         checkPromotedOrInvalidGrant(session.userId)
 
         if (!authorizationCodeManager.markExchanged(session)) {
-            lockManager.withLock(LockKey.User(session.userId)) {
+            lockManager.withLock(listOf(LockKey.User(session.userId))) {
                 tokenRepository.updateRevokedAtBySessionId(
                     sessionId = session.id,
                     revokedAt = LocalDateTime.now(),
@@ -234,7 +234,7 @@ open class TokenManager(
         }
         val lockKeys = listOfNotNull(getAuthenticationToken(decodedToken).userId?.let(LockKey::User))
 
-        lockManager.withLock(*lockKeys.toTypedArray()) {
+        lockManager.withLock(lockKeys) {
             refreshHeldToken(client, decodedToken, dpopJkt)
         }
     }
@@ -340,7 +340,7 @@ open class TokenManager(
         if (token.clientId != client.id) return
 
         val now = LocalDateTime.now()
-        lockManager.withLock(*listOfNotNull(token.userId?.let(LockKey::User)).toTypedArray()) {
+        lockManager.withLock(listOfNotNull(token.userId?.let(LockKey::User))) {
             if (token.type == REFRESH && token.sessionId != null) {
                 tokenRepository.updateRevokedAtBySessionId(
                     sessionId = token.sessionId,

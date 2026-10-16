@@ -3,6 +3,7 @@ package com.sympauthy.config.properties
 import com.sympauthy.config.properties.SecurityContextConfigurationProperties.Companion.SECURITY_CONTEXT_KEY
 import com.sympauthy.config.properties.SecurityContextGeoConfigurationProperties.Companion.SECURITY_CONTEXT_GEO_KEY
 import io.micronaut.context.annotation.ConfigurationProperties
+import io.micronaut.core.annotation.Nullable
 
 /**
  * Which proxies are believed about where the address a request came from is.
@@ -17,6 +18,7 @@ interface SecurityContextGeoConfigurationProperties {
     /**
      * Whether every edge publishing a location is read, rather than the ones [providers] names.
      */
+    @get:Nullable
     val autoDetect: String?
 
     /**
@@ -26,6 +28,7 @@ interface SecurityContextGeoConfigurationProperties {
      * A word here is the name an edge is published under. An edge publishing no location is not one
      * of them, so naming it is refused at startup rather than configured to no effect.
      */
+    @get:Nullable
     val providers: List<String>?
 
     companion object {

@@ -3,9 +3,11 @@ package com.sympauthy.config.properties
 import com.sympauthy.config.properties.AuthConfigurationProperties.Companion.AUTH_KEY
 import com.sympauthy.config.properties.ByPasswordConfigurationProperties.Companion.BY_PASSWORD_KEY
 import io.micronaut.context.annotation.ConfigurationProperties
+import io.micronaut.core.annotation.Nullable
 
 @ConfigurationProperties(BY_PASSWORD_KEY)
 interface ByPasswordConfigurationProperties {
+    @get:Nullable
     val enabled: String?
 
     companion object {

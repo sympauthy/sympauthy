@@ -49,7 +49,7 @@ class LockManagerTransactionTest {
             deleteOnEnd { written?.id?.let { users.deleteById(it) } }
 
             assertThrows<IllegalStateException> {
-                manager.withLock(LockKey.IdentifierValue(status)) {
+                manager.withLock(listOf(LockKey.IdentifierValue(status))) {
                     written = users.save(UserEntity(status = status, creationDate = BASE_DATE, sessionId = null))
                     error("the block failed")
                 }
@@ -104,25 +104,25 @@ open class SequentialLocks(
 
     @Transactional
     open suspend fun inOneTransaction(first: LockKey, second: LockKey) {
-        lockManager.withLock(first) { }
-        lockManager.withLock(second) { }
+        lockManager.withLock(listOf(first)) { }
+        lockManager.withLock(listOf(second)) { }
     }
 
     suspend fun inATransactionEach(first: LockKey, second: LockKey) {
-        lockManager.withLock(first) { }
-        lockManager.withLock(second) { }
+        lockManager.withLock(listOf(first)) { }
+        lockManager.withLock(listOf(second)) { }
     }
 
     /** Answers what the transaction holds once both calls have returned. */
     @Transactional
     open suspend fun aSetThenASubsetOfIt(first: LockKey, second: LockKey): List<Int> {
-        lockManager.withLock(first, second) { }
-        return lockManager.withLock(second) { heldStripes.held() }
+        lockManager.withLock(listOf(first, second)) { }
+        return lockManager.withLock(listOf(second)) { heldStripes.held() }
     }
 
     @Transactional
     open suspend fun nothingThenASet(key: LockKey) {
-        lockManager.withLock { }
-        lockManager.withLock(key) { }
+        lockManager.withLock(emptyList()) { }
+        lockManager.withLock(listOf(key)) { }
     }
 }

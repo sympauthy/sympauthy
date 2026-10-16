@@ -82,7 +82,7 @@ open class ProvisionalAccountManager(
         val links = providerUserInfoRepository.findByUserId(userId)
             .map { ProvisionalLink(providerId = it.id.providerId, subject = it.subject) }
 
-        lockManager.withLock(*keysOver(identifierValues.values.toList(), links)) {
+        lockManager.withLock(keysOver(identifierValues.values.toList(), links)) {
             checkIdentifierClaimsStillFree(userId, claimIds, identifierValues)
             checkProviderSubjectsStillFree(links)
 
@@ -120,10 +120,9 @@ open class ProvisionalAccountManager(
     private fun keysOver(
         identifierValues: List<String>,
         links: List<ProvisionalLink>
-    ): Array<LockKey> = (
+    ): List<LockKey> =
         identifierValues.map(LockKey::IdentifierValue) +
             links.map { LockKey.ProviderSubject(it.providerId, it.subject) }
-        ).toTypedArray()
 
     /**
      * Delete the accounts left behind by a sign-up that never completed, and answer how many there were.
