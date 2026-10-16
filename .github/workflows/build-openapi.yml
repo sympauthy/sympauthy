@@ -1,10 +1,9 @@
 # Generates the server's OpenAPI contract and uploads it as the `sympauthy-openapi` artifact so the
 # release / nightly workflows can attach it to the GitHub release next to the native binaries.
 #
-# The published document comes from :server:syncOpenApiSpec — the KSP rendering, which is also what
+# The published document comes from :server:syncOpenApiSpec — the same rendering the jar packages and
 # the integration-tests client is generated from, so every green integration run is evidence that it
-# describes the running server. It is NOT the copy packaged in the jar: micronaut-openapi runs under
-# both kapt and KSP, and the packaged (kapt) rendering carries spurious schema properties. See #316.
+# describes the running server.
 
 name: Build SympAuthy OpenAPI specification
 
