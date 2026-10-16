@@ -4,6 +4,7 @@ CREATE TABLE authentication_tokens
     type                      text      NOT NULL,
     user_id                   uuid,
     client_id                 text      NOT NULL,
+    audience_id               text      NOT NULL,
     granted_scopes            text[]    NOT NULL,
     granted_at                timestamp,
     granted_by                text,

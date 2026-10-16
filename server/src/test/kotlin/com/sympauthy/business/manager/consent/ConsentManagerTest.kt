@@ -20,6 +20,7 @@ import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import io.mockk.slot
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
@@ -55,6 +56,8 @@ class ConsentManagerTest {
     private val audienceId = "test-audience"
     private val clientId = "test-client"
     private val scopes = listOf("read", "write")
+    private val consentId = UUID.randomUUID()
+    private val adminId = UUID.randomUUID()
 
     @Test
     fun `saveConsent - Creates new consent when none exists`() = runTest {
@@ -122,38 +125,50 @@ class ConsentManagerTest {
     }
 
     @Test
-    fun `revokeConsent - Revokes consent and tokens`() = runTest {
-        val consentId = UUID.randomUUID()
-        val adminId = UUID.randomUUID()
-        val consent = Consent(
-            id = consentId,
-            userId = userId,
-            audienceId = audienceId,
-            promptedByClientId = clientId,
-            scopes = scopes,
-            consentedAt = LocalDateTime.now(),
-            revokedAt = null,
-            revokedBy = null,
-            revokedById = null
-        )
-
+    fun `revokeConsent - Revokes the tokens of the audience at the moment it revokes the consent`() = runTest {
+        val consentRevokedAt = slot<LocalDateTime>()
+        val tokensRevokedAt = slot<LocalDateTime>()
         coEvery {
-            consentRepository.updateRevokedAt(consentId, any(), "ADMIN", adminId)
+            consentRepository.updateRevokedAt(consentId, capture(consentRevokedAt), "ADMIN", adminId)
         } returns 1
         coEvery {
-            tokenRepository.updateRevokedAtByUserIdAndClientId(
-                userId, clientId, any(), "CONSENT_REVOKED", adminId
+            tokenRepository.updateRevokedAtByUserIdAndAudienceIdAndActorTokenIdIsNull(
+                userId, audienceId, capture(tokensRevokedAt), "CONSENT_REVOKED", adminId
             )
-        } returns 1
+        } returns 2
 
-        consentManager.revokeConsent(consent, ConsentRevokedBy.ADMIN, adminId)
+        consentManager.revokeConsent(consent(), ConsentRevokedBy.ADMIN, adminId)
 
+        assertEquals(consentRevokedAt.captured, tokensRevokedAt.captured)
         coVerifyOrder {
             objectLockRepository.lock(LockKey.User(userId).stripe)
             consentRepository.updateRevokedAt(consentId, any(), "ADMIN", adminId)
-            tokenRepository.updateRevokedAtByUserIdAndClientId(
-                userId, clientId, any(), "CONSENT_REVOKED", adminId
+            tokenRepository.updateRevokedAtByUserIdAndAudienceIdAndActorTokenIdIsNull(
+                userId, audienceId, any(), "CONSENT_REVOKED", adminId
             )
         }
     }
+
+    @Test
+    fun `revokeConsent - Revokes no token where updating the consent reaches no row`() = runTest {
+        coEvery { consentRepository.updateRevokedAt(consentId, any(), "ADMIN", adminId) } returns 0
+
+        consentManager.revokeConsent(consent(), ConsentRevokedBy.ADMIN, adminId)
+
+        coVerify(exactly = 0) {
+            tokenRepository.updateRevokedAtByUserIdAndAudienceIdAndActorTokenIdIsNull(any(), any(), any(), any(), any())
+        }
+    }
+
+    private fun consent() = Consent(
+        id = consentId,
+        userId = userId,
+        audienceId = audienceId,
+        promptedByClientId = clientId,
+        scopes = scopes,
+        consentedAt = LocalDateTime.now(),
+        revokedAt = null,
+        revokedBy = null,
+        revokedById = null
+    )
 }

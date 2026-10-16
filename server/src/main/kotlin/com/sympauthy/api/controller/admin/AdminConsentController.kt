@@ -139,7 +139,7 @@ class AdminConsentController(
 
     @Operation(
         description = "Revoke the active consent of a user for an audience. Every token issued to the user " +
-                "for the client that last updated the consent is revoked with it.",
+                "for the audience is revoked with it, except one a client obtained through a token exchange.",
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "204", description = "The consent was revoked."),

@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.auth.oauth2
 
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
@@ -32,12 +33,12 @@ class RefreshTokenGenerator(
     suspend fun generateRefreshToken(
         oauth2: InteractiveFlowSessionOAuth2,
         userId: UUID,
-        tokenAudience: String,
+        audience: Audience,
         dpopJkt: String? = null
     ) = generateRefreshToken(
         userId = userId,
         clientId = oauth2.clientId,
-        tokenAudience = tokenAudience,
+        audience = audience,
         grantedScopes = oauth2.grantedScopes ?: emptyList(),
         grantedAt = oauth2.grantedAt,
         grantedBy = oauth2.grantedBy?.name,
@@ -57,12 +58,12 @@ class RefreshTokenGenerator(
      */
     suspend fun generateRefreshToken(
         refreshToken: AuthenticationToken,
-        tokenAudience: String,
+        audience: Audience,
         dpopJkt: String? = null
     ) = generateRefreshToken(
         userId = refreshToken.userId,
         clientId = refreshToken.clientId,
-        tokenAudience = tokenAudience,
+        audience = audience,
         grantedScopes = refreshToken.grantedScopes,
         grantedAt = refreshToken.grantedAt,
         grantedBy = refreshToken.grantedBy?.name,
@@ -80,7 +81,7 @@ class RefreshTokenGenerator(
     internal suspend fun generateRefreshToken(
         userId: UUID?,
         clientId: String,
-        tokenAudience: String,
+        audience: Audience,
         grantedScopes: List<String>,
         grantedAt: java.time.LocalDateTime?,
         grantedBy: String?,
@@ -115,6 +116,7 @@ class RefreshTokenGenerator(
             userId = userId,
             type = REFRESH.name,
             clientId = clientId,
+            audienceId = audience.id,
             grantedScopes = grantedScopes.toTypedArray(),
             grantedAt = grantedAt,
             grantedBy = grantedBy,
@@ -134,7 +136,7 @@ class RefreshTokenGenerator(
 
         val encodedToken = jwtManager.create(JwtManager.REFRESH_KEY) {
             entity.id?.toString()?.let(this::jwtID)
-            audience(listOf(tokenAudience))
+            audience(listOf(audience.tokenAudience))
             subject(userId?.toString() ?: clientId)
             issueTime(Date.from(issueDate.toInstant(ZoneOffset.UTC)))
             expirationDate?.toInstant(ZoneOffset.UTC)?.let { expirationTime(Date.from(it)) }

@@ -102,7 +102,6 @@ class TokenManagerTest {
         return mockk {
             every { supportsGrantType(any()) } answers { grantTypes.contains(firstArg()) }
             every { audience } returns mockk {
-                every { tokenAudience } returns "https://test-audience"
                 every { id } returns "test-audience"
             }
         }
@@ -174,7 +173,7 @@ class TokenManagerTest {
             refreshTokenGenerator.generateRefreshToken(
                 oauth2,
                 userId,
-                tokenAudience = any(),
+                audience = any(),
                 dpopJkt = null
             )
         } returns refreshToken
@@ -305,7 +304,6 @@ class TokenManagerTest {
 
         every { client.id } returns clientId
         every { client.audience } returns mockk {
-            every { tokenAudience } returns "https://test-audience"
             every { id } returns "test-audience"
         }
         coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, encodedRefreshToken) } returns decodedToken
@@ -326,7 +324,7 @@ class TokenManagerTest {
         coEvery {
             refreshTokenGenerator.generateRefreshToken(
                 refreshToken,
-                tokenAudience = any(),
+                audience = any(),
                 dpopJkt = null
             )
         } returns refreshedRefreshToken
@@ -350,7 +348,6 @@ class TokenManagerTest {
 
         every { client.id } returns clientId
         every { client.audience } returns mockk {
-            every { tokenAudience } returns "https://test-audience"
             every { id } returns "test-audience"
         }
         coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, encodedRefreshToken) } returns decodedToken
@@ -411,7 +408,6 @@ class TokenManagerTest {
 
         every { client.id } returns clientId
         every { client.audience } returns mockk {
-            every { tokenAudience } returns "https://test-audience"
             every { id } returns "test-audience"
         }
         coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, "token") } returns decodedToken
@@ -447,7 +443,6 @@ class TokenManagerTest {
 
         every { client.id } returns clientId
         every { client.audience } returns mockk {
-            every { tokenAudience } returns "https://test-audience"
             every { id } returns "test-audience"
         }
         coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, "token") } returns decodedToken

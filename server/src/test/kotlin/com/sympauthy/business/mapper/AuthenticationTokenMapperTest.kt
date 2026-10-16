@@ -122,6 +122,7 @@ class AuthenticationTokenMapperTest {
             type = type,
             userId = UUID.randomUUID(),
             clientId = "client",
+            audienceId = "audience",
             grantedScopes = emptyArray(),
             grantedBy = grantedBy,
             consentedScopes = emptyArray(),

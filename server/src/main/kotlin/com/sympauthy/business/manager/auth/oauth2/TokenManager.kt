@@ -158,7 +158,6 @@ open class TokenManager(
             return@coroutineScope null
         }
 
-        val tokenAudience = client.audience.tokenAudience
         val deferredAccessToken = async {
             accessTokenGenerator.generateAccessToken(
                 oauth2,
@@ -172,7 +171,7 @@ open class TokenManager(
                 refreshTokenGenerator.generateRefreshToken(
                     oauth2,
                     session.userId,
-                    tokenAudience,
+                    client.audience,
                     dpopJkt = dpopJkt
                 )
             }
@@ -268,12 +267,11 @@ open class TokenManager(
 
         // Use the DPoP jkt from the proof, or carry forward the existing binding
         val effectiveDpopJkt = dpopJkt ?: refreshToken.dpopJkt
-        val tokenAudience = client.audience.tokenAudience
 
         val accessToken =
             accessTokenGenerator.generateAccessToken(refreshToken, client.audience, dpopJkt = effectiveDpopJkt)
         val refreshedRefreshToken = if (shouldRefreshToken(refreshToken, accessToken)) {
-            refreshTokenGenerator.generateRefreshToken(refreshToken, tokenAudience, dpopJkt = effectiveDpopJkt)
+            refreshTokenGenerator.generateRefreshToken(refreshToken, client.audience, dpopJkt = effectiveDpopJkt)
         } else null
         // A refresh reissues the identity because OpenID Connect Core §12.2 lets it, and a client holding
         // a refreshed access token with a stale id token has no way to learn the subject changed. Whether
