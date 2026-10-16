@@ -8,18 +8,20 @@ import io.swagger.v3.oas.annotations.media.Schema
 @Serdeable
 data class OAuth2ErrorResource(
     @get:Schema(description = "Error code the specification defines, such as `invalid_grant`. A client branches on it.")
-    @get:JsonProperty("error_code")
+    @get:JsonProperty("error")
     val errorCode: String,
 
     @get:Schema(
         description = "Technical message explaining the error, for troubleshooting. Absent unless " +
             "`features.print-details-in-error` is enabled."
     )
+    @get:JsonProperty("details")
     val details: String? = null,
 
     @get:Schema(
         description = "Message explaining the error, written to be shown to the end-user in the locale of the " +
             "request. It may be reworded in any release. Absent when no message is written for the error."
     )
+    @get:JsonProperty("error_description")
     val description: String? = null,
 )

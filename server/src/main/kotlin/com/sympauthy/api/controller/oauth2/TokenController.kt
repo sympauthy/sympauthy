@@ -362,6 +362,9 @@ class TokenController(
         scope: String?,
         dpopProof: DpopProof?
     ): TokenResource {
+        // Every BusinessException this call throws refuses a scope the client asked for, so each one is
+        // invalid_scope. A server failure thrown as one would reach the client as invalid_scope too; a scopes
+        // configuration that failed to load throws a LocalizedException instead, and still answers 500.
         val requestedScopes = try {
             scopeManager.parseRequestedClientScopes(client, scope)
         } catch (e: BusinessException) {
