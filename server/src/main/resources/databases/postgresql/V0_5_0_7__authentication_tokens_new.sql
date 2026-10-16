@@ -31,3 +31,7 @@ CREATE TABLE authentication_tokens
     PRIMARY KEY (id),
     FOREIGN KEY (user_id) REFERENCES users (id)
 );
+
+CREATE INDEX authentication_tokens__user_id ON authentication_tokens (user_id);
+CREATE INDEX authentication_tokens__session_id ON authentication_tokens (session_id);
+CREATE INDEX authentication_tokens__actor_token_id ON authentication_tokens (actor_token_id);
