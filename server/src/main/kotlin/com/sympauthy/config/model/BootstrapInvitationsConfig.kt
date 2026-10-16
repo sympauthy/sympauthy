@@ -1,5 +1,6 @@
 package com.sympauthy.config.model
 
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.config.exception.ConfigurationException
 
 sealed class BootstrapInvitationsConfig(
@@ -23,7 +24,7 @@ fun BootstrapInvitationsConfig.orThrow(): EnabledBootstrapInvitationsConfig {
 
 data class BootstrapInvitation(
     val id: String,
-    val audienceId: String,
+    val audience: Audience,
     val urlTemplate: String?,
     /**
      * Claims to pre-assign to the user upon registration.

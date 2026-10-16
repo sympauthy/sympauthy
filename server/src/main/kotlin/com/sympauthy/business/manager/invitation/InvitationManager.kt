@@ -7,6 +7,7 @@ import com.sympauthy.business.manager.user.ClaimValueValidator
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.InvitationMapper
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.invitation.InvitationStatus
@@ -57,12 +58,12 @@ open class InvitationManager(
      * is what the pre-assigned [claims] are checked against through the unconditional ACL. The admin API and
      * the bootstrap pass null, which means no ACL check at all rather than a client holding no scope.
      *
-     * [audienceId] is the audience the invitation is for, and the pre-assigned [claims] are held to it whoever
+     * [audience] is the audience the invitation is for, and the pre-assigned [claims] are held to it whoever
      * is creating it — see [validateAndCleanClaims].
      */
     @Transactional
     open suspend fun createInvitation(
-        audienceId: String,
+        audience: Audience,
         claims: Map<String, String>?,
         note: String?,
         expiresAt: LocalDateTime?,
@@ -70,7 +71,7 @@ open class InvitationManager(
         createdById: String? = null,
         clientScopeIds: List<String>? = null
     ): Pair<Invitation, String> {
-        val validatedClaims = validateAndCleanClaims(claims, audienceId, clientScopeIds)
+        val validatedClaims = validateAndCleanClaims(claims, audience.id, clientScopeIds)
 
         val config = invitationConfig
         val now = LocalDateTime.now()
@@ -85,7 +86,7 @@ open class InvitationManager(
         val hashedToken = invitationHashGenerator.hash(tokenBytes, salt)
 
         val entity = InvitationEntity(
-            audienceId = audienceId,
+            audienceId = audience.id,
             tokenLookupHash = lookupHash,
             hashedToken = hashedToken,
             salt = salt,

@@ -3,11 +3,13 @@ package com.sympauthy.api.controller.admin
 import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.mapper.admin.AdminCollectionCapabilitiesResourceMapper
 import com.sympauthy.api.mapper.admin.AdminInvitationResourceMapper
+import com.sympauthy.api.resource.admin.AdminCreateInvitationInputResource
 import com.sympauthy.api.resource.admin.AdminInvitationResource
 import com.sympauthy.api.util.DEFAULT_PAGE
 import com.sympauthy.api.util.TEST_DEFAULT_PAGE_SIZE
 import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.api.util.collectionRequest
+import com.sympauthy.business.manager.AudienceManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.collection.InvitationCollectionManager
 import com.sympauthy.business.model.invitation.Invitation
@@ -38,6 +40,9 @@ import org.junit.jupiter.api.extension.ExtendWith
 
 @ExtendWith(MockKExtension::class)
 class AdminInvitationControllerTest {
+
+    @MockK
+    lateinit var audienceManager: AudienceManager
 
     @MockK
     lateinit var invitationManager: InvitationManager
@@ -110,6 +115,43 @@ class AdminInvitationControllerTest {
         consumedAt = null,
         revokedAt = null
     )
+
+    @Test
+    fun `createInvitation - Refuse an expires_at carrying a zone before asking the manager`() = runTest {
+        val exception = assertThrows<LocalizedHttpException> {
+            controller.createInvitation(
+                AdminCreateInvitationInputResource(
+                    audienceId = "default",
+                    expiresAt = "2026-12-01T00:00:00Z",
+                    claims = null,
+                    note = null
+                )
+            )
+        }
+
+        assertEquals("invitation.expires_at.malformed", exception.detailsId)
+    }
+
+    @Test
+    fun `createInvitation - Refuse an audience the configuration does not declare before asking the manager`() =
+        runTest {
+            every { audienceManager.findAudienceByIdOrNull("no-such-audience") } returns null
+
+            val exception = assertThrows<LocalizedHttpException> {
+                controller.createInvitation(
+                    AdminCreateInvitationInputResource(
+                        audienceId = "no-such-audience",
+                        expiresAt = null,
+                        claims = null,
+                        note = null
+                    )
+                )
+            }
+
+            assertEquals(HttpStatus.BAD_REQUEST, exception.status)
+            assertEquals("invitation.unknown_audience", exception.detailsId)
+            assertEquals("no-such-audience", exception.values["audience"])
+        }
 
     @Test
     fun `listInvitations - Map every invitation the page holds, in the order it holds them`() = runTest {

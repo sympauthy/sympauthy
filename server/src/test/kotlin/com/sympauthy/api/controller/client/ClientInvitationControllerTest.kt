@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.client
 
+import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.mapper.client.ClientInvitationResourceMapper
 import com.sympauthy.api.resource.client.ClientCreateInvitationInputResource
 import com.sympauthy.api.resource.client.ClientCreatedInvitationResource
@@ -28,6 +29,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import java.time.LocalDateTime
 import java.util.*
@@ -113,13 +115,15 @@ class ClientInvitationControllerTest {
         val resource = createdResource(invitation.id)
         val claims = mapOf("custom_region" to "eu-west")
 
+        val clientAudience = Audience(id = "default", tokenAudience = "https://default.example.com")
+
         val client = mockk<Client> {
             every { id } returns "client"
-            every { audience } returns Audience(id = "default", tokenAudience = "https://default.example.com")
+            every { audience } returns clientAudience
         }
         coEvery {
             invitationManager.createInvitation(
-                audienceId = "default",
+                audience = clientAudience,
                 claims = claims,
                 note = "welcome",
                 expiresAt = null,
@@ -136,6 +140,18 @@ class ClientInvitationControllerTest {
         )
 
         assertSame(resource, result)
+    }
+
+    @Test
+    fun `createInvitation - Refuse an expires_at carrying a zone before asking the manager`() = runTest {
+        val exception = assertThrows<LocalizedHttpException> {
+            controller.createInvitation(
+                ClientAuthentication(mockk(), mockk(), emptyList()),
+                ClientCreateInvitationInputResource(expiresAt = "2026-12-01T00:00:00Z", claims = null, note = null),
+            )
+        }
+
+        assertEquals("invitation.expires_at.malformed", exception.detailsId)
     }
 
     @Test
