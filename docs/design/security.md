@@ -2,10 +2,11 @@
 
 Three questions, asked of every request in that order: who is calling, what are they allowed to do,
 and what are they allowed to be told. Everything here answers one of them — the gate each of [the
-surfaces](architecture.md#surfaces) applies, the scopes that say what a caller may do, the
-authentications a credential turns into, and the tokens that carry the answers off this server. What
-a caller may be told about a person is [the claims](claims.md), which those gates and scopes are
-enforced through. It closes with what this design deliberately does not do.
+surfaces](architecture.md#surfaces) applies, the scopes that say what a caller may do, the rules
+that say whom a client may act as, the authentications a credential turns into, and the tokens that
+carry the answers off this server. What a caller may be told about a person is [the
+claims](claims.md), which those gates and scopes are enforced through. It closes with what this
+design deliberately does not do.
 
 The rules for writing a secured controller are [the `api` layer
 standard](../standards/api-layer-code-standard.md); this document is what those annotations are
@@ -63,10 +64,9 @@ right. The sealed type is the authority on which kinds there are, and a new one 
 same question.
 
 **A grantable scope cannot be asked for, and that is the point.** Anything a client could request it
-would request, so a scope representing authority — administrating, acting as another user — is
-decided by a rule evaluated against the user and the client, never by the request. Making it a
-different type means the code path that grants it and the code path that reads a request cannot be
-confused.
+would request, so a scope representing authority — administrating, say — is decided by a rule
+evaluated against the user and the client, never by the request. Making it a different type means
+the code path that grants it and the code path that reads a request cannot be confused.
 
 **A client scope never reaches a user's token.** The two live in different grants: client
 credentials produce a client authentication, an authorization code produces a user one, and a scope
@@ -120,6 +120,45 @@ nothing true.
 declared once and referenced everywhere — in the security rules, in the API documentation, in the
 grant logic. A scope spelled by hand in an annotation is one no compiler will ever compare against
 the one that grants it, and the two spellings would differ silently.
+
+## Acting as a person
+
+A client may act as a person: it presents its own credential, names the person, and is issued an
+access token saying it acts for them, through the token exchange RFC 8693 defines. Whether it may is
+the deployment's to decide, in `rules.act-as` — never the person's, and never the request's.
+
+**A client acts as a person only where an act-as rule allows it.** A rule is evaluated against the
+acting client and the person's claims; the matching rule of the highest order decides, a denial
+decides between two of the same order, and an exchange no rule matches is refused. A deployment that
+writes no rule therefore has no client acting as anybody.
+
+**An act-as rule grants no scope, and the token carries none.** What it decides is whether this
+client may act as this person, and the token says exactly that: the person as its subject, the
+client in its `act` claim. What the client may then do as the person is the resource server's to
+decide from those two.
+
+**Acting as a person rests on the act-as rules, not on a consent.** A client may act as a person who
+has never signed in to the audience the exchange names, so the exchange reads no consent, and
+revoking the person's consent leaves a client free to exchange again. An act-as token filed under a
+client of the audience is revoked with the rest, and the next exchange issues another. [The design
+FAQ](design-faq.md#does-acting-as-a-person-need-their-consent) argues the alternative.
+
+**The rules read the claims of the audience the token is issued for**, which is the one the exchange
+names and may be neither the acting client's nor its default. That is where the decision lands, so
+that is the audience whose claims it may be keyed on — [the
+claims](claims.md#reading-a-persons-claims) hold the rule for every reader.
+
+**The client proves it is the actor with a token of its own.** The token it exchanges is one it was
+issued under `client_credentials`; a person's token, another client's, and an act-as token are
+refused, so one act-as token is never exchanged for the next. A client revoking that token revokes
+every act-as token issued from it.
+
+**No authentication of the person stands behind an act-as token.** It states no `auth_time`, for
+[the reason every such token states none](#when-the-person-authenticated), and comes with neither a
+refresh token nor an id token: a client wanting another exchanges again.
+
+`ActAsRuleManager` evaluates the rules, and the functions an expression may call are
+`ActAsRuleExpressions`; `TokenExchangeManager` serves the exchange around them.
 
 ## Claims and audiences
 
@@ -218,12 +257,6 @@ for the person to consent again through any client of the audience. Which client
 from the configuration as it stands — the same reading a refresh makes of the audience whose consent
 it checks — so the two agree on which tokens a consent stands behind, and a client the configuration
 no longer declares has no token left to reach.
-
-**Acting as a person rests on the act-as rules, not on a consent.** A token exchange may act as a
-person who has never signed in to the audience it names, so it reads no consent, and revoking the
-person's consent leaves a client free to exchange again. An act-as token filed under a client of the
-audience is revoked with the rest, and the next exchange issues another. [The design
-FAQ](design-faq.md#does-acting-as-a-person-need-their-consent) argues the alternative.
 
 **A token does not outlive its client.** A token naming a client the configuration no longer
 declares is a credential that does not validate, and it is refused with a `401` on every surface it
