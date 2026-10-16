@@ -1,6 +1,7 @@
 package com.sympauthy.api.controller.flow
 
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
+import com.sympauthy.api.exception.recoverableHttpExceptionOf
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.api.mapper.flow.ClaimsValidationFlowResultResourceMapper
 import com.sympauthy.api.resource.flow.*
@@ -18,6 +19,7 @@ import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
+import io.micronaut.http.HttpStatus.BAD_REQUEST
 import io.micronaut.http.annotation.Body
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
@@ -83,10 +85,6 @@ class ClaimsValidationController(
             }
         )
 
-    fun getMedia(media: String): ValidationCodeMedia {
-        return ValidationCodeMedia.valueOf(media)
-    }
-
     @Operation(
         description = "Validate the claims a validation code was sent for, with the code the end-user entered. " +
             FLOW_FAILURE_DESCRIPTION,
@@ -102,6 +100,8 @@ class ClaimsValidationController(
                     "\n- `flow.claim_validation.invalid_code`: `code` matches no validation code sent through " +
                     "`media` during this interactive flow session.\n" +
                     "- `flow.claim_validation.expired_code`: `code` matches a validation code that has expired.\n" +
+                    "- `flow.claim_validation.unknown_media`: `media` names no media a validation code is sent " +
+                    "through.\n" +
                     BODY_BAD_REQUEST_DESCRIPTION
             ),
             ApiResponse(responseCode = "401", description = FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION),
@@ -121,7 +121,7 @@ class ClaimsValidationController(
             update = { session, _ ->
                 claimValidationManager.validateClaimsByCode(
                     session = session,
-                    media = ValidationCodeMedia.valueOf(inputResource.media),
+                    media = toMedia(inputResource.media),
                     code = inputResource.code
                 )
                 session
@@ -143,7 +143,9 @@ class ClaimsValidationController(
             ApiResponse(
                 responseCode = "400",
                 description = FLOW_STATE_BAD_REQUEST_DESCRIPTION + FLOW_SIGNED_IN_SESSION_BAD_REQUEST_DESCRIPTION +
-                    "\n" + BODY_BAD_REQUEST_DESCRIPTION
+                    "\n- `flow.claim_validation.unknown_media`: `media` names no media a validation code is sent " +
+                    "through.\n" +
+                    BODY_BAD_REQUEST_DESCRIPTION
             ),
             ApiResponse(responseCode = "401", description = FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION),
             ApiResponse(responseCode = "413", description = BODY_TOO_LARGE_RESPONSE_DESCRIPTION)
@@ -160,7 +162,7 @@ class ClaimsValidationController(
             state = authentication.stateOrNull,
             observedRequest = observedRequest,
             run = { session, _, user ->
-                val media = getMedia(inputResource.media)
+                val media = toMedia(inputResource.media)
 
                 val result = claimValidationManager.resendValidationCode(
                     session = session,
@@ -175,5 +177,19 @@ class ClaimsValidationController(
                     newValidationCode = if (resent) result.validationCode else null,
                 )
             }
+        )
+
+    /**
+     * The media [media] names, in the spelling the flow resources publish it in.
+     *
+     * A value naming none throws the recoverable `flow.claim_validation.unknown_media`: the caller can send
+     * another. The failure is an `api` one, so `handleException` never sees it and the interactive flow
+     * session survives it.
+     */
+    private fun toMedia(media: String): ValidationCodeMedia =
+        ValidationCodeMedia.entries.firstOrNull { it.name == media } ?: throw recoverableHttpExceptionOf(
+            BAD_REQUEST, "flow.claim_validation.unknown_media", "description.flow.claim_validation.unknown_media",
+            "media" to media,
+            "supportedValues" to ValidationCodeMedia.entries.joinToString(", ") { it.name }
         )
 }
