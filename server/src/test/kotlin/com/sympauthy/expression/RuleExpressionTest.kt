@@ -18,7 +18,7 @@ class RuleExpressionTest {
             evaluateRuleExpression("1 +", defaultExpressionConfiguration())
         }
 
-        assertEquals("config.rule.expression.invalid", exception.configMessageId)
+        assertEquals("config.expression.invalid", exception.configMessageId)
         assertTrue(exception.reason.startsWith("1 + - "), exception.reason)
     }
 
@@ -28,7 +28,7 @@ class RuleExpressionTest {
             evaluateRuleExpression("1 + 1", defaultExpressionConfiguration())
         }
 
-        assertEquals("config.rule.expression.invalid_return", exception.configMessageId)
+        assertEquals("config.expression.invalid_return", exception.configMessageId)
         assertEquals("1 + 1", exception.reason)
     }
 }

@@ -21,6 +21,9 @@ the other half — [how the system works](../design/index.md).
 - **[Collection standard](collection-standard.md)** — what a paged collection answers with and what
   a caller may ask of one: the response, the paging, the filter, order and search grammar, and the
   document a collection publishes saying which of its fields it accepts.
+- **[Expression standard](expression-standard.md)** — the language a deployment writes its rules
+  in: the function set each kind of rule offers, how a function is named, what it answers, and
+  how an expression that cannot mean anything is refused.
 - **[Database standard](database-standard.md)** — how a table and a migration are written, and what
   keeps the PostgreSQL and H2 schemas from drifting apart.
 - **[Locking standard](locking-standard.md)** — how two instances take turns over one database: the
