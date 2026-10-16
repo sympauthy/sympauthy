@@ -373,6 +373,32 @@ where nobody but the client holds the verifier, that exchange was the client's o
 
 ---
 
+### Does acting as a person need their consent?
+
+**Decision:** No. A token exchange is allowed or refused by the act-as rules alone and reads no
+consent, so a client may act as a person who has never signed in to the audience the exchange
+names.
+
+**Options considered:**
+
+- **Require an active consent for the audience the exchange names** — the exchange refused where
+  the person has none, so that revoking a consent stops every client acting for them there.
+- **The act-as rules alone** — who may be acted as is the deployment's to decide, and a consent
+  stays what a person agreed to in a flow.
+
+**Rationale:**
+
+Acting as a person who has never signed in is a case the exchange is meant to serve, and that person
+has no consent to give: a consent is recorded by a flow, and they have been through none. Requiring
+one would refuse exactly that case.
+
+What it costs is that revoking a consent does not stop a client acting as the person. Nothing an
+act-as token carries rests on the consent — it holds no scope the person consented to — so the
+cascade reaches the act-as tokens filed under the audience's clients only because they are filed
+there, and the next exchange issues another.
+
+---
+
 ## Clients
 
 ### May a client's default scopes fall outside its allowed scopes?

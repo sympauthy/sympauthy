@@ -219,6 +219,12 @@ from the configuration as it stands — the same reading a refresh makes of the 
 it checks — so the two agree on which tokens a consent stands behind, and a client the configuration
 no longer declares has no token left to reach.
 
+**Acting as a person rests on the act-as rules, not on a consent.** A token exchange may act as a
+person who has never signed in to the audience it names, so it reads no consent, and revoking the
+person's consent leaves a client free to exchange again. An act-as token filed under a client of the
+audience is revoked with the rest, and the next exchange issues another. [The design
+FAQ](design-faq.md#does-acting-as-a-person-need-their-consent) argues the alternative.
+
 **A token does not outlive its client.** A token naming a client the configuration no longer
 declares is a credential that does not validate, and it is refused with a `401` on every surface it
 is presented to. Removing a client is how a deployment withdraws it, and a client withdrawn can no
