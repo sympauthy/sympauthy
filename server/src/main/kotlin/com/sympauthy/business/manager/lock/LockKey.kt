@@ -30,6 +30,11 @@ sealed class LockKey(
      * writer of those tables and takes nothing: it is a batch, which is what a claim exists for and what
      * "a lock names a bounded set of keys" refuses, and it re-asserts the provisionality its select
      * selected by instead.
+     *
+     * A transaction issuing tokens from a token the account already holds, and one revoking that account's
+     * tokens, take it. The first checks that the token and what it rests on still stand, then writes rows
+     * the second has nothing to wait on yet: a revocation already running when they are written does not
+     * see them, so without a key both name, tokens issued from a token being revoked would outlive it.
      */
     class User(userId: UUID) : LockKey("user", userId.toString())
 

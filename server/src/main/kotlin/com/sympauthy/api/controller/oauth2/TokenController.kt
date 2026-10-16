@@ -125,7 +125,9 @@ class TokenController(
             Parameter(
                 name = "code",
                 description = "Authorization code the browser brought back to the `redirect_uri` of the " +
-                    "authorization request. Required for the `authorization_code` grant.",
+                    "authorization request. It is exchanged once: a later exchange is refused, and one passing " +
+                    "every other check also revokes every token issued for the code, refreshed ones included. " +
+                    "Required for the `authorization_code` grant.",
                 schema = Schema(type = "string")
             ),
             Parameter(
@@ -173,9 +175,10 @@ class TokenController(
                     "- `invalid_client`: on the `authorization_code` and `refresh_token` grants, no client " +
                     "credentials are sent, or the ones sent in the body do not authenticate a client.\n" +
                     "- `invalid_grant`: `code` or `refresh_token` is unknown, expired, revoked or issued to " +
-                    "another client; `code_verifier` does not match the authorization request; the consent of " +
-                    "the end-user was revoked, or the user never finished signing up; or `subject_token` is not " +
-                    "a valid `client_credentials` access token of this client.\n" +
+                    "another client; `code` was already exchanged; `code_verifier` does not match the " +
+                    "authorization request; the consent of the end-user was revoked, or the user never " +
+                    "finished signing up; or `subject_token` is not a valid `client_credentials` access token " +
+                    "of this client.\n" +
                     "- `unauthorized_client`: the client is not allowed this `grant_type`.\n" +
                     "- `unsupported_grant_type`: `grant_type` is not supported.\n" +
                     "- `invalid_scope`: on the `client_credentials` grant, `scope` names a scope that is not " +

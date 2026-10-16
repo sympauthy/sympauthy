@@ -10,6 +10,9 @@ import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.PUBLIC_KEY
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.REFRESH_KEY
+import com.sympauthy.business.manager.lock.HeldStripes
+import com.sympauthy.business.manager.lock.LockKey
+import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.mapper.AuthenticationTokenMapper
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
@@ -22,11 +25,14 @@ import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.config.model.EnabledUrlsConfig
+import com.sympauthy.business.model.oauth2.TokenRevokedBy
 import com.sympauthy.data.repository.AuthenticationTokenRepository
+import com.sympauthy.data.repository.ObjectLockRepository
 import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import io.mockk.coEvery
 import io.mockk.coJustRun
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
@@ -75,6 +81,14 @@ class TokenManagerTest {
     var dpopManager = DpopManager(EnabledUrlsConfig(root = URI.create("https://auth.example.com")))
 
     @MockK
+    lateinit var authorizationCodeManager: AuthorizationCodeManager
+
+    private val objectLockRepository = mockk<ObjectLockRepository>(relaxed = true)
+
+    /** The real manager over the stripe table, so a test can say which row was taken before what. */
+    var lockManager: LockManager = LockManager(objectLockRepository, HeldStripes())
+
+    @MockK
     lateinit var tokenRepository: AuthenticationTokenRepository
 
     @MockK
@@ -95,6 +109,34 @@ class TokenManagerTest {
     }
 
     @Test
+    fun `revokeTokensByUser - Revokes holding the lock over the account`() = runTest {
+        val userId = UUID.randomUUID()
+        coEvery { tokenRepository.updateRevokedAtByUserId(userId, any(), "ADMIN", null) } returns 2
+
+        assertEquals(2, tokenManager.revokeTokensByUser(userId, TokenRevokedBy.ADMIN, null))
+
+        coVerifyOrder {
+            objectLockRepository.lock(LockKey.User(userId).stripe)
+            tokenRepository.updateRevokedAtByUserId(userId, any(), "ADMIN", null)
+        }
+    }
+
+    @Test
+    fun `revokeTokensByUserAndClient - Revokes holding the lock over the account`() = runTest {
+        val userId = UUID.randomUUID()
+        coEvery {
+            tokenRepository.updateRevokedAtByUserIdAndClientId(userId, "client", any(), "ADMIN", null)
+        } returns 1
+
+        assertEquals(1, tokenManager.revokeTokensByUserAndClient(userId, "client", TokenRevokedBy.ADMIN, null))
+
+        coVerifyOrder {
+            objectLockRepository.lock(LockKey.User(userId).stripe)
+            tokenRepository.updateRevokedAtByUserIdAndClientId(userId, "client", any(), "ADMIN", null)
+        }
+    }
+
+    @Test
     fun `generateTokens - Throws if session is expired`() = runTest {
         val session = mockk<CompletedInteractiveFlowSession>()
         val client = mockk<Client>()
@@ -102,6 +144,8 @@ class TokenManagerTest {
         assertThrows<OAuth2Exception> {
             tokenManager.generateTokens(session, mockk<InteractiveFlowSessionOAuth2>(), client)
         }
+
+        coVerify(exactly = 0) { authorizationCodeManager.markExchanged(any()) }
     }
 
     @Test
@@ -117,6 +161,7 @@ class TokenManagerTest {
         every { session.expired } returns false
         every { session.userId } returns userId
         coJustRun { userManager.checkPromoted(userId) }
+        coEvery { authorizationCodeManager.markExchanged(session) } returns true
         coEvery {
             accessTokenGenerator.generateAccessToken(
                 oauth2,
@@ -141,6 +186,41 @@ class TokenManagerTest {
         assertSame(refreshToken, result.refreshToken)
         assertSame(idToken, result.idToken)
     }
+
+    @Test
+    fun `generateTokens - Revokes the tokens of the session and issues none for a code already exchanged`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val sessionId = UUID.randomUUID()
+            val session = mockk<CompletedInteractiveFlowSession>()
+            every { session.expired } returns false
+            every { session.userId } returns userId
+            every { session.id } returns sessionId
+            coJustRun { userManager.checkPromoted(userId) }
+            coEvery { authorizationCodeManager.markExchanged(session) } returns false
+            coEvery {
+                tokenRepository.updateRevokedAtBySessionId(
+                    sessionId = sessionId,
+                    revokedAt = any(),
+                    revokedBy = TokenRevokedBy.AUTHORIZATION_CODE_REPLAYED.name,
+                    revokedById = null
+                )
+            } returns Unit
+
+            val exception = assertThrows<OAuth2Exception> {
+                tokenManager.generateTokens(session, mockk(), mockk())
+            }
+
+            assertEquals(INVALID_GRANT, exception.errorCode)
+            assertEquals("code.already_exchanged", exception.detailsId)
+            assertEquals("description.oauth2.replay", exception.descriptionId)
+            coVerifyOrder {
+                objectLockRepository.lock(LockKey.User(userId).stripe)
+                tokenRepository.updateRevokedAtBySessionId(sessionId, any(), any(), any())
+            }
+            coVerify(exactly = 0) { accessTokenGenerator.generateAccessToken(any(), any(), any(), any()) }
+            coVerify(exactly = 0) { refreshTokenGenerator.generateRefreshToken(any(), any(), any(), any()) }
+        }
 
     @Test
     fun `refreshToken - Throws invalid_grant if the token does not verify`() = runTest {
@@ -181,10 +261,34 @@ class TokenManagerTest {
         every { client.id } returns "test-client"
         coEvery { jwtManager.decodeAndVerify(any(), any()) } returns decodedToken
         coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
+        every { refreshToken.userId } returns UUID.randomUUID()
         every { refreshToken.clientId } returns "non-matching-client-id"
 
         assertThrows<OAuth2Exception> {
             tokenManager.refreshToken(client, "test")
+        }
+    }
+
+    @Test
+    fun `refreshToken - Reads the token again under the lock over its account`() = runTest {
+        val userId = UUID.randomUUID()
+        val decodedToken = DecodedJwt(id = UUID.randomUUID().toString(), subject = "$userId", keyId = null)
+        val refreshToken = mockk<AuthenticationToken>()
+        every { refreshToken.userId } returns userId
+        coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, "token") } returns decodedToken
+        coEvery {
+            tokenManager.getAuthenticationToken(decodedToken)
+        } returns refreshToken andThenThrows oauth2ExceptionOf(INVALID_GRANT, "token.revoked")
+
+        val exception = assertThrows<OAuth2Exception> {
+            tokenManager.refreshToken(mockk(), "token")
+        }
+
+        assertEquals("token.revoked", exception.detailsId)
+        coVerifyOrder {
+            tokenManager.getAuthenticationToken(decodedToken)
+            objectLockRepository.lock(LockKey.User(userId).stripe)
+            tokenManager.getAuthenticationToken(decodedToken)
         }
     }
 
@@ -511,6 +615,7 @@ class TokenManagerTest {
     fun `revokeTokenByEncodedToken - Revokes access token`() = runTest {
         val clientId = "client-a"
         val tokenId = UUID.randomUUID()
+        val userId = UUID.randomUUID()
         val client = mockk<Client>()
         val decodedToken = DecodedJwt(id = tokenId.toString(), subject = null, keyId = null)
         val token = mockk<AuthenticationToken>()
@@ -522,6 +627,7 @@ class TokenManagerTest {
         every { token.clientId } returns clientId
         every { token.type } returns ACCESS
         every { token.id } returns tokenId
+        every { token.userId } returns userId
         coEvery { tokenRepository.updateRevokedAt(tokenId, any(), "CLIENT", null) } returns Unit
         coEvery { tokenRepository.updateRevokedAtByActorTokenId(tokenId, any(), "CLIENT", null) } returns 0
 
@@ -703,6 +809,7 @@ class TokenManagerTest {
     fun `revokeTokenByEncodedToken - Cascades revocation for refresh token`() = runTest {
         val clientId = "client-a"
         val tokenId = UUID.randomUUID()
+        val userId = UUID.randomUUID()
         val sessionId = UUID.randomUUID()
         val client = mockk<Client>()
         val decodedToken = DecodedJwt(id = tokenId.toString(), subject = null, keyId = null)
@@ -716,19 +823,24 @@ class TokenManagerTest {
         every { token.type } returns REFRESH
         every { token.id } returns tokenId
         every { token.sessionId } returns sessionId
+        every { token.userId } returns userId
         coEvery { tokenRepository.updateRevokedAtBySessionId(sessionId, any(), "CLIENT", null) } returns Unit
         coEvery { tokenRepository.updateRevokedAtByActorTokenId(tokenId, any(), "CLIENT", null) } returns 0
 
         tokenManager.revokeTokenByEncodedToken(client, "token")
 
         coVerify(exactly = 0) { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, any()) }
-        coVerify(exactly = 1) { tokenRepository.updateRevokedAtBySessionId(sessionId, any(), "CLIENT", null) }
+        coVerifyOrder {
+            objectLockRepository.lock(LockKey.User(userId).stripe)
+            tokenRepository.updateRevokedAtBySessionId(sessionId, any(), "CLIENT", null)
+        }
     }
 
     @Test
     fun `revokeTokenByEncodedToken - Cascades revocation to act-as tokens derived from the token`() = runTest {
         val clientId = "client-a"
         val tokenId = UUID.randomUUID()
+        val userId = UUID.randomUUID()
         val client = mockk<Client>()
         val decodedToken = DecodedJwt(id = tokenId.toString(), subject = null, keyId = null)
         val token = mockk<AuthenticationToken>()
@@ -740,6 +852,7 @@ class TokenManagerTest {
         every { token.clientId } returns clientId
         every { token.type } returns ACCESS
         every { token.id } returns tokenId
+        every { token.userId } returns userId
         coEvery { tokenRepository.updateRevokedAt(tokenId, any(), "CLIENT", null) } returns Unit
         coEvery { tokenRepository.updateRevokedAtByActorTokenId(tokenId, any(), "CLIENT", null) } returns 1
 

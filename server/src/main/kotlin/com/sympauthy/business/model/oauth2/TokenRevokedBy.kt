@@ -8,5 +8,11 @@ enum class TokenRevokedBy {
     ADMIN,
 
     /** The token was revoked as a consequence of the user's consent being revoked. */
-    CONSENT_REVOKED
+    CONSENT_REVOKED,
+
+    /**
+     * The token was revoked because the authorization code its grant came from was presented again
+     * after it had been exchanged, RFC 6749 §4.1.2.
+     */
+    AUTHORIZATION_CODE_REPLAYED
 }

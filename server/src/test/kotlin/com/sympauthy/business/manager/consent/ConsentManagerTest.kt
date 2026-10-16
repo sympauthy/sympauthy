@@ -1,5 +1,8 @@
 package com.sympauthy.business.manager.consent
 
+import com.sympauthy.business.manager.lock.HeldStripes
+import com.sympauthy.business.manager.lock.LockKey
+import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.ConsentMapper
 import com.sympauthy.business.model.oauth2.Consent
@@ -7,9 +10,11 @@ import com.sympauthy.business.model.oauth2.ConsentRevokedBy
 import com.sympauthy.data.model.ConsentEntity
 import com.sympauthy.data.repository.AuthenticationTokenRepository
 import com.sympauthy.data.repository.ConsentRepository
+import com.sympauthy.data.repository.ObjectLockRepository
 import io.mockk.coEvery
 import io.mockk.coJustRun
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
@@ -37,6 +42,11 @@ class ConsentManagerTest {
 
     @MockK
     lateinit var userManager: UserManager
+
+    private val objectLockRepository = mockk<ObjectLockRepository>(relaxed = true)
+
+    /** The real manager over the stripe table, so a test can say which row was taken before what. */
+    var lockManager: LockManager = LockManager(objectLockRepository, HeldStripes())
 
     @InjectMockKs
     lateinit var consentManager: ConsentManager
@@ -138,10 +148,9 @@ class ConsentManagerTest {
 
         consentManager.revokeConsent(consent, ConsentRevokedBy.ADMIN, adminId)
 
-        coVerify(exactly = 1) {
+        coVerifyOrder {
+            objectLockRepository.lock(LockKey.User(userId).stripe)
             consentRepository.updateRevokedAt(consentId, any(), "ADMIN", adminId)
-        }
-        coVerify(exactly = 1) {
             tokenRepository.updateRevokedAtByUserIdAndClientId(
                 userId, clientId, any(), "CONSENT_REVOKED", adminId
             )

@@ -336,6 +336,43 @@ what the client still holds, for as long as it has left to run.
 
 ---
 
+### Does any presentation of a spent authorization code revoke what it was exchanged for?
+
+**Decision:** No. A spent code revokes the tokens issued under its authorization only when it is
+presented by an exchange that passes client authentication and the PKCE verifier — one that would
+have been issued tokens had the code not been spent. Any other request presenting it
+is refused for what it got wrong, and revokes nothing.
+
+**Options considered:**
+
+- **Revoke on any presentation** — the literal reading of RFC 6749 §4.1.2, *"If an authorization
+  code is used more than once"*, checking the code before anything else the request carries.
+- **Revoke on an exchange that would otherwise succeed** — the code is spent at the moment tokens
+  are issued, and a request is a second exchange only where it reached that moment.
+- **Never revoke** — refuse the second exchange, which is all the specification requires, and leave
+  the tokens of the first in service.
+
+**Rationale:**
+
+Revocation is there for one case: a code that reached somebody able to exchange it, who did so
+before the client it was issued to. The client's own exchange is then the second, and revoking is
+the only way the first set of tokens comes back. Never revoking leaves that case uncontained, and it
+is the case RFC 6749 recommends against leaving.
+
+Being able to exchange a code here means holding its verifier. PKCE is required of every
+authorization request this server accepts, and the verifier never leaves the client that generated
+it unless that client is compromised. A code on its own leaks routinely — into a server log, a
+browser's history, a `Referer` header — and a party holding only that cannot be issued anything. Had
+any presentation revoked, that same party could end the person's session at the client whenever it
+liked, with something it had been handed for free; a recommendation qualified *"when possible"* is
+not one that asks for that.
+
+Nothing is left uncontained by it. A request refused before the code is spent was never issued
+anything, so the tokens it leaves in service are those of an exchange that passed every check — and
+where nobody but the client holds the verifier, that exchange was the client's own.
+
+---
+
 ## Clients
 
 ### May a client's default scopes fall outside its allowed scopes?
