@@ -18,6 +18,13 @@ sent to the error page, which reads the refusal off that session like any other 
 operator finds it among the sessions with the rest. The OAuth2 record is written for it too, holding
 whatever was known, so the session carries the error that explains it.
 
+**A request object is refused, never read.** OpenID Connect Core §6 lets a client move any parameter
+of its request into a JWT, sent in `request` or behind `request_uri`, and requires a server that
+reads neither to refuse it. Serving what was left in the query would answer a request the client did
+not make — a `nonce` or a `claims` the object carried dropped without a word — so the refusal is
+recorded ahead of every parameter the object could have held. The discovery document says the same,
+with `request_parameter_supported` and `request_uri_parameter_supported` both false.
+
 **What the client asked for is the session's OAuth2 record**, keyed by the session id and read
 through its own manager, the way [the interactive flow](interactive-flow.md#the-session) has every
 purpose keep its state. It holds the request as it was validated — the client, the redirect URI, the

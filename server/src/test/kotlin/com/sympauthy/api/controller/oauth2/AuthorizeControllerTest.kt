@@ -247,6 +247,60 @@ class AuthorizeControllerTest {
     }
 
     @Test
+    fun `authorize - Passes the request object parameters to startAuthorizationWith`() = runTest {
+        val session = mockk<InteractiveFlowSession>()
+        val flow = mockk<InteractiveFlow>()
+        val signInUri = URI("https://auth.example.com/sign-in?state=abc")
+
+        coEvery {
+            interactiveAuthFlowSessionManager.startAuthorizationWith(
+                uncheckedClientId = "my-client",
+                uncheckedClientState = null,
+                uncheckedClientNonce = null,
+                uncheckedScopes = null,
+                uncheckedRedirectUri = null,
+                uncheckedCodeChallenge = null,
+                uncheckedCodeChallengeMethod = null,
+                uncheckedRequest = "eyJhbGciOiJub25lIn0.e30.",
+                uncheckedRequestUri = "https://client.example.com/request.jwt"
+            )
+        } returns (session to flow)
+
+        stubCurrentStep(session, flow, InteractiveFlowStep.SignIn, signInUri)
+
+        controller.authorize(
+            observedRequest = observed,
+            responseType = "code",
+            uncheckedClientId = "my-client",
+            uncheckedRedirectUri = null,
+            uncheckedScopes = null,
+            uncheckedClientState = null,
+            uncheckedClientNonce = null,
+            uncheckedCodeChallenge = null,
+            uncheckedCodeChallengeMethod = null,
+            uncheckedInvitationToken = null,
+            uncheckedMaxAge = null,
+            uncheckedClaims = null,
+            uncheckedRequest = "eyJhbGciOiJub25lIn0.e30.",
+            uncheckedRequestUri = "https://client.example.com/request.jwt"
+        )
+
+        coVerify(exactly = 1) {
+            interactiveAuthFlowSessionManager.startAuthorizationWith(
+                uncheckedClientId = "my-client",
+                uncheckedClientState = null,
+                uncheckedClientNonce = null,
+                uncheckedScopes = null,
+                uncheckedRedirectUri = null,
+                uncheckedCodeChallenge = null,
+                uncheckedCodeChallengeMethod = null,
+                uncheckedRequest = "eyJhbGciOiJub25lIn0.e30.",
+                uncheckedRequestUri = "https://client.example.com/request.jwt"
+            )
+        }
+    }
+
+    @Test
     fun `authorize - Passes null for absent optional parameters`() = runTest {
         val session = mockk<InteractiveFlowSession>()
         val flow = mockk<InteractiveFlow>()

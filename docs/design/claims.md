@@ -607,7 +607,9 @@ the specification lets a server ignore both. They are ignored.
 whatever locale asks for it.
 
 **The `request` and `request_uri` JWT request objects of §6.** They are the other way a client sends
-the `claims` parameter, and this server reads it from the query alone.
+the `claims` parameter, and an authorization request carrying one is
+[refused](oauth2-authorization.md#what-a-request-becomes), so this server reads it from the query
+alone.
 
 **Whether a client may ask a claim into a token.** The request reaches the two OpenID channels and
 no other place, so the access token and the introspection response carry what

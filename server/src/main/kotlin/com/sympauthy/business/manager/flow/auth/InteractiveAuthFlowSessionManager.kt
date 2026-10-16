@@ -90,6 +90,8 @@ class InteractiveAuthFlowSessionManager(
      * - validating the [uncheckedClientId]. Redirect the user to the error page of the default interactive auth flow in
      *   case of error.
      * - selecting the flow: Either the one provided by the [Client] or the default one.
+     * - refusing a request object, in [uncheckedRequest] or behind [uncheckedRequestUri], which
+     *   [checkRequestObject] explains.
      * - validating the [uncheckedScopes]. Redirect the user to the error page of the selected flow in case of error.
      * - validating the [uncheckedRedirectUri]. Redirect the user to the error page of the selected flow in case of
      *   error.
@@ -115,7 +117,9 @@ class InteractiveAuthFlowSessionManager(
         uncheckedCodeChallengeMethod: String? = null,
         uncheckedInvitationToken: String? = null,
         uncheckedMaxAge: String? = null,
-        uncheckedClaims: String? = null
+        uncheckedClaims: String? = null,
+        uncheckedRequest: String? = null,
+        uncheckedRequestUri: String? = null
     ): Pair<InteractiveFlowSession, InteractiveFlow> {
         val (client, clientException) = try {
             val client = clientManager.parseRequestedClient(uncheckedClientId)
@@ -141,6 +145,8 @@ class InteractiveAuthFlowSessionManager(
         } else {
             defaultFlow to null
         }
+
+        val requestObjectException = checkRequestObject(uncheckedRequest, uncheckedRequestUri)
 
         val (scopes, scopeException) = if (client != null) {
             try {
@@ -206,6 +212,7 @@ class InteractiveAuthFlowSessionManager(
             error = listOfNotNull(
                 clientException,
                 flowException,
+                requestObjectException,
                 scopeException,
                 redirectUriException,
                 pkceException,
@@ -251,6 +258,33 @@ class InteractiveAuthFlowSessionManager(
         }
 
         return Triple(uncheckedCodeChallenge, method, null)
+    }
+
+    /**
+     * Return the refusal of an authorization request carrying a request object, in [uncheckedRequest] or behind
+     * [uncheckedRequestUri], or null where it carries neither. A value sent with nothing after the `=` is treated
+     * as not sent.
+     *
+     * This server reads no request object, and OpenID Connect Core §6.1 and §6.2 require a server that does not to
+     * refuse one rather than ignore it. A client may put any parameter of its request in the object — the
+     * `redirect_uri`, the `nonce`, the `claims` — so serving what was left in the query would answer a request the
+     * client did not make. The refusal is ordered after the client's own, and before every parameter the object
+     * may have carried in its place.
+     */
+    internal fun checkRequestObject(uncheckedRequest: String?, uncheckedRequestUri: String?): BusinessException? {
+        if (!uncheckedRequest.isNullOrBlank()) {
+            return businessExceptionOf(
+                detailsId = "authorize.request.unsupported",
+                descriptionId = "description.authorize.request_object.unsupported"
+            )
+        }
+        if (!uncheckedRequestUri.isNullOrBlank()) {
+            return businessExceptionOf(
+                detailsId = "authorize.request_uri.unsupported",
+                descriptionId = "description.authorize.request_object.unsupported"
+            )
+        }
+        return null
     }
 
     /**
