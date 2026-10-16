@@ -146,7 +146,7 @@ class BootstrapInvitationManagerTest {
         coEvery { configReadiness.getConfigurationErrors() } returns emptyList()
         coEvery { consentManager.findActiveConsentsByAudience("default") } returns emptyList()
         coEvery { invitationManager.findByAudienceId("default") } returns listOf(previous, consumed, fromAdmin)
-        coEvery { invitationManager.revokeInvitation(previous.id) } returns mockk()
+        coEvery { invitationManager.revokeInvitation(previous) } returns mockk()
         coEvery {
             invitationManager.createInvitation(any(), any(), any(), any(), any(), any(), any())
         } returns (mockk<Invitation>() to "rawToken")
@@ -154,12 +154,12 @@ class BootstrapInvitationManagerTest {
         manager(EnabledBootstrapInvitationsConfig(listOf(bootstrapInvitation))).onApplicationEvent(mockk())
 
         coVerifyOrder {
-            invitationManager.revokeInvitation(previous.id)
+            invitationManager.revokeInvitation(previous)
             invitationManager.createInvitation(any(), any(), any(), any(), any(), any(), any())
         }
         coVerify(exactly = 0) {
-            invitationManager.revokeInvitation(consumed.id)
-            invitationManager.revokeInvitation(fromAdmin.id)
+            invitationManager.revokeInvitation(consumed)
+            invitationManager.revokeInvitation(fromAdmin)
         }
     }
 }

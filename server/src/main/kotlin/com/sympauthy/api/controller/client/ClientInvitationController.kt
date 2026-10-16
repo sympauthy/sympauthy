@@ -261,10 +261,9 @@ class ClientInvitationController(
         @PathVariable @Parameter(description = "Identifier of the invitation to revoke.") invitationId: UUID
     ): ClientInvitationResource {
         val clientAuth = authentication.clientAuthentication
-        invitationManager.findByIdOrNull(invitationId)
+        val invitation = invitationManager.findByIdOrNull(invitationId)
             ?.takeIf { it.createdById == clientAuth.clientId }
             .orNotFound()
-        val invitation = invitationManager.revokeInvitation(invitationId)
-        return invitationMapper.toResource(invitation)
+        return invitationMapper.toResource(invitationManager.revokeInvitation(invitation))
     }
 }

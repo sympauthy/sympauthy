@@ -355,8 +355,6 @@ open class InvitationManager(
         userManager.checkPromoted(userId)
         val consumed = invitationRepository.consumeIfPending(
             id = id,
-            status = InvitationStatus.CONSUMED.name,
-            pendingStatus = InvitationStatus.PENDING.name,
             consumedByUserId = userId,
             consumedAt = LocalDateTime.now()
         )
@@ -370,22 +368,23 @@ open class InvitationManager(
     }
 
     /**
-     * Revoke a pending invitation.
+     * Revoke the [invitation] and return it.
+     *
+     * Throws a non-recoverable [BusinessException] `invitation.cannot_revoke` when the invitation is no longer
+     * pending, expired included. The write checks that, not [invitation]: its caller read it before this
+     * transaction began, and a sign-up may have consumed it since.
      */
     @Transactional
-    open suspend fun revokeInvitation(id: UUID): Invitation {
-        val invitation = findById(id)
-        if (invitation.status != InvitationStatus.PENDING) {
+    open suspend fun revokeInvitation(invitation: Invitation): Invitation {
+        val revoked = invitationRepository.revokeIfPending(id = invitation.id, revokedAt = LocalDateTime.now())
+        val current = findById(invitation.id)
+        if (revoked == 0) {
             throw businessExceptionOf(
                 detailsId = "invitation.cannot_revoke",
-                values = arrayOf("status" to invitation.status.name)
+                descriptionId = "description.invitation.cannot_revoke",
+                values = arrayOf("status" to current.status.name)
             )
         }
-        invitationRepository.updateRevokedAt(
-            id = id,
-            status = InvitationStatus.REVOKED.name,
-            revokedAt = LocalDateTime.now()
-        )
-        return findById(id)
+        return current
     }
 }

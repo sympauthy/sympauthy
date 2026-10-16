@@ -214,14 +214,17 @@ class AdminInvitationController(
             ApiResponse(responseCode = "200", description = "The invitation, now `revoked`."),
             ApiResponse(
                 responseCode = "400",
-                description = "- `invitation.not_found`: no invitation has this identifier.\n" +
-                        "- `invitation.cannot_revoke`: the invitation is not `pending`.\n" +
+                description = "- `invitation.cannot_revoke`: the invitation is not `pending`.\n" +
                         PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION
             ),
             ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
                 responseCode = "403",
                 description = "- `forbidden`: the access token does not carry the scope `admin:invitations:write`."
+            ),
+            ApiResponse(
+                responseCode = "404",
+                description = "- `not_found`: no invitation has this identifier."
             )
         ]
     )
@@ -231,7 +234,7 @@ class AdminInvitationController(
     suspend fun revokeInvitation(
         @PathVariable @Parameter(description = "Identifier of the invitation to revoke.") invitationId: UUID
     ): AdminInvitationResource {
-        val invitation = invitationManager.revokeInvitation(invitationId)
-        return invitationMapper.toResource(invitation)
+        val invitation = invitationManager.findByIdOrNull(invitationId).orNotFound()
+        return invitationMapper.toResource(invitationManager.revokeInvitation(invitation))
     }
 }

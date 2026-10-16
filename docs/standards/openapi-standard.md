@@ -153,7 +153,7 @@ for more than one reason is declared once.
 that raises it.** A caller branches on the code, so it is the line's first word.
 
 ```markdown
-- `invitation.not_found`: no invitation has this identifier, or this client did not create it.
+- `not_found`: no invitation has this identifier, or this client did not create it.
 ```
 
 **The code is the one the caller reads.** On `/api/oauth2` and `/api/openid` it is the code the

@@ -1,5 +1,8 @@
 package com.sympauthy.data.repository
 
+import com.sympauthy.business.model.invitation.InvitationStatus.CONSUMED
+import com.sympauthy.business.model.invitation.InvitationStatus.PENDING
+import com.sympauthy.business.model.invitation.InvitationStatus.REVOKED
 import com.sympauthy.data.BASE_DATE
 import com.sympauthy.data.Database
 import com.sympauthy.data.RepositoryFixture
@@ -40,7 +43,7 @@ class InvitationRepositoryTest {
         assertArrayEquals(byteArrayOf(10, 20, 30), stored.hashedToken)
         assertArrayEquals(byteArrayOf(40, 50), stored.salt)
         assertEquals(mapOf("email" to "ada@example.org"), stored.claims)
-        assertEquals("pending", stored.status)
+        assertEquals(PENDING.name, stored.status)
         assertEquals(BASE_DATE, stored.createdAt)
     }
 
@@ -114,10 +117,10 @@ class InvitationRepositoryTest {
         val id = saveInvitation()
         val consumedAt = BASE_DATE.plusDays(1)
 
-        assertEquals(1, invitations.consumeIfPending(id, "consumed", "pending", userId, consumedAt))
+        assertEquals(1, invitations.consumeIfPending(id, userId, consumedAt))
 
         val stored = invitations.findById(id)
-        assertEquals("consumed", stored?.status)
+        assertEquals(CONSUMED.name, stored?.status)
         assertEquals(userId, stored?.consumedByUserId)
         assertEquals(consumedAt, stored?.consumedAt)
     }
@@ -131,25 +134,54 @@ class InvitationRepositoryTest {
             val second = newUser()
             val id = saveInvitation()
             val consumedAt = BASE_DATE.plusDays(1)
-            invitations.consumeIfPending(id, "consumed", "pending", first, consumedAt)
+            invitations.consumeIfPending(id, first, consumedAt)
 
-            assertEquals(0, invitations.consumeIfPending(id, "consumed", "pending", second, consumedAt))
+            assertEquals(0, invitations.consumeIfPending(id, second, consumedAt))
 
             assertEquals(first, invitations.findById(id)?.consumedByUserId)
         }
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `updateRevokedAt - Revokes the invitation`(database: Database) = withFixture(database) {
+    fun `revokeIfPending - Revokes the invitation`(database: Database) = withFixture(database) {
         val invitations = repository<InvitationRepository>()
         val id = saveInvitation()
         val revokedAt = BASE_DATE.plusDays(1)
 
-        invitations.updateRevokedAt(id, "revoked", revokedAt)
+        assertEquals(1, invitations.revokeIfPending(id, revokedAt))
 
         val stored = invitations.findById(id)
-        assertEquals("revoked", stored?.status)
+        assertEquals(REVOKED.name, stored?.status)
         assertEquals(revokedAt, stored?.revokedAt)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `revokeIfPending - Leaves an invitation a sign-up already consumed`(database: Database) =
+        withFixture(database) {
+            val invitations = repository<InvitationRepository>()
+            val userId = newUser()
+            val id = saveInvitation()
+            invitations.consumeIfPending(id, userId, BASE_DATE.plusDays(1))
+
+            assertEquals(0, invitations.revokeIfPending(id, BASE_DATE.plusDays(2)))
+
+            val stored = invitations.findById(id)
+            assertEquals(CONSUMED.name, stored?.status)
+            assertNull(stored?.revokedAt)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `revokeIfPending - Leaves an invitation past its expiry`(database: Database) = withFixture(database) {
+        val invitations = repository<InvitationRepository>()
+        val id = saveInvitation()
+
+        assertEquals(0, invitations.revokeIfPending(id, BASE_DATE.plusDays(8)))
+
+        val stored = invitations.findById(id)
+        assertEquals(PENDING.name, stored?.status)
+        assertNull(stored?.revokedAt)
     }
 
     private suspend fun RepositoryFixture.saveInvitation(
@@ -167,7 +199,7 @@ class InvitationRepositoryTest {
                 salt = byteArrayOf(40, 50),
                 tokenPrefix = "inv_test",
                 claims = claims,
-                status = "pending",
+                status = PENDING.name,
                 createdBy = "administrator",
                 createdById = createdById,
                 createdAt = BASE_DATE,

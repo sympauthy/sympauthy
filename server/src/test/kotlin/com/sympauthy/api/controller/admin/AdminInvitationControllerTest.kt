@@ -257,4 +257,30 @@ class AdminInvitationControllerTest {
         assertEquals(7, result.size)
         assertEquals(42, result.total)
     }
+
+    @Test
+    fun `revokeInvitation - Revoke the invitation the identifier names`() = runTest {
+        val pending = invitation(id(1), createdAt)
+        val revoked = pending.copy(status = InvitationStatus.REVOKED)
+        val resource = mockResource(revoked.id)
+
+        coEvery { invitationManager.findByIdOrNull(pending.id) } returns pending
+        coEvery { invitationManager.revokeInvitation(pending) } returns revoked
+        every { invitationMapper.toResource(revoked) } returns resource
+
+        assertSame(resource, controller.revokeInvitation(pending.id))
+    }
+
+    @Test
+    fun `revokeInvitation - Answer not_found for an identifier no invitation has`() = runTest {
+        coEvery { invitationManager.findByIdOrNull(id(1)) } returns null
+
+        // The revoke is left unstubbed on purpose: reaching the assertion is proof it was never asked.
+        val exception = assertThrows<LocalizedHttpException> {
+            controller.revokeInvitation(id(1))
+        }
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.status)
+        assertEquals("not_found", exception.detailsId)
+    }
 }

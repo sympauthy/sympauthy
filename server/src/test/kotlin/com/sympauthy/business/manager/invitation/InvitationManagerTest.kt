@@ -380,17 +380,35 @@ class InvitationManagerTest {
     }
 
     @Test
-    fun `revokeInvitation - Throws when invitation is not pending`() = runTest {
-        val invitationId = UUID.randomUUID()
-        val invitation = createInvitation(id = invitationId, status = InvitationStatus.CONSUMED)
+    fun `revokeInvitation - Marks the invitation revoked`() = runTest {
+        val pending = createInvitation()
+        val revoked = createInvitation(id = pending.id, status = InvitationStatus.REVOKED)
+        val entity = mockk<InvitationEntity>()
 
-        coEvery { invitationRepository.findById(invitationId) } returns mockk()
-        every { invitationMapper.toInvitation(any<InvitationEntity>()) } returns invitation
+        coEvery { invitationRepository.revokeIfPending(pending.id, any()) } returns 1
+        coEvery { invitationRepository.findById(pending.id) } returns entity
+        every { invitationMapper.toInvitation(entity) } returns revoked
+
+        assertSame(revoked, manager.revokeInvitation(pending))
+    }
+
+    @Test
+    fun `revokeInvitation - Refuses an invitation a sign-up consumed since its caller read it`() = runTest {
+        val pending = createInvitation()
+        val consumed = createInvitation(id = pending.id, status = InvitationStatus.CONSUMED)
+        val entity = mockk<InvitationEntity>()
+
+        coEvery { invitationRepository.revokeIfPending(pending.id, any()) } returns 0
+        coEvery { invitationRepository.findById(pending.id) } returns entity
+        every { invitationMapper.toInvitation(entity) } returns consumed
 
         val exception = assertThrows<BusinessException> {
-            manager.revokeInvitation(invitationId)
+            manager.revokeInvitation(pending)
         }
+
         assertEquals("invitation.cannot_revoke", exception.detailsId)
+        assertEquals("description.invitation.cannot_revoke", exception.descriptionId)
+        assertEquals("CONSUMED", exception.values["status"])
     }
 
     @Test
@@ -421,7 +439,7 @@ class InvitationManagerTest {
         manager.applyInvitationClaims(invitationId, user)
 
         coVerify { collectedClaimManager.update(user, match { it.size == 1 && it[0].claim == claim }) }
-        coVerify(exactly = 0) { invitationRepository.consumeIfPending(any(), any(), any(), any(), any()) }
+        coVerify(exactly = 0) { invitationRepository.consumeIfPending(any(), any(), any()) }
     }
 
     @Test
@@ -564,7 +582,7 @@ class InvitationManagerTest {
 
         coJustRun { userManager.checkPromoted(userId) }
         coEvery {
-            invitationRepository.consumeIfPending(invitationId, "CONSUMED", "PENDING", userId, any())
+            invitationRepository.consumeIfPending(invitationId, userId, any())
         } returns 1
         coEvery { invitationRepository.findById(invitationId) } returns entity
         every { invitationMapper.toInvitation(entity) } returns invitation
@@ -579,7 +597,7 @@ class InvitationManagerTest {
 
         coJustRun { userManager.checkPromoted(userId) }
         coEvery {
-            invitationRepository.consumeIfPending(invitationId, "CONSUMED", "PENDING", userId, any())
+            invitationRepository.consumeIfPending(invitationId, userId, any())
         } returns 0
 
         val exception = assertThrows<BusinessException> {
