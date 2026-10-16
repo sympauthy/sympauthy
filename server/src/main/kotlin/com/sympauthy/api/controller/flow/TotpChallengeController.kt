@@ -8,8 +8,8 @@ import com.sympauthy.api.util.BODY_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.FLOW_FAILURE_DESCRIPTION
 import com.sympauthy.api.util.FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION
-import com.sympauthy.api.util.FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.FLOW_REDIRECT_RESPONSE_DESCRIPTION
+import com.sympauthy.api.util.FLOW_STATE_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionTotpChallengeManager
 import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.security.SecurityRule.HAS_STATE
@@ -42,7 +42,7 @@ class TotpChallengeController(
             ),
             ApiResponse(
                 responseCode = "400",
-                description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION +
+                description = FLOW_STATE_BAD_REQUEST_DESCRIPTION +
                     "\n- `flow.mfa.totp.challenge.invalid_code`: `code` is absent, or matches none of the TOTP " +
                     "MFA methods the user has enrolled.\n" +
                     BODY_BAD_REQUEST_DESCRIPTION

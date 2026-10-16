@@ -10,7 +10,6 @@ import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.FLOW_FAILURE_DESCRIPTION
 import com.sympauthy.api.util.FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION
 import com.sympauthy.api.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
-import com.sympauthy.api.util.FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.FLOW_REDIRECT_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.FLOW_SIGNED_IN_SESSION_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.FLOW_STATE_BAD_REQUEST_DESCRIPTION
@@ -79,7 +78,7 @@ class TotpEnrollmentController(
             ),
             ApiResponse(
                 responseCode = "400",
-                description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION +
+                description = FLOW_STATE_BAD_REQUEST_DESCRIPTION +
                     "\n- `flow.mfa.totp.enroll.no_pending_enrollment`: the user has no TOTP enrollment waiting " +
                     "for confirmation: none was started, or it is already confirmed.\n" +
                     "- `flow.mfa.totp.enroll.invalid_code`: `code` is absent, or does not match the secret of the " +

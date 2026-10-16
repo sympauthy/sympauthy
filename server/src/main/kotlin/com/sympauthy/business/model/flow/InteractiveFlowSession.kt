@@ -317,6 +317,39 @@ fun interactiveFlowSessionExpiredExceptionOf(expirationDate: LocalDateTime) = bu
 )
 
 /**
+ * What the end-user is told of a session answered [InteractiveFlowStep.AlreadyCompleted]: it completed, and the
+ * hand-off its initiator gives once went to the request that completed it.
+ *
+ * **Nothing throws this either.** The session did not fail, and nothing on its row says what the person
+ * reaching it again should read, so it is synthesised where that answer is rendered.
+ */
+fun interactiveFlowSessionAlreadyCompletedExceptionOf() = businessExceptionOf(
+    "auth.interactive_flow_session.already_completed",
+    "description.auth.interactive_flow_session.already_completed"
+)
+
+/**
+ * Detail id of the failure [interactiveFlowSessionConcurrentModificationExceptionOf] builds, for the flow's
+ * error handling to tell it apart (see
+ * [com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil.handleException]).
+ */
+const val CONCURRENT_MODIFICATION_DETAILS_ID = "auth.interactive_flow_session.concurrent_modification"
+
+/**
+ * The non-recoverable failure of a version-guarded update that affected no rows: the [session] snapshot the
+ * caller holds is stale because another request advanced the session since it was read. The flow's error
+ * handling reflects the session's current terminal status where possible and otherwise fails it.
+ *
+ * A write that another request beat to a row of its own, rather than to the session's version, throws it
+ * too where losing that race means the same thing.
+ */
+fun interactiveFlowSessionConcurrentModificationExceptionOf(session: InteractiveFlowSession) =
+    businessExceptionOf(
+        CONCURRENT_MODIFICATION_DETAILS_ID,
+        "sessionId" to session.id.toString()
+    )
+
+/**
  * Represents an interactive flow session the end-user cancelled.
  *
  * Distinct from a [FailedInteractiveFlowSession]: a failed session routes the end-user to the flow's error

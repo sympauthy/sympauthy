@@ -54,6 +54,17 @@ interface InteractiveFlowPurposeHandler {
         TerminalEffectResult.Proceed
 
     /**
+     * Whether a session this purpose initiated hands the end-user back only once, to the request that
+     * completed it. Asked of the initiating purpose alone, since it is the one owning that hand-off.
+     *
+     * Where it does, a later request on the completed session — a reload, a second tab, the loser of a double
+     * submit — is answered [InteractiveFlowStep.AlreadyCompleted] rather than handed back again. The default
+     * is false, for a hand-off carrying nothing that may only be given out once.
+     */
+    val handsOffOnce: Boolean
+        get() = false
+
+    /**
      * What this purpose has to say about where [session] stands, for an operator reading the session on the
      * admin API. Each entry is a label and the value behind it, in the order the operator reads them.
      *

@@ -52,13 +52,28 @@ class InteractiveFlowEngineTest {
     }
 
     @Test
-    fun `advance - Completed session maps to Complete`() = runTest {
+    fun `advance - Hands a completed session back again where its initiating purpose allows it`() = runTest {
         val session = completedSession()
+        val handler = mockk<InteractiveFlowPurposeHandler> { every { handsOffOnce } returns false }
+        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns handler
 
         val result = engine.advance(session)
 
         assertSame(session, result.session)
         assertEquals(InteractiveFlowStep.Complete, result.step)
+    }
+
+    /** A reload, a second tab or the loser of a double submit, once the hand-off went to the completing call. */
+    @Test
+    fun `advance - Tells a completed session it is over where its initiating purpose hands off once`() = runTest {
+        val session = completedSession()
+        val handler = mockk<InteractiveFlowPurposeHandler> { every { handsOffOnce } returns true }
+        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns handler
+
+        val result = engine.advance(session)
+
+        assertSame(session, result.session)
+        assertEquals(InteractiveFlowStep.AlreadyCompleted, result.step)
     }
 
     @Test
@@ -423,24 +438,6 @@ class InteractiveFlowEngineTest {
         coEvery { handler.nextStepOrNull(session) } returns null
 
         assertNull(engine.currentPurposeOrNull(session))
-    }
-
-    @Test
-    fun `completeIfNecessary - Returns the session advanced by advance`() = runTest {
-        val session = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE))
-        val marked = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE))
-        val completed = completedSession()
-        val handler = mockk<InteractiveFlowPurposeHandler>()
-        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns handler
-        coEvery { handler.nextStepOrNull(session) } returns null
-        coEvery {
-            sessionManager.markPurposeAsCompleted(session, InteractiveFlowPurpose.OAUTH2_AUTHORIZE)
-        } returns marked
-        coEvery { handler.followUpPurposes(marked) } returns emptyList()
-        coEvery { handler.applyTerminalEffect(marked) } returns TerminalEffectResult.Proceed
-        coEvery { sessionManager.markAsCompleted(marked) } returns completed
-
-        assertSame(completed, engine.completeIfNecessary(session))
     }
 
     @Test

@@ -4,6 +4,7 @@ import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.auth.UserGrantScopesResult
 import com.sympauthy.business.manager.auth.UserScopeGrantingManager
+import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.invitation.InvitationManager
@@ -29,6 +30,7 @@ import com.sympauthy.config.model.EnabledFeaturesConfig
 import com.sympauthy.config.model.EnabledMfaConfig
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
@@ -70,6 +72,9 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
 
     @MockK
     lateinit var invitationManager: InvitationManager
+
+    @MockK
+    lateinit var authorizationCodeManager: AuthorizationCodeManager
 
     @MockK
     lateinit var uncheckedMfaConfig: EnabledMfaConfig
@@ -253,10 +258,15 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         )
         coEvery { oauth2Manager.setGrantedScopes(session, grantedScopeObjects, any()) } returns oauth2AfterGranted
         coEvery { consentManager.saveConsent(userId, testAudience.id, clientId, any()) } returns mockk()
+        coEvery { authorizationCodeManager.generateCode(session) } returns mockk()
 
         val result = handler.applyTerminalEffect(session)
 
         assertEquals(TerminalEffectResult.Proceed, result)
+        coVerifyOrder {
+            consentManager.saveConsent(userId, testAudience.id, clientId, any())
+            authorizationCodeManager.generateCode(session)
+        }
     }
 
     @Test
@@ -279,6 +289,8 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         coEvery { oauth2Manager.setGrantedScopes(session, grantedScopeObjects, any()) } returns oauth2AfterGranted
         coEvery { consentManager.saveConsent(userId, testAudience.id, clientId, any()) } returns mockk()
         coEvery { invitationManager.consumeInvitation(invitationId, userId) } returns mockk()
+
+        coEvery { authorizationCodeManager.generateCode(session) } returns mockk()
 
         val result = handler.applyTerminalEffect(session)
 
@@ -306,6 +318,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
 
         val fail = assertInstanceOf(TerminalEffectResult.Fail::class.java, result)
         assertEquals("flow.authorization_flow.complete.no_scope", fail.error.detailsId)
+        coVerify(exactly = 0) { authorizationCodeManager.generateCode(any()) }
     }
 
     @Test
@@ -326,6 +339,8 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         coEvery { oauth2Manager.setGrantedScopes(session, emptyList(), any()) } returns oauth2AfterGranted
         coEvery { consentManager.saveConsent(userId, any(), clientId, any()) } returns mockk()
 
+        coEvery { authorizationCodeManager.generateCode(session) } returns mockk()
+
         val result = handler.applyTerminalEffect(session)
 
         assertEquals(TerminalEffectResult.Proceed, result)
@@ -344,6 +359,8 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
                 grantScopesResultOf(emptyList())
         coEvery { oauth2Manager.setGrantedScopes(session, emptyList(), any()) } returns oauth2AfterGranted
         coEvery { consentManager.saveConsent(userId, testAudience.id, clientId, any()) } returns mockk()
+
+        coEvery { authorizationCodeManager.generateCode(session) } returns mockk()
 
         assertEquals(TerminalEffectResult.Proceed, handler.applyTerminalEffect(session))
     }

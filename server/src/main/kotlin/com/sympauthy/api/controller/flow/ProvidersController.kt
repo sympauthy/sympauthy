@@ -5,8 +5,8 @@ import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControll
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.api.util.FLOW_FAILURE_SEE_OTHER_DESCRIPTION
 import com.sympauthy.api.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
-import com.sympauthy.api.util.FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.FLOW_SEE_OTHER_DESCRIPTION
+import com.sympauthy.api.util.FLOW_STATE_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2ProviderManager
 import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.config.model.UrlsConfig
@@ -61,7 +61,7 @@ class ProvidersController(
             ),
             ApiResponse(
                 responseCode = "400",
-                description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION +
+                description = FLOW_STATE_BAD_REQUEST_DESCRIPTION +
                     "\n- `flow.reauthentication.provider_not_linked`: the end-user is re-authenticating, and this " +
                     "provider is not linked to their user.\n" +
                     "- `flow.link_provider.wrong_provider`: the interactive flow session links a provider to the " +
@@ -102,7 +102,7 @@ class ProvidersController(
                 responseCode = "400",
                 description = "- `auth.interactive_flow_session.validate.missing_state`: the request carries no " +
                     "`state`, or an empty one.\n" +
-                    FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION +
+                    FLOW_STATE_BAD_REQUEST_DESCRIPTION +
                     "\n- `flow.reauthentication.provider_not_linked`: the end-user is re-authenticating, and the " +
                     "identity the provider vouches for is not linked to their user.\n" +
                     "- `user.create_with_provider.subject_taken`: the identity the provider vouches for was linked " +

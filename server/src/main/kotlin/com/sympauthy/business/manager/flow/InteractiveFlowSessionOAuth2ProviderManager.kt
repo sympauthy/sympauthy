@@ -221,9 +221,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
         // is the one an authorization reaches — the two above it confirm or link against a fixed user and
         // belong to purposes that issue no token.
         oauth2Manager.setAuthenticationDate(updatedSession)
-
-        // Complete the flow if the end-user has no more step to go through.
-        return engine.completeIfNecessary(updatedSession)
+        return updatedSession
     }
 
     /**
@@ -249,9 +247,9 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
     /**
      * Re-authentication path: the provider account just proven must be already linked to the session's fixed
      * [OnGoingInteractiveFlowSession.userId] — **confirm, never establish**. On a match, refresh the stored
-     * claims and record the primary credential as proven **without** touching the session's user id, then
-     * advance. If the subject is unknown or linked to a different user, reject with a recoverable error (retry
-     * on the sign-in step); the session user is never switched.
+     * claims and record the primary credential as proven **without** touching the session's user id. If the
+     * subject is unknown or linked to a different user, reject with a recoverable error (retry on the sign-in
+     * step); the session user is never switched.
      */
     private suspend fun confirmReauthenticatedProviderUser(
         session: OnGoingInteractiveFlowSession,
@@ -269,7 +267,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
         userSecurityContextManager.markProven(session.id, observedRequest)
         providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo)
         reauthenticationManager.markPrimaryCredentialProven(session)
-        return engine.completeIfNecessary(session)
+        return session
     }
 
     /**
@@ -292,8 +290,8 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
 
     /**
      * Provider-link path: link the resolved provider account to the session's **fixed**
-     * [OnGoingInteractiveFlowSession.userId], then advance. The session user is never switched — linking only
-     * ever attaches a provider to the already-identified account.
+     * [OnGoingInteractiveFlowSession.userId]. The session user is never switched — linking only ever attaches
+     * a provider to the already-identified account.
      *
      * Conflicts hard-fail (unrecoverable, so the flow fails and nothing is linked):
      * - the provider subject is already linked to **another** account (an identity cannot belong to two users);
@@ -315,7 +313,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
             ?: throw businessExceptionOf("flow.link_provider.missing_user")
 
         linkSubjectToUser(provider, userId, rawUserInfo)
-        return engine.completeIfNecessary(session)
+        return session
     }
 
     /**

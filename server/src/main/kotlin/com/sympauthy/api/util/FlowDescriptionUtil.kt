@@ -32,23 +32,6 @@ const val FLOW_STATE_BAD_REQUEST_DESCRIPTION =
         "`state` names has expired and been deleted."
 
 /**
- * The line of the `400` a flow operation answers with when it sends the browser where a completed
- * authorization request stands: the redirect to the client is built again, and the authorization code it
- * carries can only be issued once.
- */
-const val FLOW_COMPLETED_BAD_REQUEST_DESCRIPTION =
-    "- `invalid_request`: the interactive flow session has completed an authorization request, and its " +
-        "authorization code was already issued to the client."
-
-/**
- * The `400` of a flow operation answering with where the interactive flow session continues, whether as a
- * `redirect_url` or as a redirect: the refusals of its `state`, and of a session that already issued its
- * authorization code. An operation appends the refusals of its own.
- */
-const val FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION =
-    FLOW_STATE_BAD_REQUEST_DESCRIPTION + "\n" + FLOW_COMPLETED_BAD_REQUEST_DESCRIPTION
-
-/**
  * The lines a flow operation appends to [FLOW_STATE_BAD_REQUEST_DESCRIPTION] when it answers with a body of
  * its own rather than a redirect, and so refuses a session that is over or has no user yet instead of
  * sending the browser where the session stands.

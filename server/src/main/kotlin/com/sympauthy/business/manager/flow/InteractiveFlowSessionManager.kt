@@ -155,7 +155,7 @@ open class InteractiveFlowSessionManager(
             signedUp = signedUp,
             expectedVersion = session.version
         )
-        if (updated == 0) throw concurrentModificationOf(session)
+        if (updated == 0) throw interactiveFlowSessionConcurrentModificationExceptionOf(session)
         return session.copy(
             userId = userId,
             signedUp = signedUp,
@@ -176,7 +176,7 @@ open class InteractiveFlowSessionManager(
             mfaPassedDate = mfaPassedDate,
             expectedVersion = session.version
         )
-        if (updated == 0) throw concurrentModificationOf(session)
+        if (updated == 0) throw interactiveFlowSessionConcurrentModificationExceptionOf(session)
         return session.copy(mfaPassedDate = mfaPassedDate, version = session.version + 1)
     }
 
@@ -203,7 +203,7 @@ open class InteractiveFlowSessionManager(
             purposes = purposes.map(InteractiveFlowPurpose::name).toTypedArray(),
             expectedVersion = session.version
         )
-        if (updated == 0) throw concurrentModificationOf(session)
+        if (updated == 0) throw interactiveFlowSessionConcurrentModificationExceptionOf(session)
         return session.copy(purposes = purposes, version = session.version + 1)
     }
 
@@ -281,7 +281,7 @@ open class InteractiveFlowSessionManager(
             cancelDate = cancelDate,
             expectedVersion = session.version
         )
-        if (updated == 0) throw concurrentModificationOf(session)
+        if (updated == 0) throw interactiveFlowSessionConcurrentModificationExceptionOf(session)
         return CancelledInteractiveFlowSession(
             id = session.id,
             purposes = session.purposes,
@@ -315,7 +315,7 @@ open class InteractiveFlowSessionManager(
             completedPurposes = completedPurposes.map(InteractiveFlowPurpose::name).toTypedArray(),
             expectedVersion = session.version
         )
-        if (updated == 0) throw concurrentModificationOf(session)
+        if (updated == 0) throw interactiveFlowSessionConcurrentModificationExceptionOf(session)
         return session.copy(completedPurposes = completedPurposes, version = session.version + 1)
     }
 
@@ -340,7 +340,7 @@ open class InteractiveFlowSessionManager(
             completeDate = completeDate,
             expectedVersion = session.version
         )
-        if (updated == 0) throw concurrentModificationOf(session)
+        if (updated == 0) throw interactiveFlowSessionConcurrentModificationExceptionOf(session)
         return CompletedInteractiveFlowSession(
             id = session.id,
             purposes = session.purposes,
@@ -416,28 +416,7 @@ open class InteractiveFlowSessionManager(
         return sessionRepository.findById(id)?.let(sessionMapper::toInteractiveFlowSession)
     }
 
-    /**
-     * Build the non-recoverable [BusinessException] thrown when a version-guarded update affects no
-     * rows: the [session] snapshot the caller holds is stale because another request advanced the
-     * session since it was read. Being non-recoverable, it is routed by the interactive-flow error
-     * handling (see
-     * [com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil.handleException]),
-     * which reflects the session's current terminal status where possible and otherwise fails it.
-     */
-    private fun concurrentModificationOf(session: InteractiveFlowSession): BusinessException =
-        businessExceptionOf(
-            CONCURRENT_MODIFICATION_DETAILS_ID,
-            "sessionId" to session.id.toString()
-        )
-
     companion object {
-        /**
-         * Detail id of the non-recoverable exception raised when a version-guarded update loses its
-         * compare-and-swap. The controller special-cases it (see
-         * [com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil]).
-         */
-        const val CONCURRENT_MODIFICATION_DETAILS_ID = "auth.interactive_flow_session.concurrent_modification"
-
         /**
          * Name of the cryptographic key used to sign the state.
          */

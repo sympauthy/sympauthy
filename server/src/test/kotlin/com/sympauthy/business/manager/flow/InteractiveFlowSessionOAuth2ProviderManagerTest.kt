@@ -17,7 +17,6 @@ import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
-import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionLinkProvider
 import com.sympauthy.business.model.flow.InteractiveFlowSessionProvider
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
@@ -213,18 +212,16 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             }
             val existingUserInfo = mockk<ProviderUserInfo> { every { this@mockk.userId } returns userId }
             val rawUserInfo = stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo)
-            val advanced = mockk<InteractiveFlowSession>()
             coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.REAUTHENTICATION
             coJustRun { providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo) }
             coEvery { reauthenticationManager.markPrimaryCredentialProven(session) } returns mockk()
-            coEvery { engine.completeIfNecessary(session) } returns advanced
 
             val result = manager.signInOrSignUpUsingProvider(
                 session, provider.id, redirectUri, authorizeCode = "code",
                 observedRequest = observedRequestOf()
             )
 
-            assertSame(advanced, result)
+            assertSame(session, result)
             coVerify { reauthenticationManager.markPrimaryCredentialProven(session) }
             coVerify(exactly = 0) { sessionManager.setAuthenticatedUserId(any(), any(), any()) }
         }
@@ -303,18 +300,16 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
         val provider = createProvider()
         val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
         val rawUserInfo = stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo = null)
-        val advanced = mockk<InteractiveFlowSession>()
         coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
         every { claimManager.listIdentifierClaims() } returns emptyList()
         coEvery { providerClaimsManager.saveUserInfo(provider, userId, null, rawUserInfo) } returns mockk()
-        coEvery { engine.completeIfNecessary(session) } returns advanced
 
         val result = manager.signInOrSignUpUsingProvider(
                 session, provider.id, redirectUri, authorizeCode = "code",
                 observedRequest = observedRequestOf()
             )
 
-        assertSame(advanced, result)
+        assertSame(session, result)
         coVerify { providerClaimsManager.saveUserInfo(provider, userId, null, rawUserInfo) }
     }
 
@@ -326,18 +321,16 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
             val existingUserInfo = mockk<ProviderUserInfo> { every { this@mockk.userId } returns userId }
             val rawUserInfo = stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo)
-            val advanced = mockk<InteractiveFlowSession>()
             coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
             every { claimManager.listIdentifierClaims() } returns emptyList()
             coJustRun { providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo) }
-            coEvery { engine.completeIfNecessary(session) } returns advanced
 
             val result = manager.signInOrSignUpUsingProvider(
                 session, provider.id, redirectUri, authorizeCode = "code",
                 observedRequest = observedRequestOf()
             )
 
-            assertSame(advanced, result)
+            assertSame(session, result)
             coVerify { providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo) }
             coVerify(exactly = 0) { providerClaimsManager.saveUserInfo(any(), any(), any(), any()) }
         }
@@ -439,19 +432,17 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             val provider = createProvider()
             val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
             val rawUserInfo = stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo = null)
-            val advanced = mockk<InteractiveFlowSession>()
             coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
             assertedIdentifierClaims(OpenIdConnectClaimId.EMAIL)
             coEvery { userManager.findTakenIdentifierOrNull(userId, any(), any()) } returns null
             coEvery { providerClaimsManager.saveUserInfo(provider, userId, null, rawUserInfo) } returns mockk()
-            coEvery { engine.completeIfNecessary(session) } returns advanced
 
             val result = manager.signInOrSignUpUsingProvider(
                 session, provider.id, redirectUri, authorizeCode = "code",
                 observedRequest = observedRequestOf()
             )
 
-            assertSame(advanced, result)
+            assertSame(session, result)
             // Naming the session's own account is what exempts an address it already holds — the end-user
             // linking a provider to the account they opened with that same address. Which of the rows found
             // count as its own is UserManagerTest's.
@@ -534,18 +525,16 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             val rawUserInfo = stubProviderCallbackChain(
                 session, provider, "sub-123", existingUserInfo = null, committedSince = linkedSince
             )
-            val advanced = mockk<InteractiveFlowSession>()
             coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
             every { claimManager.listIdentifierClaims() } returns emptyList()
             coJustRun { providerClaimsManager.refreshUserInfo(linkedSince, rawUserInfo) }
-            coEvery { engine.completeIfNecessary(session) } returns advanced
 
             val result = manager.signInOrSignUpUsingProvider(
                 session, provider.id, redirectUri, authorizeCode = "code",
                 observedRequest = observedRequestOf()
             )
 
-            assertSame(advanced, result)
+            assertSame(session, result)
             coVerify { providerClaimsManager.refreshUserInfo(linkedSince, rawUserInfo) }
             coVerify(exactly = 0) { providerClaimsManager.saveUserInfo(any(), any(), any(), any()) }
         }
@@ -557,19 +546,17 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             val provider = createProvider()
             val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
             val rawUserInfo = stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo = null)
-            val advanced = mockk<InteractiveFlowSession>()
             coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
             assertedIdentifierClaims(OpenIdConnectClaimId.EMAIL)
             coEvery { userManager.findTakenIdentifierOrNull(userId, any(), any()) } returns null
             coEvery { providerClaimsManager.saveUserInfo(provider, userId, null, rawUserInfo) } returns mockk()
-            coEvery { engine.completeIfNecessary(session) } returns advanced
 
             val result = manager.signInOrSignUpUsingProvider(
                 session, provider.id, redirectUri, authorizeCode = "code",
                 observedRequest = observedRequestOf()
             )
 
-            assertSame(advanced, result)
+            assertSame(session, result)
             // The address as well as the subject: the promotion this has to be excluded from commits an
             // account holding that address, and the key it takes names the address.
             coVerify { objectLockRepository.lock(LockKey.ProviderSubject(provider.id, "sub-123").stripe) }
@@ -585,20 +572,18 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
             val rawUserInfo = stubProviderCallbackChain(
                 session, provider, "sub-123", existingUserInfo = null, assertedEmail = null
             )
-            val advanced = mockk<InteractiveFlowSession>()
             coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
             every { claimManager.listIdentifierClaims() } returns listOf(
                 mockk { every { id } returns OpenIdConnectClaimId.EMAIL }
             )
             coEvery { providerClaimsManager.saveUserInfo(provider, userId, null, rawUserInfo) } returns mockk()
-            coEvery { engine.completeIfNecessary(session) } returns advanced
 
             val result = manager.signInOrSignUpUsingProvider(
                 session, provider.id, redirectUri, authorizeCode = "code",
                 observedRequest = observedRequestOf()
             )
 
-            assertSame(advanced, result)
+            assertSame(session, result)
             // userManager is left unstubbed: a provider asserting none of the configured identifier claims
             // offers nothing to compare, so reaching the write is proof it was never asked — and a key over
             // a check that did not run would make a promotion wait for nothing. One row, and it is the

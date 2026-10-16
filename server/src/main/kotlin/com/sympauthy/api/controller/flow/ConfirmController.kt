@@ -7,8 +7,8 @@ import com.sympauthy.api.resource.flow.SimpleFlowResource
 import com.sympauthy.api.util.FLOW_FAILURE_DESCRIPTION
 import com.sympauthy.api.util.FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION
 import com.sympauthy.api.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
-import com.sympauthy.api.util.FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.FLOW_REDIRECT_RESPONSE_DESCRIPTION
+import com.sympauthy.api.util.FLOW_STATE_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.business.manager.flow.confirm.InteractiveFlowSessionConfirmManager
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.security.ObservedRequest
@@ -48,7 +48,7 @@ class ConfirmController(
                 description = "The action to approve, or the `redirect_url` to send the browser to instead.",
                 useReturnTypeSchema = true
             ),
-            ApiResponse(responseCode = "400", description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION),
+            ApiResponse(responseCode = "400", description = FLOW_STATE_BAD_REQUEST_DESCRIPTION),
             ApiResponse(responseCode = "401", description = FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION)
         ],
         tags = ["flow"]
@@ -92,7 +92,7 @@ class ConfirmController(
                 description = FLOW_REDIRECT_RESPONSE_DESCRIPTION,
                 useReturnTypeSchema = true
             ),
-            ApiResponse(responseCode = "400", description = FLOW_REDIRECT_BAD_REQUEST_DESCRIPTION),
+            ApiResponse(responseCode = "400", description = FLOW_STATE_BAD_REQUEST_DESCRIPTION),
             ApiResponse(responseCode = "401", description = FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION)
         ],
         tags = ["flow"]

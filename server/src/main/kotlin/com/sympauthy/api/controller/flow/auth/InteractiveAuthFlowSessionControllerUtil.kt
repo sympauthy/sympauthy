@@ -10,6 +10,7 @@ import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.SuccessVerifyEncodedStateResult
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
 import com.sympauthy.business.manager.security.UserSecurityContextManager
+import com.sympauthy.business.model.flow.CONCURRENT_MODIFICATION_DETAILS_ID
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlow
@@ -48,12 +49,20 @@ class InteractiveAuthFlowSessionControllerUtil(
      * Resolve the current [com.sympauthy.business.model.flow.InteractiveFlowStep] of the [session] (running
      * any completion transition), then map it to the [URI] where the end-user must be redirected within the
      * [flow].
+     *
+     * A [BusinessException] moving the flow forward is handled as one thrown by the work before it, because
+     * completing the session is the last part of that work: a promotion finding an identifier taken fails the
+     * session, and a completion that lost to a concurrent request is routed by the session that request left.
      */
     private suspend fun redirectToCurrentStep(
         session: InteractiveFlowSession,
         flow: InteractiveFlow
     ): URI {
-        val (steppedSession, step) = engine.advance(session)
+        val (steppedSession, step) = try {
+            engine.advance(session)
+        } catch (e: BusinessException) {
+            engine.advance(handleException(session, e))
+        }
         return stepUriMapper.toRedirectUri(steppedSession, flow, step)
     }
 
@@ -431,10 +440,10 @@ class InteractiveAuthFlowSessionControllerUtil(
         }
         // A concurrent-modification conflict means another request advanced this shared session. If that
         // request already drove it to a terminal state, route by that current state instead of failing it
-        // (which would clobber the winner): e.g. a double-submit whose sibling already completed sends this
-        // request to the success redirect rather than the error page. If it is still ongoing we fall
-        // through and fail it, honouring the "a conflict fails the session" behaviour.
-        if (exception.detailsId == InteractiveFlowSessionManager.CONCURRENT_MODIFICATION_DETAILS_ID) {
+        // (which would clobber the winner): a double-submit whose sibling already completed it is answered
+        // as any later request on a completed session is. If it is still ongoing we fall through and fail
+        // it, honouring the "a conflict fails the session" behaviour.
+        if (exception.detailsId == CONCURRENT_MODIFICATION_DETAILS_ID) {
             val current = sessionManager.fetchByIdOrNull(session.id)
             if (current != null && current !is OnGoingInteractiveFlowSession) {
                 return current

@@ -13,7 +13,6 @@ import com.sympauthy.business.manager.user.TakenIdentifier
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
-import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.CollectedClaimUpdate
@@ -145,15 +144,13 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
         val session = mockk<OnGoingInteractiveFlowSession>()
         every { session.userId } returns userId
         every { session.id } returns sessionId
-        val advanced = mockk<InteractiveFlowSession>()
         stubSuccessfulCredential()
         coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.REAUTHENTICATION
         coEvery { reauthenticationManager.markPrimaryCredentialProven(session) } returns mockk()
-        coEvery { engine.completeIfNecessary(session) } returns advanced
 
         val result = manager.signInWithPassword(session, login, password, observedRequestOf())
 
-        assertSame(advanced, result)
+        assertSame(session, result)
         coVerify { reauthenticationManager.markPrimaryCredentialProven(session) }
         coVerify(exactly = 0) { sessionManager.setAuthenticatedUserId(any(), any(), any()) }
     }
@@ -201,15 +198,13 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
             every { id } returns sessionId
         }
         val updated = mockk<OnGoingInteractiveFlowSession>()
-        val advanced = mockk<InteractiveFlowSession>()
         stubSuccessfulCredential()
         coEvery { oauth2Manager.setAuthenticationDate(updated) } returns Unit
         coEvery { sessionManager.setAuthenticatedUserId(session, userId, any()) } returns updated
-        coEvery { engine.completeIfNecessary(updated) } returns advanced
 
         val result = manager.signInWithPassword(session, login, password, observedRequestOf())
 
-        assertSame(advanced, result)
+        assertSame(updated, result)
         coVerify { sessionManager.setAuthenticatedUserId(session, userId, any()) }
         coVerify { oauth2Manager.setAuthenticationDate(updated) }
         coVerify(exactly = 0) { reauthenticationManager.markPrimaryCredentialProven(any()) }
@@ -405,7 +400,6 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
         stubSuccessfulCredential()
         coEvery { oauth2Manager.setAuthenticationDate(updated) } returns Unit
         coEvery { sessionManager.setAuthenticatedUserId(session, userId, any()) } returns updated
-        coEvery { engine.completeIfNecessary(updated) } returns mockk()
 
         manager.signInWithPassword(session, login, password, observedRequestOf())
 
@@ -420,7 +414,6 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
         stubSuccessfulCredential()
         coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.REAUTHENTICATION
         coEvery { reauthenticationManager.markPrimaryCredentialProven(session) } returns mockk()
-        coEvery { engine.completeIfNecessary(session) } returns mockk()
 
         manager.signInWithPassword(session, login, password, observedRequestOf())
 
