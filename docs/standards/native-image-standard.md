@@ -18,12 +18,6 @@ JVM this codebase is developed and unit-tested on has no such constraint.
 constructor the application calls. The server's own entries are in
 `server/src/main/resources/META-INF/native-image/com.sympauthy/server/reflect-config.json`.
 
-**A generated mapper is two edits — the mapper, and its generated implementation's entry in the
-metadata.** Make both in the same change.
-
-**Review compares the two sets.** Every generated implementation has an entry and every entry has a
-source counterpart; compare them with a script rather than by reading.
-
 ## Metadata is split per artifact
 
 **The server's own metadata lives apart from the metadata a dependency needs.** Put an entry the
@@ -36,7 +30,7 @@ migration locations are declared that way, so a new migration folder is a build 
 
 ## The native run is the source of truth
 
-**A change touching mappers, reflection or resource loading is finished when the native run is
+**A change touching serialization, reflection or resource loading is finished when the native run is
 green.** Run the suites on the JVM while working, and read
 [the testing standard](testing-standard.md) for what each of them proves.
 

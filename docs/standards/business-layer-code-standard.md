@@ -48,15 +48,16 @@ both says in its contract which case each answer is.
 **Mapping toward the domain validates; mapping back is a translation.** The input in that direction
 is already valid, and the table's constraints remain the backstop on write.
 
-**An unmapped target property fails the build.** The generator is configured to treat it as an error
-rather than a warning; an entity column the domain ignores stays lax.
+**A mapper is a singleton written by hand, and it builds its target through the constructor.**
+Collaborators arrive through its own constructor. Nothing generates one: see [the
+build](../design/technology.md#the-build) for why.
+
+**A mapper names every constructor parameter, including one it leaves at its default.** The
+compiler refuses a parameter left out only where it has no default, so `id = null` written out is
+what shows a reviewer the column was considered rather than forgotten.
 
 **A mapper is a function of the rows it is handed.** Where a mapping needs a second row, the manager
 fetches it and passes it in.
-
-**A generated mapper is registered in `BusinessMapperFactory`**, which publishes it and sets its
-collaborators. Declare its generated implementation to
-[the native image](native-image-standard.md) in the same change.
 
 ## The manager
 
@@ -157,6 +158,10 @@ returns non-null.
 share a concept that wants to be a third manager.
 
 ## What this standard does not cover
+
+**A model property no mapper writes.** A property added to a model and never carried into its
+entity compiles, and so does one an entity column has no use for. Nothing checks the source side of
+a mapping; review does.
 
 **Authorization as a component.** A manager checks what it must inline and the surface gate does the
 rest; a second caller needing the same row-level rule is what would force the question.
