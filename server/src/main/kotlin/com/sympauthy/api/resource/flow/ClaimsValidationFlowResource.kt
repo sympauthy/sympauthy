@@ -16,7 +16,7 @@ data class ClaimsValidationFlowResource(
     @get:Schema(
         name = "media",
         description = "Media the request asked about.",
-        allowableValues = ["EMAIL", "SMS"]
+        allowableValues = ["email", "sms"]
     )
     @get:JsonProperty("media")
     val media: String,

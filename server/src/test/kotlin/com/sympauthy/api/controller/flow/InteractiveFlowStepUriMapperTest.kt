@@ -113,7 +113,7 @@ class InteractiveFlowStepUriMapperTest {
 
         assertEquals(validateUri.host, result.host)
         assertEquals(validateUri.path, result.path)
-        assertEquals("media=${ValidationCodeMedia.EMAIL.name}", result.query)
+        assertEquals("media=email", result.query)
     }
 
     @Test

@@ -15,7 +15,7 @@ data class ConfirmFlowResource(
     @get:Schema(
         description = "Action a client or an administrator asked for on the end-user's behalf. Absent when " +
             "`redirect_url` is present.",
-        allowableValues = ["ENROLL_MFA", "LINK_PROVIDER"]
+        allowableValues = ["enroll_mfa", "link_provider"]
     )
     val action: String? = null,
     @get:Schema(

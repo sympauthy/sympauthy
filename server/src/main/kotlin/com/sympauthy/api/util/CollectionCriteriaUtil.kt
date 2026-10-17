@@ -12,6 +12,7 @@ import com.sympauthy.business.model.collection.CollectionOperator.IN
 import com.sympauthy.business.model.collection.CollectionOperator.IS_NULL
 import com.sympauthy.business.model.collection.CollectionOperator.STARTS_WITH
 import com.sympauthy.business.model.collection.CollectionSortKey
+import com.sympauthy.util.enumValueOfWireNameOrNull
 import com.sympauthy.util.wireName
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpStatus.BAD_REQUEST
@@ -174,7 +175,7 @@ private fun criterionOf(
         ?: throw unknownField(parameter, capabilities)
 
     val suffix = parameter.substring(separator + 1)
-    val operator = CollectionOperator.entries.firstOrNull { it.wireName == suffix }
+    val operator = enumValueOfWireNameOrNull<CollectionOperator>(suffix)
         ?.takeIf { it in field.operators }
         ?: throw unsupportedOperator(parameter, field, suffix)
 

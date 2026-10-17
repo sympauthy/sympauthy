@@ -58,7 +58,7 @@ class ClientMfaEnrollmentFeatureIT : AbstractSympauthyIT() {
 
             val flow = registry.newFlow()
                 .withConfirmHandler { resource ->
-                    assertEquals("ENROLL_MFA", resource.action(), "confirm should describe the action")
+                    assertEquals("enroll_mfa", resource.action(), "confirm should describe the action")
                     assertEquals(clientId, resource.initiatingClientId(), "confirm should name the initiating client")
                     ConfirmDecision.CONFIRM
                 }

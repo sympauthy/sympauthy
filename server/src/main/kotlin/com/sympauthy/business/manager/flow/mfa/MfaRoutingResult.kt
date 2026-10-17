@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager.flow.mfa
 
 import com.sympauthy.business.model.flow.InteractiveFlowStep
+import com.sympauthy.business.model.mfa.MfaMethodType
 
 /**
  * The outcome of routing an MFA method-selection step (enrollment or challenge): either a single method the
@@ -22,6 +23,6 @@ data class MfaMethodSelection(
 ) : MfaRoutingResult()
 
 /**
- * One MFA method the end-user may pick, and the [step] it leads to.
+ * One MFA method the end-user may pick, of [type], and the [step] it leads to.
  */
-data class AvailableMfaMethod(val name: String, val step: InteractiveFlowStep)
+data class AvailableMfaMethod(val type: MfaMethodType, val step: InteractiveFlowStep)

@@ -5,6 +5,7 @@ import com.sympauthy.api.resource.flow.ResendClaimsValidationCodeResultResource
 import com.sympauthy.api.resource.flow.ValidationCodeResource
 import com.sympauthy.business.model.code.ValidationCode
 import com.sympauthy.business.model.code.ValidationCodeMedia
+import com.sympauthy.util.wireName
 import jakarta.inject.Singleton
 import java.net.URI
 
@@ -13,7 +14,7 @@ class ClaimsValidationFlowResultResourceMapper {
 
     fun toFlowResource(validationCode: ValidationCode): ClaimsValidationFlowResource {
         return ClaimsValidationFlowResource(
-            media = validationCode.media.name,
+            media = validationCode.media.wireName,
             code = toResource(validationCode),
             redirectUrl = null,
         )
@@ -24,7 +25,7 @@ class ClaimsValidationFlowResultResourceMapper {
         redirectUri: URI,
     ): ClaimsValidationFlowResource {
         return ClaimsValidationFlowResource(
-            media = media.name,
+            media = media.wireName,
             code = null,
             redirectUrl = redirectUri.toString(),
         )
@@ -36,7 +37,7 @@ class ClaimsValidationFlowResultResourceMapper {
         newValidationCode: ValidationCode?
     ): ResendClaimsValidationCodeResultResource {
         return ResendClaimsValidationCodeResultResource(
-            media = media.name,
+            media = media.wireName,
             resent = resent,
             code = newValidationCode?.let(this::toResource)
         )
@@ -45,8 +46,8 @@ class ClaimsValidationFlowResultResourceMapper {
     fun toResource(validationCode: ValidationCode): ValidationCodeResource {
         return ValidationCodeResource(
             id = validationCode.id.toString(),
-            media = validationCode.media.name,
-            reasons = validationCode.reasons.map { it.name },
+            media = validationCode.media.wireName,
+            reasons = validationCode.reasons.map { it.wireName },
             resendDate = validationCode.resendDate,
         )
     }

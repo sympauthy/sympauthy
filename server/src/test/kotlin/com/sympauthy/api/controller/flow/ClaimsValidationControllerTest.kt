@@ -4,6 +4,7 @@ import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControll
 import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.mapper.flow.ClaimsValidationFlowResultResourceMapper
 import com.sympauthy.api.resource.flow.ClaimValidationInputResource
+import com.sympauthy.api.resource.flow.ClaimsValidationFlowResource
 import com.sympauthy.api.resource.flow.ResendClaimsValidationCodeResultResource
 import com.sympauthy.api.resource.flow.ResendClaimsValidationInputResource
 import com.sympauthy.api.resource.flow.SimpleFlowResource
@@ -52,6 +53,26 @@ class ClaimsValidationControllerTest {
     private val user = mockk<User>()
 
     @Test
+    fun `getValidationCodeToCollectForMedia - Refuses the Kotlin name of a media before reading the session`() =
+        runTest {
+            val exception = assertThrows<LocalizedHttpException> {
+                controller.getValidationCodeToCollectForMedia(
+                    StateAuthentication("encoded-state"),
+                    observedRequestOf(),
+                    "EMAIL"
+                )
+            }
+
+            assertUnknownMedia(exception, media = "EMAIL")
+            coVerify(exactly = 0) {
+                interactiveAuthFlowSessionControllerUtil
+                    .fetchOnGoingSessionWithUserThenRunAndRedirect<Any, ClaimsValidationFlowResource>(
+                        any(), any(), any(), any(), any()
+                    )
+            }
+        }
+
+    @Test
     fun `validate - Validates the code through the media named`() = runTest {
         stubUpdate()
         coEvery { claimValidationManager.validateClaimsByCode(session, ValidationCodeMedia.EMAIL, "123456") } just Runs
@@ -59,7 +80,7 @@ class ClaimsValidationControllerTest {
         val result = controller.validate(
             StateAuthentication("encoded-state"),
             observedRequestOf(),
-            ClaimValidationInputResource(media = "EMAIL", code = "123456")
+            ClaimValidationInputResource(media = "email", code = "123456")
         )
 
         assertEquals("https://example.com/next", result.redirectUrl)
@@ -119,12 +140,12 @@ class ClaimsValidationControllerTest {
         }
     }
 
-    private fun assertUnknownMedia(exception: LocalizedHttpException) {
+    private fun assertUnknownMedia(exception: LocalizedHttpException, media: String = "pigeon") {
         assertEquals(BAD_REQUEST, exception.status)
         assertTrue(exception.recoverable)
         assertEquals("flow.claim_validation.unknown_media", exception.detailsId)
         assertEquals("description.flow.claim_validation.unknown_media", exception.descriptionId)
-        assertEquals("pigeon", exception.values["media"])
-        assertEquals("EMAIL, SMS", exception.values["supportedValues"])
+        assertEquals(media, exception.values["media"])
+        assertEquals("email, sms", exception.values["supportedValues"])
     }
 }

@@ -10,6 +10,7 @@ import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManage
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.UNSUPPORTED_RESPONSE_TYPE
 import com.sympauthy.business.model.oauth2.ResponseType
 import com.sympauthy.business.model.security.ObservedRequest
+import com.sympauthy.util.enumValueOfWireNameOrNull
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
@@ -225,7 +226,7 @@ open class AuthorizeController(
         if (responseType.isNullOrBlank()) {
             throw oauth2ExceptionOf(UNSUPPORTED_RESPONSE_TYPE, "authorize.response_type.missing")
         }
-        return when (ResponseType.fromWireNameOrNull(responseType)) {
+        return when (enumValueOfWireNameOrNull<ResponseType>(responseType)) {
             ResponseType.CODE -> authorizeWithCodeFlow(
                 observedRequest = observedRequest,
                 uncheckedClientId = uncheckedClientId,

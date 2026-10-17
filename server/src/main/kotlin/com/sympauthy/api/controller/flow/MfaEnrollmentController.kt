@@ -15,6 +15,7 @@ import com.sympauthy.business.manager.flow.mfa.MfaMethodSelection
 import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
+import com.sympauthy.util.wireName
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
@@ -72,7 +73,7 @@ class MfaEnrollmentController(
                     is MfaMethodSelection -> MfaFlowResource(
                         methods = result.methods.map {
                             MfaMethodResource(
-                                method = it.name,
+                                method = it.type.wireName,
                                 redirectUrl = stepUriMapper.toRedirectUri(session, flow, it.step).toString()
                             )
                         },

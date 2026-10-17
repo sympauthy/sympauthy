@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.flow.mfa
 
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.model.flow.InteractiveFlowStep
+import com.sympauthy.business.model.mfa.MfaMethodType
 import com.sympauthy.business.model.user.User
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -30,7 +31,7 @@ class InteractiveFlowSessionMfaChallengeManager(
         return if (enrollments.size > 1) {
             MfaMethodSelection(
                 methods = listOf(
-                    AvailableMfaMethod(name = "TOTP", step = InteractiveFlowStep.MfaTotpChallenge)
+                    AvailableMfaMethod(type = MfaMethodType.TOTP, step = InteractiveFlowStep.MfaTotpChallenge)
                 ),
                 skippable = false
             )

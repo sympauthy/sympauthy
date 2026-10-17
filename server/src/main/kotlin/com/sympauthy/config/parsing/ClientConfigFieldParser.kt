@@ -8,6 +8,7 @@ import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.ConfigTemplateResolver
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.properties.ClientAuthorizationWebhookProperties
+import com.sympauthy.util.enumValueOfWireNameOrNull
 import com.sympauthy.util.wireName
 import io.micronaut.http.uri.UriBuilder
 import jakarta.inject.Inject
@@ -43,7 +44,7 @@ class ClientConfigFieldParser(
 
         val parsed = allowedGrantTypes.mapIndexedNotNull { index, value ->
             val itemKey = "$configKey[$index]"
-            val grantType = GrantType.fromWireNameOrNull(value)
+            val grantType = enumValueOfWireNameOrNull<GrantType>(value)
             if (grantType == null) {
                 ctx.addError(
                     configExceptionOf(

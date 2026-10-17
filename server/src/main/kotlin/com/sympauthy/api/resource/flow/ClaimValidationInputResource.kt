@@ -10,7 +10,7 @@ import io.swagger.v3.oas.annotations.media.Schema
 data class ClaimValidationInputResource(
     @get:Schema(
         description = "Media the end-user received the validation code through.",
-        allowableValues = ["EMAIL", "SMS"]
+        allowableValues = ["email", "sms"]
     )
     val media: String,
     @get:Schema(

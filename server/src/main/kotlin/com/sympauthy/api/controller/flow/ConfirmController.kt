@@ -14,6 +14,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
+import com.sympauthy.util.wireName
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
 import io.micronaut.http.annotation.Post
@@ -71,7 +72,7 @@ class ConfirmController(
                         InteractiveFlowPurpose.REAUTHENTICATION in session.purposes &&
                             InteractiveFlowPurpose.REAUTHENTICATION !in session.completedPurposes
                     ConfirmFlowResource(
-                        action = confirm.action.name,
+                        action = confirm.action.wireName,
                         requiresReauthentication = requiresReauthentication,
                         initiatingClientId = confirm.clientId
                     )

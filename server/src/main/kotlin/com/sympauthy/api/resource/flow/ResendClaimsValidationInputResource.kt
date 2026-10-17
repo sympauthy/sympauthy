@@ -10,7 +10,7 @@ import io.swagger.v3.oas.annotations.media.Schema
 data class ResendClaimsValidationInputResource(
     @get:Schema(
         description = "Media to send a new validation code through.",
-        allowableValues = ["EMAIL", "SMS"]
+        allowableValues = ["email", "sms"]
     )
     val media: String
 )

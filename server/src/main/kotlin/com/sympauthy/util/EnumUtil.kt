@@ -21,6 +21,12 @@ val Enum<*>.wireName: String
     get() = (this as? PublishedUnderAnotherName)?.publishedName ?: name.lowercase()
 
 /**
+ * The value of [E] published under [wireName], or null where none is.
+ */
+inline fun <reified E : Enum<E>> enumValueOfWireNameOrNull(wireName: String?): E? =
+    enumValues<E>().firstOrNull { it.wireName == wireName }
+
+/**
  * The name this value is spelled with in the configuration file: lowercase, and words separated by a dash.
  */
 val Enum<*>.configName: String
