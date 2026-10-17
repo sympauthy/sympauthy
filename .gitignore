@@ -43,3 +43,7 @@ server/src/main/resources/sympauthy-admin/*
 
 # IntelliJ compiler settings (machine-local annotation-processor paths)
 .idea/compiler.xml
+
+# IntelliJ module files (regenerated from Gradle on import)
+.idea/modules.xml
+.idea/modules/
