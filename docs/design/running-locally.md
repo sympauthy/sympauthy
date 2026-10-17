@@ -6,7 +6,9 @@ suites. What the server *is* is [the index](index.md); how to configure a real d
 
 ## Requirements
 
-- **Oracle GraalVM 25** — the JDK. A standard JDK 25 runs everything except the native build.
+- **Oracle GraalVM 25** — the JDK Gradle runs on, so `JAVA_HOME` points at it. The native build
+  takes `native-image` from that JDK and does not read `GRAALVM_HOME`, whatever the plugin's error
+  says. A standard JDK 25 runs everything else.
 - **Docker**. The repository tests start a PostgreSQL container, so `./gradlew test` needs it too.
 - **A GitHub Packages token with `read:packages`**, for the integration tests only. The
   Testcontainers helper library they use is published there and needs authentication even to read.
