@@ -11,7 +11,7 @@ data class ResendClaimsValidationCodeResultResource(
 
     @get:Schema(
         description = "Media a new validation code was asked for.",
-        allowableValues = ["EMAIL", "SMS"]
+        allowableValues = ["email", "sms"]
     )
     val media: String,
 

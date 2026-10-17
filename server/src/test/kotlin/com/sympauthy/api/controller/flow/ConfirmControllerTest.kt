@@ -67,7 +67,7 @@ class ConfirmControllerTest {
 
             val result = controller.getConfirmation(StateAuthentication("encoded-state"), observedRequestOf())
 
-            assertEquals("ENROLL_MFA", result.action)
+            assertEquals("enroll_mfa", result.action)
             assertEquals("client-x", result.initiatingClientId)
             assertFalse(result.requiresReauthentication)
             assertNull(result.redirectUrl)
@@ -100,7 +100,7 @@ class ConfirmControllerTest {
 
         val result = controller.getConfirmation(StateAuthentication("encoded-state"), observedRequestOf())
 
-        assertEquals("LINK_PROVIDER", result.action)
+        assertEquals("link_provider", result.action)
         assertNull(result.initiatingClientId)
         assertTrue(result.requiresReauthentication)
     }

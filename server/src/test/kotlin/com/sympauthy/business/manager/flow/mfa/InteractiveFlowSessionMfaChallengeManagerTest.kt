@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.flow.mfa
 
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.model.flow.InteractiveFlowStep
+import com.sympauthy.business.model.mfa.MfaMethodType
 import com.sympauthy.business.model.user.User
 import io.mockk.coEvery
 import io.mockk.every
@@ -44,7 +45,9 @@ class InteractiveFlowSessionMfaChallengeManagerTest {
 
         assertEquals(
             MfaMethodSelection(
-                methods = listOf(AvailableMfaMethod(name = "TOTP", step = InteractiveFlowStep.MfaTotpChallenge)),
+                methods = listOf(
+                    AvailableMfaMethod(type = MfaMethodType.TOTP, step = InteractiveFlowStep.MfaTotpChallenge)
+                ),
                 skippable = false
             ),
             result

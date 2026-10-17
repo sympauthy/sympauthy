@@ -15,6 +15,7 @@ import com.sympauthy.business.model.oauth2.OAuth2ErrorCode
 import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.config.model.getUri
 import com.sympauthy.config.model.orThrow
+import com.sympauthy.util.wireName
 import io.micronaut.http.uri.UriBuilder
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -133,7 +134,7 @@ class InteractiveFlowStepUriMapper(
 
     private fun buildValidateClaimsUri(flow: InteractiveFlow, media: ValidationCodeMedia?): URI {
         return flow.validateClaimsUri.let(UriBuilder::of)
-            .apply { media?.let { queryParam("media", it.name) } }
+            .apply { media?.let { queryParam("media", it.wireName) } }
             .build()
     }
 

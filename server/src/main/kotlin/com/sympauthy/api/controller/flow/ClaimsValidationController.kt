@@ -13,12 +13,13 @@ import com.sympauthy.api.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
 import com.sympauthy.api.util.FLOW_REDIRECT_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.FLOW_SIGNED_IN_SESSION_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.FLOW_STATE_BAD_REQUEST_DESCRIPTION
-import com.sympauthy.api.util.PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionClaimValidationManager
 import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
+import com.sympauthy.util.enumValueOfWireNameOrNull
+import com.sympauthy.util.wireName
 import io.micronaut.http.HttpStatus.BAD_REQUEST
 import io.micronaut.http.annotation.Body
 import io.micronaut.http.annotation.Controller
@@ -29,6 +30,7 @@ import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
+import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import jakarta.inject.Inject
 
@@ -53,8 +55,7 @@ class ClaimsValidationController(
             ),
             ApiResponse(
                 responseCode = "400",
-                description = FLOW_STATE_BAD_REQUEST_DESCRIPTION + "\n" +
-                    PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION
+                description = FLOW_STATE_BAD_REQUEST_DESCRIPTION + "\n" + UNKNOWN_MEDIA_BAD_REQUEST_DESCRIPTION
             ),
             ApiResponse(responseCode = "401", description = FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION)
         ],
@@ -64,26 +65,31 @@ class ClaimsValidationController(
     suspend fun getValidationCodeToCollectForMedia(
         authentication: Authentication,
         @RequestAttribute(OBSERVED_REQUEST) observedRequest: ObservedRequest,
-        @Parameter(description = "Media to validate claims through.") media: ValidationCodeMedia,
-    ): ClaimsValidationFlowResource =
-        interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionWithUserThenRunAndRedirect(
+        @Parameter(
+            description = "Media to validate claims through.",
+            schema = Schema(type = "string", allowableValues = ["email", "sms"])
+        ) media: String,
+    ): ClaimsValidationFlowResource {
+        val validationCodeMedia = toMedia(media)
+        return interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionWithUserThenRunAndRedirect(
             state = authentication.stateOrNull,
             observedRequest = observedRequest,
             run = { session, _, user ->
                 claimValidationManager.getOrSendValidationCode(
                     session = session,
                     user = user,
-                    media = media,
+                    media = validationCodeMedia,
                 )
             },
             mapResultToResource = resourceMapper::toFlowResource,
             mapRedirectUriToResource = {
                 resourceMapper.toFlowResource(
-                    media = media,
+                    media = validationCodeMedia,
                     redirectUri = it
                 )
             }
         )
+    }
 
     @Operation(
         description = "Validate the claims a validation code was sent for, with the code the end-user entered. " +
@@ -100,8 +106,7 @@ class ClaimsValidationController(
                     "\n- `flow.claim_validation.invalid_code`: `code` matches no validation code sent through " +
                     "`media` during this interactive flow session.\n" +
                     "- `flow.claim_validation.expired_code`: `code` matches a validation code that has expired.\n" +
-                    "- `flow.claim_validation.unknown_media`: `media` names no media a validation code is sent " +
-                    "through.\n" +
+                    UNKNOWN_MEDIA_BAD_REQUEST_DESCRIPTION + "\n" +
                     BODY_BAD_REQUEST_DESCRIPTION
             ),
             ApiResponse(responseCode = "401", description = FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION),
@@ -132,7 +137,7 @@ class ClaimsValidationController(
     @Operation(
         description = "Send a new validation code through a media, replacing the one sent through it earlier " +
             "in this interactive flow session. Nothing is sent, and `resent` is `false`, when no code was " +
-            "sent through it yet, when the earlier code has neither expired nor reached its `resendDate`, or " +
+            "sent through it yet, when the earlier code has neither expired nor reached its `resend_date`, or " +
             "when no claim is left to validate through it.",
         responses = [
             ApiResponse(
@@ -143,8 +148,7 @@ class ClaimsValidationController(
             ApiResponse(
                 responseCode = "400",
                 description = FLOW_STATE_BAD_REQUEST_DESCRIPTION + FLOW_SIGNED_IN_SESSION_BAD_REQUEST_DESCRIPTION +
-                    "\n- `flow.claim_validation.unknown_media`: `media` names no media a validation code is sent " +
-                    "through.\n" +
+                    "\n" + UNKNOWN_MEDIA_BAD_REQUEST_DESCRIPTION + "\n" +
                     BODY_BAD_REQUEST_DESCRIPTION
             ),
             ApiResponse(responseCode = "401", description = FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION),
@@ -187,9 +191,14 @@ class ClaimsValidationController(
      * session survives it.
      */
     private fun toMedia(media: String): ValidationCodeMedia =
-        ValidationCodeMedia.entries.firstOrNull { it.name == media } ?: throw recoverableHttpExceptionOf(
+        enumValueOfWireNameOrNull<ValidationCodeMedia>(media) ?: throw recoverableHttpExceptionOf(
             BAD_REQUEST, "flow.claim_validation.unknown_media", "description.flow.claim_validation.unknown_media",
             "media" to media,
-            "supportedValues" to ValidationCodeMedia.entries.joinToString(", ") { it.name }
+            "supportedValues" to ValidationCodeMedia.entries.joinToString(", ") { it.wireName }
         )
+
+    private companion object {
+        const val UNKNOWN_MEDIA_BAD_REQUEST_DESCRIPTION =
+            "- `flow.claim_validation.unknown_media`: `media` names no media a validation code is sent through."
+    }
 }

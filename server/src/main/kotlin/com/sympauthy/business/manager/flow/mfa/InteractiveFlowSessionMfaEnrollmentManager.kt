@@ -11,6 +11,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.mfa.MfaMethodType
 import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.config.model.orThrow
 import io.micronaut.transaction.annotation.Transactional
@@ -50,7 +51,7 @@ open class InteractiveFlowSessionMfaEnrollmentManager(
         return if (isEnrollmentSkippable(session)) {
             MfaMethodSelection(
                 methods = listOf(
-                    AvailableMfaMethod(name = "TOTP", step = InteractiveFlowStep.MfaTotpEnroll)
+                    AvailableMfaMethod(type = MfaMethodType.TOTP, step = InteractiveFlowStep.MfaTotpEnroll)
                 ),
                 skippable = true
             )

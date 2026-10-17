@@ -9,6 +9,8 @@ import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.PurposeDebugInformation
 import com.sympauthy.business.model.flow.mfaPassedDateOrNull
 import com.sympauthy.business.model.flow.userIdOrNull
+import com.sympauthy.business.model.mfa.MfaMethodType
+import com.sympauthy.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
@@ -51,7 +53,7 @@ class MfaChallengeInteractiveFlowPurposeHandler(
     override suspend fun debugInformation(session: InteractiveFlowSession): List<PurposeDebugInformation> {
         val userId = session.userIdOrNull
         val enrolled = userId?.let {
-            if (totpManager.findConfirmedEnrollments(it).isNotEmpty()) "totp" else "none"
+            if (totpManager.findConfirmedEnrollments(it).isNotEmpty()) MfaMethodType.TOTP.wireName else "none"
         }
         return listOf(
             PurposeDebugInformation("MFA passed date", session.mfaPassedDateOrNull?.toString()),

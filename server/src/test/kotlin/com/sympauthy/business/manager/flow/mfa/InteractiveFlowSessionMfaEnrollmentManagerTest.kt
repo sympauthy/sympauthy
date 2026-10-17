@@ -11,6 +11,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.mfa.MfaMethodType
 import com.sympauthy.config.model.EnabledMfaConfig
 import com.sympauthy.config.model.MfaConfig
 import io.mockk.coEvery
@@ -184,7 +185,9 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
 
         assertEquals(
             MfaMethodSelection(
-                methods = listOf(AvailableMfaMethod(name = "TOTP", step = InteractiveFlowStep.MfaTotpEnroll)),
+                methods = listOf(
+                    AvailableMfaMethod(type = MfaMethodType.TOTP, step = InteractiveFlowStep.MfaTotpEnroll)
+                ),
                 skippable = true
             ),
             result

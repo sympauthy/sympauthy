@@ -7,6 +7,7 @@ import com.sympauthy.business.model.collection.CollectionFieldType
 import com.sympauthy.business.model.collection.CollectionOperator
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.invitation.InvitationStatus
+import com.sympauthy.business.model.mfa.MfaMethodType
 import com.sympauthy.business.model.oauth2.ConsentRevokedBy
 import com.sympauthy.business.model.oauth2.ScopeOrigin
 import com.sympauthy.business.model.oauth2.ScopeType
@@ -78,6 +79,11 @@ class AdminAllowableValuesTest {
     fun `Every invitation status and creator is published on the invitation`() {
         assertPublished(InvitationStatus.entries, AdminInvitationResource::class, "status")
         assertPublished(InvitationCreatedBy.entries, AdminInvitationResource::class, "createdBy")
+    }
+
+    @Test
+    fun `Every MFA method type is published on a user's MFA method`() {
+        assertPublished(MfaMethodType.entries, AdminUserMfaMethodResource::class, "type")
     }
 
     @Test

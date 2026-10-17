@@ -9,6 +9,8 @@ import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.PurposeDebugInformation
 import com.sympauthy.business.model.flow.mfaPassedDateOrNull
 import com.sympauthy.business.model.flow.userIdOrNull
+import com.sympauthy.business.model.mfa.MfaMethodType
+import com.sympauthy.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
@@ -59,6 +61,6 @@ class MfaEnrollmentInteractiveFlowPurposeHandler(
 
     private suspend fun enrolledMethodsOf(session: InteractiveFlowSession): String? {
         val userId = session.userIdOrNull ?: return null
-        return if (totpManager.findConfirmedEnrollments(userId).isNotEmpty()) "totp" else "none"
+        return if (totpManager.findConfirmedEnrollments(userId).isNotEmpty()) MfaMethodType.TOTP.wireName else "none"
     }
 }

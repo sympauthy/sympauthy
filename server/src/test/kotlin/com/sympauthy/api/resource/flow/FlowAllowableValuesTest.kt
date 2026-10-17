@@ -3,6 +3,7 @@ package com.sympauthy.api.resource.flow
 import com.sympauthy.api.resource.allowableValuesOf
 import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.flow.ConfirmActionType
+import com.sympauthy.business.model.mfa.MfaMethodType
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.util.wireName
@@ -12,9 +13,6 @@ import kotlin.reflect.KClass
 
 /**
  * Holds the sets the flow resources publish to the enums their mappers publish them from.
- *
- * A validation code's media and a confirmation's action reach the wire as the Kotlin name rather than as
- * `wireName`, so they are held to that spelling.
  */
 class FlowAllowableValuesTest {
 
@@ -32,7 +30,7 @@ class FlowAllowableValuesTest {
 
     @Test
     fun `Every media is published where a validation code's media is`() {
-        val media = ValidationCodeMedia.entries.map { it.name }
+        val media = ValidationCodeMedia.entries.map { it.wireName }
         assertPublished(media, ClaimsValidationFlowResource::class, "media")
         assertPublished(media, ClaimValidationInputResource::class, "media")
         assertPublished(media, ResendClaimsValidationInputResource::class, "media")
@@ -42,7 +40,12 @@ class FlowAllowableValuesTest {
 
     @Test
     fun `Every confirmation action is published on the confirmation step`() {
-        assertPublished(ConfirmActionType.entries.map { it.name }, ConfirmFlowResource::class, "action")
+        assertPublished(ConfirmActionType.entries.map { it.wireName }, ConfirmFlowResource::class, "action")
+    }
+
+    @Test
+    fun `Every MFA method type is published where an MFA method to choose is`() {
+        assertPublished(MfaMethodType.entries.map { it.wireName }, MfaMethodResource::class, "method")
     }
 
     private fun assertPublished(values: List<String>, resource: KClass<*>, property: String) {

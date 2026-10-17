@@ -36,7 +36,7 @@ data class MfaFlowResource(
 data class MfaMethodResource(
     @get:Schema(
         description = "Type of the MFA method.",
-        allowableValues = ["TOTP"]
+        allowableValues = ["totp"]
     )
     val method: String,
     @get:Schema(
