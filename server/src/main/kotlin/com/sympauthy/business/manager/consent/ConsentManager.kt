@@ -1,14 +1,14 @@
 package com.sympauthy.business.manager.consent
 
+import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.ConsentMapper
 import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.oauth2.ConsentRevokedBy
-import com.sympauthy.business.model.oauth2.TokenRevokedBy
+import com.sympauthy.business.model.oauth2.GrantRevokedBy
 import com.sympauthy.data.model.ConsentEntity
-import com.sympauthy.data.repository.AuthenticationTokenRepository
 import com.sympauthy.data.repository.ConsentRepository
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
@@ -23,15 +23,15 @@ import java.util.*
  * may exist per user+audience pair at any time. When a new consent is granted for an existing pair, the previous
  * consent is automatically revoked and replaced.
  *
- * Revoking a consent also revokes every token issued to the user for the audience, so no client goes on acting for
- * the user under it. An act-as token rests on no consent, and is left to the act-as rules.
+ * Revoking a consent also revokes every grant of the user for the audience, so no client goes on acting for the
+ * user under it. An act-as grant rests on no consent, and is left to the act-as rules.
  *
  * Consents only apply to user-facing flows (not client_credentials).
  */
 @Singleton
 open class ConsentManager(
     @Inject private val consentRepository: ConsentRepository,
-    @Inject private val tokenRepository: AuthenticationTokenRepository,
+    @Inject private val grantManager: GrantManager,
     @Inject private val consentMapper: ConsentMapper,
     @Inject private val userManager: UserManager,
     @Inject private val lockManager: LockManager
@@ -164,15 +164,15 @@ open class ConsentManager(
     }
 
     /**
-     * Revoke the given [consent], and every token issued to its user for its audience except the act-as ones.
+     * Revoke the given [consent], and every grant of its user for its audience except the act-as ones.
      *
-     * Each of the audience's clients acts under the one consent, so a token issued for the audience rests on it
-     * whichever client holds it — not only one issued to the client that last updated it, which
-     * [Consent.promptedByClientId] records and nothing more. An act-as token rests on the act-as rules instead,
+     * Each of the audience's clients acts under the one consent, so a grant opened for the audience rests on it
+     * whichever client holds it — not only one opened for the client that last updated it, which
+     * [Consent.promptedByClientId] records and nothing more. An act-as grant rests on the act-as rules instead,
      * and is left in service.
      *
-     * Both are written holding the lock over the account a refresh of those tokens takes, so a refresh
-     * racing this either reads the consent revoked or has the tokens it issued revoked with the rest.
+     * Both are written holding the lock over the account a refresh of those grants takes, so a refresh
+     * racing this either reads the consent revoked or has the grant it issued under revoked with the rest.
      */
     @Transactional
     open suspend fun revokeConsent(
@@ -189,11 +189,11 @@ open class ConsentManager(
                 revokedById = revokedById
             )
             if (updatedCount > 0) {
-                tokenRepository.updateRevokedAtByUserIdAndAudienceIdAndActorTokenIdIsNull(
+                grantManager.revokeGrantsByUserAndAudience(
                     userId = consent.userId,
                     audienceId = consent.audienceId,
                     revokedAt = now,
-                    revokedBy = TokenRevokedBy.CONSENT_REVOKED.name,
+                    revokedBy = GrantRevokedBy.CONSENT_REVOKED,
                     revokedById = revokedById
                 )
             }

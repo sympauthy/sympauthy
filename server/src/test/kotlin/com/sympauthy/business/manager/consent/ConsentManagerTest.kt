@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.consent
 
+import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.lock.HeldStripes
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
@@ -7,8 +8,8 @@ import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.ConsentMapper
 import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.oauth2.ConsentRevokedBy
+import com.sympauthy.business.model.oauth2.GrantRevokedBy
 import com.sympauthy.data.model.ConsentEntity
-import com.sympauthy.data.repository.AuthenticationTokenRepository
 import com.sympauthy.data.repository.ConsentRepository
 import com.sympauthy.data.repository.ObjectLockRepository
 import io.mockk.coEvery
@@ -36,7 +37,7 @@ class ConsentManagerTest {
     lateinit var consentRepository: ConsentRepository
 
     @MockK
-    lateinit var tokenRepository: AuthenticationTokenRepository
+    lateinit var grantManager: GrantManager
 
     @MockK
     lateinit var consentMapper: ConsentMapper
@@ -125,38 +126,38 @@ class ConsentManagerTest {
     }
 
     @Test
-    fun `revokeConsent - Revokes the tokens of the audience at the moment it revokes the consent`() = runTest {
+    fun `revokeConsent - Revokes the grants of the audience at the moment it revokes the consent`() = runTest {
         val consentRevokedAt = slot<LocalDateTime>()
-        val tokensRevokedAt = slot<LocalDateTime>()
+        val grantsRevokedAt = slot<LocalDateTime>()
         coEvery {
             consentRepository.updateRevokedAt(consentId, capture(consentRevokedAt), "ADMIN", adminId)
         } returns 1
         coEvery {
-            tokenRepository.updateRevokedAtByUserIdAndAudienceIdAndActorTokenIdIsNull(
-                userId, audienceId, capture(tokensRevokedAt), "CONSENT_REVOKED", adminId
+            grantManager.revokeGrantsByUserAndAudience(
+                userId, audienceId, capture(grantsRevokedAt), GrantRevokedBy.CONSENT_REVOKED, adminId
             )
         } returns 2
 
         consentManager.revokeConsent(consent(), ConsentRevokedBy.ADMIN, adminId)
 
-        assertEquals(consentRevokedAt.captured, tokensRevokedAt.captured)
+        assertEquals(consentRevokedAt.captured, grantsRevokedAt.captured)
         coVerifyOrder {
             objectLockRepository.lock(LockKey.User(userId).stripe)
             consentRepository.updateRevokedAt(consentId, any(), "ADMIN", adminId)
-            tokenRepository.updateRevokedAtByUserIdAndAudienceIdAndActorTokenIdIsNull(
-                userId, audienceId, any(), "CONSENT_REVOKED", adminId
+            grantManager.revokeGrantsByUserAndAudience(
+                userId, audienceId, any(), GrantRevokedBy.CONSENT_REVOKED, adminId
             )
         }
     }
 
     @Test
-    fun `revokeConsent - Revokes no token where updating the consent reaches no row`() = runTest {
+    fun `revokeConsent - Revokes no grant where updating the consent reaches no row`() = runTest {
         coEvery { consentRepository.updateRevokedAt(consentId, any(), "ADMIN", adminId) } returns 0
 
         consentManager.revokeConsent(consent(), ConsentRevokedBy.ADMIN, adminId)
 
         coVerify(exactly = 0) {
-            tokenRepository.updateRevokedAtByUserIdAndAudienceIdAndActorTokenIdIsNull(any(), any(), any(), any(), any())
+            grantManager.revokeGrantsByUserAndAudience(any(), any(), any(), any(), any())
         }
     }
 

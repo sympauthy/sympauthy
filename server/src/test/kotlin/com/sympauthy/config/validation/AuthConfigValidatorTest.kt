@@ -63,12 +63,13 @@ class AuthConfigValidatorTest {
         )
     )
 
-    private fun parsedAuth(identifierClaims: List<String>) = ParsedAuthConfig(
+    private fun parsedAuth(identifierClaims: List<String>, grantExpiration: Duration? = null) = ParsedAuthConfig(
         issuer = "https://auth.example.com",
         accessExpiration = Duration.ofMinutes(5),
         idExpiration = Duration.ofMinutes(5),
         refreshEnabled = false,
         refreshExpiration = null,
+        grantExpiration = grantExpiration,
         dpopRequired = false,
         authorizationCodeExpiration = Duration.ofMinutes(1),
         identifierClaims = identifierClaims,
@@ -80,6 +81,35 @@ class AuthConfigValidatorTest {
         val ctx = ConfigParsingContext()
         validator.validate(ctx, parsedAuth(identifierClaims), EnabledClaimsConfig(claims.toList()))
         return ctx
+    }
+
+    @Test
+    fun `validate - Refuse a grant lifetime that is not greater than zero`() {
+        listOf(Duration.ZERO, Duration.ofHours(-1)).forEach { grantExpiration ->
+            val ctx = ConfigParsingContext()
+            validator.validate(
+                ctx,
+                parsedAuth(emptyList(), grantExpiration = grantExpiration),
+                EnabledClaimsConfig(emptyList())
+            )
+
+            val error = ctx.errors.single { it.messageId == "config.auth.token.grant_expiration.not_positive" }
+            assertEquals("auth.token.grant-expiration", error.key)
+            assertEquals(grantExpiration.toString(), error.values["duration"])
+        }
+    }
+
+    @Test
+    fun `validate - Accept a grant lifetime greater than zero`() {
+        val ctx = ConfigParsingContext()
+        val validated = validator.validate(
+            ctx,
+            parsedAuth(listOf("email"), grantExpiration = Duration.ofHours(1)),
+            EnabledClaimsConfig(listOf(claim("email", ClaimDataType.EMAIL)))
+        )
+
+        assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
+        assertEquals(Duration.ofHours(1), validated?.token?.grantExpiration)
     }
 
     @Test

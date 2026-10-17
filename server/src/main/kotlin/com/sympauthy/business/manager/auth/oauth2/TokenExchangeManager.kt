@@ -4,12 +4,14 @@ import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.api.exception.toOAuth2Exception
 import com.sympauthy.business.exception.InvalidJwtException
 import com.sympauthy.business.manager.actas.ActAsRuleManager
+import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.ACCESS_DENIED
@@ -18,6 +20,7 @@ import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TARGET
 import com.sympauthy.config.model.AudiencesConfig
 import com.sympauthy.config.model.orThrow
+import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.util.*
@@ -31,9 +34,10 @@ import java.util.*
  * recorded in the `act` claim.
  */
 @Singleton
-class TokenExchangeManager(
+open class TokenExchangeManager(
     @Inject private val jwtManager: JwtManager,
     @Inject private val tokenManager: TokenManager,
+    @Inject private val grantManager: GrantManager,
     @Inject private val accessTokenGenerator: AccessTokenGenerator,
     @Inject private val userManager: UserManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
@@ -52,8 +56,12 @@ class TokenExchangeManager(
      * the issued token's audience; [resource] is a URI the server would map to a policy, which this server does not
      * implement, so it is rejected when present rather than ignored. Passing [dpopJkt] binds the issued token to that
      * JWK thumbprint, and leaving it null issues a bearer token.
+     *
+     * The token is issued under a grant the exchange opens, which records the grant of [subjectToken]: revoking
+     * that grant revokes this one, and a token of this one is refused once that grant is no longer live.
      */
-    suspend fun exchangeForActAsToken(
+    @Transactional
+    open suspend fun exchangeForActAsToken(
         actingClient: Client,
         subjectToken: String,
         subjectTokenType: String,
@@ -86,10 +94,15 @@ class TokenExchangeManager(
             throw oauth2ExceptionOf(ACCESS_DENIED, "token_exchange.not_allowed")
         }
 
-        return accessTokenGenerator.generateActAsAccessToken(
+        val grant = grantManager.createTokenExchangeGrant(
             userId = targetUser,
-            actorToken = actorToken,
+            audienceId = targetAudience.id,
+            actorGrant = actorToken.grant
+        )
+        return accessTokenGenerator.generateAccessToken(
+            grant = grant,
             audience = targetAudience,
+            grantType = GrantType.TOKEN_EXCHANGE,
             dpopJkt = dpopJkt
         )
     }
@@ -107,19 +120,19 @@ class TokenExchangeManager(
             throw e.toOAuth2Exception(INVALID_GRANT)
         }
 
-        // getAuthenticationToken throws if the token is unknown, revoked or its subject does not match.
+        // getAuthenticationToken throws if the token is unknown, its grant revoked or its subject does not match.
         val token = tokenManager.getAuthenticationToken(decodedToken)
-        if (token.clientId != actingClient.id) {
+        if (token.grant.clientId != actingClient.id) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token_exchange.subject_token_not_owned")
         }
         // An act-as token already carries an actor. Exchanging it again would chain act-as tokens, which is not
         // supported yet. Checked before the user check below because an act-as token is also bound to a user, so
         // this surfaces the specific chaining error rather than the generic "not a client token" one.
-        if (token.actorTokenId != null) {
+        if (token.grant.actorGrantId != null) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token_exchange.subject_token_has_actor")
         }
         // A client-credentials token is not associated with any user.
-        if (token.userId != null) {
+        if (token.grant.userId != null) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token_exchange.subject_token_not_client")
         }
         return token

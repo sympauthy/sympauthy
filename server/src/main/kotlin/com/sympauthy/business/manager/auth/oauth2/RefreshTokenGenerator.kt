@@ -3,15 +3,15 @@ package com.sympauthy.business.manager.auth.oauth2
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
 import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.business.model.oauth2.AuthenticationToken
+import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
-import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
-import com.sympauthy.business.model.user.claim.RequestedClaims
+import com.sympauthy.business.model.oauth2.Grant
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.AuthenticationTokenEntity
 import com.sympauthy.data.repository.AuthenticationTokenRepository
+import com.sympauthy.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.time.LocalDateTime
@@ -27,82 +27,22 @@ class RefreshTokenGenerator(
 ) {
 
     /**
-     * Generate a new refresh token using the information stored in the session's [oauth2] request record.
-     * Or return null if the refresh token is disabled by the [authConfig].
+     * Generate a new refresh token under the [grant], issued by the [grantType] the client asked with, or
+     * return null if the refresh token is disabled by the [authConfig].
+     *
+     * Nothing about the authorization is claimed in it — nothing reads a refresh token but this server, and
+     * every token the next refresh mints reads the [grant] — beyond the subject and the [audience] it was
+     * issued for.
+     *
+     * Its row expires no later than the [grant] does, which is what lets a grant past its lifetime lapse and
+     * be collected. The `exp` it is signed with is its own lifetime instead, so that one presented past the
+     * grant's end, and before the grant is collected, is refused by the grant, as `grant.expired`, rather than
+     * by the signature check as a token that ran out on its own.
      */
     suspend fun generateRefreshToken(
-        oauth2: InteractiveFlowSessionOAuth2,
-        userId: UUID,
+        grant: Grant,
         audience: Audience,
-        dpopJkt: String? = null
-    ) = generateRefreshToken(
-        userId = userId,
-        clientId = oauth2.clientId,
-        audience = audience,
-        grantedScopes = oauth2.grantedScopes ?: emptyList(),
-        grantedAt = oauth2.grantedAt,
-        grantedBy = oauth2.grantedBy?.name,
-        consentedScopes = oauth2.consentedScopes ?: emptyList(),
-        consentedAt = oauth2.consentedAt,
-        consentedBy = oauth2.consentedBy?.name,
-        clientScopes = emptyList(),
-        sessionId = oauth2.sessionId,
-        grantType = "authorization_code",
-        authenticationDate = oauth2.authenticationDate,
-        requestedClaims = oauth2.requestedClaims,
-        dpopJkt = dpopJkt
-    )
-
-    /**
-     * Generate a new refresh token using the information stored in the previous [refreshToken].
-     */
-    suspend fun generateRefreshToken(
-        refreshToken: AuthenticationToken,
-        audience: Audience,
-        dpopJkt: String? = null
-    ) = generateRefreshToken(
-        userId = refreshToken.userId,
-        clientId = refreshToken.clientId,
-        audience = audience,
-        grantedScopes = refreshToken.grantedScopes,
-        grantedAt = refreshToken.grantedAt,
-        grantedBy = refreshToken.grantedBy?.name,
-        consentedScopes = refreshToken.consentedScopes,
-        consentedAt = refreshToken.consentedAt,
-        consentedBy = refreshToken.consentedBy?.name,
-        clientScopes = refreshToken.clientScopes,
-        sessionId = refreshToken.sessionId,
-        grantType = "refresh_token",
-        authenticationDate = refreshToken.authenticationDate,
-        requestedClaims = refreshToken.requestedClaims,
-        dpopJkt = dpopJkt
-    )
-
-    internal suspend fun generateRefreshToken(
-        userId: UUID?,
-        clientId: String,
-        audience: Audience,
-        grantedScopes: List<String>,
-        grantedAt: java.time.LocalDateTime?,
-        grantedBy: String?,
-        consentedScopes: List<String>,
-        consentedAt: java.time.LocalDateTime?,
-        consentedBy: String?,
-        clientScopes: List<String>,
-        sessionId: UUID?,
-        grantType: String,
-        /**
-         * When the person named by [userId] proved a credential of their account. It is carried on the
-         * row rather than claimed in the token — nothing reads a refresh token but this server — and it
-         * is what the next access and id token this refresh mints state as `auth_time`.
-         */
-        authenticationDate: LocalDateTime? = null,
-        /**
-         * The claims the `claims` request parameter of the authorization named. It is carried on the row
-         * so that the next access and id token this refresh mints answer the same request the code
-         * exchange did; nothing reads a refresh token but this server, so it is claimed in no token.
-         */
-        requestedClaims: RequestedClaims = RequestedClaims.NONE,
+        grantType: GrantType,
         dpopJkt: String? = null
     ): EncodedAuthenticationToken? {
         val enabledAuthConfig = authConfig.orThrow()
@@ -111,37 +51,24 @@ class RefreshTokenGenerator(
         }
 
         val issueDate = LocalDateTime.now()
-        val expirationDate = enabledAuthConfig.token.refreshExpiration?.let(issueDate::plus)
+        val ownExpirationDate = enabledAuthConfig.token.refreshExpiration?.let(issueDate::plus)
         val entity = AuthenticationTokenEntity(
-            userId = userId,
             type = REFRESH.name,
-            clientId = clientId,
-            audienceId = audience.id,
-            grantedScopes = grantedScopes.toTypedArray(),
-            grantedAt = grantedAt,
-            grantedBy = grantedBy,
-            consentedScopes = consentedScopes.toTypedArray(),
-            consentedAt = consentedAt,
-            consentedBy = consentedBy,
-            clientScopes = clientScopes.toTypedArray(),
-            sessionId = sessionId,
-            grantType = grantType,
-            authenticationDate = authenticationDate,
-            requestedIdTokenClaims = requestedClaims.idTokenClaimIds.toTypedArray(),
-            requestedUserinfoClaims = requestedClaims.userInfoClaimIds.toTypedArray(),
+            grantId = grant.id,
+            grantType = grantType.wireName,
             dpopJkt = dpopJkt,
             issueDate = issueDate,
-            expirationDate = expirationDate
+            expirationDate = grant.getTokenExpirationDate(ownExpirationDate)
         ).let { tokenRepository.save(it) }
 
         val encodedToken = jwtManager.create(JwtManager.REFRESH_KEY) {
             entity.id?.toString()?.let(this::jwtID)
             audience(listOf(audience.tokenAudience))
-            subject(userId?.toString() ?: clientId)
+            subject(grant.userId?.toString() ?: grant.clientId)
             issueTime(Date.from(issueDate.toInstant(ZoneOffset.UTC)))
-            expirationDate?.toInstant(ZoneOffset.UTC)?.let { expirationTime(Date.from(it)) }
+            ownExpirationDate?.toInstant(ZoneOffset.UTC)?.let { expirationTime(Date.from(it)) }
         }
 
-        return tokenMapper.toEncodedAuthenticationToken(entity, encodedToken)
+        return tokenMapper.toEncodedAuthenticationToken(entity, grant, encodedToken)
     }
 }

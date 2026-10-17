@@ -72,7 +72,7 @@ interface UserRepository : CoroutineCrudRepository<UserEntity, UUID> {
           AND NOT EXISTS (SELECT 1 FROM validation_codes v WHERE v.user_id = users.id)
           AND NOT EXISTS (SELECT 1 FROM consents c WHERE c.user_id = users.id)
           AND NOT EXISTS (SELECT 1 FROM invitations i WHERE i.consumed_by_user_id = users.id)
-          AND NOT EXISTS (SELECT 1 FROM authentication_tokens t WHERE t.user_id = users.id)
+          AND NOT EXISTS (SELECT 1 FROM grants g WHERE g.user_id = users.id)
         """
     )
     suspend fun findAbandoned(): List<UserEntity>

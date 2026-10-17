@@ -2,340 +2,89 @@ package com.sympauthy.data.repository
 
 import com.sympauthy.data.BASE_DATE
 import com.sympauthy.data.Database
-import com.sympauthy.data.RepositoryFixture
-import com.sympauthy.data.model.AuthenticationTokenEntity
 import com.sympauthy.data.withFixture
-import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
-import java.time.LocalDateTime
-import java.util.*
 
 /**
- * The three scope arrays a token carries, and the six updates that revoke one — each reached by a
- * different key, and each leaving a token already revoked or expired as it was.
+ * A token row and the grant it names, the count of the live ones under a grant, and the two deletes that
+ * collect tokens: the expired, and those of a revoked grant.
  */
 class AuthenticationTokenRepositoryTest {
 
-    private val clientId = "authentication-token-repository-test-client"
-    private val otherClientId = "authentication-token-repository-test-other-client"
-    private val audienceId = "authentication-token-repository-test-audience"
-    private val otherAudienceId = "authentication-token-repository-test-other-audience"
-    private val earlierRevokedAt = BASE_DATE.plusMinutes(30)
-    private val revokedAt = BASE_DATE.plusHours(1)
-    private val liveUntil = revokedAt.plusHours(1)
+    private val now = BASE_DATE.plusHours(1)
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `save - Round-trips the three scope arrays`(database: Database) = withFixture(database) {
+    fun `save - Round-trips the token and the grant it names`(database: Database) = withFixture(database) {
         val tokens = repository<AuthenticationTokenRepository>()
-        val id = saveToken(
-            newUser(),
-            grantedScopes = arrayOf("admin"),
-            consentedScopes = arrayOf("openid", "profile"),
-            clientScopes = emptyArray()
-        )
+        val grantId = newGrant(newUser())
+        val id = newToken(grantId, expirationDate = now, type = "REFRESH", grantType = "refresh_token")
 
         val stored = tokens.findById(id)
 
         assertNotNull(stored)
-        assertArrayEquals(arrayOf("admin"), stored!!.grantedScopes)
-        assertArrayEquals(arrayOf("openid", "profile"), stored.consentedScopes)
-        assertArrayEquals(emptyArray<String>(), stored.clientScopes)
-        assertEquals("authorization_code", stored.grantType)
+        assertEquals(grantId, stored!!.grantId)
+        assertEquals("REFRESH", stored.type)
+        assertEquals("refresh_token", stored.grantType)
+        assertNull(stored.dpopJkt)
         assertEquals(BASE_DATE, stored.issueDate)
-    }
-
-    /** A client-credentials token carries neither a user nor a session, and both columns admit null. */
-    @ParameterizedTest
-    @EnumSource(Database::class)
-    fun `save - Round-trips a token bound to no user and no session`(database: Database) = withFixture(database) {
-        val tokens = repository<AuthenticationTokenRepository>()
-        val id = saveToken(userId = null, sessionId = null, grantType = "client_credentials")
-
-        val stored = tokens.findById(id)
-
-        assertNotNull(stored)
-        assertNull(stored!!.userId)
-        assertNull(stored.sessionId)
-        assertNull(stored.expirationDate)
-        assertNull(stored.revokedAt)
-    }
-
-    /** The moment a person proved a credential, which every token of their authorization carries. */
-    @ParameterizedTest
-    @EnumSource(Database::class)
-    fun `save - Round-trips the authentication date`(database: Database) = withFixture(database) {
-        val tokens = repository<AuthenticationTokenRepository>()
-        val authenticationDate = BASE_DATE.minusMinutes(2)
-        val id = saveToken(newUser(), authenticationDate = authenticationDate)
-        val withoutOne = saveToken(userId = null, sessionId = null, grantType = "client_credentials")
-
-        assertEquals(authenticationDate, tokens.findById(id)!!.authenticationDate)
-        assertNull(tokens.findById(withoutOne)!!.authenticationDate)
-    }
-
-    /** The claims the request behind the grant named, which every token descended from it carries. */
-    @ParameterizedTest
-    @EnumSource(Database::class)
-    fun `save - Round-trips the asked-for claim arrays`(database: Database) = withFixture(database) {
-        val tokens = repository<AuthenticationTokenRepository>()
-        val id = saveToken(
-            newUser(),
-            requestedIdTokenClaims = arrayOf("loyalty_tier"),
-            requestedUserinfoClaims = arrayOf("shoe_size", "loyalty_tier")
-        )
-        val withoutAny = saveToken(userId = null, sessionId = null, grantType = "client_credentials")
-
-        val stored = tokens.findById(id)!!
-        val storedWithoutAny = tokens.findById(withoutAny)!!
-
-        assertArrayEquals(arrayOf("loyalty_tier"), stored.requestedIdTokenClaims)
-        assertArrayEquals(arrayOf("shoe_size", "loyalty_tier"), stored.requestedUserinfoClaims)
-        assertArrayEquals(emptyArray<String>(), storedWithoutAny.requestedIdTokenClaims)
-        assertArrayEquals(emptyArray<String>(), storedWithoutAny.requestedUserinfoClaims)
+        assertEquals(now, stored.expirationDate)
     }
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `updateRevokedAt - Revokes the token it names`(database: Database) = withFixture(database) {
-        val tokens = repository<AuthenticationTokenRepository>()
-        val userId = newUser()
-        val id = saveToken(userId, expirationDate = liveUntil)
-        val untouched = saveToken(userId)
-
-        tokens.updateRevokedAt(id, revokedAt, "administrator", userId)
-
-        assertEquals(revokedAt, tokens.findById(id)?.revokedAt)
-        assertEquals("administrator", tokens.findById(id)?.revokedBy)
-        assertEquals(userId, tokens.findById(id)?.revokedById)
-        assertNull(tokens.findById(untouched)!!.revokedAt)
-    }
-
-    @ParameterizedTest
-    @EnumSource(Database::class)
-    fun `updateRevokedAt - Leaves a token already revoked or expired as it was`(database: Database) =
-        withFixture(database) {
-            val tokens = repository<AuthenticationTokenRepository>()
-            val userId = newUser()
-            val revokedEarlier = saveRevokedEarlierToken(userId)
-            val expired = saveExpiredToken(userId)
-
-            tokens.updateRevokedAt(revokedEarlier, revokedAt, "administrator", userId)
-            tokens.updateRevokedAt(expired, revokedAt, "administrator", userId)
-
-            tokens.assertLeftAsTheyWere(revokedEarlier, expired)
-        }
-
-    @ParameterizedTest
-    @EnumSource(Database::class)
-    fun `updateRevokedAtBySessionId - Revokes every live token of the session`(database: Database) =
-        withFixture(database) {
-            val tokens = repository<AuthenticationTokenRepository>()
-            val userId = newUser()
-            val sessionId = UUID.randomUUID()
-            val first = saveToken(userId, sessionId = sessionId)
-            val second = saveToken(userId, sessionId = sessionId, expirationDate = liveUntil)
-            val revokedEarlier = saveRevokedEarlierToken(userId, sessionId = sessionId)
-            val expired = saveExpiredToken(userId, sessionId = sessionId)
-            val other = saveToken(userId, sessionId = UUID.randomUUID())
-
-            tokens.updateRevokedAtBySessionId(sessionId, revokedAt, "administrator", null)
-
-            assertEquals(revokedAt, tokens.findById(first)?.revokedAt)
-            assertEquals(revokedAt, tokens.findById(second)?.revokedAt)
-            assertNull(tokens.findById(other)!!.revokedAt)
-            assertNull(tokens.findById(first)!!.revokedById)
-            tokens.assertLeftAsTheyWere(revokedEarlier, expired)
-        }
-
-    @ParameterizedTest
-    @EnumSource(Database::class)
-    fun `updateRevokedAtByActorTokenId - Revokes the live derived tokens and counts them`(database: Database) =
-        withFixture(database) {
-            val tokens = repository<AuthenticationTokenRepository>()
-            val userId = newUser()
-            val actorTokenId = saveToken(userId)
-            val derived = saveToken(userId, actorTokenId = actorTokenId, expirationDate = liveUntil)
-            val revokedEarlier = saveRevokedEarlierToken(userId, actorTokenId = actorTokenId)
-            val expired = saveExpiredToken(userId, actorTokenId = actorTokenId)
-            val unrelated = saveToken(userId)
-
-            val count = tokens.updateRevokedAtByActorTokenId(actorTokenId, revokedAt, "administrator", userId)
-
-            assertEquals(1, count)
-            assertEquals(revokedAt, tokens.findById(derived)?.revokedAt)
-            assertNull(tokens.findById(unrelated)!!.revokedAt)
-            tokens.assertLeftAsTheyWere(revokedEarlier, expired)
-        }
-
-    @ParameterizedTest
-    @EnumSource(Database::class)
-    fun `updateRevokedAtByUserIdAndClientId - Revokes the live tokens on both keys at once`(database: Database) =
-        withFixture(database) {
-            val tokens = repository<AuthenticationTokenRepository>()
-            val userId = newUser()
-            val otherUserId = newUser()
-            val revoked = saveToken(userId, clientId = clientId, expirationDate = liveUntil)
-            val revokedEarlier = saveRevokedEarlierToken(userId, clientId = clientId)
-            val expired = saveExpiredToken(userId, clientId = clientId)
-            val otherClient = saveToken(userId, clientId = otherClientId)
-            val otherUser = saveToken(otherUserId, clientId = clientId)
-
-            val count = tokens.updateRevokedAtByUserIdAndClientId(
-                userId, clientId, revokedAt, "administrator", userId
-            )
-
-            assertEquals(1, count)
-            assertEquals(revokedAt, tokens.findById(revoked)?.revokedAt)
-            assertNull(tokens.findById(otherClient)!!.revokedAt)
-            assertNull(tokens.findById(otherUser)!!.revokedAt)
-            tokens.assertLeftAsTheyWere(revokedEarlier, expired)
-        }
-
-    @ParameterizedTest
-    @EnumSource(Database::class)
-    fun `updateRevokedAtByUserIdAndAudienceIdAndActorTokenIdIsNull - Revokes the live tokens of the audience`(
+    fun `countLiveByGrantId - Counts the tokens of the grant not expired yet, one without an expiry among them`(
         database: Database
     ) = withFixture(database) {
         val tokens = repository<AuthenticationTokenRepository>()
-        val userId = newUser()
-        val otherUserId = newUser()
-        val revoked = saveToken(userId, expirationDate = liveUntil)
-        val otherClient = saveToken(userId, clientId = otherClientId)
-        val revokedEarlier = saveRevokedEarlierToken(userId)
-        val expired = saveExpiredToken(userId)
-        val otherAudience = saveToken(userId, audienceId = otherAudienceId)
-        val otherUser = saveToken(otherUserId)
+        val grantId = newGrant(newUser())
+        val otherGrantId = newGrant(newUser())
+        newToken(grantId, expirationDate = now.plusMinutes(1))
+        newToken(grantId, expirationDate = now)
+        newToken(grantId, expirationDate = null, type = "REFRESH")
+        newToken(grantId, expirationDate = now.minusMinutes(1))
+        newToken(otherGrantId, expirationDate = now.plusMinutes(1))
 
-        val count = tokens.updateRevokedAtByUserIdAndAudienceIdAndActorTokenIdIsNull(
-            userId, audienceId, revokedAt, "administrator", userId
-        )
-
-        assertEquals(2, count)
-        assertEquals(revokedAt, tokens.findById(revoked)?.revokedAt)
-        assertEquals(revokedAt, tokens.findById(otherClient)?.revokedAt)
-        assertNull(tokens.findById(otherAudience)!!.revokedAt)
-        assertNull(tokens.findById(otherUser)!!.revokedAt)
-        tokens.assertLeftAsTheyWere(revokedEarlier, expired)
+        assertEquals(3L, tokens.countLiveByGrantId(grantId, now))
     }
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `updateRevokedAtByUserIdAndAudienceIdAndActorTokenIdIsNull - Leaves an act-as token in service`(
-        database: Database
-    ) = withFixture(database) {
-        val tokens = repository<AuthenticationTokenRepository>()
-        val userId = newUser()
-        val actAs = saveToken(userId, sessionId = null, actorTokenId = UUID.randomUUID())
+    fun `deleteByExpirationDateLessThan - Deletes the expired tokens and counts them`(database: Database) =
+        withFixture(database) {
+            val tokens = repository<AuthenticationTokenRepository>()
+            val grantId = newGrant(newUser())
+            val expired = newToken(grantId, expirationDate = now.minusMinutes(1))
+            val expiringNow = newToken(grantId, expirationDate = now)
+            val withoutExpiry = newToken(grantId, expirationDate = null, type = "REFRESH")
 
-        val count = tokens.updateRevokedAtByUserIdAndAudienceIdAndActorTokenIdIsNull(
-            userId, audienceId, revokedAt, "administrator", userId
-        )
+            assertEquals(1, tokens.deleteByExpirationDateLessThan(now))
 
-        assertEquals(0, count)
-        assertNull(tokens.findById(actAs)!!.revokedAt)
-    }
+            assertNull(tokens.findById(expired))
+            assertNotNull(tokens.findById(expiringNow))
+            assertNotNull(tokens.findById(withoutExpiry))
+        }
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `updateRevokedAtByUserId - Revokes every live token of the user and counts them`(database: Database) =
+    fun `deleteUnderRevokedGrants - Deletes every token of a revoked grant and counts them`(database: Database) =
         withFixture(database) {
             val tokens = repository<AuthenticationTokenRepository>()
             val userId = newUser()
-            val otherUserId = newUser()
-            val first = saveToken(userId, clientId = clientId)
-            val second = saveToken(userId, clientId = otherClientId, expirationDate = liveUntil)
-            val revokedEarlier = saveRevokedEarlierToken(userId)
-            val expired = saveExpiredToken(userId)
-            val other = saveToken(otherUserId)
+            val revokedGrantId = newGrant(userId, revokedAt = BASE_DATE, revokedBy = "CLIENT")
+            val liveGrantId = newGrant(userId)
+            val access = newToken(revokedGrantId, expirationDate = now)
+            val refresh = newToken(revokedGrantId, expirationDate = null, type = "REFRESH")
+            val live = newToken(liveGrantId, expirationDate = now)
 
-            val count = tokens.updateRevokedAtByUserId(userId, revokedAt, "administrator", userId)
+            assertEquals(2, tokens.deleteUnderRevokedGrants())
 
-            assertEquals(2, count)
-            assertEquals(revokedAt, tokens.findById(first)?.revokedAt)
-            assertEquals(revokedAt, tokens.findById(second)?.revokedAt)
-            assertNull(tokens.findById(other)!!.revokedAt)
-            tokens.assertLeftAsTheyWere(revokedEarlier, expired)
+            assertNull(tokens.findById(access))
+            assertNull(tokens.findById(refresh))
+            assertNotNull(tokens.findById(live))
         }
-
-    /** Asserts that [revokedEarlier] still carries the revocation it was saved with, and [expired] none. */
-    private suspend fun AuthenticationTokenRepository.assertLeftAsTheyWere(revokedEarlier: UUID, expired: UUID) {
-        val storedRevokedEarlier = findById(revokedEarlier)!!
-        assertEquals(earlierRevokedAt, storedRevokedEarlier.revokedAt)
-        assertEquals("client", storedRevokedEarlier.revokedBy)
-        assertNull(storedRevokedEarlier.revokedById)
-        assertNull(findById(expired)!!.revokedAt)
-    }
-
-    private suspend fun RepositoryFixture.saveRevokedEarlierToken(
-        userId: UUID,
-        clientId: String = this@AuthenticationTokenRepositoryTest.clientId,
-        sessionId: UUID? = UUID.randomUUID(),
-        actorTokenId: UUID? = null
-    ): UUID = saveToken(
-        userId,
-        clientId = clientId,
-        sessionId = sessionId,
-        actorTokenId = actorTokenId,
-        revokedAt = earlierRevokedAt,
-        revokedBy = "client"
-    )
-
-    private suspend fun RepositoryFixture.saveExpiredToken(
-        userId: UUID,
-        clientId: String = this@AuthenticationTokenRepositoryTest.clientId,
-        sessionId: UUID? = UUID.randomUUID(),
-        actorTokenId: UUID? = null
-    ): UUID = saveToken(
-        userId,
-        clientId = clientId,
-        sessionId = sessionId,
-        actorTokenId = actorTokenId,
-        expirationDate = revokedAt.minusMinutes(1)
-    )
-
-    private suspend fun RepositoryFixture.saveToken(
-        userId: UUID?,
-        clientId: String = this@AuthenticationTokenRepositoryTest.clientId,
-        audienceId: String = this@AuthenticationTokenRepositoryTest.audienceId,
-        sessionId: UUID? = UUID.randomUUID(),
-        grantType: String = "authorization_code",
-        actorTokenId: UUID? = null,
-        authenticationDate: LocalDateTime? = null,
-        grantedScopes: Array<String> = emptyArray(),
-        consentedScopes: Array<String> = arrayOf("openid"),
-        clientScopes: Array<String> = emptyArray(),
-        requestedIdTokenClaims: Array<String> = emptyArray(),
-        requestedUserinfoClaims: Array<String> = emptyArray(),
-        expirationDate: LocalDateTime? = null,
-        revokedAt: LocalDateTime? = null,
-        revokedBy: String? = null
-    ): UUID {
-        val tokens = repository<AuthenticationTokenRepository>()
-        return tokens.save(
-            AuthenticationTokenEntity(
-                type = "access",
-                userId = userId,
-                clientId = clientId,
-                audienceId = audienceId,
-                grantedScopes = grantedScopes,
-                consentedScopes = consentedScopes,
-                clientScopes = clientScopes,
-                sessionId = sessionId,
-                grantType = grantType,
-                actorTokenId = actorTokenId,
-                authenticationDate = authenticationDate,
-                requestedIdTokenClaims = requestedIdTokenClaims,
-                requestedUserinfoClaims = requestedUserinfoClaims,
-                revokedAt = revokedAt,
-                revokedBy = revokedBy,
-                issueDate = BASE_DATE,
-                expirationDate = expirationDate
-            )
-        ).id!!.also { id -> deleteOnEnd { tokens.deleteById(id) } }
-    }
 }

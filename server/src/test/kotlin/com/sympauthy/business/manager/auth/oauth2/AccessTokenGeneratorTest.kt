@@ -5,6 +5,8 @@ import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
 import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.client.GrantType
+import com.sympauthy.business.model.oauth2.Grant
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.PersonalClaim
@@ -13,11 +15,13 @@ import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.ConsentAcl
+import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.business.model.user.claim.UnconditionalAcl
 import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.config.model.TokenConfig
 import com.sympauthy.data.model.AuthenticationTokenEntity
 import com.sympauthy.data.repository.AuthenticationTokenRepository
+import io.mockk.CapturingSlot
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -33,6 +37,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import java.time.Duration
 import java.time.LocalDateTime
+import java.time.ZoneOffset
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
@@ -110,19 +115,54 @@ class AccessTokenGeneratorTest {
     }
 
     @Test
-    fun `generateAccessTokenForClient - EnabledClaim nothing about a person`() = runTest {
+    fun `generateAccessToken - Claims nothing about a person under a client credentials grant`() = runTest {
         val builder = stubGeneration()
 
-        generator.generateAccessTokenForClient(
-            clientId = "client",
+        generator.generateAccessToken(
+            grant = grant(userId = null, grantType = GrantType.CLIENT_CREDENTIALS, clientScopes = listOf("users:read")),
             audience = audience(),
-            clientScopes = listOf("users:claims:read")
+            grantType = GrantType.CLIENT_CREDENTIALS
         )
 
         val claimsSet = builder.build()
         assertEquals("client", claimsSet.subject)
+        assertEquals("users:read", claimsSet.getStringClaim("scope"))
         assertNull(claimsSet.getClaim("loyalty_tier"))
         assertFalse(claimsSet.claims.containsKey("address"))
+        assertFalse(claimsSet.claims.containsKey("act"))
+    }
+
+    @Test
+    fun `generateAccessToken - States the acting client under a grant a token exchange opened`() = runTest {
+        val builder = stubGeneration()
+
+        generator.generateAccessToken(
+            grant = grant(userId = null, grantType = GrantType.TOKEN_EXCHANGE, actorGrantId = UUID.randomUUID()),
+            audience = audience(),
+            grantType = GrantType.TOKEN_EXCHANGE
+        )
+
+        assertEquals(mapOf("sub" to "client"), builder.build().getJSONObjectClaim("act"))
+    }
+
+    @Test
+    fun `generateAccessToken - Expires no later than the grant it is issued under`() = runTest {
+        val grantExpirationDate = LocalDateTime.now().plusMinutes(1).withNano(0)
+        val saved = slot<AuthenticationTokenEntity>()
+        val builder = stubGeneration(saved = saved)
+
+        generator.generateAccessToken(
+            grant = grant(userId = null, expirationDate = grantExpirationDate),
+            audience = audience(),
+            grantType = GrantType.REFRESH_TOKEN
+        )
+
+        assertEquals(grantExpirationDate, saved.captured.expirationDate)
+        assertEquals("refresh_token", saved.captured.grantType)
+        assertEquals(
+            Date.from(grantExpirationDate.toInstant(ZoneOffset.UTC)),
+            builder.build().expirationTime
+        )
     }
 
     private fun audience() = Audience(id = AUDIENCE_ID, tokenAudience = TOKEN_AUDIENCE)
@@ -173,26 +213,50 @@ class AccessTokenGeneratorTest {
         val builder = stubGeneration(userId, claims.toList())
 
         generator.generateAccessToken(
-            userId = userId,
-            clientId = "client",
+            grant = grant(userId = userId, consentedScopes = listOf(CONSENTED_SCOPE)),
             audience = audience(),
-            grantedScopes = emptyList(),
-            grantedAt = null,
-            grantedBy = null,
-            consentedScopes = listOf(CONSENTED_SCOPE),
-            consentedAt = null,
-            consentedBy = null,
-            clientScopes = emptyList(),
-            sessionId = null,
-            grantType = "authorization_code"
+            grantType = GrantType.AUTHORIZATION_CODE
         )
 
         return builder.build()
     }
 
+    @Suppress("LongParameterList")
+    private fun grant(
+        userId: UUID?,
+        grantType: GrantType = GrantType.AUTHORIZATION_CODE,
+        consentedScopes: List<String> = emptyList(),
+        clientScopes: List<String> = emptyList(),
+        actorGrantId: UUID? = null,
+        expirationDate: LocalDateTime? = null
+    ) = Grant(
+        id = UUID.randomUUID(),
+        userId = userId,
+        clientId = "client",
+        audienceId = AUDIENCE_ID,
+        grantType = grantType,
+        grantedScopes = emptyList(),
+        grantedAt = null,
+        grantedBy = null,
+        consentedScopes = consentedScopes,
+        consentedAt = null,
+        consentedBy = null,
+        clientScopes = clientScopes,
+        authenticationDate = null,
+        requestedClaims = RequestedClaims.NONE,
+        sessionId = null,
+        actorGrantId = actorGrantId,
+        creationDate = LocalDateTime.now(),
+        expirationDate = expirationDate,
+        revokedAt = null,
+        revokedBy = null,
+        revokedById = null
+    )
+
     private fun stubGeneration(
         userId: UUID? = null,
-        claims: List<CollectedClaim> = emptyList()
+        claims: List<CollectedClaim> = emptyList(),
+        saved: CapturingSlot<AuthenticationTokenEntity> = slot()
     ): JWTClaimsSet.Builder {
         every { uncheckedAuthConfig.token } returns mockk<TokenConfig> {
             every { accessExpiration } returns Duration.ofMinutes(5)
@@ -205,8 +269,8 @@ class AccessTokenGeneratorTest {
                 )
             } returns claims
         }
-        coEvery { tokenRepository.save(any()) } answers { firstArg<AuthenticationTokenEntity>() }
-        every { tokenMapper.toEncodedAuthenticationToken(any(), any()) } returns mockk()
+        coEvery { tokenRepository.save(capture(saved)) } answers { firstArg<AuthenticationTokenEntity>() }
+        every { tokenMapper.toEncodedAuthenticationToken(any(), any(), any()) } returns mockk()
 
         val builder = JWTClaimsSet.Builder()
         coEvery { jwtManager.create(JwtManager.ACCESS_KEY, any(), any()) } answers {

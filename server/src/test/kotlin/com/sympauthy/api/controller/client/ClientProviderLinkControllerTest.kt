@@ -82,7 +82,9 @@ class ClientProviderLinkControllerTest {
             val userId = UUID.randomUUID()
             val client = mockk<Client> { every { id } returns "client-id" }
             val authentication = clientAuthentication(client)
-            val userToken = mockk<AuthenticationToken> { every { this@mockk.userId } returns userId }
+            val userToken = mockk<AuthenticationToken> {
+                every { grant } returns mockk { every { this@mockk.userId } returns userId }
+            }
             val returnUri = URI.create("https://client.example.com/linked")
             val flow = mockk<InteractiveFlow>()
             val session = mockk<OnGoingInteractiveFlowSession>()
@@ -129,7 +131,9 @@ class ClientProviderLinkControllerTest {
     fun `startLink - Fails with invalid_access_token when the token is not bound to an end-user`() = runTest {
         val client = mockk<Client>()
         val authentication = clientAuthentication(client)
-        val clientOnlyToken = mockk<AuthenticationToken> { every { userId } returns null }
+        val clientOnlyToken = mockk<AuthenticationToken> {
+            every { grant } returns mockk { every { userId } returns null }
+        }
         coEvery { tokenManager.introspectToken(client, "client-token", ACCESS) } returns clientOnlyToken
 
         val exception = assertThrows<BusinessException> {
@@ -155,7 +159,9 @@ class ClientProviderLinkControllerTest {
         val userId = UUID.randomUUID()
         val client = mockk<Client>()
         val authentication = clientAuthentication(client)
-        val userToken = mockk<AuthenticationToken> { every { this@mockk.userId } returns userId }
+        val userToken = mockk<AuthenticationToken> {
+            every { grant } returns mockk { every { this@mockk.userId } returns userId }
+        }
         coEvery { tokenManager.introspectToken(client, "user-access-token", ACCESS) } returns userToken
         // No enabled provider matches the path id -> orNotFound() -> 404, coherent with unknown user/client.
         coEvery { providerManager.listEnabledProviders() } returns emptyList()

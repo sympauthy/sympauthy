@@ -8,5 +8,9 @@ data class AuthorizationCode(
     val sessionId: UUID,
     val code: String,
     val creationDate: LocalDateTime,
-    override val expirationDate: LocalDateTime
+    override val expirationDate: LocalDateTime,
+    /**
+     * Identifier of the grant the authorization opened before handing out this code.
+     */
+    val grantId: UUID
 ) : Expirable

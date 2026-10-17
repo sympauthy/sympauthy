@@ -4,15 +4,18 @@ import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.InvalidJwtException
 import com.sympauthy.business.manager.actas.ActAsRuleManager
+import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
+import com.sympauthy.business.model.oauth2.Grant
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.ACCESS_DENIED
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
@@ -38,6 +41,7 @@ class TokenExchangeManagerTest {
 
     private val jwtManager = mockk<JwtManager>()
     private val tokenManager = mockk<TokenManager>()
+    private val grantManager = mockk<GrantManager>()
     private val accessTokenGenerator = mockk<AccessTokenGenerator>()
     private val userManager = mockk<UserManager>()
     private val collectedClaimManager = mockk<CollectedClaimManager>()
@@ -55,6 +59,7 @@ class TokenExchangeManagerTest {
         TokenExchangeManager(
             jwtManager = jwtManager,
             tokenManager = tokenManager,
+            grantManager = grantManager,
             accessTokenGenerator = accessTokenGenerator,
             userManager = userManager,
             collectedClaimManager = collectedClaimManager,
@@ -62,11 +67,30 @@ class TokenExchangeManagerTest {
             uncheckedAudiencesConfig = EnabledAudiencesConfig(audiences)
         )
 
-    /** A client-credentials token issued to the acting client: bound to no user and to no other token. */
-    private fun mockActorToken(): AuthenticationToken = mockk {
+    /** A client-credentials token issued to the acting client: its grant names no user and no other grant. */
+    private fun mockActorToken(): AuthenticationToken = mockSubjectToken(mockk {
         every { clientId } returns CLIENT_ID
-        every { actorTokenId } returns null
+        every { actorGrantId } returns null
         every { userId } returns null
+    })
+
+    private fun mockSubjectToken(grant: Grant): AuthenticationToken = mockk {
+        every { this@mockk.grant } returns grant
+    }
+
+    /** Stubs opening the act-as grant for [audience], and issuing [encoded] under it. */
+    private fun stubIssuance(
+        actorToken: AuthenticationToken,
+        audience: Audience,
+        encoded: EncodedAuthenticationToken = mockk()
+    ): Grant {
+        val grant = mockk<Grant>()
+        val actorGrant = actorToken.grant
+        coEvery { grantManager.createTokenExchangeGrant(userId, audience.id, actorGrant) } returns grant
+        coEvery {
+            accessTokenGenerator.generateAccessToken(grant, audience, GrantType.TOKEN_EXCHANGE, null)
+        } returns encoded
+        return grant
     }
 
     /** The acting client's own audience, read only where the request names none of its own. */
@@ -137,7 +161,7 @@ class TokenExchangeManagerTest {
     @Test
     fun `subject_token issued to another client is rejected`() = runTest {
         // The owner is checked first, so nothing else about the token is read.
-        stubValidSubjectToken(mockk { every { clientId } returns "another-client" })
+        stubValidSubjectToken(mockSubjectToken(mockk { every { clientId } returns "another-client" }))
         val ex = assertFailsWith<OAuth2Exception> {
             manager().exchangeForActAsToken(actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), null)
         }
@@ -146,11 +170,11 @@ class TokenExchangeManagerTest {
 
     @Test
     fun `subject_token bound to a user is rejected`() = runTest {
-        stubValidSubjectToken(mockk {
+        stubValidSubjectToken(mockSubjectToken(mockk {
             every { clientId } returns CLIENT_ID
-            every { actorTokenId } returns null
+            every { actorGrantId } returns null
             every { userId } returns UUID.randomUUID()
-        })
+        }))
         val ex = assertFailsWith<OAuth2Exception> {
             manager().exchangeForActAsToken(actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), null)
         }
@@ -160,11 +184,11 @@ class TokenExchangeManagerTest {
     @Test
     fun `subject_token that already has an actor is rejected as unsupported chaining`() = runTest {
         // An act-as token carries an actor and a user; presenting it would chain act-as tokens, which is unsupported.
-        stubValidSubjectToken(mockk {
+        stubValidSubjectToken(mockSubjectToken(mockk {
             every { clientId } returns CLIENT_ID
             // An actor is checked before the user binding, so the user is never read.
-            every { actorTokenId } returns UUID.randomUUID()
-        })
+            every { actorGrantId } returns UUID.randomUUID()
+        }))
         val ex = assertFailsWith<OAuth2Exception> {
             manager().exchangeForActAsToken(actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), null)
         }
@@ -225,7 +249,7 @@ class TokenExchangeManagerTest {
         stubKnownUser()
         coEvery { actAsRuleManager.isActAsAllowed(actingClient, emptyList()) } returns true
         val encoded = mockk<EncodedAuthenticationToken>()
-        coEvery { accessTokenGenerator.generateActAsAccessToken(any(), any(), any(), any()) } returns encoded
+        stubIssuance(actorToken, defaultAudience, encoded)
 
         val result = manager().exchangeForActAsToken(
             actingClient,
@@ -236,14 +260,6 @@ class TokenExchangeManagerTest {
         )
 
         assertEquals(encoded, result)
-        coVerify {
-            accessTokenGenerator.generateActAsAccessToken(
-                userId = userId,
-                actorToken = actorToken,
-                audience = defaultAudience,
-                dpopJkt = null
-            )
-        }
     }
 
     @Test
@@ -254,32 +270,24 @@ class TokenExchangeManagerTest {
         stubTargetAudienceClaims("backend")
         coEvery { actAsRuleManager.isActAsAllowed(actingClient, emptyList()) } returns true
         val encoded = mockk<EncodedAuthenticationToken>()
-        coEvery { accessTokenGenerator.generateActAsAccessToken(any(), any(), any(), any()) } returns encoded
+        stubIssuance(actorToken, backendAudience, encoded)
 
-        manager().exchangeForActAsToken(
+        val result = manager().exchangeForActAsToken(
             actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), audience = "backend"
         )
 
-        coVerify {
-            accessTokenGenerator.generateActAsAccessToken(
-                userId = userId,
-                actorToken = actorToken,
-                audience = backendAudience,
-                dpopJkt = null
-            )
-        }
+        assertSame(encoded, result)
     }
 
     @Test
     fun `act-as rules read the target user's claims in the requested audience, not the acting client's`() =
         runTest {
-            stubValidSubjectToken(mockActorToken())
+            val actorToken = mockActorToken()
+            stubValidSubjectToken(actorToken)
             stubKnownUser()
             stubTargetAudienceClaims("backend")
             coEvery { actAsRuleManager.isActAsAllowed(actingClient, emptyList()) } returns true
-            coEvery {
-                accessTokenGenerator.generateActAsAccessToken(any(), any(), any(), any())
-            } returns mockk<EncodedAuthenticationToken>()
+            stubIssuance(actorToken, backendAudience)
 
             manager().exchangeForActAsToken(
                 actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), audience = "backend"

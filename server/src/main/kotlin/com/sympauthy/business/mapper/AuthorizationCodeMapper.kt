@@ -13,6 +13,7 @@ class AuthorizationCodeMapper {
             code = entity.code,
             creationDate = entity.creationDate,
             expirationDate = entity.expirationDate,
+            grantId = entity.grantId,
         )
     }
 }
