@@ -55,6 +55,15 @@ Full setup is `docs/design/running-locally.md`.
 Read it before opening one: it says what a feature and a bug each carry, and which label and
 milestone an issue opens under.
 
+## Pull requests
+
+**A pull request is merged by squash, and leaves no branch behind**: `gh pr merge <n> --squash
+--delete-branch`, then delete the local branch, check out `main` and pull it. From a worktree, `gh`
+fails its local cleanup because `main` is checked out in the main clone: the merge has still landed,
+so confirm it with `gh pr view <n> --json state`, delete the remote branch with
+`git push origin --delete <branch>`, remove the worktree and its branch, and pull `main` in the main
+clone.
+
 ## Architecture — `docs/design/architecture.md`, `docs/standards/general-code-standard.md`
 
 - **`api`** — HTTP boundary. Controllers, resources, mappers, filters, error handlers.
