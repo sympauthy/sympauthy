@@ -7,10 +7,10 @@ import java.time.LocalDateTime
 import java.util.*
 
 /**
- * What a client was allowed, which every token issued for it stands under: opened by an authorization before
- * it hands out its code, a `client_credentials` request or a token exchange, and descended from by every
- * refresh of the tokens it issued. A token is live only while its grant is, so revoking a grant takes every token under it
- * out of service at once.
+ * What a client was allowed, which every token issued for it stands under: opened by an authorization
+ * before it hands out its code, a `client_credentials` request or a token exchange, and descended from by
+ * every refresh of the tokens it issued. A token is live only while its grant is, so revoking a grant takes
+ * every token under it out of service at once.
  *
  * See `docs/design/grants.md`.
  */
