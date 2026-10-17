@@ -29,6 +29,7 @@ import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.*
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.util.nullIfBlank
+import com.sympauthy.util.enumValueOfWireNameOrNull
 import com.sympauthy.util.wireName
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.MediaType.APPLICATION_FORM_URLENCODED
@@ -238,7 +239,7 @@ class TokenController(
             throw oauth2ExceptionOf(INVALID_DPOP_PROOF, "dpop.missing_header")
         }
 
-        return when (GrantType.fromWireNameOrNull(grantType)) {
+        return when (enumValueOfWireNameOrNull<GrantType>(grantType)) {
             GrantType.AUTHORIZATION_CODE -> {
                 val client = clientAuthenticationUtil.resolveClientAllowingPublic(
                     request, clientId, clientSecret
