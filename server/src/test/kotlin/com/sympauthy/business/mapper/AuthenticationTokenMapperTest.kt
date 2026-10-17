@@ -19,12 +19,12 @@ class AuthenticationTokenMapperTest {
 
     private val grantId = UUID.randomUUID()
 
-    private fun grant(id: UUID = grantId) = Grant(
+    private fun grant(id: UUID = grantId, grantType: GrantType = GrantType.AUTHORIZATION_CODE) = Grant(
         id = id,
         userId = null,
         clientId = "client",
         audienceId = "audience",
-        grantType = GrantType.CLIENT_CREDENTIALS,
+        grantType = grantType,
         grantedScopes = emptyList(),
         grantedAt = null,
         grantedBy = null,
@@ -68,7 +68,7 @@ class AuthenticationTokenMapperTest {
     fun `toToken - maps the grant type a token exchange is published under`() {
         val token = mapper.toToken(
             entity(grantType = "urn:ietf:params:oauth:grant-type:token-exchange"),
-            grant()
+            grant(grantType = GrantType.TOKEN_EXCHANGE)
         )
 
         assertEquals(GrantType.TOKEN_EXCHANGE, token.grantType)
@@ -104,6 +104,39 @@ class AuthenticationTokenMapperTest {
             mapper.toToken(entity(), grant(UUID.randomUUID()))
         }
         assertInvalidProperty(exception, "grantId")
+    }
+
+    @Test
+    fun `toToken - throws for a token issued by another grant type than the one that opened its grant`() {
+        val exception = assertThrows<BusinessException> {
+            mapper.toToken(entity(grantType = "client_credentials"), grant())
+        }
+        assertIncoherent(exception, type = "ACCESS", issuedBy = "client_credentials", openedBy = "authorization_code")
+    }
+
+    @Test
+    fun `toToken - throws for a refresh of a grant no authorization opened`() {
+        val exception = assertThrows<BusinessException> {
+            mapper.toToken(entity(grantType = "refresh_token"), grant(grantType = GrantType.CLIENT_CREDENTIALS))
+        }
+        assertIncoherent(exception, type = "ACCESS", issuedBy = "refresh_token", openedBy = "client_credentials")
+    }
+
+    @Test
+    fun `toToken - throws for a refresh token under a grant only answered with an access token`() {
+        val exception = assertThrows<BusinessException> {
+            mapper.toToken(
+                entity(type = AuthenticationTokenType.REFRESH.name, grantType = "client_credentials"),
+                grant(grantType = GrantType.CLIENT_CREDENTIALS)
+            )
+        }
+        assertIncoherent(exception, type = "REFRESH", issuedBy = "client_credentials", openedBy = "client_credentials")
+    }
+
+    private fun assertIncoherent(exception: BusinessException, type: String, issuedBy: String, openedBy: String) {
+        assertEquals("mapper.authentication_token.incoherent_grant", exception.detailsId)
+        assertEquals(mapOf("type" to type, "issuedBy" to issuedBy, "openedBy" to openedBy), exception.values)
+        assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
     }
 
     private fun assertInvalidProperty(exception: BusinessException, property: String) {

@@ -20,6 +20,7 @@ import io.r2dbc.spi.R2dbcDataIntegrityViolationException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -138,6 +139,13 @@ class AuthorizationCodeManagerTest {
 
         assertEquals("code.missing", exception.detailsId)
         assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
+    }
+
+    @Test
+    fun `fetchCodeOrNull - Answers null for a session holding no code`() = runTest {
+        coEvery { codeRepository.findById(SESSION_ID) } returns null
+
+        assertNull(manager.fetchCodeOrNull(sessionById()))
     }
 
     @Test

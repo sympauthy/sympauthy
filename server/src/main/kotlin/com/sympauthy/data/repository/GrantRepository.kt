@@ -7,23 +7,16 @@ import java.time.LocalDateTime
 import java.util.*
 
 /**
- * Every revocation reaches only a grant still live at the `revokedAt` it is given: one not revoked yet, not
- * past its own expiration date, and holding either a token not expired or an authorization code not
- * exchanged and not expired — a grant whose code is still to be exchanged is one a client is about to be
- * issued tokens under. A grant already revoked keeps who revoked it first and when, and one that lapsed is
- * left as it lapsed rather than being recorded as revoked afterwards, so a revocation that counts answers how
- * many grants it took out of service.
+ * The condition every revocation adds to the grants it selects: a grant still live at the `revokedAt` it is
+ * given. That is one not revoked yet, not past its own expiration date, and holding either a token not
+ * expired or an authorization code not exchanged and not expired — a grant whose code is still to be
+ * exchanged is one a client is about to be issued tokens under.
  *
- * They are raw queries because the derived form can neither group an expiry, which a token without an
- * expiration date passes, nor reach the tokens and the codes of a grant.
+ * A grant already revoked therefore keeps who revoked it first and when, and one that lapsed is left as it
+ * lapsed rather than being recorded as revoked afterwards, so a revocation that counts answers how many
+ * grants it took out of service. It is written once so that every revocation judges the same grants live.
  */
-interface GrantRepository : CoroutineCrudRepository<GrantEntity, UUID> {
-
-    @Query(
-        """
-        UPDATE grants
-        SET revoked_at = :revokedAt, revoked_by = :revokedBy, revoked_by_id = :revokedById
-        WHERE id = :id
+private const val LIVE_AT_REVOKED_AT = """
           AND revoked_at IS NULL AND (expiration_date IS NULL OR expiration_date >= :revokedAt)
           AND (
             EXISTS (
@@ -35,6 +28,22 @@ interface GrantRepository : CoroutineCrudRepository<GrantEntity, UUID> {
               WHERE c.grant_id = grants.id AND c.exchange_date IS NULL AND c.expiration_date >= :revokedAt
             )
           )
+"""
+
+/**
+ * Every revocation reaches only a grant still live, as [LIVE_AT_REVOKED_AT] says.
+ *
+ * They are raw queries because the derived form can neither group an expiry, which a token without an
+ * expiration date passes, nor reach the tokens and the codes of a grant.
+ */
+interface GrantRepository : CoroutineCrudRepository<GrantEntity, UUID> {
+
+    @Query(
+        """
+        UPDATE grants
+        SET revoked_at = :revokedAt, revoked_by = :revokedBy, revoked_by_id = :revokedById
+        WHERE id = :id
+          $LIVE_AT_REVOKED_AT
         """
     )
     suspend fun updateRevokedAt(
@@ -53,17 +62,7 @@ interface GrantRepository : CoroutineCrudRepository<GrantEntity, UUID> {
         UPDATE grants
         SET revoked_at = :revokedAt, revoked_by = :revokedBy, revoked_by_id = :revokedById
         WHERE actor_grant_id = :actorGrantId
-          AND revoked_at IS NULL AND (expiration_date IS NULL OR expiration_date >= :revokedAt)
-          AND (
-            EXISTS (
-              SELECT 1 FROM authentication_tokens t
-              WHERE t.grant_id = grants.id AND (t.expiration_date IS NULL OR t.expiration_date >= :revokedAt)
-            )
-            OR EXISTS (
-              SELECT 1 FROM authorization_codes c
-              WHERE c.grant_id = grants.id AND c.exchange_date IS NULL AND c.expiration_date >= :revokedAt
-            )
-          )
+          $LIVE_AT_REVOKED_AT
         """
     )
     suspend fun updateRevokedAtByActorGrantId(
@@ -78,17 +77,7 @@ interface GrantRepository : CoroutineCrudRepository<GrantEntity, UUID> {
         UPDATE grants
         SET revoked_at = :revokedAt, revoked_by = :revokedBy, revoked_by_id = :revokedById
         WHERE user_id = :userId AND client_id = :clientId
-          AND revoked_at IS NULL AND (expiration_date IS NULL OR expiration_date >= :revokedAt)
-          AND (
-            EXISTS (
-              SELECT 1 FROM authentication_tokens t
-              WHERE t.grant_id = grants.id AND (t.expiration_date IS NULL OR t.expiration_date >= :revokedAt)
-            )
-            OR EXISTS (
-              SELECT 1 FROM authorization_codes c
-              WHERE c.grant_id = grants.id AND c.exchange_date IS NULL AND c.expiration_date >= :revokedAt
-            )
-          )
+          $LIVE_AT_REVOKED_AT
         """
     )
     suspend fun updateRevokedAtByUserIdAndClientId(
@@ -108,17 +97,7 @@ interface GrantRepository : CoroutineCrudRepository<GrantEntity, UUID> {
         UPDATE grants
         SET revoked_at = :revokedAt, revoked_by = :revokedBy, revoked_by_id = :revokedById
         WHERE user_id = :userId AND audience_id = :audienceId AND actor_grant_id IS NULL
-          AND revoked_at IS NULL AND (expiration_date IS NULL OR expiration_date >= :revokedAt)
-          AND (
-            EXISTS (
-              SELECT 1 FROM authentication_tokens t
-              WHERE t.grant_id = grants.id AND (t.expiration_date IS NULL OR t.expiration_date >= :revokedAt)
-            )
-            OR EXISTS (
-              SELECT 1 FROM authorization_codes c
-              WHERE c.grant_id = grants.id AND c.exchange_date IS NULL AND c.expiration_date >= :revokedAt
-            )
-          )
+          $LIVE_AT_REVOKED_AT
         """
     )
     suspend fun updateRevokedAtByUserIdAndAudienceIdAndActorGrantIdIsNull(
@@ -134,17 +113,7 @@ interface GrantRepository : CoroutineCrudRepository<GrantEntity, UUID> {
         UPDATE grants
         SET revoked_at = :revokedAt, revoked_by = :revokedBy, revoked_by_id = :revokedById
         WHERE user_id = :userId
-          AND revoked_at IS NULL AND (expiration_date IS NULL OR expiration_date >= :revokedAt)
-          AND (
-            EXISTS (
-              SELECT 1 FROM authentication_tokens t
-              WHERE t.grant_id = grants.id AND (t.expiration_date IS NULL OR t.expiration_date >= :revokedAt)
-            )
-            OR EXISTS (
-              SELECT 1 FROM authorization_codes c
-              WHERE c.grant_id = grants.id AND c.exchange_date IS NULL AND c.expiration_date >= :revokedAt
-            )
-          )
+          $LIVE_AT_REVOKED_AT
         """
     )
     suspend fun updateRevokedAtByUserId(

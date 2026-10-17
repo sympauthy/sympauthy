@@ -70,9 +70,17 @@ class AuthorizationCodeManager(
      * given its code in the transaction completing it, so one without is this server's failure.
      */
     suspend fun fetchCode(session: InteractiveFlowSession): AuthorizationCode {
+        return fetchCodeOrNull(session)
+            ?: throw internalBusinessExceptionOf("code.missing", "sessionId" to session.id.toString())
+    }
+
+    /**
+     * The authorization code [session] completed with, or null where it holds none — a code is collected
+     * with its session, so one read while the session is being collected may find it gone.
+     */
+    suspend fun fetchCodeOrNull(session: InteractiveFlowSession): AuthorizationCode? {
         return authorizeCodeRepository.findById(session.id)
             ?.let(authorizationCodeMapper::toAuthorizationCode)
-            ?: throw internalBusinessExceptionOf("code.missing", "sessionId" to session.id.toString())
     }
 
     /**

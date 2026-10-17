@@ -119,6 +119,7 @@ class TokenManagerTest {
         val grant = mockk<Grant> {
             every { this@mockk.clientId } returns clientId
             every { this@mockk.userId } returns userId
+            every { audienceId } returns "test-audience"
         }
         return mockk {
             every { this@mockk.grant } returns grant
@@ -198,7 +199,7 @@ class TokenManagerTest {
         every { session.expired } returns false
         every { session.userId } returns userId
         coJustRun { userManager.checkPromoted(userId) }
-        coEvery { authorizationCodeManager.fetchCode(session) } returns AuthorizationCode(
+        coEvery { authorizationCodeManager.fetchCodeOrNull(session) } returns AuthorizationCode(
             sessionId = UUID.randomUUID(),
             code = "code",
             creationDate = now(),
@@ -245,9 +246,29 @@ class TokenManagerTest {
         assertSame(refreshToken, result.refreshToken)
         assertSame(idToken, result.idToken)
         coVerifyOrder {
+            objectLockRepository.lock(LockKey.User(userId).stripe)
+            authorizationCodeManager.fetchCodeOrNull(session)
             authorizationCodeManager.markExchanged(session)
             accessTokenGenerator.generateAccessToken(grant, audience, GrantType.AUTHORIZATION_CODE, null)
         }
+    }
+
+    @Test
+    fun `generateTokens - Refuses as expired a session whose code the cleaner collected meanwhile`() = runTest {
+        val userId = UUID.randomUUID()
+        val session = mockk<CompletedInteractiveFlowSession>()
+        every { session.expired } returns false
+        every { session.userId } returns userId
+        coJustRun { userManager.checkPromoted(userId) }
+        coEvery { authorizationCodeManager.fetchCodeOrNull(session) } returns null
+
+        val exception = assertThrows<OAuth2Exception> {
+            tokenManager.generateTokens(session, mockk(), mockk())
+        }
+
+        assertEquals(INVALID_GRANT, exception.errorCode)
+        assertEquals("token.expired", exception.detailsId)
+        coVerify(exactly = 0) { authorizationCodeManager.markExchanged(any()) }
     }
 
     @Test
@@ -392,6 +413,38 @@ class TokenManagerTest {
         }
 
         assertEquals("token.mismatching_client", exception.detailsId)
+    }
+
+    @Test
+    fun `refreshToken - Refuses a grant opened for another audience than its client now belongs to`() = runTest {
+        val client = mockClient("test-client")
+        val decodedToken = DecodedJwt(id = UUID.randomUUID().toString(), subject = "sub", keyId = null)
+        val grant = mockk<Grant> {
+            every { userId } returns UUID.randomUUID()
+            every { clientId } returns "test-client"
+            every { audienceId } returns "former-audience"
+        }
+        val refreshToken = mockk<AuthenticationToken> { every { this@mockk.grant } returns grant }
+
+        coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, "token") } returns decodedToken
+        coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
+
+        val exception = assertThrows<OAuth2Exception> {
+            tokenManager.refreshToken(client, "token")
+        }
+
+        assertEquals(INVALID_GRANT, exception.errorCode)
+        assertEquals("grant.mismatching_audience", exception.detailsId)
+        assertEquals("description.grant.mismatching_audience", exception.descriptionId)
+        assertEquals(
+            mapOf(
+                "grantAudienceId" to "former-audience",
+                "clientId" to "test-client",
+                "clientAudienceId" to "test-audience"
+            ),
+            exception.values
+        )
+        coVerify(exactly = 0) { accessTokenGenerator.generateAccessToken(any(), any(), any(), any()) }
     }
 
     @Test

@@ -81,6 +81,11 @@ moved to another audience or removed and declared again would otherwise take its
 reach of the consent they were opened under. An act-as grant rests on the act-as rules rather than
 on a consent, which [security](security.md#acting-as-a-person) argues.
 
+**A grant is the audience's it was opened for.** A client moved to another audience can no longer
+refresh the grants it was opened for, which are refused with `invalid_grant` and
+`grant.mismatching_audience`, and the person signs in again: tokens issued for the new audience
+would rest on a consent whose revocation could not reach the grant they stand under.
+
 **A code still to be exchanged is reached with its grant.** A revocation finds the grant of a code
 as surely as the grant of a token, so a person signed out, or a consent revoked, between the sign-in
 and the exchange takes the code out of service too: its exchange is refused with `invalid_grant` and
@@ -116,7 +121,9 @@ lifetime be collected: every token under it has expired by then.
 **A refresh token's signed expiry is its own lifetime, not the grant's.** Nothing reads a refresh
 token but this server, and the grant is what refuses one presented past the grant's end — with the
 code saying so, rather than the one a token that ran out on its own is refused with. Its stored
-expiry is the earlier of the two, as every token's is.
+expiry is the earlier of the two, as every token's is, so the grant says so only until it is
+collected: a refresh presented after that names a token this server no longer holds, and is refused
+with `token.invalid_token_id` like any other.
 
 ## What is collected
 
@@ -154,19 +161,24 @@ two completions racing.
 `TokenManager` issues the tokens under a grant and checks one presented to it against its grant;
 `ActorGrantValidator` is the check an act-as token adds.
 
-**A refresh and a revocation of the same person's grants take turns.** A token issued under a grant
-is revoked with it whichever of the two commits first, because a token's liveness is read off its
-grant. What the turns protect is the revocation's own judgment: it reads a grant live from the
-tokens committed under it, so a refresh renewing a grant whose last token is about to expire would
-otherwise have its tokens written after the revocation judged the grant lapsed, and left live. Both
+**A refresh, a code exchange and a revocation of the same person's grants take turns.** A token
+issued under a grant is revoked with it whichever commits first, because a token's liveness is read
+off its grant. What the turns protect is the two judgments made from committed rows. A revocation
+reads a grant live from the tokens and the code committed under it, so a refresh renewing a grant
+whose last token is about to expire, or an exchange spending a code about to expire, would otherwise
+have its tokens written after the revocation judged the grant lapsed, and left live. An exchange
+reads its grant live before spending the code, so a revocation committing in between would
+otherwise leave the client handed tokens that are already dead, with the code spent. All of them
 therefore take the lock over the account first, as [the locking
 standard](../standards/locking-standard.md#the-named-lock) describes. Whichever goes second sees
-what the first committed: a refresh reads its grant revoked and is refused, or a revocation finds
-the refresh's tokens and revokes their grant.
+what the first committed: a refresh or an exchange reads its grant revoked and is refused, or a
+revocation finds their tokens and revokes their grant.
 
 **`GrantCleaner` is the collecting job**, run by `CleanFinishedGrantCron` under a
 [lease](../standards/locking-standard.md#the-lease) like every job one instance is enough for. It
-deletes a grant only in the transaction deleting its tokens.
+deletes a grant only in the transaction deleting its tokens, and a token only some minutes after it
+expired, so a refresh that found its token unexpired a moment before still finds its grant to write
+under.
 
 **A grant keeps the interactive flow session it came from for diagnosis, and nothing reads it.** The
 session is collected long before most grants end, so the reference is left dangling by design; it

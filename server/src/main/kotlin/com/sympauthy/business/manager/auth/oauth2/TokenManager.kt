@@ -99,6 +99,10 @@ open class TokenManager(
      * The replay is answered rather than thrown so that the revocation commits with the transaction. The
      * code is marked before anything is issued, and in the transaction issuing it: an exchange racing this
      * one waits on the row until these tokens are committed, and then revokes the grant they stand under.
+     *
+     * The grant is read, and the tokens written, holding the lock over the account every revocation of its
+     * grants takes too, as a refresh does: a revocation either commits first and is read here as the refusal
+     * it is, or waits for these tokens and finds the grant live through them.
      */
     @Transactional
     internal open suspend fun generateTokensOrNull(
@@ -106,7 +110,7 @@ open class TokenManager(
         oauth2: InteractiveFlowSessionOAuth2,
         client: Client,
         dpopJkt: String? = null
-    ): GenerateTokenResult? = coroutineScope {
+    ): GenerateTokenResult? {
         if (session.expired) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token.expired", "description.oauth2.expired")
         }
@@ -116,13 +120,26 @@ open class TokenManager(
         // error object, the same reason TokenExchangeManager.resolveTargetUser refuses its own way.
         checkPromotedOrInvalidGrant(session.userId)
 
-        val grant = fetchGrantOfCode(session)
-        if (!authorizationCodeManager.markExchanged(session)) {
-            grantManager.revokeGrant(grant, GrantRevokedBy.AUTHORIZATION_CODE_REPLAYED, revokedById = null)
-            return@coroutineScope null
+        return lockManager.withLock(listOf(LockKey.User(session.userId))) {
+            val grant = fetchGrantOfCode(session)
+            if (!authorizationCodeManager.markExchanged(session)) {
+                grantManager.revokeGrant(grant, GrantRevokedBy.AUTHORIZATION_CODE_REPLAYED, revokedById = null)
+                return@withLock null
+            }
+            checkLive(grant)
+            generateTokensUnder(grant, oauth2, client, dpopJkt)
         }
-        checkLive(grant)
+    }
 
+    /**
+     * Generate the tokens the authorization code is exchanged for under its [grant], once the code is spent.
+     */
+    internal suspend fun generateTokensUnder(
+        grant: Grant,
+        oauth2: InteractiveFlowSessionOAuth2,
+        client: Client,
+        dpopJkt: String?
+    ): GenerateTokenResult = coroutineScope {
         val deferredAccessToken = async {
             accessTokenGenerator.generateAccessToken(
                 grant = grant,
@@ -164,11 +181,14 @@ open class TokenManager(
      * The grant the authorization code [session] was handed names, which the authorization opened before
      * handing it out.
      *
-     * Throws `code.missing_grant`, internal, where that grant is not there: a grant a stored code names is kept
+     * Throws an `OAuth2Exception` carrying `invalid_grant` and `token.expired` where the code is gone, which is
+     * a session the cleaner collected since it was read: the session had expired, and is refused as one.
+     * Throws `code.missing_grant`, internal, where the grant is not there: a grant a stored code names is kept
      * as long as the code is, so a code naming one that is gone is this server's failure.
      */
     internal suspend fun fetchGrantOfCode(session: CompletedInteractiveFlowSession): Grant {
-        val code = authorizationCodeManager.fetchCode(session)
+        val code = authorizationCodeManager.fetchCodeOrNull(session)
+            ?: throw oauth2ExceptionOf(INVALID_GRANT, "token.expired", "description.oauth2.expired")
         return grantManager.findByIdOrNull(code.grantId)
             ?: throw internalBusinessExceptionOf("code.missing_grant", "sessionId" to session.id.toString())
     }
@@ -219,6 +239,8 @@ open class TokenManager(
      * - `grant.revoked`, where the grant it was issued under has been revoked.
      * - `grant.expired`, where the grant it was issued under is past its lifetime.
      * - the [client] does not match the one we have issued the token too.
+     * - `grant.mismatching_audience`, where the [client] no longer belongs to the audience the grant was opened
+     *   for.
      * - `grant.invalid_user`, where the account the token names is one no sign-up finished.
      * - `grant.consent_revoked`, where the consent the grant rests on has been revoked.
      *
@@ -266,6 +288,18 @@ open class TokenManager(
         val grant = refreshToken.grant
         if (grant.clientId != client.id) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token.mismatching_client", "description.token.mismatching_client")
+        }
+        // A grant is the audience's it was opened for, and that is what revoking a consent reaches it by:
+        // tokens issued for an audience its client has since moved to would escape the consent they rest on.
+        if (grant.audienceId != client.audience.id) {
+            throw oauth2ExceptionOf(
+                INVALID_GRANT,
+                "grant.mismatching_audience",
+                "description.grant.mismatching_audience",
+                "grantAudienceId" to grant.audienceId,
+                "clientId" to client.id,
+                "clientAudienceId" to client.audience.id
+            )
         }
 
         dpopManager.checkProofMatchesBinding(refreshToken, dpopJkt)

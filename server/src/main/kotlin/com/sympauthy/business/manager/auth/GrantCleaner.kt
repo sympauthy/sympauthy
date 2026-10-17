@@ -5,6 +5,7 @@ import com.sympauthy.data.repository.GrantRepository
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import java.time.Duration
 import java.time.LocalDateTime
 
 /**
@@ -21,9 +22,10 @@ import java.time.LocalDateTime
  * goes once that session does.
  *
  * Nothing it deletes is something a request still in flight needs. A code exchange adds its tokens to the
- * grant its code names, and a refresh to a grant through a refresh token that has not expired, which keeps
+ * grant its code names, and a refresh to a grant through a refresh token it found unexpired, which keeps
  * either grant from being finished; a token being read under a revoked grant is refused whether its rows are
- * still there or not.
+ * still there or not. A token is deleted only once [EXPIRED_TOKEN_GRACE] has passed since it expired, so a
+ * refresh that found its token unexpired a moment before still finds its grant to write under.
  */
 @Singleton
 open class GrantCleaner(
@@ -33,7 +35,9 @@ open class GrantCleaner(
 
     @Transactional
     open suspend fun clean(): CleanResult {
-        val expiredTokenCount = tokenRepository.deleteByExpirationDateLessThan(LocalDateTime.now())
+        val expiredTokenCount = tokenRepository.deleteByExpirationDateLessThan(
+            LocalDateTime.now().minus(EXPIRED_TOKEN_GRACE)
+        )
         val revokedTokenCount = tokenRepository.deleteUnderRevokedGrants()
         val grantCount = grantRepository.deleteFinished()
         return CleanResult(
@@ -46,4 +50,12 @@ open class GrantCleaner(
         val tokenCount: Int,
         val grantCount: Int
     )
+
+    companion object {
+        /**
+         * How long an expired token is kept before it is deleted: far longer than a request takes, and short
+         * enough beside the job's own schedule that nothing waits on it.
+         */
+        val EXPIRED_TOKEN_GRACE: Duration = Duration.ofMinutes(5)
+    }
 }

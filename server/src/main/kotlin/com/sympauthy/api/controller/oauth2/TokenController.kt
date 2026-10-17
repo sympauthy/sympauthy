@@ -174,8 +174,9 @@ class TokenController(
                     "- `invalid_client`: on the `authorization_code` and `refresh_token` grants, no client " +
                     "credentials are sent, or the ones sent in the body do not authenticate a client.\n" +
                     "- `invalid_grant`: `code` or `refresh_token` is unknown, expired or issued to another " +
-                    "client; `refresh_token` was issued under a grant that was revoked or that " +
-                    "`auth.token.grant-expiration` has ended; `code` was already exchanged; `code_verifier` " +
+                    "client; `refresh_token` was issued under a grant that was revoked, that " +
+                    "`auth.token.grant-expiration` has ended, or that was opened for an audience its client no " +
+                    "longer belongs to; `code` was already exchanged; `code_verifier` " +
                     "does not match the authorization request; the consent of the end-user was revoked, or " +
                     "the user never " +
                     "finished signing up; or `subject_token` is not a valid `client_credentials` access token " +
