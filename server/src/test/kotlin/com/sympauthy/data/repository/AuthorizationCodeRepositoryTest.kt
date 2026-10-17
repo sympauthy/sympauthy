@@ -48,8 +48,9 @@ class AuthorizationCodeRepositoryTest {
     fun `save - Carries the assigned key and round-trips the row`(database: Database) = withFixture(database) {
         val codes = repository<AuthorizationCodeRepository>()
         val session = newSession()
+        val grantId = newGrant(newUser())
 
-        newCode(session.id!!, code)
+        newCode(session.id!!, code, grantId = grantId)
 
         val stored = codes.findById(session.id!!)
         assertNotNull(stored)
@@ -58,6 +59,7 @@ class AuthorizationCodeRepositoryTest {
         assertEquals(BASE_DATE, stored.creationDate)
         assertEquals(BASE_DATE.plusMinutes(10), stored.expirationDate)
         assertNull(stored.exchangeDate)
+        assertEquals(grantId, stored.grantId)
     }
 
     @ParameterizedTest
@@ -157,6 +159,7 @@ class AuthorizationCodeRepositoryTest {
             val entity = AuthorizationCodeEntity(
                 sessionId = UUID.randomUUID(),
                 code = code,
+                grantId = newGrant(newUser()),
                 creationDate = BASE_DATE,
                 expirationDate = BASE_DATE.plusMinutes(10)
             )

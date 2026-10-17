@@ -5,6 +5,8 @@ import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.api.exception.toOAuth2Exception
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.InvalidJwtException
+import com.sympauthy.business.exception.internalBusinessExceptionOf
+import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.manager.jwt.JwtManager
@@ -20,10 +22,10 @@ import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType
-import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
+import com.sympauthy.business.model.oauth2.Grant
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
-import com.sympauthy.business.model.oauth2.TokenRevokedBy
+import com.sympauthy.business.model.oauth2.GrantRevokedBy
 import com.sympauthy.data.repository.AuthenticationTokenRepository
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
@@ -31,7 +33,6 @@ import jakarta.inject.Singleton
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.supervisorScope
-import java.time.LocalDateTime
 import java.util.*
 
 @Singleton
@@ -42,66 +43,35 @@ open class TokenManager(
     @Inject private val idTokenGenerator: IdTokenGenerator,
     @Inject private val consentManager: ConsentManager,
     @Inject private val userManager: UserManager,
-    @Inject private val actorTokenValidator: ActorTokenValidator,
+    @Inject private val actorGrantValidator: ActorGrantValidator,
     @Inject private val dpopManager: DpopManager,
     @Inject private val authorizationCodeManager: AuthorizationCodeManager,
+    @Inject private val grantManager: GrantManager,
     @Inject private val lockManager: LockManager,
     @Inject private val tokenRepository: AuthenticationTokenRepository,
     @Inject private val tokenMapper: AuthenticationTokenMapper
 ) {
 
     /**
-     * Return the [AuthenticationToken] identified by [id], null otherwise.
+     * Return the [AuthenticationToken] identified by [id], with the grant it was issued under, null otherwise.
+     *
+     * A grant is deleted only in the transaction deleting its tokens, so a grant missing behind a token read
+     * before that transaction committed is one collected since, and the token is answered as gone with it.
      */
     suspend fun findById(id: UUID): AuthenticationToken? {
-        return tokenRepository.findById(id)?.let(tokenMapper::toToken)
-    }
-
-    /**
-     * Revoke every token issued to [userId] that is still live, regardless of client, and return how many
-     * there were. A token already revoked keeps who revoked it and when, and an expired one is left as it
-     * lapsed; neither is counted.
-     */
-    @Transactional
-    open suspend fun revokeTokensByUser(userId: UUID, revokedBy: TokenRevokedBy, revokedById: UUID?): Int {
-        return lockManager.withLock(listOf(LockKey.User(userId))) {
-            tokenRepository.updateRevokedAtByUserId(
-                userId = userId,
-                revokedAt = LocalDateTime.now(),
-                revokedBy = revokedBy.name,
-                revokedById = revokedById
-            )
+        val entity = tokenRepository.findById(id) ?: return null
+        val grant = grantManager.findByIdOrNull(entity.grantId)
+        if (grant == null && tokenRepository.findById(id) == null) {
+            return null
         }
-    }
-
-    /**
-     * Revoke every token issued to [userId] for [clientId] that is still live, and return how many there
-     * were. A token already revoked keeps who revoked it and when, and an expired one is left as it lapsed;
-     * neither is counted.
-     */
-    @Transactional
-    open suspend fun revokeTokensByUserAndClient(
-        userId: UUID,
-        clientId: String,
-        revokedBy: TokenRevokedBy,
-        revokedById: UUID?
-    ): Int {
-        return lockManager.withLock(listOf(LockKey.User(userId))) {
-            tokenRepository.updateRevokedAtByUserIdAndClientId(
-                userId = userId,
-                clientId = clientId,
-                revokedAt = LocalDateTime.now(),
-                revokedBy = revokedBy.name,
-                revokedById = revokedById
-            )
-        }
+        return tokenMapper.toToken(entity, grant)
     }
 
     /**
      * Exchange the authorization code [session] was handed for tokens, as [generateTokensOrNull] does.
      *
      * Throws an `OAuth2Exception` carrying `invalid_grant` and `code.already_exchanged` where a client
-     * already exchanged that code, once every token issued under [session] is revoked.
+     * already exchanged that code, once the grant the code names is revoked.
      */
     suspend fun generateTokens(
         session: CompletedInteractiveFlowSession,
@@ -114,21 +84,21 @@ open class TokenManager(
     }
 
     /**
-     * Mark the authorization code [session] was handed as exchanged, and generate the tokens it is
-     * exchanged for.
+     * Mark the authorization code [session] was handed as exchanged, and generate the tokens it is exchanged
+     * for under the grant the code names. [oauth2] is the request record of the authorization, read for the
+     * `nonce` the id token claims.
      *
-     * Always generates an access token. An id token is generated where the grant [oauth2] records carries
-     * the `openid` scope, and a refresh token where the [client] supports the [GrantType.REFRESH_TOKEN]
-     * grant type. A [session] that has expired issues nothing and throws an `OAuth2Exception` carrying
-     * `token.expired`.
+     * Always generates an access token. An id token is generated where the grant carries the `openid`
+     * scope, and a refresh token where the [client] supports the [GrantType.REFRESH_TOKEN] grant type. A
+     * [session] that has expired issues nothing and throws an `OAuth2Exception` carrying `token.expired`, and
+     * so does a grant that is no longer live, as [checkLive] says, leaving the code unspent.
      *
-     * Answers null where a client already exchanged the code, having issued nothing and revoked every
-     * token issued under [session] — the earlier exchange's, and every refresh descended from them — as
-     * RFC 6749 §4.1.2 recommends.
+     * Answers null where a client already exchanged the code, having issued nothing and revoked its grant —
+     * the earlier exchange's tokens, and every refresh descended from them — as RFC 6749 §4.1.2 recommends.
      *
      * The replay is answered rather than thrown so that the revocation commits with the transaction. The
      * code is marked before anything is issued, and in the transaction issuing it: an exchange racing this
-     * one waits on the row until these tokens are committed, and then finds them to revoke.
+     * one waits on the row until these tokens are committed, and then revokes the grant they stand under.
      */
     @Transactional
     internal open suspend fun generateTokensOrNull(
@@ -146,32 +116,27 @@ open class TokenManager(
         // error object, the same reason TokenExchangeManager.resolveTargetUser refuses its own way.
         checkPromotedOrInvalidGrant(session.userId)
 
+        val grant = fetchGrantOfCode(session)
         if (!authorizationCodeManager.markExchanged(session)) {
-            lockManager.withLock(listOf(LockKey.User(session.userId))) {
-                tokenRepository.updateRevokedAtBySessionId(
-                    sessionId = session.id,
-                    revokedAt = LocalDateTime.now(),
-                    revokedBy = TokenRevokedBy.AUTHORIZATION_CODE_REPLAYED.name,
-                    revokedById = null
-                )
-            }
+            grantManager.revokeGrant(grant, GrantRevokedBy.AUTHORIZATION_CODE_REPLAYED, revokedById = null)
             return@coroutineScope null
         }
+        checkLive(grant)
 
         val deferredAccessToken = async {
             accessTokenGenerator.generateAccessToken(
-                oauth2,
-                session.userId,
-                client.audience,
+                grant = grant,
+                audience = client.audience,
+                grantType = GrantType.AUTHORIZATION_CODE,
                 dpopJkt = dpopJkt
             )
         }
         val deferredRefreshToken = if (client.supportsGrantType(GrantType.REFRESH_TOKEN)) {
             async {
                 refreshTokenGenerator.generateRefreshToken(
-                    oauth2,
-                    session.userId,
-                    client.audience,
+                    grant = grant,
+                    audience = client.audience,
+                    grantType = GrantType.AUTHORIZATION_CODE,
                     dpopJkt = dpopJkt
                 )
             }
@@ -180,10 +145,11 @@ open class TokenManager(
         val accessToken = deferredAccessToken.await()
         val deferredIdToken = async {
             idTokenGenerator.generateIdToken(
-                oauth2 = oauth2,
-                userId = session.userId,
+                grant = grant,
                 audienceId = client.audience.id,
-                accessToken = accessToken
+                accessToken = accessToken,
+                grantType = GrantType.AUTHORIZATION_CODE,
+                nonce = oauth2.nonce
             )
         }
 
@@ -195,7 +161,52 @@ open class TokenManager(
     }
 
     /**
-     * Decodes and verify the [encodedRefreshToken] and issues a new access token.
+     * The grant the authorization code [session] was handed names, which the authorization opened before
+     * handing it out.
+     *
+     * Throws `code.missing_grant`, internal, where that grant is not there: a grant a stored code names is kept
+     * as long as the code is, so a code naming one that is gone is this server's failure.
+     */
+    internal suspend fun fetchGrantOfCode(session: CompletedInteractiveFlowSession): Grant {
+        val code = authorizationCodeManager.fetchCode(session)
+        return grantManager.findByIdOrNull(code.grantId)
+            ?: throw internalBusinessExceptionOf("code.missing_grant", "sessionId" to session.id.toString())
+    }
+
+    /**
+     * Refuse [grant] unless it is live, as an `OAuth2Exception` carrying `invalid_grant`: `grant.revoked`
+     * where it has been revoked, and `grant.expired` where it is past its lifetime.
+     */
+    internal fun checkLive(grant: Grant) {
+        when {
+            grant.revoked -> throw oauth2ExceptionOf(INVALID_GRANT, "grant.revoked")
+            grant.expired -> throw oauth2ExceptionOf(INVALID_GRANT, "grant.expired", "description.grant.expired")
+        }
+    }
+
+    /**
+     * Open the grant a `client_credentials` request from [client] is answered under, holding the
+     * [clientScopes] granted to it, and issue the access token it is answered with.
+     *
+     * Passing [dpopJkt] binds the token to that JWK thumbprint, and leaving it null issues a bearer token.
+     */
+    @Transactional
+    open suspend fun generateAccessTokenForClient(
+        client: Client,
+        clientScopes: List<String>,
+        dpopJkt: String? = null
+    ): EncodedAuthenticationToken {
+        val grant = grantManager.createClientCredentialsGrant(client.id, client.audience.id, clientScopes)
+        return accessTokenGenerator.generateAccessToken(
+            grant = grant,
+            audience = client.audience,
+            grantType = GrantType.CLIENT_CREDENTIALS,
+            dpopJkt = dpopJkt
+        )
+    }
+
+    /**
+     * Decodes and verify the [encodedRefreshToken] and issues a new access token under its grant.
      *
      * Additionally, a new refresh token may be issued if the refresh token expires
      * before the expiration of the new access token, and a new id token is issued when the grant the
@@ -205,10 +216,11 @@ open class TokenManager(
      * - one of the validation of [JwtManager.decodeAndVerify].
      * - `token.invalid_token_id`, where the token names no row of ours, or names one whose subject it
      *   does not match.
-     * - `token.revoked`, where the row it names has been revoked.
+     * - `grant.revoked`, where the grant it was issued under has been revoked.
+     * - `grant.expired`, where the grant it was issued under is past its lifetime.
      * - the [client] does not match the one we have issued the token too.
-     * - `token.invalid_user`, where the account the token names is one no sign-up finished.
-     * - `token.consent_revoked`, where the consent the grant rests on has been revoked.
+     * - `grant.invalid_user`, where the account the token names is one no sign-up finished.
+     * - `grant.consent_revoked`, where the consent the grant rests on has been revoked.
      *
      * Throws an [OAuth2Exception] carrying `invalid_dpop_proof` where the token is bound to a key and
      * [dpopJkt] is absent (`dpop.missing_header`) or names a different one (`dpop.mismatching_key`).
@@ -216,10 +228,10 @@ open class TokenManager(
      * A failure of this server rather than of the token — a signing key that will not load — travels out as
      * itself, so that it is answered as the `5xx` it is.
      *
-     * Every check is made, and every token issued, holding the lock over the account the token belongs to,
-     * which every revocation of that account's tokens takes too. A revocation racing this refresh either
+     * Every check is made, and every token issued, holding the lock over the account the grant belongs to,
+     * which every revocation of that account's grants takes too. A revocation racing this refresh either
      * commits first, and is read here as the refusal it is, or waits for these tokens to be committed and
-     * revokes them with the rest.
+     * finds the grant live through them.
      */
     @Transactional
     open suspend fun refreshToken(
@@ -232,7 +244,7 @@ open class TokenManager(
         } catch (e: InvalidJwtException) {
             throw e.toOAuth2Exception(INVALID_GRANT)
         }
-        val lockKeys = listOfNotNull(getAuthenticationToken(decodedToken).userId?.let(LockKey::User))
+        val lockKeys = listOfNotNull(getAuthenticationToken(decodedToken).grant.userId?.let(LockKey::User))
 
         lockManager.withLock(lockKeys) {
             refreshHeldToken(client, decodedToken, dpopJkt)
@@ -251,33 +263,48 @@ open class TokenManager(
         dpopJkt: String?
     ): GenerateTokenResult {
         val refreshToken = getAuthenticationToken(decodedToken)
-        if (refreshToken.clientId != client.id) {
+        val grant = refreshToken.grant
+        if (grant.clientId != client.id) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token.mismatching_client", "description.token.mismatching_client")
         }
 
         dpopManager.checkProofMatchesBinding(refreshToken, dpopJkt)
 
-        // For user tokens, verify the account is one this server finished creating and the consent has not
-        // been revoked (checked at audience level). A client-credentials token carries no user.
-        if (refreshToken.userId != null) {
-            checkPromotedOrInvalidGrant(refreshToken.userId)
-            consentManager.findActiveConsentByAudienceOrNull(refreshToken.userId, client.audience.id)
-                ?: throw oauth2ExceptionOf(INVALID_GRANT, "token.consent_revoked", "description.token.consent_revoked")
+        // For user grants, verify the account is one this server finished creating and the consent has not
+        // been revoked (checked at audience level). A client-credentials grant carries no user.
+        if (grant.userId != null) {
+            checkPromotedOrInvalidGrant(grant.userId)
+            consentManager.findActiveConsentByAudienceOrNull(grant.userId, client.audience.id)
+                ?: throw oauth2ExceptionOf(INVALID_GRANT, "grant.consent_revoked", "description.grant.consent_revoked")
         }
 
         // Use the DPoP jkt from the proof, or carry forward the existing binding
         val effectiveDpopJkt = dpopJkt ?: refreshToken.dpopJkt
 
-        val accessToken =
-            accessTokenGenerator.generateAccessToken(refreshToken, client.audience, dpopJkt = effectiveDpopJkt)
+        val accessToken = accessTokenGenerator.generateAccessToken(
+            grant = grant,
+            audience = client.audience,
+            grantType = GrantType.REFRESH_TOKEN,
+            dpopJkt = effectiveDpopJkt
+        )
         val refreshedRefreshToken = if (shouldRefreshToken(refreshToken, accessToken)) {
-            refreshTokenGenerator.generateRefreshToken(refreshToken, client.audience, dpopJkt = effectiveDpopJkt)
+            refreshTokenGenerator.generateRefreshToken(
+                grant = grant,
+                audience = client.audience,
+                grantType = GrantType.REFRESH_TOKEN,
+                dpopJkt = effectiveDpopJkt
+            )
         } else null
         // A refresh reissues the identity because OpenID Connect Core §12.2 lets it, and a client holding
         // a refreshed access token with a stale id token has no way to learn the subject changed. Whether
         // this grant is owed one is the generator's to answer, so that the authorization code cannot
         // answer it differently.
-        val idToken = idTokenGenerator.generateIdToken(refreshToken, client.audience.id, accessToken)
+        val idToken = idTokenGenerator.generateIdToken(
+            grant = grant,
+            audienceId = client.audience.id,
+            accessToken = accessToken,
+            grantType = GrantType.REFRESH_TOKEN
+        )
 
         return GenerateTokenResult(
             accessToken = accessToken,
@@ -297,7 +324,7 @@ open class TokenManager(
         try {
             userManager.checkPromoted(userId)
         } catch (_: BusinessException) {
-            throw oauth2ExceptionOf(INVALID_GRANT, "token.invalid_user", "description.token.invalid_user")
+            throw oauth2ExceptionOf(INVALID_GRANT, "grant.invalid_user", "description.grant.invalid_user")
         }
     }
 
@@ -315,13 +342,14 @@ open class TokenManager(
     }
 
     /**
-     * Decode and revoke the [encodedToken] issued to [client].
+     * Decode the [encodedToken] issued to [client], and revoke the grant it was issued under.
      *
      * Per RFC 7009, this method does not throw if the token is invalid, expired, already revoked, or not found.
-     * Only tokens owned by [client] are revoked.
+     * Only a grant opened for [client] is revoked.
      *
-     * If the token is a refresh token, all tokens associated to the same session ([AuthenticationToken.sessionId])
-     * are revoked as well (cascading revocation).
+     * The grant is revoked whichever token is given — an access token as surely as a refresh token, as RFC
+     * 7009 §2.1 lets a server do — and so is every grant a token exchange opened from one of its tokens. See
+     * `docs/design/grants.md`.
      */
     @Transactional
     open suspend fun revokeTokenByEncodedToken(
@@ -337,39 +365,15 @@ open class TokenManager(
         }
 
         val token = findById(tokenId) ?: return
-        if (token.clientId != client.id) return
+        if (token.grant.clientId != client.id) return
 
-        val now = LocalDateTime.now()
-        lockManager.withLock(listOfNotNull(token.userId?.let(LockKey::User))) {
-            if (token.type == REFRESH && token.sessionId != null) {
-                tokenRepository.updateRevokedAtBySessionId(
-                    sessionId = token.sessionId,
-                    revokedAt = now,
-                    revokedBy = TokenRevokedBy.CLIENT.name,
-                    revokedById = null
-                )
-            } else {
-                tokenRepository.updateRevokedAt(
-                    id = token.id,
-                    revokedAt = now,
-                    revokedBy = TokenRevokedBy.CLIENT.name,
-                    revokedById = null
-                )
-            }
-
-            // RFC 8693: revoking a token also revokes every act-as token derived from it (subject_token provenance).
-            tokenRepository.updateRevokedAtByActorTokenId(
-                actorTokenId = token.id,
-                revokedAt = now,
-                revokedBy = TokenRevokedBy.CLIENT.name,
-                revokedById = null
-            )
-        }
+        grantManager.revokeGrant(token.grant, GrantRevokedBy.CLIENT, revokedById = null)
     }
 
     /**
      * Introspect the [encodedToken] and return the stored [AuthenticationToken] if the token is active,
-     * or `null` if the token is invalid, expired, revoked, not owned by [client], or not of [type].
+     * or `null` if the token is invalid, expired, issued under a grant that is revoked or past its lifetime,
+     * not owned by [client], or not of [type].
      *
      * A null [type] accepts an access token and a refresh token alike.
      */
@@ -380,22 +384,14 @@ open class TokenManager(
     ): AuthenticationToken? {
         val decodedToken = decodeAndVerifyAccessOrRefreshTokenOrNull(encodedToken) ?: return null
 
-        val tokenId = try {
-            UUID.fromString(decodedToken.id)
-        } catch (_: IllegalArgumentException) {
+        val token = try {
+            getAuthenticationToken(decodedToken)
+        } catch (_: OAuth2Exception) {
             return null
         }
-
-        val token = findById(tokenId) ?: return null
         if (type != null && token.type != type) return null
-        if (token.revoked) return null
-        if (token.clientId != client.id) return null
-        return try {
-            actorTokenValidator.validateActorToken(token)
-            token
-        } catch (_: OAuth2Exception) {
-            null
-        }
+        if (token.grant.clientId != client.id) return null
+        return token
     }
 
     /**
@@ -414,13 +410,18 @@ open class TokenManager(
     }
 
     /**
-     * Return the information we stored about the [decodedToken] when we issued it.
+     * Return the information we stored about the [decodedToken] when we issued it, with the grant it was
+     * issued under.
      *
-     * Throws an [OAuth2Exception] if:
-     * - the identifier of the token cannot be decoded.
-     * - the token cannot be found in the database despite being signed with our signature.
-     * - the token has been revoked.
-     * - the token is an act-as token (RFC 8693) whose actor token is no longer valid (missing, revoked, or expired).
+     * Throws an [OAuth2Exception] carrying [INVALID_GRANT] if:
+     * - `token.invalid_token_id`: the identifier of the token cannot be decoded, the token cannot be found in
+     *   the database despite being signed with our signature — which is what a token whose grant was
+     *   collected is — or its subject is not the one its grant names.
+     * - `grant.revoked`: the grant the token was issued under has been revoked.
+     * - `grant.expired`: the grant the token was issued under is past its lifetime. Only a refresh
+     *   token reaches it: every other token states an expiry no later than its grant's.
+     * - the token is an act-as token (RFC 8693) whose actor grant is no longer live, as
+     *   [ActorGrantValidator.validateActorGrant] says.
      */
     suspend fun getAuthenticationToken(decodedToken: DecodedJwt): AuthenticationToken {
         val id = try {
@@ -430,19 +431,19 @@ open class TokenManager(
         }
         val token = findById(id)
 
-        // For client credentials tokens, subject is the client ID
-        // For user tokens, subject is the user ID
-        val expectedSubject = token?.userId?.toString() ?: token?.clientId
+        // For client credentials grants, subject is the client ID
+        // For user grants, subject is the user ID
+        val expectedSubject = token?.grant?.let { it.userId?.toString() ?: it.clientId }
 
         return when {
             token == null -> throw oauth2ExceptionOf(INVALID_GRANT, "token.invalid_token_id")
-            token.revoked -> throw oauth2ExceptionOf(INVALID_GRANT, "token.revoked")
             decodedToken.subject != expectedSubject -> throw oauth2ExceptionOf(
                 INVALID_GRANT, "token.invalid_token_id"
             )
 
             else -> {
-                actorTokenValidator.validateActorToken(token)
+                checkLive(token.grant)
+                actorGrantValidator.validateActorGrant(token.grant)
                 token
             }
         }

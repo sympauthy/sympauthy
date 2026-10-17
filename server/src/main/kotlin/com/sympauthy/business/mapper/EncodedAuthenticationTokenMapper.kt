@@ -4,6 +4,7 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
+import com.sympauthy.business.model.oauth2.Grant
 import com.sympauthy.data.model.AuthenticationTokenEntity
 import jakarta.inject.Singleton
 
@@ -18,15 +19,19 @@ import jakarta.inject.Singleton
 @Singleton
 class EncodedAuthenticationTokenMapper {
 
+    /**
+     * The token [entity] describes, encoded as [token] and issued under [grant], whose scopes it carries.
+     */
     fun toEncodedAuthenticationToken(
         entity: AuthenticationTokenEntity,
+        grant: Grant,
         token: String
     ): EncodedAuthenticationToken {
         return EncodedAuthenticationToken(
             id = entity.id ?: throw invalidBusinessException("id"),
             type = type(entity.type),
             token = token,
-            scopes = entity.grantedScopes.toList() + entity.consentedScopes.toList() + entity.clientScopes.toList(),
+            scopes = grant.allScopes,
             issueDate = entity.issueDate,
             expirationDate = entity.expirationDate
         )

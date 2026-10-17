@@ -7,15 +7,15 @@ import io.swagger.v3.oas.annotations.media.Schema
 import java.util.*
 
 @Schema(
-    description = "The tokens revoked for a user."
+    description = "The grants revoked for a user."
 )
 @Serdeable
 data class AdminForceLogoutResource(
-    @get:Schema(description = "Identifier of the user whose tokens were revoked.")
+    @get:Schema(description = "Identifier of the user whose grants were revoked.")
     @get:JsonProperty("user_id")
     val userId: UUID,
     @get:Schema(
-        description = "Identifier of the client whose tokens were revoked. Null when the tokens of every " +
+        description = "Identifier of the client whose grants were revoked. Null when the grants of every " +
                 "client were revoked.",
         nullable = true
     )
@@ -23,9 +23,10 @@ data class AdminForceLogoutResource(
     @get:JsonInclude(JsonInclude.Include.ALWAYS)
     val clientId: String?,
     @get:Schema(
-        description = "Number of tokens this call revoked. A token already revoked or expired is left as " +
-                "it was and not counted, so a second call answers `0`."
+        description = "Number of grants this call revoked, every token issued under each of them with it. A " +
+                "grant already revoked, or whose every token has expired, is left as it was and not counted, " +
+                "so a second call answers `0`."
     )
-    @get:JsonProperty("tokens_revoked")
-    val tokensRevoked: Int
+    @get:JsonProperty("grants_revoked")
+    val grantsRevoked: Int
 )

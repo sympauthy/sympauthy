@@ -4,6 +4,7 @@ import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.RandomGenerator
 import com.sympauthy.business.mapper.AuthorizationCodeMapper
 import com.sympauthy.business.model.oauth2.AuthorizationCode
+import com.sympauthy.business.model.oauth2.Grant
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.interactiveFlowSessionConcurrentModificationExceptionOf
 import com.sympauthy.data.model.AuthorizationCodeEntity
@@ -26,7 +27,10 @@ class AuthorizationCodeManager(
 
     /**
      * Generate the authorization code a client exchanges for [session]'s tokens, in the transaction completing
-     * [session].
+     * [session], naming the [grant] its authorization opened.
+     *
+     * The grant is written in the same transaction, just before: a completion refused here rolls it back with
+     * the code, so a session that holds one code holds one grant.
      *
      * A session holds one code: the primary key over `session_id` refuses a second, and with the code written
      * as the session completes, the request refused is one whose completion lost to a concurrent one. It
@@ -36,12 +40,14 @@ class AuthorizationCodeManager(
      * failure, because nothing the client sent would have prevented it.
      */
     suspend fun generateCode(
-        session: InteractiveFlowSession
+        session: InteractiveFlowSession,
+        grant: Grant
     ): AuthorizationCode {
         val entity = AuthorizationCodeEntity(
             sessionId = session.id,
             // To avoid encoded characters in the returned code.
             code = randomGenerator.generateAndEncodeToHex(),
+            grantId = grant.id,
             creationDate = LocalDateTime.now(),
             // We copy the expiration to simplify the cleanup code.
             expirationDate = session.expirationDate

@@ -1,10 +1,9 @@
 package com.sympauthy.business.mapper
 
 import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType
-import com.sympauthy.business.model.oauth2.ConsentedBy
-import com.sympauthy.business.model.oauth2.GrantedBy
-import com.sympauthy.business.model.oauth2.TokenRevokedBy
+import com.sympauthy.business.model.oauth2.Grant
 import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.data.model.AuthenticationTokenEntity
 import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
@@ -18,120 +17,112 @@ class AuthenticationTokenMapperTest {
 
     private val mapper = AuthenticationTokenMapper()
 
+    private val grantId = UUID.randomUUID()
+
+    private fun grant(id: UUID = grantId) = Grant(
+        id = id,
+        userId = null,
+        clientId = "client",
+        audienceId = "audience",
+        grantType = GrantType.CLIENT_CREDENTIALS,
+        grantedScopes = emptyList(),
+        grantedAt = null,
+        grantedBy = null,
+        consentedScopes = emptyList(),
+        consentedAt = null,
+        consentedBy = null,
+        clientScopes = emptyList(),
+        authenticationDate = null,
+        requestedClaims = RequestedClaims.NONE,
+        sessionId = null,
+        actorGrantId = null,
+        creationDate = LocalDateTime.now().minusMinutes(1),
+        expirationDate = null,
+        revokedAt = null,
+        revokedBy = null,
+        revokedById = null
+    )
+
     @Test
-    fun `toToken - maps the decoded columns`() {
+    fun `toToken - maps the decoded columns with the grant the token was issued under`() {
         val id = UUID.randomUUID()
+        val grant = grant()
         val entity = entity(
             id = id,
             type = AuthenticationTokenType.REFRESH.name,
-            consentedBy = ConsentedBy.USER.name,
-            grantedBy = GrantedBy.RULE.name,
-            revokedBy = TokenRevokedBy.ADMIN.name,
+            grantType = "refresh_token",
+            dpopJkt = "jkt"
         )
 
-        val token = mapper.toToken(entity)
+        val token = mapper.toToken(entity, grant)
 
         assertEquals(id, token.id)
         assertEquals(AuthenticationTokenType.REFRESH, token.type)
-        assertEquals(ConsentedBy.USER, token.consentedBy)
-        assertEquals(GrantedBy.RULE, token.grantedBy)
-        assertEquals(TokenRevokedBy.ADMIN, token.revokedBy)
+        assertSame(grant, token.grant)
+        assertEquals(GrantType.REFRESH_TOKEN, token.grantType)
+        assertEquals("jkt", token.dpopJkt)
+        assertEquals(entity.expirationDate, token.expirationDate)
     }
 
     @Test
-    fun `toToken - maps a token that was never consented, granted or revoked`() {
-        val token = mapper.toToken(entity())
-
-        assertNull(token.consentedBy)
-        assertNull(token.grantedBy)
-        assertNull(token.revokedBy)
-    }
-
-    @Test
-    fun `toToken - maps the claims the request asked for, per channel`() {
+    fun `toToken - maps the grant type a token exchange is published under`() {
         val token = mapper.toToken(
-            entity(
-                requestedIdTokenClaims = arrayOf("loyalty_tier"),
-                requestedUserinfoClaims = arrayOf("shoe_size")
-            )
+            entity(grantType = "urn:ietf:params:oauth:grant-type:token-exchange"),
+            grant()
         )
 
-        assertEquals(setOf("loyalty_tier"), token.requestedClaims.idTokenClaimIds)
-        assertEquals(setOf("shoe_size"), token.requestedClaims.userInfoClaimIds)
-    }
-
-    @Test
-    fun `toToken - maps a token whose request asked for nothing`() {
-        val token = mapper.toToken(entity())
-
-        assertEquals(RequestedClaims.NONE, token.requestedClaims)
+        assertEquals(GrantType.TOKEN_EXCHANGE, token.grantType)
     }
 
     @Test
     fun `toToken - throws when type is unknown`() {
         val exception = assertThrows<BusinessException> {
-            mapper.toToken(entity(type = "UNKNOWN"))
+            mapper.toToken(entity(type = "UNKNOWN"), grant())
         }
-        assertInvalidProperty(exception)
+        assertInvalidProperty(exception, "type")
     }
 
     @Test
-    fun `toToken - throws when revokedBy is unknown`() {
+    fun `toToken - throws when grantType is unknown`() {
         val exception = assertThrows<BusinessException> {
-            mapper.toToken(entity(revokedBy = "UNKNOWN"))
+            mapper.toToken(entity(grantType = "UNKNOWN"), grant())
         }
-        assertInvalidProperty(exception)
+        assertInvalidProperty(exception, "grantType")
     }
 
     @Test
-    fun `toToken - throws when consentedBy is unknown`() {
+    fun `toToken - throws when the grant the row names is gone`() {
         val exception = assertThrows<BusinessException> {
-            mapper.toToken(entity(consentedBy = "UNKNOWN"))
+            mapper.toToken(entity(), null)
         }
-        assertInvalidProperty(exception)
+        assertInvalidProperty(exception, "grantId")
     }
 
     @Test
-    fun `toToken - throws when grantedBy is unknown`() {
+    fun `toToken - throws when handed another grant than the one the row names`() {
         val exception = assertThrows<BusinessException> {
-            mapper.toToken(entity(grantedBy = "UNKNOWN"))
+            mapper.toToken(entity(), grant(UUID.randomUUID()))
         }
-        assertInvalidProperty(exception)
+        assertInvalidProperty(exception, "grantId")
     }
 
-    /**
-     * A column that does not read back is refused under the mapper's own code, and not under one of the
-     * coherence codes, which name a row whose columns each read back but contradict each other.
-     */
-    private fun assertInvalidProperty(exception: BusinessException) {
+    private fun assertInvalidProperty(exception: BusinessException, property: String) {
         assertEquals("mapper.authentication_token.invalid_property", exception.detailsId)
+        assertEquals(mapOf("property" to property), exception.values)
         assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
     }
 
     private fun entity(
         id: UUID? = UUID.randomUUID(),
         type: String = AuthenticationTokenType.ACCESS.name,
-        consentedBy: String? = null,
-        grantedBy: String? = null,
-        revokedBy: String? = null,
-        requestedIdTokenClaims: Array<String> = emptyArray(),
-        requestedUserinfoClaims: Array<String> = emptyArray(),
+        grantType: String = "authorization_code",
+        dpopJkt: String? = null
     ): AuthenticationTokenEntity {
         return AuthenticationTokenEntity(
             type = type,
-            userId = UUID.randomUUID(),
-            clientId = "client",
-            audienceId = "audience",
-            grantedScopes = emptyArray(),
-            grantedBy = grantedBy,
-            consentedScopes = emptyArray(),
-            consentedBy = consentedBy,
-            clientScopes = emptyArray(),
-            sessionId = UUID.randomUUID(),
-            grantType = "authorization_code",
-            requestedIdTokenClaims = requestedIdTokenClaims,
-            requestedUserinfoClaims = requestedUserinfoClaims,
-            revokedBy = revokedBy,
+            grantId = grantId,
+            grantType = grantType,
+            dpopJkt = dpopJkt,
             issueDate = LocalDateTime.now().minusMinutes(1),
             expirationDate = LocalDateTime.now().plusHours(1),
         ).apply { this.id = id }

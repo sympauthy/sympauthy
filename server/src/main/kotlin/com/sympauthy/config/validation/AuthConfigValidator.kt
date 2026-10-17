@@ -66,6 +66,7 @@ class AuthConfigValidator {
                 idExpiration = parsed.idExpiration!!,
                 refreshEnabled = parsed.refreshEnabled!!,
                 refreshExpiration = parsed.refreshExpiration,
+                grantExpiration = parsed.grantExpiration,
                 dpopRequired = parsed.dpopRequired ?: false
             ),
             authorizationCode = AuthorizationCodeConfig(

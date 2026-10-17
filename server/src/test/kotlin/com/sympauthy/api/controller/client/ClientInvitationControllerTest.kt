@@ -59,7 +59,7 @@ class ClientInvitationControllerTest {
 
     private fun clientAuthentication(clientId: String): ClientAuthentication {
         val authenticationToken = mockk<AuthenticationToken> {
-            every { this@mockk.clientId } returns clientId
+            every { grant } returns mockk { every { this@mockk.clientId } returns clientId }
         }
         return ClientAuthentication(authenticationToken, mockk(), emptyList())
     }

@@ -91,7 +91,7 @@ class ClientMfaEnrollmentControllerTest {
             val client = mockk<Client>()
             val authentication = clientAuthentication(client)
             val userToken = mockk<AuthenticationToken> {
-                every { this@mockk.userId } returns userId
+                every { grant } returns mockk { every { this@mockk.userId } returns userId }
             }
             val returnUri = URI.create("https://client.example.com/done")
             val flow = mockk<InteractiveFlow>()
@@ -139,7 +139,7 @@ class ClientMfaEnrollmentControllerTest {
         val client = mockk<Client>()
         val authentication = clientAuthentication(client)
         val userToken = mockk<AuthenticationToken> {
-            every { this@mockk.userId } returns userId
+            every { grant } returns mockk { every { this@mockk.userId } returns userId }
         }
         val returnUri = URI.create("https://client.example.com/done")
         val cancelUri = URI.create("https://client.example.com/cancelled")
@@ -236,7 +236,7 @@ class ClientMfaEnrollmentControllerTest {
             val client = mockk<Client>()
             val authentication = clientAuthentication(client)
             val clientOnlyToken = mockk<AuthenticationToken> {
-                every { userId } returns null
+                every { grant } returns mockk { every { userId } returns null }
             }
 
             coEvery { tokenManager.introspectToken(client, "client-token", ACCESS) } returns clientOnlyToken

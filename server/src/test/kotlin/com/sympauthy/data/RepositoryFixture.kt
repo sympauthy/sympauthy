@@ -1,16 +1,20 @@
 package com.sympauthy.data
 
-import com.sympauthy.data.model.AuthorizationCodeEntity
 import com.sympauthy.business.mapper.ClaimValueMapper
+import com.sympauthy.data.model.AuthenticationTokenEntity
+import com.sympauthy.data.model.AuthorizationCodeEntity
 import com.sympauthy.data.model.CollectedClaimEntity
+import com.sympauthy.data.model.GrantEntity
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.model.PasswordEntity
 import com.sympauthy.data.model.ProviderUserInfoEntity
 import com.sympauthy.data.model.ProviderUserInfoEntityId
 import com.sympauthy.data.model.TotpEnrollmentEntity
 import com.sympauthy.data.model.UserEntity
+import com.sympauthy.data.repository.AuthenticationTokenRepository
 import com.sympauthy.data.repository.AuthorizationCodeRepository
 import com.sympauthy.data.repository.CollectedClaimRepository
+import com.sympauthy.data.repository.GrantRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
 import com.sympauthy.data.repository.PasswordRepository
 import com.sympauthy.data.repository.ProviderUserInfoRepository
@@ -101,18 +105,95 @@ class RepositoryFixture(val database: Database) {
         ).also { session -> deleteOnEnd { sessions.deleteById(session.id!!) } }
     }
 
-    /** Saves the authorization code a session was handed back. */
-    suspend fun newCode(sessionId: UUID, code: String) {
+    /**
+     * Saves the authorization code a session was handed back, naming the grant [grantId] its authorization
+     * opened, or a grant of its own where none is given.
+     */
+    suspend fun newCode(
+        sessionId: UUID,
+        code: String,
+        grantId: UUID? = null,
+        expirationDate: LocalDateTime = BASE_DATE.plusMinutes(10),
+        exchangeDate: LocalDateTime? = null
+    ) {
         val codes = database.bean<AuthorizationCodeRepository>()
+        val namedGrantId = grantId ?: newGrant(newUser())
         codes.save(
             AuthorizationCodeEntity(
                 sessionId = sessionId,
                 code = code,
+                grantId = namedGrantId,
                 creationDate = BASE_DATE,
-                expirationDate = BASE_DATE.plusMinutes(10)
+                expirationDate = expirationDate,
+                exchangeDate = exchangeDate
             )
         )
         deleteOnEnd { codes.deleteBySessionIdIn(listOf(sessionId)) }
+    }
+
+    /**
+     * Saves a grant opened for [userId] by [clientId], for [audienceId], and returns the identifier the
+     * database generated. Every column a test does not name holds what an authorization code exchange would
+     * have written.
+     */
+    @Suppress("LongParameterList")
+    suspend fun newGrant(
+        userId: UUID?,
+        clientId: String = "client",
+        audienceId: String = "audience",
+        grantType: String = "authorization_code",
+        sessionId: UUID? = UUID.randomUUID(),
+        actorGrantId: UUID? = null,
+        authenticationDate: LocalDateTime? = null,
+        grantedScopes: Array<String> = emptyArray(),
+        consentedScopes: Array<String> = arrayOf("openid"),
+        clientScopes: Array<String> = emptyArray(),
+        requestedIdTokenClaims: Array<String> = emptyArray(),
+        requestedUserinfoClaims: Array<String> = emptyArray(),
+        expirationDate: LocalDateTime? = null,
+        revokedAt: LocalDateTime? = null,
+        revokedBy: String? = null
+    ): UUID {
+        val grants = database.bean<GrantRepository>()
+        return grants.save(
+            GrantEntity(
+                userId = userId,
+                clientId = clientId,
+                audienceId = audienceId,
+                grantType = grantType,
+                grantedScopes = grantedScopes,
+                consentedScopes = consentedScopes,
+                clientScopes = clientScopes,
+                authenticationDate = authenticationDate,
+                requestedIdTokenClaims = requestedIdTokenClaims,
+                requestedUserinfoClaims = requestedUserinfoClaims,
+                sessionId = sessionId,
+                actorGrantId = actorGrantId,
+                creationDate = BASE_DATE,
+                expirationDate = expirationDate,
+                revokedAt = revokedAt,
+                revokedBy = revokedBy
+            )
+        ).id!!.also { id -> deleteOnEnd { grants.deleteById(id) } }
+    }
+
+    /** Saves a token issued under the grant [grantId], and returns the identifier the database generated. */
+    suspend fun newToken(
+        grantId: UUID,
+        expirationDate: LocalDateTime? = null,
+        type: String = "ACCESS",
+        grantType: String = "authorization_code"
+    ): UUID {
+        val tokens = database.bean<AuthenticationTokenRepository>()
+        return tokens.save(
+            AuthenticationTokenEntity(
+                type = type,
+                grantId = grantId,
+                grantType = grantType,
+                issueDate = BASE_DATE,
+                expirationDate = expirationDate
+            )
+        ).id!!.also { id -> deleteOnEnd { tokens.deleteById(id) } }
     }
 
     /** Saves a password for [userId], provisional when [sessionId] is given. */

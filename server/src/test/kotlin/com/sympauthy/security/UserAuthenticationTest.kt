@@ -37,7 +37,9 @@ class UserAuthenticationTest {
     @Test
     fun `getName - Returns the id of the authenticated user`() {
         val id = UUID.randomUUID()
-        val token = mockk<AuthenticationToken> { every { userId } returns id }
+        val token = mockk<AuthenticationToken> {
+            every { grant } returns mockk { every { userId } returns id }
+        }
 
         val auth = UserAuthentication(
             token,
@@ -51,7 +53,9 @@ class UserAuthenticationTest {
 
     @Test
     fun `getName - Throws 403 when the token is bound to no user`() {
-        val token = mockk<AuthenticationToken> { every { userId } returns null }
+        val token = mockk<AuthenticationToken> {
+            every { grant } returns mockk { every { userId } returns null }
+        }
 
         val auth = UserAuthentication(
             token,

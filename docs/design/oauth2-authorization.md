@@ -45,10 +45,11 @@ passes, so no code exists for an authorization whose second factor has not.
 
 ## How the session ends
 
-**Completing grants the scopes, records the consent and generates the code, in one transaction.**
-The authorization's terminal effect runs the scopes through the granting pipeline, records the
-consent for the client's audience, consumes the invitation where one brought the person here, and
-generates the authorization code last. It runs inside [the completion
+**Completing grants the scopes, records the consent, opens the grant and generates the code, in one
+transaction.** The authorization's terminal effect runs the scopes through the granting pipeline,
+records the consent for the client's audience, consumes the invitation where one brought the person
+here, opens the grant every token of the authorization will be issued under, and generates the
+authorization code last, naming that grant. It runs inside [the completion
 transaction](interactive-flow.md#the-engine), so a purpose refusing after it rolls the code back
 with everything else, and a session never completes without one. Where no scope was granted and the
 deployment does not allow access to a client without one, the session fails there instead.
@@ -73,6 +74,13 @@ names another client; then one whose PKCE verifier does not match the challenge.
 not compared again, as [OAuth 2.1](security.md#the-protocol-surfaces) has it: PKCE is what binds the
 code to the request that produced it, so a code read off a redirect is useless without what only
 that client holds.
+
+**A code is issued under a grant, and exchanging it issues tokens under that grant.** The grant
+copies what the person went through for — the client, the scopes and how each set was obtained, when
+they authenticated, the claims asked for — so it outlives the session, and a refresh issues its
+tokens under the same grant: [the grants](grants.md) are that record. A code whose grant was revoked
+before it was exchanged is refused, and a second exchange of the code revokes it, as
+[security](security.md#the-authorization-code) has it.
 
 ## What implements it
 

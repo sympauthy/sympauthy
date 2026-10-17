@@ -31,7 +31,7 @@ import java.util.*
  * `interactive_flow_sessions.user_id` already references `users`, so a `users.session_id` foreign key
  * back to the session would close a cycle neither table could be written into first. The column is
  * therefore unenforced, as
- * [com.sympauthy.data.model.AuthenticationTokenEntity.sessionId] already is.
+ * [com.sympauthy.data.model.GrantEntity.sessionId] already is.
  */
 interface SessionScoped {
 

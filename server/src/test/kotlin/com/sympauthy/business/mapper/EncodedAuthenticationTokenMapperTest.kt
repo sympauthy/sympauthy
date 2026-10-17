@@ -2,6 +2,9 @@ package com.sympauthy.business.mapper
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType
+import com.sympauthy.business.model.client.GrantType
+import com.sympauthy.business.model.oauth2.Grant
+import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.data.model.AuthenticationTokenEntity
 import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -21,19 +24,17 @@ class EncodedAuthenticationTokenMapperTest {
         val expirationDate = LocalDateTime.now().plusHours(1)
         val entity = entity(
             id = id,
-            grantedScopes = arrayOf("granted"),
-            consentedScopes = arrayOf("consented"),
-            clientScopes = arrayOf("client"),
             issueDate = issueDate,
             expirationDate = expirationDate,
         )
+        val grant = grant(clientScopes = listOf("client"))
 
-        val token = mapper.toEncodedAuthenticationToken(entity, "encoded")
+        val token = mapper.toEncodedAuthenticationToken(entity, grant, "encoded")
 
         assertEquals(id, token.id)
         assertEquals(AuthenticationTokenType.ACCESS, token.type)
         assertEquals("encoded", token.token)
-        assertEquals(listOf("granted", "consented", "client"), token.scopes)
+        assertEquals(listOf("client"), token.scopes)
         assertEquals(issueDate, token.issueDate)
         assertEquals(expirationDate, token.expirationDate)
     }
@@ -43,7 +44,7 @@ class EncodedAuthenticationTokenMapperTest {
         val entity = entity(id = null)
 
         val exception = assertThrows<BusinessException> {
-            mapper.toEncodedAuthenticationToken(entity, "encoded")
+            mapper.toEncodedAuthenticationToken(entity, grant(), "encoded")
         }
         assertEquals("mapper.encoded_authentication_token.invalid_property", exception.detailsId)
         assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
@@ -54,30 +55,45 @@ class EncodedAuthenticationTokenMapperTest {
         val entity = entity(type = "UNKNOWN")
 
         val exception = assertThrows<BusinessException> {
-            mapper.toEncodedAuthenticationToken(entity, "encoded")
+            mapper.toEncodedAuthenticationToken(entity, grant(), "encoded")
         }
         assertEquals("mapper.encoded_authentication_token.invalid_property", exception.detailsId)
         assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
     }
 
+    private fun grant(id: UUID = UUID.randomUUID(), clientScopes: List<String> = emptyList()) = Grant(
+        id = id,
+        userId = null,
+        clientId = "client",
+        audienceId = "audience",
+        grantType = GrantType.CLIENT_CREDENTIALS,
+        grantedScopes = emptyList(),
+        grantedAt = null,
+        grantedBy = null,
+        consentedScopes = emptyList(),
+        consentedAt = null,
+        consentedBy = null,
+        clientScopes = clientScopes,
+        authenticationDate = null,
+        requestedClaims = RequestedClaims.NONE,
+        sessionId = null,
+        actorGrantId = null,
+        creationDate = LocalDateTime.now().minusMinutes(1),
+        expirationDate = null,
+        revokedAt = null,
+        revokedBy = null,
+        revokedById = null
+    )
+
     private fun entity(
         id: UUID? = UUID.randomUUID(),
         type: String = AuthenticationTokenType.ACCESS.name,
-        grantedScopes: Array<String> = emptyArray(),
-        consentedScopes: Array<String> = emptyArray(),
-        clientScopes: Array<String> = emptyArray(),
         issueDate: LocalDateTime = LocalDateTime.now().minusMinutes(1),
         expirationDate: LocalDateTime? = LocalDateTime.now().plusHours(1),
     ): AuthenticationTokenEntity {
         return AuthenticationTokenEntity(
             type = type,
-            userId = UUID.randomUUID(),
-            clientId = "client",
-            audienceId = "audience",
-            grantedScopes = grantedScopes,
-            consentedScopes = consentedScopes,
-            clientScopes = clientScopes,
-            sessionId = UUID.randomUUID(),
+            grantId = UUID.randomUUID(),
             grantType = "authorization_code",
             issueDate = issueDate,
             expirationDate = expirationDate,

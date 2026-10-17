@@ -12,15 +12,15 @@ const val UNAUTHORIZED_RESPONSE_DESCRIPTION =
         "tokens with.\n" +
         "- `jwt.expired`: the access token has expired.\n" +
         "- `token.invalid_token_id`: this server issued no such access token.\n" +
-        "- `token.revoked`: the access token was revoked.\n" +
-        "- `token.client_disabled`: the client the access token was issued to is no longer in the " +
-        "configuration.\n" +
-        "- `token.actor_invalid`: the access token was obtained by token exchange, and the token " +
-        "presented in that exchange no longer exists.\n" +
-        "- `token.actor_revoked`: the access token was obtained by token exchange, and the token " +
-        "presented in that exchange was revoked.\n" +
-        "- `token.actor_expired`: the access token was obtained by token exchange, and the token " +
-        "presented in that exchange has expired.\n" +
+        "- `grant.revoked`: the grant the access token was issued under was revoked.\n" +
+        "- `grant.client_disabled`: the client the grant of the access token was opened for is no longer " +
+        "in the configuration.\n" +
+        "- `grant.actor_invalid`: the access token was obtained by token exchange, and the grant of the " +
+        "token presented in that exchange no longer exists.\n" +
+        "- `grant.actor_revoked`: the access token was obtained by token exchange, and the grant of the " +
+        "token presented in that exchange was revoked.\n" +
+        "- `grant.actor_expired`: the access token was obtained by token exchange, and every token of the " +
+        "grant of the token presented in that exchange has expired.\n" +
         "- `dpop.bound_token_as_bearer`: the access token is bound to a DPoP key and is sent as " +
         "`Authorization: Bearer`.\n" +
         "- `dpop.unbound_token`: the access token is sent as `Authorization: DPoP` and is bound to no DPoP " +

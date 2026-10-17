@@ -28,9 +28,9 @@ class ClientAuthentication(
     val scopes: List<EnabledScope>
 ) : Authentication {
 
-    val clientId: String get() = authenticationToken.clientId
+    val clientId: String get() = authenticationToken.grant.clientId
 
-    override fun getName(): String = authenticationToken.clientId
+    override fun getName(): String = authenticationToken.grant.clientId
 
     override fun getAttributes(): Map<String, Any> = emptyMap()
 

@@ -9,13 +9,13 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
 /**
- * Security scenario — **revoking a refresh token also revokes the access token issued in the same
- * authorization session (cascading revocation).**
+ * Security scenario — **revoking a refresh token also revokes the access token issued under the same
+ * grant.**
  *
  * Risk: RFC 7009 §2.1 lets the server also revoke tokens issued from the same authorization grant. If a
  * refresh token leaks and the client revokes it, any access token minted alongside it must stop working
- * too — otherwise the compromised session could not be fully contained. This proves the cascade on the
- * running native image.
+ * too — otherwise the compromised session could not be fully contained. This proves the revocation reaches
+ * the grant on the running native image.
  *
  * A confidential client completes the authorization-code flow (with refresh tokens enabled), confirms
  * its access token is active, revokes the **refresh** token, then asserts the access token now
@@ -53,7 +53,7 @@ class RefreshTokenRevocationCascadesIT : AbstractSympauthyIT() {
 
             assertEquals(
                 false, introspect(sympauthy, accessToken, auth)["active"],
-                "revoking the refresh token must also revoke the session's access token",
+                "revoking the refresh token must also revoke the access token of its grant",
             )
         }
     }

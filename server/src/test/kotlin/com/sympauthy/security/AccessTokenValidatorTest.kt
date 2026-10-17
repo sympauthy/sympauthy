@@ -72,7 +72,7 @@ class AccessTokenValidatorTest {
     @Test
     fun `validateToken - Refuse with 401 a token issued to a client the configuration no longer declares`() =
         runTest {
-            stubToken(mockk { every { clientId } returns CLIENT_ID })
+            stubToken(mockk { every { grant } returns mockk { every { clientId } returns CLIENT_ID } })
             stubBindingAccepted()
             coEvery { clientManager.findClientByIdOrNull(CLIENT_ID) } returns null
 
@@ -81,7 +81,7 @@ class AccessTokenValidatorTest {
             }
 
             assertEquals(UNAUTHORIZED, exception.status)
-            assertEquals("token.client_disabled", exception.detailsId)
+            assertEquals("grant.client_disabled", exception.detailsId)
             assertEquals(CLIENT_ID, exception.values["clientId"])
         }
 
@@ -89,9 +89,11 @@ class AccessTokenValidatorTest {
     fun `validateToken - Carry the client a client_credentials token was issued to`() = runTest {
         val client = mockk<Client>()
         stubToken(mockk {
-            every { clientId } returns CLIENT_ID
-            every { userId } returns null
-            every { clientScopes } returns emptyList()
+            every { grant } returns mockk {
+                every { clientId } returns CLIENT_ID
+                every { userId } returns null
+                every { clientScopes } returns emptyList()
+            }
         })
         stubBindingAccepted()
         coEvery { clientManager.findClientByIdOrNull(CLIENT_ID) } returns client
@@ -105,10 +107,12 @@ class AccessTokenValidatorTest {
     fun `validateToken - Carry the client a token issued for an end-user was issued to`() = runTest {
         val client = mockk<Client>()
         stubToken(mockk {
-            every { clientId } returns CLIENT_ID
-            every { userId } returns UUID.randomUUID()
-            every { consentedScopes } returns emptyList()
-            every { grantedScopes } returns emptyList()
+            every { grant } returns mockk {
+                every { clientId } returns CLIENT_ID
+                every { userId } returns UUID.randomUUID()
+                every { consentedScopes } returns emptyList()
+                every { grantedScopes } returns emptyList()
+            }
         })
         stubBindingAccepted()
         coEvery { clientManager.findClientByIdOrNull(CLIENT_ID) } returns client
@@ -121,9 +125,11 @@ class AccessTokenValidatorTest {
     @Test
     fun `validateToken - Check the binding of a token presented under the DPoP scheme against its proof`() = runTest {
         val authenticationToken = mockk<AuthenticationToken> {
-            every { clientId } returns CLIENT_ID
-            every { userId } returns null
-            every { clientScopes } returns emptyList()
+            every { grant } returns mockk {
+                every { clientId } returns CLIENT_ID
+                every { userId } returns null
+                every { clientScopes } returns emptyList()
+            }
         }
         stubToken(authenticationToken)
         coJustRun {

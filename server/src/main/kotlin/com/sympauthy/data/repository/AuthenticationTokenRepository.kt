@@ -7,114 +7,39 @@ import java.time.LocalDateTime
 import java.util.*
 
 /**
- * Every revocation reaches only a token still live: one not revoked yet, and not expired at the `revokedAt`
- * it is given. A token already revoked keeps who revoked it first and when, and an expired one is left
- * having lapsed rather than being recorded as revoked afterwards, so a revocation that counts answers how
- * many tokens it took out of service.
- *
- * They are raw queries because the derived form cannot group the expiry, which a token without an
- * expiration date passes.
+ * A token is revoked through its grant, so nothing here writes a revocation: the token rows are written once
+ * and deleted once.
  */
 interface AuthenticationTokenRepository : CoroutineCrudRepository<AuthenticationTokenEntity, UUID> {
 
-    @Query(
-        """
-        UPDATE authentication_tokens
-        SET revoked_at = :revokedAt, revoked_by = :revokedBy, revoked_by_id = :revokedById
-        WHERE id = :id
-          AND revoked_at IS NULL AND (expiration_date IS NULL OR expiration_date >= :revokedAt)
-        """
-    )
-    suspend fun updateRevokedAt(
-        id: UUID,
-        revokedAt: LocalDateTime,
-        revokedBy: String,
-        revokedById: UUID?
-    )
-
-    @Query(
-        """
-        UPDATE authentication_tokens
-        SET revoked_at = :revokedAt, revoked_by = :revokedBy, revoked_by_id = :revokedById
-        WHERE session_id = :sessionId
-          AND revoked_at IS NULL AND (expiration_date IS NULL OR expiration_date >= :revokedAt)
-        """
-    )
-    suspend fun updateRevokedAtBySessionId(
-        sessionId: UUID,
-        revokedAt: LocalDateTime,
-        revokedBy: String,
-        revokedById: UUID?
-    )
-
     /**
-     * Revoke every act-as token (RFC 8693) derived from the token identified by [actorTokenId],
-     * i.e. all tokens issued through token exchange with this token as their `subject_token`.
-     * Returns the number of tokens revoked.
+     * Count the tokens issued under the grant identified by [grantId] that have not expired at [now].
+     *
+     * It is a raw query because the derived form cannot group the expiry, which a token without an
+     * expiration date passes.
      */
     @Query(
         """
-        UPDATE authentication_tokens
-        SET revoked_at = :revokedAt, revoked_by = :revokedBy, revoked_by_id = :revokedById
-        WHERE actor_token_id = :actorTokenId
-          AND revoked_at IS NULL AND (expiration_date IS NULL OR expiration_date >= :revokedAt)
+        SELECT COUNT(*) FROM authentication_tokens
+        WHERE grant_id = :grantId AND (expiration_date IS NULL OR expiration_date >= :now)
         """
     )
-    suspend fun updateRevokedAtByActorTokenId(
-        actorTokenId: UUID,
-        revokedAt: LocalDateTime,
-        revokedBy: String,
-        revokedById: UUID?
-    ): Int
-
-    @Query(
-        """
-        UPDATE authentication_tokens
-        SET revoked_at = :revokedAt, revoked_by = :revokedBy, revoked_by_id = :revokedById
-        WHERE user_id = :userId AND client_id = :clientId
-          AND revoked_at IS NULL AND (expiration_date IS NULL OR expiration_date >= :revokedAt)
-        """
-    )
-    suspend fun updateRevokedAtByUserIdAndClientId(
-        userId: UUID,
-        clientId: String,
-        revokedAt: LocalDateTime,
-        revokedBy: String,
-        revokedById: UUID?
-    ): Int
+    suspend fun countLiveByGrantId(grantId: UUID, now: LocalDateTime): Long
 
     /**
-     * Revoke every token of [userId] issued for the audience identified by [audienceId], except the act-as
-     * tokens issued for it. Returns the number of tokens revoked.
+     * Delete every token that expired before [expirationDate], and answer how many there were. A token
+     * without an expiration date never has.
+     */
+    suspend fun deleteByExpirationDateLessThan(expirationDate: LocalDateTime): Int
+
+    /**
+     * Delete every token issued under a grant that has been revoked, and answer how many there were.
      */
     @Query(
         """
-        UPDATE authentication_tokens
-        SET revoked_at = :revokedAt, revoked_by = :revokedBy, revoked_by_id = :revokedById
-        WHERE user_id = :userId AND audience_id = :audienceId AND actor_token_id IS NULL
-          AND revoked_at IS NULL AND (expiration_date IS NULL OR expiration_date >= :revokedAt)
+        DELETE FROM authentication_tokens
+        WHERE grant_id IN (SELECT g.id FROM grants g WHERE g.revoked_at IS NOT NULL)
         """
     )
-    suspend fun updateRevokedAtByUserIdAndAudienceIdAndActorTokenIdIsNull(
-        userId: UUID,
-        audienceId: String,
-        revokedAt: LocalDateTime,
-        revokedBy: String,
-        revokedById: UUID?
-    ): Int
-
-    @Query(
-        """
-        UPDATE authentication_tokens
-        SET revoked_at = :revokedAt, revoked_by = :revokedBy, revoked_by_id = :revokedById
-        WHERE user_id = :userId
-          AND revoked_at IS NULL AND (expiration_date IS NULL OR expiration_date >= :revokedAt)
-        """
-    )
-    suspend fun updateRevokedAtByUserId(
-        userId: UUID,
-        revokedAt: LocalDateTime,
-        revokedBy: String,
-        revokedById: UUID?
-    ): Int
+    suspend fun deleteUnderRevokedGrants(): Int
 }

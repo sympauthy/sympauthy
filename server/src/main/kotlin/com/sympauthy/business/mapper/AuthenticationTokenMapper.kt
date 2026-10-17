@@ -4,74 +4,36 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.AuthenticationToken
-import com.sympauthy.business.model.oauth2.ConsentedBy
-import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType
-import com.sympauthy.business.model.oauth2.TokenRevokedBy
-import com.sympauthy.business.model.user.claim.RequestedClaims
+import com.sympauthy.business.model.oauth2.Grant
 import com.sympauthy.data.model.AuthenticationTokenEntity
-import com.sympauthy.util.wireName
+import com.sympauthy.util.enumValueOfWireNameOrNull
 import jakarta.inject.Singleton
 
 @Singleton
 class AuthenticationTokenMapper {
 
-    fun toToken(entity: AuthenticationTokenEntity): AuthenticationToken {
-        val token = AuthenticationToken(
+    /**
+     * The token [entity] describes, issued under [grant], which is the one the row names or null where it is
+     * gone.
+     *
+     * Throws `mapper.authentication_token.invalid_property`, internal, where [grant] is null or is not the one
+     * the row names: a grant is deleted only with its tokens, so a row naming one that is not there is this
+     * server's failure.
+     */
+    fun toToken(entity: AuthenticationTokenEntity, grant: Grant?): AuthenticationToken {
+        if (grant == null || entity.grantId != grant.id) {
+            throw invalidProperty("grantId")
+        }
+        return AuthenticationToken(
             id = entity.id ?: throw invalidProperty("id"),
             type = mapType(entity.type),
-            userId = entity.userId,
-            clientId = entity.clientId,
-            grantedScopes = entity.grantedScopes.toList(),
-            grantedAt = entity.grantedAt,
-            grantedBy = mapGrantedBy(entity.grantedBy),
-            consentedScopes = entity.consentedScopes.toList(),
-            consentedAt = entity.consentedAt,
-            consentedBy = mapConsentedBy(entity.consentedBy),
-            clientScopes = entity.clientScopes.toList(),
-            sessionId = entity.sessionId,
-            grantType = entity.grantType,
-            authenticationDate = entity.authenticationDate,
-            requestedClaims = mapRequestedClaims(entity),
+            grant = grant,
+            grantType = mapGrantType(entity.grantType),
             dpopJkt = entity.dpopJkt,
-            actorTokenId = entity.actorTokenId,
-            revokedAt = entity.revokedAt,
-            revokedBy = mapRevokedBy(entity.revokedBy),
-            revokedById = entity.revokedById,
             issueDate = entity.issueDate,
             expirationDate = entity.expirationDate,
         )
-        validateTokenCoherence(token)
-        return token
-    }
-
-    /**
-     * The claims the request behind the token named, read out of the one column per OpenID channel the
-     * row carries them in.
-     *
-     * No row is refused here: a column holds the claim ids the authorize endpoint had already sanitized,
-     * so a name whose claim the configuration no longer declares reads back as itself and stops mattering
-     * where it is compared against the claims a caller may read.
-     */
-    fun mapRequestedClaims(entity: AuthenticationTokenEntity): RequestedClaims = RequestedClaims.of(
-        idTokenClaimIds = entity.requestedIdTokenClaims,
-        userInfoClaimIds = entity.requestedUserinfoClaims
-    )
-
-    fun mapConsentedBy(value: String?): ConsentedBy? = value?.let {
-        try {
-            ConsentedBy.valueOf(it)
-        } catch (e: IllegalArgumentException) {
-            throw invalidProperty("consentedBy", e)
-        }
-    }
-
-    fun mapGrantedBy(value: String?): GrantedBy? = value?.let {
-        try {
-            GrantedBy.valueOf(it)
-        } catch (e: IllegalArgumentException) {
-            throw invalidProperty("grantedBy", e)
-        }
     }
 
     /**
@@ -86,22 +48,15 @@ class AuthenticationTokenMapper {
     }
 
     /**
-     * Who revoked the token [value] names, or null where it is not revoked.
+     * The grant type [value] names as it is published, refusing the row where it names none.
      */
-    fun mapRevokedBy(value: String?): TokenRevokedBy? = value?.let {
-        try {
-            TokenRevokedBy.valueOf(it)
-        } catch (e: IllegalArgumentException) {
-            throw invalidProperty("revokedBy", e)
-        }
+    fun mapGrantType(value: String): GrantType {
+        return enumValueOfWireNameOrNull<GrantType>(value) ?: throw invalidProperty("grantType")
     }
 
     /**
      * The failure thrown when the column [invalidProperty] is missing or holds a value no enum of the
      * model names.
-     *
-     * It is separate from the coherence codes below, which name a row whose columns each read back but
-     * contradict each other; this one names a column that does not read back at all.
      */
     private fun invalidProperty(invalidProperty: String, cause: Throwable? = null): BusinessException {
         return internalBusinessExceptionOf(
@@ -109,95 +64,5 @@ class AuthenticationTokenMapper {
             throwable = cause,
             values = arrayOf("property" to invalidProperty)
         )
-    }
-
-    private fun validateTokenCoherence(token: AuthenticationToken) {
-        when (token.grantType) {
-            GrantType.CLIENT_CREDENTIALS.wireName -> {
-                if (token.userId != null) {
-                    throw internalBusinessExceptionOf(
-                        "mapper.authentication_token.client_credentials.invalid_user_id",
-                        "grantType" to token.grantType
-                    )
-                }
-                if (token.sessionId != null) {
-                    throw internalBusinessExceptionOf(
-                        "mapper.authentication_token.client_credentials.invalid_session_id",
-                        "grantType" to token.grantType
-                    )
-                }
-                requireNoAuthenticationDate(token)
-                requireNoActorTokenId(token)
-            }
-
-            GrantType.TOKEN_EXCHANGE.wireName -> {
-                // Act-as tokens carry a target user but are not tied to an authorization flow.
-                if (token.userId == null) {
-                    throw internalBusinessExceptionOf(
-                        "mapper.authentication_token.missing_user_id",
-                        "grantType" to token.grantType
-                    )
-                }
-                if (token.sessionId != null) {
-                    throw internalBusinessExceptionOf(
-                        "mapper.authentication_token.token_exchange.invalid_session_id",
-                        "grantType" to token.grantType
-                    )
-                }
-                requireNoAuthenticationDate(token)
-                // An act-as token is always issued by exchanging a subject_token.
-                if (token.actorTokenId == null) {
-                    throw internalBusinessExceptionOf(
-                        "mapper.authentication_token.token_exchange.missing_actor_token_id",
-                        "grantType" to token.grantType
-                    )
-                }
-            }
-
-            else -> {
-                if (token.userId == null) {
-                    throw internalBusinessExceptionOf(
-                        "mapper.authentication_token.missing_user_id",
-                        "grantType" to token.grantType
-                    )
-                }
-                if (token.sessionId == null) {
-                    throw internalBusinessExceptionOf(
-                        "mapper.authentication_token.missing_session_id",
-                        "grantType" to token.grantType
-                    )
-                }
-                requireNoActorTokenId(token)
-            }
-        }
-    }
-
-    /**
-     * A token no person's authentication is behind must carry no [AuthenticationToken.authenticationDate].
-     *
-     * A client-credentials grant has no person at all and a token exchange asserts an identity nobody
-     * proved, so a date on either would be published as an `auth_time` naming an authentication that
-     * never happened — and a resource server deciding recency off it would let through exactly the
-     * unattended caller it was asking about.
-     */
-    private fun requireNoAuthenticationDate(token: AuthenticationToken) {
-        if (token.authenticationDate != null) {
-            throw internalBusinessExceptionOf(
-                "mapper.authentication_token.invalid_authentication_date",
-                "grantType" to token.grantType
-            )
-        }
-    }
-
-    /**
-     * The [AuthenticationToken.actorTokenId] must only be set for tokens issued through token exchange.
-     */
-    private fun requireNoActorTokenId(token: AuthenticationToken) {
-        if (token.actorTokenId != null) {
-            throw internalBusinessExceptionOf(
-                "mapper.authentication_token.invalid_actor_token_id",
-                "grantType" to token.grantType
-            )
-        }
     }
 }

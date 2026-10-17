@@ -69,6 +69,7 @@ class AuthConfigValidatorTest {
         idExpiration = Duration.ofMinutes(5),
         refreshEnabled = false,
         refreshExpiration = null,
+        grantExpiration = null,
         dpopRequired = false,
         authorizationCodeExpiration = Duration.ofMinutes(1),
         identifierClaims = identifierClaims,
