@@ -7,13 +7,12 @@ import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import org.mapstruct.factory.Mappers
 import java.time.LocalDateTime
 import java.util.*
 
 class InteractiveFlowSessionConfirmMapperTest {
 
-    private val mapper = Mappers.getMapper(InteractiveFlowSessionConfirmMapper::class.java)
+    private val mapper = InteractiveFlowSessionConfirmMapper()
 
     @Test
     fun `toInteractiveFlowSessionConfirm - maps all fields`() {

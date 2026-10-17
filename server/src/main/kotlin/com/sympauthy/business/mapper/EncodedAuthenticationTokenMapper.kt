@@ -2,11 +2,10 @@ package com.sympauthy.business.mapper
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.internalBusinessExceptionOf
-import com.sympauthy.business.mapper.config.ToBusinessMapperConfig
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.data.model.AuthenticationTokenEntity
-import org.mapstruct.Mapper
+import jakarta.inject.Singleton
 
 /**
  * Handle the mapping from the [AuthenticationTokenEntity] and the token it was encoded into to the
@@ -16,10 +15,8 @@ import org.mapstruct.Mapper
  * [BusinessException] "mapper.encoded_authentication_token.invalid_property" is thrown: a row this
  * server wrote and cannot read back is its own failure rather than the caller's.
  */
-@Mapper(
-    config = ToBusinessMapperConfig::class
-)
-abstract class EncodedAuthenticationTokenMapper {
+@Singleton
+class EncodedAuthenticationTokenMapper {
 
     fun toEncodedAuthenticationToken(
         entity: AuthenticationTokenEntity,

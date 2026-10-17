@@ -3,12 +3,11 @@ package com.sympauthy.business.mapper
 import com.sympauthy.data.model.InteractiveFlowSessionProviderEntity
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
-import org.mapstruct.factory.Mappers
 import java.util.*
 
 class InteractiveFlowSessionProviderMapperTest {
 
-    private val mapper = Mappers.getMapper(InteractiveFlowSessionProviderMapper::class.java)
+    private val mapper = InteractiveFlowSessionProviderMapper()
 
     @Test
     fun `toInteractiveFlowSessionProvider - maps all fields`() {

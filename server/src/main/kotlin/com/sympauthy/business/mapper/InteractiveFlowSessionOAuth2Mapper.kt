@@ -2,14 +2,13 @@ package com.sympauthy.business.mapper
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.internalBusinessExceptionOf
-import com.sympauthy.business.mapper.config.ToBusinessMapperConfig
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.data.model.InteractiveFlowSessionOAuth2Entity
-import org.mapstruct.Mapper
+import jakarta.inject.Singleton
 
 /**
  * Handle the mapping from the [InteractiveFlowSessionOAuth2Entity] to the [InteractiveFlowSessionOAuth2]
@@ -19,10 +18,8 @@ import org.mapstruct.Mapper
  * [BusinessException] "mapper.interactive_flow_session_oauth2.invalid_property" is thrown: a row this
  * server wrote and cannot read back is its own failure rather than the caller's.
  */
-@Mapper(
-    config = ToBusinessMapperConfig::class
-)
-abstract class InteractiveFlowSessionOAuth2Mapper {
+@Singleton
+class InteractiveFlowSessionOAuth2Mapper {
 
     fun toInteractiveFlowSessionOAuth2(entity: InteractiveFlowSessionOAuth2Entity): InteractiveFlowSessionOAuth2 {
         val (codeChallenge, codeChallengeMethod) = mapCodeChallenge(entity)

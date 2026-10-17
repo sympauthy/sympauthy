@@ -8,13 +8,12 @@ import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import org.mapstruct.factory.Mappers
 import java.time.LocalDateTime
 import java.util.*
 
 class InvitationMapperTest {
 
-    private val mapper = Mappers.getMapper(InvitationMapper::class.java)
+    private val mapper = InvitationMapper()
 
     @Test
     fun `toInvitation - maps all fields`() {

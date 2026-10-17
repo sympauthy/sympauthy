@@ -6,12 +6,10 @@ import java.time.LocalDateTime
 import java.util.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import org.mapstruct.factory.Mappers
 
 class AdminUserProviderResourceMapperTest {
 
-    private val mapper: AdminUserProviderResourceMapper =
-        Mappers.getMapper(AdminUserProviderResourceMapper::class.java)
+    private val mapper = AdminUserProviderResourceMapper()
 
     private val linkedAt: LocalDateTime = LocalDateTime.of(2026, 1, 15, 14, 30, 0)
 

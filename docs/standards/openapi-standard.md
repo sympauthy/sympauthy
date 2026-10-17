@@ -19,8 +19,8 @@ and on every property is [the `api` layer standard](api-layer-code-standard.md#t
 **The document names no address at build time.** It carries a placeholder, and the controller
 serving it substitutes the configured public URL on the way out.
 
-**A client is generated from the published document.** Two annotation processors produce a
-specification here and they do not agree; the published one is what an integrator gets.
+**A client is generated from the document the server serves.** The integration tests generate
+theirs from the same build output, so what they hold the server to is what an integrator reads.
 
 **A security scheme offers every scope its surface defines.** Swagger UI and a generated client ask
 only for the scopes a scheme lists, so a scope left out is one neither can obtain. An annotation

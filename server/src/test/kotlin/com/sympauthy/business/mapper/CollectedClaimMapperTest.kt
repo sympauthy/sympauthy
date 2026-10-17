@@ -24,7 +24,6 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
-import org.mapstruct.factory.Mappers
 import java.time.LocalDateTime
 import java.util.*
 
@@ -34,12 +33,14 @@ class CollectedClaimMapperTest {
     @MockK
     lateinit var claimManager: ClaimManager
 
-    private val mapper = Mappers.getMapper(CollectedClaimMapper::class.java)
+    private lateinit var mapper: CollectedClaimMapper
 
     @BeforeEach
     fun wire() {
-        mapper.claimManager = claimManager
-        mapper.claimValueMapper = ClaimValueMapper(ObjectMapper.getDefault())
+        mapper = CollectedClaimMapper(
+            claimManager = claimManager,
+            claimValueMapper = ClaimValueMapper(ObjectMapper.getDefault())
+        )
     }
 
     @Test

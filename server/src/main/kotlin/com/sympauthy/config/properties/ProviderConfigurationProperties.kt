@@ -4,6 +4,7 @@ import com.sympauthy.config.properties.ProviderConfigurationProperties.Companion
 import io.micronaut.context.annotation.ConfigurationProperties
 import io.micronaut.context.annotation.EachProperty
 import io.micronaut.context.annotation.Parameter
+import io.micronaut.core.annotation.Nullable
 
 /**
  * Configuration of a third-party authentication provider (ex. Discord).
@@ -52,12 +53,14 @@ class ProviderConfigurationProperties(
          * CSS code of the color to use for the background when displaying a button redirecting
          * to the client login page.
          */
+        @get:Nullable
         val buttonBackground: String?
 
         /**
          * CSS code of the color to use as the text when displaying a button redirecting
          * to the client login page.
          */
+        @get:Nullable
         val buttonText: String?
     }
 
@@ -67,27 +70,39 @@ class ProviderConfigurationProperties(
      */
     @ConfigurationProperties("oauth2")
     interface OAuth2Config {
+        @get:Nullable
         val clientId: String?
+        @get:Nullable
         val clientSecret: String?
+        @get:Nullable
         val scopes: List<String>?
 
+        @get:Nullable
         val authorizationUrl: String?
 
+        @get:Nullable
         val tokenUrl: String?
+        @get:Nullable
         val tokenAuthMethod: String?
     }
 
     @ConfigurationProperties("oidc")
     interface OpenIdConnectConfig {
+        @get:Nullable
         val issuer: String?
+        @get:Nullable
         val clientId: String?
+        @get:Nullable
         val clientSecret: String?
+        @get:Nullable
         val scopes: List<String>?
     }
 
     @ConfigurationProperties("user-info")
     interface UserInfoConfig {
+        @get:Nullable
         val url: String?
+        @get:Nullable
         val paths: Map<String, String?>?
     }
 

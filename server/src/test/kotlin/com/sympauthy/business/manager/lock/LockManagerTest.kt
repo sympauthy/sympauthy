@@ -42,7 +42,7 @@ class LockManagerTest {
         coEvery { heldStripes.hold(any()) } just runs
         coEvery { objectLockRepository.lock(any()) } returns 0
 
-        manager.withLock(otherUser, identifier, user) { }
+        manager.withLock(listOf(otherUser, identifier, user)) { }
 
         coVerifyOrder {
             objectLockRepository.lock(11)
@@ -57,7 +57,7 @@ class LockManagerTest {
         coEvery { heldStripes.hold(any()) } just runs
         coEvery { objectLockRepository.lock(any()) } returns 0
 
-        manager.withLock(identifier, LockKey.IdentifierValue("someone@example.com")) { }
+        manager.withLock(listOf(identifier, LockKey.IdentifierValue("someone@example.com"))) { }
 
         coVerify(exactly = 1) { objectLockRepository.lock(13) }
     }
@@ -68,7 +68,7 @@ class LockManagerTest {
         coEvery { heldStripes.hold(any()) } just runs
         coEvery { objectLockRepository.lock(any()) } returns 0
 
-        manager.withLock(otherUser, user) { }
+        manager.withLock(listOf(otherUser, user)) { }
 
         coVerifyOrder {
             objectLockRepository.lock(11)
@@ -82,7 +82,7 @@ class LockManagerTest {
     fun `withLock - Records nothing, and takes nothing, when it was named no key`() = runTest {
         coEvery { heldStripes.held() } returns emptyList()
 
-        manager.withLock { }
+        manager.withLock(emptyList()) { }
 
         coVerify(exactly = 0) { heldStripes.hold(any()) }
         coVerify(exactly = 0) { objectLockRepository.lock(any()) }
@@ -95,7 +95,7 @@ class LockManagerTest {
         coEvery { objectLockRepository.lock(any()) } returns 0
         var runs = 0
 
-        val answer = manager.withLock(user) {
+        val answer = manager.withLock(listOf(user)) {
             runs++
             "answered"
         }
@@ -109,7 +109,7 @@ class LockManagerTest {
         coEvery { heldStripes.held() } returns listOf(11, 13)
         var ran = false
 
-        manager.withLock(identifier) { ran = true }
+        manager.withLock(listOf(identifier)) { ran = true }
 
         assertTrue(ran)
         coVerify(exactly = 0) { objectLockRepository.lock(any()) }
@@ -121,7 +121,7 @@ class LockManagerTest {
         var ran = false
 
         val thrown = assertThrows<BusinessException> {
-            manager.withLock(otherUser) { ran = true }
+            manager.withLock(listOf(otherUser)) { ran = true }
         }
 
         assertEquals("lock.second", thrown.detailsId)

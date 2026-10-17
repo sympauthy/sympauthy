@@ -2,12 +2,11 @@ package com.sympauthy.business.mapper
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.internalBusinessExceptionOf
-import com.sympauthy.business.mapper.config.ToBusinessMapperConfig
 import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.invitation.InvitationStatus
 import com.sympauthy.data.model.InvitationEntity
-import org.mapstruct.Mapper
+import jakarta.inject.Singleton
 import java.time.LocalDateTime
 
 /**
@@ -17,8 +16,8 @@ import java.time.LocalDateTime
  * [BusinessException] "mapper.invitation.invalid_property" is thrown: a row this server wrote and
  * cannot read back is its own failure rather than the caller's.
  */
-@Mapper(config = ToBusinessMapperConfig::class)
-abstract class InvitationMapper {
+@Singleton
+class InvitationMapper {
 
     fun toInvitation(entity: InvitationEntity): Invitation {
         val rawStatus = try {

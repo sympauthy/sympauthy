@@ -4,14 +4,12 @@ import com.sympauthy.business.model.provider.ProviderUserInfo
 import com.sympauthy.business.model.user.RawProviderClaims
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import org.mapstruct.factory.Mappers
 import java.time.LocalDateTime
 import java.util.*
 
 class ClientUserResourceMapperTest {
 
-    private val mapper: ClientUserResourceMapper =
-        Mappers.getMapper(ClientUserResourceMapper::class.java)
+    private val mapper = ClientUserResourceMapper()
 
     private val linkedAt: LocalDateTime = LocalDateTime.of(2026, 1, 15, 14, 30, 0)
 

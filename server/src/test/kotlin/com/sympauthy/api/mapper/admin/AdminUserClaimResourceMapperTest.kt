@@ -9,12 +9,10 @@ import java.util.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
-import org.mapstruct.factory.Mappers
 
 class AdminUserClaimResourceMapperTest {
 
-    private val mapper: AdminUserClaimResourceMapper =
-        Mappers.getMapper(AdminUserClaimResourceMapper::class.java)
+    private val mapper = AdminUserClaimResourceMapper()
 
     private val collectedAt: LocalDateTime = LocalDateTime.of(2025, 1, 1, 0, 0)
     private val verifiedAt: LocalDateTime = LocalDateTime.of(2025, 6, 1, 0, 0)

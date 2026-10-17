@@ -1,18 +1,22 @@
 package com.sympauthy.api.mapper.admin
 
-import com.sympauthy.api.mapper.config.OutputResourceMapperConfig
 import com.sympauthy.api.resource.admin.AdminUserMfaMethodResource
 import com.sympauthy.business.model.mfa.TotpEnrollment
-import org.mapstruct.Mapper
-import org.mapstruct.Mapping
+import jakarta.inject.Singleton
 
-@Mapper(
-    config = OutputResourceMapperConfig::class
-)
-abstract class AdminUserMfaMethodResourceMapper {
+@Singleton
+class AdminUserMfaMethodResourceMapper {
 
-    @Mapping(source = "id", target = "mfaId")
-    @Mapping(source = "confirmedDate", target = "registeredAt")
-    @Mapping(target = "type", constant = "totp")
-    abstract fun toResource(enrollment: TotpEnrollment): AdminUserMfaMethodResource
+    /**
+     * Publish [enrollment], which must be confirmed: one not confirmed yet is not a method the user
+     * holds, and has no date it was registered at.
+     */
+    fun toResource(enrollment: TotpEnrollment): AdminUserMfaMethodResource {
+        return AdminUserMfaMethodResource(
+            mfaId = enrollment.id,
+            type = "totp",
+            registeredAt = enrollment.confirmedDate
+                ?: error("TOTP enrollment ${enrollment.id} is not confirmed and cannot be published."),
+        )
+    }
 }

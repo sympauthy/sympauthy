@@ -3,20 +3,16 @@ package com.sympauthy.business.mapper
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.mapper.config.ToBusinessMapperConfig
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.util.wireName
-import org.mapstruct.Mapper
+import jakarta.inject.Singleton
 
-@Mapper(
-    config = ToBusinessMapperConfig::class
-)
-abstract class CollectedClaimMapper {
-
-    lateinit var claimManager: ClaimManager
-
-    lateinit var claimValueMapper: ClaimValueMapper
+@Singleton
+class CollectedClaimMapper(
+    private val claimManager: ClaimManager,
+    private val claimValueMapper: ClaimValueMapper
+) {
 
     /**
      * Convert a collected claim entity into a business object, or null where the configuration no longer

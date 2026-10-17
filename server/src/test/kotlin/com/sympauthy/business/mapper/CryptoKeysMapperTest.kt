@@ -6,12 +6,11 @@ import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
-import org.mapstruct.factory.Mappers
 import java.time.LocalDateTime
 
 class CryptoKeysMapperTest {
 
-    private val mapper = Mappers.getMapper(CryptoKeysMapper::class.java)
+    private val mapper = CryptoKeysMapper()
 
     @Test
     fun `toCryptoKeys - maps all fields`() {

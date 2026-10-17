@@ -44,7 +44,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
-import org.mapstruct.factory.Mappers
 import java.time.LocalDateTime
 import java.util.*
 
@@ -77,10 +76,10 @@ class InteractiveFlowSessionCollectionManagerTest {
     lateinit var clientManager: ClientManager
 
     private val sessionMapper: InteractiveFlowSessionMapper =
-        Mappers.getMapper(InteractiveFlowSessionMapper::class.java)
+        InteractiveFlowSessionMapper()
 
     private val securityContextMapper: InteractiveFlowSessionSecurityContextMapper =
-        Mappers.getMapper(InteractiveFlowSessionSecurityContextMapper::class.java)
+        InteractiveFlowSessionSecurityContextMapper()
 
     @InjectMockKs
     lateinit var manager: InteractiveFlowSessionCollectionManager

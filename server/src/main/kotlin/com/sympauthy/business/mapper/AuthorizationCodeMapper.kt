@@ -1,14 +1,18 @@
 package com.sympauthy.business.mapper
 
-import com.sympauthy.business.mapper.config.ToBusinessMapperConfig
 import com.sympauthy.business.model.oauth2.AuthorizationCode
 import com.sympauthy.data.model.AuthorizationCodeEntity
-import org.mapstruct.Mapper
+import jakarta.inject.Singleton
 
-@Mapper(
-    config = ToBusinessMapperConfig::class
-)
-interface AuthorizationCodeMapper {
+@Singleton
+class AuthorizationCodeMapper {
 
-    fun toAuthorizationCode(entity: AuthorizationCodeEntity): AuthorizationCode
+    fun toAuthorizationCode(entity: AuthorizationCodeEntity): AuthorizationCode {
+        return AuthorizationCode(
+            sessionId = entity.sessionId,
+            code = entity.code,
+            creationDate = entity.creationDate,
+            expirationDate = entity.expirationDate,
+        )
+    }
 }

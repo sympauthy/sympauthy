@@ -39,9 +39,12 @@ open class LockManager(
      * ordering this cannot impose, so it is refused unless the first already covers it: `lock.second`,
      * which is the server's own failure and not the caller's. A call naming no key takes nothing and
      * refuses nothing after it.
+     *
+     * The keys are a [List] rather than a `vararg`: the proxy KSP generates for a `vararg` parameter
+     * overrides a method taking one key instead of the array, so every call bypassed the transaction.
      */
     @Transactional
-    open suspend fun <T> withLock(vararg keys: LockKey, block: suspend () -> T): T {
+    open suspend fun <T> withLock(keys: List<LockKey>, block: suspend () -> T): T {
         val stripes = keys.map(LockKey::stripe).distinct().sorted()
         val held = heldStripes.held()
 

@@ -11,13 +11,12 @@ import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import org.mapstruct.factory.Mappers
 import java.time.LocalDateTime
 import java.util.*
 
 class AuthenticationTokenMapperTest {
 
-    private val mapper = Mappers.getMapper(AuthenticationTokenMapper::class.java)
+    private val mapper = AuthenticationTokenMapper()
 
     @Test
     fun `toToken - maps the decoded columns`() {

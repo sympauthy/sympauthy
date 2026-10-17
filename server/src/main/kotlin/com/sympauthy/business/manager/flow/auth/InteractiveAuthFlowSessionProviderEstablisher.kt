@@ -89,7 +89,7 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
     ): CreateOrAssociateResult {
         val authConfig = uncheckedAuthConfig.orThrow()
         val identifierClaims = resolveIdentifierClaims(authConfig, provider, providerUserInfo)
-        return lockManager.withLock(LockKey.ProviderSubject(provider.id, providerUserInfo.subject)) {
+        return lockManager.withLock(listOf(LockKey.ProviderSubject(provider.id, providerUserInfo.subject))) {
             checkSubjectStillFree(provider, providerUserInfo.subject)
             if (authConfig.userMergingEnabled) {
                 createOrAssociateUserByIdentifierClaimsWithProviderUserInfo(

@@ -1,16 +1,19 @@
 package com.sympauthy.api.mapper.admin
 
-import com.sympauthy.api.mapper.config.OutputResourceMapperConfig
 import com.sympauthy.api.resource.admin.AdminAudienceResource
 import com.sympauthy.business.model.audience.Audience
-import org.mapstruct.Mapper
-import org.mapstruct.Mapping
+import jakarta.inject.Singleton
 
-@Mapper(
-    config = OutputResourceMapperConfig::class
-)
-abstract class AdminAudienceResourceMapper {
+@Singleton
+class AdminAudienceResourceMapper {
 
-    @Mapping(source = "audience.id", target = "audienceId")
-    abstract fun toResource(audience: Audience, clientsCount: Int): AdminAudienceResource
+    fun toResource(audience: Audience, clientsCount: Int): AdminAudienceResource {
+        return AdminAudienceResource(
+            audienceId = audience.id,
+            tokenAudience = audience.tokenAudience,
+            signUpEnabled = audience.signUpEnabled,
+            invitationEnabled = audience.invitationEnabled,
+            clientsCount = clientsCount,
+        )
+    }
 }

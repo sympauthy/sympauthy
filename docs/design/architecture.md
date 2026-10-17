@@ -31,7 +31,7 @@ all of them. A request flows down through the three and back:
   standard](../standards/api-layer-code-standard.md); what it serializes to is [the API
   standard](../standards/api-standard.md).
 - **`business`** — the logic. `manager/` holds the use cases, `model/` the domain types managers
-  exchange, `mapper/` the MapStruct mappers that turn an entity into one. Nothing here is reached
+  exchange, `mapper/` the mappers that turn an entity into one. Nothing here is reached
   from a request rather than called: a manager takes what it needs as a parameter, and a model
   naming an HTTP type does so because the concept it describes is one a protocol defines — the
   credentials a provider is called with, the headers an edge writes about a caller. See [the
@@ -160,14 +160,14 @@ sympauthy/
 │   │   ├── api/
 │   │   │   ├── controller/     admin/ client/ flow/ oauth2/ openid/ openapi/
 │   │   │   ├── resource/       the DTOs, one package per surface
-│   │   │   ├── mapper/         business model → resource, MapStruct
+│   │   │   ├── mapper/         business model → resource
 │   │   │   ├── filter/         CORS, one filter per surface
 │   │   │   ├── errorhandler/   exception → status and localized body
 │   │   │   └── exception/      the HTTP and OAuth2 exceptions
 │   │   ├── business/
 │   │   │   ├── manager/        the use cases, split by domain
 │   │   │   ├── model/          the domain model
-│   │   │   ├── mapper/         entity → business model, MapStruct
+│   │   │   ├── mapper/         entity → business model
 │   │   │   └── exception/      BusinessException and its factories
 │   │   ├── data/
 │   │   │   ├── model/          R2DBC entities

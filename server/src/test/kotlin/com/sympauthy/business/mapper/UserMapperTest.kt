@@ -7,13 +7,12 @@ import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import org.mapstruct.factory.Mappers
 import java.time.LocalDateTime
 import java.util.*
 
 class UserMapperTest {
 
-    private val mapper = Mappers.getMapper(UserMapper::class.java)
+    private val mapper = UserMapper()
 
     @Test
     fun `toUser - maps all fields`() {

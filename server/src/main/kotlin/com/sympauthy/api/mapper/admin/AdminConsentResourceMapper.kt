@@ -1,20 +1,27 @@
 package com.sympauthy.api.mapper.admin
 
-import com.sympauthy.api.mapper.config.OutputResourceMapperConfig
 import com.sympauthy.api.resource.admin.AdminConsentResource
 import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.oauth2.ConsentRevokedBy
 import com.sympauthy.util.wireName
-import org.mapstruct.Mapper
-import org.mapstruct.Mapping
+import jakarta.inject.Singleton
 
-@Mapper(
-    config = OutputResourceMapperConfig::class
-)
-abstract class AdminConsentResourceMapper {
+@Singleton
+class AdminConsentResourceMapper {
 
-    @Mapping(source = "id", target = "consentId")
-    abstract fun toResource(consent: Consent): AdminConsentResource
+    fun toResource(consent: Consent): AdminConsentResource {
+        return AdminConsentResource(
+            consentId = consent.id,
+            userId = consent.userId,
+            audienceId = consent.audienceId,
+            promptedByClientId = consent.promptedByClientId,
+            scopes = consent.scopes,
+            consentedAt = consent.consentedAt,
+            revokedAt = consent.revokedAt,
+            revokedBy = toRevokedByString(consent.revokedBy),
+            revokedById = consent.revokedById,
+        )
+    }
 
     fun toRevokedByString(value: ConsentRevokedBy?): String? = value?.wireName
 }

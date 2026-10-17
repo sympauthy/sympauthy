@@ -3,7 +3,6 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.kotlin.jvm)
-    alias(libs.plugins.kotlin.kapt)
     alias(libs.plugins.kotlin.allopen)
     alias(libs.plugins.ksp)
     alias(libs.plugins.micronaut.application)
@@ -77,10 +76,6 @@ dependencies {
     // Mail sending (SMTP)
     implementation("io.micronaut.email:micronaut-email-javamail")
     runtimeOnly("org.eclipse.angus:angus-mail")
-
-    // Object mapping
-    api(libs.mapstruct)
-    kapt(libs.mapstruct.processor)
 
     // Serialization/Deserialization
     ksp("io.micronaut.serde:micronaut-serde-processor")
@@ -171,15 +166,13 @@ graalvmNative {
     }
 }
 
-kapt {
-    arguments {
-        // Configuration for Swagger
-        // https://micronaut-projects.github.io/micronaut-openapi/snapshot/guide/#swaggerui
-        arg(
-            "micronaut.openapi.views.spec",
-            "swagger-ui.enabled=true,swagger-ui.theme=material,swagger-ui.spec.url=../openapi.yml,swagger-ui.oauth2.usePkceWithAuthorizationCodeGrant=true"
-        )
-    }
+ksp {
+    // Configuration for Swagger
+    // https://micronaut-projects.github.io/micronaut-openapi/snapshot/guide/#swaggerui
+    arg(
+        "micronaut.openapi.views.spec",
+        "swagger-ui.enabled=true,swagger-ui.theme=material,swagger-ui.spec.url=../openapi.yml,swagger-ui.oauth2.usePkceWithAuthorizationCodeGrant=true"
+    )
 }
 
 tasks {
@@ -255,7 +248,7 @@ artifacts {
 // an older JDK. The CLI defaults its target instead of interrogating the JDK, so a forked process
 // analyses the same sources against the same rule set without any of that.
 //
-// Only the hand-written sources are analysed. The KSP and kapt output under build/generated is
+// Only the hand-written sources are analysed. The KSP output under build/generated is
 // deliberately out of scope: no rule here is actionable against generated code.
 val detektCli = configurations.create("detektCli")
 

@@ -15,7 +15,7 @@ describing a part of the server in `docs/design/`. Neither of them restates what
 ## What a document names
 
 **A place the reader is sent to is named in full.** Spell out the file, the class or the directory
-the change is unfinished without — the factory a generated mapper is registered in, the metadata the
+the change is unfinished without — the dialect folders a migration is added to, the metadata the
 native image reads.
 
 **A set that will grow is described by its criterion**, with the source of truth named as

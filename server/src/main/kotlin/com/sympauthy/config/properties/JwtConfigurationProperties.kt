@@ -3,10 +3,13 @@ package com.sympauthy.config.properties
 import com.sympauthy.config.properties.AdvancedConfigurationProperties.Companion.ADVANCED_KEY
 import com.sympauthy.config.properties.JwtConfigurationProperties.Companion.JWT_KEY
 import io.micronaut.context.annotation.ConfigurationProperties
+import io.micronaut.core.annotation.Nullable
 
 @ConfigurationProperties(JWT_KEY)
 interface JwtConfigurationProperties {
+    @get:Nullable
     val publicAlg: String?
+    @get:Nullable
     val accessAlg: String?
 
     /**
@@ -17,6 +20,7 @@ interface JwtConfigurationProperties {
      * provider. A non-deterministic algorithm (e.g. ES256, PS256) would produce a different
      * signature each time, causing nonce mismatch errors.
      */
+    @get:Nullable
     val privateAlg: String?
 
     companion object {

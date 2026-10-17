@@ -38,12 +38,8 @@ another row belongs to a manager.
 
 ## The mapper
 
-**A model becomes a resource in a mapper**, generated the way
-[the business mappers](business-layer-code-standard.md#the-mapper) are and registered in the
-surface's own `…ApiMapperFactory`. Mapping out treats an unmapped response property as an error,
-mapping in an unmapped model property.
-
-**A mapper needing an injected collaborator is written by hand as an ordinary bean.**
+**A model becomes a resource in a mapper**, written the way
+[the business mappers](business-layer-code-standard.md#the-mapper) are.
 
 **An enum is published through the shared `wireName`, never through a spelling the mapper or the
 enum repeats.** [The API standard](api-standard.md#json) fixes the published form at the lowercased
@@ -140,6 +136,9 @@ HTTP exception first, and render it from there.
 mean something else [its own answer](exception-code-standard.md).
 
 ## What this standard does not cover
+
+**A request field no mapper reads.** A property of an `…InputResource` that nothing carries into
+the model compiles, and the caller's value is dropped without an error. Review is what catches it.
 
 **Content negotiation.** Everything is JSON, except the protocol endpoints the specifications
 require to accept form encoding.
