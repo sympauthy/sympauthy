@@ -1,4 +1,4 @@
-package com.sympauthy.business.model.oauth2
+package com.sympauthy.business.model.grant
 
 enum class GrantRevokedBy {
     /** The grant was revoked by its client via the RFC 7009 revocation endpoint. */

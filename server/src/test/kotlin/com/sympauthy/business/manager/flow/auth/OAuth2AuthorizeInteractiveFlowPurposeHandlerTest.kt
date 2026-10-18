@@ -26,7 +26,7 @@ import com.sympauthy.business.model.flow.TerminalEffectResult
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.EnabledScope
-import com.sympauthy.business.model.oauth2.Grant
+import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.config.model.EnabledFeaturesConfig
 import com.sympauthy.config.model.EnabledMfaConfig

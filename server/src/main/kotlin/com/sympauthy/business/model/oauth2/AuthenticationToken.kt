@@ -2,6 +2,7 @@ package com.sympauthy.business.model.oauth2
 
 import com.sympauthy.business.model.MaybeExpirable
 import com.sympauthy.business.model.client.GrantType
+import com.sympauthy.business.model.grant.Grant
 import java.time.LocalDateTime
 import java.util.*
 

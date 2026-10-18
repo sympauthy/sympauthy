@@ -4,7 +4,7 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
-import com.sympauthy.business.model.oauth2.Grant
+import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.data.model.AuthenticationTokenEntity
 import jakarta.inject.Singleton
 

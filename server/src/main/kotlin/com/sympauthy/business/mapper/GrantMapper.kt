@@ -4,8 +4,8 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.ConsentedBy
-import com.sympauthy.business.model.oauth2.Grant
-import com.sympauthy.business.model.oauth2.GrantRevokedBy
+import com.sympauthy.business.model.grant.Grant
+import com.sympauthy.business.model.grant.GrantRevokedBy
 import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.data.model.GrantEntity

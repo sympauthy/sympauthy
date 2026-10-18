@@ -6,7 +6,7 @@ import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.GrantType
-import com.sympauthy.business.model.oauth2.Grant
+import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.PersonalClaim

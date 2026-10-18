@@ -24,9 +24,9 @@ import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
-import com.sympauthy.business.model.oauth2.Grant
+import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
-import com.sympauthy.business.model.oauth2.GrantRevokedBy
+import com.sympauthy.business.model.grant.GrantRevokedBy
 import com.sympauthy.data.repository.AuthenticationTokenRepository
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject

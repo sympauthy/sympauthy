@@ -1,7 +1,9 @@
-package com.sympauthy.business.model.oauth2
+package com.sympauthy.business.model.grant
 
 import com.sympauthy.business.model.MaybeExpirable
 import com.sympauthy.business.model.client.GrantType
+import com.sympauthy.business.model.oauth2.ConsentedBy
+import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.business.model.user.claim.RequestedClaims
 import java.time.LocalDateTime
 import java.util.*

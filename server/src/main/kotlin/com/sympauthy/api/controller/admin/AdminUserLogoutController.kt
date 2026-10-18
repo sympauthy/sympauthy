@@ -8,7 +8,7 @@ import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
-import com.sympauthy.business.model.oauth2.GrantRevokedBy
+import com.sympauthy.business.model.grant.GrantRevokedBy
 import com.sympauthy.security.SecurityRule.ADMIN_CONSENT_WRITE
 import com.sympauthy.security.userId
 import io.micronaut.http.annotation.Controller

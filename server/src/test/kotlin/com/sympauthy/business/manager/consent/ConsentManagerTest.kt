@@ -8,7 +8,7 @@ import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.ConsentMapper
 import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.oauth2.ConsentRevokedBy
-import com.sympauthy.business.model.oauth2.GrantRevokedBy
+import com.sympauthy.business.model.grant.GrantRevokedBy
 import com.sympauthy.data.model.ConsentEntity
 import com.sympauthy.data.repository.ConsentRepository
 import com.sympauthy.data.repository.ObjectLockRepository
