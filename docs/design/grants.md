@@ -34,7 +34,8 @@ bound to none.
 
 **A grant opened by a token exchange records the grant of the token it was exchanged from.** That
 is the acting client's own `client_credentials` grant, and an act-as token follows it: it is refused
-once that grant is revoked, gone, or left with no token that has not expired.
+once that grant is revoked, or once it has expired — past its lifetime, left with no token that has
+not expired, or collected for either.
 
 **A token cannot outlive its grant.** A token names the grant it was issued under, and a grant is
 deleted only with its tokens, so there is no state in which a token stands without one and nothing

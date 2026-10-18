@@ -47,14 +47,29 @@ class ActorGrantValidatorTest {
     }
 
     @Test
-    fun `validateActorGrant - Throws when the actor grant is missing`() = runTest {
+    fun `validateActorGrant - Answers an actor grant the cleaner collected as expired`() = runTest {
         val actorGrantId = UUID.randomUUID()
         coEvery { grantManager.findByIdOrNull(actorGrantId) } returns null
 
         val exception = assertThrows<OAuth2Exception> {
             actorGrantValidator.validateActorGrant(mockActAsGrant(actorGrantId))
         }
-        assertEquals("grant.actor_invalid", exception.detailsId)
+        assertEquals("grant.actor_expired", exception.detailsId)
+    }
+
+    @Test
+    fun `validateActorGrant - Throws when the actor grant is past its lifetime`() = runTest {
+        val actorGrantId = UUID.randomUUID()
+        coEvery { grantManager.findByIdOrNull(actorGrantId) } returns mockk {
+            every { revoked } returns false
+            every { expired } returns true
+        }
+
+        val exception = assertThrows<OAuth2Exception> {
+            actorGrantValidator.validateActorGrant(mockActAsGrant(actorGrantId))
+        }
+        assertEquals("grant.actor_expired", exception.detailsId)
+        coVerify(exactly = 0) { tokenRepository.countLiveByGrantId(any(), any()) }
     }
 
     @Test
@@ -76,6 +91,7 @@ class ActorGrantValidatorTest {
         val actorGrantId = UUID.randomUUID()
         coEvery { grantManager.findByIdOrNull(actorGrantId) } returns mockk {
             every { revoked } returns false
+            every { expired } returns false
         }
         coEvery { tokenRepository.countLiveByGrantId(actorGrantId, any()) } returns 0
 
@@ -90,6 +106,7 @@ class ActorGrantValidatorTest {
         val actorGrantId = UUID.randomUUID()
         coEvery { grantManager.findByIdOrNull(actorGrantId) } returns mockk {
             every { revoked } returns false
+            every { expired } returns false
         }
         coEvery { tokenRepository.countLiveByGrantId(actorGrantId, any()) } returns 1
 

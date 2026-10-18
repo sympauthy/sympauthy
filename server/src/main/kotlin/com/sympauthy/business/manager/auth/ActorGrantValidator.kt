@@ -23,11 +23,12 @@ class ActorGrantValidator(
 
     /**
      * For an act-as grant — one carrying a [Grant.actorGrantId] — verify the grant of the acting client is
-     * still live: it still exists, has not been revoked, and still holds a token that has not expired.
+     * still live: it has not been revoked, is not past its own lifetime, and still holds a token that has not
+     * expired.
      *
-     * An actor grant that is gone, revoked or lapsed throws an `OAuth2Exception` carrying [INVALID_GRANT] and
-     * the code naming which of the three it was: `grant.actor_invalid`, `grant.actor_revoked` or
-     * `grant.actor_expired`.
+     * Throws an `OAuth2Exception` carrying [INVALID_GRANT] and `grant.actor_revoked` where the actor grant was
+     * revoked, and `grant.actor_expired` where it expired — past its lifetime, left with no token that has not
+     * expired, or gone.
      *
      * Does nothing when [grant] is not an act-as grant, which is any grant whose [Grant.actorGrantId] is null.
      */
@@ -35,8 +36,12 @@ class ActorGrantValidator(
         val actorGrantId = grant.actorGrantId ?: return
         val actorGrant = grantManager.findByIdOrNull(actorGrantId)
         when {
-            actorGrant == null -> throw oauth2ExceptionOf(INVALID_GRANT, "grant.actor_invalid")
+            // Answered as expired because expiring is how an actor grant comes to be collected while an act-as
+            // grant still names it: revoking one revokes the act-as grants opened from it too, so their tokens
+            // are refused as revoked before their actor grant is looked at.
+            actorGrant == null -> throw oauth2ExceptionOf(INVALID_GRANT, "grant.actor_expired")
             actorGrant.revoked -> throw oauth2ExceptionOf(INVALID_GRANT, "grant.actor_revoked")
+            actorGrant.expired -> throw oauth2ExceptionOf(INVALID_GRANT, "grant.actor_expired")
             tokenRepository.countLiveByGrantId(actorGrantId, LocalDateTime.now()) == 0L ->
                 throw oauth2ExceptionOf(INVALID_GRANT, "grant.actor_expired")
         }
