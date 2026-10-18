@@ -169,11 +169,11 @@ throttling will have to decide about a caller who has presented nothing yet.
 
 **What anything does with a place once it is recorded.** The record exists and nothing reads it to
 decide anything: no new-device mail, no impossible-travel check, no risk score.
-[Security](security.md#what-this-design-does-not-do) names that as a gap of its own, and what this
-document settles is only what is worth keeping for whatever eventually does.
+[Security](security.md#what-this-document-does-not-settle) names that as a gap of its own, and what
+this document settles is only what is worth keeping for whatever eventually does.
 
 **Throttling.** It is named here twice as the thing reading early is for, and it is not built —
-[the interactive flow](interactive-flow.md#what-this-design-does-not-do) is where that gap is
+[the interactive flow](interactive-flow.md#what-this-document-does-not-settle) is where that gap is
 tracked. Whether it keys on the address this reads, and what a deployment behind an unnamed proxy
 would be throttling if it did, is open.
 

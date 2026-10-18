@@ -196,7 +196,7 @@ collected long before most grants end, so the reference is left dangling by desi
 unique index keys a session's one grant on, and it lets somebody reading the store trace a grant
 back to its flow while that flow is still there.
 
-## What this design does not do
+## What this document does not settle
 
 **It does not rotate refresh tokens.** A refresh token is presented as often as its client likes
 until it expires, and one replaced by a refresh is not refused afterwards, so a refresh token that
@@ -208,7 +208,7 @@ leaves room for it.
 
 **It does not keep a record of revocations.** A revoked grant is deleted on the next run, and with
 it who revoked it and when; an audit trail is a gap
-[security](security.md#what-this-design-does-not-do) names of its own.
+[security](security.md#what-this-document-does-not-settle) names of its own.
 
 ---
 

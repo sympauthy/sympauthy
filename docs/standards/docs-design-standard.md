@@ -64,6 +64,10 @@ come after. A reader who stops halfway is left with what the part is for rather 
 spelled, and the [two questions](#what-a-design-document-answers) are answered in the order they
 are asked.
 
+**The [closing section](docs-standard.md#shape-of-a-document) is headed
+*What this document does not settle*.** Spell it that way in every design document, so that a
+reader checking whether a subject was left open on purpose has one heading to search for.
+
 ## What a design document leaves out
 
 **The options that lost.** A design document states the decision; what was considered against it and

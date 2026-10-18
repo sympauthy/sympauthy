@@ -134,8 +134,8 @@ typed, and shorter, so that a value one of them is sitting on frees up sooner.
 **Whether a sign-up that got as far as promotion can be resumed.** A completion that fails takes
 the promotion down with it, and the person starts again from nothing. That is the same question as
 resuming across sessions, which [the interactive
-flow](interactive-flow.md#what-this-design-does-not-do) leaves open too, and neither document is
-the one to settle it alone.
+flow](interactive-flow.md#what-this-document-does-not-settle) leaves open too, and neither document
+is the one to settle it alone.
 
 ---
 
