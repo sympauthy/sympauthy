@@ -13,6 +13,7 @@ import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.DpopBoundRequest
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TOKEN
 import com.sympauthy.config.model.EnabledUrlsConfig
 import io.mockk.every
 import io.mockk.junit5.MockKExtension
@@ -440,7 +441,7 @@ class DpopManagerTest {
                 boundRequest = userInfoRequest()
             )
         }
-        assertEquals(INVALID_DPOP_PROOF, exception.errorCode)
+        assertEquals(INVALID_TOKEN, exception.errorCode)
         assertEquals("dpop.bound_token_as_bearer", exception.detailsId)
     }
 
@@ -455,6 +456,7 @@ class DpopManagerTest {
                     boundRequest = userInfoRequest()
                 )
             }
+            assertEquals(INVALID_TOKEN, exception.errorCode)
             assertEquals("dpop.unbound_token", exception.detailsId)
         }
 

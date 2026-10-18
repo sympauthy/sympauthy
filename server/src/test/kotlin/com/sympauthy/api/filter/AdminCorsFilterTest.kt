@@ -57,6 +57,16 @@ class AdminCorsFilterTest : AbstractFlowIntegrationTest() {
     }
 
     @Test
+    fun `GET with allowed origin exposes the challenge a refused token is answered with`() {
+        val response = exchange(
+            HttpRequest.GET<Any>(adminPath).header(HttpHeaders.ORIGIN, allowedOrigin)
+        )
+
+        assertNotNull(response.headers[HttpHeaders.WWW_AUTHENTICATE])
+        assertEquals(HttpHeaders.WWW_AUTHENTICATE, response.headers[HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS])
+    }
+
+    @Test
     fun `GET with unknown origin does not append CORS headers`() {
         val response = exchange(
             HttpRequest.GET<Any>(adminPath).header(HttpHeaders.ORIGIN, unknownOrigin)

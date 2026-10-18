@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test
 class WildcardCorsFilterTest : AbstractFlowIntegrationTest() {
 
     private val anyOrigin = "http://some-app.example.com"
+    private val localOrigin = "http://localhost:5173"
     private val discoveryPath = "/.well-known/openid-configuration"
     private val jwksPath = "/.well-known/public.jwk"
     private val tokenPath = "/api/oauth2/token"
@@ -147,6 +148,16 @@ class WildcardCorsFilterTest : AbstractFlowIntegrationTest() {
         val response = exchange(HttpRequest.GET<Any>(userInfoPath).header(HttpHeaders.ORIGIN, anyOrigin))
 
         assertEquals("*", response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN])
+    }
+
+    @Test
+    fun `openid - rejected GET with Origin exposes the challenge it is answered with`() {
+        // An origin on localhost, because the framework refuses any other one to a server on localhost before
+        // the request reaches the route.
+        val response = exchange(HttpRequest.GET<Any>(userInfoPath).header(HttpHeaders.ORIGIN, localOrigin))
+
+        assertNotNull(response.headers[HttpHeaders.WWW_AUTHENTICATE])
+        assertEquals(HttpHeaders.WWW_AUTHENTICATE, response.headers[HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS])
     }
 
     @Test

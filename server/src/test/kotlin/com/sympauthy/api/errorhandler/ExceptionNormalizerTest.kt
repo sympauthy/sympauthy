@@ -1,12 +1,17 @@
 package com.sympauthy.api.errorhandler
 
+import com.sympauthy.api.exception.AccessTokenChallengeException
 import com.sympauthy.api.exception.UnsupportedMethodException
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INSUFFICIENT_SCOPE
+import com.sympauthy.security.AccessTokenScheme
+import com.sympauthy.security.ClientAuthentication
 import io.micronaut.core.annotation.AnnotationMetadata
 import io.micronaut.core.bind.annotation.Bindable
 import io.micronaut.core.bind.exceptions.UnsatisfiedArgumentException
 import io.micronaut.core.convert.ConversionError
 import io.micronaut.core.convert.exceptions.ConversionErrorException
 import io.micronaut.core.type.Argument
+import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpStatus
 import io.micronaut.http.HttpHeaders
 import io.micronaut.http.annotation.Body
@@ -19,12 +24,17 @@ import io.micronaut.http.server.exceptions.UnsupportedMediaException
 import io.micronaut.inject.annotation.MutableAnnotationMetadata
 import io.micronaut.json.JsonSyntaxException
 import io.micronaut.security.authentication.AuthenticationException
+import io.micronaut.security.authentication.AuthorizationException
 import io.micronaut.web.router.exceptions.DuplicateRouteException
 import io.micronaut.web.router.exceptions.UnsatisfiedBodyRouteException
 import io.micronaut.web.router.exceptions.UnsatisfiedQueryValueRouteException
 import io.micronaut.web.router.exceptions.UnsatisfiedRequestAttributeRouteException
+import io.mockk.every
+import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.net.URI
@@ -36,7 +46,7 @@ class ExceptionNormalizerTest {
 
     @Test
     fun `normalize - Answer a parameter that does not convert with parameter malformed`() {
-        val exception = normalizer.normalize(
+        val exception = normalize(
             conversionErrorOf(Argument.of(UUID::class.java, "userId"), originalValue = "not-a-uuid")
         )
 
@@ -51,14 +61,14 @@ class ExceptionNormalizerTest {
     fun `normalize - Name a parameter by the name the request carries it under`() {
         val argument = Argument.of(Int::class.java, "maxAge", annotationMetadataOf(Bindable::class.java, "max_age"))
 
-        val exception = normalizer.normalize(conversionErrorOf(argument, originalValue = "abc"))
+        val exception = normalize(conversionErrorOf(argument, originalValue = "abc"))
 
         assertEquals("max_age", exception.values["parameter"])
     }
 
     @Test
     fun `normalize - Pass an empty value where the framework kept none of the value sent`() {
-        val exception = normalizer.normalize(
+        val exception = normalize(
             ConversionErrorException(Argument.of(Int::class.java, "page"), NumberFormatException())
         )
 
@@ -69,7 +79,7 @@ class ExceptionNormalizerTest {
     fun `normalize - Answer a body that does not convert with body malformed`() {
         val argument = Argument.of(Map::class.java, "body", annotationMetadataOf(Body::class.java))
 
-        val exception = normalizer.normalize(conversionErrorOf(argument, originalValue = "[]"))
+        val exception = normalize(conversionErrorOf(argument, originalValue = "[]"))
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.status)
         assertTrue(exception.recoverable)
@@ -80,7 +90,7 @@ class ExceptionNormalizerTest {
 
     @Test
     fun `normalize - Answer a body that is not JSON with body malformed`() {
-        val exception = normalizer.normalize(JsonSyntaxException("Unexpected end-of-input"))
+        val exception = normalize(JsonSyntaxException("Unexpected end-of-input"))
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.status)
         assertTrue(exception.recoverable)
@@ -90,7 +100,7 @@ class ExceptionNormalizerTest {
 
     @Test
     fun `normalize - Answer a missing parameter with parameter missing`() {
-        val exception = normalizer.normalize(
+        val exception = normalize(
             UnsatisfiedQueryValueRouteException("state", Argument.of(String::class.java, "state"))
         )
 
@@ -103,7 +113,7 @@ class ExceptionNormalizerTest {
 
     @Test
     fun `normalize - Answer a missing argument with parameter missing`() {
-        val exception = normalizer.normalize(UnsatisfiedArgumentException(Argument.of(String::class.java, "state")))
+        val exception = normalize(UnsatisfiedArgumentException(Argument.of(String::class.java, "state")))
 
         assertEquals("parameter.missing", exception.detailsId)
         assertEquals(mapOf("parameter" to "state"), exception.values)
@@ -111,7 +121,7 @@ class ExceptionNormalizerTest {
 
     @Test
     fun `normalize - Answer a missing request attribute with internal server error`() {
-        val exception = normalizer.normalize(
+        val exception = normalize(
             UnsatisfiedRequestAttributeRouteException(
                 "observedRequest",
                 Argument.of(String::class.java, "observedRequest")
@@ -126,7 +136,7 @@ class ExceptionNormalizerTest {
     fun `normalize - Answer a missing body with body missing`() {
         val argument = Argument.of(Map::class.java, "body", annotationMetadataOf(Body::class.java))
 
-        val exception = normalizer.normalize(UnsatisfiedBodyRouteException("body", argument))
+        val exception = normalize(UnsatisfiedBodyRouteException("body", argument))
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.status)
         assertTrue(exception.recoverable)
@@ -137,7 +147,7 @@ class ExceptionNormalizerTest {
 
     @Test
     fun `normalize - Answer a request no route matches with not found`() {
-        val exception = normalizer.normalize(NotFoundException())
+        val exception = normalize(NotFoundException())
 
         assertEquals(HttpStatus.NOT_FOUND, exception.status)
         assertEquals("not_found", exception.detailsId)
@@ -146,7 +156,7 @@ class ExceptionNormalizerTest {
 
     @Test
     fun `normalize - Answer a method the route does not answer with method unsupported and the Allow header`() {
-        val exception = normalizer.normalize(
+        val exception = normalize(
             NotAllowedException("PUT", URI.create("/api/v1/client/invitations"), linkedSetOf("GET", "POST"))
         )
 
@@ -161,7 +171,7 @@ class ExceptionNormalizerTest {
 
     @Test
     fun `normalize - Answer a body of a type the operation does not read with content_type unsupported`() {
-        val exception = normalizer.normalize(UnsupportedMediaException("text/plain", listOf("application/json")))
+        val exception = normalize(UnsupportedMediaException("text/plain", listOf("application/json")))
 
         assertEquals(HttpStatus.UNSUPPORTED_MEDIA_TYPE, exception.status)
         assertTrue(exception.recoverable)
@@ -175,7 +185,7 @@ class ExceptionNormalizerTest {
 
     @Test
     fun `normalize - Answer an Accept the operation cannot answer with accept unsupported`() {
-        val exception = normalizer.normalize(NotAcceptableException(listOf("text/html"), listOf("application/json")))
+        val exception = normalize(NotAcceptableException(listOf("text/html"), listOf("application/json")))
 
         assertEquals(HttpStatus.NOT_ACCEPTABLE, exception.status)
         assertTrue(exception.recoverable)
@@ -187,7 +197,7 @@ class ExceptionNormalizerTest {
     @Test
     fun `normalize - Answer a body over the limit with body too_large`() {
         listOf(ContentLengthExceededException(10, 20), BufferLengthExceededException(10, 20)).forEach {
-            val exception = normalizer.normalize(it)
+            val exception = normalize(it)
 
             assertEquals(HttpStatus.REQUEST_ENTITY_TOO_LARGE, exception.status)
             assertTrue(exception.recoverable)
@@ -198,19 +208,56 @@ class ExceptionNormalizerTest {
 
     @Test
     fun `normalize - Answer a failed authentication with unauthorized`() {
-        val exception = normalizer.normalize(AuthenticationException("Credentials do not match"))
+        val exception = normalize(AuthenticationException("Credentials do not match"))
 
         assertEquals(HttpStatus.UNAUTHORIZED, exception.status)
         assertEquals("unauthorized", exception.detailsId)
     }
 
     @Test
+    fun `normalize - Challenge with no error a request presenting no token to a route accepting one`() {
+        val exception = normalize(AuthorizationException(null))
+
+        assertEquals(HttpStatus.UNAUTHORIZED, exception.status)
+        assertEquals("unauthorized", exception.detailsId)
+        val challenge = assertInstanceOf(AccessTokenChallengeException::class.java, exception)
+        assertNull(challenge.scheme)
+        assertNull(challenge.error)
+    }
+
+    @Test
+    fun `normalize - Challenge a token the route turns away with insufficient_scope under its scheme`() {
+        val authentication = mockk<ClientAuthentication> {
+            every { authenticationToken } returns mockk { every { dpopJkt } returns "thumbprint" }
+        }
+
+        val exception = normalize(AuthorizationException(authentication))
+
+        assertEquals(HttpStatus.FORBIDDEN, exception.status)
+        assertEquals("forbidden", exception.detailsId)
+        val challenge = assertInstanceOf(AccessTokenChallengeException::class.java, exception)
+        assertEquals(AccessTokenScheme.DPOP, challenge.scheme)
+        assertEquals(INSUFFICIENT_SCOPE, challenge.error)
+    }
+
+    @Test
+    fun `normalize - Answer a request to the flow surface presenting no state with no challenge`() {
+        val exception = normalizer.normalize(AuthorizationException(null), HttpRequest.POST(FLOW_PATH, ""))
+
+        assertEquals(HttpStatus.UNAUTHORIZED, exception.status)
+        assertEquals("unauthorized", exception.detailsId)
+        assertFalse(exception is AccessTokenChallengeException)
+    }
+
+    @Test
     fun `normalize - Answer a failure of the routes themselves with internal server error`() {
-        val exception = normalizer.normalize(DuplicateRouteException("/api/v1/client/users", emptyList()))
+        val exception = normalize(DuplicateRouteException("/api/v1/client/users", emptyList()))
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, exception.status)
         assertEquals("internal_server_error", exception.detailsId)
     }
+
+    private fun normalize(throwable: Throwable) = normalizer.normalize(throwable, HttpRequest.GET<Any>(USERINFO_PATH))
 
     private fun conversionErrorOf(argument: Argument<*>, originalValue: String) = ConversionErrorException(
         argument,
@@ -224,4 +271,9 @@ class ExceptionNormalizerTest {
         MutableAnnotationMetadata().apply {
             addDeclaredAnnotation(annotation.name, value?.let { mapOf<CharSequence, Any>("value" to it) }.orEmpty())
         }
+
+    private companion object {
+        const val USERINFO_PATH = "/api/openid/userinfo"
+        const val FLOW_PATH = "/api/v1/flow/sign-in"
+    }
 }

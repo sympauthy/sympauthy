@@ -6,6 +6,7 @@ import com.sympauthy.api.exception.httpExceptionOf
 import com.sympauthy.api.mapper.ErrorResourceMapper
 import com.sympauthy.api.resource.error.ErrorResource
 import com.sympauthy.exception.LocalizedException
+import com.sympauthy.security.AccessTokenScheme
 import io.micronaut.http.HttpHeaders
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpStatus
@@ -36,13 +37,14 @@ class LocalizedExceptionHandlerTest {
 
         val response = handler.handle(
             request(),
-            InsufficientUserAuthenticationException(Duration.ofMinutes(5))
+            InsufficientUserAuthenticationException(AccessTokenScheme.BEARER, Duration.ofMinutes(5))
         )
 
         assertEquals(HttpStatus.UNAUTHORIZED, response.status)
         assertEquals(
-            """Bearer error="insufficient_user_authentication", """ +
-                """error_description="A more recent authentication is required", max_age="300"""",
+            """Bearer realm="sympauthy", error="insufficient_user_authentication", """ +
+                """error_description="A more recent authentication is required", max_age="300", """ +
+                """DPoP realm="sympauthy", algs="RS256 RS384 RS512 ES256 ES384 ES512 PS256 PS384 PS512"""",
             response.header(HttpHeaders.WWW_AUTHENTICATE)
         )
     }
