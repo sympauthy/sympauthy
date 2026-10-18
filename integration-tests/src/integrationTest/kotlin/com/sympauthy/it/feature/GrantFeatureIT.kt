@@ -26,6 +26,11 @@ import java.net.http.HttpResponse
  * lifetime is issued tokens that expire with the grant, and one made after it is refused however recently
  * the refresh token was issued.
  *
+ * The refresh, the revocation and the introspection are raw form posts rather than calls through the
+ * generated client: the published document names the fields of those endpoints after the Kotlin parameters
+ * that bind them, `refreshToken` for `refresh_token`, so a request the generated client sends arrives with
+ * none of the fields the server reads.
+ *
  * Source: [sympauthy#584](https://github.com/sympauthy/sympauthy/issues/584), and
  * [RFC 7009 §2.1](https://datatracker.ietf.org/doc/html/rfc7009#section-2.1) for revoking the refresh token
  * when an access token is presented.
