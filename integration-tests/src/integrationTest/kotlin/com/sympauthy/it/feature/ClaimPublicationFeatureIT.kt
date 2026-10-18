@@ -3,6 +3,7 @@ package com.sympauthy.it.feature
 import com.nimbusds.jose.util.JSONObjectUtils
 import com.nimbusds.jwt.SignedJWT
 import com.sympauthy.api.client.api.OpenidApi
+import com.sympauthy.api.client.model.TokenResource
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
 import com.sympauthy.testcontainers.Client
@@ -64,9 +65,9 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun publishesEachClaimInTheChannelsItNames(database: Database) {
         withContainer(database, extraConfig = claimsPublishedPerChannel(), scopes = SCOPES) { sympauthy, registry ->
-            val tokens = signUpCollectingClaims(registry)
+            val tokens = signUpCollectingClaims(sympauthy, registry)
 
-            val idTokenClaims = verifyIdTokenSignature(sympauthy, requireIdToken(tokens.idToken()))
+            val idTokenClaims = verifyIdTokenSignature(sympauthy, requireIdToken(tokens.idToken))
             assertEquals(FULL_NAME, idTokenClaims.getStringClaim("name"), "an OpenID claim, from the template")
             assertEquals(GOLD, idTokenClaims.getStringClaim("loyalty_tier"), "a claim naming both channels")
             assertEquals(REFERENCE, idTokenClaims.getStringClaim("internal_ref"), "a claim naming the id token")
@@ -74,7 +75,7 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
             assertNull(idTokenClaims.getClaim("internal_note"), "a claim naming no channel at all")
             assertNull(idTokenClaims.getClaim("nickname"), "an OpenID claim the deployment publishes nowhere")
 
-            val userInfo = withApiClient(sympauthy, token = tokens.accessToken()) { ctx ->
+            val userInfo = withApiClient(sympauthy, token = tokens.accessToken) { ctx ->
                 ctx.getBean(OpenidApi::class.java).getUserInfo().block()
             }
             requireNotNull(userInfo) { "userinfo returned an empty body" }
@@ -99,15 +100,15 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
             client = confidentialClient,
             scopes = TOKEN_PLACE_SCOPES,
         ) { sympauthy, registry ->
-            val tokens = signUpCollectingClaims(registry)
-            val accessToken = requireNotNull(tokens.accessToken()) { "the exchange should yield an access token" }
+            val tokens = signUpCollectingClaims(sympauthy, registry)
+            val accessToken = tokens.accessToken
 
             val accessTokenClaims = SignedJWT.parse(accessToken).jwtClaimsSet
             assertEquals(GOLD, accessTokenClaims.getStringClaim("stored_tier"), "a claim naming the access token")
             assertNull(accessTokenClaims.getClaim("stored_ref"), "a claim naming introspection alone")
             assertNull(accessTokenClaims.getClaim("secret_note"), "a claim the ACL refuses the client")
 
-            val idTokenClaims = verifyIdTokenSignature(sympauthy, requireIdToken(tokens.idToken()))
+            val idTokenClaims = verifyIdTokenSignature(sympauthy, requireIdToken(tokens.idToken))
             assertNull(idTokenClaims.getClaim("stored_tier"), "a claim naming the access token alone")
             assertNull(idTokenClaims.getClaim("stored_ref"), "a claim naming introspection alone")
 
@@ -147,11 +148,16 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
         return JSONObjectUtils.parse(response.body())
     }
 
-    private fun signUpCollectingClaims(registry: InteractiveFlowRegistry) = registry.newFlow()
-        .withSignUpHandler { credentials(EMAIL) }
-        .withClaimsHandler { requested -> requested.associate { it.id() to COLLECTED.getValue(it.id()) } }
-        .run()
-        .exchange()
+    private fun signUpCollectingClaims(
+        sympauthy: SympauthyContainer,
+        registry: InteractiveFlowRegistry,
+    ): TokenResource {
+        val signedUp = registry.newFlow()
+            .withSignUpHandler { credentials(EMAIL) }
+            .withClaimsHandler { requested -> requested.associate { it.id() to COLLECTED.getValue(it.id()) } }
+            .run()
+        return exchange(sympauthy, registry, signedUp)
+    }
 
     /**
      * The four custom claims the scenario turns on, under the `profile` scope the person consents to, and

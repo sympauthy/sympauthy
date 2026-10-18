@@ -8,11 +8,9 @@ import com.sympauthy.testcontainers.Client
 import com.sympauthy.testcontainers.flow.ConfirmDecision
 import com.sympauthy.testcontainers.flow.FlowOutcome
 import com.sympauthy.testcontainers.flow.FlowStep
-import com.sympauthy.testcontainers.flow.InteractiveFlowRegistry
 import com.sympauthy.testcontainers.flow.Totp
 import java.net.URI
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.Tag
@@ -46,7 +44,7 @@ class ClientMfaEnrollmentFeatureIT : AbstractSympauthyIT() {
             build = { fixture, registry -> container(fixture, mfaEnrollmentConfig(registry), registry) },
         ) { sympauthy, registry ->
             val callerToken = clientCredentialsToken(sympauthy, registry, "users:mfa:write")
-            val userToken = signUpAccessToken(registry, DEFAULT_EMAIL)
+            val userToken = signUpAndExchange(sympauthy, registry).accessToken
 
             val returnUri = mfaEnrollmentReturnUri(registry)
             val cancelUri = mfaEnrollmentCancelUri(registry)
@@ -82,13 +80,6 @@ class ClientMfaEnrollmentFeatureIT : AbstractSympauthyIT() {
                 "enrollment should redirect back to return_uri ($returnPath), was: ${result.terminalUrl()}",
             )
         }
-    }
-
-    /** Signs up a fresh end-user through [registry]'s flow and returns their access token. */
-    private fun signUpAccessToken(registry: InteractiveFlowRegistry, email: String): String {
-        val token = signUpAndExchange(registry, email).accessToken()
-        assertNotNull(token, "sign-up should yield an end-user access token")
-        return token
     }
 
     private companion object {

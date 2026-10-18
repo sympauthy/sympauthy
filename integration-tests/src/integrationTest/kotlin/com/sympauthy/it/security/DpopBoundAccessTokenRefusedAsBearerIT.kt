@@ -81,15 +81,9 @@ class DpopBoundAccessTokenRefusedAsBearerIT : AbstractSympauthyIT() {
         registry: InteractiveFlowRegistry,
         key: ECKey,
     ): String {
-        val pkce = generatePkce()
-        val code = checkNotNull(signUpWithPkce(sympauthy, registry, pkce).terminalParam("code")) {
-            "expected an authorization code from sign-up"
-        }
-
         val tokenEndpoint = discovery(sympauthy).tokenEndpoint
         val response = exchangeCode(
-            sympauthy, registry, code,
-            overrides = mapOf("code_verifier" to pkce.verifier),
+            sympauthy, registry, signUp(registry),
             headers = mapOf("DPoP" to proof(key, "POST", tokenEndpoint, accessToken = null)),
         )
         assertEquals(200, response.statusCode(), "the code exchange should succeed, body=${response.body()}")

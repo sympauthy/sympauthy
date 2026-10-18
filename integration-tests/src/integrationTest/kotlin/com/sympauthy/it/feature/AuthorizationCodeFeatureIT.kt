@@ -1,11 +1,8 @@
 package com.sympauthy.it.feature
 
-import com.sympauthy.api.client.api.Oauth2Api
-import com.sympauthy.api.client.model.GetTokensRequestGrantType
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
 import com.sympauthy.testcontainers.Client
-import com.sympauthy.testcontainers.flow.FlowOutcome
 import com.sympauthy.testcontainers.flow.FlowStep
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -59,22 +56,12 @@ class AuthorizationCodeFeatureIT : AbstractSympauthyIT() {
     @MethodSource("clientProfilesAcrossDatabases")
     fun signsUpAndExchangesCodeForSignedTokens(database: Database, clientProfile: ClientProfile) {
         withContainer(database, client = clientProfile.client(clientId)) { sympauthy, registry ->
-            val pkce = generatePkce()
-            val result = signUpWithPkce(sympauthy, registry, pkce)
+            val flow = registry.newFlow().withSignUpHandler { credentials() }
+            val result = flow.run()
 
-            assertEquals(FlowOutcome.SUCCESS, result.outcome(), "the sign-up should complete the flow")
-            assertEquals(listOf(FlowStep.Type.SIGN_UP), result.stepTypes())
-            val code = checkNotNull(result.terminalParam("code")) { "should receive an authorization code" }
+            assertEquals(listOf(FlowStep.Type.SIGN_UP, FlowStep.Type.COMPLETED), flow.stepTypes())
 
-            val tokens = withApiClient(sympauthy) { ctx ->
-                ctx.getBean(Oauth2Api::class.java).getTokens(
-                    grantType = GetTokensRequestGrantType.AUTHORIZATION_CODE,
-                    code = code,
-                    clientId = registry.clientId(),
-                    clientSecret = registry.clientSecret(),
-                    codeVerifier = pkce.verifier,
-                ).block()
-            } ?: error("the code exchange answered an empty body")
+            val tokens = exchange(sympauthy, registry, result)
 
             // The default access token expiration is 1h, hence 3600.
             assertEquals(3600, tokens.expiresIn, "expires_in should be the token lifetime in seconds")

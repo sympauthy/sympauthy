@@ -3,6 +3,7 @@ package com.sympauthy.it.feature
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
 import com.sympauthy.testcontainers.Client
+import com.sympauthy.testcontainers.SympauthyContainer
 import com.sympauthy.testcontainers.flow.AuthorizationResult
 import com.sympauthy.testcontainers.flow.Credentials
 import com.sympauthy.testcontainers.flow.FlowStep
@@ -52,14 +53,18 @@ class ProvisionalSignUpFeatureIT : AbstractSympauthyIT() {
                             container(
                                 fixture, twoClientSignUpConfig(first, racing), first, racing,
                             ).use { sympauthy ->
-                                withStartedContainer(sympauthy) { raceForOneAddress(first, racing) }
+                                withStartedContainer(sympauthy) { raceForOneAddress(it, first, racing) }
                             }
                         }
                 }
         }
     }
 
-    private fun raceForOneAddress(registry: InteractiveFlowRegistry, racing: InteractiveFlowRegistry) {
+    private fun raceForOneAddress(
+        sympauthy: SympauthyContainer,
+        registry: InteractiveFlowRegistry,
+        racing: InteractiveFlowRegistry,
+    ) {
         var racingSignUp: AuthorizationResult? = null
 
         val paused = registry.newFlow()
@@ -77,7 +82,7 @@ class ProvisionalSignUpFeatureIT : AbstractSympauthyIT() {
         }
 
         val winner = requireNotNull(racingSignUp) { "the racing sign-up should have completed" }
-        assertNotNull(winner.exchange().accessToken(), "the racing sign-up should have issued tokens")
+        assertNotNull(exchange(sympauthy, racing, winner).accessToken, "the racing sign-up should have issued tokens")
         assertEquals(
             listOf(FlowStep.Type.SIGN_UP, FlowStep.Type.CLAIMS),
             paused.stepTypes(),
@@ -88,7 +93,7 @@ class ProvisionalSignUpFeatureIT : AbstractSympauthyIT() {
             .withSignInHandler { Credentials.of(EMAIL, RACING_PASSWORD) }
             .run()
 
-        assertNotNull(signedIn.exchange().accessToken(), "signing in with the winner's password")
+        assertNotNull(exchange(sympauthy, racing, signedIn).accessToken, "signing in with the winner's password")
     }
 
     /**

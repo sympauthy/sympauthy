@@ -28,9 +28,9 @@ class PkceDowngradeMissingVerifierIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun tokenEndpointRejectsMissingVerifier(database: Database) {
         withContainer(database) { sympauthy, registry ->
-            val code = signUpForCode(registry)
+            val signedUp = signUp(registry)
 
-            val response = exchangeCode(sympauthy, registry, code, mapOf("code_verifier" to null))
+            val response = exchangeCode(sympauthy, registry, signedUp, mapOf("code_verifier" to null))
 
             assertOAuthError(response, 400, "invalid_grant", "a missing verifier must be rejected")
         }

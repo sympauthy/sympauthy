@@ -59,25 +59,25 @@ class ClaimRestrictedToAnotherAudienceIT : AbstractSympauthyIT() {
         billing: InteractiveFlowRegistry,
         storefront: InteractiveFlowRegistry,
     ) {
-        val billingTokens = billing.newFlow()
+        val billingSignUp = billing.newFlow()
             .withSignUpHandler { credentials(EMAIL) }
             .withClaimsHandler { requested -> requested.associate { it.id() to COLLECTED.getValue(it.id()) } }
             .run()
-            .exchange()
+        val billingTokens = exchange(sympauthy, billing, billingSignUp)
 
-        val billingClaims = verifyIdTokenSignature(sympauthy, requireIdToken(billingTokens.idToken()))
+        val billingClaims = verifyIdTokenSignature(sympauthy, requireIdToken(billingTokens.idToken))
         assertEquals(
             NICKNAME,
             billingClaims.getStringClaim("nickname"),
             "the audience the claim is restricted to is told it, or the rest of this proves nothing",
         )
 
-        val storefrontTokens = storefront.newFlow()
+        val storefrontSignIn = storefront.newFlow()
             .withSignInHandler { Credentials.of(EMAIL, DEFAULT_PASSWORD) }
             .run()
-            .exchange()
+        val storefrontTokens = exchange(sympauthy, storefront, storefrontSignIn)
 
-        val storefrontClaims = verifyIdTokenSignature(sympauthy, requireIdToken(storefrontTokens.idToken()))
+        val storefrontClaims = verifyIdTokenSignature(sympauthy, requireIdToken(storefrontTokens.idToken))
         assertEquals(
             NAME,
             storefrontClaims.getStringClaim("name"),
@@ -88,7 +88,7 @@ class ClaimRestrictedToAnotherAudienceIT : AbstractSympauthyIT() {
             "the id_token of a client in 'default' must not carry a claim restricted to 'billing'",
         )
 
-        val userInfo = withApiClient(sympauthy, token = storefrontTokens.accessToken()) { ctx ->
+        val userInfo = withApiClient(sympauthy, token = storefrontTokens.accessToken) { ctx ->
             ctx.getBean(OpenidApi::class.java).getUserInfo().block()
         }
         requireNotNull(userInfo) { "userinfo returned an empty body" }

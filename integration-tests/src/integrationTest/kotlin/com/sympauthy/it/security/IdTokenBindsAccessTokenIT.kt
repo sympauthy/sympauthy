@@ -29,11 +29,11 @@ class IdTokenBindsAccessTokenIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun idTokenAtHashNamesTheAccessToken(database: Database) {
         withContainer(database) { sympauthy, registry ->
-            val tokens = signUpAndExchange(registry)
-            val claims = verifyIdTokenSignature(sympauthy, requireIdToken(tokens.idToken()))
+            val tokens = signUpAndExchange(sympauthy, registry)
+            val claims = verifyIdTokenSignature(sympauthy, requireIdToken(tokens.idToken))
 
             assertEquals(
-                expectedAtHash(tokens.accessToken()),
+                expectedAtHash(tokens.accessToken),
                 claims.getStringClaim("at_hash"),
                 "the at_hash must be the left half of the access token's hash (OIDC token-substitution mitigation)",
             )

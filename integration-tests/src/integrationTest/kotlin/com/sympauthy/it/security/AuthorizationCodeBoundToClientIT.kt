@@ -41,9 +41,9 @@ class AuthorizationCodeBoundToClientIT : AbstractSympauthyIT() {
         )
 
         withContainer(database, secondClient) { sympauthy, registry ->
-            val code = signUpForCode(registry)
+            val signedUp = signUp(registry)
 
-            val response = exchangeCode(sympauthy, registry, code, mapOf("client_id" to OTHER_CLIENT_ID))
+            val response = exchangeCode(sympauthy, registry, signedUp, mapOf("client_id" to OTHER_CLIENT_ID))
 
             assertOAuthError(response, 400, "invalid_grant", "a foreign client must not redeem the code")
         }
