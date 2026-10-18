@@ -17,12 +17,13 @@ import java.net.http.HttpResponse
  * Feature scenario — **every token of an authorization is issued under one grant, and a revocation or a
  * lifetime reaches the grant rather than one token.**
  *
- * The first scenario signs a person up, exchanges the code and refreshes twice: every access token issued
- * along the way is active, being under the one grant the authorization opened. The client then revokes only the
- * latest access token, and the grant goes with it — the refresh token is refused at the next refresh, and
- * every access token of the grant introspects as inactive.
+ * The first two scenarios sign a person up, exchange the code and refresh twice: every access token issued
+ * along the way is active, being under the one grant the authorization opened. The client then revokes one
+ * token, and the grant goes with it — the latest access token, after which the refresh token is refused at
+ * the next refresh, or the refresh token itself; either way every access token of the grant introspects as
+ * inactive.
  *
- * The second gives grants a lifetime of a few seconds and a refresh token of a month: a refresh inside the
+ * The third gives grants a lifetime of a few seconds and a refresh token of a month: a refresh inside the
  * lifetime is issued tokens that expire with the grant, and one made after it is refused however recently
  * the refresh token was issued.
  *
@@ -32,8 +33,8 @@ import java.net.http.HttpResponse
  * none of the fields the server reads.
  *
  * Source: [sympauthy#584](https://github.com/sympauthy/sympauthy/issues/584), and
- * [RFC 7009 §2.1](https://datatracker.ietf.org/doc/html/rfc7009#section-2.1) for revoking the refresh token
- * when an access token is presented.
+ * [RFC 7009 §2.1](https://datatracker.ietf.org/doc/html/rfc7009#section-2.1), which lets the server revoke
+ * the tokens of the same grant as the one presented — the refresh token when an access token is presented.
  */
 @Tag("feature")
 class GrantFeatureIT : AbstractSympauthyIT() {
@@ -41,40 +42,24 @@ class GrantFeatureIT : AbstractSympauthyIT() {
     @ParameterizedTest(name = "revoking the latest access token revokes the grant it was issued under on {0}")
     @EnumSource(Database::class)
     fun revokingAnAccessTokenRevokesItsGrant(database: Database) {
-        val refreshEnabled = mapOf("auth" to mapOf("token" to mapOf("refresh-enabled" to true)))
-        val confidentialClient = Client.confidentialClient(clientId, CLIENT_SECRET)
-
-        withContainer(database, refreshEnabled, confidentialClient) { sympauthy, registry ->
-            val tokens = signUpAndExchange(registry)
-            val refreshToken = checkNotNull(tokens.refreshToken()) { "refresh-enabled should yield a refresh token" }
-            val accessTokens = listOf(checkNotNull(tokens.accessToken())) +
-                List(2) { JSONObjectUtils.getString(refresh(sympauthy, registry, refreshToken), "access_token") }
-            val auth = basicAuth(registry)
-
-            accessTokens.forEachIndexed { index, accessToken ->
-                assertEquals(
-                    true, introspect(sympauthy, accessToken, auth)["active"],
-                    "access token $index of the grant should introspect as active",
-                )
-            }
-
-            val revoke = httpPostForm(
-                discovery(sympauthy).revocationEndpoint!!,
-                mapOf("token" to accessTokens.last(), "token_type_hint" to "access_token"),
-                auth,
-            )
-            assertEquals(200, revoke.statusCode(), "revocation should return 200, body=${revoke.body()}")
+        withRefreshedGrant(database) { sympauthy, registry, refreshToken, accessTokens ->
+            revoke(sympauthy, registry, accessTokens.last(), "access_token")
 
             assertOAuthError(
                 refreshResponse(sympauthy, registry, refreshToken), 400, "invalid_grant",
                 "the refresh token of a grant revoked through its access token must be refused",
             )
-            accessTokens.forEachIndexed { index, accessToken ->
-                assertEquals(
-                    false, introspect(sympauthy, accessToken, auth)["active"],
-                    "access token $index must be revoked with the grant it was issued under",
-                )
-            }
+            assertAllInactive(sympauthy, registry, accessTokens)
+        }
+    }
+
+    @ParameterizedTest(name = "revoking the refresh token revokes the grant it was issued under on {0}")
+    @EnumSource(Database::class)
+    fun revokingTheRefreshTokenRevokesItsGrant(database: Database) {
+        withRefreshedGrant(database) { sympauthy, registry, refreshToken, accessTokens ->
+            revoke(sympauthy, registry, refreshToken, "refresh_token")
+
+            assertAllInactive(sympauthy, registry, accessTokens)
         }
     }
 
@@ -113,6 +98,62 @@ class GrantFeatureIT : AbstractSympauthyIT() {
             assertEquals(
                 false, introspect(sympauthy, refreshToken, basicAuth(registry))["active"],
                 "the refresh token of a grant past its lifetime must introspect as inactive",
+            )
+        }
+    }
+
+    /**
+     * Signs a person up through a confidential client, exchanges the code and refreshes twice, asserts that
+     * every access token issued along the way is active, and runs [block] with the refresh token and those
+     * access tokens, the one the exchange issued first.
+     */
+    private fun withRefreshedGrant(
+        database: Database,
+        block: (SympauthyContainer, InteractiveFlowRegistry, String, List<String>) -> Unit,
+    ) {
+        val refreshEnabled = mapOf("auth" to mapOf("token" to mapOf("refresh-enabled" to true)))
+        val confidentialClient = Client.confidentialClient(clientId, CLIENT_SECRET)
+
+        withContainer(database, refreshEnabled, confidentialClient) { sympauthy, registry ->
+            val tokens = signUpAndExchange(registry)
+            val refreshToken = checkNotNull(tokens.refreshToken()) { "refresh-enabled should yield a refresh token" }
+            val accessTokens = listOf(checkNotNull(tokens.accessToken())) +
+                List(2) { JSONObjectUtils.getString(refresh(sympauthy, registry, refreshToken), "access_token") }
+
+            accessTokens.forEachIndexed { index, accessToken ->
+                assertEquals(
+                    true, introspect(sympauthy, accessToken, basicAuth(registry))["active"],
+                    "access token $index of the grant should introspect as active",
+                )
+            }
+            block(sympauthy, registry, refreshToken, accessTokens)
+        }
+    }
+
+    /** Revokes [token] at the revocation endpoint as [registry]'s client, naming its type in the hint. */
+    private fun revoke(
+        sympauthy: SympauthyContainer,
+        registry: InteractiveFlowRegistry,
+        token: String,
+        tokenTypeHint: String,
+    ) {
+        val response = httpPostForm(
+            discovery(sympauthy).revocationEndpoint!!,
+            mapOf("token" to token, "token_type_hint" to tokenTypeHint),
+            basicAuth(registry),
+        )
+        assertEquals(200, response.statusCode(), "revocation should return 200, body=${response.body()}")
+    }
+
+    private fun assertAllInactive(
+        sympauthy: SympauthyContainer,
+        registry: InteractiveFlowRegistry,
+        accessTokens: List<String>,
+    ) {
+        accessTokens.forEachIndexed { index, accessToken ->
+            assertEquals(
+                false, introspect(sympauthy, accessToken, basicAuth(registry))["active"],
+                "access token $index must be revoked with the grant it was issued under",
             )
         }
     }
